@@ -122,6 +122,7 @@ public class MockContainerEntityImpl extends AbstractGroupImpl implements MockCo
         return (Set) Sets.newLinkedHashSet(getMembers());
     }
 
+    @Override
     public String toString() {
         return "MockContainer["+getDisplayName()+"]";
     }
@@ -164,9 +165,11 @@ public class MockContainerEntityImpl extends AbstractGroupImpl implements MockCo
         sensors().set(SERVICE_UP, false);
     }
 
+    @Override
     public void offloadAndStop(final MockContainerEntity otherContainer) {
         if (LOG.isDebugEnabled()) LOG.debug("Mocks: offloading container {} to {} (items {})", new Object[] {this, otherContainer, getBalanceableItems()});
         runWithLock(ImmutableList.of(this, otherContainer), new Runnable() {
+            @Override
             public void run() {
                 offloading = false;
                 for (Movable item : getBalanceableItems()) {
@@ -187,6 +190,7 @@ public class MockContainerEntityImpl extends AbstractGroupImpl implements MockCo
         List<MockContainerEntity> entitiesToLockCopy = MutableList.copyOf(Iterables.filter(entitiesToLock, Predicates.notNull()));
         List<MockContainerEntity> entitiesLocked = Lists.newArrayList();
         Collections.sort(entitiesToLockCopy, new Comparator<MockContainerEntity>() {
+            @Override
             public int compare(MockContainerEntity o1, MockContainerEntity o2) {
                 return o1.getId().compareTo(o2.getId());
             }});

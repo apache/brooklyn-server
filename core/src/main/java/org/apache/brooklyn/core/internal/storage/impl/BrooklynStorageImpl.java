@@ -117,6 +117,7 @@ public class BrooklynStorageImpl implements BrooklynStorage {
         datagrid.terminate();
     }
     
+    @Override
     public boolean isMostlyEmpty() {
         if (!refsMap.isEmpty() || !listsMap.isEmpty()) 
             return false;

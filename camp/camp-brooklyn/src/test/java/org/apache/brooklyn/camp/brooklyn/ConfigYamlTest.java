@@ -272,6 +272,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
 
         // Now set the attribute: get will return once that has happened
         executor.submit(new Callable<Object>() {
+            @Override
             public Object call() {
                 return entity.sensors().set(Sensors.newStringSensor("myOtherSensor"), "myOther");
             }});
@@ -318,6 +319,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
 
         // Now set the attribute: get will return once that has happened
         executor.submit(new Callable<Object>() {
+            @Override
             public Object call() {
                 return entity.sensors().set(Sensors.newStringSensor("myOtherSensor"), "myOther");
             }});
@@ -368,6 +370,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
 
         // Now set the attribute: get will return once that has happened
         executor.submit(new Callable<Object>() {
+            @Override
             public Object call() {
                 return entity.sensors().set(Sensors.newStringSensor("myOtherSensor"), "myOther");
             }});

@@ -21,7 +21,6 @@ package org.apache.brooklyn.core.entity;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 
 import com.google.common.base.Objects;
@@ -45,6 +44,7 @@ public class EntityAndAttribute<T> implements Supplier<T> {
     /**
      * @deprecated since 0.7.0; use {@link #create(Entity, AttributeSensor)}; this does not relate to {@link Supplier}
      */
+    @Deprecated
     public static <T> EntityAndAttribute<T> supplier(Entity entity, AttributeSensor<T> attribute) {
         return create(entity, attribute);
     }
@@ -67,7 +67,7 @@ public class EntityAndAttribute<T> implements Supplier<T> {
     }
 
     public void setValue(T val) {
-        ((EntityLocal)entity).sensors().set(attribute, val);
+        entity.sensors().set(attribute, val);
     }
 
     /**

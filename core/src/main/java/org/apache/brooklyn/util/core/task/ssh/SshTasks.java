@@ -34,7 +34,6 @@ import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.mgmt.TaskQueueingContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
-import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
@@ -186,7 +185,7 @@ public class SshTasks {
             .summary("patch /etc/sudoers to disable requiretty")
             .configure(SshTool.PROP_ALLOCATE_PTY, true)
             .allowingNonZeroExitCode()
-            .returning(new Function<ProcessTaskWrapper<?>,Boolean>() { public Boolean apply(ProcessTaskWrapper<?> task) {
+            .returning(new Function<ProcessTaskWrapper<?>,Boolean>() { @Override public Boolean apply(ProcessTaskWrapper<?> task) {
                 if (task.getExitCode()==0 && task.getStdout().contains("sudo-is-working-"+id)) return true;
                 Entity entity = BrooklynTaskTags.getTargetOrContextEntity(Tasks.current());
                 
@@ -215,6 +214,7 @@ public class SshTasks {
      * and then returns stdout */
     public static Function<ProcessTaskWrapper<?>, String> returningStdoutLoggingInfo(final Logger logger, final boolean requireZero) {
         return new Function<ProcessTaskWrapper<?>, String>() {
+          @Override
           public String apply(@Nullable ProcessTaskWrapper<?> input) {
             if (logger!=null) logger.info(input+" COMMANDS:\n"+Strings.join(input.getCommands(),"\n"));
             if (logger!=null) logger.info(input+" STDOUT:\n"+input.getStdout());

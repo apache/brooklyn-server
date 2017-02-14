@@ -97,7 +97,7 @@ public class CsrfTokenFilterTest extends BrooklynRestResourceTest {
 
     protected void assertOkayResponse(Response response, String expecting) {
         assertEquals(response.getStatus(), HttpStatus.SC_OK);
-        String content = (String) response.readEntity(String.class);
+        String content = response.readEntity(String.class);
         assertEquals(content, expecting);
     }
 

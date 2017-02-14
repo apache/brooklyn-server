@@ -134,6 +134,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
 
         // Wait long enough that we expect the assertion to have been attempted
         executor.submit(new Runnable() {
+            @Override
             public void run() {
                 Time.sleep(Duration.millis(250));
                 app.sensors().set(STRING_SENSOR, testId);
@@ -313,6 +314,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
         // been checked).
         entity.sensors().set(serviceStateSensor, Lifecycle.STARTING);
         executor.submit(new Runnable() {
+            @Override
             public void run() {
                 Time.sleep(Duration.millis(50));
                 entity.sensors().set(serviceStateSensor, Lifecycle.RUNNING);
@@ -352,6 +354,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
         // Then we'll let it complete by setting the sensor.
         TestSensor testCase = app.createAndManageChild(EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.TIMEOUT, Asserts.DEFAULT_LONG_TIMEOUT)
+                .configure(TestSensor.BACKOFF_TO_PERIOD, Duration.millis(1))
                 .configure(TestSensor.TARGET_ENTITY, app)
                 .configure(TestSensor.SENSOR_NAME, STRING_SENSOR.getName())
                 .configure(TestSensor.ASSERTIONS, newListAssertion("matches", String.format(".*%s.*", time))));
@@ -398,6 +401,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
     
     protected void assertStartFails(final TestApplication app, final Class<? extends Throwable> clazz, Duration execTimeout) throws Exception {
         Runnable task = new Runnable() {
+            @Override
             public void run() {
                 try {
                     app.start(locs);

@@ -120,7 +120,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
                         .onSuccess(HttpValueFunctions.stringContentsFunction()))
                 .build();
         
-        assertSensorEventually(SENSOR_INT, (Integer)200, TIMEOUT_MS);
+        assertSensorEventually(SENSOR_INT, 200, TIMEOUT_MS);
         assertSensorEventually(SENSOR_STRING, "{\"foo\":\"myfoo\"}", TIMEOUT_MS);
     }
     
@@ -150,7 +150,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
                         .onSuccess(HttpValueFunctions.responseCode()))
                 .build();
         
-        assertSensorEventually(SENSOR_INT, (Integer)200, TIMEOUT_MS);
+        assertSensorEventually(SENSOR_INT, 200, TIMEOUT_MS);
     }
     
     // TODO How to cause the other end to just freeze (similar to aws-ec2 when securityGroup port is not open)?
@@ -194,7 +194,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
                         .onSuccess(HttpValueFunctions.stringContentsFunction()))
                 .build();
         
-        assertSensorEventually(SENSOR_INT, (Integer)200, TIMEOUT_MS);
+        assertSensorEventually(SENSOR_INT, 200, TIMEOUT_MS);
         assertSensorEventually(SENSOR_STRING, "{\"foo\":\"myfoo\"}", TIMEOUT_MS);
     }
 
@@ -262,7 +262,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
                         .period(100)
                         .onSuccess(HttpValueFunctions.stringContentsFunction()))
                 .build();
-        assertSensorEventually(SENSOR_INT, (Integer)200, TIMEOUT_MS);
+        assertSensorEventually(SENSOR_INT, 200, TIMEOUT_MS);
         feed.suspend();
         final int countWhenSuspended = server.getRequestCount();
         
@@ -272,6 +272,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
         
         feed.resume();
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertTrue(server.getRequestCount() > countWhenSuspended + 1,
                         "Request count failed to increment when feed was resumed, from " + countWhenSuspended + ", still at " + server.getRequestCount());
@@ -322,7 +323,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testPollsMulti() throws Exception {
         newMultiFeed(baseUrl);
-        assertSensorEventually(SENSOR_INT, (Integer)200, TIMEOUT_MS);
+        assertSensorEventually(SENSOR_INT, 200, TIMEOUT_MS);
         assertSensorEventually(SENSOR_STRING, "{\"foo\":\"myfoo\"}", TIMEOUT_MS);
     }
 
@@ -367,6 +368,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
                 
                 .poll(HttpPollConfig.forMultiple()
                     .onSuccess(new Function<HttpToolResponse,Void>() {
+                        @Override
                         public Void apply(HttpToolResponse response) {
                             entity.sensors().set(SENSOR_INT, response.getResponseCode());
                             if (response.getResponseCode()==200)
@@ -384,6 +386,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
 
     private <T> void assertSensorEventually(final AttributeSensor<T> sensor, final T expectedVal, long timeout) {
         Asserts.succeedsEventually(ImmutableMap.of("timeout", timeout), new Callable<Void>() {
+            @Override
             public Void call() {
                 assertEquals(entity.getAttribute(sensor), expectedVal);
                 return null;

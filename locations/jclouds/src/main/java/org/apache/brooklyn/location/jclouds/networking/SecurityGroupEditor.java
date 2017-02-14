@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -43,7 +44,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class SecurityGroupEditor {
 
     private static final Logger LOG = LoggerFactory.getLogger(SecurityGroupEditor.class);
-    public static final java.lang.String JCLOUDS_PREFIX = "jclouds#";
+    public static final java.lang.String JCLOUDS_PREFIX_REGEX = "^jclouds[#-]";
 
     private final Location location;
     private final SecurityGroupExtension securityApi;
@@ -91,17 +92,21 @@ public class SecurityGroupEditor {
 
     /**
      * Create the security group. As we use jclouds, groups are created with names prefixed
-     * with {@link #JCLOUDS_PREFIX}. This method is idempotent.
+     * with {@link #JCLOUDS_PREFIX_REGEX}. This method is idempotent.
      * @param name Name of the group to create
      * @return The created group.
      */
     public SecurityGroup createSecurityGroup(final String name) {
-
         LOG.debug("Creating security group {} in {}", name, location);
         Callable<SecurityGroup> callable = new Callable<SecurityGroup>() {
             @Override
             public SecurityGroup call() throws Exception {
                 return securityApi.createSecurityGroup(name, location);
+            }
+
+            @Override
+            public String toString() {
+                return "Create security group " + name;
             }
         };
         return runOperationWithRetry(callable);
@@ -109,18 +114,24 @@ public class SecurityGroupEditor {
 
     /**
      * Removes a security group and its permissions.
+     * @param group The security group.
      * @return true if the group was found and removed.
      */
     public boolean removeSecurityGroup(final SecurityGroup group) {
-
         LOG.debug("Removing security group {} in {}", group.getName(), location);
-        Callable<Boolean> callable = new Callable<Boolean>() {
-            @Override
-            public Boolean call() throws Exception {
-                return securityApi.removeSecurityGroup(group.getId());
-            }
-        };
-        return runOperationWithRetry(callable);
+        Callable<Boolean> removeIt = new RemoveSecurityGroup(group.getId());
+        return runOperationWithRetry(removeIt);
+    }
+
+    /**
+     * Removes a security group and its permissions.
+     * @param groupId The jclouds id (provider id) of the group (including region code)
+     * @return true if the group was found and removed.
+     */
+    public boolean removeSecurityGroup(final String groupId) {
+        LOG.debug("Removing security group {} in {}", groupId, location);
+        Callable<Boolean> removeIt = new RemoveSecurityGroup(groupId);
+        return runOperationWithRetry(removeIt);
     }
 
     public Set<SecurityGroup> listSecurityGroupsForNode(final String nodeId) {
@@ -143,17 +154,18 @@ public class SecurityGroupEditor {
 
     /**
      * Find a security group with the given name. As we use jclouds, groups are created with names prefixed
-     * with {@link #JCLOUDS_PREFIX}. For convenience this method accepts names either with or without the prefix.
+     * with {@link #JCLOUDS_PREFIX_REGEX}. For convenience this method accepts names either with or without
+     * the prefix.
      * @param name Name of the group to find.
      * @return An optional of the group.
      * @throws AmbiguousGroupName in the unexpected case that the cloud returns more than one matching group.
      */
     public Optional<SecurityGroup> findSecurityGroupByName(final String name) {
-        final String query = name.startsWith(JCLOUDS_PREFIX) ? name : JCLOUDS_PREFIX + name;
         final Iterable<SecurityGroup> groupsMatching = findSecurityGroupsMatching(new Predicate<SecurityGroup>() {
+            final String rawName = name.replaceAll(JCLOUDS_PREFIX_REGEX, "");
             @Override
             public boolean apply(final SecurityGroup input) {
-                return input.getName().equals(query);
+                return input.getName().replaceAll(JCLOUDS_PREFIX_REGEX, "").equals(rawName);
             }
         });
         final ImmutableList<SecurityGroup> matches = ImmutableList.copyOf(groupsMatching);
@@ -184,7 +196,7 @@ public class SecurityGroupEditor {
      * Add a permission to the security group. This operation is idempotent (will return the group unmodified if the
      * permission already exists on it).
      * @param group The group to update
-     * @param permissions The new permissions
+     * @param permission The new permission
      * @return The updated group with the added permissions.
      */
     public SecurityGroup addPermission(final SecurityGroup group, final IpPermission permission) {
@@ -204,6 +216,11 @@ public class SecurityGroupEditor {
                     throw Exceptions.propagate(e);
                 }
             }
+
+            @Override
+            public String toString() {
+                return "Add permission " + permission + " to security group " + group;
+            }
         };
         return runOperationWithRetry(callable);
     }
@@ -217,12 +234,7 @@ public class SecurityGroupEditor {
                 return true;
             }
         }
-
-        if (e.toString().contains("already exists")) {
-            return true;
-        }
-
-        return false;
+        return e.toString().contains("already exists");
     }
 
 
@@ -232,6 +244,11 @@ public class SecurityGroupEditor {
             @Override
             public SecurityGroup call() throws Exception {
                 return securityApi.removeIpPermission(permission, group);
+            }
+
+            @Override
+            public String toString() {
+                return "Remove permission " + permission + " from security group " + group;
             }
         };
         return runOperationWithRetry(callable);
@@ -251,13 +268,14 @@ public class SecurityGroupEditor {
     protected <T> T runOperationWithRetry(Callable<T> operation) {
         int backoff = 64;
         Exception lastException = null;
+        LOG.debug("Running operation {}", operation);
         for (int retries = 0; retries < 12; retries++) { // 12 = keep trying for about 5 minutes
             try {
                 return operation.call();
             } catch (Exception e) {
                 lastException = e;
                 if (isExceptionRetryable.apply(e)) {
-                    LOG.debug("Attempt #{} failed to add security group: {}", retries + 1, e.getMessage());
+                    LOG.debug("Attempt #{} failed to run operation, due to: {}", retries + 1, e.getMessage());
                     try {
                         Thread.sleep(backoff);
                     } catch (InterruptedException e1) {
@@ -270,7 +288,8 @@ public class SecurityGroupEditor {
             }
         }
 
-        throw new RuntimeException("Unable to add security group rule; repeated errors from provider", lastException);
+        throw new RuntimeException("Unable to run operation '" + operation + "'; repeated errors from provider",
+            lastException);
     }
 
     @Override
@@ -280,5 +299,21 @@ public class SecurityGroupEditor {
             ", securityApi=" + securityApi +
             ", isExceptionRetryable=" + isExceptionRetryable +
             '}';
+    }
+
+    private class RemoveSecurityGroup implements Callable<Boolean> {
+        private String groupId;
+        public RemoveSecurityGroup(final String groupId) {
+            this.groupId = groupId;
+        }
+        @Override
+        public Boolean call() throws Exception {
+            return securityApi.removeSecurityGroup(groupId);
+        }
+
+        @Override
+        public String toString() {
+            return "Remove security group " + groupId;
+        }
     }
 }

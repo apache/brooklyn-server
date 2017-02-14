@@ -884,18 +884,26 @@ public class Reflections {
     }
     /** as {@link #invokeMethodFromArgs(Object, String, List)} but giving control over whether to set it accessible */
     public static Maybe<Object> invokeMethodFromArgs(Object clazzOrInstance, String method, List<?> args, boolean setAccessible) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
+        Maybe<Method> maybeMethod = getMethodFromArgs(clazzOrInstance, method, args);
+        if (maybeMethod.isAbsent()) {
+            return Maybe.absent(Maybe.getException(maybeMethod));
+        }
+        Method m = maybeMethod.get();
+
+        return Maybe.of(invokeMethodFromArgs(clazzOrInstance, m, args, setAccessible));
+    }
+
+    /** searches for the given method on the given clazz or instance, doing reasonably good matching on args etc */
+    public static Maybe<Method> getMethodFromArgs(Object clazzOrInstance, String method, List<?> args) {
         Preconditions.checkNotNull(clazzOrInstance, "clazz or instance");
         Preconditions.checkNotNull(method, "method");
         Preconditions.checkNotNull(args, "args to "+method);
         
         Class<?> clazz;
-        Object instance;
         if (clazzOrInstance instanceof Class) {
             clazz = (Class<?>)clazzOrInstance;
-            instance = null;
         } else {
             clazz = clazzOrInstance.getClass();
-            instance = clazzOrInstance;
         }
         
         Object[] argsArray = args.toArray();
@@ -915,30 +923,64 @@ public class Reflections {
                             }
                         }
                         if (varargsMatch) {
-                            Object varargs = Array.newInstance(varargType, argsArray.length+1 - parameterTypes.length);
-                            for (int i=parameterTypes.length-1; i<argsArray.length; i++) {
-                                Boxing.setInArray(varargs, i+1-parameterTypes.length, argsArray[i], varargType);
-                            }
-                            Object[] newArgsArray = new Object[parameterTypes.length];
-                            System.arraycopy(argsArray, 0, newArgsArray, 0, parameterTypes.length-1);
-                            newArgsArray[parameterTypes.length-1] = varargs;
-                            if (setAccessible) m.setAccessible(true);
-                            return Maybe.of(m.invoke(instance, newArgsArray));
+                            return Maybe.of(m);
                         }
                     }
                 }
                 if (typesMatch(argsArray, parameterTypes)) {
-                    if (setAccessible) m.setAccessible(true);
-                    return Maybe.of(m.invoke(instance, argsArray));
+                    return Maybe.of(m);
                 }
             }
         }
-        
+
         List<String> argTypes = Lists.newArrayList();
         for (Object arg : args) {
             argTypes.add(arg == null ? "<null>" : arg.getClass().getSimpleName());
         }
         return Maybe.absent("Method '"+method+"' not found matching given args of type "+argTypes);
+    }
+
+    /** invokes the given method on the given clazz or instance, assuming that the method matches passed arguments
+     * @throws InvocationTargetException 
+     * @throws IllegalAccessException 
+     * @throws IllegalArgumentException */
+    public static Object invokeMethodFromArgs(Object clazzOrInstance, Method m, List<?> args)
+            throws IllegalAccessException, InvocationTargetException {
+        return invokeMethodFromArgs(clazzOrInstance, m, args, false);
+    }
+
+    /** as {@link #invokeMethodFromArgs(Object, Method, List)} but giving control over whether to set it accessible */
+    public static Object invokeMethodFromArgs(Object clazzOrInstance, Method m, List<?> args, boolean setAccessible)
+            throws IllegalAccessException, InvocationTargetException {
+        Preconditions.checkNotNull(clazzOrInstance, "clazz or instance");
+        Preconditions.checkNotNull(m, "method");
+        Preconditions.checkNotNull(args, "args to "+m);
+
+        Object instance;
+        if (clazzOrInstance instanceof Class) {
+            instance = null;
+        } else {
+            instance = clazzOrInstance;
+        }
+
+        Object[] argsArray = args.toArray();
+
+        Class<?>[] parameterTypes = m.getParameterTypes();
+        if (m.isVarArgs()) {
+            Class<?> varargType = parameterTypes[parameterTypes.length-1].getComponentType();
+            Object varargs = Array.newInstance(varargType, argsArray.length+1 - parameterTypes.length);
+            for (int i=parameterTypes.length-1; i<argsArray.length; i++) {
+                Boxing.setInArray(varargs, i+1-parameterTypes.length, argsArray[i], varargType);
+            }
+            Object[] newArgsArray = new Object[parameterTypes.length];
+            System.arraycopy(argsArray, 0, newArgsArray, 0, parameterTypes.length-1);
+            newArgsArray[parameterTypes.length-1] = varargs;
+            if (setAccessible) m.setAccessible(true);
+            return m.invoke(instance, newArgsArray);
+        } else {
+            if (setAccessible) m.setAccessible(true);
+            return m.invoke(instance, argsArray);
+        }
     }
 
     /** true iff all args match the corresponding types */

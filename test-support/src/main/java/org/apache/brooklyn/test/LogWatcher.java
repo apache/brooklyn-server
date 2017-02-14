@@ -154,6 +154,7 @@ public class LogWatcher implements Closeable {
 
     public List<ILoggingEvent> assertHasEventEventually() {
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertFalse(events.isEmpty());
             }});
@@ -163,6 +164,7 @@ public class LogWatcher implements Closeable {
     public List<ILoggingEvent> assertHasEventEventually(final Predicate<? super ILoggingEvent> filter) {
         final AtomicReference<List<ILoggingEvent>> result = new AtomicReference<>();
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 synchronized (events) {
                     Iterable<ILoggingEvent> filtered = Iterables.filter(events, filter);

@@ -418,7 +418,7 @@ public class HighAvailabilityManagerSplitBrainTest {
         List<Thread> spawned = MutableList.of();
         for (int i=0; i<size; i++) {
             final HaMgmtNode n = newNode();
-            Thread t = new Thread() { public void run() {
+            Thread t = new Thread() { @Override public void run() {
                 if (staggerStart!=null) Time.sleep(staggerStart.multiply(Math.random()));
                 n.ha.start(HighAvailabilityMode.AUTO);
                 n.ha.setPollPeriod(Duration.millis(20));

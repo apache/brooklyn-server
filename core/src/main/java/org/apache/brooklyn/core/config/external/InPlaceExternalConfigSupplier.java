@@ -44,6 +44,7 @@ public class InPlaceExternalConfigSupplier extends AbstractExternalConfigSupplie
         this.config = config;
     }
 
+    @Override
     public String get(String key) {
         return config.get(key);
     }

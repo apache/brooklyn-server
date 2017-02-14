@@ -48,6 +48,7 @@ public class ServerStoppingShutdownHandler implements ShutdownHandler {
         // essentially same as BrooklynLauncher.terminate() but cut down ...
         // NB: this is only used in dev mode use of BrooklynJavascriptGuiLauncher
         new Thread(new Runnable() {
+            @Override
             public void run() {
                 Time.sleep(Duration.millis(250));
                 log.debug("Shutting down server in background thread, closing "+server+" and "+mgmt);

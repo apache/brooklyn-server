@@ -430,7 +430,7 @@
                 <version>${commons-compress.version}</version>
             </dependency>
             <dependency>
-                <groupId>net.schmizz</groupId>
+                <groupId>com.hierynomus</groupId>
                 <artifactId>sshj</artifactId>
                 <version>${sshj.version}</version>
             </dependency>
@@ -679,7 +679,7 @@
                 <plugin>
                     <groupId>org.apache.felix</groupId>
                     <artifactId>maven-bundle-plugin</artifactId>
-                    <version>2.5.4</version>
+                    <version>3.2.0</version>
                 </plugin>
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>

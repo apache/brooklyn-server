@@ -57,7 +57,7 @@ import com.google.common.reflect.TypeToken;
  * <p>
  * Fluent-style API exposes a number of other options.
  */
-public class ValueResolver<T> implements DeferredSupplier<T> {
+public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Object>> {
 
     // TODO most of these usages should be removed when we have
     // an ability to run resolution in a non-blocking mode
@@ -111,6 +111,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
     /** timeout on execution, if possible, or if embedResolutionInTask is true */
     Duration timeout;
     boolean immediately;
+    boolean recursive = true;
     boolean isTransientTask = true;
     
     T defaultValue = null;
@@ -145,6 +146,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
 
         timeout = parent.timeout;
         immediately = parent.immediately;
+        // not copying recursive as we want deep resolving to be recursive, only top-level values should be non-recursive
         parentTimer = parent.parentTimer;
         if (parentTimer!=null && parentTimer.isExpired())
             expired = true;
@@ -163,13 +165,31 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
     }
 
     /** returns a copy of this resolver which can be queried, even if the original (single-use instance) has already been copied */
+    @Override
     public ValueResolver<T> clone() {
-        ValueResolver<T> result = new ValueResolver<T>(value, type)
+        return cloneReplacingValueAndType(value, type);
+    }
+    
+    <S> ValueResolver<S> cloneReplacingValueAndType(Object newValue, Class<S> superType) {
+        // superType expected to be either type or Object.class
+        if (!superType.isAssignableFrom(type)) {
+            throw new IllegalStateException("superType must be assignable from " + type);
+        }
+        ValueResolver<S> result = new ValueResolver<S>(newValue, superType)
             .context(exec).description(description)
             .embedResolutionInTask(embedResolutionInTask)
             .deep(forceDeep)
-            .timeout(timeout);
-        if (returnDefaultOnGet) result.defaultValue(defaultValue);
+            .timeout(timeout)
+            .immediately(immediately)
+            .recursive(recursive);
+        if (returnDefaultOnGet) {
+            if (!superType.isInstance(defaultValue)) {
+                throw new IllegalStateException("Existing default value " + defaultValue + " not compatible with new type " + superType);
+            }
+            @SuppressWarnings("unchecked")
+            S typedDefaultValue = (S)defaultValue;
+            result.defaultValue(typedDefaultValue);
+        }
         if (swallowExceptions) result.swallowExceptions();
         return result;
     }
@@ -265,18 +285,36 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
         return this;
     }
 
+    /**
+     * Whether the value should be resolved recursively. When true the result of
+     * the resolving will be resolved again recursively until the value is an immediate object.
+     * When false will try to resolve the value a single time and return the result even if it
+     * can be resolved further (e.x. it is DeferredSupplier).
+     */
+    @Beta
+    public ValueResolver<T> recursive(boolean val) {
+        this.recursive = val;
+        return this;
+    }
+
     protected void checkTypeNotNull() {
         if (type==null) 
             throw new NullPointerException("type must be set to resolve, for '"+value+"'"+(description!=null ? ", "+description : ""));
     }
 
+    @Override
+    public ValueResolverIterator<T> iterator() {
+        return new ValueResolverIterator<T>(this);
+    }
+
+    @Override
     public T get() {
         Maybe<T> m = getMaybe();
         if (m.isPresent()) return m.get();
         if (returnDefaultOnGet) return defaultValue;
         return m.get();
     }
-    
+
     public Maybe<T> getMaybe() {
         Maybe<T> result = getMaybeInternal();
         if (log.isTraceEnabled()) {
@@ -296,6 +334,11 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
         if (exec==null) {
             // if execution context not specified, take it from the current task if present
             exec = BasicExecutionContext.getCurrentExecutionContext();
+        }
+        
+        if (!recursive && type != Object.class) {
+            throw new IllegalStateException("When non-recursive resolver requested the return type must be Object " +
+                    "as the immediately resolved value could be a number of (deferred) types.");
         }
         
         CountdownTimer timerU = parentTimer;
@@ -320,7 +363,11 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
                     Maybe<?> result = supplier.getImmediately();
                     
                     // Recurse: need to ensure returned value is cast, etc
-                    return (result.isPresent()) ? new ValueResolver(result.get(), type, this).getMaybe() : Maybe.<T>absent();
+                    return (result.isPresent())
+                            ? recursive
+                                ? new ValueResolver(result.get(), type, this).getMaybe()
+                                : result
+                            : Maybe.<T>absent();
                 } catch (ImmediateSupplier.ImmediateUnsupportedException e) {
                     log.debug("Unable to resolve-immediately for "+description+" ("+v+"); falling back to executing with timeout", e);
                 }
@@ -342,6 +389,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
                 //including tasks, above
                 if (!vfuture.isDone()) {
                     Callable<Maybe> callable = new Callable<Maybe>() {
+                        @Override
                         public Maybe call() throws Exception {
                             return Durations.get(vfuture, timer);
                         } };
@@ -364,6 +412,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
                         return Maybe.absent("Embedding in task needed for '"+getDescription()+"' but no execution context available");
                         
                     Callable<Object> callable = new Callable<Object>() {
+                        @Override
                         public Object call() throws Exception {
                             try {
                                 Tasks.setBlockingDetails("Retrieving "+ds);
@@ -456,7 +505,12 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
             throw problem;
         }
         
-        return new ValueResolver(v, type, this).getMaybe();
+        if (recursive) {
+            return new ValueResolver(v, type, this).getMaybe();
+        } else {
+            // T expected to be Object.class
+            return (Maybe<T>) Maybe.of(v);
+        }
     }
 
     protected String getDescription() {
@@ -466,7 +520,10 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
         if (parentOriginalValue!=null) return parentOriginalValue;
         return value;
     }
-    
+    protected Class<T> getType() {
+        return type;
+    }
+
     @Override
     public String toString() {
         return JavaClassNames.cleanSimpleClassName(this)+"["+JavaClassNames.cleanSimpleClassName(type)+" "+value+"]";

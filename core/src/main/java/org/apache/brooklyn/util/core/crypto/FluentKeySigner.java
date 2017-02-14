@@ -32,7 +32,9 @@ import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.bouncycastle.asn1.x509.AuthorityKeyIdentifier;
 import org.bouncycastle.asn1.x509.X509Extension;
+import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.jce.X509Principal;
+import org.bouncycastle.x509.X509V3CertificateGenerator;
 
 /** A fluent API which simplifies generating certificates (signed keys) */
 /* NB - re deprecation - we use deprecated X509V3CertificateGenerator still
@@ -146,8 +148,10 @@ public class FluentKeySigner {
     // TODO see note re deprecation at start of file
     @SuppressWarnings("deprecation")
     public X509Certificate newCertificateFor(X500Principal subject, PublicKey keyToCertify) {
+        
         try {
-            org.bouncycastle.x509.X509V3CertificateGenerator v3CertGen = new org.bouncycastle.x509.X509V3CertificateGenerator();
+            
+            X509V3CertificateGenerator v3CertGen = new X509V3CertificateGenerator();
 
             v3CertGen.setSerialNumber(
                     serialNumber != null ? serialNumber :
@@ -159,10 +163,11 @@ public class FluentKeySigner {
             v3CertGen.setSignatureAlgorithm(signatureAlgorithm);   
 
             v3CertGen.setSubjectDN(subject);  
-            v3CertGen.setPublicKey(keyToCertify);  
+            v3CertGen.setPublicKey(keyToCertify);
 
+            JcaX509ExtensionUtils jcaX509ExtensionUtils = new JcaX509ExtensionUtils();
             v3CertGen.addExtension(X509Extension.subjectKeyIdentifier, false,
-                    new org.bouncycastle.x509.extension.SubjectKeyIdentifierStructure(keyToCertify));
+                    jcaX509ExtensionUtils.createSubjectKeyIdentifier(keyToCertify));
 
             if (authorityKeyIdentifier!=null)
                 v3CertGen.addExtension(X509Extension.authorityKeyIdentifier, false,

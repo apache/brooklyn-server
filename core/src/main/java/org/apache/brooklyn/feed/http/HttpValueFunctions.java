@@ -38,6 +38,7 @@ public class HttpValueFunctions {
     }
     
     /** @deprecated since 0.7.0; only here for deserialization of persisted state */
+    @Deprecated
     private static Function<HttpToolResponse, Integer> responseCodeLegacy() {
         // TODO PERSISTENCE WORKAROUND kept anonymous function in case referenced in persisted state
         return new Function<HttpToolResponse, Integer>() {
@@ -60,7 +61,7 @@ public class HttpValueFunctions {
     public static Function<HttpToolResponse, Boolean> responseCodeEquals(final int... expected) {
         List<Integer> expectedList = Lists.newArrayList();
         for (int e : expected) {
-            expectedList.add((Integer)e);
+            expectedList.add(e);
         }
         return Functionals.chain(HttpValueFunctions.responseCode(), Functions.forPredicate(Predicates.in(expectedList)));
     }
@@ -70,6 +71,7 @@ public class HttpValueFunctions {
     }
     
     /** @deprecated since 0.7.0; only here for deserialization of persisted state */
+    @Deprecated
     private static Function<HttpToolResponse, String> stringContentsFunctionLegacy() {
         // TODO PERSISTENCE WORKAROUND kept anonymous function in case referenced in persisted state
         return new Function<HttpToolResponse, String>() {
@@ -106,9 +108,11 @@ public class HttpValueFunctions {
     }
 
     /** @deprecated since 0.7.0; only here for deserialization of persisted state */
+    @Deprecated
     private static Function<HttpToolResponse, Long> latencyLegacy() {
         // TODO PERSISTENCE WORKAROUND kept anonymous function in case referenced in persisted state
         return new Function<HttpToolResponse, Long>() {
+            @Override
             public Long apply(HttpToolResponse input) {
                 return input.getLatencyFullContent();
             }
@@ -116,6 +120,7 @@ public class HttpValueFunctions {
     }
 
     private static class Latency implements Function<HttpToolResponse, Long> {
+        @Override
         public Long apply(HttpToolResponse input) {
             return input.getLatencyFullContent();
         }

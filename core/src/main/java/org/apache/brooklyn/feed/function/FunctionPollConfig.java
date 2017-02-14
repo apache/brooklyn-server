@@ -84,6 +84,7 @@ public class FunctionPollConfig<S, T> extends PollConfig<S, T, FunctionPollConfi
     }
     
     /** @deprecated since 0.7.0, kept for legacy compatibility when deserializing */
+    @Deprecated
     @SuppressWarnings({ "unchecked", "unused" })
     private <newS> FunctionPollConfig<newS, T> supplierLegacy(final Supplier<? extends newS> val) {
         checkNotNull(val, "supplier");

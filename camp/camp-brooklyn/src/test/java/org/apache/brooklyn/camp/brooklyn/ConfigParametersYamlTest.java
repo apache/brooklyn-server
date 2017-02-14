@@ -579,6 +579,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         Entity app = createStartWaitAndLogApplication(yaml);
         final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         Asserts.assertReturnsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.other.key")), "myDefaultValInOuter");
             }},

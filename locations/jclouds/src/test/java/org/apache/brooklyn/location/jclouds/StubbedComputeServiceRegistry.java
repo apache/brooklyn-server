@@ -25,7 +25,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.RunNodesException;
-import org.jclouds.compute.domain.ComputeMetadata;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadata.Status;
 import org.jclouds.compute.domain.NodeMetadataBuilder;
@@ -44,7 +43,7 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
     public static interface NodeCreator {
         public Set<? extends NodeMetadata> createNodesInGroup(String group, int count, Template template) throws RunNodesException;
         public void destroyNode(String id);
-        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<ComputeMetadata> filter);
+        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<? super NodeMetadata> filter);
     }
 
     public static abstract class AbstractNodeCreator implements NodeCreator {
@@ -66,7 +65,7 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
             destroyed.add(id);
         }
         @Override
-        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<ComputeMetadata> filter) {
+        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<? super NodeMetadata> filter) {
             return ImmutableSet.of();
         }
         protected abstract NodeMetadata newNode(String group, Template template);
@@ -78,6 +77,7 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
         public SingleNodeCreator(NodeMetadata node) {
             this.node = node;
         }
+        @Override
         protected NodeMetadata newNode(String group, Template template) {
             return node;
         }
@@ -116,7 +116,7 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
             nodeCreator.destroyNode(id);
         }
         @Override
-        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<ComputeMetadata> filter) {
+        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<? super NodeMetadata> filter) {
             return nodeCreator.listNodesDetailsMatching(filter);
         }
         @Override
@@ -128,7 +128,7 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
             throw new UnsupportedOperationException();
         }
         @Override
-        public Set<? extends NodeMetadata> destroyNodesMatching(Predicate<NodeMetadata> filter) {
+        public Set<? extends NodeMetadata> destroyNodesMatching(Predicate<? super NodeMetadata> filter) {
             throw new UnsupportedOperationException();
         }
     }
@@ -148,7 +148,7 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
             nodeCreator.destroyNode(id);
         }
         @Override
-        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<ComputeMetadata> filter) {
+        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<? super NodeMetadata> filter) {
             return nodeCreator.listNodesDetailsMatching(filter);
         }
         @Override
@@ -157,10 +157,6 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
         }
         @Override
         public Set<? extends NodeMetadata> createNodesInGroup(String group, int count, TemplateOptions templateOptions) {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public Set<? extends NodeMetadata> destroyNodesMatching(Predicate<NodeMetadata> filter) {
             throw new UnsupportedOperationException();
         }
     }

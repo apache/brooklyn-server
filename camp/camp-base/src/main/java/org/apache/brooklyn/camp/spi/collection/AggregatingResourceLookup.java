@@ -40,6 +40,7 @@ public class AggregatingResourceLookup<T extends AbstractResource> extends Abstr
         return result;        
     }
 
+    @Override
     public T get(String id) {
         for (ResourceLookup<T> item: targets) {
             T result = item.get(id);
@@ -48,6 +49,7 @@ public class AggregatingResourceLookup<T extends AbstractResource> extends Abstr
         return null;
     }
 
+    @Override
     public List<ResolvableLink<T>> links() {
         List<ResolvableLink<T>> result = new ArrayList<ResolvableLink<T>>();
         for (ResourceLookup<T> item: targets) result.addAll(item.links());

@@ -19,6 +19,7 @@
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
 import java.util.Arrays;
@@ -26,8 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-
-import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -39,8 +38,11 @@ import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynYamlTypeInstantiator;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.EntitySpecConfiguration;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslAccessible;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -48,6 +50,8 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.ExternalConfigSupplierRegistry;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
+import org.apache.brooklyn.core.objs.AbstractConfigurationSupportInternal;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -56,10 +60,12 @@ import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.beanutils.BeanUtils;
@@ -72,44 +78,58 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-/** static import functions which can be used in `$brooklyn:xxx` contexts */
+/**
+ * static import functions which can be used in `$brooklyn:xxx` contexts
+ * WARNING: Don't overload methods - the DSL evaluator will pick any one that matches, not the best match.
+ */
 public class BrooklynDslCommon {
 
     private static final Logger LOG = LoggerFactory.getLogger(BrooklynDslCommon.class);
 
     // Access specific entities
 
+    @DslAccessible
     public static DslComponent self() {
         return new DslComponent(Scope.THIS);
     }
+    @DslAccessible
     public static DslComponent entity(Object id) {
         return DslComponent.newInstance(Scope.GLOBAL, id);
     }
+    @DslAccessible
     public static DslComponent parent() {
         return new DslComponent(Scope.PARENT);
     }
+    @DslAccessible
     public static DslComponent child(Object id) {
         return DslComponent.newInstance(Scope.CHILD, id);
     }
+    @DslAccessible
     public static DslComponent sibling(Object id) {
         return DslComponent.newInstance(Scope.SIBLING, id);
     }
+    @DslAccessible
     public static DslComponent descendant(Object id) {
         return DslComponent.newInstance(Scope.DESCENDANT, id);
     }
+    @DslAccessible
     public static DslComponent ancestor(Object id) {
         return DslComponent.newInstance(Scope.ANCESTOR, id);
     }
+    @DslAccessible
     public static DslComponent root() {
         return new DslComponent(Scope.ROOT);
     }
+    @DslAccessible
     public static DslComponent scopeRoot() {
         return new DslComponent(Scope.SCOPE_ROOT);
     }
     // prefer the syntax above to the below now, but not deprecating the below
+    @DslAccessible
     public static DslComponent component(String id) {
         return component("global", id);
     }
+    @DslAccessible
     public static DslComponent component(String scope, String id) {
         if (!DslComponent.Scope.isValid(scope)) {
             throw new IllegalArgumentException(scope + " is not a valid scope");
@@ -119,32 +139,105 @@ public class BrooklynDslCommon {
 
     // Access things on entities
 
+    @DslAccessible
     public static BrooklynDslDeferredSupplier<?> config(String keyName) {
         return new DslComponent(Scope.THIS, "").config(keyName);
     }
 
+    @DslAccessible
+    public static BrooklynDslDeferredSupplier<?> config(BrooklynObjectInternal obj, String keyName) {
+        return new DslBrooklynObjectConfigSupplier(obj, keyName);
+    }
+
+    public static class DslBrooklynObjectConfigSupplier extends BrooklynDslDeferredSupplier<Object> {
+        private static final long serialVersionUID = -2378555915585603381L;
+
+        // Keep in mind this object gets serialized so is the following reference
+        private BrooklynObjectInternal obj;
+        private String keyName;
+
+        public DslBrooklynObjectConfigSupplier(BrooklynObjectInternal obj, String keyName) {
+            checkNotNull(obj, "obj");
+            checkNotNull(keyName, "keyName");
+
+            this.obj = obj;
+            this.keyName = keyName;
+        }
+
+        @Override
+        public Maybe<Object> getImmediately() {
+            if (obj instanceof Entity) {
+                // Shouldn't worry too much about it since DSL can fetch objects from same app only.
+                // Just in case check whether it's same app for entities.
+                checkState(entity().getApplicationId().equals(((Entity)obj).getApplicationId()));
+            }
+            ConfigKey<Object> key = ConfigKeys.newConfigKey(Object.class, keyName);
+            Maybe<? extends Object> result = ((AbstractConfigurationSupportInternal)obj.config()).getNonBlocking(key);
+            return Maybe.<Object>cast(result);
+        }
+
+        @Override
+        public Task<Object> newTask() {
+            return Tasks.builder()
+                    .displayName("retrieving config for "+keyName+" on "+obj)
+                    .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+                    .dynamic(false)
+                    .body(new Callable<Object>() {
+                        @Override
+                        public Object call() throws Exception {
+                            ConfigKey<Object> key = ConfigKeys.newConfigKey(Object.class, keyName);
+                            return obj.getConfig(key);
+                        }})
+                    .build();
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(obj, keyName);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            DslBrooklynObjectConfigSupplier that = DslBrooklynObjectConfigSupplier.class.cast(obj);
+            return Objects.equal(this.obj, that.obj) &&
+                    Objects.equal(this.keyName, that.keyName);
+        }
+
+        @Override
+        public String toString() {
+            return (obj.toString()+".") +
+                "config("+JavaStringEscapes.wrapJavaString(keyName)+")";
+        }
+    }
+
+    @DslAccessible
     public static BrooklynDslDeferredSupplier<?> attributeWhenReady(String sensorName) {
         return new DslComponent(Scope.THIS, "").attributeWhenReady(sensorName);
     }
 
+    @DslAccessible
     public static BrooklynDslDeferredSupplier<?> entityId() {
         return new DslComponent(Scope.THIS, "").entityId();
     }
 
     /** Returns a {@link Sensor}, looking up the sensor on the context if available and using that,
      * or else defining an untyped (Object) sensor */
+    @DslAccessible
     public static BrooklynDslDeferredSupplier<Sensor<?>> sensor(Object sensorName) {
         return new DslComponent(Scope.THIS, "").sensor(sensorName);
     }
     
     /** Returns a {@link Sensor} declared on the type (e.g. entity class) declared in the first argument. */
     @SuppressWarnings({ "unchecked", "rawtypes" })
+    @DslAccessible
     public static Sensor<?> sensor(String clazzName, String sensorName) {
         try {
             // TODO Should use catalog's classloader, rather than ClassLoaderUtils; how to get that? Should we return a future?!
             //      Should have the catalog's loader at this point in a thread local
             // eg CatalogUtils.getClassLoadingContext(entity)
-            String mappedClazzName = DeserializingClassRenamesProvider.findMappedName(clazzName);
+            String mappedClazzName = DeserializingClassRenamesProvider.INSTANCE.findMappedName(clazzName);
             Class<?> clazz = new ClassLoaderUtils(BrooklynDslCommon.class).loadClass(mappedClazzName);
             
             Sensor<?> sensor;
@@ -168,6 +261,7 @@ public class BrooklynDslCommon {
 
     // Build complex things
 
+    @DslAccessible
     public static EntitySpecConfiguration entitySpec(Map<String, Object> arguments) {
         return new EntitySpecConfiguration(arguments);
     }
@@ -179,6 +273,7 @@ public class BrooklynDslCommon {
      * bundles).
      */
     @SuppressWarnings("unchecked")
+    @DslAccessible
     public static Object object(Map<String, Object> arguments) {
         ConfigBag config = ConfigBag.newInstance(arguments);
         String typeName = BrooklynYamlTypeInstantiator.InstantiatorFromKey.extractTypeName("object", config).orNull();
@@ -188,7 +283,7 @@ public class BrooklynDslCommon {
         Map<String,Object> objectFields = (Map<String, Object>) config.getStringKeyMaybe("object.fields").or(MutableMap.of());
         Map<String,Object> brooklynConfig = (Map<String, Object>) config.getStringKeyMaybe(BrooklynCampReservedKeys.BROOKLYN_CONFIG).or(MutableMap.of());
 
-        String mappedTypeName = DeserializingClassRenamesProvider.findMappedName(typeName);
+        String mappedTypeName = DeserializingClassRenamesProvider.INSTANCE.findMappedName(typeName);
         Class<?> type;
         try {
             type = new ClassLoaderUtils(BrooklynDslCommon.class).loadClass(mappedTypeName);
@@ -219,14 +314,37 @@ public class BrooklynDslCommon {
     // String manipulation
 
     /** Return the expression as a literal string without any further parsing. */
+    @DslAccessible
     public static Object literal(Object expression) {
         return expression;
+    }
+
+    /**
+     * Returns the arg with characters escaped so it is a valid part of a URL, or a 
+     * {@link BrooklynDslDeferredSupplier} that returns this if the arguments are not yet fully 
+     * resolved.
+     * 
+     * See {@link Urls#encode(String)} for further details (it currently uses the encoding rules for
+     * "x-www-form-urlencoded")
+     * 
+     * Do not call with a whole URL unless you want everything escaped (e.g. "http://myhost" will be
+     * encoded as "http%3A%2F%2Fmyhost").
+     */
+    @DslAccessible
+    public static Object urlEncode(Object arg) {
+        if (resolved(arg)) {
+            // if all args are resolved, apply the transform now
+            return (arg == null) ? null : Urls.encode(arg.toString());
+        } else {
+            return new DslUrlEncode(arg);
+        }
     }
 
     /**
      * Returns a formatted string or a {@link BrooklynDslDeferredSupplier} if the arguments
      * are not yet fully resolved.
      */
+    @DslAccessible
     public static Object formatString(final String pattern, final Object...args) {
         if (resolved(args)) {
             // if all args are resolved, apply the format string now
@@ -236,11 +354,56 @@ public class BrooklynDslCommon {
         }
     }
 
+    @DslAccessible
     public static Object regexReplacement(final Object source, final Object pattern, final Object replacement) {
         if (resolved(Arrays.asList(source, pattern, replacement))) {
             return (new Functions.RegexReplacer(String.valueOf(pattern), String.valueOf(replacement))).apply(String.valueOf(source));
         } else {
             return new DslRegexReplacement(source, pattern, replacement);
+        }
+    }
+    
+    /**
+     * Deferred execution of escaping a URL.
+     *
+     * @see DependentConfiguration#urlEncode(Object)
+     */
+    protected static class DslUrlEncode extends BrooklynDslDeferredSupplier<String> {
+
+        private static final long serialVersionUID = -4849297712650560863L;
+
+        private final Object arg;
+
+        public DslUrlEncode(Object arg) {
+            this.arg = arg;
+        }
+
+        @Override
+        public final Maybe<String> getImmediately() {
+            return DependentConfiguration.urlEncodeImmediately(arg);
+        }
+
+        @Override
+        public Task<String> newTask() {
+            return DependentConfiguration.urlEncode(arg);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(arg);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            DslUrlEncode that = DslUrlEncode.class.cast(obj);
+            return Objects.equal(this.arg, that.arg);
+        }
+
+        @Override
+        public String toString() {
+            return "$brooklyn:urlEncode("+arg+")";
         }
     }
 
@@ -253,8 +416,8 @@ public class BrooklynDslCommon {
 
         private static final long serialVersionUID = -4849297712650560863L;
 
-        private String pattern;
-        private Object[] args;
+        private final String pattern;
+        private final Object[] args;
 
         public DslFormatString(String pattern, Object ...args) {
             this.pattern = pattern;
@@ -421,7 +584,7 @@ public class BrooklynDslCommon {
         @Override
         public Maybe<Object> getImmediately() {
             final Class<?> clazz = getOrLoadType();
-            final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
+            final ExecutionContext executionContext = entity().getExecutionContext();
 
             // Marker exception that one of our component-parts cannot yet be resolved - 
             // throwing and catching this allows us to abort fast.
@@ -643,6 +806,7 @@ public class BrooklynDslCommon {
      * The name of the appropriate {@link ExternalConfigSupplier} is captured, along with the key of
      * the desired config value.
      */
+    @DslAccessible
     public static DslExternal external(final String providerName, final String key) {
         return new DslExternal(providerName, key);
     }
@@ -699,27 +863,20 @@ public class BrooklynDslCommon {
     }
 
     public static class Functions {
+        @DslAccessible
         public static Object regexReplacement(final Object pattern, final Object replacement) {
             if (resolved(pattern, replacement)) {
-                return new RegexReplacer(String.valueOf(pattern), String.valueOf(replacement));
+                return new org.apache.brooklyn.util.text.StringFunctions.RegexReplacer(String.valueOf(pattern), String.valueOf(replacement));
             } else {
                 return new DslRegexReplacer(pattern, replacement);
             }
         }
 
-        public static class RegexReplacer implements Function<String, String> {
-            private final String pattern;
-            private final String replacement;
-
+        /** @deprecated since 0.11.0; use {@link org.apache.brooklyn.util.text.StringFunctions.RegexReplacer} instead */
+        @Deprecated
+        public static class RegexReplacer extends org.apache.brooklyn.util.text.StringFunctions.RegexReplacer {
             public RegexReplacer(String pattern, String replacement) {
-                this.pattern = pattern;
-                this.replacement = replacement;
-            }
-
-            @Nullable
-            @Override
-            public String apply(@Nullable String s) {
-                return s == null ? null : Strings.replaceAllRegex(s, pattern, replacement);
+                super(pattern, replacement);
             }
         }
 
@@ -762,6 +919,43 @@ public class BrooklynDslCommon {
             public String toString() {
                 return String.format("$brooklyn:regexReplace(%s:%s)", pattern, replacement);
             }
+        }
+    }
+
+    // The results of the following methods are not supposed to get serialized. They are
+    // only intermediate values for the DSL evaluator to apply function calls on. There
+    // will always be a next method that gets executed on the return value.
+    public static class DslFacades {
+        private static class EntitySupplier implements DeferredSupplier<Entity>, ImmediateSupplier<Entity> {
+            private String entityId;
+
+            public EntitySupplier(String entityId) {
+                this.entityId = entityId;
+            }
+
+            @Override
+            public Maybe<Entity> getImmediately() {
+                EntityInternal entity = entity();
+                if (entity == null) {
+                    return Maybe.absent();
+                }
+                Entity targetEntity = entity.getManagementContext().getEntityManager().getEntity(entityId);
+                return Maybe.of(targetEntity);
+            }
+
+            @Override
+            public Entity get() {
+                return getImmediately().orNull();
+            }
+
+            private EntityInternal entity() {
+                return (EntityInternal) BrooklynTaskTags.getTargetOrContextEntity(Tasks.current());
+            }
+        }
+
+        @DslAccessible
+        public static Object wrap(Entity entity) {
+            return DslComponent.newInstance(Scope.GLOBAL, new EntitySupplier(entity.getId()));
         }
     }
 

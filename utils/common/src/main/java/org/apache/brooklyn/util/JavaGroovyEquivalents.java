@@ -66,8 +66,9 @@ public class JavaGroovyEquivalents {
     public static String elvisString(Object preferred, Object fallback) {
         return elvis(asString(preferred), asString(fallback));
     }
+    @SuppressWarnings("unchecked")
     public static <T> T elvis(T preferred, T fallback) {
-        return groovyTruth(preferred) ? preferred : fallback;
+        return (T) fix(groovyTruth(preferred) ? preferred : fallback);
     }
     public static <T> T elvis(Iterable<?> preferences) {
         return elvis(Iterables.toArray(preferences, Object.class));
@@ -117,6 +118,10 @@ public class JavaGroovyEquivalents {
             return ((Iterator<?>)o).hasNext();
         } else if (o instanceof Enumeration) {
             return ((Enumeration<?>)o).hasMoreElements();
+        } else if (o instanceof Number) {
+            return ((Number)o).doubleValue() != 0d;
+        } else if (o instanceof CharSequence) {
+            return ((CharSequence)o).length() > 0;
         } else {
             return true;
         }

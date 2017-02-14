@@ -109,6 +109,7 @@ public abstract class SshAbstractTool extends ShellAbstractTool implements SshTo
             this.privateKeyPassphrase = val; return self();
         }
         /** @deprecated 1.4.0, use privateKeyData */
+        @Deprecated
         public B privateKey(String val) {
             this.privateKeyData = val; return self();
         }

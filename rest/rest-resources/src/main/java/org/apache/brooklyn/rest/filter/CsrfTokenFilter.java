@@ -143,9 +143,9 @@ public class CsrfTokenFilter implements ContainerRequestFilter, ContainerRespons
         }
         
         @SuppressWarnings("unchecked")
-        List<String> suppliedTokensDefault = (List<String>) EnumerationUtils.toList(request.getHeaders(CSRF_TOKEN_VALUE_HEADER));
+        List<String> suppliedTokensDefault = EnumerationUtils.toList(request.getHeaders(CSRF_TOKEN_VALUE_HEADER));
         @SuppressWarnings("unchecked")
-        List<String> suppliedTokensAngular = (List<String>) EnumerationUtils.toList(request.getHeaders(CSRF_TOKEN_VALUE_HEADER_ANGULAR_NAME));
+        List<String> suppliedTokensAngular = EnumerationUtils.toList(request.getHeaders(CSRF_TOKEN_VALUE_HEADER_ANGULAR_NAME));
         List<String> suppliedTokens = Lists.newArrayList(suppliedTokensDefault);
         suppliedTokens.addAll(suppliedTokensAngular);
 

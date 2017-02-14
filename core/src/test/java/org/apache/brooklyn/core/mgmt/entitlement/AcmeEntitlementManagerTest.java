@@ -29,6 +29,7 @@ import org.testng.annotations.Test;
 
 public class AcmeEntitlementManagerTest extends AcmeEntitlementManagerTestFixture {
 
+    @Override
     protected void addGlobalConfig() {
         configBag.put(Entitlements.GLOBAL_ENTITLEMENT_MANAGER, AcmeEntitlementManager.class.getName());
     }

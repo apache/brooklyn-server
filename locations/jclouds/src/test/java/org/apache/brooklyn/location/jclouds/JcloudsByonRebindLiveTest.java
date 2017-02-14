@@ -63,6 +63,7 @@ public class JcloudsByonRebindLiveTest extends RebindTestFixtureWithApp {
     private LocalManagementContext provisioningManagementContext;
     private JcloudsSshMachineLocation provisionedMachine;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
@@ -75,6 +76,7 @@ public class JcloudsByonRebindLiveTest extends RebindTestFixtureWithApp {
         AbstractJcloudsLiveTest.stripBrooklynProperties(origManagementContext.getBrooklynProperties());
     }
 
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         List<Exception> exceptions = Lists.newArrayList();

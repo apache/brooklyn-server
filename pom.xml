@@ -72,6 +72,16 @@
         </mailingList>
     </mailingLists>
 
+    <repositories>
+      <repository>
+          <id>jclouds-snapshots</id>
+        <url>https://repository.apache.org/content/repositories/snapshots</url>
+        <snapshots>
+            <enabled>true</enabled>
+        </snapshots>
+      </repository>
+    </repositories>
+
     <properties>
         <brooklyn.version>0.11.0-SNAPSHOT</brooklyn.version>  <!-- BROOKLYN_VERSION -->
 
@@ -91,7 +101,7 @@
         <surefire.failIfNoSpecifiedTests>false</surefire.failIfNoSpecifiedTests>
 
         <!-- Dependency Versions -->
-        <jclouds.version>1.9.3</jclouds.version> <!-- JCLOUDS_VERSION -->
+        <jclouds.version>2.0.0</jclouds.version> <!-- JCLOUDS_VERSION -->
         <logback.version>1.0.7</logback.version>
         <slf4j.version>1.6.6</slf4j.version>  <!-- used for java.util.logging jul-to-slf4j interception -->
         <!-- Must match jclouds' version. From jclouds 1.9.3+ can be any version in the range [16-20) -->
@@ -114,22 +124,22 @@
         <commons-lang3.version>3.3.2</commons-lang3.version>
         <groovy.version>2.3.7</groovy.version> <!-- Version supported by https://github.com/groovy/groovy-eclipse/wiki/Groovy-Eclipse-2.9.1-Release-Notes -->
         <jsr305.version>2.0.1</jsr305.version>
-        <snakeyaml.version>1.16</snakeyaml.version>
+        <snakeyaml.version>1.17</snakeyaml.version>
         <!-- Next version of swagger requires changes to how path mapping and scanner injection are done. -->
         <swagger.version>1.5.6</swagger.version>
         <jansi.version>1.2.1</jansi.version>
         <gson.version>2.3</gson.version>
         <ivy.version>2.2.0</ivy.version>
         <mx4j.version>3.0.1</mx4j.version>
-        <bouncycastle.version>1.49</bouncycastle.version>
-        <sshj.version>0.8.1</sshj.version>
-        <felix.framework.version>5.4.0</felix.framework.version>
+        <bouncycastle.version>1.51</bouncycastle.version>
+        <sshj.version>0.12.0</sshj.version>
+        <felix.framework.version>5.6.1</felix.framework.version>
         <reflections.version>0.9.9-RC1</reflections.version>
         <jetty.version>9.2.13.v20150730</jetty.version>
         <jetty-schemas.version>3.1.M0</jetty-schemas.version>
         <airline.version>0.6</airline.version>
         <mockwebserver.version>20121111</mockwebserver.version>
-        <freemarker.version>2.3.22</freemarker.version>
+        <freemarker.version>2.3.25-incubating</freemarker.version>
         <commons-io.version>2.4</commons-io.version>
         <jsonPath.version>2.0.0</jsonPath.version>
         <commons-compress.version>1.4</commons-compress.version>
@@ -159,7 +169,8 @@
         <maxmind.version>2.8.0-rc1</maxmind.version>
         <maxmind-db.version>1.2.1</maxmind-db.version>
         <winrm4j.version>0.4.0</winrm4j.version>
-        <karaf.version>4.0.4</karaf.version>
+        <karaf.version>4.0.8</karaf.version>
+        <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
         <felix-osgi-compendium.version>1.4.0</felix-osgi-compendium.version>
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
         <clojure.version>1.4.0</clojure.version>

@@ -22,8 +22,6 @@ import java.util.Collection;
 import java.util.NoSuchElementException;
 
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 
@@ -75,6 +73,7 @@ public interface BrooklynCatalog {
      * @deprecated since 0.10.0; use {@link #peekSpec(CatalogItem)} for a preview of what the item
      *             corresponds to.
      */
+    @Deprecated
     <T, SpecT extends AbstractBrooklynObjectSpec<? extends T, SpecT>> SpecT createSpec(CatalogItem<T, SpecT> item);
 
     /** 

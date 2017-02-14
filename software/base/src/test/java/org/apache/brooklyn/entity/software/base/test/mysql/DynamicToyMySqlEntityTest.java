@@ -32,6 +32,7 @@ public class DynamicToyMySqlEntityTest extends AbstractToyMySqlEntityTest {
 
     private static final Logger log = LoggerFactory.getLogger(DynamicToyMySqlEntityTest.class);
     
+    @Override
     protected Entity createMysql() {
         Entity mysql = app.createAndManageChild(DynamicToyMySqlEntityBuilder.spec());
         log.debug("created "+mysql);

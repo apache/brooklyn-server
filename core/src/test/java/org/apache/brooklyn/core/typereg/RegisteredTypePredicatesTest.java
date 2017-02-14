@@ -141,7 +141,7 @@ public class RegisteredTypePredicatesTest extends BrooklynMgmtUnitTestSupport {
     
     @SuppressWarnings({ "deprecation" })
     protected <T, SpecT> RegisteredType deprecateItem(RegisteredType orig) {
-        CatalogItem<?,?> item = (CatalogItem<?,?>) mgmt.getCatalog().getCatalogItem(orig.getSymbolicName(), orig.getVersion());
+        CatalogItem<?,?> item = mgmt.getCatalog().getCatalogItem(orig.getSymbolicName(), orig.getVersion());
         item.setDeprecated(true);
         mgmt.getCatalog().persist(item);
         return RegisteredTypes.of(item);
@@ -149,7 +149,7 @@ public class RegisteredTypePredicatesTest extends BrooklynMgmtUnitTestSupport {
     
     @SuppressWarnings({ "deprecation" })
     protected RegisteredType disableItem(RegisteredType orig) {
-        CatalogItem<?,?> item = (CatalogItem<?,?>) mgmt.getCatalog().getCatalogItem(orig.getSymbolicName(), orig.getVersion());
+        CatalogItem<?,?> item = mgmt.getCatalog().getCatalogItem(orig.getSymbolicName(), orig.getVersion());
         item.setDisabled(true);
         mgmt.getCatalog().persist(item);
         return RegisteredTypes.of(item);

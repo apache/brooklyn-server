@@ -47,6 +47,7 @@ public class CheckpointEntityTest extends RebindTestFixtureWithApp {
 
     private MyEntity origE;
     
+    @Override
     @BeforeMethod
     public void setUp() throws Exception {
         super.setUp();

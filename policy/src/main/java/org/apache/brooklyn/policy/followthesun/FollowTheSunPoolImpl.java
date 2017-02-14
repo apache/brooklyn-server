@@ -106,7 +106,7 @@ public class FollowTheSunPoolImpl extends AbstractEntity implements FollowTheSun
             onContainerAdded(existingContainer);
         }
         for (Entity existingItem : itemGroup.getMembers()) {
-            onItemAdded((Entity)existingItem);
+            onItemAdded(existingItem);
         }
     }
 

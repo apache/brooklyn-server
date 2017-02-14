@@ -41,7 +41,7 @@ import com.google.common.reflect.TypeToken;
 * The {@link ConfigKey} will have the same name and description as the sensor but not necessarily the same type.
 * Conversion to set the sensor value from the config key must be supplied in a subclass.
 * <p>
-* {@link ConfigToAttributes#apply(EntityLocal, AttributeSensorAndConfigKey)} is useful to set the attribute from the sensor.
+* {@link ConfigToAttributes#apply(Entity, AttributeSensorAndConfigKey)} is useful to set the attribute from the sensor.
 */
 public abstract class AttributeSensorAndConfigKey<ConfigType,SensorType> extends BasicAttributeSensor<SensorType> 
         implements ConfigKey.HasConfigKey<ConfigType> {
@@ -93,6 +93,7 @@ public abstract class AttributeSensorAndConfigKey<ConfigType,SensorType> extends
         configKey = new BasicConfigKey<ConfigType>(configKeyBuilder);
     }
 
+    @Override
     public ConfigKey<ConfigType> getConfigKey() { return configKey; }
     
     /** returns the sensor value for this attribute on the given entity, if present,
@@ -104,7 +105,7 @@ public abstract class AttributeSensorAndConfigKey<ConfigType,SensorType> extends
      * <b>(for this reason this method should generally not be invoked by callers except in tests and by the framework,
      * and similarly should not be overridden; implement {@link #convertConfigToSensor(Object, Entity)} instead for single-execution calls.
      * the framework calls this from {@link AbstractEntity#setAttribute(AttributeSensorAndConfigKey)} 
-     * typically via {@link ConfigToAttributes#apply(EntityLocal)} e.g. from SoftwareProcessImpl.preStart().)
+     * typically via {@link ConfigToAttributes#apply(Entity)} e.g. from SoftwareProcessImpl.preStart().)
      * </b> 
      */
     public SensorType getAsSensorValue(Entity e) {

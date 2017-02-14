@@ -20,7 +20,7 @@ package org.apache.brooklyn.core.feed;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
@@ -49,7 +49,7 @@ public class AttributePollHandler<V> implements PollHandler<V> {
     public static final Logger log = LoggerFactory.getLogger(AttributePollHandler.class);
 
     private final FeedConfig<V,?,?> config;
-    private final EntityLocal entity;
+    private final Entity entity;
     @SuppressWarnings("rawtypes")
     private final AttributeSensor sensor;
     private final AbstractFeed feed;
@@ -68,7 +68,7 @@ public class AttributePollHandler<V> implements PollHandler<V> {
     private volatile boolean lastWasProblem = false;
 
     
-    public AttributePollHandler(FeedConfig<V,?,?> config, EntityLocal entity, AbstractFeed feed) {
+    public AttributePollHandler(FeedConfig<V,?,?> config, Entity entity, AbstractFeed feed) {
         this.config = checkNotNull(config, "config");
         this.entity = checkNotNull(entity, "entity");
         this.sensor = checkNotNull(config.getSensor(), "sensor");
@@ -122,7 +122,7 @@ public class AttributePollHandler<V> implements PollHandler<V> {
             logProblem("failure", val);
 
             try {
-                setSensor(config.hasFailureHandler() ? config.getOnFailure().apply((V)val) : val);
+                setSensor(config.hasFailureHandler() ? config.getOnFailure().apply(val) : val);
             } catch (Exception e) {
                 if (feed.isConnected()) {
                     log.warn("Error computing " + getBriefDescription() + "; val=" + val+": "+ e, e);

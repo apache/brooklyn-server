@@ -30,6 +30,7 @@ public class MathPredicates {
     private  static <T extends Number> Predicate<T> greaterThanOld(final double val) {
         // TODO PERSISTENCE WORKAROUND
         return new Predicate<T>() {
+            @Override
             public boolean apply(@Nullable T input) {
                 return (input == null) ? false : input.doubleValue() > val;
             }
@@ -41,6 +42,7 @@ public class MathPredicates {
     private  static <T extends Number> Predicate<T> greaterThanOrEqualOld(final double val) {
         // TODO PERSISTENCE WORKAROUND
         return new Predicate<T>() {
+            @Override
             public boolean apply(@Nullable T input) {
                 return (input == null) ? false : input.doubleValue() >= val;
             }
@@ -52,6 +54,7 @@ public class MathPredicates {
     private  static <T extends Number> Predicate<T> lessThanOld(final double val) {
         // TODO PERSISTENCE WORKAROUND
         return new Predicate<T>() {
+            @Override
             public boolean apply(@Nullable T input) {
                 return (input == null) ? false : input.doubleValue() < val;
             }
@@ -63,6 +66,7 @@ public class MathPredicates {
     private  static <T extends Number> Predicate<T> lessThanOrEqualOld(final double val) {
         // TODO PERSISTENCE WORKAROUND
         return new Predicate<T>() {
+            @Override
             public boolean apply(@Nullable T input) {
                 return (input == null) ? false : input.doubleValue() <= val;
             }
@@ -82,6 +86,7 @@ public class MathPredicates {
         protected GreaterThan(double val) {
             this.val = val;
         }
+        @Override
         public boolean apply(@Nullable T input) {
             return (input == null) ? false : input.doubleValue() > val;
         }
@@ -100,6 +105,7 @@ public class MathPredicates {
         protected GreaterThanOrEqual(double val) {
             this.val = val;
         }
+        @Override
         public boolean apply(@Nullable T input) {
             return (input == null) ? false : input.doubleValue() >= val;
         }
@@ -118,6 +124,7 @@ public class MathPredicates {
         protected LessThan(double val) {
             this.val = val;
         }
+        @Override
         public boolean apply(@Nullable T input) {
             return (input == null) ? false : input.doubleValue() < val;
         }
@@ -136,6 +143,7 @@ public class MathPredicates {
         protected LessThanOrEqual(double val) {
             this.val = val;
         }
+        @Override
         public boolean apply(@Nullable T input) {
             return (input == null) ? false : input.doubleValue() <= val;
         }
@@ -161,6 +169,7 @@ public class MathPredicates {
             Preconditions.checkArgument(delta>=0, "delta must be non-negative");
             this.delta = delta;
         }
+        @Override
         public boolean apply(@Nullable T input) {
             return (input == null) ? false : Math.abs(input.doubleValue() - val) <= delta;
         }

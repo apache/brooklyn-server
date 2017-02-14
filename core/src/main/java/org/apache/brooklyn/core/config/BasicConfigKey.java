@@ -141,7 +141,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
             this.reconfigurable = val; return self();
         }
         /**
-         * @deprecated since 0.10.0; use {@link #runtime2Inheritance(ConfigInheritance)}
+         * @deprecated since 0.10.0; use {@link #runtimeInheritance(ConfigInheritance)}
          */ 
         @Deprecated
         public B parentInheritance(ConfigInheritance val) {

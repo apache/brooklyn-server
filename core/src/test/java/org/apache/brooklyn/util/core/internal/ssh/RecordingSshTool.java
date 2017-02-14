@@ -187,9 +187,12 @@ public class RecordingSshTool implements SshTool {
     public static List<ExecCmd> getExecCmds() {
         return ImmutableList.copyOf(execScriptCmds);
     }
-    
+
     public static ExecCmd getLastExecCmd() {
-        return execScriptCmds.get(execScriptCmds.size()-1);
+        if (execScriptCmds.isEmpty()) {
+            throw new IllegalStateException("No executions recorded");
+        }
+        return execScriptCmds.get(execScriptCmds.size() - 1);
     }
     
     public static Map<?,?> getLastConstructorProps() {

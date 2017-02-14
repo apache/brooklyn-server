@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -36,6 +37,9 @@ import com.google.common.collect.ImmutableMap;
  */
 @ImplementedBy(TestWinrmCommandImpl.class)
 public interface TestWinrmCommand extends BaseTest {
+
+    // Change default period (backoff to 5 seconds, rather than default 500ms), because WinRM is expensive
+    ConfigKey<Duration> BACKOFF_TO_PERIOD = ConfigKeys.newConfigKeyWithDefault(BaseTest.BACKOFF_TO_PERIOD, Duration.seconds(5));
 
     /**
      * Supply the PowerShell script to invoke directly.

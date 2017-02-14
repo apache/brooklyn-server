@@ -73,8 +73,8 @@ public class TypeCoercionsTest {
         assertEquals(coerce("1", Short.class), (Short)((short)1));
         assertEquals(coerce("1", Integer.class), (Integer)1);
         assertEquals(coerce("1", Long.class), (Long)1l);
-        assertEquals(coerce("1", Float.class), (Float)1f);
-        assertEquals(coerce("1", Double.class), (Double)1d);
+        assertEquals(coerce("1", Float.class), 1f);
+        assertEquals(coerce("1", Double.class), 1d);
         assertEquals(coerce("true", Boolean.class), (Boolean)true);
         assertEquals(coerce("False", Boolean.class), (Boolean)false);
         assertEquals(coerce("true ", Boolean.class), (Boolean)true);
@@ -84,8 +84,8 @@ public class TypeCoercionsTest {
         assertEquals(coerce("1", short.class), (Short)((short)1));
         assertEquals(coerce("1", int.class), (Integer)1);
         assertEquals(coerce("1", long.class), (Long)1l);
-        assertEquals(coerce("1", float.class), (Float)1f);
-        assertEquals(coerce("1", double.class), (Double)1d);
+        assertEquals(coerce("1", float.class), 1f);
+        assertEquals(coerce("1", double.class), 1d);
         assertEquals(coerce("TRUE", boolean.class), (Boolean)true);
         assertEquals(coerce("false", boolean.class), (Boolean)false);
     }
@@ -96,8 +96,8 @@ public class TypeCoercionsTest {
         assertEquals(coerce((short)1, Short.class), (Short)((short)1));
         assertEquals(coerce(1, Integer.class), (Integer)1);
         assertEquals(coerce(1l, Long.class), (Long)1l);
-        assertEquals(coerce(1f, Float.class), (Float)1f);
-        assertEquals(coerce(1d, Double.class), (Double)1d);
+        assertEquals(coerce(1f, Float.class), 1f);
+        assertEquals(coerce(1d, Double.class), 1d);
         assertEquals(coerce(true, Boolean.class), (Boolean)true);
     }
     
@@ -108,21 +108,21 @@ public class TypeCoercionsTest {
         assertEquals(coerce(1L, Short.class), (Short)(short)1);
         assertEquals(coerce(1L, Integer.class), (Integer)1);
         assertEquals(coerce(1L, Long.class), (Long)(long)1);
-        assertEquals(coerce(1L, Float.class), (Float)(float)1);
-        assertEquals(coerce(1L, Double.class), (Double)(double)1);
+        assertEquals(coerce(1L, Float.class), (float)1);
+        assertEquals(coerce(1L, Double.class), (double)1);
         
         assertEquals(coerce(1L, char.class), (Character)(char)1);
         assertEquals(coerce(1L, byte.class), (Byte)(byte)1);
         assertEquals(coerce(1L, short.class), (Short)(short)1);
         assertEquals(coerce(1L, int.class), (Integer)1);
         assertEquals(coerce(1L, long.class), (Long)(long)1);
-        assertEquals(coerce(1L, float.class), (Float)(float)1);
-        assertEquals(coerce(1L, double.class), (Double)(double)1);
+        assertEquals(coerce(1L, float.class), (float)1);
+        assertEquals(coerce(1L, double.class), (double)1);
         
         assertEquals(coerce((char)1, Integer.class), (Integer)1);
         assertEquals(coerce((byte)1, Integer.class), (Integer)1);
         assertEquals(coerce((short)1, Integer.class), (Integer)1);
-        assertEquals(coerce((int)1, Integer.class), (Integer)1);
+        assertEquals(coerce(1, Integer.class), (Integer)1);
         assertEquals(coerce((long)1, Integer.class), (Integer)1);
         assertEquals(coerce((float)1, Integer.class), (Integer)1);
         assertEquals(coerce((double)1, Integer.class), (Integer)1);
@@ -344,9 +344,62 @@ public class TypeCoercionsTest {
     }
 
     @Test
+    public void testFromThrowingException() {
+        String expectedGenericErr = "Cannot coerce type class " + String.class.getName() + " to " + WithFromThrowingException.class.getCanonicalName();
+        String expectedSpecificErr = "Simulating problem in fromString";
+        
+        try {
+            coercer.coerce("myval", WithFromThrowingException.class);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ClassCoercionException e) {
+            Asserts.expectedFailureContains(e, expectedGenericErr, expectedSpecificErr);
+        }
+        
+        try {
+            coercer.tryCoerce("myval", WithFromThrowingException.class).get();
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ClassCoercionException e) {
+            Asserts.expectedFailureContains(e, expectedGenericErr, expectedSpecificErr);
+        }
+    }
+
+    // TODO Asserting this undesirable behaviur, to preserve backwards compatibility!
+    // Would much prefer that we fail-fast. However, I worry that some entity's java declared
+    // ConfigKey<List<Foo>>, and rely on erasure so they can pass in other representations and 
+    // coerce it themsevles in some way.
+    // I checked things like JcloudsLocation.JCLOUDS_LOCATION_CUSTOMIZERS - those look ok.
+    //
+    // Expect to get a log.warn about that now. Could assert that using LogWatcher.
+    @Test
+    public void testListOfFromThrowingException() {
+        TypeToken<List<WithFromThrowingException>> typeToken = new TypeToken<List<WithFromThrowingException>>() {};
+        List<String> rawVal = ImmutableList.of("myval");
+        
+        List<WithFromThrowingException> val = coercer.coerce(rawVal, typeToken);
+        assertEquals(val, rawVal);
+
+        List<WithFromThrowingException> val2 = coercer.tryCoerce(rawVal, typeToken).get();
+        assertEquals(val, rawVal);
+    }
+
+    // See comment on testListOfFromThrowingException for why we're asserting this undesirable
+    // behaviour.
+    @Test
+    public void testMapOfFromThrowingException() {
+        TypeToken<Map<String, WithFromThrowingException>> typeToken = new TypeToken<Map<String, WithFromThrowingException>>() {};
+        ImmutableMap<String, String> rawVal = ImmutableMap.of("mykey", "myval");
+        
+        Map<String, WithFromThrowingException> val = coercer.coerce(rawVal, typeToken);
+        assertEquals(val, rawVal);
+
+        Map<String, WithFromThrowingException> val2 = coercer.tryCoerce(rawVal, typeToken).get();
+        assertEquals(val2, rawVal);
+    }
+
+    @Test
     public void testCoerceStringToNumber() {
-        assertEquals(coerce("1", Number.class), (Number) Double.valueOf(1));
-        assertEquals(coerce("1.0", Number.class), (Number) Double.valueOf(1.0));
+        assertEquals(coerce("1", Number.class), Double.valueOf(1));
+        assertEquals(coerce("1.0", Number.class), Double.valueOf(1.0));
     }
 
     @Test(expectedExceptions = org.apache.brooklyn.util.javalang.coerce.ClassCoercionException.class)
@@ -376,4 +429,10 @@ public class TypeCoercionsTest {
         }
     }
 
+    public static class WithFromThrowingException {
+        int value;
+        public static WithFrom fromString(String s) {
+            throw new RuntimeException("Simulating problem in fromString(\"" + s + "\")");
+        }
+    }
 }

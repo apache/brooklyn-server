@@ -92,6 +92,7 @@ public class EffectorConcatenateTest {
             Tasks.setExtraStatusDetails("waitabit extra status details");
             
             Tasks.withBlockingDetails("waitabit.blocking", new Callable<Void>() {
+                    @Override
                     public Void call() throws Exception {
                         nowWaitingLatch.countDown();
                         if (!continueFromWaitingLatch.await(TIMEOUT, TimeUnit.MILLISECONDS)) {
@@ -107,6 +108,7 @@ public class EffectorConcatenateTest {
             BasicExecutionContext.getCurrentExecutionContext().submit(
                     MutableMap.of("displayName", "SpawnedChildName"),
                     new Callable<Void>() {
+                        @Override
                         public Void call() throws Exception {
                             log.info("beginning spawned child response "+Tasks.current()+", with tags "+Tasks.current().getTags());
                             Tasks.setBlockingDetails("spawned child blocking details");
@@ -149,6 +151,7 @@ public class EffectorConcatenateTest {
         final AtomicReference<String> result = new AtomicReference<String>();
 
         Thread bg = new Thread(new Runnable() {
+            @Override
             public void run() {
                 try {
                     // Expect "wait a bit" to tell us it's blocking 
@@ -195,6 +198,7 @@ public class EffectorConcatenateTest {
         final AtomicReference<String> result = new AtomicReference<String>();
 
         Thread bg = new Thread(new Runnable() {
+            @Override
             public void run() {
                 try {
                     // Expect "spawned child" to tell us it's blocking 
@@ -206,6 +210,7 @@ public class EffectorConcatenateTest {
                     // Expect spawned task to be have been tagged with entity
                     ExecutionManager em = e.getManagementContext().getExecutionManager();
                     Task<?> subtask = Iterables.find(BrooklynTaskTags.getTasksInEntityContext(em, e), new Predicate<Task<?>>() {
+                        @Override
                         public boolean apply(Task<?> input) {
                             return "SpawnedChildName".equals(input.getDisplayName());
                         }

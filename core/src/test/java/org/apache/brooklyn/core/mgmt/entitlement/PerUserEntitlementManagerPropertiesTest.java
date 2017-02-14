@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 public class PerUserEntitlementManagerPropertiesTest extends AcmeEntitlementManagerTestFixture {
 
+    @Override
     protected void addGlobalConfig() throws IOException {
         Properties moreProps = new Properties();
         moreProps.load(new StringReader(

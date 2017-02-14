@@ -25,7 +25,6 @@ import static org.testng.Assert.assertTrue;
 import java.util.Collection;
 import java.util.List;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolver;
@@ -109,7 +108,7 @@ public class BrooklynNodeTest {
                 .configure(BrooklynNode.SUGGESTED_VERSION, version));
         BrooklynNodeImpl entityImpl = (BrooklynNodeImpl) Entities.deproxy(entity);
 
-        ConfigToAttributes.apply((EntityLocal) entity);
+        ConfigToAttributes.apply(entity);
         BrooklynNodeSshDriver driver = new BrooklynNodeSshDriver(entityImpl, loc);
 
         DownloadResolver resolver = Entities.newDownloader(driver);
@@ -180,6 +179,7 @@ public class BrooklynNodeTest {
             super();
         }
 
+        @Override
         public Collection<Integer> getRequiredOpenPorts() {
             return super.getRequiredOpenPorts();
         }

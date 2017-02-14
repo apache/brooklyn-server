@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.objs.Identifiable;
  */
 public interface BrooklynMementoManifest extends Serializable {
     public interface EntityMementoManifest extends Identifiable{
+        @Override
         public String getId();
         public String getType();
         public String getParent();

@@ -36,10 +36,12 @@ public interface StringConfigMap extends ConfigMap {
     public String getFirst(@SuppressWarnings("rawtypes") Map flags, String... keys);
     
     /** returns submap matching the given filter predicate; see ConfigPredicates for common predicates */
+    @Override
     public StringConfigMap submap(Predicate<ConfigKey<?>> filter);
     
     /** returns a read-only map view which has string keys (corresponding to the config key names);
      * callers encouraged to use the typed keys (and so not use this method),
      * but in some compatibility areas having a Properties-like view is useful */
+    @Override
     public Map<String,Object> asMapWithStringKeys();
 }

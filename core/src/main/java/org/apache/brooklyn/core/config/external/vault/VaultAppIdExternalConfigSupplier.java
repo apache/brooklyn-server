@@ -42,6 +42,7 @@ public class VaultAppIdExternalConfigSupplier extends VaultExternalConfigSupplie
         super(managementContext, name, config);
     }
 
+    @Override
     protected String initAndLogIn(Map<String, String> config) {
         List<String> errors = Lists.newArrayListWithCapacity(1);
         String appId = config.get("appId");

@@ -27,13 +27,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
 import org.apache.brooklyn.api.mgmt.SubscriptionManager;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.group.BasicGroup;
@@ -142,6 +140,7 @@ public class LocalSubscriptionManagerTest extends BrooklynAppUnitTestSupport {
         // Repeatedly subscribe and unsubscribe, so listener-set constantly changing while publishing to it.
         // First create a stable listener so it is always the same listener-set object.
         Thread thread = new Thread() {
+            @Override
             public void run() {
                 try {
                     SensorEventListener<Object> noopListener = new SensorEventListener<Object>() {

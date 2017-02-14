@@ -66,6 +66,7 @@ public class DownloadProducerFromCloudsoftRepo implements Function<DownloadRequi
         this.config = config;
     }
     
+    @Override
     public DownloadTargets apply(DownloadRequirement req) {
         Boolean enabled = config.getConfig(CLOUDSOFT_REPO_ENABLED);
         String baseUrl = config.getConfig(CLOUDSOFT_REPO_URL);

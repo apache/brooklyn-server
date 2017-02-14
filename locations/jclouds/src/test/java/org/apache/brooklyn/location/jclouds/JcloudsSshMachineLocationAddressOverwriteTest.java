@@ -48,6 +48,7 @@ public class JcloudsSshMachineLocationAddressOverwriteTest extends AbstractJclou
     private List<String> privateAddresses;
     private List<String> publicAddresses;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
@@ -56,6 +57,7 @@ public class JcloudsSshMachineLocationAddressOverwriteTest extends AbstractJclou
         initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of(JcloudsLocationConfig.USE_MACHINE_PUBLIC_ADDRESS_AS_PRIVATE_ADDRESS.getName(), true));
     }
     
+    @Override
     protected NodeCreator newNodeCreator() {
         return new AbstractNodeCreator() {
             @Override protected NodeMetadata newNode(String group, Template template) {

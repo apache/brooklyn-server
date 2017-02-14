@@ -26,6 +26,7 @@ import com.google.common.base.CaseFormat;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 
@@ -64,6 +65,7 @@ public class StringFunctions {
     private static Function<Object, String> formatterOld(final String pattern) {
         // TODO PERSISTENCE WORKAROUND
         return new Function<Object, String>() {
+            @Override
             public String apply(@Nullable Object input) {
                 return String.format(pattern, input);
             }
@@ -75,6 +77,7 @@ public class StringFunctions {
     private static Function<Object[], String> formatterForArrayOld(final String pattern) {
         // TODO PERSISTENCE WORKAROUND
         return new Function<Object[], String>() {
+            @Override
             public String apply(@Nullable Object[] input) {
                 return String.format(pattern, input);
             }
@@ -86,6 +89,7 @@ public class StringFunctions {
     private static Function<Iterable<?>, String> joinerOld(final String separator) {
         // TODO PERSISTENCE WORKAROUND
         return new Function<Iterable<?>, String>() {
+            @Override
             public String apply(@Nullable Iterable<?> input) {
                 return Strings.join(input, separator);
             }
@@ -97,6 +101,7 @@ public class StringFunctions {
     private static Function<Object[], String> joinerForArrayOld(final String separator) {
         // TODO PERSISTENCE WORKAROUND
         return new Function<Object[], String>() {
+            @Override
             public String apply(@Nullable Object[] input) {
                 if (input == null) return Strings.EMPTY;
                 return Strings.join(input, separator);
@@ -228,6 +233,7 @@ public class StringFunctions {
         FormatterFunction(String pattern) {
             this.pattern = pattern;
         }
+        @Override
         public String apply(@Nullable Object input) {
             return String.format(pattern, input);
         }
@@ -244,6 +250,7 @@ public class StringFunctions {
         public FormatterForArrayFunction(String pattern) {
             this.pattern = pattern;
         }
+        @Override
         public String apply(@Nullable Object[] input) {
             return String.format(pattern, input);
         }
@@ -265,6 +272,7 @@ public class StringFunctions {
             this.pattern = pattern;
         }
 
+        @Override
         public String apply(@Nullable Iterable<?> input) {
             Object[] arr = (input == null) ? null : Iterables.toArray(input, Object.class);
             return String.format(pattern, arr);
@@ -282,6 +290,7 @@ public class StringFunctions {
         public JoinerFunction(String separator) {
             this.separator = separator;
         }
+        @Override
         public String apply(@Nullable Iterable<?> input) {
             return Strings.join(input, separator);
         }
@@ -298,6 +307,7 @@ public class StringFunctions {
         protected JoinerForArrayFunction(String separator) {
             this.separator = separator;
         }
+        @Override
         public String apply(@Nullable Object[] input) {
             if (input == null) return Strings.EMPTY;
             return Strings.join(input, separator);
@@ -409,7 +419,22 @@ public class StringFunctions {
         @Nullable
         @Override
         public String apply(@Nullable String s) {
-            return Strings.replaceAllRegex(s, pattern, replacement);
+            return s == null ? null : Strings.replaceAllRegex(s, pattern, replacement);
         }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(pattern, replacement);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            RegexReplacer that = RegexReplacer.class.cast(obj);
+            return Objects.equal(this.pattern, that.pattern) &&
+                    Objects.equal(this.replacement, that.replacement);
+        }
+
     }
 }

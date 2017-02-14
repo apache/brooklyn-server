@@ -22,7 +22,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.effector.Effector;
@@ -56,12 +55,12 @@ public class EffectorUtilsTest {
 
     private Map<Object, Object> argsMap = ImmutableMap.builder()
             .put("byteParam", (byte)1)
-            .put("charParam", (char)'2')
+            .put("charParam", '2')
             .put("shortParam", (short)3)
-            .put("intParam", (int)4)
+            .put("intParam", 4)
             .put("longParam", (long)5)
             .put("floatParam", (float)6.0)
-            .put("doubleParam", (double)7.0)
+            .put("doubleParam", 7.0)
             .put("boolParam", true)
             .put("stringParam", "mystring")
             .build();

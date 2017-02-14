@@ -73,6 +73,10 @@ import groovy.lang.Closure;
 @Beta
 public class Asserts {
 
+    // Used in annotations so needs to be a constant - can't be initialized similarly to DEFAULT_LONG_TIMEOUT
+    // TODO Can we force this by default on all unit tests, beforeMethod, afterMethod methods?
+    public static final long THIRTY_SECONDS_TIMEOUT_MS = 30000;
+
     /** 
      * Timeout for use when something should happen. This is the *default timeout* that should
      * be used by tests (unless that test is asserting performance).
@@ -90,7 +94,7 @@ public class Asserts {
     static {
         String defaultTimeout = System.getProperty("brooklyn.test.defaultTimeout");
         if (defaultTimeout == null){
-            DEFAULT_LONG_TIMEOUT = Duration.THIRTY_SECONDS;
+            DEFAULT_LONG_TIMEOUT = Duration.millis(THIRTY_SECONDS_TIMEOUT_MS);
         } else {
             DEFAULT_LONG_TIMEOUT = Duration.of(defaultTimeout);
         }
@@ -910,6 +914,7 @@ public class Asserts {
         public boolean asBoolean() {
             return value;
         }
+        @Override
         public String toString() {
             return message;
         }
@@ -1062,6 +1067,7 @@ public class Asserts {
     
     public static void assertFailsWith(Callable<?> c, final Closure<Boolean> exceptionChecker) {
         assertFailsWith(c, new Predicate<Throwable>() {
+            @Override
             public boolean apply(Throwable input) {
                 return exceptionChecker.call(input);
             }
@@ -1076,6 +1082,7 @@ public class Asserts {
                 .build();
         
         assertFailsWith(c, new Predicate<Throwable>() {
+            @Override
             public boolean apply(Throwable e) {
                 for (Class<?> validException: validExceptions) {
                     if (validException.isInstance(e)) return true;
@@ -1350,6 +1357,7 @@ public class Asserts {
             this.task = task;
             this.result = result;
         }
+        @Override
         public T call() {
             task.run();
             return result;

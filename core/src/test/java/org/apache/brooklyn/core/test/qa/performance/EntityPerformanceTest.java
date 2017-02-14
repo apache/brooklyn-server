@@ -78,6 +78,7 @@ public class EntityPerformanceTest extends AbstractPerformanceTest {
                 .iterations(numIterations)
                 .minAcceptablePerSecond(minRatePerSec)
                 .job(new Runnable() {
+                    @Override
                     public void run() {
                         entity.sensors().set(TestEntity.SEQUENCE, i.getAndIncrement());
                     }}));
@@ -100,11 +101,13 @@ public class EntityPerformanceTest extends AbstractPerformanceTest {
                 .iterations(numIterations)
                 .minAcceptablePerSecond(minRatePerSec)
                 .job(new Runnable() {
+                    @Override
                     public void run() {
                         entity.sensors().set(TestEntity.SEQUENCE, (i.getAndIncrement()));
                     }}));
         
         Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertTrue(lastVal.get() >= numIterations, "lastVal="+lastVal+"; numIterations="+numIterations);
             }});
@@ -120,6 +123,7 @@ public class EntityPerformanceTest extends AbstractPerformanceTest {
                 .iterations(numIterations)
                 .minAcceptablePerSecond(minRatePerSec)
                 .job(new Runnable() {
+                    @Override
                     public void run() {
                         entity.myEffector();
                     }}));
@@ -135,6 +139,7 @@ public class EntityPerformanceTest extends AbstractPerformanceTest {
                 .iterations(numIterations)
                 .minAcceptablePerSecond(minRatePerSec)
                 .job(new Runnable() {
+                    @Override
                     public void run() {
                         Task<?> task = entity.invoke(TestEntity.MY_EFFECTOR, MutableMap.<String,Object>of());
                         try {
@@ -155,6 +160,7 @@ public class EntityPerformanceTest extends AbstractPerformanceTest {
                 .iterations(numIterations)
                 .minAcceptablePerSecond(minRatePerSec)
                 .job(new Runnable() {
+                    @Override
                     public void run() {
                         Task<?> task = Entities.invokeEffector(app, entities, TestEntity.MY_EFFECTOR);
                         try {

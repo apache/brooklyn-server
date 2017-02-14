@@ -19,8 +19,8 @@
 package org.apache.brooklyn.util.core.flags;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.elvis;
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.truth;
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -147,6 +147,7 @@ public class FlagUtils {
     /** sets _all_ accessible _{@link ConfigKey}_ and {@link HasConfigKey} fields on the given object, 
      * using the indicated flags/config-bag 
      * @deprecated since 0.7.0 use {@link #setAllConfigKeys(Map, Configurable, boolean)} */
+    @Deprecated
     public static Map<String, ?> setAllConfigKeys(Map<String, ?> flagsOrConfig, Configurable instance) {
         return setAllConfigKeys(flagsOrConfig, instance, false);
     }
@@ -161,6 +162,7 @@ public class FlagUtils {
     /** sets _all_ accessible _{@link ConfigKey}_ and {@link HasConfigKey} fields on the given object, 
      * using the indicated flags/config-bag 
     * @deprecated since 0.7.0 use {@link #setAllConfigKeys(Configurable, ConfigBag, boolean)} */
+    @Deprecated
     public static void setAllConfigKeys(Configurable o, ConfigBag bag) {
         setAllConfigKeys(o, bag, false);
     }
@@ -341,7 +343,7 @@ public class FlagUtils {
             SetFromFlag cf = f.getAnnotation(SetFromFlag.class);
             if (cf != null) {
                 String flagName = elvis(cf.value(), f.getName());
-                if (truth(flagName)) {
+                if (groovyTruth(flagName)) {
                     result.put(flagName, getField(o, f));
                 } else {
                     log.warn("Ignoring field {} of object {} as no flag name available", f, o);
@@ -385,9 +387,9 @@ public class FlagUtils {
     }
 
     private static void setFieldFromConfig(Object o, Field f, ConfigBag bag, SetFromFlag optionalAnnotation, boolean setDefaultVals) {
-        String flagName = optionalAnnotation==null ? null : (String)elvis(optionalAnnotation.value(), f.getName());
+        String flagName = optionalAnnotation==null ? null : elvis(optionalAnnotation.value(), f.getName());
         // prefer flag name, if present
-        if (truth(flagName) && bag.containsKey(flagName)) {
+        if (groovyTruth(flagName) && bag.containsKey(flagName)) {
             setField(o, f, bag.getStringKey(flagName), optionalAnnotation);
             return;
         }
@@ -398,7 +400,7 @@ public class FlagUtils {
             setField(o, f, uncoercedValue, optionalAnnotation);
             return;
         }
-        if (setDefaultVals && optionalAnnotation!=null && truth(optionalAnnotation.defaultVal())) {
+        if (setDefaultVals && optionalAnnotation!=null && groovyTruth(optionalAnnotation.defaultVal())) {
             Object oldValue;
             try {
                 f.setAccessible(true);
@@ -522,7 +524,7 @@ public class FlagUtils {
         Map<Field, SetFromFlag> result = Maps.newLinkedHashMap();
         for (Field f: getAllFields(type)) {
             SetFromFlag cf = f.getAnnotation(SetFromFlag.class);
-            if (truth(cf)) result.put(f, cf);
+            if (cf != null) result.put(f, cf);
         }
         return result;
     }
@@ -556,7 +558,7 @@ public class FlagUtils {
                 Field f = entry.getKey();
                 SetFromFlag cf = entry.getValue();
                 String flagName = elvis(cf.value(), f.getName());
-                if (truth(flagName)) {
+                if (groovyTruth(flagName)) {
                     if (!f.isAccessible()) f.setAccessible(true);
                     result.put(flagName, f.get(o));
                 }
@@ -584,7 +586,7 @@ public class FlagUtils {
                     if (v==null) unsetFields.add(flagName);
                 }
             }
-            if (truth(unsetFields)) {
+            if (groovyTruth(unsetFields)) {
                 throw new IllegalStateException("Missing required "+(unsetFields.size()>1 ? "fields" : "field")+": "+unsetFields);
             }
         } catch (IllegalAccessException e) {

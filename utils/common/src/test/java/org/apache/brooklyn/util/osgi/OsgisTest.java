@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.util.osgi;
 
-import org.apache.brooklyn.util.osgi.OsgiUtils;
-import org.apache.brooklyn.util.osgi.VersionedName;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 

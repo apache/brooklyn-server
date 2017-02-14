@@ -87,6 +87,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         // Below, we call ValueResolver.getMaybe() in app's execution context. Therefore it will execute the task.
         Maybe<String>  result = app.getExecutionContext()
                 .submit(new Callable<Maybe<String> >() {
+                    @Override
                     public Maybe<String>  call() throws Exception {
                         return Tasks.resolving(t).as(String.class).timeout(Asserts.DEFAULT_LONG_TIMEOUT).getMaybe();
                     }})
@@ -102,6 +103,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         // However, it will quickly timeout as the task will not have completed.
         Maybe<String>  result = app.getExecutionContext()
                 .submit(new Callable<Maybe<String> >() {
+                    @Override
                     public Maybe<String>  call() throws Exception {
                         return Tasks.resolving(t).as(String.class).timeout(Duration.ZERO).getMaybe();
                     }})
@@ -153,6 +155,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
     public void testGetImmediatelyInTask() throws Exception {
         final MyImmediateAndDeferredSupplier supplier = new MyImmediateAndDeferredSupplier();
         Task<CallInfo> task = app.getExecutionContext().submit(new Callable<CallInfo>() {
+            @Override
             public CallInfo call() {
                 return myUniquelyNamedMethod();
             }
@@ -172,7 +175,55 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         assertEquals(BrooklynTaskTags.getContextEntity(callInfo.task), app);
         assertNotContainsCallingMethod(callInfo.stackTrace, "testGetImmediatelyFallsBackToDeferredCallInTask");
     }
-    
+
+    public void testNonRecursiveBlockingFailsOnNonObjectType() throws Exception {
+        try {
+            Tasks.resolving(new WrappingImmediateAndDeferredSupplier(new FailingImmediateAndDeferredSupplier()))
+                .as(FailingImmediateAndDeferredSupplier.class)
+                .context(app)
+                .immediately(false)
+                .recursive(false)
+                .get();
+            Asserts.shouldHaveFailedPreviously("recursive(true) accepts only as(Object.class)");
+        } catch (IllegalStateException e) {
+            Asserts.expectedFailureContains(e, "must be Object");
+        }
+    }
+
+    public void testNonRecursiveBlocking() throws Exception {
+        Object result = Tasks.resolving(new WrappingImmediateAndDeferredSupplier(new FailingImmediateAndDeferredSupplier()))
+            .as(Object.class)
+            .context(app)
+            .immediately(false)
+            .recursive(false)
+            .get();
+        assertEquals(result.getClass(), FailingImmediateAndDeferredSupplier.class);
+    }
+
+    public void testNonRecursiveImmediateFailsOnNonObjectType() throws Exception {
+        try {
+            Tasks.resolving(new WrappingImmediateAndDeferredSupplier(new FailingImmediateAndDeferredSupplier()))
+                .as(FailingImmediateAndDeferredSupplier.class)
+                .context(app)
+                .immediately(true)
+                .recursive(false)
+                .get();
+            Asserts.shouldHaveFailedPreviously("recursive(true) accepts only as(Object.class)");
+        } catch (IllegalStateException e) {
+            Asserts.expectedFailureContains(e, "must be Object");
+        }
+    }
+
+    public void testNonRecursiveImmediately() throws Exception {
+        Object result = Tasks.resolving(new WrappingImmediateAndDeferredSupplier(new FailingImmediateAndDeferredSupplier()))
+                .as(Object.class)
+                .context(app)
+                .immediately(true)
+                .recursive(false)
+                .get();
+            assertEquals(result.getClass(), FailingImmediateAndDeferredSupplier.class);
+    }
+
     private static class MyImmediateAndDeferredSupplier implements ImmediateSupplier<CallInfo>, DeferredSupplier<CallInfo> {
         private final boolean failImmediately;
         
@@ -198,6 +249,39 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         }
     }
     
+    static class WrappingImmediateAndDeferredSupplier implements ImmediateSupplier<Object>, DeferredSupplier<Object> {
+        private Object value;
+
+        public WrappingImmediateAndDeferredSupplier(Object value) {
+            this.value = value;
+        }
+
+        @Override
+        public Object get() {
+            return getImmediately().get();
+        }
+
+        @Override
+        public Maybe<Object> getImmediately() {
+            return Maybe.of(value);
+        }
+        
+    }
+
+    static class FailingImmediateAndDeferredSupplier implements ImmediateSupplier<Object>, DeferredSupplier<Object> {
+
+        @Override
+        public Object get() {
+            throw new IllegalStateException("Not to be called");
+        }
+
+        @Override
+        public Maybe<Object> getImmediately() {
+            throw new IllegalStateException("Not to be called");
+        }
+        
+    }
+
     private static class CallInfo {
         final StackTraceElement[] stackTrace;
         final Task<?> task;
@@ -205,7 +289,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         public static CallInfo newInstance() {
             Exception e = new Exception("for stacktrace");
             e.fillInStackTrace();
-            return new CallInfo(e.getStackTrace(), (Task<?>) Tasks.current());
+            return new CallInfo(e.getStackTrace(), Tasks.current());
         }
         
         CallInfo(StackTraceElement[] stackTrace, Task<?> task) {
@@ -216,6 +300,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
     
     public static final Task<String> newSleepTask(final Duration timeout, final String result) {
         return Tasks.<String>builder().body(new Callable<String>() { 
+            @Override
             public String call() { 
                 Time.sleep(timeout); 
                 return result; 
@@ -225,6 +310,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
     
     public static final Task<String> newThrowTask(final Duration timeout) {
         return Tasks.<String>builder().body(new Callable<String>() { 
+            @Override
             public String call() {
                 Time.sleep(timeout); 
                 throw new IllegalStateException("intended, during tests");

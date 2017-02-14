@@ -44,13 +44,40 @@ limitations under the License.
             <cm:property name="persistPeriod" value="1s" />
             <cm:property name="globalBrooklynPropertiesFile" value="~/.brooklyn/brooklyn.properties" />
             <cm:property name="localBrooklynPropertiesFile" value="" /> <!-- used to be settable through cli params -->
+            <cm:property name="default.catalog.location" value="etc/default.catalog.bom" />
         </cm:default-properties>
     </cm:property-placeholder>
+
+    <bean id="deserializingClassRenamesProvider"
+          class="org.apache.brooklyn.launcher.osgi.ClassRenameOsgiConfigLoader"
+          init-method="init"
+          destroy-method="destroy">
+
+        <property name="configAdmin" ref="configAdmin" />
+
+        <cm:managed-properties persistent-id="org.apache.brooklyn.classrename"
+                               update-method="updateProperties"
+                               update-strategy="component-managed" />
+    </bean>
+
+
+    <bean id="deserializingJcloudsRenamesProvider"
+          class="org.apache.brooklyn.launcher.osgi.JcloudsProviderRenameOsgiConfigLoader"
+          init-method="init"
+          destroy-method="destroy">
+
+        <property name="configAdmin" ref="configAdmin" />
+
+        <cm:managed-properties persistent-id="org.apache.brooklyn.jcloudsrename"
+                               update-method="updateProperties"
+                               update-strategy="component-managed" />
+    </bean>
 
     <bean id="launcher"
           class="org.apache.brooklyn.launcher.osgi.OsgiLauncher"
           init-method="init"
-          destroy-method="destroy">
+          destroy-method="destroy"
+          depends-on="deserializingClassRenamesProvider deserializingJcloudsRenamesProvider">
 
         <property name="brooklynVersion" ref="brooklynVersion" />
 
@@ -63,6 +90,7 @@ limitations under the License.
         <property name="persistPeriod" value="${persistPeriod}" />
         <property name="globalBrooklynProperties" value="${globalBrooklynPropertiesFile}" />
         <property name="localBrooklynProperties" value="${localBrooklynPropertiesFile}" />
+        <property name="defaultCatalogLocation" value="${default.catalog.location}" />
         <property name="configAdmin" ref="configAdmin" />
 
         <cm:managed-properties persistent-id="brooklyn"

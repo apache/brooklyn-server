@@ -25,7 +25,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -41,7 +40,6 @@ import org.apache.brooklyn.core.location.cloud.names.CustomMachineNamer;
 import org.apache.brooklyn.core.location.geo.HostGeoInfo;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.location.jclouds.JcloudsLocation.UserCreation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -397,6 +395,7 @@ public class JcloudsLocationTest implements JcloudsLocationConfig {
                 managementContext, ImmutableMap.<ConfigKey<?>, Object>of(
                         LocationConfigKeys.CLOUD_MACHINE_NAMER_CLASS, machineNamerClass));
         jcloudsLocation.tryObtainAndCheck(ImmutableMap.of(CustomMachineNamer.MACHINE_NAME_TEMPLATE, "ignored"), new Predicate<ConfigBag>() {
+            @Override
             public boolean apply(ConfigBag input) {
                 Assert.assertEquals(input.get(LocationConfigKeys.CLOUD_MACHINE_NAMER_CLASS), machineNamerClass);
                 return true;
@@ -412,6 +411,7 @@ public class JcloudsLocationTest implements JcloudsLocationConfig {
                 CustomMachineNamer.MACHINE_NAME_TEMPLATE, "ignored",
                 LocationConfigKeys.CLOUD_MACHINE_NAMER_CLASS, machineNamerClass);
         jcloudsLocation.tryObtainAndCheck(flags, new Predicate<ConfigBag>() {
+            @Override
             public boolean apply(ConfigBag input) {
                 Assert.assertEquals(input.get(LocationConfigKeys.CLOUD_MACHINE_NAMER_CLASS), machineNamerClass);
                 return true;
@@ -486,10 +486,10 @@ public class JcloudsLocationTest implements JcloudsLocationConfig {
             
             // explicitly invoke this customizer, to comply with tests
             for (JcloudsLocationCustomizer customizer : getCustomizers(config().getBag())) {
-                customizer.customize(this, null, (JcloudsMachineLocation)result);
+                customizer.customize(this, null, result);
             }
             for (MachineLocationCustomizer customizer : getMachineCustomizers(config().getBag())) {
-                customizer.customize((JcloudsMachineLocation)result);
+                customizer.customize(result);
             }
 
             return result;
@@ -521,7 +521,6 @@ public class JcloudsLocationTest implements JcloudsLocationConfig {
         Assert.assertEquals(geo.longitude, -20d, 0.00001);
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testInheritsGeoFromLocationMetadataProperties() throws Exception {
         // in location-metadata.properties:
@@ -534,8 +533,9 @@ public class JcloudsLocationTest implements JcloudsLocationConfig {
             .configure(ACCESS_IDENTITY, "bogus")
             .configure(ACCESS_CREDENTIAL, "bogus")
             .configure(MACHINE_CREATE_ATTEMPTS, 1);
-        FakeLocalhostWithParentJcloudsLocation ll = managementContext.getLocationManager().createLocation(LocationSpec.create(FakeLocalhostWithParentJcloudsLocation.class)
-            .configure(new JcloudsPropertiesFromBrooklynProperties().getJcloudsProperties("softlayer", "wdc01", null, managementContext.getBrooklynProperties()))
+        Map<String, Object> brooklynProperties = managementContext.getBrooklynProperties().asMapWithStringKeys();
+		FakeLocalhostWithParentJcloudsLocation ll = managementContext.getLocationManager().createLocation(LocationSpec.create(FakeLocalhostWithParentJcloudsLocation.class)
+            .configure(new JcloudsPropertiesFromBrooklynProperties().getJcloudsProperties("softlayer", "wdc01", null, brooklynProperties))
             .configure(allConfig.getAllConfig()));
         MachineLocation l = ll.obtain();
         log.info("loc:" +l);
@@ -580,8 +580,8 @@ public class JcloudsLocationTest implements JcloudsLocationConfig {
                         .put(JcloudsLocationConfig.USER, "bob").put(JcloudsLocationConfig.LOGIN_USER_PASSWORD, "b0b")
                         .putAll(config).build());
 
-        UserCreation creation = jl.createUserStatements(null, jl.config().getBag());
-        return new StatementList(creation.statements).render(OsFamily.UNIX);
+        CreateUserStatements creation = CreateUserStatements.get(jl, null, jl.config().getBag());
+        return new StatementList(creation.statements()).render(OsFamily.UNIX);
     }
     
     @Test

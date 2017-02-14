@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.sensor.Sensor;
  * 
  * @deprecated since 0.7.0; use {@link Enrichers.builder()}
  */
+@Deprecated
 public abstract class AbstractTransformingEnricher<T> extends AbstractTypeTransformingEnricher<T,T> {
 
     public AbstractTransformingEnricher() { // for rebinding

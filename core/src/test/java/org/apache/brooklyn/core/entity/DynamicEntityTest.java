@@ -38,6 +38,7 @@ public class DynamicEntityTest extends BrooklynAppUnitTestSupport {
     public void testEffectorAddedDuringInit() {
         BasicEntity entity = app.createAndManageChild(EntitySpec.create(BasicEntity.class)
                 .addInitializer(new EntityInitializer() {
+                    @Override
                     public void apply(EntityLocal entity) {
                         ((EntityInternal) entity).getMutableEntityType().addEffector(EffectorTaskTest.DOUBLE_1);
                     }

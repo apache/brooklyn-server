@@ -39,7 +39,6 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
@@ -119,7 +118,7 @@ public class VanillaJavaAppTest {
         final VanillaJavaApp javaProcess = app.createAndManageChild(EntitySpec.create(VanillaJavaApp.class)
             .configure("main", "my.Main").configure("classpath", ImmutableList.of("c1", "c2"))
             .configure("args", ImmutableList.of("a1", "a2")));
-        ((EntityLocal)javaProcess).config().set(UsesJava.JAVA_SYSPROPS, ImmutableMap.of("fooKey", "fooValue", "barKey", "barValue"));
+        javaProcess.config().set(UsesJava.JAVA_SYSPROPS, ImmutableMap.of("fooKey", "fooValue", "barKey", "barValue"));
         // TODO: how to test: launch standalone app that outputs system properties to stdout? Probe via JMX?
     }
 
@@ -146,6 +145,7 @@ public class VanillaJavaAppTest {
         
         // Memory MXBean
         Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertNotNull(javaProcess.getAttribute(VanillaJavaApp.NON_HEAP_MEMORY_USAGE));
                 long init = javaProcess.getAttribute(VanillaJavaApp.INIT_HEAP_MEMORY);
@@ -164,6 +164,7 @@ public class VanillaJavaAppTest {
         
         // Threads MX Bean
         Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 long current = javaProcess.getAttribute(VanillaJavaApp.CURRENT_THREAD_COUNT);
                 long peak = javaProcess.getAttribute(VanillaJavaApp.PEAK_THREAD_COUNT);
@@ -175,6 +176,7 @@ public class VanillaJavaAppTest {
 
         // Runtime MX Bean
         Asserts.succeedsEventually(MutableMap.of("timeout", LONG_TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertNotNull(javaProcess.getAttribute(VanillaJavaApp.START_TIME));
                 assertNotNull(javaProcess.getAttribute(VanillaJavaApp.UP_TIME));
@@ -182,6 +184,7 @@ public class VanillaJavaAppTest {
         
         // Operating System MX Bean
         Asserts.succeedsEventually(MutableMap.of("timeout", LONG_TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertNotNull(javaProcess.getAttribute(VanillaJavaApp.PROCESS_CPU_TIME));
                 assertNotNull(javaProcess.getAttribute(VanillaJavaApp.SYSTEM_LOAD_AVERAGE));
@@ -201,10 +204,11 @@ public class VanillaJavaAppTest {
             .configure("args", ImmutableList.of()));
         app.start(ImmutableList.of(loc));
 
-        JavaAppUtils.connectJavaAppServerPolicies((EntityLocal)javaProcess);
+        JavaAppUtils.connectJavaAppServerPolicies(javaProcess);
         
         final List<Double> fractions = new CopyOnWriteArrayList<Double>();
         app.getManagementContext().getSubscriptionManager().subscribe(javaProcess, VanillaJavaApp.PROCESS_CPU_TIME_FRACTION_LAST, new SensorEventListener<Double>() {
+                @Override
                 public void onEvent(SensorEvent<Double> event) {
                     fractions.add(event.getValue());
                 }});
@@ -213,8 +217,10 @@ public class VanillaJavaAppTest {
         // Expect load to be in the right order of magnitude (to ensure we haven't got a decimal point in the wrong place etc);
         // But with multi-core could get big number; and on jenkins@releng3 we once saw [11.9, 0.6, 0.5]!
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 Iterable<Double> nonTrivialFractions = Iterables.filter(fractions, new Predicate<Double>() {
+                        @Override
                         public boolean apply(Double input) {
                             return input > 0.01;
                         }});
@@ -222,12 +228,14 @@ public class VanillaJavaAppTest {
             }});
 
         Iterable<Double> tooBigFractions = Iterables.filter(fractions, new Predicate<Double>() {
+                @Override
                 public boolean apply(Double input) {
                     return input > 50;
                 }});
         assertTrue(Iterables.isEmpty(tooBigFractions), "fractions="+fractions); 
         
         Iterable<Double> ballparkRightFractions = Iterables.filter(fractions, new Predicate<Double>() {
+                @Override
                 public boolean apply(Double input) {
                     return input > 0.01 && input < 4;
                 }});
@@ -243,7 +251,7 @@ public class VanillaJavaAppTest {
         VanillaJavaApp javaProcess = app.createAndManageChild(EntitySpec.create(VanillaJavaApp.class)
             .configure("main", main).configure("classpath", ImmutableList.of(BROOKLYN_THIS_CLASSPATH))
             .configure("args", ImmutableList.of()));
-        ((EntityLocal)javaProcess).config().set(UsesJmx.JMX_PORT, PortRanges.fromInteger(port));
+        javaProcess.config().set(UsesJmx.JMX_PORT, PortRanges.fromInteger(port));
         app.start(ImmutableList.of(loc));
 
         assertEquals(javaProcess.getAttribute(UsesJmx.JMX_PORT), (Integer)port);
@@ -257,8 +265,8 @@ public class VanillaJavaAppTest {
         final VanillaJavaApp javaProcess = app.createAndManageChild(EntitySpec.create(VanillaJavaApp.class)
             .configure("main", main).configure("classpath", ImmutableList.of(BROOKLYN_THIS_CLASSPATH))
             .configure("args", ImmutableList.of()));
-        ((EntityLocal)javaProcess).config().set(UsesJmx.JMX_PORT, PortRanges.fromInteger(port));
-        ((EntityLocal)javaProcess).config().set(UsesJmx.JMX_SSL_ENABLED, true);
+        javaProcess.config().set(UsesJmx.JMX_PORT, PortRanges.fromInteger(port));
+        javaProcess.config().set(UsesJmx.JMX_SSL_ENABLED, true);
         
         app.start(ImmutableList.of(loc));
         // will fail above if JMX can't connect, but also do some add'l checks
@@ -272,6 +280,7 @@ public class VanillaJavaAppTest {
         
         // bad cert fails
         Asserts.assertFails(new Callable<Void>() {
+            @Override
             public Void call() throws Exception {
                 new AsserterForJmxConnection(javaProcess)
                         .customizeSocketFactory(null, new FluentKeySigner("cheater").newCertificateFor("jmx-access-key", SecureKeys.newKeyPair()))
@@ -281,6 +290,7 @@ public class VanillaJavaAppTest {
 
         // bad key fails
         Asserts.assertFails(new Callable<Void>() {
+            @Override
             public Void call() throws Exception {
                 new AsserterForJmxConnection(javaProcess)
                         .customizeSocketFactory(SecureKeys.newKeyPair().getPrivate(), null)
@@ -290,6 +300,7 @@ public class VanillaJavaAppTest {
         
         // bad profile fails
         Asserts.assertFails(new Callable<Void>() {
+            @Override
             public Void call() throws Exception {
                 AsserterForJmxConnection asserter = new AsserterForJmxConnection(javaProcess);
                 asserter.putEnv("jmx.remote.profiles", JmxmpAgent.TLS_JMX_REMOTE_PROFILES);
@@ -308,7 +319,7 @@ public class VanillaJavaAppTest {
         public AsserterForJmxConnection(VanillaJavaApp e) throws MalformedURLException {
             this.entity = e;
             
-            JmxHelper jmxHelper = new JmxHelper((EntityLocal)entity);
+            JmxHelper jmxHelper = new JmxHelper(entity);
             this.url = new JMXServiceURL(jmxHelper.getUrl());
             this.env = Maps.newLinkedHashMap(jmxHelper.getConnectionEnvVars());
         }

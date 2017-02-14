@@ -379,6 +379,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
     public void testGetConfigWithDeferredSupplierReturnsSupplied() throws Exception {
         DeferredSupplier<Integer> supplier = new DeferredSupplier<Integer>() {
             volatile int next = 0;
+            @Override
             public Integer get() {
                 return next++;
             }
@@ -401,6 +402,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         entity.config().set((ConfigKey)MyOtherEntity.STRING_KEY, future);
 
         Future<String> getConfigFuture = executor.submit(new Callable<String>() {
+            @Override
             public String call() {
                 return entity.getConfig(MyOtherEntity.STRING_KEY);
             }});
@@ -421,6 +423,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
                 .configure(MyOtherEntity.STRING_KEY, task));
 
         Future<String> getConfigFuture = executor.submit(new Callable<String>() {
+            @Override
             public String call() {
                 return entity.getConfig(MyOtherEntity.STRING_KEY);
             }});
@@ -442,6 +445,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
                 .configure(MyOtherEntity.STRING_KEY, task));
 
         Future<String> getConfigFuture = executor.submit(new Callable<String>() {
+            @Override
             public String call() {
                 return entity.getConfig(MyOtherEntity.STRING_KEY);
             }});

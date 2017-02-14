@@ -114,6 +114,7 @@ public class HttpTool {
 
         // sometimes openConnection hangs, so run in background
         Future<URLConnection> f = executor.submit(new Callable<URLConnection>() {
+            @Override
             public URLConnection call() {
                 try {
                     HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
@@ -315,7 +316,7 @@ public class HttpTool {
             this.credentials = checkNotNull(val, "credentials");
             return this;
         }
-        public HttpClientBuilder credential(Optional<Credentials> val) {
+        public HttpClientBuilder credential(Optional<? extends Credentials> val) {
             if (val.isPresent()) credentials = val.get();
             return this;
         }

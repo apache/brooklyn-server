@@ -200,6 +200,7 @@ public abstract class ShellToolAbstractTest {
                 connect(localtool);
                 
                 futures.add(executor.submit(new Runnable() {
+                        @Override
                         public void run() {
                             String bigstring = Strings.repeat("abcdefghij", 1000); // 10KB
                             String out = execScript(localtool, ImmutableList.of("export MYPROP="+bigstring, "echo val is $MYPROP"));
@@ -223,6 +224,7 @@ public abstract class ShellToolAbstractTest {
                 connect(localtool);
                 
                 futures.add(executor.submit(new Runnable() {
+                        @Override
                         public void run() {
                             String bigstring = Strings.repeat("abcdefghij", 1000); // 10KB
                             String out = execScript(localtool, ImmutableList.of("sleep 2", "export MYPROP="+bigstring, "echo val is $MYPROP"));
@@ -297,6 +299,7 @@ public abstract class ShellToolAbstractTest {
                 if (i > 0) Time.sleep(delay);
                 
                 futures.add(executor.submit(new Runnable() {
+                        @Override
                         public void run() {
                             String bigstring = Strings.repeat("abcdefghij", 1000); // 10KB
                             String out = execCommands("echo "+bigstring);

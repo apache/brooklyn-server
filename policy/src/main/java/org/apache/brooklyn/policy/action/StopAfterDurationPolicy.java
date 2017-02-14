@@ -79,6 +79,7 @@ public class StopAfterDurationPolicy extends AbstractPolicy {
 
     private final Object eventLock = new Object[0];
 
+    @Override
     public void setEntity(final EntityLocal entity) {
         super.setEntity(entity);
         entity.subscriptions().subscribe(entity, Attributes.SERVICE_STATE_ACTUAL, new LifecycleListener());

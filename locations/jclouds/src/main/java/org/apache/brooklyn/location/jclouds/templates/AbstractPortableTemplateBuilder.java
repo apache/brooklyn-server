@@ -28,6 +28,7 @@ import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.domain.TemplateBuilder;
 import org.jclouds.compute.options.TemplateOptions;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
@@ -63,10 +64,13 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     private TemplateOptions options;
     /** these are extra options that we want _added_, in order, on top of the last options set */
     private List<TemplateOptions> additionalOptions = new ArrayList<TemplateOptions>();
+    @VisibleForTesting
+    protected Boolean forceCacheReload;
     
     @Override
     public T any() {
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.any(); }});
         return (T)this;
     }
@@ -75,6 +79,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T fromHardware(final Hardware hardware) {
         this.hardware = hardware;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.fromHardware(hardware); }});
         return (T)this;
     }
@@ -87,6 +92,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T fromImage(final Image image) {
         this.image = image;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.fromImage(image); }});
         return (T)this;
     }
@@ -99,6 +105,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T fromTemplate(final Template template) {
         this.template = template;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.fromTemplate(template); }});
         return (T)this;
     }
@@ -110,6 +117,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     @Override
     public T smallest() {
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.smallest(); }});
         return (T)this;
     }
@@ -117,6 +125,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     @Override
     public T fastest() {
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.fastest(); }});
         return (T)this;
     }
@@ -124,6 +133,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     @Override
     public T biggest() {
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.biggest(); }});
         return (T)this;
     }
@@ -132,6 +142,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T locationId(final String locationId) {
         this.locationId = locationId;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.locationId(locationId); }});
         return (T)this;
     }
@@ -144,6 +155,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T imageId(final String imageId) {
         this.imageId = imageId;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.imageId(imageId); }});
         return (T)this;
     }
@@ -156,6 +168,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T hardwareId(final String hardwareId) {
         this.hardwareId = hardwareId;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.hardwareId(hardwareId); }});
         return (T)this;
     }
@@ -168,6 +181,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T osNameMatches(final String osNameRegex) {
         this.osNameRegex = osNameRegex;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.osNameMatches(osNameRegex); }});
         return (T)this;
     }
@@ -180,6 +194,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T osDescriptionMatches(final String osDescriptionRegex) {
         this.osDescriptionRegex = osDescriptionRegex;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.osDescriptionMatches(osDescriptionRegex); }});
         return (T)this;
     }
@@ -192,6 +207,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T osVersionMatches(final String osVersionRegex) {
         this.osVersionRegex = osVersionRegex;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.osVersionMatches(osVersionRegex); }});
         return (T)this;
     }
@@ -204,6 +220,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T osArchMatches(final String osArchitectureRegex) {
         this.osArchitectureRegex = osArchitectureRegex;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.osArchMatches(osArchitectureRegex); }});
         return (T)this;
     }
@@ -216,6 +233,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T os64Bit(final boolean is64bit) {
         this.is64bit = is64bit;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.os64Bit(is64bit); }});
         return (T)this;
     }
@@ -228,6 +246,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T osFamily(final OsFamily os) {
         this.os = os;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.osFamily(os); }});
         return (T)this;
     }
@@ -240,6 +259,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T hypervisorMatches(final String hypervisorRegex) {
         this.hypervisorRegex = hypervisorRegex;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.hypervisorMatches(hypervisorRegex); }});
         return (T)this;
     }
@@ -252,6 +272,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T imageNameMatches(final String imageNameRegex) {
         this.imageNameRegex = imageNameRegex;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.imageNameMatches(imageNameRegex); }});
         return (T)this;
     }
@@ -264,6 +285,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T imageDescriptionMatches(final String imageDescriptionRegex) {
         this.imageDescriptionRegex = imageDescriptionRegex;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.imageDescriptionMatches(imageDescriptionRegex); }});
         return (T)this;
     }
@@ -276,6 +298,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T imageVersionMatches(final String imageVersionRegex) {
         this.imageVersionRegex = imageVersionRegex;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.imageVersionMatches(imageVersionRegex); }});
         return (T)this;
     }
@@ -288,6 +311,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T imageMatches(final Predicate<Image> condition) {
         this.imageCondition = condition;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.imageMatches(condition); }});
         return (T)this;
     }
@@ -300,6 +324,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T minCores(final double minCores) {
         this.minCores = minCores;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.minCores(minCores); }});
         return (T)this;
     }
@@ -312,6 +337,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T minRam(final int megabytes) {
         this.minRam = megabytes;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.minRam(megabytes); }});
         return (T)this;
     }
@@ -325,6 +351,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T minDisk(final double gigabytes) {
         this.minDisk = gigabytes;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.minDisk(gigabytes); }});
         return (T)this;
     }
@@ -334,9 +361,11 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
         return minDisk;
     }
 
+    @Override
     public T imageChooser(final Function<Iterable<? extends Image>, Image> imageChooserFunction) {
         this.imageChooserFunction = imageChooserFunction;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.imageChooser(imageChooserFunction); }});
         return (T)this;
     }
@@ -395,6 +424,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T options(final TemplateOptions options) {
         this.options = options;
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.options(options); }});
         return (T)this;
     }
@@ -410,6 +440,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     public T addOptions(final TemplateOptions options) {
         this.additionalOptions.add(options);
         commands.add(new Function<TemplateBuilder,TemplateBuilder>() { 
+            @Override
             public TemplateBuilder apply(TemplateBuilder b) { return b.options(options); }});
         return (T)this;
     }

@@ -86,8 +86,10 @@ public abstract class SshToolAbstractIntegrationTest extends ShellToolAbstractTe
 
     protected String remoteFilePath;
 
+    @Override
     protected SshTool tool() { return (SshTool)tool; }
     
+    @Override
     protected abstract SshTool newUnregisteredTool(Map<String,?> flags);
 
     @Override
@@ -101,6 +103,7 @@ public abstract class SshToolAbstractIntegrationTest extends ShellToolAbstractTe
     }
     
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();

@@ -68,6 +68,7 @@ public class MemoryUsageTrackerTest {
         }
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 long totalMemory = Runtime.getRuntime().totalMemory();
                 long freeMemory = Runtime.getRuntime().freeMemory();

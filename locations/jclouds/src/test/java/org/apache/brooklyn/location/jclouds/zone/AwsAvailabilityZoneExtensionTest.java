@@ -68,17 +68,16 @@ public class AwsAvailabilityZoneExtensionTest {
     @Test(groups={"Live", "Sanity"})
     public void testFindsZones() throws Exception {
         List<Location> subLocations = zoneExtension.getSubLocations(Integer.MAX_VALUE);
-        List<String> zoneNames = getRegionsOf(subLocations);
-        assertTrue(subLocations.size() >= 3, "zones="+subLocations);
-        assertTrue(zoneNames.containsAll(ImmutableList.of(REGION_NAME+"a", REGION_NAME+"b", REGION_NAME+"c")), "zoneNames="+zoneNames);
+        assertTrue(subLocations.size() >= 3, "expected at least three zones in " + subLocations);
     }
     
     @Test(groups={"Live", "Sanity"})
     public void testFiltersZones() throws Exception {
         List<Location> subLocations = zoneExtension.getSubLocationsByName(Predicates.containsPattern(REGION_NAME+"[ab]"), Integer.MAX_VALUE);
         List<String> zoneNames = getRegionsOf(subLocations);
-        assertTrue(subLocations.size() == 2, "zones="+subLocations);
-        assertTrue(zoneNames.containsAll(ImmutableList.of(REGION_NAME+"a", REGION_NAME+"b")), "zoneNames="+zoneNames);
+        assertTrue(subLocations.size() == 2, "expected two zones in " + subLocations);
+        final ImmutableList<String> expected = ImmutableList.of(REGION_NAME + "a", REGION_NAME + "b");
+        assertTrue(zoneNames.containsAll(expected), "expected result to contain " + expected + ", found zoneNames=" + zoneNames);
     }
     
     // TODO choosing a specific availability zone looks dangerous!

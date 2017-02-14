@@ -50,7 +50,7 @@ import com.google.common.base.Supplier;
  * thereafter.
  */
 @SuppressWarnings("rawtypes")
-public interface BrooklynProperties extends Map, StringConfigMap {
+public interface BrooklynProperties extends StringConfigMap {
 
     public static class Factory {
         private static final Logger LOG = LoggerFactory.getLogger(BrooklynProperties.Factory.class);
@@ -104,7 +104,7 @@ public interface BrooklynProperties extends Map, StringConfigMap {
              * Creates a Builder that when built, will return the BrooklynProperties passed to this constructor
              */
             private Builder(BrooklynProperties originalProperties) {
-                this.originalProperties = new BrooklynPropertiesImpl().addFromMap(originalProperties);
+                this.originalProperties = new BrooklynPropertiesImpl().addFromMap(originalProperties.asMapWithStringKeys());
             }
             
             /**
@@ -157,7 +157,7 @@ public interface BrooklynProperties extends Map, StringConfigMap {
             
             public BrooklynProperties build() {
                 if (originalProperties != null) 
-                    return new BrooklynPropertiesImpl().addFromMap(originalProperties);
+                    return new BrooklynPropertiesImpl().addFromMap(originalProperties.asMapWithStringKeys());
                 
                 BrooklynProperties properties = new BrooklynPropertiesImpl();
 
@@ -181,6 +181,7 @@ public interface BrooklynProperties extends Map, StringConfigMap {
             }
 
             @Override
+            @SuppressWarnings("deprecation")
             public String toString() {
                 return Objects.toStringHelper(this)
                         .omitNullValues()
@@ -282,8 +283,7 @@ public interface BrooklynProperties extends Map, StringConfigMap {
     /** like normal map.put, except config keys are dereferenced on the way in */
     public Object put(Object key, Object value);
 
-    /** like normal map.putAll, except config keys are dereferenced on the way in */
-    @Override
+    /** like normal {@link java.util.Map#putAll(Map)}, except config keys are dereferenced on the way in */
     public void putAll(Map vals);
     
     public <T> Object put(HasConfigKey<T> key, T value);
@@ -292,6 +292,21 @@ public interface BrooklynProperties extends Map, StringConfigMap {
     
     public <T> boolean putIfAbsent(ConfigKey<T> key, T value);
     
+    @Beta
+    public boolean containsKey(String key);
+
+    @Beta
+    public boolean containsKey(ConfigKey<?> key);
+
+    @Beta
+    public boolean remove(String key);
+
+    @Beta
+    public boolean remove(ConfigKey<?> key);
+
+    @Beta
+    public Object getConfig(String key);
+
     @Override
     public <T> T getConfig(ConfigKey<T> key);
 
@@ -322,6 +337,9 @@ public interface BrooklynProperties extends Map, StringConfigMap {
 
     @Override
     public BrooklynProperties submap(Predicate<ConfigKey<?>> filter);
+
+    @Beta
+    public BrooklynProperties submapByName(Predicate<? super String> filter);
 
     @Override
     public Map<String, Object> asMapWithStringKeys();

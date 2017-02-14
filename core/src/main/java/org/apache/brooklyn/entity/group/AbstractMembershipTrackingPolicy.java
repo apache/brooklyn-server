@@ -206,8 +206,13 @@ public abstract class AbstractMembershipTrackingPolicy extends AbstractPolicy {
                 }
             });
         }
-        
-        for (Entity it : group.getMembers()) { onEntityEvent(EventType.ENTITY_ADDED, it); }
+
+        // The policy will have already fired events for its members.
+        if (!isRebinding()) {
+            for (Entity it : group.getMembers()) {
+                onEntityEvent(EventType.ENTITY_ADDED, it);
+            }
+        }
     }
 
     protected void unsubscribeFromGroup() {

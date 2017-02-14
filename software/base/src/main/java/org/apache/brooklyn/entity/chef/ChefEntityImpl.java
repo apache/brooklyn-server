@@ -23,6 +23,7 @@ import org.apache.brooklyn.util.text.Strings;
 
 public class ChefEntityImpl extends EffectorStartableImpl implements ChefEntity {
 
+    @Override
     public void init() {
         String primaryName = getConfig(CHEF_COOKBOOK_PRIMARY_NAME);
         if (!Strings.isBlank(primaryName)) setDefaultDisplayName(primaryName+" (chef)");

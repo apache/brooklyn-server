@@ -141,6 +141,7 @@ public interface Task<T> extends ListenableFuture<T>, TaskAdaptable<T> {
      * TODO Fine-grained control over underlying jobs, e.g. to ensure anything represented by this task is actually completed,
      * is not (yet) publicly exposed. See the convenience method blockUntilInternalTasksEnded in the Tasks set of helpers
      * for more discussion. */
+    @Override
     public boolean cancel(boolean mayInterruptIfRunning);
     
 }

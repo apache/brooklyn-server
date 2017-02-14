@@ -256,6 +256,7 @@ public class CatalogUtils {
 
     /** @deprecated since 0.9.0 use {@link BrooklynTypeRegistry#get(String, org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind, Class)} */
     // only a handful of items remaining, and those require a CatalogItem
+    @Deprecated
     public static CatalogItem<?, ?> getCatalogItemOptionalVersion(ManagementContext mgmt, String versionedId) {
         if (versionedId == null) return null;
         if (looksLikeVersionedId(versionedId)) {
@@ -276,6 +277,7 @@ public class CatalogUtils {
 
     /** @deprecated since 0.9.0 use {@link BrooklynTypeRegistry#get(String, org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind, Class)} */
     // only a handful of items remaining, and those require a CatalogItem
+    @Deprecated
     public static <T,SpecT> CatalogItem<T, SpecT> getCatalogItemOptionalVersion(ManagementContext mgmt, Class<T> type, String versionedId) {
         if (looksLikeVersionedId(versionedId)) {
             String id = getSymbolicNameFromVersionedId(versionedId);
@@ -287,6 +289,7 @@ public class CatalogUtils {
     }
 
     /** @deprecated since it was introduced in 0.9.0; TBD where this should live */
+    @Deprecated
     public static void setDeprecated(ManagementContext mgmt, String symbolicNameAndOptionalVersion, boolean newValue) {
         RegisteredType item = mgmt.getTypeRegistry().get(symbolicNameAndOptionalVersion);
         Preconditions.checkNotNull(item, "No such item: " + symbolicNameAndOptionalVersion);
@@ -294,6 +297,7 @@ public class CatalogUtils {
     }
     
     /** @deprecated since it was introduced in 0.9.0; TBD where this should live */
+    @Deprecated
     public static void setDisabled(ManagementContext mgmt, String symbolicNameAndOptionalVersion, boolean newValue) {
         RegisteredType item = mgmt.getTypeRegistry().get(symbolicNameAndOptionalVersion);
         Preconditions.checkNotNull(item, "No such item: "+symbolicNameAndOptionalVersion);

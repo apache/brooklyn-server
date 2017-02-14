@@ -93,7 +93,7 @@ public class WindowsYamlLiveTest extends AbstractYamlTest {
         super.setUp();
         
         location = WindowsTestFixture.setUpWindowsLocation(mgmt());
-        machine = (WinRmMachineLocation) location.obtain(ImmutableMap.of());
+        machine = location.obtain(ImmutableMap.of());
         String ip = machine.getAddress().getHostAddress();
         String password = machine.config().get(WinRmMachineLocation.PASSWORD);
 

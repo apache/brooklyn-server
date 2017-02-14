@@ -122,7 +122,7 @@ public class EffectorSayHiTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testCanExcludeNonEffectorTasks() throws Exception {
         ExecutionContext executionContext = mgmt.getExecutionContext(e);
-        executionContext.submit(new BasicTask<Void>(new Runnable() { public void run() {} }));
+        executionContext.submit(new BasicTask<Void>(new Runnable() { @Override public void run() {} }));
 
         Set<Task<?>> effectTasks = mgmt.getExecutionManager().getTasksWithAllTags(ImmutableList.of(
                 BrooklynTaskTags.tagForContextEntity(e),ManagementContextInternal.EFFECTOR_TAG));

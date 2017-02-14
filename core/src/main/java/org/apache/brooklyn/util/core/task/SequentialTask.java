@@ -53,6 +53,7 @@ public class SequentialTask<T> extends CompoundTask<T> {
         super(ImmutableList.copyOf(tasks));
     }
     
+    @Override
     protected List<T> runJobs() throws InterruptedException, ExecutionException {
         setBlockingDetails("Executing "+
                 (children.size()==1 ? "1 child task" :

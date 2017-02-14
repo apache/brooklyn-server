@@ -61,10 +61,12 @@ public abstract class AbstractStructuredConfigKey<T,RawT,V> extends BasicConfigK
         return contender.toString();
     }
     
+    @Override
     public boolean acceptsKeyMatch(Object contender) {
         return (getName().equalsIgnoreCase(getKeyName(contender)));
     }
     
+    @Override
     public boolean acceptsSubkey(Object contender) {
         return contender!=null && getKeyName(contender).startsWith(getName()+".");        
     }

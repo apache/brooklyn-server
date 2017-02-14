@@ -34,11 +34,13 @@ import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
+import org.apache.brooklyn.util.internal.BrooklynSystemProperties;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.Constructor;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.error.Mark;
 import org.yaml.snakeyaml.nodes.MappingNode;
 import org.yaml.snakeyaml.nodes.Node;
@@ -53,6 +55,14 @@ import com.google.common.collect.Iterables;
 public class Yamls {
 
     private static final Logger log = LoggerFactory.getLogger(Yamls.class);
+
+    private static Yaml newYaml() {
+        return new Yaml(
+                BrooklynSystemProperties.YAML_TYPE_INSTANTIATION.isEnabled()
+                        ? new Constructor() // allows instantiation of arbitrary Java types
+                        : new SafeConstructor() // allows instantiation of limited set of types only
+        );
+    }
 
     /** returns the given (yaml-parsed) object as the given yaml type.
      * <p>
@@ -93,7 +103,7 @@ public class Yamls {
      */
     @Beta
     public static Object getAt(String yaml, List<String> path) {
-        Iterable<Object> result = new org.yaml.snakeyaml.Yaml().loadAll(yaml);
+        Iterable<Object> result = newYaml().loadAll(yaml);
         Object current = result.iterator().next();
         return getAtPreParsed(current, path);
     }
@@ -152,15 +162,15 @@ public class Yamls {
     /** simplifies new Yaml().loadAll, and converts to list to prevent single-use iterable bug in yaml */
     @SuppressWarnings("unchecked")
     public static Iterable<Object> parseAll(String yaml) {
-        Iterable<Object> result = new org.yaml.snakeyaml.Yaml().loadAll(yaml);
-        return (List<Object>) getAs(result, List.class);
+        Iterable<Object> result = newYaml().loadAll(yaml);
+        return getAs(result, List.class);
     }
 
     /** as {@link #parseAll(String)} */
     @SuppressWarnings("unchecked")
     public static Iterable<Object> parseAll(Reader yaml) {
-        Iterable<Object> result = new org.yaml.snakeyaml.Yaml().loadAll(yaml);
-        return (List<Object>) getAs(result, List.class);
+        Iterable<Object> result = newYaml().loadAll(yaml);
+        return getAs(result, List.class);
     }
 
     public static Object removeMultinameAttribute(Map<String,Object> obj, String ...equivalentNames) {
@@ -536,7 +546,7 @@ b: 1
         try {
             int pathIndex = 0;
             result.yaml = yaml;
-            result.focus = new Yaml().compose(new StringReader(yaml));
+            result.focus = newYaml().compose(new StringReader(yaml));
     
             findTextOfYamlAtPath(result, pathIndex, path);
             return result;

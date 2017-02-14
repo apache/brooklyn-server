@@ -42,11 +42,16 @@ import org.apache.brooklyn.core.test.entity.TestApplicationImpl;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelperTest;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
+import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.util.http.HttpAsserts;
+import org.apache.brooklyn.util.http.HttpTool;
+import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.methods.HttpGet;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
@@ -68,7 +73,7 @@ public class BrooklynLauncherTest {
         if (launcher != null) launcher.terminate();
         launcher = null;
     }
-    
+
     // Integration because takes a few seconds to start web-console
     @Test(groups="Integration")
     public void testStartsWebServerOnExpectectedPort() throws Exception {
@@ -100,6 +105,39 @@ public class BrooklynLauncherTest {
         
         File webappTempDir = launcher.getServerDetails().getWebServer().getWebappTempDir();
         assertEquals(webappTempDir.getAbsolutePath(), expectedTempDir);
+    }
+    
+    // Integration because takes a few seconds to start web-console
+    @Test(groups="Integration")
+    public void testStartsWebServerWithoutAuthentication() throws Exception {
+        launcher = newLauncherForTests(true)
+                .start();
+        String uri = launcher.getServerDetails().getWebServerUrl();
+        
+        HttpToolResponse response = HttpTool.execAndConsume(HttpTool.httpClientBuilder().build(), new HttpGet(uri));
+        assertEquals(response.getResponseCode(), 200);
+    }
+    
+    // Integration because takes a few seconds to start web-console
+    @Test(groups="Integration")
+    public void testStartsWebServerWithCredentials() throws Exception {
+        launcher = newLauncherForTests(true)
+                .webconsolePort("10000+")
+                .brooklynProperties(BrooklynWebConfig.USERS, "myname")
+                .brooklynProperties(BrooklynWebConfig.PASSWORD_FOR_USER("myname"), "mypassword")
+                .start();
+        String uri = launcher.getServerDetails().getWebServerUrl();
+        
+        HttpToolResponse response = HttpTool.execAndConsume(HttpTool.httpClientBuilder().build(), new HttpGet(uri));
+        assertEquals(response.getResponseCode(), 401);
+        
+        HttpToolResponse response2 = HttpTool.execAndConsume(
+                HttpTool.httpClientBuilder()
+                        .uri(uri)
+                        .credentials(new UsernamePasswordCredentials("myname", "mypassword"))
+                        .build(), 
+                new HttpGet(uri));
+        assertEquals(response2.getResponseCode(), 200);
     }
     
     @Test

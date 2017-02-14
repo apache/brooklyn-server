@@ -168,6 +168,7 @@ public class DynamicSequentialTask<T> extends BasicTask<T> implements HasTaskChi
         // returns true if anything is successfully cancelled
     }
     
+    @Override
     public boolean cancel(TaskCancellationMode mode) {
         return cancel(mode, null);
     }

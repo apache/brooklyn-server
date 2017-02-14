@@ -26,7 +26,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.effector.ParameterType;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.effector.EffectorAndBody;
 import org.apache.brooklyn.core.effector.EffectorBody;
@@ -103,6 +102,7 @@ public class JcloudsLocationReleasePortForwardingDefaultTest extends BrooklynApp
         execRelease(loc, pseudoMachine);
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 portForwarder.assertClosedEquals(ImmutableSet.of(HostAndPort.fromParts("1.1.1.1", 2000)));
             }});
@@ -124,6 +124,7 @@ public class JcloudsLocationReleasePortForwardingDefaultTest extends BrooklynApp
         execRelease(loc, pseudoMachine);
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 portForwarder.assertClosedEquals(publicEndpoints);
             }});
@@ -182,6 +183,7 @@ public class JcloudsLocationReleasePortForwardingDefaultTest extends BrooklynApp
     // inside an effector.
     private void execRelease(final JcloudsLocation loc, final JcloudsSshMachineLocation machine) throws Exception {
         EffectorBody<Void> effectorBody = new EffectorBody<Void>() {
+            @Override
             public Void call(ConfigBag parameters) {
                 loc.releasePortForwarding(machine);
                 return null;

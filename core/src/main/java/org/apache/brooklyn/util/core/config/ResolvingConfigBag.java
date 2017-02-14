@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
@@ -127,6 +128,7 @@ public class ResolvingConfigBag extends ConfigBag {
         return super.getUnusedConfig();
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     protected <T> T get(ConfigKey<T> key, boolean markUsed) {
         return (T) getTransformer().apply(super.get(key, markUsed));
@@ -155,6 +157,7 @@ public class ResolvingConfigBag extends ConfigBag {
         throw new UnsupportedOperationException();
     }
 
+    @Override
     protected synchronized Maybe<Object> getStringKeyMaybe(String key, boolean markUsed) {
         Maybe<Object> result = super.getStringKeyMaybe(key, markUsed);
         return (result.isPresent()) ? Maybe.of(getTransformer().apply(result.get())) : result;
@@ -168,5 +171,12 @@ public class ResolvingConfigBag extends ConfigBag {
     @Override
     public Map<String, Object> getAllConfigRaw() {
         return getAllConfigMutable();
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                .add("size", size())
+                .toString();
     }
 }

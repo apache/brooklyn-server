@@ -228,7 +228,7 @@ public class BashCommandsIntegrationTest {
                     "The requested file does not exist")).newTask();
 
         exec.submit(t).get();
-        assertNotEquals(t.getExitCode(), (Integer)0);
+        assertNotEquals(t.getExitCode(), 0);
         assertTrue(t.getStderr().contains("The requested file"), "Expected message in: "+t.getStderr());
         assertTrue(t.getStdout().contains("The requested file"), "Expected message in: "+t.getStdout());
     }
@@ -250,7 +250,7 @@ public class BashCommandsIntegrationTest {
             .add(BashCommands.requireFile(sourceNonExistantFile.getPath())).newTask();
 
         exec.submit(t).get();
-        assertNotEquals(t.getExitCode(), (Integer)0);
+        assertNotEquals(t.getExitCode(), 0);
         assertTrue(t.getStderr().contains("required file"), "Expected message in: "+t.getStderr());
         assertTrue(t.getStderr().contains(sourceNonExistantFile.getPath()), "Expected message in: "+t.getStderr());
         assertTrue(t.getStdout().contains("required file"), "Expected message in: "+t.getStdout());
@@ -275,7 +275,7 @@ public class BashCommandsIntegrationTest {
             .add("echo shouldnae come here").newTask();
 
         exec.submit(t).get();
-        assertNotEquals(t.getExitCode(), (Integer)0);
+        assertNotEquals(t.getExitCode(), 0);
         assertTrue(t.getStderr().contains("The requested file"), "Expected message in: "+t.getStderr());
         assertTrue(t.getStdout().contains("The requested file"), "Expected message in: "+t.getStdout());
         Assert.assertFalse(t.getStdout().contains("shouldnae"), "Expected message in: "+t.getStdout());

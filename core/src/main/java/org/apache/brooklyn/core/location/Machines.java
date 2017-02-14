@@ -23,6 +23,8 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
 
+import javax.annotation.Nonnull;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -83,9 +85,12 @@ public class Machines {
         return Maybe.fromNullable(result);
     }
 
+    @Nonnull
     @SuppressWarnings("unchecked")
     public static <T> Maybe<T> findUniqueElement(Iterable<?> items, Class<T> type) {
-        if (items==null) return null;
+        if (items == null) {
+            return Maybe.absent(new NullPointerException("Null iterable"));
+        }
         Iterator<?> i = items.iterator();
         T result = null;
         while (i.hasNext()) {

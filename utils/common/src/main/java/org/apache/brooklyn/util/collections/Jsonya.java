@@ -338,6 +338,7 @@ public class Jsonya {
                 }
                 final Function<Object, Void> previousCreation = creationInPreviousFocus;
                 creationInPreviousFocus = new Function<Object, Void>() {
+                    @Override
                     public Void apply(Object input) {
                         creationInPreviousFocus = null;
                         Map parentMap = givenParentMap;
@@ -369,6 +370,7 @@ public class Jsonya {
                 // TODO a nicer architecture would create a new object with focus for each traversal
                 // in that case we could create, filling other positions with null; but is there a need?
                 creationInPreviousFocus = new Function<Object, Void>() {
+                    @Override
                     public Void apply(Object input) {
                         throw new IllegalStateException("cannot create "+input+" here because we are at a non-existent position in a list");
                     }

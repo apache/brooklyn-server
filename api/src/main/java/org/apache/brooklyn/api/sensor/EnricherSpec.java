@@ -65,6 +65,7 @@ public class EnricherSpec<T extends Enricher> extends AbstractBrooklynObjectSpec
         super(type);
     }
     
+    @Override
     protected void checkValidType(Class<? extends T> type) {
         checkIsImplementation(type, Enricher.class);
         checkIsNewStyleImplementation(type);
@@ -82,6 +83,7 @@ public class EnricherSpec<T extends Enricher> extends AbstractBrooklynObjectSpec
             super(type);
         }
 
+        @Override
         @SuppressWarnings("unchecked")
         protected K self() {
             // we override the AbstractBrooklynObjectSpec method -- it's a different K here because

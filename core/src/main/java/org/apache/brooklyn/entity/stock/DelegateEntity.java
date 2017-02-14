@@ -49,7 +49,7 @@ public interface DelegateEntity extends Entity {
             @Override
             public String apply(Entity input) {
                 if (input==null) return null;
-                Entity entity = (Entity) input;
+                Entity entity = input;
                 String url = String.format("#/v1/applications/%s/entities/%s", entity.getApplicationId(), entity.getId());
                 return url;
             }

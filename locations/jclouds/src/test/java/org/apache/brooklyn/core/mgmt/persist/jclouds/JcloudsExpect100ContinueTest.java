@@ -22,6 +22,8 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.location.jclouds.BlobStoreContextFactoryImpl;
+import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.jclouds.blobstore.BlobStore;
 import org.jclouds.blobstore.BlobStoreContext;
@@ -30,8 +32,6 @@ import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.location.jclouds.JcloudsLocation;
-import org.apache.brooklyn.location.jclouds.JcloudsUtil;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -60,11 +60,9 @@ public class JcloudsExpect100ContinueTest {
 
         mgmt = new LocalManagementContextForTests(BrooklynProperties.Factory.newDefault());
         JcloudsLocation jcloudsLocation = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged(LOCATION_SPEC);
-        context = JcloudsUtil.newBlobstoreContext(
-                jcloudsLocation.getProvider(),
-                jcloudsLocation.getEndpoint(),
-                jcloudsLocation.getIdentity(),
-                jcloudsLocation.getCredential());
+        
+        context = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(jcloudsLocation.config().getBag());
+
         containerName = BlobStoreTest.CONTAINER_PREFIX+"-"+Identifiers.makeRandomId(8);
         context.getBlobStore().createContainerInLocation(null, containerName);
     }

@@ -110,6 +110,7 @@ public class ScriptHelperTest extends BrooklynAppUnitTestSupport {
                 .poll(new FunctionPollConfig<Boolean, Boolean>(SERVICE_PROCESS_IS_RUNNING)
                     .onException(Functions.constant(Boolean.FALSE))
                     .callable(new Callable<Boolean>() {
+                        @Override
                         public Boolean call() {
                             return getDriver().isRunning();
                         }

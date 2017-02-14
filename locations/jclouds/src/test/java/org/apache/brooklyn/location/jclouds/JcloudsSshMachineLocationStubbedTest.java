@@ -52,6 +52,7 @@ public class JcloudsSshMachineLocationStubbedTest extends AbstractJcloudsStubbed
     private List<String> privateAddresses;
     private List<String> publicAddresses;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
@@ -60,6 +61,7 @@ public class JcloudsSshMachineLocationStubbedTest extends AbstractJcloudsStubbed
         initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
     }
     
+    @Override
     protected NodeCreator newNodeCreator() {
         return new AbstractNodeCreator() {
             @Override protected NodeMetadata newNode(String group, Template template) {

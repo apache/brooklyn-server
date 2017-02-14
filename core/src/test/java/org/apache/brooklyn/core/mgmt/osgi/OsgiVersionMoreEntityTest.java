@@ -124,7 +124,7 @@ public class OsgiVersionMoreEntityTest {
             Class<? extends Entity> bundleInterface = (Class<? extends Entity>) bundle.loadClass("org.apache.brooklyn.test.osgi.entities.SimpleEntity");
 
             @SuppressWarnings("unchecked")
-            EntitySpec<Entity> spec = (EntitySpec<Entity>) (((EntitySpec<Entity>)EntitySpec.create(bundleInterface))).impl(bundleCls);
+            EntitySpec<Entity> spec = (((EntitySpec<Entity>)EntitySpec.create(bundleInterface))).impl(bundleCls);
             Entity entity = bundleCls.newInstance();
             factory.createEntityProxy(spec, entity);
 

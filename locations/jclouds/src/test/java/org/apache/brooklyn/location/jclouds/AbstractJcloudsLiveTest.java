@@ -144,7 +144,14 @@ public class AbstractJcloudsLiveTest {
     }
 
     protected void assertWinrmable(WinRmMachineLocation machine) {
-        WinRmToolResponse result = machine.executeCommand(ImmutableList.of("echo mySimpleWinrmCmd"));
+        // Assumes that tests are letting Brooklyn or the cloud auto-generate the password, so ok to log it.
+        // If the assertion fails, we want to know that it had a plausible-looking password etc.
+        WinRmToolResponse result;
+        try {
+            result = machine.executeCommand(ImmutableList.of("echo mySimpleWinrmCmd"));
+        } catch (Exception e) {
+            throw new RuntimeException("Error executing WinRM command on " + machine + " with config " + machine.config().getAllLocalRaw(), e);
+        }
         assertEquals(result.getStatusCode(), 0, "stdout="+result.getStdOut()+"; stderr="+result.getStdErr());
     }
 

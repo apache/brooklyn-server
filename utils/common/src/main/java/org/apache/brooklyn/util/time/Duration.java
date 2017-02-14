@@ -217,8 +217,17 @@ public class Duration implements Comparable<Duration>, Serializable {
             }
         };
 
-    /** tries to convert given object to a Duration, parsing strings, treating numbers as millis, etc;
-     * throws IAE if not convertible */
+    /**
+     * Converts the given object to a Duration by attempting the following in order:
+     * <ol>
+     *     <li>return null if the object is null</li>
+     *     <li>{@link #parse(String) parse} the object as a string</li>
+     *     <li>treat numbers as milliseconds</li>
+     *     <li>obtain the elapsed time of a {@link Stopwatch}</li>
+     *     <li>invoke the object's <code>toMilliseconds</code> method, if one exists.</li>
+     * </ol>
+     * If none of these cases work the method throws an {@link IllegalArgumentException}.
+     */
     public static Duration of(Object o) {
         if (o == null) return null;
         if (o instanceof Duration) return (Duration)o;

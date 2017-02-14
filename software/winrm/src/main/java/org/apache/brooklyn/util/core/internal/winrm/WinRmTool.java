@@ -19,7 +19,6 @@
 package org.apache.brooklyn.util.core.internal.winrm;
 
 import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKey;
-import static org.apache.brooklyn.core.config.ConfigKeys.newIntegerConfigKey;
 import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
 
 import java.io.InputStream;
@@ -28,7 +27,6 @@ import java.util.List;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;

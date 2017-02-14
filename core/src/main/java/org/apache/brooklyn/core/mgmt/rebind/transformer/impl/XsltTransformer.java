@@ -45,6 +45,7 @@ public class XsltTransformer implements RawDataTransformer {
         this.xsltContent = xsltContent;
     }
     
+    @Override
     public String transform(String input) throws IOException, URISyntaxException, TransformerException {
         // stream source is single-use
         StreamSource xslt = new StreamSource(new ByteArrayInputStream(xsltContent.getBytes()));

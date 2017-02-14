@@ -94,7 +94,7 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
     private LookupContext lookupContext;
     
     public XmlMementoSerializer(ClassLoader classLoader) {
-        this(classLoader, DeserializingClassRenamesProvider.loadDeserializingClassRenames());
+        this(classLoader, DeserializingClassRenamesProvider.INSTANCE.loadDeserializingMapping());
     }
     
     public XmlMementoSerializer(ClassLoader classLoader, Map<String, String> deserializingClassRenames) {

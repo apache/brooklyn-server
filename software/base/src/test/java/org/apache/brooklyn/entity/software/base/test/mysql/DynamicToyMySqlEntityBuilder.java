@@ -28,12 +28,9 @@ import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.OsDetails;
 import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.entity.Attributes;
-import org.apache.brooklyn.core.location.BasicOsDetails.OsVersions;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks;
 import org.apache.brooklyn.entity.stock.BasicStartable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation.LocalhostMachine;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
@@ -41,9 +38,10 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ssh.SshTasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.ssh.BashCommands;
-import org.apache.brooklyn.util.text.ComparableVersion;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
@@ -101,6 +99,7 @@ public class DynamicToyMySqlEntityBuilder {
     }
 
     public static class MySqlEntityInitializer implements EntityInitializer {
+        @Override
         public void apply(final EntityLocal entity) {
           new MachineLifecycleEffectorTasks() {
             @Override
@@ -124,6 +123,7 @@ public class DynamicToyMySqlEntityBuilder {
                         ).summary("setup and run mysql").returning(SshTasks.returningStdoutLoggingInfo(log, true)));
                 return "submitted start";
             }
+            @Override
             protected void postStartCustom() {
                 // if it's still up after 5s assume we are good
                 Time.sleep(Duration.FIVE_SECONDS);
@@ -150,6 +150,7 @@ public class DynamicToyMySqlEntityBuilder {
                 // Really should set this with a Feed that checks pid periodically.
                 // Should this instead be using SERVICE_NOT_UP_INDICATORS?
                 entity().sensors().set(Attributes.SERVICE_UP, true);
+                super.postStartCustom();
             }
 
             @Override

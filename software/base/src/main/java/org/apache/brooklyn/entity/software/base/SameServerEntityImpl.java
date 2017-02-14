@@ -21,8 +21,6 @@ package org.apache.brooklyn.entity.software.base;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Collection;
-import java.util.List;
-
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.AbstractEntity;
@@ -60,7 +58,9 @@ public class SameServerEntityImpl extends AbstractEntity implements SameServerEn
         if (DynamicTasks.getTaskQueuingContext() != null) {
             doRestart(ConfigBag.EMPTY);
         } else {
-            Task<?> task = Tasks.builder().displayName("restart").body(new Runnable() { public void run() { doRestart(ConfigBag.EMPTY); } }).build();
+            Task<?> task = Tasks.builder().displayName("restart").body(new Runnable() {
+                @Override public void run() { doRestart(ConfigBag.EMPTY); }
+            }).build(); 
             Entities.submit(this, task).getUnchecked();
         }
     }
@@ -79,7 +79,9 @@ public class SameServerEntityImpl extends AbstractEntity implements SameServerEn
         if (DynamicTasks.getTaskQueuingContext() != null) {
             doStart(locations);
         } else {
-            Task<?> task = Tasks.builder().displayName("start").body(new Runnable() { public void run() { doStart(locations); } }).build();
+            Task<?> task = Tasks.builder().displayName("start").body(new Runnable() {
+                @Override public void run() { doStart(locations); }
+            }).build();
             Entities.submit(this, task).getUnchecked();
         }
     }
@@ -94,7 +96,9 @@ public class SameServerEntityImpl extends AbstractEntity implements SameServerEn
         if (DynamicTasks.getTaskQueuingContext() != null) {
             doStop();
         } else {
-            Task<?> task = Tasks.builder().displayName("stop").body(new Runnable() { public void run() { doStop(); } }).build();
+            Task<?> task = Tasks.builder().displayName("stop").body(new Runnable() {
+                @Override public void run() { doStop(); }
+            }).build();
             Entities.submit(this, task).getUnchecked();
         }
     }

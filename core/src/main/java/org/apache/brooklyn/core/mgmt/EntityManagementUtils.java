@@ -175,7 +175,7 @@ public class EntityManagementUtils {
 
         final List<Entity> children = MutableList.of();
         for (EntitySpec<?> spec: specs) {
-            Entity child = (Entity)parent.addChild(spec);
+            Entity child = parent.addChild(spec);
             children.add(child);
         }
 

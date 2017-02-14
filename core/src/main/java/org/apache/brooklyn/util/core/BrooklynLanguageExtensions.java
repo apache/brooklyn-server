@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 
 /** @deprecated since 0.7.0 use {@link BrooklynInitialization} */
+@Deprecated
 public class BrooklynLanguageExtensions {
 
     private BrooklynLanguageExtensions() {}

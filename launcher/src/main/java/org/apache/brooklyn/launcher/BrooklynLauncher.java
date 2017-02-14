@@ -20,7 +20,6 @@ package org.apache.brooklyn.launcher;
 
 import java.io.Closeable;
 import java.net.InetAddress;
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +31,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.config.ConfigPredicates;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.PortRanges;
@@ -46,7 +46,6 @@ import org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelper;
 import org.apache.brooklyn.launcher.config.StopWhichAppsOnShutdown;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
-import org.apache.brooklyn.rest.security.provider.BrooklynUserWithRandomPasswordSecurityProvider;
 import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.FatalRuntimeException;
@@ -123,7 +122,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
     }
 
     public BrooklynLauncher installSecurityFilter(Boolean val) {
-        this.skipSecurityFilter = val == null ? null : !val;
+        this.skipSecurityFilter = (val == null ? null : !val);
         return this;
     }
 
@@ -283,31 +282,32 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
         // The security provider will let anyone in, but still require a password to be entered.
         // Skip password request dialog if we know the provider will let users through.
         boolean anyoneSecurityProvider = AnyoneSecurityProvider.class.getName().equals(securityProvider);
+        boolean noSecurityOptions = BrooklynWebConfig.hasNoSecurityOptions(managementContext.getConfig());
+        boolean skipSecurity = Boolean.TRUE.equals(skipSecurityFilter) || anyoneSecurityProvider || noSecurityOptions;
 
         // No security options in properties and no command line options overriding.
-        if (Boolean.TRUE.equals(skipSecurityFilter) && bindAddress==null) {
-            LOG.info("Starting Brooklyn web-console on loopback because security is explicitly disabled and no bind address specified");
-            bindAddress = Networking.LOOPBACK;
-        } else if (BrooklynWebConfig.hasNoSecurityOptions(managementContext.getConfig())) {
-            LOG.info("No security provider options specified. Define a security provider or users to prevent a random password being created and logged.");
-            
-            if (bindAddress==null) {
-                LOG.info("Starting Brooklyn web-console with passwordless access on localhost and protected access from any other interfaces (no bind address specified)");
+        if (Boolean.TRUE.equals(skipSecurityFilter)) {
+            if (bindAddress == null) {
+                LOG.info("Starting Brooklyn web-console with security explicitly disabled, on loopback because no bind address specified");
+                bindAddress = Networking.LOOPBACK;
             } else {
-                if (Arrays.equals(new byte[] { 127, 0, 0, 1 }, bindAddress.getAddress())) { 
-                    LOG.info("Starting Brooklyn web-console with passwordless access on localhost");
-                } else if (Arrays.equals(new byte[] { 0, 0, 0, 0 }, bindAddress.getAddress())) { 
-                    LOG.info("Starting Brooklyn web-console with passwordless access on localhost and random password (logged) required from any other interfaces");
-                } else { 
-                    LOG.info("Starting Brooklyn web-console with passwordless access on localhost (if permitted) and random password (logged) required from any other interfaces");
-                }
+                LOG.info("Starting Brooklyn web-console with security explicitly disabled, on bind address {}", bindAddress.getHostAddress());
             }
-            brooklynProperties.put(
-                    BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE,
-                    new BrooklynUserWithRandomPasswordSecurityProvider(managementContext));
+
+        } else if (anyoneSecurityProvider) {
+            String bindAddressMsg = (bindAddress == null ? "<any>" : bindAddress.getHostAddress());
+            LOG.info("Starting Brooklyn web-console with AnyoneSecurityProvider (no authentication), on bind address {}", bindAddressMsg);
+            
+        } else if (noSecurityOptions) {
+            String bindAddressMsg = (bindAddress == null ? "<any>" : bindAddress.getHostAddress());
+            LOG.info("Starting Brooklyn web-console with no security options (defaulting to no authentication), on bind address {}", bindAddressMsg);
+
         } else {
-            LOG.debug("Starting Brooklyn using security properties: "+brooklynProperties.submap(ConfigPredicates.nameStartsWith(BrooklynWebConfig.BASE_NAME_SECURITY)).asMapWithStringKeys());
+            String bindAddressMsg = (bindAddress == null ? "<any>" : bindAddress.getHostAddress());
+            Map<?,?> securityProps = brooklynProperties.submap(ConfigPredicates.nameStartsWith(BrooklynWebConfig.BASE_NAME_SECURITY)).asMapWithStringKeys();
+            LOG.debug("Starting Brooklyn (bind address {}), using security properties: {}", bindAddressMsg, Sanitizer.sanitize(securityProps));
         }
+        
         if (bindAddress == null) bindAddress = Networking.ANY_NIC;
 
         LOG.debug("Starting Brooklyn web-console with bindAddress "+bindAddress+" and properties "+brooklynProperties);
@@ -318,8 +318,8 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
             if (port!=null) webServer.setPort(port);
             if (useHttps!=null) webServer.setHttpsEnabled(useHttps);
             webServer.setShutdownHandler(shutdownHandler);
-            webServer.putAttributes(brooklynProperties);
-            webServer.skipSecurity(Boolean.TRUE.equals(skipSecurityFilter) || anyoneSecurityProvider);
+            webServer.putAttributes(brooklynProperties.asMapWithStringKeys());
+            webServer.skipSecurity(skipSecurity);
             for (WebAppContextProvider webapp : webApps) {
                 webServer.addWar(webapp);
             }
@@ -340,6 +340,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
         super.startBrooklynNode();
     }
 
+    @Override
     protected EntitySpec<LocalBrooklynNode> customizeBrooklynNodeSpec(EntitySpec<LocalBrooklynNode> brooklynNodeSpec) {
         return brooklynNodeSpec
                 .configure(SoftwareProcess.RUN_DIR, System.getenv("ROOT"))
@@ -351,6 +352,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
                 .configure(BrooklynNode.NO_WEB_CONSOLE_AUTHENTICATION, Boolean.TRUE.equals(skipSecurityFilter));
     }
 
+    @Override
     protected void startApps() {
         if ((stopWhichAppsOnShutdown==StopWhichAppsOnShutdown.ALL) ||
             (stopWhichAppsOnShutdown==StopWhichAppsOnShutdown.ALL_IF_NOT_PERSISTED && getPersistMode()==PersistMode.DISABLED)) {

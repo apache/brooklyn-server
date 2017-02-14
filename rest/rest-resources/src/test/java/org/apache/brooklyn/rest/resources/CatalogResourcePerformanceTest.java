@@ -145,6 +145,7 @@ public class CatalogResourcePerformanceTest extends BrooklynRestResourcePerforma
         runPerformanceTest(
                 "CatalogResourcePerformanceTest."+methodName, 
                 new Function<WebClient, Void>() {
+                    @Override
                     public Void apply(WebClient client) {
                         List<?> result = client.path(urlPath).get(returnType);
                         assertTrue(result.size() > 0, "size="+result.size());
@@ -156,6 +157,7 @@ public class CatalogResourcePerformanceTest extends BrooklynRestResourcePerforma
         runPerformanceTest(
                 "CatalogResourcePerformanceTest."+methodName, 
                 new Function<WebClient, Void>() {
+                    @Override
                     public Void apply(WebClient client) {
                         Object result = client.path(urlPath).get(returnType);
                         assertNotNull(result);
@@ -174,10 +176,12 @@ public class CatalogResourcePerformanceTest extends BrooklynRestResourcePerforma
                 .iterations(numIterations)
                 .minAcceptablePerSecond(minRatePerSec)
                 .preJob(new Runnable() {
+                    @Override
                     public void run() {
                         client.set(client());
                     }})
                 .job(new Runnable() {
+                    @Override
                     public void run() {
                         job.apply(client.get());
                     }}));

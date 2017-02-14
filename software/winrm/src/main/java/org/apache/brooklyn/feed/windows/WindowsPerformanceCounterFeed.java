@@ -110,14 +110,14 @@ public class WindowsPerformanceCounterFeed extends AbstractFeed {
     }
 
     public static class Builder {
-        private EntityLocal entity;
+        private Entity entity;
         private Set<WindowsPerformanceCounterPollConfig<?>> polls = Sets.newLinkedHashSet();
         private Duration period = Duration.of(30, TimeUnit.SECONDS);
         private String uniqueTag;
         private volatile boolean built;
 
         public Builder entity(Entity val) {
-            this.entity = (EntityLocal) checkNotNull(val, "entity");
+            this.entity = checkNotNull(val, "entity");
             return this;
         }
         public Builder addSensor(WindowsPerformanceCounterPollConfig<?> config) {
@@ -150,7 +150,7 @@ public class WindowsPerformanceCounterFeed extends AbstractFeed {
         public WindowsPerformanceCounterFeed build() {
             built = true;
             WindowsPerformanceCounterFeed result = new WindowsPerformanceCounterFeed(this);
-            result.setEntity(checkNotNull(entity, "entity"));
+            result.setEntity(checkNotNull((EntityLocal)entity, "entity"));
             result.start();
             return result;
         }
@@ -235,6 +235,7 @@ public class WindowsPerformanceCounterFeed extends AbstractFeed {
         }
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     protected Poller<WinRmToolResponse> getPoller() {
         return (Poller<WinRmToolResponse>) super.getPoller();
@@ -249,9 +250,9 @@ public class WindowsPerformanceCounterFeed extends AbstractFeed {
      */
     private static class CallInEntityExecutionContext<T> implements Callable<T> {
         private final Callable<T> job;
-        private EntityLocal entity;
+        private Entity entity;
 
-        private CallInEntityExecutionContext(EntityLocal entity, Callable<T> job) {
+        private CallInEntityExecutionContext(Entity entity, Callable<T> job) {
             this.job = job;
             this.entity = entity;
         }
@@ -265,12 +266,12 @@ public class WindowsPerformanceCounterFeed extends AbstractFeed {
 
     @VisibleForTesting
     static class SendPerfCountersToSensors implements PollHandler<WinRmToolResponse> {
-        private final EntityLocal entity;
+        private final Entity entity;
         private final List<WindowsPerformanceCounterPollConfig<?>> polls;
         private final Set<AttributeSensor<?>> failedAttributes = Sets.newLinkedHashSet();
         private static final Pattern MACHINE_NAME_LOOKBACK_PATTERN = Pattern.compile(String.format("(?<=\\\\\\\\.{0,%d})\\\\.*", OUTPUT_COLUMN_WIDTH));
         
-        public SendPerfCountersToSensors(EntityLocal entity, Collection<WindowsPerformanceCounterPollConfig<?>> polls) {
+        public SendPerfCountersToSensors(Entity entity, Collection<WindowsPerformanceCounterPollConfig<?>> polls) {
             this.entity = entity;
             this.polls = ImmutableList.copyOf(polls);
         }

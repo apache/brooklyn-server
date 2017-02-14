@@ -42,7 +42,6 @@ import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.NodeCr
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
-import org.jclouds.compute.domain.ComputeMetadata;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadata.Status;
 import org.jclouds.compute.domain.NodeMetadataBuilder;
@@ -82,6 +81,7 @@ public class JcloudsByonLocationResolverStubbedRebindTest extends AbstractJcloud
     protected Application newApp;
     protected ManagementContext newManagementContext;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         mementoDir = Os.newTempDir(getClass());
@@ -97,6 +97,7 @@ public class JcloudsByonLocationResolverStubbedRebindTest extends AbstractJcloud
         initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
     }
 
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         super.tearDown();
@@ -113,12 +114,13 @@ public class JcloudsByonLocationResolverStubbedRebindTest extends AbstractJcloud
         origManagementContext = null;
     }
 
+    @Override
     protected NodeCreator newNodeCreator() {
         return new NodeCreatorForRebinding();
     }
     public static class NodeCreatorForRebinding extends AbstractNodeCreator {
         @Override
-        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<ComputeMetadata> filter) {
+        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<? super NodeMetadata> filter) {
             NodeMetadata result = new NodeMetadataBuilder()
                     .id(nodeId)
                     .credentials(LoginCredentials.builder().identity("dummy").credential("dummy").build())

@@ -95,11 +95,15 @@ public interface Attributes {
             UserAndHostAndPort.class, 
             "host.winrmAddress", 
             "user@host:port for WinRM'ing (or null if inappropriate)");
-    AttributeSensor<String> SUBNET_HOSTNAME = Sensors.newStringSensor( "host.subnet.hostname", "Host name as known internally in " +
-            "the subnet where it is running (if different to host.name)");
-    AttributeSensor<String> SUBNET_ADDRESS = Sensors.newStringSensor( "host.subnet.address", "Host address as known internally in " +
-            "the subnet where it is running (if different to host.name)");
+    AttributeSensor<String> SUBNET_HOSTNAME = Sensors.newStringSensor(
+            "host.subnet.hostname",
+            "Host name as known internally in the subnet where it is running (if different to host.name)");
+    AttributeSensor<String> SUBNET_ADDRESS = Sensors.newStringSensor(
+            "host.subnet.address",
+            "Host address as known internally in the subnet where it is running (if different to host.name)");
 
+    /** @deprecated since 0.11.0 without replacement */
+    @Deprecated
     AttributeSensor<String> HOST_AND_PORT = Sensors.newStringSensor( "hostandport", "host:port" );
 
     /*
@@ -134,10 +138,6 @@ public interface Attributes {
     AttributeSensor<Lifecycle.Transition> SERVICE_STATE_EXPECTED = Sensors.newSensor(Lifecycle.Transition.class,
             "service.state.expected", "Last controlled change to service state, indicating what the expected state should be");
     
-    /** @deprecated since 0.7.0 use {@link #SERVICE_STATE_ACTUAL} or {@link #SERVICE_STATE_EXPECTED} as appropriate. */
-    @Deprecated
-    AttributeSensor<Lifecycle> SERVICE_STATE = SERVICE_STATE_ACTUAL;
-
     /*
      * Other metadata (optional)
      */

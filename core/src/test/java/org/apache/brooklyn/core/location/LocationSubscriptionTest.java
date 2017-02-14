@@ -20,7 +20,6 @@ package org.apache.brooklyn.core.location;
 
 import static org.testng.Assert.assertEquals;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
 import org.apache.brooklyn.core.entity.Entities;

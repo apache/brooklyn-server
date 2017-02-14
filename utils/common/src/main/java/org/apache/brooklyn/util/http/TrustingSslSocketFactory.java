@@ -67,6 +67,7 @@ public class TrustingSslSocketFactory extends SSLSocketFactory {
     
     /** trusts all SSL certificates */
     public static final TrustManager TRUST_ALL = new X509TrustManager() {
+        @Override
         public X509Certificate[] getAcceptedIssuers() {
             return new X509Certificate[0];
         }

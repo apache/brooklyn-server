@@ -59,7 +59,7 @@ public class TestHttpServer {
         return this;
     }
 
-    public TestHttpServer requestInterceptors(List<HttpResponseInterceptor> interceptors) {
+    public TestHttpServer responseInterceptors(List<HttpResponseInterceptor> interceptors) {
         checkNotStarted();
         this.responseInterceptors = interceptors;
         return this;
@@ -71,7 +71,7 @@ public class TestHttpServer {
         return this;
     }
 
-    public TestHttpServer responseInterceptors(List<HttpRequestInterceptor> interceptors) {
+    public TestHttpServer requestInterceptors(List<HttpRequestInterceptor> interceptors) {
         checkNotStarted();
         this.requestInterceptors = interceptors;
         return this;

@@ -82,6 +82,7 @@ public class JcloudsRebindStubUnitTest extends RebindTestFixtureWithApp {
     protected NodeCreator nodeCreator;
     protected ComputeServiceRegistry computeServiceRegistry;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
@@ -91,6 +92,7 @@ public class JcloudsRebindStubUnitTest extends RebindTestFixtureWithApp {
         machines = Multimaps.synchronizedMultimap(ArrayListMultimap.<ManagementContext, JcloudsSshMachineLocation>create());
     }
 
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         try {

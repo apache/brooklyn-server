@@ -278,6 +278,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         return subPathData;
     }
     
+    @Override
     public BrooklynMementoRawData loadMementoRawData(final RebindExceptionHandler exceptionHandler) {
         BrooklynMementoRawData subPathData = listMementoSubPathsAsData(exceptionHandler);
         
@@ -447,6 +448,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                 this.type = type;
                 this.objectIdAndData = objectIdAndData;
             }
+            @Override
             public void run() {
                 try {
                     visitor.visit(type, objectIdAndData.getKey(), objectIdAndData.getValue());
@@ -674,6 +676,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
 
     private ListenableFuture<?> asyncPersist(final String subPath, final Memento memento, final PersistenceExceptionHandler exceptionHandler) {
         return executor.submit(new Runnable() {
+            @Override
             public void run() {
                 persist(subPath, memento, exceptionHandler);
             }});
@@ -681,6 +684,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
 
     private ListenableFuture<?> asyncPersist(final String subPath, final BrooklynObjectType type, final String id, final String content, final PersistenceExceptionHandler exceptionHandler) {
         return executor.submit(new Runnable() {
+            @Override
             public void run() {
                 persist(subPath, type, id, content, exceptionHandler);
             }});
@@ -688,6 +692,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
 
     private ListenableFuture<?> asyncDelete(final String subPath, final String id, final PersistenceExceptionHandler exceptionHandler) {
         return executor.submit(new Runnable() {
+            @Override
             public void run() {
                 delete(subPath, id, exceptionHandler);
             }});

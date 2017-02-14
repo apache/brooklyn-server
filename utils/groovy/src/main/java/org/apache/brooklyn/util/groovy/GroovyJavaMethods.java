@@ -22,6 +22,7 @@ import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.util.concurrent.CallableFromRunnable;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.codehaus.groovy.runtime.ScriptBytecodeAdapter;
 import org.codehaus.groovy.runtime.callsite.CallSite;
 import org.codehaus.groovy.runtime.callsite.CallSiteArray;
@@ -65,7 +66,7 @@ public class GroovyJavaMethods {
     @SuppressWarnings("unchecked")
     public static <T> Callable<T> callableFromRunnable(final Runnable job) {
         try {
-            if (ScriptBytecodeAdapter.isCase(job, Callable.class)) {
+            if (safeGroovyIsCase(job, Callable.class)) {
                 return (Callable<T>)ScriptBytecodeAdapter.asType(job, Callable.class);
             } else {
                 return CallableFromRunnable.newInstance(job, null);
@@ -73,6 +74,20 @@ public class GroovyJavaMethods {
         } catch (Throwable e) {
             throw Exceptions.propagate(e);
         }
+    }
+
+    /**
+     * Alternative implementation of {@link ScriptBytecodeAdapter#isCase(Object, Object)}<br>
+     * Stripped down to work only for caseExpression of type <code>java.lang.Class</code>.<br>
+     * It behaves the same way only for cases when caseExpression <code>java.lang.Class</code> does <b>not</b> implement <code>isCase</code> method.<br>
+     * It goes directly to {@link DefaultGroovyMethods#isCase(Object, Object)} method instead of using Groovy dynamic invocation.<br>
+     * This saves extra operations and avoids the locks used in Groovy dynamic invocation. See <a href="https://issues.apache.org/jira/browse/BROOKLYN-424">BROOKLYN-424</a>.
+     */
+    public static boolean safeGroovyIsCase(Object switchValue, Class caseExpression) {
+        if (caseExpression == null) {
+            return switchValue == null;
+        }
+        return DefaultGroovyMethods.isCase(caseExpression, switchValue);
     }
 
     public static <T> Predicate<T> predicateFromClosure(final Closure<Boolean> job) {
@@ -96,7 +111,7 @@ public class GroovyJavaMethods {
     @SuppressWarnings("unchecked")
     public static <T> Predicate<T> castToPredicate(Object o) {
         try {
-            if (ScriptBytecodeAdapter.isCase(o, Closure.class)) {
+            if (safeGroovyIsCase(o, Closure.class)) {
                 return predicateFromClosure((Closure<Boolean>)o);
             } else {
                 return (Predicate<T>) o;
@@ -111,7 +126,7 @@ public class GroovyJavaMethods {
         try {
             if (ScriptBytecodeAdapter.compareEqual(o, null)) {
                 return (Closure<T>)ScriptBytecodeAdapter.castToType(o, Closure.class);
-            } else if (ScriptBytecodeAdapter.isCase(o, Closure.class)) {
+            } else if (safeGroovyIsCase(o, Closure.class)) {
                 return (Closure<T>)ScriptBytecodeAdapter.castToType(o, Closure.class);
             } else if (o instanceof Runnable) {
                 return closureFromRunnable((Runnable)ScriptBytecodeAdapter.createPojoWrapper(ScriptBytecodeAdapter.castToType(o, Runnable.class), Runnable.class));
@@ -173,7 +188,7 @@ public class GroovyJavaMethods {
     @SuppressWarnings("unchecked")
     public static <T> T fix(Object o) {
         try {
-            if (ScriptBytecodeAdapter.isCase(o, GString.class)) {
+            if (safeGroovyIsCase(o, GString.class)) {
                 return (T)ScriptBytecodeAdapter.asType(o, String.class);
             } else {
                 return (T)o;

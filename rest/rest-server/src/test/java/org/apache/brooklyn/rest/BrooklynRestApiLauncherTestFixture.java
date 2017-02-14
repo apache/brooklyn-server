@@ -114,6 +114,7 @@ public abstract class BrooklynRestApiLauncherTestFixture {
     }
     
     /** @deprecated since 0.9.0 use {@link #getBaseUriHostAndPost(Server)} or {@link #getBaseUriRest(Server)} */
+    @Deprecated
     public static String getBaseUri(Server server) {
         return getBaseUriHostAndPost(server);
     }

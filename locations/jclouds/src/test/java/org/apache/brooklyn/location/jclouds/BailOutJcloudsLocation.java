@@ -169,10 +169,10 @@ public class BailOutJcloudsLocation extends JcloudsLocation {
      */
     public static BailOutJcloudsLocation newBailOutJcloudsLocationForLiveTest(LocalManagementContext mgmt, Map<ConfigKey<?>, ?> config) {
         BrooklynProperties brooklynProperties = mgmt.getBrooklynProperties();
-        String identity = (String) brooklynProperties.get("brooklyn.location.jclouds.aws-ec2.identity");
-        if (identity == null) identity = (String) brooklynProperties.get("brooklyn.jclouds.aws-ec2.identity");
-        String credential = (String) brooklynProperties.get("brooklyn.location.jclouds.aws-ec2.credential");
-        if (credential == null) credential = (String) brooklynProperties.get("brooklyn.jclouds.aws-ec2.credential");
+        String identity = (String) brooklynProperties.getConfig("brooklyn.location.jclouds.aws-ec2.identity");
+        if (identity == null) identity = (String) brooklynProperties.getConfig("brooklyn.jclouds.aws-ec2.identity");
+        String credential = (String) brooklynProperties.getConfig("brooklyn.location.jclouds.aws-ec2.credential");
+        if (credential == null) credential = (String) brooklynProperties.getConfig("brooklyn.jclouds.aws-ec2.credential");
 
         Map<ConfigKey<?>, ?> allConfig = MutableMap.<ConfigKey<?>, Object>builder()
                 .put(CLOUD_PROVIDER, AbstractJcloudsLiveTest.AWS_EC2_PROVIDER)

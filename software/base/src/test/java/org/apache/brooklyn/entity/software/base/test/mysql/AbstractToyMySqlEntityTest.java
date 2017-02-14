@@ -102,6 +102,6 @@ public abstract class AbstractToyMySqlEntityTest extends BrooklynAppLiveTestSupp
         // (app has stopped, so submit on mgmt context)
         ProcessTaskWrapper<Integer> t = SshEffectorTasks.codePidRunning(pid).machine(lh).newTask();
         mgmt.getExecutionManager().submit(t);
-        Assert.assertNotEquals(t.block().getExitCode(), (Integer)0);
+        Assert.assertNotEquals(t.block().getExitCode(), 0);
     }
 }

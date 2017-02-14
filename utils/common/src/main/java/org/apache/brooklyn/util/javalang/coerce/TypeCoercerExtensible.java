@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
@@ -119,8 +120,21 @@ public class TypeCoercerExtensible implements TypeCoercer {
         if (targetTypeToken.getType() instanceof ParameterizedType) {
             if (value instanceof Collection && Collection.class.isAssignableFrom(targetType)) {
                 result = tryCoerceCollection(value, targetTypeToken, targetType);
+                
+                if (result != null && result.isAbsent() && targetType.isInstance(value)) {
+                    log.warn("Failed to coerce collection from " + value.getClass().getName() + " to " + targetTypeToken  
+                            + "; returning uncoerced result to preserve (deprecated) backwards compatibility", 
+                            Maybe.getException(result));
+                }
+                
             } else if (value instanceof Map && Map.class.isAssignableFrom(targetType)) {
                 result = tryCoerceMap(value, targetTypeToken);
+                
+                if (result != null && result.isAbsent() && targetType.isInstance(value)) {
+                    log.warn("Failed to coerce map from " + value.getClass().getName() + " to " + targetTypeToken  
+                            + "; returning uncoerced result to preserve (deprecated) backwards compatibility", 
+                            Maybe.getException(result));
+                }
             }
         }
         if (result!=null && result.isPresent()) return result;
@@ -198,8 +212,18 @@ public class TypeCoercerExtensible implements TypeCoercer {
         return Maybe.absent(new ClassCoercionException("Cannot coerce type "+value.getClass().getCanonicalName()+" to "+targetType.getCanonicalName()+" ("+value+"): no adapter known"));
     }
 
+    /**
+     * The meaning of the return value is:
+     * <ul>
+     *   <li>null - no errors, continue with fallbacks (i.e. not found).
+     *   <li>absent - had some kind of exception, continue with fallbacks (but can report this error if
+     *       other fallbacks fail).
+     *   <li>present - coercion successful, return value.
+     * </ul>
+     */
     @SuppressWarnings("unchecked")
     protected <T> Maybe<T> tryCoerceWithFromMethod(Object value, Class<? super T> targetType) {
+        List<ClassCoercionException> exceptions = Lists.newArrayList();
         //now look for static TargetType.fromType(Type t) where value instanceof Type  
         for (Method m: targetType.getMethods()) {
             if (((m.getModifiers()&Modifier.STATIC)==Modifier.STATIC) && 
@@ -209,12 +233,19 @@ public class TypeCoercerExtensible implements TypeCoercer {
                     try {
                         return Maybe.of((T) m.invoke(null, value));
                     } catch (Exception e) {
-                        Maybe.absent(new ClassCoercionException("Cannot coerce type "+value.getClass()+" to "+targetType.getCanonicalName()+" ("+value+"): "+m.getName()+" adapting failed, "+e));
+                        exceptions.add(new ClassCoercionException("Cannot coerce type "+value.getClass()+" to "+targetType.getCanonicalName()+" ("+value+"): "+m.getName()+" adapting failed", e));
                     }
                 }
             }
         }
-        return null;
+        if (exceptions.isEmpty()) {
+            return null;
+        } else if (exceptions.size() == 1) {
+            return Maybe.absent(exceptions.get(0));
+        } else {
+            String errMsg = "Failed coercing type "+value.getClass()+" to "+targetType.getCanonicalName();
+            return Maybe.absent(new CompoundRuntimeException(errMsg, exceptions));
+        }
     }
 
     @SuppressWarnings("unchecked")

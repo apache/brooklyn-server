@@ -19,7 +19,7 @@
 -->
 <included>
     
-    <!-- schmizz (sshj) very noisy, profligate with errors, put to file only, at warn level -->
+    <!-- sshj very noisy, profligate with errors, put to file only, at warn level -->
     <logger name="net.schmizz" level="WARN" additivity="false">
         <appender-ref ref="FILE" />
     </logger>

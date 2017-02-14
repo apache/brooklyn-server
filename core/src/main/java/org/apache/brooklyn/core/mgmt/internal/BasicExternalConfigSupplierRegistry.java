@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
@@ -99,10 +100,13 @@ public class BasicExternalConfigSupplierRegistry implements ExternalConfigSuppli
 
             String name = strippedKey;
             String providerClassname = (String) externalProviderProperties.get(key);
-            Map<String, Object> config = ConfigUtils.filterForPrefixAndStrip(externalProviderProperties, key + ".");
+            BrooklynProperties config = ConfigUtils.filterForPrefixAndStrip(externalProviderProperties, key + ".");
 
             try {
                 Maybe<ExternalConfigSupplier> configSupplier = Reflections.invokeConstructorFromArgs(classloader, ExternalConfigSupplier.class, providerClassname, mgmt, name, config);
+                if (!configSupplier.isPresent()) {
+                    configSupplier = Reflections.invokeConstructorFromArgs(classloader, ExternalConfigSupplier.class, providerClassname, mgmt, name, config.asMapWithStringKeys());
+                }
                 if (!configSupplier.isPresent()) {
                     configSupplier = Reflections.invokeConstructorFromArgs(classloader, ExternalConfigSupplier.class, providerClassname, mgmt, name);
                 }

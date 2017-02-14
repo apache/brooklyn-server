@@ -34,7 +34,6 @@ import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -52,6 +51,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
@@ -68,6 +68,7 @@ import org.apache.brooklyn.util.exceptions.RuntimeTimeoutException;
 import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.StringFunctions;
 import org.apache.brooklyn.util.text.StringFunctions.RegexReplacer;
 import org.apache.brooklyn.util.text.Strings;
@@ -89,7 +90,7 @@ import com.google.common.collect.Lists;
 import groovy.lang.Closure;
 
 /** Conveniences for making tasks which run in entity {@link ExecutionContext}s, blocking on attributes from other entities, possibly transforming those;
- * these {@link Task} instances are typically passed in {@link EntityLocal#setConfig(ConfigKey, Object)}.
+ * these {@link Task} instances are typically passed in {@link Entity#setConfig(ConfigKey, Object)}.
  * <p>
  * If using a lot it may be useful to:
  * <pre>
@@ -403,6 +404,7 @@ public class DependentConfiguration {
     @SuppressWarnings({ "rawtypes" })
     public static <U,T> Task<T> transform(final Map flags, final TaskAdaptable<U> task, final Function<U,T> transformer) {
         return new BasicTask<T>(flags, new Callable<T>() {
+            @Override
             public T call() throws Exception {
                 if (!task.asTask().isSubmitted()) {
                     BasicExecutionContext.getCurrentExecutionContext().submit(task);
@@ -471,7 +473,7 @@ public class DependentConfiguration {
             if (arg instanceof TaskAdaptable) taskArgs.add((TaskAdaptable<Object>)arg);
             else if (arg instanceof TaskFactory) taskArgs.add( ((TaskFactory<TaskAdaptable<Object>>)arg).newTask() );
         }
-            
+        
         return transformMultiple(
             MutableMap.<String,String>of("displayName", "formatting '"+spec+"' with "+taskArgs.size()+" task"+(taskArgs.size()!=1?"s":"")), 
             new Function<List<Object>, String>() {
@@ -502,6 +504,48 @@ public class DependentConfiguration {
         }
 
         return Maybe.of(String.format(spec, resolvedArgs.toArray()));
+    }
+
+    /**
+     * @throws ImmediateSupplier.ImmediateUnsupportedException if cannot evaluate this in a timely manner
+     */
+    public static Maybe<String> urlEncodeImmediately(Object arg) {
+        Maybe<?> resolvedArg = resolveImmediately(arg);
+        if (resolvedArg.isAbsent()) return Maybe.absent();
+        if (resolvedArg.isNull()) return Maybe.<String>of((String)null);
+        
+        String resolvedString = resolvedArg.get().toString();
+        return Maybe.of(Urls.encode(resolvedString));
+    }
+
+    /** 
+     * Method which returns a Future containing an escaped URL string (see {@link Urls#encode(String)}).
+     * The arguments can be normal objects, tasks or {@link DeferredSupplier}s.
+     * tasks will be waited on (submitted if necessary) and their results substituted.
+     */
+    @SuppressWarnings("unchecked")
+    public static Task<String> urlEncode(final Object arg) {
+        List<TaskAdaptable<Object>> taskArgs = Lists.newArrayList();
+        if (arg instanceof TaskAdaptable) taskArgs.add((TaskAdaptable<Object>)arg);
+        else if (arg instanceof TaskFactory) taskArgs.add( ((TaskFactory<TaskAdaptable<Object>>)arg).newTask() );
+        
+        return transformMultiple(
+                MutableMap.<String,String>of("displayName", "url-escaping '"+arg), 
+                new Function<List<Object>, String>() {
+                    @Override
+                    @Nullable
+                    public String apply(@Nullable List<Object> input) {
+                        Object resolvedArg;
+                        if (arg instanceof TaskAdaptable || arg instanceof TaskFactory) resolvedArg = Iterables.getOnlyElement(input);
+                        else if (arg instanceof DeferredSupplier) resolvedArg = ((DeferredSupplier<?>) arg).get();
+                        else resolvedArg = arg;
+                        
+                        if (resolvedArg == null) return null;
+                        String resolvedString = resolvedArg.toString();
+                        return Urls.encode(resolvedString);
+                    }
+                },
+                taskArgs);
     }
 
     protected static <T> Maybe<?> resolveImmediately(Object val) {
@@ -568,6 +612,25 @@ public class DependentConfiguration {
         );
     }
 
+    public static Maybe<ReleaseableLatch> maxConcurrencyImmediately(Object maxThreads) {
+        Maybe<?> resolvedMaxThreads = resolveImmediately(maxThreads);
+        if (resolvedMaxThreads.isAbsent()) return Maybe.absent();
+        Integer resolvedMaxThreadsInt = TypeCoercions.coerce(resolvedMaxThreads, Integer.class);
+
+        ReleaseableLatch result = ReleaseableLatch.Factory.newMaxConcurrencyLatch(resolvedMaxThreadsInt);
+        return Maybe.<ReleaseableLatch>of(result);
+    }
+
+    public static Task<ReleaseableLatch> maxConcurrency(Object maxThreads) {
+        List<TaskAdaptable<Object>> taskArgs = getTaskAdaptable(maxThreads);
+        Function<List<Object>, ReleaseableLatch> transformer = new MaxThreadsTransformerFunction(maxThreads);
+        return transformMultiple(
+                MutableMap.of("displayName", String.format("creating max concurrency semaphore(%s)", maxThreads)),
+                transformer,
+                taskArgs
+        );
+    }
+
     @SuppressWarnings("unchecked")
     private static List<TaskAdaptable<Object>> getTaskAdaptable(Object... args){
         List<TaskAdaptable<Object>> taskArgs = Lists.newArrayList();
@@ -623,13 +686,38 @@ public class DependentConfiguration {
 
     }
 
+    public static class MaxThreadsTransformerFunction implements Function<List<Object>, ReleaseableLatch> {
+        private final Object maxThreads;
+
+        public MaxThreadsTransformerFunction(Object maxThreads) {
+            this.maxThreads = maxThreads;
+        }
+
+        @Override
+        public ReleaseableLatch apply(List<Object> input) {
+            Iterator<?> taskArgsIterator = input.iterator();
+            Integer maxThreadsNum = resolveArgument(maxThreads, taskArgsIterator, Integer.class);
+            return ReleaseableLatch.Factory.newMaxConcurrencyLatch(maxThreadsNum);
+        }
+
+    }
+
+    /**
+     * Same as {@link #resolveArgument(Object, Iterator, Class) with type of String
+     */
+    private static String resolveArgument(Object argument, Iterator<?> taskArgsIterator) {
+        return resolveArgument(argument, taskArgsIterator, String.class);
+    }
+
     /**
      * Resolves the argument as follows:
      *
      * If the argument is a DeferredSupplier, we will block and wait for it to resolve. If the argument is TaskAdaptable or TaskFactory,
      * we will assume that the resolved task has been queued on the {@code taskArgsIterator}, otherwise the argument has already been resolved.
+     * 
+     * @param type coerces the return value to the requested type
      */
-    private static String resolveArgument(Object argument, Iterator<?> taskArgsIterator) {
+    private static <T> T resolveArgument(Object argument, Iterator<?> taskArgsIterator, Class<T> type) {
         Object resolvedArgument;
         if (argument instanceof TaskAdaptable) {
             resolvedArgument = taskArgsIterator.next();
@@ -638,7 +726,7 @@ public class DependentConfiguration {
         } else {
             resolvedArgument = argument;
         }
-        return String.valueOf(resolvedArgument);
+        return TypeCoercions.coerce(resolvedArgument, type);
     }
 
 
@@ -700,7 +788,7 @@ public class DependentConfiguration {
     public static class ProtoBuilder {
         /**
          * Will wait for the attribute on the given entity, with default behaviour:
-         * If that entity reports {@link Lifecycle#ON_FIRE} for its {@link Attributes#SERVICE_STATE} then it will abort;
+         * If that entity reports {@link Lifecycle#ON_FIRE} for its {@link Attributes#SERVICE_STATE_ACTUAL} then it will abort;
          * If that entity is stopping or destroyed (see {@link Builder#timeoutIfStoppingOrDestroyed(Duration)}),
          * then it will timeout after 1 minute.
          */
@@ -753,6 +841,7 @@ public class DependentConfiguration {
          * If that entity report {@link Lifecycle#ON_FIRE} for its {@link Attributes#SERVICE_STATE_ACTUAL} then it will abort.
          * @deprecated since 0.7.0 use {@link DependentConfiguration#builder()} then {@link ProtoBuilder#attributeWhenReady(Entity, AttributeSensor)} then {@link #abortIfOnFire()} 
          */
+        @Deprecated
         @SuppressWarnings({ "unchecked", "rawtypes" })
         public <T2> Builder<T2,T2> attributeWhenReady(Entity source, AttributeSensor<T2> sensor) {
             this.source = checkNotNull(source, "source");

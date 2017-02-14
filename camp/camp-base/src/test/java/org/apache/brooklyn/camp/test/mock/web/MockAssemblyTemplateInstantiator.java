@@ -29,6 +29,7 @@ public class MockAssemblyTemplateInstantiator implements AssemblyTemplateInstant
 
     private static final Logger log = LoggerFactory.getLogger(MockAssemblyTemplateInstantiator.class);
     
+    @Override
     public Assembly instantiate(AssemblyTemplate template, CampPlatform platform) {
         log.debug("Ignoring request to instantiate "+template);
         return null;

@@ -31,6 +31,8 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslAccessible;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslFunctionSource;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
@@ -62,7 +64,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Callables;
 
-public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
+public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements DslFunctionSource {
 
     private static final long serialVersionUID = -7715984495268724954L;
     
@@ -323,41 +325,52 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
 
     // DSL words which move to a new component
     
+    @DslAccessible
     public DslComponent entity(Object id) {
         return DslComponent.newInstance(this, Scope.GLOBAL, id);
     }
+    @DslAccessible
     public DslComponent child(Object id) {
         return DslComponent.newInstance(this, Scope.CHILD, id);
     }
+    @DslAccessible
     public DslComponent sibling(Object id) {
         return DslComponent.newInstance(this, Scope.SIBLING, id);
     }
+    @DslAccessible
     public DslComponent descendant(Object id) {
         return DslComponent.newInstance(this, Scope.DESCENDANT, id);
     }
+    @DslAccessible
     public DslComponent ancestor(Object id) {
         return DslComponent.newInstance(this, Scope.ANCESTOR, id);
     }
+    @DslAccessible
     public DslComponent root() {
         return new DslComponent(this, Scope.ROOT);
     }
+    @DslAccessible
     public DslComponent scopeRoot() {
         return new DslComponent(this, Scope.SCOPE_ROOT);
     }
     
     @Deprecated /** @deprecated since 0.7.0 */
+    @DslAccessible
     public DslComponent component(Object id) {
         return DslComponent.newInstance(this, Scope.GLOBAL, id);
     }
     
+    @DslAccessible
     public DslComponent self() {
         return new DslComponent(this, Scope.THIS);
     }
     
+    @DslAccessible
     public DslComponent parent() {
         return new DslComponent(this, Scope.PARENT);
     }
     
+    @DslAccessible
     public DslComponent component(String scope, Object id) {
         if (!DslComponent.Scope.isValid(scope)) {
             throw new IllegalArgumentException(scope + " is not a valid scope");
@@ -367,6 +380,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
 
     // DSL words which return things
 
+    @DslAccessible
     public BrooklynDslDeferredSupplier<?> entityId() {
         return new EntityId(this);
     }
@@ -410,6 +424,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         }
     }
 
+    @DslAccessible
     public BrooklynDslDeferredSupplier<?> attributeWhenReady(final String sensorName) {
         return new AttributeWhenReady(this, sensorName);
     }
@@ -467,6 +482,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         }
     }
 
+    @DslAccessible
     public BrooklynDslDeferredSupplier<?> config(final String keyName) {
         return new DslConfigSupplier(this, keyName);
     }
@@ -486,8 +502,8 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
             if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
             EntityInternal targetEntity = (EntityInternal) targetEntityMaybe.get();
 
-            ConfigKey<?> key = targetEntity.getEntityType().getConfigKey(keyName);
-            Maybe<? extends Object> result = targetEntity.config().getNonBlocking(key != null ? key : ConfigKeys.newConfigKey(Object.class, keyName));
+            ConfigKey<Object> key = (ConfigKey<Object>) targetEntity.getEntityType().getConfigKey(keyName);
+            Maybe<Object> result = targetEntity.config().getNonBlocking(key != null ? key : ConfigKeys.newConfigKey(Object.class, keyName));
             return Maybe.<Object>cast(result);
         }
 
@@ -501,7 +517,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
                         @Override
                         public Object call() throws Exception {
                             Entity targetEntity = component.get();
-                            ConfigKey<?> key = targetEntity.getEntityType().getConfigKey(keyName);
+                            ConfigKey<Object> key = (ConfigKey<Object>) targetEntity.getEntityType().getConfigKey(keyName);
                             return targetEntity.getConfig(key != null ? key : ConfigKeys.newConfigKey(Object.class, keyName));
                         }})
                     .build();
@@ -527,7 +543,11 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
                 "config("+JavaStringEscapes.wrapJavaString(keyName)+")";
         }
     }
-    
+
+    // TODO
+    // public BrooklynDslDeferredSupplier<?> relation(BrooklynObjectInternal obj, final String relationName) {...}
+
+    @DslAccessible
     public BrooklynDslDeferredSupplier<Sensor<?>> sensor(final Object sensorIndicator) {
         return new DslSensorSupplier(this, sensorIndicator);
     }
@@ -563,7 +583,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
             }
             if (!resolved) {
                 // attempt to resolve, and recurse
-                final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
+                final ExecutionContext executionContext = entity().getExecutionContext();
                 Maybe<Object> resolvedSi = Tasks.resolving(si, Object.class).deep(true).immediately(true).context(executionContext).getMaybe();
                 if (resolvedSi.isAbsent()) return Maybe.absent();
                 return getImmediately(resolvedSi.get(), true);
@@ -595,7 +615,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
                             }
                             if (!resolved) {
                                 // attempt to resolve, and recurse
-                                final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
+                                final ExecutionContext executionContext = entity().getExecutionContext();
                                 return resolve(Tasks.resolveDeepValue(si, Object.class, executionContext), true);
                             }
                             throw new IllegalStateException("Cannot resolve '"+sensorName+"' as a sensor (got type "+(si == null ? "null" : si.getClass().getName()+")"));

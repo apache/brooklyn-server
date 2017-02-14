@@ -20,25 +20,31 @@ package org.apache.brooklyn.entity.machine;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
-import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 
 public class MachineEntityRebindTest extends RebindTestFixtureWithApp {
 
-    @Test(groups = "Integration")
+    @Test
     public void testRebindToMachineEntity() throws Exception {
-        EmptySoftwareProcess machine = origApp.createAndManageChild(EntitySpec.create(EmptySoftwareProcess.class));
-        origApp.start(ImmutableList.of(origManagementContext.getLocationRegistry().getLocationManaged("localhost")));
+        SshMachineLocation loc = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
+                .configure("address", "localhost")
+                .configure(SshMachineLocation.SSH_TOOL_CLASS, RecordingSshTool.class.getName()));
+        MachineEntity machine = origApp.createAndManageChild(EntitySpec.create(MachineEntity.class));
+        origApp.start(ImmutableList.of(loc));
         EntityAsserts.assertAttributeEqualsEventually(machine, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
-        rebind(false);
-        Entity machine2 = newManagementContext.getEntityManager().getEntity(machine.getId());
+        
+        rebind();
+        
+        Entity machine2 = mgmt().getEntityManager().getEntity(machine.getId());
         EntityAsserts.assertAttributeEqualsEventually(machine2, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
     }
-
 }

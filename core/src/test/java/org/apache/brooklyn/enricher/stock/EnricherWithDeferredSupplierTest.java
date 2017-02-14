@@ -115,6 +115,7 @@ public class EnricherWithDeferredSupplierTest extends BrooklynAppUnitTestSupport
                     .displayName(toString())
                     .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
                     .body(new Callable<Entity>() {
+                        @Override
                         public Entity call() {
                             EntityInternal entity = entity();
                             Collection<Entity> entitiesToSearch = entity.getManagementContext().getEntityManager().getEntities();

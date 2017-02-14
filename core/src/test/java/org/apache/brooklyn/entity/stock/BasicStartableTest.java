@@ -54,6 +54,7 @@ public class BasicStartableTest extends BrooklynAppUnitTestSupport {
     private SimulatedLocation loc1;
     private SimulatedLocation loc2;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();

@@ -24,7 +24,6 @@ import static org.testng.Assert.assertTrue;
 import java.util.List;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -106,7 +105,7 @@ public class MachineLifecycleEffectorTasksTest {
             }
         });
         try {
-            ((EntityLocal) triggerEntity).sensors().set(ready, true);
+            triggerEntity.sensors().set(ready, true);
             task.get(Duration.THIRTY_SECONDS);
             Asserts.shouldHaveFailedPreviously("BailOutJcloudsLocation should have thrown");
         } catch (BailOutJcloudsLocation.BailOutException t) {

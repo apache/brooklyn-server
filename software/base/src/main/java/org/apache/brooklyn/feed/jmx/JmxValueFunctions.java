@@ -24,12 +24,10 @@ import java.util.Map;
 import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.TabularData;
 
-import org.apache.brooklyn.api.location.Location;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.collect.Maps;
 
 public class JmxValueFunctions {
@@ -117,7 +115,7 @@ public class JmxValueFunctions {
         Map<List<?>, Map<String, Object>> result = Maps.newLinkedHashMap();
         for (Object k : table.keySet()) {
             final Object[] kValues = ((List<?>)k).toArray();
-            CompositeData v = (CompositeData) table.get(kValues);
+            CompositeData v = table.get(kValues);
             result.put((List<?>)k, compositeDataToMap(v));
         }
         return result;

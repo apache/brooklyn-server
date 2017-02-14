@@ -19,18 +19,20 @@
 package org.apache.brooklyn.util.yaml;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
-import org.apache.brooklyn.util.yaml.Yamls;
-import org.apache.brooklyn.util.yaml.YamlsTest;
+import org.apache.brooklyn.util.internal.BrooklynSystemProperties;
 import org.apache.brooklyn.util.yaml.Yamls.YamlExtract;
 import org.testng.Assert;
 import org.testng.TestNG;
 import org.testng.annotations.Test;
+import org.yaml.snakeyaml.constructor.ConstructorException;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -183,6 +185,22 @@ public class YamlsTest {
         }
     }
     
+    @Test
+    public void testSafeYaml() throws Exception {
+        assertFalse(BrooklynSystemProperties.YAML_TYPE_INSTANTIATION.isEnabled(),
+                "Set property to false (or do not set at all): " + BrooklynSystemProperties.YAML_TYPE_INSTANTIATION.getPropertyName());
+
+        try {
+            Yamls.parseAll("!!java.util.Date\n" +
+                    "date: 25\n" +
+                    "month: 12\n" +
+                    "year: 2016");
+            Asserts.shouldHaveFailedPreviously("Expected exception: " + ConstructorException.class.getCanonicalName());
+        } catch(ConstructorException e) {
+            Asserts.expectedFailureContains(e, "could not determine a constructor");
+        }
+    }
+
     // convenience, since running with older TestNG IDE plugin will fail (older snakeyaml dependency);
     // if you run as a java app it doesn't bring in the IDE TestNG jar version, and it works
     public static void main(String[] args) {

@@ -330,6 +330,7 @@ public class AutoScalerPolicyTest {
         resizable.sensors().emit(AutoScalerPolicy.DEFAULT_POOL_HOT_SENSOR, message(1, 21L, 1*10L, 1*20L)); // grow to 2
         
         Asserts.succeedsEventually(MutableMap.of("timeout",TIMEOUT_MS), new Runnable() {
+                @Override
                 public void run() {
                     assertTrue(counter.get() >= 1, "cccounter="+counter);
                 }});
@@ -432,6 +433,7 @@ public class AutoScalerPolicyTest {
         // TODO This is time sensitive, and sometimes fails in CI with size=4 if we wait for currentSize==2 (presumably GC kicking in?)
         //      Therefore do strong assertion of currentSize==2 later, so can write out times if it goes wrong.
         Asserts.succeedsEventually(MutableMap.of("period", 1, "timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertTrue(resizable.getCurrentSize() >= 2, "currentSize="+resizable.getCurrentSize());
             }});
@@ -472,6 +474,7 @@ public class AutoScalerPolicyTest {
         final AtomicInteger emitCount = new AtomicInteger(0);
         
         Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 if (System.currentTimeMillis() - emitTime > (2+emitCount.get())*resizeUpStabilizationDelay) {
                     //first one may not have been received, in a registration race 
@@ -505,6 +508,7 @@ public class AutoScalerPolicyTest {
         
         assertEquals(resizable.getCurrentSize(), (Integer)2);
         Asserts.succeedsContinually(MutableMap.of("duration", 2000L), new Runnable() {
+                @Override
                 public void run() {
                     assertEquals(resizable.sizes, ImmutableList.of(2));
                 }});
@@ -551,6 +555,7 @@ public class AutoScalerPolicyTest {
         // TODO This is time sensitive, and sometimes fails in CI with size=1 if we wait for currentSize==2 (presumably GC kicking in?)
         //      Therefore do strong assertion of currentSize==2 later, so can write out times if it goes wrong.
         Asserts.succeedsEventually(MutableMap.of("period", 1, "timeout", TIMEOUT_MS), new Runnable() {
+                @Override
                 public void run() {
                     assertTrue(resizable.getCurrentSize() <= 2, "currentSize="+resizable.getCurrentSize());
                 }});
@@ -592,6 +597,7 @@ public class AutoScalerPolicyTest {
         final AtomicInteger emitCount = new AtomicInteger(0);
         
         Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+                @Override
                 public void run() {
                     if (System.currentTimeMillis() - emitTime > (2+emitCount.get())*resizeDownStabilizationDelay) {
                         //first one may not have been received, in a registration race
@@ -618,6 +624,7 @@ public class AutoScalerPolicyTest {
     
     public static Runnable currentSizeAsserter(final Resizable resizable, final Integer desired) {
         return new Runnable() {
+            @Override
             public void run() {
                 assertEquals(resizable.getCurrentSize(), desired);
             }

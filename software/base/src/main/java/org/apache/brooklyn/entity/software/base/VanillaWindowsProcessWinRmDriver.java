@@ -22,15 +22,10 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.entity.software.base.lifecycle.WinRmExecuteHelper;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
-import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.cxf.interceptor.Fault;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.xml.ws.WebServiceException;
 
 public class VanillaWindowsProcessWinRmDriver extends AbstractSoftwareProcessWinRmDriver implements VanillaWindowsProcessDriver {
     private static final Logger LOG = LoggerFactory.getLogger(VanillaWindowsProcessWinRmDriver.class);

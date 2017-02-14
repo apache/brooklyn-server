@@ -211,6 +211,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
             Callable<Task<?>> taskFactory = new Callable<Task<?>>() {
                 @Override public Task<Void> call() {
                     return Tasks.<Void>builder().dynamic(false).displayName("periodic-persister").body(new Callable<Void>() {
+                        @Override
                         public Void call() {
                             persistNowSafely();
                             return null;

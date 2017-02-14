@@ -31,12 +31,12 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.FluentIterable;
 import com.google.common.primitives.Doubles;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.enricher.stock.PercentageEnricher;
-import org.apache.brooklyn.enricher.stock.Transformer;
 import org.apache.brooklyn.enricher.stock.YamlRollingTimeWindowMeanEnricher;
 import org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
@@ -70,7 +70,7 @@ public class AddMachineMetrics implements EntityInitializer {
         LOG.info("Configured machine metrics feed and enrichers on {}", entity);
     }
 
-    public static void addMachineMetricsEnrichers(EntityLocal entity) {
+    public static void addMachineMetricsEnrichers(Entity entity) {
         entity.enrichers().add(EnricherSpec.create(YamlTimeWeightedDeltaEnricher.class)
                 .configure(YamlTimeWeightedDeltaEnricher.SOURCE_SENSOR, MachineAttributes.USED_MEMORY)
                 .configure(YamlTimeWeightedDeltaEnricher.TARGET_SENSOR, MachineAttributes.USED_MEMORY_DELTA_PER_SECOND_LAST));
@@ -86,9 +86,10 @@ public class AddMachineMetrics implements EntityInitializer {
 
     }
 
-    public static SshFeed createMachineMetricsFeed(EntityLocal entity) {
+    public static SshFeed createMachineMetricsFeed(Entity entity) {
         boolean retrieveUsageMetrics = entity.config().get(SoftwareProcess.RETRIEVE_USAGE_METRICS);
         return SshFeed.builder()
+                .uniqueTag("machineMetricsFeed")
                 .period(Duration.THIRTY_SECONDS)
                 .entity(entity)
                 .poll(SshPollConfig.forSensor(MachineAttributes.UPTIME)
@@ -160,5 +161,4 @@ public class AddMachineMetrics implements EntityInitializer {
                         }))
                 .build();
     }
-
 }

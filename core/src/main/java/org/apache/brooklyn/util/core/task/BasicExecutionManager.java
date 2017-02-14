@@ -132,6 +132,7 @@ public class BasicExecutionManager implements ExecutionManager {
     private final List<ExecutionListener> listeners = new CopyOnWriteArrayList<ExecutionListener>();
     
     private final static ThreadLocal<String> threadOriginalName = new ThreadLocal<String>() {
+        @Override
         protected String initialValue() {
             // should not happen, as only access is in _afterEnd with a check that _beforeStart was invoked 
             log.warn("No original name recorded for thread "+Thread.currentThread().getName()+"; task "+Tasks.current());
@@ -258,6 +259,7 @@ public class BasicExecutionManager implements ExecutionManager {
         return removed != null;
     }
 
+    @Override
     public boolean isShutdown() {
         return runner.isShutdown();
     }
@@ -321,7 +323,7 @@ public class BasicExecutionManager implements ExecutionManager {
         Set<Task<?>> result = tasksWithTagLiveOrNull(tag);
         if (result==null) return Collections.emptySet();
         synchronized (result) {
-            return (Set<Task<?>>)Collections.unmodifiableSet(new LinkedHashSet<Task<?>>(result));
+            return Collections.unmodifiableSet(new LinkedHashSet<Task<?>>(result));
         }
     }
     
@@ -365,19 +367,22 @@ public class BasicExecutionManager implements ExecutionManager {
     @Beta
     public Collection<Task<?>> allTasksLive() { return tasksById.values(); }
     
+    @Override
     public Set<Object> getTaskTags() { 
         synchronized (tasksByTag) {
             return Collections.unmodifiableSet(Sets.newLinkedHashSet(tasksByTag.keySet())); 
         }
     }
 
-    public Task<?> submit(Runnable r) { return submit(new LinkedHashMap<Object,Object>(1), r); }
-    public Task<?> submit(Map<?,?> flags, Runnable r) { return submit(flags, new BasicTask<Void>(flags, r)); }
+    @Override public Task<?> submit(Runnable r) { return submit(new LinkedHashMap<Object,Object>(1), r); }
+    @Override public Task<?> submit(Map<?,?> flags, Runnable r) { return submit(flags, new BasicTask<Void>(flags, r)); }
 
-    public <T> Task<T> submit(Callable<T> c) { return submit(new LinkedHashMap<Object,Object>(1), c); }
-    public <T> Task<T> submit(Map<?,?> flags, Callable<T> c) { return submit(flags, new BasicTask<T>(flags, c)); }
+    @Override public <T> Task<T> submit(Callable<T> c) { return submit(new LinkedHashMap<Object,Object>(1), c); }
+    @Override public <T> Task<T> submit(Map<?,?> flags, Callable<T> c) { return submit(flags, new BasicTask<T>(flags, c)); }
 
-    public <T> Task<T> submit(TaskAdaptable<T> t) { return submit(new LinkedHashMap<Object,Object>(1), t); }
+    @Override public <T> Task<T> submit(TaskAdaptable<T> t) { return submit(new LinkedHashMap<Object,Object>(1), t); }
+
+    @Override
     public <T> Task<T> submit(Map<?,?> flags, TaskAdaptable<T> task) {
         if (!(task instanceof Task))
             task = task.asTask();
@@ -423,6 +428,7 @@ public class BasicExecutionManager implements ExecutionManager {
             this.flags = flags;
         }
 
+        @Override
         @SuppressWarnings({ "rawtypes", "unchecked" })
         public Object call() {
             if (task.startTimeUtc==-1) task.startTimeUtc = System.currentTimeMillis();
@@ -433,7 +439,7 @@ public class BasicExecutionManager implements ExecutionManager {
                 taskScheduled.setSubmittedByTask(task);
                 final Callable<?> oldJob = taskScheduled.getJob();
                 final TaskInternal<?> taskScheduledF = taskScheduled;
-                taskScheduled.setJob(new Callable() { public Object call() {
+                taskScheduled.setJob(new Callable() { @Override public Object call() {
                     boolean shouldResubmit = true;
                     task.recentRun = taskScheduledF;
                     try {
@@ -512,6 +518,7 @@ public class BasicExecutionManager implements ExecutionManager {
             this.task = task;
         }
 
+        @Override
         public T call() {
             try {
                 T result = null;
