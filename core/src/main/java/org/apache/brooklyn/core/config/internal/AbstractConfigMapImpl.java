@@ -459,17 +459,31 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
 
         // due to set semantics local should be added first, it prevents equal items from parent from being added on top
         if (getParent()!=null) {
+            // now take from runtime parents, but filtered
+            Set<ConfigKey<?>> inherited;
             switch (mode) {
-            case DECLARED_OR_PRESENT: result.addAll( getParentInternal().config().getInternalConfigMap().findKeysDeclared(filter) ); break;
-            case PRESENT_AND_RESOLVED: result.addAll( getParentInternal().config().getInternalConfigMap().findKeysPresent(filter) ); break;
-            case PRESENT_NOT_RESOLVED: result.addAll( getParentInternal().config().getInternalConfigMap().findKeys(filter) ); break;
+            case DECLARED_OR_PRESENT:  inherited = getParentInternal().config().getInternalConfigMap().findKeysDeclared(filter); break;
+            case PRESENT_AND_RESOLVED: inherited = getParentInternal().config().getInternalConfigMap().findKeysPresent(filter); break;
+            case PRESENT_NOT_RESOLVED: inherited = getParentInternal().config().getInternalConfigMap().findKeys(filter); break;
             default:
                 throw new IllegalStateException("Unsupported key finding mode: "+mode);
             }
+            // TODO due to recursive nature we call this N times for the Nth level ancestor 
+            result.addAll( filterOutRuntimeNotReinherited(inherited) );
         }
         return result;
     }
 
+    private static Set<ConfigKey<?>> filterOutRuntimeNotReinherited(Set<ConfigKey<?>> inherited) {
+        Set<ConfigKey<?>> result = MutableSet.of();
+        for (ConfigKey<?> k: inherited) {
+            if (ConfigInheritances.isKeyReinheritable(k, InheritanceContext.RUNTIME_MANAGEMENT)) {
+                result.add(k);
+            }
+        }
+        return result;
+    }
+    
     @Override
     @SuppressWarnings("unchecked")
     public ReferenceWithError<ConfigValueAtContainer<TContainer,?>> getConfigInheritedRaw(ConfigKey<?> key) {

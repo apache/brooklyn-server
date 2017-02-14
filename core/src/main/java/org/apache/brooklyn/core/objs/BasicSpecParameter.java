@@ -39,6 +39,7 @@ import org.apache.brooklyn.api.objs.BrooklynType;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigInheritance;
+import org.apache.brooklyn.config.ConfigInheritances;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
@@ -216,7 +217,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         private static final Map<String, Predicate<?>> BUILT_IN_CONSTRAINTS = ImmutableMap.<String, Predicate<?>>of(
                 "required", StringPredicates.isNonBlank());
 
-        public static List<SpecParameter<?>> parseParameters(List<?> inputsRaw, Function<Object, Object> specialFlagTransformer, BrooklynClassLoadingContext loader) {
+        private static List<SpecParameter<?>> parseParameters(List<?> inputsRaw, Function<Object, Object> specialFlagTransformer, BrooklynClassLoadingContext loader) {
             if (inputsRaw == null) return ImmutableList.of();
             List<SpecParameter<?>> inputs = new ArrayList<>(inputsRaw.size());
             for (Object obj : inputsRaw) {
@@ -226,7 +227,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         }
 
         @SuppressWarnings({ "unchecked", "rawtypes" })
-        private static SpecParameter<?> parseParameter(Object obj, Function<Object, Object> specialFlagTransformer, BrooklynClassLoadingContext loader) {
+        private static SpecParameterForInheritance<?> parseParameter(Object obj, Function<Object, Object> specialFlagTransformer, BrooklynClassLoadingContext loader) {
             Map inputDef;
             if (obj instanceof String) {
                 inputDef = ImmutableMap.of("name", obj);
@@ -444,8 +445,10 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
     static Collection<SpecParameter<?>> resolveParameters(Collection<? extends SpecParameter<?>> newParams, Collection<? extends SpecParameter<?>> existingReferenceParamsToKeep, AbstractBrooklynObjectSpec<?,?> spec) {
         Map<String,SpecParameter<?>> existingToKeep = MutableMap.of();
         if (existingReferenceParamsToKeep!=null) {
-            for (SpecParameter<?> p: existingReferenceParamsToKeep) { 
-                existingToKeep.put(p.getConfigKey().getName(), p);
+            for (SpecParameter<?> p: existingReferenceParamsToKeep) {
+                if (ConfigInheritances.isKeyReinheritable(p.getConfigKey(), InheritanceContext.TYPE_DEFINITION)) {
+                    existingToKeep.put(p.getConfigKey().getName(), p);
+                }
             }
         }
 
@@ -473,7 +476,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
     }
 
     /** instance of {@link SpecParameter} which includes information about what fields are explicitly set,
-     * for use with a subsequent merge */
+     * for use with a subsequent merge with ancestor config keys; see {@link #resolveParameters(Collection, Collection, AbstractBrooklynObjectSpec)}*/
     @SuppressWarnings("serial")
     @Beta
     static class SpecParameterForInheritance<T> extends BasicSpecParameter<T> {

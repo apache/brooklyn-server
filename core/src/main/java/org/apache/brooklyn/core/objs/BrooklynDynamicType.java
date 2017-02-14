@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -34,9 +35,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynType;
+import org.apache.brooklyn.config.ConfigInheritances;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey.BasicConfigKeyOverwriting;
+import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
@@ -175,20 +179,29 @@ public abstract class BrooklynDynamicType<T extends BrooklynObject, AbstractT ex
                 LOG.warn("cannot access config key (skipping): "+f);
             }
         }
+        Collection<Class<?>> interfaces = MutableSet.copyOf(Arrays.asList(clazz.getInterfaces()));
         LinkedHashSet<String> keys = new LinkedHashSet<String>(configKeysAll.keys());
         for (String kn: keys) {
             List<FieldAndValue<ConfigKey<?>>> kk = Lists.newArrayList(configKeysAll.get(kn));
-            if (kk.size()>1) {
-                // remove anything which extends another value in the list
-                for (FieldAndValue<ConfigKey<?>> k: kk) {
-                    ConfigKey<?> key = value(k);
-                    if (key instanceof BasicConfigKeyOverwriting) {                            
-                        ConfigKey<?> parent = ((BasicConfigKeyOverwriting<?>)key).getParentKey();
-                        // find and remove the parent from consideration
-                        for (FieldAndValue<ConfigKey<?>> k2: kk) {
-                            if (value(k2) == parent)
-                                configKeysAll.remove(kn, k2);
-                        }
+            // remove anything which isn't reinheritable, or which is overridden
+            for (FieldAndValue<ConfigKey<?>> k: kk) {
+                ConfigKey<?> key = value(k);
+                if (!ConfigInheritances.isKeyReinheritable(key, InheritanceContext.TYPE_DEFINITION)) {
+                    if (k.field.getDeclaringClass().equals(clazz)) {
+                        // proceed if key is declared on this class
+                    } else if (interfaces.contains(k.field.getDeclaringClass())) {
+                        // proceed if key is declared on an exlicitly declared interface
+                    } else {
+                        // key not re-inheritable from parent so not visible here
+                        configKeysAll.remove(k.value.getName(), k);
+                    }
+                }
+                if (key instanceof BasicConfigKeyOverwriting) {                            
+                    ConfigKey<?> parent = ((BasicConfigKeyOverwriting<?>)key).getParentKey();
+                    // find and remove the parent from consideration
+                    for (FieldAndValue<ConfigKey<?>> k2: kk) {
+                        if (value(k2) == parent)
+                            configKeysAll.remove(kn, k2);
                     }
                 }
                 kk = Lists.newArrayList(configKeysAll.get(kn));
@@ -235,8 +248,7 @@ public abstract class BrooklynDynamicType<T extends BrooklynObject, AbstractT ex
                 }
             }
             if (best==null) {
-                // shouldn't happen
-                LOG.error("Error - no matching config key from "+kk+" in class "+clazz+", even though had config key name "+kn);
+                // means key was not reinheritable
                 continue;
             } else {
                 configKeys.put(best.value.getName(), best);

@@ -28,10 +28,15 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.entity.ImplementedBy;
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.location.PortRange;
+import org.apache.brooklyn.camp.brooklyn.catalog.SpecParameterUnwrappingTest;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigPredicates;
+import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -40,6 +45,7 @@ import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
@@ -47,6 +53,7 @@ import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -821,7 +828,16 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         assertEquals(entity.config().get(key), expectedEntityVal);
     }
     
-    @Test(groups="Broken")
+    @ImplementedBy(TestEntityWithUninheritedConfigImpl.class)
+    public static interface TestEntityWithUninheritedConfig extends Entity {}
+    public static class TestEntityWithUninheritedConfigImpl extends TestEntityWithUninheritedConfigImplParent implements TestEntityWithUninheritedConfig {
+        public static final ConfigKey<String> P1 = ConfigKeys.builder(String.class).name("p1").typeInheritance(BasicConfigInheritance.NEVER_INHERITED).build();
+    }
+    public static class TestEntityWithUninheritedConfigImplParent extends AbstractEntity {
+        public static final ConfigKey<String> P1 = ConfigKeys.builder(String.class).name("p1-proto").typeInheritance(BasicConfigInheritance.NEVER_INHERITED).build();
+    }
+    
+    @Test
     public void testConfigDefaultIsNotInheritedWith_LocalDefaultResolvesWithAncestorValue_SetToTrue() throws Exception {
 
         addCatalogItems(
@@ -831,11 +847,14 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
             "  items:",
             "  - id: entity-with-keys",
             "    item:",
-            "      type: "+TestEntity.class.getName(),
+            "      type: "+TestEntityWithUninheritedConfig.class.getName(),
             "      brooklyn.parameters:",
+            "      - name: p2",
+            "        type: string",
+            "        inheritance.type: never",
             "      - name: my.param.key",
             "        type: string",
-            "        inheritance.runtime: never",
+            "        inheritance.type: never",
             "        description: description one",
             "        default: myDefaultVal",
             "      brooklyn.config:",
@@ -854,28 +873,41 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
             "      type: entity-with-keys");
 
         String yaml = Joiner.on("\n").join(
+            "brooklyn.parameters:",
+            "- name: p0",
+            "  type: string",
+            "  inheritance.runtime: never",
+            "  default: default-invisible-at-child",
+            "brooklyn.config:",
+            "  p0: invisible-at-child",
             "services:",
             "- type: wrapper-entity");
+        final int NUM_CONFIG_KEYS_FROM_TEST_BLUEPRINT = 1;
 
+        /* With "never" inheritance, test that p0, p1, and p2 aren't visible, and my.param.key has no default. */
+        
+        // check on spec
+        
+        AbstractBrooklynObjectSpec<?, ?> spec = mgmt().getCatalog().peekSpec(mgmt().getCatalog().getCatalogItem("wrapper-entity", null));
+        Assert.assertEquals(spec.getParameters().size(), SpecParameterUnwrappingTest.NUM_ENTITY_DEFAULT_CONFIG_KEYS + NUM_CONFIG_KEYS_FROM_TEST_BLUEPRINT, 
+            "params: "+spec.getParameters());
+        
         Entity app = createStartWaitAndLogApplication(yaml);
-        final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
-        LOG.info("Config keys declared on "+entity+": "+entity.config().findKeysDeclared(Predicates.alwaysTrue()));
+        final Entity entity = Iterables.getOnlyElement(app.getChildren());
+        
+        // check key values
+        
         ConfigKey<?> key = Iterables.getOnlyElement( entity.config().findKeysDeclared(ConfigPredicates.nameEqualTo("my.param.key")) );
         assertEquals(key.getDescription(), "description two");
         assertEquals(entity.config().get(key), null);
         
-        /*
-java.lang.AssertionError: expected [null] but found [myDefaultVal]
-Expected :null
-Actual   :myDefaultVal
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("p0")), null);
+        assertEquals(app.config().get(ConfigKeys.newStringConfigKey("p0")), "invisible-at-child");
 
-because we do not filter out hidden ancestor config keys whenever we populate the list of declared config keys, neither in:
+        // check declared keys
 
-BasicSpecParameter.fromSpec(..), where we extend a spec from a spec; nor
-InternalEntityFactory.loadUnitializedEntity(...), where we create a spec for a java class; nor
-BrooklynDynamicType.buildConfigKeys(..), where we record the entity signature for a java type
-
-         */
+        // none of the p? items are present
+        Asserts.assertSize(entity.config().findKeysDeclared(ConfigPredicates.nameMatchesRegex("p.*")), 0);
     }
     
 }

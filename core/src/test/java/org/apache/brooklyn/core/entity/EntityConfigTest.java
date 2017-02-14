@@ -371,7 +371,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
     public void testConfigFilterDeclared() throws Exception {
         MySubEntity entity = app.addChild(EntitySpec.create(MySubEntity.class));
         Set<ConfigKey<?>> filteredKeys = entity.config().getInternalConfigMap().findKeysDeclared(ConfigPredicates.nameMatchesGlob("sup*"));
-        Assert.assertTrue(filteredKeys.contains(MyBaseEntity.SUPER_KEY_1));
+        Assert.assertTrue(filteredKeys.contains(MyBaseEntity.SUPER_KEY_1), "keys are: "+filteredKeys);
         Assert.assertTrue(filteredKeys.contains(MyBaseEntity.SUPER_KEY_2));
         Assert.assertFalse(filteredKeys.contains(MySubEntity.SUB_KEY_2));
         Asserts.assertSize(filteredKeys, 2);

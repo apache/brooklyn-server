@@ -240,7 +240,6 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     @Override
     public CatalogItem<?,?> getCatalogItem(String symbolicName, String version) {
         if (symbolicName == null) return null;
-        checkNotNull(version, "version");
         CatalogItemDo<?, ?> itemDo = getCatalogItemDo(symbolicName, version);
         if (itemDo == null) return null;
         return itemDo.getDto();

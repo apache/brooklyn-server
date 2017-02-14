@@ -209,6 +209,7 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
         @Override
         public void decorate(EntitySpec<?> entitySpec, ConfigBag attrs, Set<String> encounteredRegisteredTypeIds) {
             transformer = new BrooklynComponentTemplateResolver.SpecialFlagsTransformer(instantiator.loader, encounteredRegisteredTypeIds);
+            // entitySpec is the parent
             List<? extends SpecParameter<?>> explicitParams = buildListOfTheseDecorationsFromEntityAttributes(attrs);
             BasicSpecParameter.addParameters(entitySpec, explicitParams, instantiator.loader);
         }
