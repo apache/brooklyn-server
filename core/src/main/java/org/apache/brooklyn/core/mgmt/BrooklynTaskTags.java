@@ -23,7 +23,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.io.ByteArrayOutputStream;
 import java.util.Collection;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -56,7 +55,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 
 /** Provides utilities for making Tasks easier to work with in Brooklyn.
  * Main thing at present is to supply (and find) wrapped entities for tasks to understand the
@@ -336,6 +334,7 @@ public class BrooklynTaskTags extends TaskTags {
             this.effectorName = checkNotNull(effectorName, "effectorName");
             this.parameters = parameters;
         }
+        @Override
         public String toString() {
             return EFFECTOR_TAG+"@"+entityId+":"+effectorName;
         }

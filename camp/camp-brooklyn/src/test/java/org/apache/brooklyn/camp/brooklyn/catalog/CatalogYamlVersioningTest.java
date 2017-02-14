@@ -44,6 +44,7 @@ public class CatalogYamlVersioningTest extends AbstractYamlTest {
     
     private BrooklynTypeRegistry types;
     
+    @Override
     @BeforeMethod(alwaysRun = true)
     public void setUp() throws Exception {
         super.setUp();

@@ -307,6 +307,7 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
         }
     }
 
+    @Override
     public void onAddConfigFailed(EntityMemento entityMemento, ConfigKey<?> key, Exception e) {
         Exceptions.propagateIfFatal(e);
 

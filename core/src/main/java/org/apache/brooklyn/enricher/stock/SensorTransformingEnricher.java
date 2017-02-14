@@ -24,8 +24,6 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
-import org.apache.brooklyn.util.time.Duration;
-
 import groovy.lang.Closure;
 
 import com.google.common.base.Function;
@@ -34,6 +32,7 @@ import com.google.common.base.Function;
  * @deprecated since 0.7.0; use {@link Enrichers.builder()}
  * @see Transformer if need to sub-class
  */
+@Deprecated
 public class SensorTransformingEnricher<T,U> extends AbstractTypeTransformingEnricher {
 
     private Function<? super T, ? extends U> transformation;
@@ -92,6 +91,7 @@ public class SensorTransformingEnricher<T,U> extends AbstractTypeTransformingEnr
      * 
      * @deprecated since 0.7.0; use {@link Enrichers.builder()}
      */
+    @Deprecated
     public static <U,V> SensorTransformingEnricher<U,V> newInstanceTransforming(Entity producer, AttributeSensor<U> source,
             Function<U,V> transformation, AttributeSensor<V> target) {
         return new SensorTransformingEnricher<U,V>(producer, source, target, transformation);

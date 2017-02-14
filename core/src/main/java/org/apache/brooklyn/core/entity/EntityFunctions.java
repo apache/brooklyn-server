@@ -28,7 +28,6 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.Identifiable;
@@ -104,7 +103,7 @@ public class EntityFunctions {
             @SuppressWarnings({ "unchecked", "rawtypes" })
             @Override public Void apply(Entity input) {
                 for (Map.Entry<AttributeSensor<?>,Object> entry : values.entrySet()) {
-                    AttributeSensor sensor = (AttributeSensor)entry.getKey();
+                    AttributeSensor sensor = entry.getKey();
                     Object value = entry.getValue();
                     if (value==Entities.UNCHANGED) {
                         // nothing
@@ -127,7 +126,7 @@ public class EntityFunctions {
         // TODO PERSISTENCE WORKAROUND
         class UpdatingSensorMapEntryFunction implements Function<Entity, Void> {
             @Override public Void apply(Entity input) {
-                ServiceStateLogic.updateMapSensorEntry((EntityLocal)input, mapSensor, key, valueSupplier.get());
+                ServiceStateLogic.updateMapSensorEntry(input, mapSensor, key, valueSupplier.get());
                 return null;
             }
         }
@@ -281,7 +280,7 @@ public class EntityFunctions {
         @SuppressWarnings({ "unchecked", "rawtypes" })
         @Override public Void apply(Entity input) {
             for (Map.Entry<AttributeSensor<?>,Object> entry : values.entrySet()) {
-                AttributeSensor sensor = (AttributeSensor)entry.getKey();
+                AttributeSensor sensor = entry.getKey();
                 Object value = entry.getValue();
                 if (value==Entities.UNCHANGED) {
                     // nothing
@@ -318,7 +317,7 @@ public class EntityFunctions {
             this.valueSupplier = valueSupplier;
         }
         @Override public Void apply(Entity input) {
-            ServiceStateLogic.updateMapSensorEntry((EntityLocal)input, mapSensor, key, valueSupplier.get());
+            ServiceStateLogic.updateMapSensorEntry(input, mapSensor, key, valueSupplier.get());
             return null;
         }
     }

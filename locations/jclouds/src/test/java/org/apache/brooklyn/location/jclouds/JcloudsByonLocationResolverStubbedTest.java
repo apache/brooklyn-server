@@ -65,6 +65,7 @@ public class JcloudsByonLocationResolverStubbedTest extends AbstractJcloudsStubb
         initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
     }
     
+    @Override
     protected LocalManagementContext newManagementContext() {
         // This really is stubbed; no live access to the cloud
         LocalManagementContext result = LocalManagementContextForTests.builder(true).build();
@@ -75,6 +76,7 @@ public class JcloudsByonLocationResolverStubbedTest extends AbstractJcloudsStubb
 
     }
 
+    @Override
     protected NodeCreator newNodeCreator() {
         return new AbstractNodeCreator() {
             @Override

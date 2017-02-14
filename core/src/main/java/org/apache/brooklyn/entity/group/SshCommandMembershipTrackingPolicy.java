@@ -47,7 +47,6 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.Beta;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Converter;
 import com.google.common.base.Preconditions;
@@ -169,7 +168,7 @@ public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTracki
 
         LOG.info("Executing command on {}: {}", machine.get(), command);
         String executionDir = config().get(EXECUTION_DIR);
-        String sshCommand = SshCommandSensor.makeCommandExecutingInDirectory(command, executionDir, (EntityInternal) target);
+        String sshCommand = SshCommandSensor.makeCommandExecutingInDirectory(command, executionDir, target);
 
         // Set things from the entities defined shell environment, overriding with our config
         Map<String, Object> env = MutableMap.of();

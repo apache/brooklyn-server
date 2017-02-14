@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 class AutoGenerateKeypairsOption implements TemplateOptionCustomizer {
     private static final Logger LOG = LoggerFactory.getLogger(AutoGenerateKeypairsOption.class);
 
+    @Override
     public void apply(TemplateOptions t, ConfigBag props, Object v) {
         if (t instanceof NovaTemplateOptions) {
             ((NovaTemplateOptions) t).generateKeyPair((Boolean) v);

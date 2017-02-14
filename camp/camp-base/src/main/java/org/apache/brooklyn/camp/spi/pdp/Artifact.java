@@ -47,7 +47,7 @@ public class Artifact {
         Artifact result = new Artifact();
         result.name = (String) fields.remove("name");
         result.description = (String) fields.remove("description");
-        result.artifactType = (String) (String) Yamls.removeMultinameAttribute(fields, "artifactType", "type");
+        result.artifactType = (String) Yamls.removeMultinameAttribute(fields, "artifactType", "type");
         
         result.content = ArtifactContent.of( fields.remove("content") );
         

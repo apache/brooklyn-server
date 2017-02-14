@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 class UserDataUuencodedOption implements TemplateOptionCustomizer {
     private static final Logger LOG = LoggerFactory.getLogger(UserDataUuencodedOption.class);
 
+    @Override
     public void apply(TemplateOptions t, ConfigBag props, Object v) {
         if (t instanceof EC2TemplateOptions) {
             byte[] bytes = toByteArray(v);

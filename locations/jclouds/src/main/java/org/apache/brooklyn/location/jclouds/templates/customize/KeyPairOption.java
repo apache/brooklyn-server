@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 class KeyPairOption implements TemplateOptionCustomizer {
     private static final Logger LOG = LoggerFactory.getLogger(KeyPairOption.class);
 
+    @Override
     public void apply(TemplateOptions t, ConfigBag props, Object v) {
         if (t instanceof EC2TemplateOptions) {
             ((EC2TemplateOptions) t).keyPair(v.toString());

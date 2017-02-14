@@ -59,6 +59,7 @@ public class EntityAutomanagedTest extends BrooklynAppUnitTestSupport {
     
     protected RecordingCollectionChangeListener listener;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();

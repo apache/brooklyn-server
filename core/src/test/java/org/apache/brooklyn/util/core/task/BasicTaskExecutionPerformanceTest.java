@@ -173,6 +173,7 @@ public class BasicTaskExecutionPerformanceTest {
         Long toobig = Iterables.find(
                 times, 
                 new Predicate<Long>() {
+                    @Override
                     public boolean apply(Long input) {
                         return input > MAX_ACCEPTABLE_TIME;
                     }},

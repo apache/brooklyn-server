@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.mgmt.persist;
 
 import com.google.common.annotations.Beta;
-import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,7 +66,7 @@ public class DeserializingProvider {
                     builder.putAll(loader.load());
                 }
                 cache = builder.build();
-                LOG.info("Config cache loaded, size {}", cache.size());
+                LOG.debug("Config cache loaded, size {}", cache.size());
             }
             return cache;
         }

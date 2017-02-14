@@ -57,6 +57,7 @@ public class SimpleOneLineLogFormatter extends Formatter {
     }
 
     /** uses "YYYY-DD-MM hh:mm:ss.SSS  message" format */ 
+    @Override
     public String format(LogRecord record) {
         StringBuffer sb = new StringBuffer();
         appendDate(record, sb);

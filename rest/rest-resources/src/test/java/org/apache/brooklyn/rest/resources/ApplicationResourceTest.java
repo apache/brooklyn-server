@@ -128,6 +128,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
     // Convenience for finding an EntitySummary within a collection, based on its name
     private static Predicate<EntitySummary> withName(final String name) {
         return new Predicate<EntitySummary>() {
+            @Override
             public boolean apply(EntitySummary input) {
                 return name.equals(input.getName());
             }
@@ -137,6 +138,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
     // Convenience for finding a Map within a collection, based on the value of one of its keys
     private static Predicate<? super Map<?,?>> withValueForKey(final Object key, final Object value) {
         return new Predicate<Object>() {
+            @Override
             public boolean apply(Object input) {
                 if (!(input instanceof Map)) return false;
                 return value.equals(((Map<?, ?>) input).get(key));

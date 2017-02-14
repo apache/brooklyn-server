@@ -211,6 +211,7 @@ public class LocalUsageManager implements UsageManager {
         List<ListenableFuture<?>> futures = Lists.newArrayList();
         for (final UsageListener listener : listeners) {
             ListenableFuture<?> future = listenerExecutor.submit(new Runnable() {
+                @Override
                 public void run() {
                     if (listener instanceof Closeable) {
                         try {
@@ -236,6 +237,7 @@ public class LocalUsageManager implements UsageManager {
         for (final UsageListener listener : listeners) {
             listenerQueueSize.incrementAndGet();
             listenerExecutor.execute(new Runnable() {
+                @Override
                 public void run() {
                     try {
                         job.apply(listener);
@@ -276,10 +278,12 @@ public class LocalUsageManager implements UsageManager {
             eventMap.put(app.getId(), usage);
 
             execOnListeners(new Function<UsageListener, Void>() {
+                    @Override
                     public Void apply(UsageListener listener) {
                         listener.onApplicationEvent(new ApplicationMetadataImpl(Entities.proxy(app)), event);
                         return null;
                     }
+                    @Override
                     public String toString() {
                         return "applicationEvent("+app+", "+state+")";
                     }});
@@ -360,10 +364,12 @@ public class LocalUsageManager implements UsageManager {
             eventMap.put(loc.getId(), usage);
             
             execOnListeners(new Function<UsageListener, Void>() {
+                    @Override
                     public Void apply(UsageListener listener) {
                         listener.onLocationEvent(new LocationMetadataImpl(loc), event);
                         return null;
                     }
+                    @Override
                     public String toString() {
                         return "locationEvent("+loc+", "+state+")";
                     }});

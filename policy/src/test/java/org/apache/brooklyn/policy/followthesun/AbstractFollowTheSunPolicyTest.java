@@ -26,7 +26,6 @@ import java.util.Random;
 import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
@@ -121,6 +120,7 @@ public class AbstractFollowTheSunPolicyTest {
     protected void assertItemDistributionEventually(final Map<MockContainerEntity, ? extends Collection<MockItemEntity>> expected) {
         try {
             Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+                @Override
                 public void run() {
                     assertItemDistribution(expected);
                 }});
@@ -133,6 +133,7 @@ public class AbstractFollowTheSunPolicyTest {
     protected void assertItemDistributionContinually(final Map<MockContainerEntity, Collection<MockItemEntity>> expected) {
         try {
             Asserts.succeedsContinually(MutableMap.of("timeout", SHORT_WAIT_MS), new Runnable() {
+                @Override
                 public void run() {
                     assertItemDistribution(expected);
                 }});
@@ -229,7 +230,7 @@ public class AbstractFollowTheSunPolicyTest {
     protected static MockItemEntity newItem(TestApplication app, MockContainerEntity container, String name, Map<? extends Entity, Double> workpattern) {
         MockItemEntity item = newItem(app, container, name);
         if (workpattern != null) {
-            ((EntityLocal)item).sensors().set(MockItemEntity.ITEM_USAGE_METRIC, (Map) workpattern);
+            item.sensors().set(MockItemEntity.ITEM_USAGE_METRIC, (Map) workpattern);
         }
         return item;
     }

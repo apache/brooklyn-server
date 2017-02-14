@@ -138,10 +138,12 @@ public class SshEffectorTasks {
             return (SshEffectorTaskFactory<Boolean>) super.returningIsExitCodeZero();
         }
 
+        @Override
         public SshEffectorTaskFactory<String> requiringZeroAndReturningStdout() {
             return (SshEffectorTaskFactory<String>) super.requiringZeroAndReturningStdout();
         }
         
+        @Override
         public <RET2> SshEffectorTaskFactory<RET2> returning(Function<ProcessTaskWrapper<?>, RET2> resultTransformation) {
             return (SshEffectorTaskFactory<RET2>) super.returning(resultTransformation);
         }
@@ -239,6 +241,7 @@ public class SshEffectorTasks {
     /** as {@link #codePidRunning(Integer)} but returning boolean */
     public static SshEffectorTaskFactory<Boolean> isPidRunning(Integer pid) {
         return codePidRunning(pid).summary("PID "+pid+" is-running check (boolean)").returning(new Function<ProcessTaskWrapper<?>, Boolean>() {
+            @Override
             public Boolean apply(@Nullable ProcessTaskWrapper<?> input) { return Integer.valueOf(0).equals(input.getExitCode()); }
         });
     }
@@ -262,6 +265,7 @@ public class SshEffectorTasks {
                 "ps -p `cat "+pidFile+"`")).summary("PID file "+pidFile+" is-running check (exit code)")
                 .allowingNonZeroExitCode()
                 .addCompletionListener(new Function<ProcessTaskWrapper<?>,Void>() {
+                    @Override
                     public Void apply(ProcessTaskWrapper<?> input) {
                         if (input.getStderr().contains("ERROR:"))
                             throw new IllegalStateException("Invalid or inaccessible PID filespec: "+pidFile);
@@ -282,6 +286,7 @@ public class SshEffectorTasks {
     public static SshEffectorTaskFactory<Boolean> isPidFromFileRunning(String pidFile) {
         return codePidFromFileRunning(pidFile).summary("PID file "+pidFile+" is-running check (boolean)").
                 returning(new Function<ProcessTaskWrapper<?>, Boolean>() {
+                    @Override
                     public Boolean apply(@Nullable ProcessTaskWrapper<?> input) { return ((Integer)0).equals(input.getExitCode()); }
                 });
     }

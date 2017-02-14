@@ -23,7 +23,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -31,20 +30,16 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
-import org.apache.brooklyn.util.text.StringFunctions;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
@@ -53,17 +48,10 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 
 public class CatalogYamlLocationTest extends AbstractYamlTest {
     private static final String LOCALHOST_LOCATION_SPEC = "localhost";
     private static final String LOCALHOST_LOCATION_TYPE = LocalhostMachineProvisioningLocation.class.getName();
-    private static final String SIMPLE_LOCATION_TYPE = "org.apache.brooklyn.test.osgi.entities.SimpleLocation";
-
-    @Override
-    protected boolean disableOsgi() {
-        return false;
-    }
 
     @AfterMethod(alwaysRun=true)
     @Override
@@ -88,42 +76,13 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testAddCatalogItemOsgi() throws Exception {
-        assertEquals(countCatalogLocations(), 0);
-
-        String symbolicName = "my.catalog.location.id.load";
-        addCatalogLocation(symbolicName, SIMPLE_LOCATION_TYPE, getOsgiLibraries());
-        assertAdded(symbolicName, SIMPLE_LOCATION_TYPE);
-        assertOsgi(symbolicName);
-        removeAndAssert(symbolicName);
-    }
-
-    @Test
     public void testAddCatalogItemLegacySyntax() throws Exception {
         assertEquals(countCatalogLocations(), 0);
 
         String symbolicName = "my.catalog.location.id.load";
-        addCatalogLocationLegacySyntax(symbolicName, LOCALHOST_LOCATION_TYPE, null);
+        addCatalogLocationLegacySyntax(symbolicName, LOCALHOST_LOCATION_TYPE);
         assertAdded(symbolicName, LOCALHOST_LOCATION_TYPE);
         removeAndAssert(symbolicName);
-    }
-
-    @Test
-    public void testAddCatalogItemOsgiLegacySyntax() throws Exception {
-        assertEquals(countCatalogLocations(), 0);
-
-        String symbolicName = "my.catalog.location.id.load";
-        addCatalogLocationLegacySyntax(symbolicName, SIMPLE_LOCATION_TYPE, getOsgiLibraries());
-        assertAdded(symbolicName, SIMPLE_LOCATION_TYPE);
-        assertOsgi(symbolicName);
-        removeAndAssert(symbolicName);
-    }
-
-    private void assertOsgi(String symbolicName) {
-        RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
-        Collection<OsgiBundleWithUrl> libs = item.getLibraries();
-        assertEquals(libs.size(), 1);
-        assertEquals(Iterables.getOnlyElement(libs).getUrl(), Iterables.getOnlyElement(getOsgiLibraries()));
     }
 
     @SuppressWarnings({ "rawtypes" })
@@ -138,7 +97,7 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         assertEquals(def.getId(), symbolicName);
         assertEquals(def.getName(), symbolicName);
         
-        LocationSpec spec = (LocationSpec) mgmt().getTypeRegistry().createSpec(item, null, LocationSpec.class);
+        LocationSpec spec = mgmt().getTypeRegistry().createSpec(item, null, LocationSpec.class);
         assertEquals(spec.getType().getName(), expectedJavaType);
     }
     
@@ -171,7 +130,7 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
     @Test
     public void testLaunchApplicationReferencingLocationClassLegacySyntax() throws Exception {
         String symbolicName = "my.catalog.location.id.launch";
-        addCatalogLocationLegacySyntax(symbolicName, LOCALHOST_LOCATION_TYPE, null);
+        addCatalogLocationLegacySyntax(symbolicName, LOCALHOST_LOCATION_TYPE);
         runLaunchApplicationReferencingLocation(symbolicName, LOCALHOST_LOCATION_TYPE);
 
         deleteCatalogEntity(symbolicName);
@@ -180,21 +139,12 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
     @Test
     public void testLaunchApplicationReferencingLocationSpecLegacySyntax() throws Exception {
         String symbolicName = "my.catalog.location.id.launch";
-        addCatalogLocationLegacySyntax(symbolicName, LOCALHOST_LOCATION_SPEC, null);
+        addCatalogLocationLegacySyntax(symbolicName, LOCALHOST_LOCATION_SPEC);
         runLaunchApplicationReferencingLocation(symbolicName, LOCALHOST_LOCATION_TYPE);
 
         deleteCatalogEntity(symbolicName);
     }
 
-    @Test
-    public void testLaunchApplicationReferencingOsgiLocation() throws Exception {
-        String symbolicName = "my.catalog.location.id.launch";
-        addCatalogLocation(symbolicName, SIMPLE_LOCATION_TYPE, getOsgiLibraries());
-        runLaunchApplicationReferencingLocation(symbolicName, SIMPLE_LOCATION_TYPE);
-        
-        deleteCatalogEntity(symbolicName);
-    }
-    
     // See https://issues.apache.org/jira/browse/BROOKLYN-248
     @Test
     public void testTypeInheritance() throws Exception {
@@ -380,11 +330,6 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         assertEquals(location.getConfig(new BasicConfigKey<String>(String.class, "config3")), "config3");
     }
 
-    private List<String> getOsgiLibraries() {
-        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
-        return ImmutableList.of(OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL);
-    }
-    
     private void addCatalogLocation(String symbolicName, String locationType, List<String> libraries) {
         ImmutableList.Builder<String> yaml = ImmutableList.<String>builder().add(
                 "brooklyn.catalog:",
@@ -392,12 +337,7 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
                 "  version: " + TEST_VERSION,
                 "  itemType: location",
                 "  name: My Catalog Location",
-                "  description: My description");
-        if (libraries!=null && libraries.size() > 0) {
-            yaml.add("  libraries:")
-                .addAll(Lists.transform(libraries, StringFunctions.prepend("  - url: ")));
-        }
-        yaml.add(
+                "  description: My description",
                 "  item:",
                 "    type: " + locationType,
                 "    brooklyn.config:",
@@ -408,18 +348,13 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         addCatalogItems(yaml.build());
     }
 
-    private void addCatalogLocationLegacySyntax(String symbolicName, String locationType, List<String> libraries) {
+    private void addCatalogLocationLegacySyntax(String symbolicName, String locationType) {
         ImmutableList.Builder<String> yaml = ImmutableList.<String>builder().add(
                 "brooklyn.catalog:",
                 "  id: " + symbolicName,
                 "  name: My Catalog Location",
                 "  description: My description",
-                "  version: " + TEST_VERSION);
-        if (libraries!=null && libraries.size() > 0) {
-            yaml.add("  libraries:")
-                .addAll(Lists.transform(libraries, StringFunctions.prepend("  - url: ")));
-        }
-        yaml.add(
+                "  version: " + TEST_VERSION,
                 "",
                 "brooklyn.locations:",
                 "- type: " + locationType,
@@ -429,10 +364,6 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         
         
         addCatalogItems(yaml.build());
-    }
-
-    private int countCatalogLocations() {
-        return Iterables.size(mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.IS_LOCATION));
     }
 
     @Test

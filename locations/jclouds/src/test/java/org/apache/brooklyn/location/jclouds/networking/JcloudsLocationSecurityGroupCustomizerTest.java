@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.location.jclouds.networking;
 
-import static org.apache.brooklyn.location.jclouds.networking.SecurityGroupEditor.JCLOUDS_PREFIX;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
@@ -66,6 +65,7 @@ import org.apache.brooklyn.util.net.Cidr;
 
 public class JcloudsLocationSecurityGroupCustomizerTest {
 
+    private static final String JCLOUDS_PREFIX_AWS = "jclouds#";
     JcloudsLocationSecurityGroupCustomizer customizer;
     @Mock(answer = Answers.RETURNS_DEEP_STUBS) ComputeService computeService;
     @Mock(answer = Answers.RETURNS_SMART_NULLS) Location location;
@@ -363,8 +363,8 @@ public class JcloudsLocationSecurityGroupCustomizerTest {
 
     private SecurityGroup newGroup(String name, Set<IpPermission> ipPermissions) {
         String id = name;
-        if (!name.startsWith(JCLOUDS_PREFIX)) {
-            id = JCLOUDS_PREFIX + name;
+        if (!name.startsWith(JCLOUDS_PREFIX_AWS)) {
+            id = JCLOUDS_PREFIX_AWS + name;
         }
         URI uri = null;
         String ownerId = null;

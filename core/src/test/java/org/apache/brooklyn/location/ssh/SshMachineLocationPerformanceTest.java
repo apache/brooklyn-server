@@ -147,6 +147,7 @@ public class SshMachineLocationPerformanceTest {
             List<ListenableFuture<?>> futures = Lists.newArrayList();
             for (int j = 0; j < concurrentRuns; j++) {
                 futures.add(executor.submit(new Runnable() {
+                    @Override
                     public void run() {
                         try {
                             task.run();

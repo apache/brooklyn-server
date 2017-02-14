@@ -53,6 +53,7 @@ public class SoftwareProcessOpenIptablesStreamsLiveTest extends BrooklynAppLiveT
 
     protected TestApplication app;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
 

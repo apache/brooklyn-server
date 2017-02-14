@@ -24,7 +24,6 @@ import static org.testng.Assert.assertNull;
 import java.util.List;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -82,7 +81,7 @@ public class DynamicClusterWithAvailabilityZonesMultiLocationTest extends Brookl
 
     @Test
     public void testReplacesEntityInSameZone() throws Exception {
-        ((EntityLocal)cluster).config().set(DynamicCluster.ENABLE_AVAILABILITY_ZONES, true);
+        cluster.config().set(DynamicCluster.ENABLE_AVAILABILITY_ZONES, true);
         cluster.start(ImmutableList.of(multiLoc));
         
         cluster.resize(4);

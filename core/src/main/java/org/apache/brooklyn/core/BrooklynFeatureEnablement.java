@@ -61,6 +61,8 @@ public class BrooklynFeatureEnablement {
     /** whether feeds are automatically registered when set on entities, so that they are persisted */
     public static final String FEATURE_FEED_REGISTRATION_PROPERTY = FEATURE_PROPERTY_PREFIX+".feedRegistration";
 
+    public static final String FEATURE_CORS_CXF_PROPERTY = FEATURE_PROPERTY_PREFIX + ".corsCxfFeature";
+
     public static final String FEATURE_CATALOG_PERSISTENCE_PROPERTY = FEATURE_PROPERTY_PREFIX+".catalogPersistence";
     
     /** whether the default standby mode is {@link HighAvailabilityMode#HOT_STANDBY} or falling back to the traditional

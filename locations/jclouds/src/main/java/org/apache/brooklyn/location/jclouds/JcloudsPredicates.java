@@ -33,6 +33,7 @@ public class JcloudsPredicates {
      * @deprecated since 0.9.0; direct access strongly discouraged; will be made protected in future release;
      *             use {@link JcloudsPredicates#nodeInLocation(String, boolean)}
      */
+    @Deprecated
     public static class NodeInLocation implements Predicate<ComputeMetadata> {
         private final String regionId;
         private final boolean matchNullLocations;

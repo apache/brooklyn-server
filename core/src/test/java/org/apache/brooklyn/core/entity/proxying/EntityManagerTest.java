@@ -132,6 +132,7 @@ public class EntityManagerTest extends BrooklynAppUnitTestSupport {
         try {
             for (int i = 0; i < NUM_GETTER_THREADS; i++) {
                 ListenableFuture<?> future = executor.submit(new Callable<Void>() {
+                    @Override
                     public Void call() throws Exception {
                         int numCycles = 0;
                         try {
@@ -151,6 +152,7 @@ public class EntityManagerTest extends BrooklynAppUnitTestSupport {
 
             for (int i = 0; i < NUM_ENTITY_LIFECYCLE_THREADS; i++) {
                 ListenableFuture<?> future = executor.submit(new Callable<Void>() {
+                    @Override
                     public Void call() {
                         List<TestEntity> entities = Lists.newLinkedList();
                         int numCycles = 0;

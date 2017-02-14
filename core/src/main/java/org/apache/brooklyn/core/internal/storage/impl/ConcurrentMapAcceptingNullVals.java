@@ -132,7 +132,7 @@ public class ConcurrentMapAcceptingNullVals<K, V> implements ConcurrentMap<K, V>
 
     @Override
     public boolean remove(Object key, Object value) {
-        return delegate.remove(key, (V) toNonNullValue(value));
+        return delegate.remove(key, toNonNullValue(value));
     }
 
     @Override

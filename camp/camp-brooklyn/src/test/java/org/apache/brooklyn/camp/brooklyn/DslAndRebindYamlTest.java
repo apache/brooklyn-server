@@ -453,6 +453,34 @@ public class DslAndRebindYamlTest extends AbstractYamlRebindTest {
     }
 
     @Test
+    public void testDslUrlEncode() throws Exception {
+        String unescapedVal = "name@domain?!/&:%";
+        String escapedVal = "name%40domain%3F%21%2F%26%3A%25";
+
+        String unescapedUrlFormat = "http://%s:password@mydomain.com";
+        String escapedUrl = "http://" + escapedVal + ":password@mydomain.com";
+        
+        Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
+                "  brooklyn.config:",
+                "    test.confObject: \"" + unescapedVal + "\"",
+                "    test.confName:",
+                "      $brooklyn:urlEncode:",
+                "      - $brooklyn:config(\"test.confObject\")",
+                "    test.confUrl:",
+                "      $brooklyn:formatString:",
+                "      - " + unescapedUrlFormat,
+                "      - $brooklyn:urlEncode:",
+                "        - $brooklyn:config(\"test.confObject\")");
+
+        Assert.assertEquals(getConfigInTask(testEntity, TestEntity.CONF_NAME), escapedVal);
+        Assert.assertEquals(getConfigInTask(testEntity, ConfigKeys.newStringConfigKey("test.confUrl")), escapedUrl);
+        
+        Entity e2 = rebind(testEntity);
+        Assert.assertEquals(getConfigInTask(e2, TestEntity.CONF_NAME), escapedVal);
+        Assert.assertEquals(getConfigInTask(e2, ConfigKeys.newStringConfigKey("test.confUrl")), escapedUrl);
+    }
+
+    @Test
     public void testDslEntityById() throws Exception {
         Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
                 "  id: x",

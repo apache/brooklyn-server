@@ -43,6 +43,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -53,7 +54,6 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.guava.Maybe.Absent;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
@@ -283,8 +283,8 @@ public class BasicLocationRegistry implements LocationRegistry {
                     String spec = (String) namedLocationProps.asMapWithStringKeys().get(k);
                     // make up an ID
                     String id = Identifiers.makeRandomId(8);
-                    Map<String, Object> config = ConfigUtils.filterForPrefixAndStrip(namedLocationProps.asMapWithStringKeys(), k+".");
-                    definedLocations.put(id, new BasicLocationDefinition(id, name, spec, config));
+                    BrooklynProperties config = ConfigUtils.filterForPrefixAndStrip(namedLocationProps.asMapWithStringKeys(), k+".");
+                    definedLocations.put(id, new BasicLocationDefinition(id, name, spec, config.asMapWithStringKeys()));
                     count++;
                 }
             }

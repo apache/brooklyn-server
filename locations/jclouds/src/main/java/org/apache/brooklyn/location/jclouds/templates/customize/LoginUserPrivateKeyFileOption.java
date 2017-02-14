@@ -35,6 +35,7 @@ import com.google.common.io.Files;
 class LoginUserPrivateKeyFileOption implements TemplateOptionCustomizer {
     private static final Logger LOG = LoggerFactory.getLogger(LoginUserPrivateKeyFileOption.class);
 
+    @Override
     public void apply(TemplateOptions t, ConfigBag props, Object v) {
         if (v != null) {
             String privateKeyFileName = v.toString();

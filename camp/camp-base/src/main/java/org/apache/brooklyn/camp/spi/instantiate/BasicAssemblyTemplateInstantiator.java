@@ -25,6 +25,7 @@ import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 /** A simple instantiator which simply invokes the component's instantiators in parallel */
 public class BasicAssemblyTemplateInstantiator implements AssemblyTemplateInstantiator {
 
+    @Override
     public Assembly instantiate(AssemblyTemplate template, CampPlatform platform) {
         // TODO this should build it based on the components
 //        template.getPlatformComponentTemplates().links().iterator().next().resolve();

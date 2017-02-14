@@ -66,6 +66,7 @@ public class WithMutexesTest {
         Assert.assertFalse(m.tryAcquireMutex("foo", "something else"));
 
         Thread t = new Thread() {
+            @Override
             public void run() {
                 try {
                     m.acquireMutex("foo", "thread 2 foo");

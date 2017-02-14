@@ -16,17 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.entity.factory;
+package org.apache.brooklyn.location.jclouds;
 
-import java.util.Map;
-
-import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.jclouds.blobstore.BlobStoreContext;
 
 /**
- * A Factory for creating entities.
- *
- * @deprecated since 0.7.0; use EntitySpec instead, as the factory does not put the entity through the initialization process */
-@Deprecated
-public interface EntityFactory<T extends Entity> {
-    T newEntity(Map flags, Entity parent);
+ * For creating a new {@link BlobStoreContext}, to access object stores such as S3 or Swift. 
+ * 
+ * @see {@link BlobStoreContextFactoryImpl}
+ */
+public interface BlobStoreContextFactory {
+
+    // TODO Longer term, we could make this more testable by having the BlobStoreContextFactory configurable.
+    // See the pattern used in {@link JcloudsLocationConfig#COMPUTE_SERVICE_REGISTRY}.
+    //
+    // However, for now we have just kept the separation of interface and implementation.
+    
+    public BlobStoreContext newBlobStoreContext(ConfigBag conf);
 }

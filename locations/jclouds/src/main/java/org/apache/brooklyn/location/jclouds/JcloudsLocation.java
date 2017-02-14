@@ -72,6 +72,7 @@ import org.apache.brooklyn.core.location.cloud.AbstractCloudMachineProvisioningL
 import org.apache.brooklyn.core.location.cloud.AvailabilityZoneExtension;
 import org.apache.brooklyn.core.location.cloud.names.AbstractCloudMachineNamer;
 import org.apache.brooklyn.core.location.cloud.names.CloudMachineNamer;
+import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
 import org.apache.brooklyn.core.mgmt.persist.LocationWithObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
@@ -1043,27 +1044,20 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
 
             customizedTimestamp = Duration.of(provisioningStopwatch);
-
-            try {
-                String logMessage = "Finished VM "+getCreationString(setup)+" creation:"
-                        + " "+machineLocation.getUser()+"@"+machineLocation.getAddress()+":"+machineLocation.getPort()
-                        + (Boolean.TRUE.equals(setup.get(LOG_CREDENTIALS))
-                                ? "password=" + userCredentials.getOptionalPassword().or("<absent>")
-                                + " && key=" + userCredentials.getOptionalPrivateKey().or("<absent>")
-                                : "")
-                        + " ready after "+Duration.of(provisioningStopwatch).toStringRounded()
-                        + " ("
-                        + "semaphore obtained in "+Duration.of(semaphoreTimestamp).toStringRounded()+";"
-                        + template+" template built in "+Duration.of(templateTimestamp).subtract(semaphoreTimestamp).toStringRounded()+";"
-                        + " "+node+" provisioned in "+Duration.of(provisionTimestamp).subtract(templateTimestamp).toStringRounded()+";"
-                        + " "+machineLocation+" connection usable in "+Duration.of(usableTimestamp).subtract(provisionTimestamp).toStringRounded()+";"
-                        + " and os customized in "+Duration.of(customizedTimestamp).subtract(usableTimestamp).toStringRounded()+" - "+Joiner.on(", ").join(customisationForLogging)+")";
-                LOG.info(logMessage);
-            } catch (Exception e){
-                // TODO Remove try-catch! @Nakomis: why did you add it? What exception happened during logging?
-                Exceptions.propagateIfFatal(e);
-                LOG.warn("Problem generating log message summarising completion of jclouds machine provisioning "+machineLocation+" by "+this, e);
-            }
+            String logMessage = "Finished VM "+getCreationString(setup)+" creation:"
+                    + " "+machineLocation.getUser()+"@"+machineLocation.getAddress()+":"+machineLocation.getPort()
+                    + (Boolean.TRUE.equals(setup.get(LOG_CREDENTIALS))
+                            ? "password=" + userCredentials.getOptionalPassword().or("<absent>")
+                            + " && key=" + userCredentials.getOptionalPrivateKey().or("<absent>")
+                            : "")
+                    + " ready after "+Duration.of(provisioningStopwatch).toStringRounded()
+                    + " ("
+                    + "semaphore obtained in "+Duration.of(semaphoreTimestamp).toStringRounded()+";"
+                    + template+" template built in "+Duration.of(templateTimestamp).subtract(semaphoreTimestamp).toStringRounded()+";"
+                    + " "+node+" provisioned in "+Duration.of(provisionTimestamp).subtract(templateTimestamp).toStringRounded()+";"
+                    + " "+machineLocation+" connection usable in "+Duration.of(usableTimestamp).subtract(provisionTimestamp).toStringRounded()+";"
+                    + " and os customized in "+Duration.of(customizedTimestamp).subtract(usableTimestamp).toStringRounded()+" - "+Joiner.on(", ").join(customisationForLogging)+")";
+            LOG.info(logMessage);
 
             return machineLocation;
 
@@ -1345,7 +1339,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     /** returns the jclouds Template which describes the image to be built, for the given config and compute service */
     public Template buildTemplate(ComputeService computeService, ConfigBag config, Collection<JcloudsLocationCustomizer> customizers) {
-        TemplateBuilder templateBuilder = (TemplateBuilder) config.get(TEMPLATE_BUILDER);
+        TemplateBuilder templateBuilder = config.get(TEMPLATE_BUILDER);
         if (templateBuilder==null) {
             templateBuilder = new PortableTemplateBuilder<PortableTemplateBuilder<?>>();
         } else {
@@ -1612,6 +1606,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         sshProps.put("port", hostAndPort.getPort());
         sshProps.put(AbstractLocation.TEMPORARY_LOCATION.getName(), true);
         sshProps.put(LocalLocationManager.CREATE_UNMANAGED.getName(), true);
+        String sshClass = config().get(SshMachineLocation.SSH_TOOL_CLASS);
+        if (Strings.isNonBlank(sshClass)) {
+            sshProps.put(SshMachineLocation.SSH_TOOL_CLASS.getName(), sshClass);
+        }
+
         sshProps.remove("id");
         sshProps.remove("password");
         sshProps.remove("privateKeyData");
@@ -1647,6 +1646,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         winrmProps.remove("privateKeyData");
         winrmProps.remove("privateKeyFile");
         winrmProps.remove("privateKeyPassphrase");
+        String winrmClass = config().get(WinRmMachineLocation.WINRM_TOOL_CLASS);
+        if (Strings.isNonBlank(winrmClass)) {
+            winrmProps.put(WinRmMachineLocation.WINRM_TOOL_CLASS.getName(), winrmClass);
+        }
 
         if (initialPassword.isPresent()) winrmProps.put("password", initialPassword.get());
         if (initialPrivateKey.isPresent()) winrmProps.put("privateKeyData", initialPrivateKey.get());
@@ -2017,6 +2020,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     protected JcloudsSshMachineLocation createJcloudsSshMachineLocation(
             ComputeService computeService, NodeMetadata node, Optional<Template> template,
             LoginCredentials userCredentials, HostAndPort managementHostAndPort, ConfigBag setup) throws IOException {
+
+        Collection<JcloudsLocationCustomizer> customizers = getCustomizers(setup);
+        Collection<MachineLocationCustomizer> machineCustomizers = getMachineCustomizers(setup);
         Map<?,?> sshConfig = extractSshConfig(setup, node);
         String nodeAvailabilityZone = extractAvailabilityZone(setup, node);
         String nodeRegion = extractRegion(setup, node);
@@ -2072,27 +2078,35 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     .configureIfNotNull(USE_PORT_FORWARDING, setup.get(USE_PORT_FORWARDING))
                     .configureIfNotNull(PORT_FORWARDER, setup.get(PORT_FORWARDER))
                     .configureIfNotNull(PORT_FORWARDING_MANAGER, setup.get(PORT_FORWARDING_MANAGER))
-                    .configureIfNotNull(SshMachineLocation.PRIVATE_ADDRESSES, node.getPrivateAddresses());
+                    .configureIfNotNull(SshMachineLocation.PRIVATE_ADDRESSES, node.getPrivateAddresses())
+                    .configureIfNotNull(JCLOUDS_LOCATION_CUSTOMIZERS, customizers.size() > 0 ? customizers : null)
+                    .configureIfNotNull(MACHINE_LOCATION_CUSTOMIZERS, machineCustomizers.size() > 0 ? machineCustomizers : null);
             return getManagementContext().getLocationManager().createLocation(spec);
         } else {
             LOG.warn("Using deprecated JcloudsSshMachineLocation constructor because " + this + " is not managed");
-            final MutableMap<Object, Object> properties = MutableMap.builder()
-                    .putAll(sshConfig)
-                    .put("displayName", displayName)
-                    .put("address", address)
-                    .put("port", port)
-                    .put("user", userCredentials.getUser())
-                    // The use of `getName` is intentional. See 11741d85b9f54 for details.
-                    .putIfNotNull(SshMachineLocation.PASSWORD.getName(), password)
-                    .putIfNotNull(SshMachineLocation.PRIVATE_KEY_DATA.getName(), privateKeyData)
-                    .put("callerContext", setup.get(CALLER_CONTEXT))
-                    .putIfNotNull(CLOUD_AVAILABILITY_ZONE_ID.getName(), nodeAvailabilityZone)
-                    .putIfNotNull(CLOUD_REGION_ID.getName(), nodeRegion)
-                    .put(USE_PORT_FORWARDING, setup.get(USE_PORT_FORWARDING))
-                    .put(PORT_FORWARDER, setup.get(PORT_FORWARDER))
-                    .put(PORT_FORWARDING_MANAGER, setup.get(PORT_FORWARDING_MANAGER))
-                    .put(SshMachineLocation.PRIVATE_ADDRESSES, node.getPrivateAddresses())
-                    .build();
+            final MutableMap.Builder<Object, Object> builder = MutableMap.builder()
+                .putAll(sshConfig)
+                .put("displayName", displayName)
+                .put("address", address)
+                .put("port", port)
+                .put("user", userCredentials.getUser())
+                // The use of `getName` is intentional. See 11741d85b9f54 for details.
+                .putIfNotNull(SshMachineLocation.PASSWORD.getName(), password)
+                .putIfNotNull(SshMachineLocation.PRIVATE_KEY_DATA.getName(), privateKeyData)
+                .put("callerContext", setup.get(CALLER_CONTEXT))
+                .putIfNotNull(CLOUD_AVAILABILITY_ZONE_ID.getName(), nodeAvailabilityZone)
+                .putIfNotNull(CLOUD_REGION_ID.getName(), nodeRegion)
+                .put(USE_PORT_FORWARDING, setup.get(USE_PORT_FORWARDING))
+                .put(PORT_FORWARDER, setup.get(PORT_FORWARDER))
+                .put(PORT_FORWARDING_MANAGER, setup.get(PORT_FORWARDING_MANAGER))
+                .put(SshMachineLocation.PRIVATE_ADDRESSES, node.getPrivateAddresses());
+            if (customizers.size() > 0) {
+                builder.put(JCLOUDS_LOCATION_CUSTOMIZERS, customizers);
+            }
+            if (machineCustomizers.size() > 0) {
+                builder.put(MACHINE_LOCATION_CUSTOMIZERS, machineCustomizers);
+            }
+            final MutableMap<Object, Object> properties = builder.build();
             return new JcloudsSshMachineLocation(properties, this, node);
         }
     }
@@ -2108,6 +2122,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     protected JcloudsWinRmMachineLocation createWinRmMachineLocation(
             ComputeService computeService, NodeMetadata node, Optional<Template> template,
             LoginCredentials userCredentials, HostAndPort winrmHostAndPort, ConfigBag setup) {
+
+        Collection<JcloudsLocationCustomizer> customizers = getCustomizers(setup);
+        Collection<MachineLocationCustomizer> machineCustomizers = getMachineCustomizers(setup);
         Map<?,?> winrmConfig = extractWinrmConfig(setup, node);
         String nodeAvailabilityZone = extractAvailabilityZone(setup, node);
         String nodeRegion = extractRegion(setup, node);
@@ -2139,7 +2156,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     .configureIfNotNull(SshMachineLocation.SCRIPT_DIR, setup.get(SshMachineLocation.SCRIPT_DIR))
                     .configureIfNotNull(USE_PORT_FORWARDING, setup.get(USE_PORT_FORWARDING))
                     .configureIfNotNull(PORT_FORWARDER, setup.get(PORT_FORWARDER))
-                    .configureIfNotNull(PORT_FORWARDING_MANAGER, setup.get(PORT_FORWARDING_MANAGER));
+                    .configureIfNotNull(PORT_FORWARDING_MANAGER, setup.get(PORT_FORWARDING_MANAGER))
+                    .configureIfNotNull(JCLOUDS_LOCATION_CUSTOMIZERS, customizers.size() > 0 ? customizers : null)
+                    .configureIfNotNull(MACHINE_LOCATION_CUSTOMIZERS, machineCustomizers.size() > 0 ? machineCustomizers : null);
             return getManagementContext().getLocationManager().createLocation(spec);
         } else {
             throw new UnsupportedOperationException("Cannot create WinRmMachineLocation because " + this + " is not managed");
@@ -2219,7 +2238,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         Exception tothrow = null;
 
-        ConfigBag setup = config().getBag();
+        ConfigBag setup = ((LocationInternal)machine).config().getBag();
         Collection<JcloudsLocationCustomizer> customizers = getCustomizers(setup);
         Collection<MachineLocationCustomizer> machineCustomizers = getMachineCustomizers(setup);
         
@@ -2240,7 +2259,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         try {
             // FIXME: Needs to release port forwarding for WinRmMachineLocations
             if (machine instanceof JcloudsMachineLocation) {
-                releasePortForwarding((JcloudsMachineLocation)machine);
+                releasePortForwarding(machine);
             }
         } catch (Exception e) {
             LOG.error("Problem releasing port-forwarding for machine "+machine+" in "+this+", instance id "+instanceId+
@@ -2352,6 +2371,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     subtasks.put(
                             "Close port-forward "+hostAndPortOverride+"->"+loginPort,
                             new Runnable() {
+                                @Override
                                 public void run() {
                                     LOG.debug("Closing port-forwarding at {} for machine {}: {}->{}", new Object[] {this, machine, hostAndPortOverride, loginPort});
                                     portForwarder.closePortForwarding(node.get(), loginPort, hostAndPortOverride, Protocol.TCP);
@@ -2375,6 +2395,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     subtasks.put(
                             "Close port-forward "+publicEndpoint+"->"+targetPort,
                             new Runnable() {
+                                @Override
                                 public void run() {
                                     LOG.debug("Closing port-forwarding at {} for machine {}: {}->{}", new Object[] {this, machine, publicEndpoint, targetPort});
                                     portForwarder.closePortForwarding(node.get(), targetPort, publicEndpoint, protocol);
@@ -2544,6 +2565,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         try {
             Callable<Boolean> checker = new Callable<Boolean>() {
+                @Override
                 public Boolean call() {
                     final WinRmMachineLocation machine = machinesToTry.getLeft();
                     WinRmToolResponse response = machine.executeCommand(
@@ -2673,6 +2695,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
         try {
             Callable<Boolean> checker = new Callable<Boolean>() {
+                @Override
                 public Boolean call() {
                     for (Map.Entry<SshMachineLocation, LoginCredentials> entry : machinesToTry.entrySet()) {
                         SshMachineLocation machine = entry.getKey();

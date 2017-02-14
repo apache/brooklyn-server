@@ -131,7 +131,7 @@
         <mx4j.version>3.0.1</mx4j.version>
         <bouncycastle.version>1.51</bouncycastle.version>
         <sshj.version>0.12.0</sshj.version>
-        <felix.framework.version>5.4.0</felix.framework.version>
+        <felix.framework.version>5.6.1</felix.framework.version>
         <reflections.version>0.9.9-RC1</reflections.version>
         <jetty.version>9.2.13.v20150730</jetty.version>
         <jetty-schemas.version>3.1.M0</jetty-schemas.version>
@@ -167,12 +167,8 @@
         <maxmind.version>2.8.0-rc1</maxmind.version>
         <maxmind-db.version>1.2.1</maxmind-db.version>
         <winrm4j.version>0.4.0</winrm4j.version>
-        <karaf.version>4.0.4</karaf.version>
-        <!--
-            Fixes double User-Agent issue leading to split Nexus repo.
-            Caused by karaf-maven-plugin depending on wagon-http 2.8 having the bug.
-         -->
-        <karaf.plugin.version>4.0.6</karaf.plugin.version>
+        <karaf.version>4.0.8</karaf.version>
+        <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
         <felix-osgi-compendium.version>1.4.0</felix-osgi-compendium.version>
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
         <clojure.version>1.4.0</clojure.version>

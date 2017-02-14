@@ -37,7 +37,6 @@ import org.apache.brooklyn.core.feed.AttributePollHandler;
 import org.apache.brooklyn.core.feed.DelegatingPollHandler;
 import org.apache.brooklyn.core.feed.Poller;
 import org.apache.brooklyn.core.location.Locations;
-import org.apache.brooklyn.core.location.Machines;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
@@ -110,7 +109,7 @@ public class SshFeed extends AbstractFeed {
     }
     
     public static class Builder {
-        private EntityLocal entity;
+        private Entity entity;
         private boolean onlyIfServiceUp = false;
         private Supplier<SshMachineLocation> machine;
         private Duration period = Duration.of(500, TimeUnit.MILLISECONDS);
@@ -119,7 +118,7 @@ public class SshFeed extends AbstractFeed {
         private String uniqueTag;
         private volatile boolean built;
         
-        public Builder entity(EntityLocal val) {
+        public Builder entity(Entity val) {
             this.entity = val;
             return this;
         }
@@ -164,7 +163,7 @@ public class SshFeed extends AbstractFeed {
         public SshFeed build() {
             built = true;
             SshFeed result = new SshFeed(this);
-            result.setEntity(checkNotNull(entity, "entity"));
+            result.setEntity(checkNotNull((EntityLocal)entity, "entity"));
             result.start();
             return result;
         }
@@ -246,6 +245,7 @@ public class SshFeed extends AbstractFeed {
             
             getPoller().scheduleAtFixedRate(
                     new Callable<SshPollValue>() {
+                        @Override
                         public SshPollValue call() throws Exception {
                             return exec(pollInfo.command.get(), pollInfo.env.get());
                         }}, 
@@ -254,6 +254,7 @@ public class SshFeed extends AbstractFeed {
         }
     }
     
+    @Override
     @SuppressWarnings("unchecked")
     protected Poller<SshPollValue> getPoller() {
         return (Poller<SshPollValue>) super.getPoller();

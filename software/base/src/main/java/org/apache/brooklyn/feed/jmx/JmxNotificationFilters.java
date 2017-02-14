@@ -53,6 +53,7 @@ public class JmxNotificationFilters {
      *             to that JVM). So of very limited use in real-world java processes to be managed.
      *             Therefore this will be deleted to avoid people hitting this surprising behaviour.
      */
+    @Deprecated
     @SuppressWarnings("serial")
     public static NotificationFilter matchesTypeRegex(final String typeRegex) {
         return new NotificationFilter() {

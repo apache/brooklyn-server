@@ -28,15 +28,12 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.entity.factory.EntityFactory;
-import org.apache.brooklyn.core.entity.factory.EntityFactoryForLocation;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.trait.Changeable;
@@ -85,10 +82,6 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
         return getConfig(MEMBER_SPEC);
     }
     
-    protected EntityFactory<?> getFactory() {
-        return getConfig(FACTORY);
-    }
-    
     protected String getDisplayNamePrefix() {
         return getConfig(DISPLAY_NAME_PREFIX);
     }
@@ -100,11 +93,6 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
     @Override
     public void setMemberSpec(EntitySpec<?> memberSpec) {
         setConfigEvenIfOwned(MEMBER_SPEC, memberSpec);
-    }
-    
-    @Override
-    public void setFactory(EntityFactory<?> factory) {
-        setConfigEvenIfOwned(FACTORY, factory);
     }
     
     @Override
@@ -268,9 +256,9 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
         
         if (locationName != null) {
             if (entity.getDisplayName()==null)
-                ((EntityLocal)entity).setDisplayName(entity.getEntityType().getSimpleName() +" ("+locationName+")");
+                entity.setDisplayName(entity.getEntityType().getSimpleName() +" ("+locationName+")");
             else if (!entity.getDisplayName().contains(locationName)) 
-                ((EntityLocal)entity).setDisplayName(entity.getDisplayName() +" ("+locationName+")");
+                entity.setDisplayName(entity.getDisplayName() +" ("+locationName+")");
         }
         if (entity.getParent()==null) entity.setParent(this);
         
@@ -285,20 +273,9 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
     
     protected Entity createCluster(Location location, Map flags) {
         EntitySpec<?> memberSpec = getMemberSpec();
-        if (memberSpec != null) {
-            return addChild(EntitySpec.create(memberSpec).configure(flags));
-        }
-        
-        EntityFactory<?> factory = getFactory();
-        if (factory == null) { 
+        if (memberSpec == null) {
             throw new IllegalStateException("No member spec nor entity factory supplied for dynamic fabric "+this);
         }
-        EntityFactory<?> factoryToUse = (factory instanceof EntityFactoryForLocation) ? ((EntityFactoryForLocation)factory).newFactoryForLocation(location) : factory;
-        Entity entity = factoryToUse.newEntity(flags, this);
-        if (entity==null) 
-            throw new IllegalStateException("EntityFactory factory routine returned null entity, in "+this);
-        
-        return entity;
+        return addChild(EntitySpec.create(memberSpec).configure(flags));
     }
-    
 }

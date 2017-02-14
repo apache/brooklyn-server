@@ -364,6 +364,7 @@ public class CliTest {
         Cli<BrooklynCommand> cli = buildCli();
         BrooklynCommand command = cli.parse("launch", "--noConsole", "--app", ExampleApp.class.getName(), "--location", "localhost");
         submitCommandAndAssertRunnableSucceeds(command, new Runnable() {
+                @Override
                 public void run() {
                     assertTrue(exampleAppConstructed);
                     assertTrue(exampleAppRunning);
@@ -376,6 +377,7 @@ public class CliTest {
         Cli<BrooklynCommand> cli = buildCli();
         BrooklynCommand command = cli.parse("launch", "--noConsole", "--app", "example-app-no-location.yaml", "--location", "localhost");
         submitCommandAndAssertRunnableSucceeds(command, new Runnable() {
+                @Override
                 public void run() {
                     assertTrue(exampleEntityRunning);
                 }
@@ -387,6 +389,7 @@ public class CliTest {
         Cli<BrooklynCommand> cli = buildCli();
         BrooklynCommand command = cli.parse("launch", "--noConsole", "--app", "example-app-no-location.yaml", "--location", "localhost:(name=testLocalhost)");
         submitCommandAndAssertRunnableSucceeds(command, new Runnable() {
+                @Override
                 public void run() {
                     assertTrue(exampleEntityRunning);
                     assertTrue(Iterables.getOnlyElement(exampleEntity.getApplication().getLocations()).getDisplayName().equals("testLocalhost"));
@@ -399,6 +402,7 @@ public class CliTest {
         Cli<BrooklynCommand> cli = buildCli();
         BrooklynCommand command = cli.parse("launch", "--noConsole", "--app", "example-app-app-location.yaml");
         submitCommandAndAssertRunnableSucceeds(command, new Runnable() {
+                @Override
                 public void run() {
                     assertTrue(exampleEntityRunning);
                     assertTrue(Iterables.getOnlyElement(exampleEntity.getApplication().getLocations()).getDisplayName().equals("appLocalhost"));
@@ -411,6 +415,7 @@ public class CliTest {
         Cli<BrooklynCommand> cli = buildCli();
         BrooklynCommand command = cli.parse("launch", "--noConsole", "--app", "example-app-app-location.yaml", "--location", "localhost");
         submitCommandAndAssertRunnableSucceeds(command, new Runnable() {
+                @Override
                 public void run() {
                     assertTrue(exampleEntityRunning);
                     assertTrue(Iterables.getFirst(exampleEntity.getApplication().getLocations(), null).getDisplayName().equals("appLocalhost"));
@@ -443,6 +448,7 @@ public class CliTest {
         Cli<BrooklynCommand> cli = buildCli();
         BrooklynCommand command = cli.parse("launch", "--noConsole", "--catalogAdd", Joiner.on(",").join(bomFiles));
         submitCommandAndAssertFunctionSucceeds(command, new Function<ManagementContext, Void>() {
+                @Override
                 public Void apply(ManagementContext mgmt) {
                     assertMgmtStartedEventually(mgmt);
                     for (String itemName : itemSymbolicNames) {
@@ -453,6 +459,7 @@ public class CliTest {
                 }
                 private void assertMgmtStartedEventually(final ManagementContext mgmt) {
                     Asserts.succeedsEventually(new Runnable() {
+                        @Override
                         public void run() {
                             assertTrue(mgmt.isStartupComplete());
                         }});
@@ -547,6 +554,7 @@ public class CliTest {
     @Test
     public void testCanCustomiseInfoCommand() throws Exception {
         Main main = new Main() {
+            @Override
             protected Class<? extends BrooklynCommand> cliInfoCommand() {
                 return CustomInfoCommand.class;
             }
@@ -567,6 +575,7 @@ public class CliTest {
     @Test
     public void testCanCustomiseLaunchCommand() throws Exception {
         Main main = new Main() {
+            @Override
             protected Class<? extends BrooklynCommand> cliLaunchCommand() {
                 return CustomLaunchCommand.class;
             }
@@ -604,6 +613,7 @@ public class CliTest {
         
         final AtomicReference<Exception> exception = new AtomicReference<Exception>();
         Thread t= new Thread(new Runnable() {
+            @Override
             public void run() {
                 try {
                     command.call();
@@ -642,6 +652,7 @@ public class CliTest {
 
     void submitCommandAndAssertRunnableSucceeds(final BrooklynCommand command, final Runnable runnable) {
         submitCommandAndAssertFunctionSucceeds(command, new Function<ManagementContext, Void>() {
+            @Override
             public Void apply(ManagementContext mgmt) {
                 runnable.run();
                 return null;
@@ -658,6 +669,7 @@ public class CliTest {
         }
         try {
             executor.submit(new Callable<Void>() {
+                @Override
                 public Void call() throws Exception {
                     try {
                         LOG.info("Calling command: "+command);
@@ -670,6 +682,7 @@ public class CliTest {
                 }});
     
             Runnable functionWrapper = new Runnable() {
+                @Override
                 public void run() {
                     function.apply(mgmt.get());
                 }

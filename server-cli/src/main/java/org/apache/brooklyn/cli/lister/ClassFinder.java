@@ -70,6 +70,7 @@ public class ClassFinder {
 
     public static Predicate<Class<?>> notBoring() {
         return new Predicate<Class<?>>() {
+            @Override
             public boolean apply(Class<?> input) {
                 return (input != null && !BORING.contains(input));
             }
@@ -78,6 +79,7 @@ public class ClassFinder {
     
     public static Predicate<Class<?>> withAnnotation(final Class<? extends Annotation> annotation) {
         return new Predicate<Class<?>>() {
+            @Override
             public boolean apply(Class<?> input) {
                 return (input != null && input.getAnnotation(annotation) != null);
             }
@@ -86,6 +88,7 @@ public class ClassFinder {
     
     public static Predicate<? super Class<? extends BrooklynObject>> withClassNameMatching(final String typeRegex) {
         return new Predicate<Class<?>>() {
+            @Override
             public boolean apply(Class<?> input) {
                 return (input != null && input.getName() != null && input.getName().matches(typeRegex));
             }

@@ -122,6 +122,7 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
         super.tearDown();
     }
     
+    @Override
     protected boolean useOsgi() {
         return true;
     }

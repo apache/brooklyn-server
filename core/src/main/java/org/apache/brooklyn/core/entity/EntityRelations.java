@@ -151,7 +151,7 @@ public class EntityRelations<T extends BrooklynObject> {
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public static <T extends BrooklynObject,U extends BrooklynObject> Set<U> getRelations(RelationshipType<? super T,U> relationship, T source) {
-        return (Set) ((BrooklynObjectInternal)source).relations().getLocalBackingStore().getRelations((RelationshipType)relationship);
+        return ((BrooklynObjectInternal)source).relations().getLocalBackingStore().getRelations((RelationshipType)relationship);
     }
 
     /** 

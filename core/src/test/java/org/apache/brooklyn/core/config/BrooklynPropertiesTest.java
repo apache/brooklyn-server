@@ -155,9 +155,9 @@ public class BrooklynPropertiesTest {
         assertEquals(p2.getFirst("akey"), null);
         
         BrooklynProperties p3a = props.submap(ConfigPredicates.startingWith("a."));
-        assertEquals(p3a, p2);
+        assertPropertiesEquals(p3a, p2);
         BrooklynProperties p3b = props.submap(ConfigPredicates.matchingRegex("a\\..*"));
-        assertEquals(p3b, p2);
+        assertPropertiesEquals(p3b, p2);
         
         BrooklynProperties p4 = props.submap(ConfigPredicates.matchingRegex("a.*"));
         assertEquals(p4.getAllConfig().keySet().size(), 3, "wrong size submap: "+p4);
@@ -182,21 +182,24 @@ public class BrooklynPropertiesTest {
         
         props.put(aString, "aval2");
         assertEquals(props.getConfig(aString), "aval2");
-        assertEquals(props.get("a.key"), "aval2");
+        assertEquals(props.getConfig("a.key"), "aval2");
 
         props.put(nNum, "345");
         assertEquals(props.getConfig(nNum), (Integer)345);
-        assertEquals(props.get("n.key"), "345");
+        assertEquals(props.getConfig("n.key"), "345");
 
         assertEquals(props.getConfig(aBsent), null);
         assertEquals(props.getConfig(aBsent, 123), (Integer)123);
         assertEquals(props.getConfig(aDfault), (Integer)123);
         
         props.put(aMisstyped, "x1");
-        assertEquals(props.get("am.isstyped"), "x1");
+        assertEquals(props.getConfig("am.isstyped"), "x1");
         boolean workedWhenShouldntHave = false;
         try { props.getConfig(aMisstyped); workedWhenShouldntHave = true; } catch (Exception e) {}
         if (workedWhenShouldntHave) fail("should have failed getting "+aMisstyped+" because can't coerce");
     }
 
+    protected void assertPropertiesEquals(BrooklynProperties actual, BrooklynProperties expected) {
+        assertEquals(actual.asMapWithStringKeys(), expected.asMapWithStringKeys());
+    }
 }

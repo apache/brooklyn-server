@@ -129,7 +129,7 @@ public class BasicTasksFutureTest {
     }
 
     private void addFutureListener(Task<String> t, final String key) {
-        t.addListener(new Runnable() { public void run() {
+        t.addListener(new Runnable() { @Override public void run() {
             synchronized (data) {
                 log.info("notifying for "+key);
                 data.notifyAll();
@@ -151,6 +151,7 @@ public class BasicTasksFutureTest {
 
     private <T> Task<T> waitForSemaphore(final Duration time, final boolean requireSemaphore, final T result) {
         return Tasks.<T>builder().body(new Callable<T>() {
+            @Override
             public T call() { 
                 try {
                     started.release();

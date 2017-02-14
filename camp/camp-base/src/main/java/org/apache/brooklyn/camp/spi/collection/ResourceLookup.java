@@ -33,12 +33,15 @@ public interface ResourceLookup<T extends AbstractResource> {
     public abstract boolean isEmpty();
 
     public static class EmptyResourceLookup<T extends AbstractResource> implements ResourceLookup<T> {
+        @Override
         public T get(String id) {
             throw new NoSuchElementException("no resource: "+id);
         }
+        @Override
         public List<ResolvableLink<T>> links() {
             return Collections.emptyList();
         }
+        @Override
         public boolean isEmpty() {
             return links().isEmpty();
         }

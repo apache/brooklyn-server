@@ -27,7 +27,6 @@ import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,6 +51,7 @@ public class AdvertiseWinrmLoginPolicy extends AbstractPolicy implements SensorE
             "vm.user.credentials",
             "The \"<user> : <password> @ <hostname>:<port>\"");
 
+    @Override
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);
         subscriptions().subscribe(entity, AbstractEntity.LOCATION_ADDED, this);
@@ -76,6 +76,6 @@ public class AdvertiseWinrmLoginPolicy extends AbstractPolicy implements SensorE
         
         LOG.info("Advertising user "+user+" @ "+hostname+":"+port);
         
-        ((EntityLocal)entity).sensors().set(VM_USER_CREDENTIALS, creds);
+        entity.sensors().set(VM_USER_CREDENTIALS, creds);
     }
 }

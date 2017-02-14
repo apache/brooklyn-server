@@ -81,6 +81,7 @@ public class JcloudsByonLocationResolverStubbedRebindTest extends AbstractJcloud
     protected Application newApp;
     protected ManagementContext newManagementContext;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         mementoDir = Os.newTempDir(getClass());
@@ -96,6 +97,7 @@ public class JcloudsByonLocationResolverStubbedRebindTest extends AbstractJcloud
         initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
     }
 
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         super.tearDown();
@@ -112,6 +114,7 @@ public class JcloudsByonLocationResolverStubbedRebindTest extends AbstractJcloud
         origManagementContext = null;
     }
 
+    @Override
     protected NodeCreator newNodeCreator() {
         return new NodeCreatorForRebinding();
     }

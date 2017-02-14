@@ -66,6 +66,7 @@ public interface CatalogItem<T,SpecT> extends BrooklynObject, Rebindable {
     
     public static interface CatalogBundle extends OsgiBundleWithUrl {
         /** @deprecated since 0.9.0, use {@link #isNameResolved()} */
+        @Deprecated
         public boolean isNamed();
     }
 

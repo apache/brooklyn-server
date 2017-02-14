@@ -82,13 +82,13 @@ public class LocalhostMachineProvisioningLocationTest extends BrooklynMgmtUnitTe
     @Test
     public void testUsesLocationNameProvided() throws Exception {
         LocalhostMachineProvisioningLocation provisioner = newLocalhostProvisionerWithAddress("localhost");
-        assertEquals(((SshMachineLocation)provisioner.obtain()).getAddress().getHostName(), "localhost");
+        assertEquals(provisioner.obtain().getAddress().getHostName(), "localhost");
 
         LocalhostMachineProvisioningLocation provisioner2 = newLocalhostProvisionerWithAddress("1.2.3.4");
-        assertEquals(((SshMachineLocation)provisioner2.obtain()).getAddress().getHostName(), "1.2.3.4");
+        assertEquals(provisioner2.obtain().getAddress().getHostName(), "1.2.3.4");
         
         LocalhostMachineProvisioningLocation provisioner3 = newLocalhostProvisionerWithAddress("127.0.0.1");
-        assertEquals(((SshMachineLocation)provisioner3.obtain()).getAddress().getHostName(), "127.0.0.1");
+        assertEquals(provisioner3.obtain().getAddress().getHostName(), "127.0.0.1");
     }
     
     public void provisionWithASpecificNumberOfInstances() throws NoMachinesAvailableException {

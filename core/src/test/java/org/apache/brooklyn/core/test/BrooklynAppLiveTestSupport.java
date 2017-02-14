@@ -34,6 +34,7 @@ public class BrooklynAppLiveTestSupport extends BrooklynMgmtUnitTestSupport {
 
     protected TestApplication app;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         if (mgmt!=null) {

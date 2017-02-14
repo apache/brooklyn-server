@@ -21,7 +21,6 @@ package org.apache.brooklyn.core.resolve.entity;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.ServiceLoader;
 import java.util.Set;
 
 import javax.annotation.Nonnull;

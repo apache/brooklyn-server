@@ -119,6 +119,9 @@ public class RecordingWinRmTool implements WinRmTool {
     }
     
     public static ExecParams getLastExec() {
+        if (execs.isEmpty()) {
+            throw new IllegalStateException("No executions recorded");
+        }
         return execs.get(execs.size()-1);
     }
 

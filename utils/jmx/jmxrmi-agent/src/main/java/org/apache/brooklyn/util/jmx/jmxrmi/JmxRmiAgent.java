@@ -88,6 +88,7 @@ public class JmxRmiAgent {
         // (e.g. if the app is compiled with java7 then run with java6, with a java6 agent here;
         // that causes the agent to launch, the main to fail, but the process to keep going)
         Thread t = new Thread() {
+            @Override
             public void run() {
                 doMainForeground(agentArgs);
             }

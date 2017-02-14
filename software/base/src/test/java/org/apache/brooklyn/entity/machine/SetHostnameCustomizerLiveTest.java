@@ -57,6 +57,7 @@ public class SetHostnameCustomizerLiveTest extends BrooklynAppLiveTestSupport {
     
     protected MachineProvisioningLocation<SshMachineLocation> loc;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();

@@ -202,7 +202,7 @@ public class JavaOptsTest extends BrooklynAppUnitTestSupport {
                     
                     if (expectationHere instanceof Set) {
                         Set mutableExpectationHere = new LinkedHashSet(((Set)expectationHere));
-                        Iterator si = ((Set)mutableExpectationHere).iterator();
+                        Iterator si = mutableExpectationHere.iterator();
                         while (si.hasNext()) {
                             Object oneExpectationHere = si.next();
                             if (valueHere.toString().contains(Strings.toString(oneExpectationHere)))
@@ -244,6 +244,7 @@ public class JavaOptsTest extends BrooklynAppUnitTestSupport {
     }
 
     public static class TestingNoSensorsVanillaJavaAppImpl extends VanillaJavaAppImpl {
+        @Override
         protected void connectSensors() {
             /* nothing here */
             sensors().set(SERVICE_UP, true);

@@ -170,6 +170,7 @@ public abstract class AbstractMain {
         public Map<String,String> getDefinesAsMap() { return KeyValueParser.parseMap(Strings.join(getDefines(),",")); }
         public void applyDefinesAsSystemProperties() { System.getProperties().putAll(getDefinesAsMap()); }
         
+        @Override
         public ToStringHelper string() {
             return super.string()
                     .add("defines", getDefines());

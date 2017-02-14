@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslToStringHelpers;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -175,29 +174,12 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
     }
     
     protected Maybe<?> resolve(Object object, boolean immediate) {
-        if (object instanceof DslFunctionSource || object == null) {
-            return Maybe.of(object);
-        }
-
-        Maybe<?> resultMaybe = Tasks.resolving(object, Object.class)
-                .context(((EntityInternal)entity()).getExecutionContext())
-                .deep(true)
-                .immediately(immediate)
-                .recursive(false)
-                .getMaybe();
-
-        if (resultMaybe.isPresent()) {
-            // No nice way to figure out whether the object is deferred. Try to resolve it
-            // until it matches the input value as a poor man's replacement.
-            Object result = resultMaybe.get();
-            if (result == object) {
-                return resultMaybe;
-            } else {
-                return resolve(result, immediate);
-            }
-        } else {
-            return resultMaybe;
-        }
+        return Tasks.resolving(object, Object.class)
+            .context(entity().getExecutionContext())
+            .deep(true)
+            .immediately(immediate)
+            .iterator()
+            .nextOrLast(DslFunctionSource.class);
     }
 
     private static void checkCallAllowed(Method m) {

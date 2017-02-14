@@ -72,6 +72,7 @@ public class GeneralisedDynamicMBean implements DynamicMBean {
         });
         
         Iterable<MBeanOperationInfo> opInfo = Iterables.transform(initialOperations.keySet(), new Function<Object, MBeanOperationInfo>() {
+            @Override
             public MBeanOperationInfo apply(Object it) {
                 if (it instanceof MBeanOperationInfo) {
                     return (MBeanOperationInfo) it;

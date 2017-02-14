@@ -30,10 +30,12 @@ public class UsernamePassword implements Credentials {
         this.password = password;
     }
 
+    @Override
     public String getUser() {
         return username;
     }
 
+    @Override
     public String getPassword() {
         return password;
     }

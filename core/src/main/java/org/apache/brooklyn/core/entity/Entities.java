@@ -753,6 +753,7 @@ public class Entities {
     /**
      * @deprecated since 0.10.0; see {@link #descendantsAndSelf(Entity, Predicate)}
      */
+    @Deprecated
     public static Iterable<Entity> descendants(Entity root, Predicate<? super Entity> matching) {
         return descendantsAndSelf(root, matching);
     }
@@ -760,6 +761,7 @@ public class Entities {
     /**
      * @deprecated since 0.10.0; see {@link #descendantsAndSelf(Entity)}
      */
+    @Deprecated
     public static Iterable<Entity> descendants(Entity root) {
         return descendantsAndSelf(root);
     }
@@ -767,6 +769,7 @@ public class Entities {
     /**
      * @deprecated since 0.10.0; see {@link #descendantsAndSelf(Entity)}
      */
+    @Deprecated
     public static <T extends Entity> Iterable<T> descendants(Entity root, Class<T> ofType) {
         return descendantsAndSelf(root, ofType);
     }
@@ -774,6 +777,7 @@ public class Entities {
     /**
      * @deprecated since 0.10.0; see {@link #ancestorsAndSelf(Entity)}
      */
+    @Deprecated
     public static Iterable<Entity> ancestors(final Entity root) {
         return ancestorsAndSelf(root);
     }
@@ -878,6 +882,7 @@ public class Entities {
             log.debug("destroying all apps in "+mgmt+": "+mgmt.getApplications());
             for (final Application app: mgmt.getApplications()) {
                 futures.add(executor.submit(new Runnable() {
+                    @Override
                     public void run() {
                         log.debug("destroying app "+app+" (managed? "+isManaged(app)+"; mgmt is "+mgmt+")");
                         try {
@@ -1240,6 +1245,7 @@ public class Entities {
             if (!Repeater.create(description).limitTimeTo(timeout)
                     .rethrowException().backoffTo(Duration.ONE_SECOND)
                     .until(new Callable<Boolean>() {
+                        @Override
                         public Boolean call() {
                             return Boolean.TRUE.equals(entity.getAttribute(Startable.SERVICE_UP));
                         }})

@@ -28,6 +28,7 @@ import com.google.common.base.Supplier;
 public interface ConfigValueAtContainer<TContainer,TValue> extends Supplier<TValue> {
     
     /** Returns the value for this key, or null.  Technically this returns {@link #asMaybe()} or null. */
+    @Override
     @Nullable TValue get();
     /** Absent if no value can be found, typically meaning no default value, but in raw value lookups it may ignore default values. */ 
     @Nonnull Maybe<? extends TValue> asMaybe();

@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 /**
 * @deprecated since 0.6; for use only in converting deprecated flags; will be deleted in future version.
 */
+@Deprecated
 public class DeprecatedKeysMappingBuilder {
     private final ImmutableMap.Builder<String,String> builder = new ImmutableMap.Builder<String,String>();
     private final Logger logger;

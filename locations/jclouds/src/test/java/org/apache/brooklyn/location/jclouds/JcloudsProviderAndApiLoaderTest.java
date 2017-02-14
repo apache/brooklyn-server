@@ -160,6 +160,7 @@ public class JcloudsProviderAndApiLoaderTest {
         }
         
         static class Builder extends BaseApiMetadata.Builder<Builder> {
+            @Override
             protected Builder self() {
                 return this;
             }

@@ -27,46 +27,57 @@ public class ApplicationLifecycleStateStressTest extends ApplicationLifecycleSta
     // invocationCount defined on this class, rather than the simple `@Test` annotation on 
     // the super-class (without redefining all the public methods here!)?
     
+    @Override
     public void testHappyPathEmptyApp() throws Exception {
         super.testHappyPathEmptyApp();
     }
     
+    @Override
     public void testHappyPathWithChild() throws Exception {
         super.testHappyPathWithChild();
     }
     
+    @Override
     public void testOnlyChildFailsToStartCausesAppToFail() throws Exception {
         super.testOnlyChildFailsToStartCausesAppToFail();
     }
     
+    @Override
     public void testSomeChildFailsOnStartCausesAppToFail() throws Exception {
         super.testSomeChildFailsOnStartCausesAppToFail();
     }
     
+    @Override
     public void testOnlyChildFailsToStartThenRecoversCausesAppToRecover() throws Exception {
         super.testOnlyChildFailsToStartThenRecoversCausesAppToRecover();
     }
     
+    @Override
     public void testSomeChildFailsToStartThenRecoversCausesAppToRecover() throws Exception {
         super.testSomeChildFailsToStartThenRecoversCausesAppToRecover();
     }
     
+    @Override
     public void testStartsThenOnlyChildFailsCausesAppToFail() throws Exception {
         super.testStartsThenOnlyChildFailsCausesAppToFail();
     }
 
+    @Override
     public void testStartsThenSomeChildFailsCausesAppToFail() throws Exception {
         super.testStartsThenSomeChildFailsCausesAppToFail();
     }
 
+    @Override
     public void testChildFailuresOnStartButWithQuorumCausesAppToSucceed() throws Exception {
         super.testChildFailuresOnStartButWithQuorumCausesAppToSucceed();
     }
     
+    @Override
     public void testStartsThenChildFailsButWithQuorumCausesAppToSucceed() throws Exception {
         super.testStartsThenChildFailsButWithQuorumCausesAppToSucceed();
     }
 
+    @Override
     public void testStartsThenChildFailsButWithQuorumCausesAppToStayHealthy() throws Exception {
         super.testStartsThenChildFailsButWithQuorumCausesAppToStayHealthy();
     }

@@ -111,6 +111,7 @@ public class JcloudsRateLimitedRetryLiveTest extends AbstractJcloudsLiveTest {
         for (int i = 0; i < num; i++) {
             final int startingPort = 1024 + i;
             final Runnable task = new Runnable() {
+                @Override
                 public void run() {
                     doOnce(startingPort);
                 }
@@ -190,6 +191,7 @@ public class JcloudsRateLimitedRetryLiveTest extends AbstractJcloudsLiveTest {
         for (int c = 0; c < n; c++) {
             final String id = "sgtest-" + Identifiers.makeRandomLowercaseId(6) + "-" + String.valueOf(c);
             final Runnable task = new Runnable() {
+                @Override
                 public void run() {
                     doOneSecurityEditorOperationCycle(id, editor, machine);
                 }

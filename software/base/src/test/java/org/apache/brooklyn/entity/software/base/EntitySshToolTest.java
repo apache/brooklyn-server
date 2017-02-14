@@ -45,6 +45,7 @@ public class EntitySshToolTest extends BrooklynAppUnitTestSupport {
 
     private SshMachineLocation machine;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
@@ -54,6 +55,7 @@ public class EntitySshToolTest extends BrooklynAppUnitTestSupport {
                 .configure("address", "localhost"));
     }
 
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         RecordingSshTool.clear();

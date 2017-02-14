@@ -50,6 +50,7 @@ public class JcloudsImageChoiceStubbedLiveTest extends AbstractJcloudsStubbedLiv
         };
     }
 
+    @Override
     protected Map<Object, Object> jcloudsLocationConfig(Map<Object, Object> defaults) {
         return ImmutableMap.<Object, Object>builder()
                 .putAll(defaults)

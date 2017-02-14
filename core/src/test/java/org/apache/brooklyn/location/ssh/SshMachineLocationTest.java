@@ -93,6 +93,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
 
     protected SshMachineLocation host;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
@@ -100,6 +101,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
         RecordingSshTool.clear();
     }
 
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         try {
@@ -130,6 +132,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
         BasicExecutionContext execContext = new BasicExecutionContext(execManager);
         try {
             MachineDetails details = execContext.submit(new Callable<MachineDetails>() {
+                @Override
                 public MachineDetails call() {
                     return host.getMachineDetails();
                 }}).get();
@@ -178,6 +181,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
 
         final Effector<MachineDetails> GET_MACHINE_DETAILS = Effectors.effector(MachineDetails.class, "getMachineDetails")
                 .impl(new EffectorBody<MachineDetails>() {
+                    @Override
                     public MachineDetails call(ConfigBag parameters) {
                         Maybe<MachineLocation> machine = Machines.findUniqueMachineLocation(entity().getLocations());
                         try {
@@ -192,6 +196,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
         EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class)
                 .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true)
                 .addInitializer(new EntityInitializer() {
+                        @Override
                         public void apply(EntityLocal entity) {
                             ((EntityInternal)entity).getMutableEntityType().addEffector(EffectorTaskTest.DOUBLE_1);
                         }});

@@ -186,14 +186,14 @@
         <feature>pax-jetty</feature>
     </feature>
 
-    <feature name="brooklyn-rest-resources" version="${project.version}" description="Brooklyn REST Resources">
-        <bundle>mvn:org.apache.brooklyn/brooklyn-rest-resources/${project.version}</bundle>
+    <feature name="brooklyn-rest-resources-prereqs" version="${project.version}" description="Brooklyn REST Resources Prerequisites">
         <feature>brooklyn-core</feature>
         <feature>brooklyn-rest-api</feature>
         <feature>brooklyn-camp-brooklyn</feature>
         <feature>brooklyn-camp-base</feature>
 
         <feature>cxf-jaxrs</feature>
+        <bundle dependency="true">mvn:org.apache.cxf/cxf-rt-rs-security-cors/${cxf.version}</bundle>
 
         <bundle dependency="true">mvn:com.fasterxml.jackson.jaxrs/jackson-jaxrs-json-provider/${fasterxml.jackson.version}</bundle>
 
@@ -204,6 +204,11 @@
         <config name="org.apache.cxf.osgi">
             org.apache.cxf.servlet.context = /v1
         </config>
+    </feature>
+
+    <feature name="brooklyn-rest-resources" version="${project.version}" description="Brooklyn REST Resources">
+        <feature>brooklyn-rest-resources-prereqs</feature>
+        <bundle>mvn:org.apache.brooklyn/brooklyn-rest-resources/${project.version}</bundle>
     </feature>
 
     <feature name="brooklyn-commands"  version="${project.version}"  description="Brooklyn Shell Commands">

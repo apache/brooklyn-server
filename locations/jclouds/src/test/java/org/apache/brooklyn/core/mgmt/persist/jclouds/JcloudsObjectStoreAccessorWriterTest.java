@@ -63,6 +63,7 @@ public class JcloudsObjectStoreAccessorWriterTest extends PersistenceStoreObject
         if (store!=null) store.deleteCompletely();
     }
     
+    @Override
     protected StoreObjectAccessorWithLock newPersistenceStoreObjectAccessor() throws IOException {
         return newPersistenceStoreObjectAccessor(store, "");
     }
@@ -77,6 +78,7 @@ public class JcloudsObjectStoreAccessorWriterTest extends PersistenceStoreObject
         return Duration.seconds(2);
     }
     
+    @Override
     protected int biggishSize() {
         // bit smaller since it's actually uploading here!
         return 10000;

@@ -41,6 +41,7 @@ public class SslTrustUtils {
     
     /** trusts all SSL certificates */
     public static final TrustManager TRUST_ALL = new X509TrustManager() {
+        @Override
         public X509Certificate[] getAcceptedIssuers() {
             return new X509Certificate[0];
         }
@@ -57,6 +58,7 @@ public class SslTrustUtils {
     
     /** trusts no SSL certificates */
     public static final TrustManager TRUST_NONE = new X509TrustManager() {
+        @Override
         public X509Certificate[] getAcceptedIssuers() {
             return new X509Certificate[0];
         }
@@ -92,6 +94,7 @@ public class SslTrustUtils {
     }
     
     public static final HostnameVerifier ALL_HOSTS_VALID = new HostnameVerifier() {
+        @Override
         public boolean verify(String hostname, SSLSession session) {
             return true;
         }

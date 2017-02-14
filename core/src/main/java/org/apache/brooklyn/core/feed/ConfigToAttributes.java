@@ -18,7 +18,7 @@
  */
 package org.apache.brooklyn.core.feed;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
@@ -29,7 +29,7 @@ import org.apache.brooklyn.core.sensor.TemplatedStringAttributeSensorAndConfigKe
 public class ConfigToAttributes {
 
     //normally just applied once, statically, not registered...
-    public static void apply(EntityLocal entity) {
+    public static void apply(Entity entity) {
         for (Sensor<?> it : entity.getEntityType().getSensors()) {
             if (it instanceof AttributeSensorAndConfigKey) {
                 apply(entity, (AttributeSensorAndConfigKey<?,?>)it);
@@ -41,7 +41,7 @@ public class ConfigToAttributes {
      * Convenience for ensuring an individual sensor is set from its config key
      * (e.g. sub-classes of DynamicWebAppCluster that don't want to set HTTP_PORT etc!)
      */
-    public static <T> T apply(EntityLocal entity, AttributeSensorAndConfigKey<?,T> key) {
+    public static <T> T apply(Entity entity, AttributeSensorAndConfigKey<?,T> key) {
         T v = entity.getAttribute(key);
         if (v!=null) return v;
         v = key.getAsSensorValue(entity);

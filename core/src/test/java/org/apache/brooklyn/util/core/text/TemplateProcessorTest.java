@@ -46,12 +46,14 @@ import com.google.common.collect.ImmutableMap;
 public class TemplateProcessorTest extends BrooklynAppUnitTestSupport {
     private FixedLocaleTest localeFix = new FixedLocaleTest();
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
         localeFix.setUp();
     }
 
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         super.tearDown();

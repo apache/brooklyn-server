@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableMap;
  */
 public class JcloudsRenamesRebindTest extends RebindTestFixtureWithApp {
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();

@@ -28,6 +28,7 @@ import org.jclouds.compute.options.TemplateOptions;
 import com.google.common.collect.Maps;
 
 class UserMetadataMapOption implements TemplateOptionCustomizer {
+    @Override
     public void apply(TemplateOptions t, ConfigBag props, Object v) {
         if (v != null) {
             t.userMetadata(toMapStringString(v));

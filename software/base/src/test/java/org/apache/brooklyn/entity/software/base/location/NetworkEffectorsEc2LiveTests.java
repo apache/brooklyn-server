@@ -28,6 +28,7 @@ public class NetworkEffectorsEc2LiveTests extends NetworkingEffectorsLiveTests {
     public static final String REGION_NAME = "us-east-1";
     public static final String LOCATION_SPEC = PROVIDER + (REGION_NAME == null ? "" : ":" + REGION_NAME);
 
+    @Override
     @Test(groups = "Live")
     public void testPassSecurityGroupParameters() {
         super.testPassSecurityGroupParameters();

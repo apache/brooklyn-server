@@ -147,6 +147,7 @@ public class FlagUtils {
     /** sets _all_ accessible _{@link ConfigKey}_ and {@link HasConfigKey} fields on the given object, 
      * using the indicated flags/config-bag 
      * @deprecated since 0.7.0 use {@link #setAllConfigKeys(Map, Configurable, boolean)} */
+    @Deprecated
     public static Map<String, ?> setAllConfigKeys(Map<String, ?> flagsOrConfig, Configurable instance) {
         return setAllConfigKeys(flagsOrConfig, instance, false);
     }
@@ -161,6 +162,7 @@ public class FlagUtils {
     /** sets _all_ accessible _{@link ConfigKey}_ and {@link HasConfigKey} fields on the given object, 
      * using the indicated flags/config-bag 
     * @deprecated since 0.7.0 use {@link #setAllConfigKeys(Configurable, ConfigBag, boolean)} */
+    @Deprecated
     public static void setAllConfigKeys(Configurable o, ConfigBag bag) {
         setAllConfigKeys(o, bag, false);
     }

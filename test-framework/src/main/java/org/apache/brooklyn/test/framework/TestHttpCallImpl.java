@@ -52,6 +52,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
     /**
      * {@inheritDoc}
      */
+    @Override
     public void start(Collection<? extends Location> locations) {
         String url = null;
 
@@ -142,6 +143,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
     /**
      * {@inheritDoc}
      */
+    @Override
     public void stop() {
         setUpAndRunState(false, Lifecycle.STOPPED);
     }
@@ -149,6 +151,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
     /**
      * {@inheritDoc}
      */
+    @Override
     public void restart() {
         final Collection<Location> locations = Lists.newArrayList(getLocations());
         stop();

@@ -63,6 +63,7 @@ public abstract class BasicMasterChooser implements MasterChooser {
         }
     }
     
+    @Override
     public ManagementNodeSyncRecord choose(ManagementPlaneSyncRecord memento, Duration heartbeatTimeout, String ownNodeId) {
         if (LOG.isDebugEnabled()) LOG.debug("Choosing new master from "+memento.getManagementNodes());
         ManagementNodeSyncRecord me = memento.getManagementNodes().get(ownNodeId);

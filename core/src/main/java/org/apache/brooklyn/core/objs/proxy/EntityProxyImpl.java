@@ -174,6 +174,7 @@ public class EntityProxyImpl implements java.lang.reflect.InvocationHandler {
         return isMasterX;
     }
     
+    @Override
     public Object invoke(Object proxy, final Method m, final Object[] args) throws Throwable {
         if (proxy == null) {
             throw new IllegalArgumentException("Static methods not supported via proxy on entity "+delegate);

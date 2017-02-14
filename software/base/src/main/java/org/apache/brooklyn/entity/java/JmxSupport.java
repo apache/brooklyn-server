@@ -25,7 +25,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -88,7 +87,7 @@ public class JmxSupport implements UsesJmx {
     }
 
     <T> void setConfig(ConfigKey<T> key, T value) {
-        ((EntityLocal)getEntity()).config().set(key, value);
+        getEntity().config().set(key, value);
     }
 
     public Maybe<SshMachineLocation> getMachine() {
@@ -141,7 +140,7 @@ public class JmxSupport implements UsesJmx {
                 }
             }
 
-            ((EntityLocal)entity).config().set(JMX_AGENT_MODE, jmxAgentMode);
+            entity.config().set(JMX_AGENT_MODE, jmxAgentMode);
         }
 
         if (isSecure && jmxAgentMode!=JmxAgentModes.JMXMP) {
@@ -189,13 +188,13 @@ public class JmxSupport implements UsesJmx {
                     log.warn("Ignoring JMX_PORT "+jmxRemotePort+" when configuring agentless JMX on "+getEntity()+"; will use RMI_REGISTRY_PORT "+rmiRegistryPort);
                 }
                 jmxRemotePort = rmiRegistryPort;
-                ((EntityLocal)getEntity()).sensors().set(JMX_PORT, jmxRemotePort);
+                getEntity().sensors().set(JMX_PORT, jmxRemotePort);
             }
         } else {
             if (jmxRemotePort==null || jmxRemotePort<=0) {
                 throw new IllegalStateException("Invalid JMX_PORT "+jmxRemotePort+" and RMI_REGISTRY_PORT "+rmiRegistryPort+" when configuring JMX "+getJmxAgentMode()+" on "+getEntity());
             }
-            ((EntityLocal)getEntity()).sensors().set(RMI_REGISTRY_PORT, jmxRemotePort);
+            getEntity().sensors().set(RMI_REGISTRY_PORT, jmxRemotePort);
         }
         return jmxRemotePort;
     }

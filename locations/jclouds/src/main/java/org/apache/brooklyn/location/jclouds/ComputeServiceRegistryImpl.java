@@ -36,6 +36,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.jclouds.Constants;
 import org.jclouds.ContextBuilder;
+import org.jclouds.azurecompute.arm.config.AzureComputeRateLimitModule;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.ComputeServiceContext;
 import org.jclouds.ec2.reference.EC2Constants;
@@ -90,7 +91,9 @@ public class ComputeServiceRegistryImpl implements ComputeServiceRegistry, Jclou
         // retrying their API calls.
         properties.setProperty(Constants.PROPERTY_RETRY_DELAY_START, "500");
         properties.setProperty(Constants.PROPERTY_MAX_RETRIES, "6");
-        
+
+        Iterable<Module> modules = getCommonModules();
+
         // Enable aws-ec2 lazy image fetching, if given a specific imageId; otherwise customize for specific owners; or all as a last resort
         // See https://issues.apache.org/jira/browse/WHIRR-416
         if ("aws-ec2".equals(provider)) {
@@ -139,11 +142,24 @@ public class ComputeServiceRegistryImpl implements ComputeServiceRegistry, Jclou
             // the default timeout was 500ms so let's raise it in case that helps
             properties.setProperty(EC2Constants.PROPERTY_EC2_TIMEOUT_SECURITYGROUP_PRESENT, ""+Duration.seconds(30).toMilliseconds());
         }
+        else if ("azurecompute-arm".equals(provider)) {
+            String region = conf.get(CLOUD_REGION_ID);
+            if (Strings.isNonBlank(region)) {
+                properties.setProperty(LocationConstants.PROPERTY_REGIONS, region);
+            }
+            // jclouds 2.0.0 does not include the rate limit module for Azure ARM. This quick fix enables this which will
+            // avoid provisioning to fail due to rate limit exceeded
+            // See https://issues.apache.org/jira/browse/JCLOUDS-1229
+            modules = ImmutableSet.<Module>builder()
+                    .addAll(modules)
+                    .add(new AzureComputeRateLimitModule())
+                    .build();
+        }
 
-        // FIXME Deprecated mechanism, should have a ConfigKey for overrides
+        // Add extra jclouds-specific configuration
         Map<String, Object> extra = Maps.filterKeys(conf.getAllConfig(), Predicates.containsPattern("^jclouds\\."));
         if (extra.size() > 0) {
-            LOG.warn("Jclouds using deprecated property overrides: "+Sanitizer.sanitize(extra));
+            LOG.debug("Configuring custom jclouds property overrides for {}: {}", provider, Sanitizer.sanitize(extra));
         }
         properties.putAll(Maps.filterValues(extra, Predicates.notNull()));
 
@@ -168,8 +184,6 @@ public class ComputeServiceRegistryImpl implements ComputeServiceRegistry, Jclou
             }
             LOG.debug("jclouds ComputeService cache miss for compute service, creating, for "+Sanitizer.sanitize(properties));
         }
-
-        Iterable<Module> modules = getCommonModules();
 
         // Synchronizing to avoid deadlock from sun.reflect.annotation.AnnotationType.
         // See https://github.com/brooklyncentral/brooklyn/issues/974

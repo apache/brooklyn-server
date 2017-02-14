@@ -124,6 +124,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
     }
 
     /** returns location (tighten type, since we know it is an ssh machine location here) */
+    @Override
     public SshMachineLocation getLocation() {
         return (SshMachineLocation) super.getLocation();
     }
@@ -133,6 +134,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
         entity.sensors().set(SoftwareProcess.INSTALL_DIR, installDir);
     }
 
+    @Override
     public String getInstallDir() {
         if (installDir != null) return installDir;
 
@@ -178,6 +180,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
         entity.sensors().set(SoftwareProcess.RUN_DIR, runDir);
     }
 
+    @Override
     public String getRunDir() {
         if (runDir != null) return runDir;
 
@@ -240,6 +243,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
     /**
      * @deprecated since 0.10.0 This method will become private in a future release.
      */
+    @Override
     @Deprecated
     public int execute(List<String> script, String summaryForLogging) {
         return execute(Maps.newLinkedHashMap(), script, summaryForLogging);
@@ -361,6 +365,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
      * @param createParentDir Whether to create the parent target directory, if it doesn't already exist
      * @return The exit code of the SSH command run
      */
+    @Override
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public int copyResource(Map<Object,Object> sshFlags, String source, String target, boolean createParentDir) {
         // TODO use SshTasks.put instead, better logging
@@ -398,6 +403,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
      *
      * @see #copyResource(Map, String, String) for parameter descriptions.
      */
+    @Override
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public int copyResource(Map<Object,Object> sshFlags, InputStream source, String target, boolean createParentDir) {
         Map flags = Maps.newLinkedHashMap();

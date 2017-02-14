@@ -24,8 +24,6 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.fail;
 
-import java.util.Map;
-
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -53,6 +51,7 @@ public class ClockerDynamicLocationPatternTest extends BrooklynAppUnitTestSuppor
 
     private LocalhostMachineProvisioningLocation loc;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();

@@ -198,6 +198,7 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testAttributeWhenReadyWithPostProcessingWithBuilderWaitingNow() throws Exception {
         final Task<String> t = submit(new Callable<String>() {
+            @Override
             public String call() {
                 return DependentConfiguration.builder()
                         .attributeWhenReady(entity, TestEntity.SEQUENCE)
@@ -247,6 +248,7 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testAttributeWhenReadyWithAbortWaitingNow() throws Exception {
         final Task<String> t = submit(new Callable<String>() {
+            @Override
             public String call() {
                 return DependentConfiguration.builder()
                         .attributeWhenReady(entity, TestEntity.NAME)
@@ -287,6 +289,7 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
     public void testAttributeWhenReadyWithAbortFailsWhenAbortConditionAlreadyHoldsWaitingNow() throws Exception {
         entity2.sensors().set(TestEntity.SEQUENCE, 1);
         final Task<String> t = submit(new Callable<String>() {
+            @Override
             public String call() {
                 return DependentConfiguration.builder()
                         .attributeWhenReady(entity, TestEntity.NAME)

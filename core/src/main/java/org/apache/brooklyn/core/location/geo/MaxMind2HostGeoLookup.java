@@ -62,6 +62,7 @@ public class MaxMind2HostGeoLookup implements HostGeoLookup {
         return databaseReader;
     }
     
+    @Override
     public HostGeoInfo getHostGeoInfo(InetAddress address) throws MalformedURLException, IOException {
         if (lookupFailed) return null;
         

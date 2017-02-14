@@ -139,7 +139,7 @@ public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
                 .configure(Transformer.SOURCE_SENSOR, intSensorA)
                 .configure(Transformer.TRIGGER_SENSORS, ImmutableList.of(intSensorB))
                 .configure(Transformer.PRODUCER, producer)
-                .configure(Transformer.TRANSFORMATION_FROM_VALUE, (Function)MathFunctions.times(2))); // TODO doesn't match strongly typed int->long
+                .configure(Transformer.TRANSFORMATION_FROM_VALUE, MathFunctions.times(2))); // TODO doesn't match strongly typed int->long
 
         EntityAsserts.assertAttributeEqualsEventually(producer, target, 6L);
         
@@ -152,6 +152,7 @@ public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
     }
     
     @Test
+    @SuppressWarnings("unchecked")
     public void testTriggeringSensorNamesResolvedFromStrings() throws Exception {
         // Doing nasty casting here, but in YAML we could easily get passed this.
         producer.enrichers().add(EnricherSpec.create(Transformer.class)
@@ -175,7 +176,7 @@ public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
                 .configure(Transformer.SOURCE_SENSOR, intSensorA)
                 .configure(Transformer.TARGET_SENSOR, intSensorA)
                 .configure(Transformer.PRODUCER, producer)
-                .configure(Transformer.TRANSFORMATION_FROM_VALUE, (Function)MathFunctions.times(2))); // TODO doesn't match strongly typed int->long
+                .configure(Transformer.TRANSFORMATION_FROM_VALUE, MathFunctions.times(2))); // TODO doesn't match strongly typed int->long
 
         // Short wait; expect us to never re-publish the source-sensor as that would cause infinite loop.
         producer.sensors().set(intSensorA, 1);

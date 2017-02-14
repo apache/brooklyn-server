@@ -29,6 +29,7 @@ import com.thoughtworks.xstream.XStream;
 @Test
 public class InetAddressConverterTest extends ConverterTestFixture {
 
+    @Override
     protected void registerConverters(XStream xstream) {
         super.registerConverters(xstream);
         xstream.registerConverter(new Inet4AddressConverter());

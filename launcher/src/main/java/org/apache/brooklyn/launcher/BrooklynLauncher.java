@@ -20,7 +20,6 @@ package org.apache.brooklyn.launcher;
 
 import java.io.Closeable;
 import java.net.InetAddress;
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +46,6 @@ import org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelper;
 import org.apache.brooklyn.launcher.config.StopWhichAppsOnShutdown;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
-import org.apache.brooklyn.rest.security.provider.BrooklynUserWithRandomPasswordSecurityProvider;
 import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.FatalRuntimeException;
@@ -320,7 +318,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
             if (port!=null) webServer.setPort(port);
             if (useHttps!=null) webServer.setHttpsEnabled(useHttps);
             webServer.setShutdownHandler(shutdownHandler);
-            webServer.putAttributes(brooklynProperties);
+            webServer.putAttributes(brooklynProperties.asMapWithStringKeys());
             webServer.skipSecurity(skipSecurity);
             for (WebAppContextProvider webapp : webApps) {
                 webServer.addWar(webapp);
@@ -342,6 +340,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
         super.startBrooklynNode();
     }
 
+    @Override
     protected EntitySpec<LocalBrooklynNode> customizeBrooklynNodeSpec(EntitySpec<LocalBrooklynNode> brooklynNodeSpec) {
         return brooklynNodeSpec
                 .configure(SoftwareProcess.RUN_DIR, System.getenv("ROOT"))
@@ -353,6 +352,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
                 .configure(BrooklynNode.NO_WEB_CONSOLE_AUTHENTICATION, Boolean.TRUE.equals(skipSecurityFilter));
     }
 
+    @Override
     protected void startApps() {
         if ((stopWhichAppsOnShutdown==StopWhichAppsOnShutdown.ALL) ||
             (stopWhichAppsOnShutdown==StopWhichAppsOnShutdown.ALL_IF_NOT_PERSISTED && getPersistMode()==PersistMode.DISABLED)) {

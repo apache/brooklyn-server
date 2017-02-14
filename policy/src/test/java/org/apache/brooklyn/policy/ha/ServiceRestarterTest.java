@@ -56,6 +56,7 @@ public class ServiceRestarterTest extends BrooklynAppUnitTestSupport {
     private SensorEventListener<Object> eventListener;
     private List<SensorEvent<?>> events;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();

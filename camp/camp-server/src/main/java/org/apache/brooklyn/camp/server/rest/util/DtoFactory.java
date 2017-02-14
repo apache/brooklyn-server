@@ -129,12 +129,14 @@ public class DtoFactory {
          * result of the given function to generate an ID against an object of the given type */
         public synchronized <T> void registerIdentityFunction(Class<T> type, final String resourceTypeUriBase, final Function<T,String> fnIdentity) {
             final Function<String,String> fnUriFromId = new Function<String,String>() {
+                @Override
                 public String apply(String id) {
                     return Urls.mergePaths(resourceTypeUriBase, id);
                 }
             };
-            registryId.put(type, (Function<String, String>) fnUriFromId);
+            registryId.put(type, fnUriFromId);
             registerResourceUriFunction(type, new Function<T,String>() {
+                @Override
                 public String apply(T input) {
                     return fnUriFromId.apply(fnIdentity.apply(input));
                 }

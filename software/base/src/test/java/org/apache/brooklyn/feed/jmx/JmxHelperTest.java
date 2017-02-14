@@ -160,6 +160,7 @@ public class JmxHelperTest {
                 String.class.getName(), 
                 MBeanOperationInfo.ACTION);
         Function<Object[],String> opImpl = new Function<Object[],String>() {
+            @Override
             public String apply(Object[] input) {
                 return opReturnPrefix+input[0];
             }
@@ -215,6 +216,7 @@ public class JmxHelperTest {
     @Test
     public void testJmxObjectCheckExistsEventuallyReturnsIfCreatedDuringPolling() throws Exception {
         Thread t = new Thread(new Runnable() {
+                @Override
                 public void run() {
                     try {
                         Thread.sleep(SHORT_WAIT_MS);
@@ -243,6 +245,7 @@ public class JmxHelperTest {
         final List<Notification> received = Lists.newArrayList();
 
         jmxHelper.addNotificationListener(jmxObjectName, new NotificationListener() {
+            @Override
             public void handleNotification(Notification notif, Object callback) {
                 received.add(notif);
             }});
@@ -251,6 +254,7 @@ public class JmxHelperTest {
         final Notification notif = sendNotification(mbean, "one", sequence++, "abc");
 
         Asserts.succeedsEventually(ImmutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertEquals(received.size(), 1);
                 assertNotificationsEqual(received.get(0), notif);

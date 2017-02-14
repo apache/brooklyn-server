@@ -388,6 +388,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     }
     
     /** @deprecated since 0.7.0 only {@link AbstractEnricher} has emit convenience */
+    @Deprecated
     protected <T> void emit(Sensor<T> sensor, Object val) {
         checkState(entity != null, "entity must first be set");
         if (val == Entities.UNCHANGED) {

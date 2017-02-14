@@ -67,6 +67,7 @@ public class WindowsPerformanceCounterFeedLiveTest extends BrooklynAppLiveTestSu
     private Location loc;
     private Entity entity;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();

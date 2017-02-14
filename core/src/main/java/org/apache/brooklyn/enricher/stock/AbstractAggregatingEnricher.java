@@ -48,6 +48,7 @@ import com.google.common.collect.ImmutableMap;
  * @deprecated since 0.7.0; use {@link Enrichers.builder()}
  * @see Aggregator if need to sub-class
  */
+@Deprecated
 public abstract class AbstractAggregatingEnricher<S,T> extends AbstractEnricher implements SensorEventListener<S> {
     
     private static final Logger LOG = LoggerFactory.getLogger(AbstractAggregatingEnricher.class);
@@ -89,7 +90,7 @@ public abstract class AbstractAggregatingEnricher<S,T> extends AbstractEnricher 
         synchronized (values) {
             S vo = values.get(producer);
             if (vo==null) {
-                S initialVal = ((EntityLocal)producer).getAttribute(source);
+                S initialVal = producer.getAttribute(source);
                 values.put(producer, initialVal != null ? initialVal : defaultValue);
                 //we might skip in onEvent in the short window while !values.containsKey(producer)
                 //but that's okay because the put which would have been done there is done here now

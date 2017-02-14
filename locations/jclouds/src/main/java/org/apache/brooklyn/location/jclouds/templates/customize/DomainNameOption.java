@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 class DomainNameOption implements TemplateOptionCustomizer {
     private static final Logger LOG = LoggerFactory.getLogger(DomainNameOption.class);
 
+    @Override
     public void apply(TemplateOptions t, ConfigBag props, Object v) {
         if (t instanceof SoftLayerTemplateOptions) {
             ((SoftLayerTemplateOptions) t).domainName(TypeCoercions.coerce(v, String.class));

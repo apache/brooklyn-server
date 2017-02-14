@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.location.SimulatedLocation;
@@ -211,7 +210,7 @@ public class FollowTheSunPolicySoakTest extends AbstractFollowTheSunPolicyTest {
                     double jitteredWorkrate = Math.max(0, baseWorkrate + (random.nextDouble()*jitter*2 - jitter));
                     workrates.put(source, jitteredWorkrate);
                 }
-                ((EntityLocal)item).sensors().set(MockItemEntity.ITEM_USAGE_METRIC, workrates);
+                item.sensors().set(MockItemEntity.ITEM_USAGE_METRIC, workrates);
             }
 
             // Stop containers, and start others
@@ -232,8 +231,10 @@ public class FollowTheSunPolicySoakTest extends AbstractFollowTheSunPolicyTest {
 
             // Assert that the items all end up in the location with maximum load-generation
             Asserts.succeedsEventually(MutableMap.of("timeout", timeout_ms), new Runnable() {
+                @Override
                 public void run() {
                     Iterable<Location> itemLocs = Iterables.transform(movableItems, new Function<MockItemEntity, Location>() {
+                        @Override
                         public Location apply(MockItemEntity input) {
                             BalanceableContainer<?> container = input.getAttribute(Movable.CONTAINER);
                             Collection<Location> locs = (container != null) ? container.getLocations(): null;
@@ -241,6 +242,7 @@ public class FollowTheSunPolicySoakTest extends AbstractFollowTheSunPolicyTest {
                         }});
                     
                     Iterable<String> itemLocNames = Iterables.transform(itemLocs, new Function<Location, String>() {
+                        @Override
                         public String apply(Location input) {
                             return (input != null) ? input.getDisplayName() : null;
                         }});

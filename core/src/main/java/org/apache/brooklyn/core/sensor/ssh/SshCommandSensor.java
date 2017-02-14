@@ -78,7 +78,7 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
         super(params);
 
         // TODO create a supplier for the command string to support attribute embedding
-        command = Preconditions.checkNotNull(params.get(SENSOR_COMMAND), "SSH command must be dupplied when defining this sensor");
+        command = Preconditions.checkNotNull(params.get(SENSOR_COMMAND), "SSH command must be supplied when defining this sensor");
         executionDir = params.get(SENSOR_EXECUTION_DIR);
         sensorEnv = params.get(SENSOR_SHELL_ENVIRONMENT);
     }
@@ -131,11 +131,13 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
                             return TypeCoercions.coerce(Strings.trimEnd(input), (Class<T>) sensor.getType());
                         }}, SshValueFunctions.stdout()));
 
-        SshFeed.builder()
+        SshFeed feed = SshFeed.builder()
                 .entity(entity)
                 .onlyIfServiceUp()
                 .poll(pollConfig)
                 .build();
+
+        entity.addFeed(feed);
     }
 
     @Beta

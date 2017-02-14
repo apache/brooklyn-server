@@ -73,7 +73,7 @@ public class BrooklynLauncherTest {
         if (launcher != null) launcher.terminate();
         launcher = null;
     }
-    
+
     // Integration because takes a few seconds to start web-console
     @Test(groups="Integration")
     public void testStartsWebServerOnExpectectedPort() throws Exception {

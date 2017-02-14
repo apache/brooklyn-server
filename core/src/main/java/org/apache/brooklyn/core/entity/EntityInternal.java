@@ -65,17 +65,20 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
     /**
      * @deprecated since 0.8.0; use {@link SensorSupportInternal#setWithoutPublishing(AttributeSensor, Object)} via code like {@code sensors().setWithoutPublishing(attribute, val)}.
      */
+    @Deprecated
     <T> T setAttributeWithoutPublishing(AttributeSensor<T> sensor, T val);
 
     /**
      * @deprecated since 0.8.0; use {@link SensorSupportInternal#getAll()} via code like {@code sensors().getAll()}.
      */
+    @Deprecated
     @Beta
     Map<AttributeSensor, Object> getAllAttributes();
 
     /**
      * @deprecated since 0.8.0; use {@link SensorSupportInternal#remove(AttributeSensor)} via code like {@code sensors().remove(attribute)}.
      */
+    @Deprecated
     @Beta
     void removeAttribute(AttributeSensor<?> attribute);
 

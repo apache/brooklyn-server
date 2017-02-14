@@ -74,7 +74,7 @@ public class EffectorUtils {
      * the values.
      */
     public static Object[] prepareArgsForEffector(Effector<?> eff, Map<?,?> args) {
-        return prepareArgsForEffectorFromMap(eff, (Map<?,?>) args);
+        return prepareArgsForEffectorFromMap(eff, args);
     }
 
     /** prepares arguments for an effector either accepting:
@@ -390,6 +390,7 @@ public class EffectorUtils {
     }
 
     /** @deprecated since 0.7.0 use {@link #getTaskFlagsForEffectorInvocation(Entity, Effector, ConfigBag)} */
+    @Deprecated
     public static Map<Object,Object> getTaskFlagsForEffectorInvocation(Entity entity, Effector<?> effector) {
         return getTaskFlagsForEffectorInvocation(entity, effector, null);
     }

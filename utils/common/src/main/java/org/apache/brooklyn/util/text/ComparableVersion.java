@@ -29,6 +29,7 @@ public class ComparableVersion implements Comparable<String> {
         this.version = version;
     }
 
+    @Override
     public int compareTo(String target) {
         return VersionComparator.INSTANCE.compare(version, target);
     }

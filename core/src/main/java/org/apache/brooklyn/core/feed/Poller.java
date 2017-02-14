@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
@@ -32,7 +32,6 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.DynamicSequentialTask;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
-import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -51,7 +50,7 @@ import com.google.common.base.Objects;
 public class Poller<V> {
     public static final Logger log = LoggerFactory.getLogger(Poller.class);
 
-    private final EntityLocal entity;
+    private final Entity entity;
     private final boolean onlyIfServiceUp;
     private final Set<Callable<?>> oneOffJobs = new LinkedHashSet<Callable<?>>();
     private final Set<PollJob<V>> pollJobs = new LinkedHashSet<PollJob<V>>();
@@ -70,6 +69,7 @@ public class Poller<V> {
             this.pollPeriod = period;
             
             wrappedJob = new Runnable() {
+                @Override
                 public void run() {
                     try {
                         V val = job.call();
@@ -95,10 +95,10 @@ public class Poller<V> {
     
     /** @deprecated since 0.7.0, pass in whether should run onlyIfServiceUp */
     @Deprecated
-    public Poller(EntityLocal entity) {
+    public Poller(Entity entity) {
         this(entity, false);
     }
-    public Poller(EntityLocal entity, boolean onlyIfServiceUp) {
+    public Poller(Entity entity, boolean onlyIfServiceUp) {
         this.entity = entity;
         this.onlyIfServiceUp = onlyIfServiceUp;
     }
@@ -144,9 +144,10 @@ public class Poller<V> {
             final String scheduleName = pollJob.handler.getDescription();
             if (pollJob.pollPeriod.compareTo(Duration.ZERO) > 0) {
                 Callable<Task<?>> pollingTaskFactory = new Callable<Task<?>>() {
+                    @Override
                     public Task<?> call() {
                         DynamicSequentialTask<Void> task = new DynamicSequentialTask<Void>(MutableMap.of("displayName", scheduleName, "entity", entity), 
-                            new Callable<Void>() { public Void call() {
+                            new Callable<Void>() { @Override public Void call() {
                                 if (!Entities.isManaged(entity)) {
                                     return null;
                                 }
@@ -207,6 +208,7 @@ public class Poller<V> {
         return pollJobs.isEmpty();
     }
     
+    @Override
     public String toString() {
         return Objects.toStringHelper(this).add("entity", entity).toString();
     }

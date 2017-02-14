@@ -118,7 +118,7 @@ public class MultiLocationResolverTest {
                             throw Exceptions.propagate(e);
                         }
                         try {
-                            String addr = ((SshMachineLocation)machine).getAddress().getHostAddress();
+                            String addr = machine.getAddress().getHostAddress();
                             return addr != null && addr.equals("1.1.1.1");
                         } finally {
                             input.release(machine);

@@ -72,6 +72,7 @@ public class JcloudsRebindLiveTest extends RebindTestFixtureWithApp {
     
     protected List<JcloudsMachineLocation> machines;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
@@ -81,6 +82,7 @@ public class JcloudsRebindLiveTest extends RebindTestFixtureWithApp {
         AbstractJcloudsLiveTest.stripBrooklynProperties(origManagementContext.getBrooklynProperties());
     }
 
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         List<Exception> exceptions = Lists.newArrayList();

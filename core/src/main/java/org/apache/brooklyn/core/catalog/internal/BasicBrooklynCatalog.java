@@ -323,7 +323,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     @Override
     public AbstractBrooklynObjectSpec<?, ?> peekSpec(CatalogItem<?, ?> item) {
         if (item == null) return null;
-        CatalogItemDo<?, ?> loadedItem = (CatalogItemDo<?, ?>) getCatalogItemDo(item.getSymbolicName(), item.getVersion());
+        CatalogItemDo<?, ?> loadedItem = getCatalogItemDo(item.getSymbolicName(), item.getVersion());
         if (loadedItem == null) throw new RuntimeException(item+" not in catalog; cannot create spec");
         if (loadedItem.getSpecType()==null) return null;
         String itemId = item.getCatalogItemId();
@@ -409,7 +409,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     
     @SuppressWarnings({ "unchecked", "rawtypes" })
     private Maybe<Map<?,?>> getFirstAsMap(Map<?,?> map, String firstKey, String ...otherKeys) {
-        return (Maybe<Map<?,?>>)(Maybe) getFirstAs(map, Map.class, firstKey, otherKeys);
+        return (Maybe) getFirstAs(map, Map.class, firstKey, otherKeys);
     }
 
     private List<CatalogItemDtoAbstract<?,?>> collectCatalogItems(String yaml) {
@@ -731,7 +731,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         // TODO apply metadata?  (extract YAML from the items returned)
         // also see doc .../catalog/index.md which says we might not apply metadata
         @SuppressWarnings({ "unchecked", "rawtypes" })
-        Collection<CatalogItemDtoAbstract<?, ?>> result = (Collection<CatalogItemDtoAbstract<?, ?>>)(Collection)Collections2.transform(
+        Collection<CatalogItemDtoAbstract<?, ?>> result = (Collection)Collections2.transform(
                 (Collection<CatalogItemDo<Object,Object>>)(Collection)subCatalog.getIdCache().values(), 
                 itemDoToDtoAddingSelectedMetadataDuringScan(catalogMetadata));
         return result;

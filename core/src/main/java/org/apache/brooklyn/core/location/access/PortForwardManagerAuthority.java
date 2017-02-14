@@ -36,6 +36,7 @@ public class PortForwardManagerAuthority extends PortForwardManagerImpl {
         this.owningEntity = owningEntity;
     }
 
+    @Override
     protected void onChanged() {
         if (owningEntity != null) {
             ((EntityInternal) owningEntity).requestPersist();

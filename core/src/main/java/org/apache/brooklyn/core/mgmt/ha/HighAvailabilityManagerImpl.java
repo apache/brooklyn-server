@@ -533,6 +533,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         return myNodeState;
     }
 
+    @Override
     public ManagementPlaneSyncRecord getLastManagementPlaneSyncRecord() {
         return lastSyncRecord;
     }
@@ -613,6 +614,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         }
     }
     
+    @Override
     public void publishClearNonMaster() {
         ManagementPlaneSyncRecord plane = getLastManagementPlaneSyncRecord();
         if (plane==null || persister==null) {

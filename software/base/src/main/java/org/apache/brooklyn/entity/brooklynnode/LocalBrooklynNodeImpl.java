@@ -32,11 +32,11 @@ public class LocalBrooklynNodeImpl extends BrooklynNodeImpl implements LocalBroo
         // Override management username and password from brooklyn.properties
         // TODO Why use BrooklynProperties, rather than StringConfigMap returned by mgmt.getConfig()?
         BrooklynProperties properties = ((ManagementContextInternal)getManagementContext()).getBrooklynProperties();
-        String user = (String) properties.get(String.format(LOCAL_BROOKLYN_NODE_KEY, "user"));
-        String password = (String) properties.get(String.format(LOCAL_BROOKLYN_NODE_KEY, "password"));
+        String user = (String) properties.getConfig(String.format(LOCAL_BROOKLYN_NODE_KEY, "user"));
+        String password = (String) properties.getConfig(String.format(LOCAL_BROOKLYN_NODE_KEY, "password"));
         if (Strings.isBlank(password)) {
             if (Strings.isBlank(user)) user = "admin";
-            password = (String) properties.get(String.format(BROOKLYN_WEBCONSOLE_PASSWORD_KEY, user));
+            password = (String) properties.getConfig(String.format(BROOKLYN_WEBCONSOLE_PASSWORD_KEY, user));
         }
         if (Strings.isNonBlank(user) && Strings.isNonBlank(password)) {
             config().set(MANAGEMENT_USER, user);

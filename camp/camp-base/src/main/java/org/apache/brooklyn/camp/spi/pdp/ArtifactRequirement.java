@@ -40,7 +40,7 @@ public class ArtifactRequirement {
         ArtifactRequirement result = new ArtifactRequirement();
         result.name = (String) attrs.remove("name");
         result.description = (String) attrs.remove("description");
-        result.requirementType = (String) (String) Yamls.removeMultinameAttribute(attrs, "requirementType", "type");
+        result.requirementType = (String) Yamls.removeMultinameAttribute(attrs, "requirementType", "type");
         
         // TODO fulfillment
         

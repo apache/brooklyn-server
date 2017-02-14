@@ -30,7 +30,6 @@ import javax.annotation.Nullable;
 import javax.management.openmbean.CompositeData;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.feed.http.HttpValueFunctions;
 import org.apache.brooklyn.feed.jmx.JmxAttributePollConfig;
@@ -51,11 +50,11 @@ public class JavaAppUtils {
     }
 
     /**
-     * @see #connectJavaAppServerPolicies(EntityLocal, Duration)
-     * @see #getMxBeanSensorsBuilder(EntityLocal)
+     * @see #connectJavaAppServerPolicies(Entity, Duration)
+     * @see #getMxBeanSensorsBuilder(Entity)
      */
     @Nullable
-    public static JmxFeed connectMXBeanSensors(EntityLocal entity) {
+    public static JmxFeed connectMXBeanSensors(Entity entity) {
         if (isEntityMxBeanStatsEnabled(entity)) {
             return getMxBeanSensorsBuilder(entity).build();
         } else {
@@ -63,9 +62,9 @@ public class JavaAppUtils {
         }
     }
 
-    /** @see #connectJavaAppServerPolicies(EntityLocal, Duration) */
+    /** @see #connectJavaAppServerPolicies(Entity, Duration) */
     @Nullable
-    public static JmxFeed connectMXBeanSensors(EntityLocal entity, long jmxPollPeriodMs) {
+    public static JmxFeed connectMXBeanSensors(Entity entity, long jmxPollPeriodMs) {
         if (isEntityMxBeanStatsEnabled(entity)) {
             return getMxBeanSensorsBuilder(entity, jmxPollPeriodMs).build();
         } else {
@@ -81,7 +80,7 @@ public class JavaAppUtils {
      * @see org.apache.brooklyn.entity.java.UsesJavaMXBeans#MXBEAN_STATS_ENABLED
      */
     @Nullable
-    public static JmxFeed connectMXBeanSensors(EntityLocal entity, Duration jmxPollPeriod) {
+    public static JmxFeed connectMXBeanSensors(Entity entity, Duration jmxPollPeriod) {
         if (isEntityMxBeanStatsEnabled(entity)) {
             return getMxBeanSensorsBuilder(entity, jmxPollPeriod).build();
         } else {
@@ -89,11 +88,11 @@ public class JavaAppUtils {
         }
     }
     
-    public static void connectJavaAppServerPolicies(EntityLocal entity) {
+    public static void connectJavaAppServerPolicies(Entity entity) {
         connectJavaAppServerPolicies(entity, Duration.TEN_SECONDS);
     }
 
-    public static void connectJavaAppServerPolicies(EntityLocal entity, Duration windowPeriod) {
+    public static void connectJavaAppServerPolicies(Entity entity, Duration windowPeriod) {
         entity.enrichers().add(new TimeFractionDeltaEnricher<Double>(entity, UsesJavaMXBeans.PROCESS_CPU_TIME, 
                 UsesJavaMXBeans.PROCESS_CPU_TIME_FRACTION_LAST, TimeUnit.MILLISECONDS));
 
@@ -105,16 +104,16 @@ public class JavaAppUtils {
     /**
      * @param entity The entity at which to poll
      * @return A {@link JmxFeed.Builder} configured to poll entity every ten seconds
-     * @see #getMxBeanSensorsBuilder(EntityLocal, Duration)
+     * @see #getMxBeanSensorsBuilder(Entity, Duration)
      */
     @Nonnull
-    public static JmxFeed.Builder getMxBeanSensorsBuilder(EntityLocal entity) {
+    public static JmxFeed.Builder getMxBeanSensorsBuilder(Entity entity) {
         return getMxBeanSensorsBuilder(entity, Duration.TEN_SECONDS);
     }
 
-    /** @see #getMxBeanSensorsBuilder(EntityLocal, Duration) */
+    /** @see #getMxBeanSensorsBuilder(Entity, Duration) */
     @Nonnull
-    public static JmxFeed.Builder getMxBeanSensorsBuilder(EntityLocal entity, long jmxPollPeriod) {
+    public static JmxFeed.Builder getMxBeanSensorsBuilder(Entity entity, long jmxPollPeriod) {
         return getMxBeanSensorsBuilder(entity, Duration.millis(jmxPollPeriod));
     }
 
@@ -127,11 +126,11 @@ public class JavaAppUtils {
      *         If an entity does not have MXBean stats enabled (i.e. {@link UsesJavaMXBeans#MXBEAN_STATS_ENABLED} is
      *         configured to false) then returns a builder configured with entity and duration but no polls.
      *         <p/>
-     *         Use {@link #connectMXBeanSensors(EntityLocal, Duration)} to create and build in one step.
+     *         Use {@link #connectMXBeanSensors(Entity, Duration)} to create and build in one step.
      */
     @Nonnull
     @SuppressWarnings({"unchecked"})
-    public static JmxFeed.Builder getMxBeanSensorsBuilder(EntityLocal entity, Duration jmxPollPeriod) {
+    public static JmxFeed.Builder getMxBeanSensorsBuilder(Entity entity, Duration jmxPollPeriod) {
         JmxFeed.Builder builder = JmxFeed.builder()
                 .entity(entity)
                 .period(jmxPollPeriod);

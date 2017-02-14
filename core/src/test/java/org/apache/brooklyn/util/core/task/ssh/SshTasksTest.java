@@ -150,7 +150,7 @@ public class SshTasksTest {
         // and the results indicate failure
         Assert.assertFalse(t.isSuccessful());
         Assert.assertNotNull(t.getException());
-        Assert.assertNotEquals(t.getExitCode(), (Integer)0);
+        Assert.assertNotEquals(t.getExitCode(), 0);
     }
 
     @Test(groups="Integration")
@@ -166,7 +166,7 @@ public class SshTasksTest {
         Assert.assertNotNull(t.getException());
         Assert.assertFalse(t.isSuccessful());
         // exit code probably null, but won't be zero
-        Assert.assertNotEquals(t.getExitCode(), (Integer)0);
+        Assert.assertNotEquals(t.getExitCode(), 0);
     }
 
     @Test(groups="Integration")
