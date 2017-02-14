@@ -15,13 +15,13 @@ Here is an example catalog item to add a Docker engine endpoint to your catalog 
       name: "My Docker engine"
       itemType: location
       item:
-        type: jclouds:docker
+        type: docker
         brooklyn.config:
-          endpoint: << endpoint >>
+          endpoint: https://<< address >>:<< port >>
           identity: << path to my cert.pem >>
           credential: << path to my key.pem >>
-          image: "cloudsoft/centos:7"
-          loginUser.password: "p4ssw0rd"
+          # Default image if no other explicitly set
+          # imageId: "cloudsoft/centos:7"
 
 **Note** The endpoint of a Docker engine is the IP + port where the docker engine is currently running. As for the identity and credential, the Docker engine will generate those by default in `~/.docker/certs` folder, unless you specified them during the installation.
 
@@ -29,38 +29,38 @@ Here is an example catalog item to add a Docker engine endpoint to your catalog 
 
 Once your Docker container location has been configured, AMP can launch instances based on a `DockerContainer` entity, this means additional configuration such as custom docker images can be specified. Here's an example which sets up a [Wordpress](https://wordpress.org/) instance:
 
-    location:
-      << see above >>
+    # see above for a definition of the location
+    location: my-docker-engine
 
     services:
     - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
       id: wordpress-mysql
       name: MySQL
       brooklyn.config:
+        mysql.root_password: password
         docker.container.imageName: mysql:5.6
+        # Maps the port to the host node, making it available for external access
         docker.container.inboundPorts:
         - "3306"
-        provisioning.properties:
-          env:
-            MYSQL_ROOT_PASSWORD: "password"
-          deployment: wordpress-mysql
+        docker.container.environment: 
+          MYSQL_ROOT_PASSWORD: $brooklyn:config("mysql.root_password")
     - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
       id: wordpress
       name: Wordpress
       brooklyn.config:
         docker.container.imageName: wordpress:4-apache
+        # Maps the port to the host node, making it available for external access
         docker.container.inboundPorts:
         - "80"
-        provisioning.properties:
-          env:
-            WORDPRESS_DB_HOST: "wordpress-mysql"
-            WORDPRESS_DB_PASSWORD: "password"
+        docker.container.environment: 
+          WORDPRESS_DB_HOST: $brooklyn:entity("wordpress-mysql").attributeWhenReady("host.subnet.address")
+          WORDPRESS_DB_PASSWORD: $brooklyn:entity("wordpress-mysql").config("mysql.root_password")
 
 #### Docker container configuration
 
 To configure the `DockerContainer` entity, the following configuration params are available:
 
-- **docker.container.disableSsh** Skip checks such as ssh for when docker image doesn't allow ssh
-- **docker.container.imageName** Image name to pull from docker hub
-- **docker.container.inboundPorts** List of ports, that the docker image opens, to be made public
-- **docker.container.environment** Environment variables to set on container startup. This must be a map
+- **docker.container.disableSsh** Skip checks such as ssh for when docker image doesn't allow ssh; use the default image `cloudsoft/centos:7` for ssh-able image
+- **docker.container.imageName** Image name to pull from docker hub; overrides the default one `cloudsoft/centos:7`
+- **docker.container.inboundPorts** List of ports, that the docker image maps to the host, opening them to the public
+- **docker.container.environment** Environment variables to set on container startup; this must be a map
