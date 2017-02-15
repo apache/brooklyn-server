@@ -155,7 +155,7 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
             throw new IllegalStateException("Invalid function-only expression '"+f.getFunction()+"'");
 
         String fn = f.getFunction();
-        fn = Strings.removeFromStart(fn, "$brooklyn:");
+        fn = Strings.removeFromStart(fn, BrooklynDslCommon.PREFIX);
         if (fn.startsWith("function.")) {
             // If the function name starts with 'function.', then we look for the function in BrooklynDslCommon.Functions
             // As all functions in BrooklynDslCommon.Functions are static, we don't need to worry whether a class

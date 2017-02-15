@@ -18,9 +18,14 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import com.google.common.collect.Collections2;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -31,8 +36,12 @@ import org.apache.brooklyn.rest.api.ActivityApi;
 import org.apache.brooklyn.rest.domain.TaskSummary;
 import org.apache.brooklyn.rest.transform.TaskTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableSet;
 
-import java.util.*;
+import com.google.common.collect.Collections2;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 public class ActivityResource extends AbstractBrooklynRestResource implements ActivityApi {
 
@@ -71,13 +80,35 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
 
 
     @Override
-    public List<TaskSummary> children(String taskId) {
+    public List<TaskSummary> children(String taskId, Boolean includeBackground) {
         Task<?> t = mgmt().getExecutionManager().getTask(taskId);
         if (t == null) {
             throw WebResourceUtils.notFound("Cannot find task '%s'", taskId);
         }
         checkEntityEntitled(t);
 
+        Set<TaskSummary> result = MutableSet.copyOf(getSubTaskChildren(t));
+        if (Boolean.TRUE.equals(includeBackground)) {
+            result.addAll(getBackgroundedChildren(t));
+        }
+        return MutableList.copyOf(result);
+    }
+
+    private Collection<? extends TaskSummary> getBackgroundedChildren(Task<?> t) {
+        Entity entity = BrooklynTaskTags.getContextEntity(t);
+        List<TaskSummary> result = MutableList.of();
+        if (entity!=null) {
+            Set<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(mgmt().getExecutionManager(), entity);
+            for (Task<?> ti: tasks) {
+                if (t.equals(ti.getSubmittedByTask())) {
+                    result.add(TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(ti));
+                }
+            }
+        }
+        return result;
+    }
+
+    private List<TaskSummary> getSubTaskChildren(Task<?> t) {
         if (!(t instanceof HasTaskChildren)) {
             return Collections.emptyList();
         }

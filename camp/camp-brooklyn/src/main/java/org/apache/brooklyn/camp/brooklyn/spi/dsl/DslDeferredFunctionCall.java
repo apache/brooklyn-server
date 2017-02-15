@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslToStringHelpers;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -33,7 +34,6 @@ import org.apache.brooklyn.util.javalang.Reflections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
@@ -58,10 +58,18 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
         return invokeOnDeferred(object, true);
     }
 
+    private static String toStringF(String fnName, Object args) {
+        return fnName + blankIfNull(args);
+    }
+    private static String blankIfNull(Object args) {
+        if (args==null) return "";
+        return args.toString();
+    }
+    
     @Override
     public Task<Object> newTask() {
         return Tasks.builder()
-                .displayName("Deferred function call " + object + "." + fnName + "(" + toString(args) + ")")
+                .displayName("Deferred function call " + object + "." + toStringF(fnName, args))
                 .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
                 .dynamic(false)
                 .body(new Callable<Object>() {
@@ -79,14 +87,14 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
             Object instance = resolvedMaybe.get();
 
             if (instance == null) {
-                throw new IllegalArgumentException("Deferred function call, " + object + 
-                        " evaluates to null (when calling " + fnName + "(" + toString(args) + "))");
+                throw new IllegalArgumentException("Deferred function call not found: " + 
+                        object + " evaluates to null (wanting to call " + toStringF(fnName, args) + ")");
             }
 
             return invokeOn(instance);
         } else {
             if (immediate) {
-                return Maybe.absent("Could not evaluate immediately " + obj);
+                return Maybe.absent("Could not evaluate immediately: " + obj);
             } else {
                 return Maybe.absent(Maybe.getException(resolvedMaybe));
             }
@@ -98,48 +106,81 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
     }
 
     protected static Maybe<Object> invokeOn(Object obj, String fnName, List<?> args) {
-        Object instance = obj;
-        List<?> instanceArgs = args;
-        Maybe<Method> method = Reflections.getMethodFromArgs(instance, fnName, instanceArgs);
-
-        if (method.isAbsent()) {
+        return new Invoker(obj, fnName, args).invoke();
+    }
+    
+    protected static class Invoker {
+        final Object obj;
+        final String fnName;
+        final List<?> args;
+        
+        Maybe<Method> method;
+        Object instance;
+        List<?> instanceArgs;
+        
+        protected Invoker(Object obj, String fnName, List<?> args) {
+            this.fnName = fnName;
+            this.obj = obj;
+            this.args = args;
+        }
+        
+        protected Maybe<Object> invoke() {
+            findMethod();
+            
+            if (method.isPresent()) {
+                Method m = method.get();
+    
+                checkCallAllowed(m);
+    
+                try {
+                    // Value is most likely another BrooklynDslDeferredSupplier - let the caller handle it,
+                    return Maybe.of(Reflections.invokeMethodFromArgs(instance, m, instanceArgs));
+                } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException e) {
+                    // If the method is there but not executable for whatever reason fail with a fatal error, don't return an absent.
+                    throw Exceptions.propagateAnnotated("Error invoking '"+toStringF(fnName, instanceArgs)+"' on '"+instance+"'", e);
+                }
+            } else {
+                // could do deferred execution if an argument is a deferred supplier:
+                // if we get a present from:
+                // new Invoker(obj, fnName, replaceSuppliersWithNull(args)).findMethod()
+                // then return a
+                // new DslDeferredFunctionCall(...)
+                
+                return Maybe.absent(new IllegalArgumentException("No such function '"+fnName+"' taking args "+args+" (on "+obj+")"));
+            }
+        }
+    
+        protected void findMethod() {
+            method = Reflections.getMethodFromArgs(obj, fnName, args);
+            if (method.isPresent()) {
+                this.instance = obj;
+                this.instanceArgs = args;
+                return ;
+            }
+                
             instance = BrooklynDslCommon.class;
             instanceArgs = ImmutableList.builder().add(obj).addAll(args).build();
             method = Reflections.getMethodFromArgs(instance, fnName, instanceArgs);
-        }
-
-        if (method.isAbsent()) {
+            if (method.isPresent()) return ;
+    
             Maybe<?> facade;
             try {
                 facade = Reflections.invokeMethodFromArgs(BrooklynDslCommon.DslFacades.class, "wrap", ImmutableList.of(obj));
             } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException e) {
                 facade = Maybe.absent();
             }
-
+    
             if (facade.isPresent()) {
                 instance = facade.get();
                 instanceArgs = args;
                 method = Reflections.getMethodFromArgs(instance, fnName, instanceArgs);
+                if (method.isPresent()) return ;
             }
-        }
-
-        if (method.isPresent()) {
-            Method m = method.get();
-
-            checkCallAllowed(m);
-
-            try {
-                // Value is most likely another BrooklynDslDeferredSupplier - let the caller handle it,
-                return Maybe.of(Reflections.invokeMethodFromArgs(instance, m, instanceArgs));
-            } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException e) {
-                // If the method is there but not executable for whatever reason fail with a fatal error, don't return an absent.
-                throw Exceptions.propagate(new InvocationTargetException(e, "Error invoking '"+fnName+"("+toString(instanceArgs)+")' on '"+instance+"'"));
-            }
-        } else {
-            return Maybe.absent(new IllegalArgumentException("No such function '"+fnName+"("+toString(args)+")' on "+obj));
+            
+            method = Maybe.absent();
         }
     }
-
+    
     protected Maybe<?> resolve(Object object, boolean immediate) {
         return Tasks.resolving(object, Object.class)
             .context(entity().getExecutionContext())
@@ -187,11 +228,7 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
 
     @Override
     public String toString() {
-        return object + "." + fnName + "(" + toString(args) + ")";
+        return DslToStringHelpers.fn(DslToStringHelpers.internal(object) + "." + fnName, args);
     }
 
-    private static String toString(List<?> args) {
-        if (args == null) return "";
-        return Joiner.on(", ").join(args);
-    }
 }

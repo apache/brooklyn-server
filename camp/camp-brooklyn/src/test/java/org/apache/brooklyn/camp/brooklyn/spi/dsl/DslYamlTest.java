@@ -290,7 +290,7 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), "myvalue");
     }
 
-    @Test(groups="WIP") // config accepts strings only, no suppliers
+    @Test
     public void testDslConfigWithDeferredArg() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
@@ -302,7 +302,7 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), "myvalue");
     }
 
-    @Test(groups="WIP") // config accepts strings only, no suppliers
+    @Test
     public void testDslConfigOnEntityWithDeferredArg() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
@@ -352,7 +352,7 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), "myvalue");
     }
 
-    @Test(groups="WIP") // attributeWhenReady accepts strings only, no suppliers
+    @Test
     public void testDslAttributeWhenReadyWithDeferredArg() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
@@ -368,7 +368,7 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), "myvalue");
     }
 
-    @Test(groups="WIP") // attributeWhenReady accepts strings only, no suppliers
+    @Test
     public void testDslAttributeWhenReadyOnEntityWithDeferredArg() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
@@ -516,7 +516,7 @@ public class DslYamlTest extends AbstractYamlTest {
                     "    dest: $brooklyn:self().invalidMethod()");
             Asserts.shouldHaveFailedPreviously("Non-existing non-deferred method should fail deployment");
         } catch (CompoundRuntimeException e) {
-            Asserts.expectedFailureContains(e, "No such function 'invalidMethod()'");
+            Asserts.expectedFailureContains(e, "No such function 'invalidMethod'");
         }
     }
 
@@ -610,7 +610,8 @@ public class DslYamlTest extends AbstractYamlTest {
             assertEquals(getConfigEventually(app, DEST), app.getId());
             Asserts.shouldHaveFailedPreviously("Expected to fail because method does not exist");
         } catch (Exception e) {
-            Asserts.expectedFailureContains(e, "No such function 'getNonExistent()'");
+            Asserts.expectedFailureContains(e, "No such function 'getNonExistent'");
+            Asserts.expectedFailureDoesNotContain(e, "$brooklyn:$brooklyn:");
         }
     }
 
