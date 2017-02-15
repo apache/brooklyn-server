@@ -92,20 +92,20 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
             private String globalPropertiesFile = null;
             private String localPropertiesFile = null;
             private BrooklynPropertiesImpl originalProperties = null;
-            
+
             /** @deprecated since 0.7.0 use static methods in {@link Factory} to create */
             @Deprecated
             public Builder() {
                 this(true);
             }
-            
+
             private Builder(boolean setGlobalFileDefaults) {
                 resetDefaultLocationMetadataUrl();
                 if (setGlobalFileDefaults) {
                     resetGlobalFiles();
                 }
             }
-            
+
             public Builder resetDefaultLocationMetadataUrl() {
                 defaultLocationMetadataUrl = "classpath://brooklyn/location-metadata.properties";
                 return this;
@@ -116,14 +116,14 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
                 globalPropertiesFile = Os.mergePaths(Os.home(), ".brooklyn", "brooklyn.properties");
                 return this;
             }
-            
+
             /**
              * Creates a Builder that when built, will return the BrooklynProperties passed to this constructor
              */
             private Builder(BrooklynPropertiesImpl originalProperties) {
                 this.originalProperties = new BrooklynPropertiesImpl().addFromMap(originalProperties.asMapWithStringKeys());
             }
-            
+
             /**
              * The URL of a default location-metadata.properties (for meta-data about different locations, such as iso3166 and global lat/lon). 
              * Defaults to classpath://brooklyn/location-metadata.properties
@@ -132,7 +132,7 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
                 defaultLocationMetadataUrl = checkNotNull(val, "file");
                 return this;
             }
-            
+
             /**
              * The URL of a location-metadata.properties file that appends to and overwrites values in the locationMetadataUrl. 
              * Defaults to ~/.brooklyn/location-metadata.properties
@@ -141,7 +141,7 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
                 globalLocationMetadataFile = checkNotNull(val, "file");
                 return this;
             }
-            
+
             /**
              * The URL of a shared brooklyn.properties file. Defaults to ~/.brooklyn/brooklyn.properties.
              * Can be null to disable.
@@ -150,12 +150,12 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
                 globalPropertiesFile = val;
                 return this;
             }
-            
+
             @Beta
             public boolean hasDelegateOriginalProperties() {
                 return this.originalProperties==null;
             }
-            
+
             /**
              * The URL of a brooklyn.properties file specific to this launch. Appends to and overwrites values in globalPropertiesFile.
              */
@@ -163,21 +163,22 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
                 localPropertiesFile = val;
                 return this;
             }
-            
+
             public BrooklynPropertiesImpl build() {
-                if (originalProperties != null) 
+                if (originalProperties != null) {
                     return new BrooklynPropertiesImpl().addFromMap(originalProperties.asMapWithStringKeys());
-                
+                }
+
                 BrooklynPropertiesImpl properties = new BrooklynPropertiesImpl();
 
                 // TODO Could also read from http://brooklyn.io, for up-to-date values?
                 // But might that make unit tests run very badly when developer is offline?
                 addPropertiesFromUrl(properties, defaultLocationMetadataUrl, false);
-                
+
                 addPropertiesFromFile(properties, globalLocationMetadataFile);
                 addPropertiesFromFile(properties, globalPropertiesFile);
                 addPropertiesFromFile(properties, localPropertiesFile);
-                
+
                 properties.addEnvironmentVars();
                 properties.addSystemProperties();
 
@@ -201,10 +202,10 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
                         .toString();
             }
         }
-        
+
         private static void addPropertiesFromUrl(BrooklynPropertiesImpl p, String url, boolean warnIfNotFound) {
             if (url==null) return;
-            
+
             try {
                 p.addFrom(ResourceUtils.create(BrooklynPropertiesImpl.class).getResourceFromUrl(url));
             } catch (Exception e) {
@@ -213,10 +214,10 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
                 if (LOG.isTraceEnabled()) LOG.trace("Could not load "+url+"; continuing", e);
             }
         }
-        
+
         private static void addPropertiesFromFile(BrooklynPropertiesImpl p, String file) {
             if (file==null) return;
-            
+
             String fileTidied = Os.tidyPath(file);
             File f = new File(fileTidied);
 
@@ -334,8 +335,8 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
     }
 
     /**
-    * adds the indicated properties
-    */
+     * adds the indicated properties
+     */
     @Override
     public BrooklynPropertiesImpl addFromMap(Map properties) {
         putAll(properties);
@@ -369,7 +370,7 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
      * and 'defaultIfNone' (a default value to return if there is no such property); defaults to no warning and null response */
     @Override
     public String getFirst(String ...keys) {
-       return getFirst(MutableMap.of(), keys);
+        return getFirst(MutableMap.of(), keys);
     }
     @Override
     public String getFirst(Map flags, String ...keys) {
@@ -388,7 +389,7 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
                 ((Closure)f).call((Object[])keys);
             if (Boolean.TRUE.equals(f))
                 throw new NoSuchElementException("Brooklyn unable to find mandatory property "+keys[0]+
-                    (keys.length>1 ? " (or "+(keys.length-1)+" other possible names, full list is "+Arrays.asList(keys)+")" : "") );
+                        (keys.length>1 ? " (or "+(keys.length-1)+" other possible names, full list is "+Arrays.asList(keys)+")" : "") );
             else
                 throw new NoSuchElementException(""+f);
         }
@@ -430,7 +431,7 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
             put(entry.getKey(), entry.getValue());
         }
     }
-    
+
     @Override
     public <T> Object put(HasConfigKey<T> key, T value) {
         return putImpl(key.getConfigKey().getName(), value);
@@ -445,7 +446,7 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
     public <T> boolean putIfAbsent(ConfigKey<T> key, T value) {
         return putIfAbsent(key.getName(), value);
     }
-    
+
     @Override
     public Object getConfig(String key) {
         return get(key);
@@ -484,7 +485,7 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
         if (containsKey(key.getName())) return Maybe.of(get(key.getName()));
         return Maybe.absent();
     }
-    
+
     @Override
     public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited) {
         return getConfigRaw(key);
@@ -493,11 +494,6 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
     @Override
     public Maybe<Object> getConfigLocalRaw(ConfigKey<?> key) {
         return getConfigRaw(key);
-    }
-    
-    @Override @Deprecated
-    public Map<ConfigKey<?>, Object> getAllConfig() {
-        return getAllConfigLocalRaw();
     }
 
     @Override
@@ -511,12 +507,22 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
         return result;
     }
 
-    @Override
+    @Override @Deprecated
+    public Map<ConfigKey<?>, Object> getAllConfig() {
+        return getAllConfigLocalRaw();
+    }
+
+    @Override @Deprecated
     public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter) {
-        Set<ConfigKey<?>> result = new LinkedHashSet<>();
+        return findKeysDeclared(filter);
+    }
+
+    @Override
+    public Set<ConfigKey<?>> findKeysDeclared(Predicate<? super ConfigKey<?>> filter) {
+        Set<ConfigKey<?>> result = new LinkedHashSet<ConfigKey<?>>();
         synchronized (contents) {
-            for (Map.Entry<String, Object> entry : contents.entrySet()) {
-                ConfigKey<?> k = new BasicConfigKey<Object>(Object.class, entry.getKey());
+            for (Object entry: contents.entrySet()) {
+                ConfigKey<?> k = new BasicConfigKey<Object>(Object.class, ""+((Map.Entry)entry).getKey());
                 if (filter.apply(k)) {
                     result.add(k);
                 }
@@ -524,7 +530,12 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
         }
         return result;
     }
-    
+
+     @Override                                                                                                                                
+    public Set<ConfigKey<?>> findKeysPresent(Predicate<? super ConfigKey<?>> filter) {                                                       
+        return findKeysDeclared(filter);                                                                                                     
+    } 
+
     @Override
     public BrooklynProperties submap(Predicate<ConfigKey<?>> filter) {
         BrooklynPropertiesImpl result = Factory.newEmpty();

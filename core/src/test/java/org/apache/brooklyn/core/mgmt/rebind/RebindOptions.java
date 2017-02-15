@@ -37,6 +37,7 @@ import com.google.common.collect.Iterables;
  * See {@link RebindTestFixture#rebind(RebindOptions)} and {@link RebindTestUtils#rebind(RebindOptions)}.
  */
 public class RebindOptions {
+
     public boolean checkSerializable;
     public boolean terminateOrigManagementContext;
     public RebindExceptionHandler exceptionHandler;

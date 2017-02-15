@@ -19,18 +19,17 @@
 package org.apache.brooklyn.core.mgmt.rebind;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 import java.io.File;
-import java.lang.reflect.Method;
 import java.util.Map;
 
 import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.os.Os;
 import org.testng.annotations.Test;
@@ -43,13 +42,13 @@ import com.google.common.io.Files;
 
 public class RebindWithDeserializingClassRenamesTest extends RebindTestFixtureWithApp {
 
+    /** also see {@link RebindConfigInheritanceTest} */
     @Test
-    @SuppressWarnings("deprecation")
     public void testRebindWillRenameLegacyConfigInheritance() throws Exception {
         Map<String, String> expectedTransforms = ImmutableMap.<String, String>builder()
-                .put("org.apache.brooklyn.config.ConfigInheritance$None", "org.apache.brooklyn.config.ConfigInheritance$Legacy$None")
-                .put("org.apache.brooklyn.config.ConfigInheritance$Always", "org.apache.brooklyn.config.ConfigInheritance$Legacy$Always")
-                .put("org.apache.brooklyn.config.ConfigInheritance$Merged", "org.apache.brooklyn.config.ConfigInheritance$Legacy$Merged")
+                .put("org.apache.brooklyn.config.ConfigInheritance$None", BasicConfigInheritance.NOT_REINHERITED.getClass().getName())
+                .put("org.apache.brooklyn.config.ConfigInheritance$Always", BasicConfigInheritance.OVERWRITE.getClass().getName())
+                .put("org.apache.brooklyn.config.ConfigInheritance$Merged", BasicConfigInheritance.DEEP_MERGE.getClass().getName())
                 .build();
         
         String entityId = "toruf2wxg4";
@@ -58,8 +57,8 @@ public class RebindWithDeserializingClassRenamesTest extends RebindTestFixtureWi
 
         // Orig state contains the old names (and not the new names)
         for (Map.Entry<String, String> entry : expectedTransforms.entrySet()) {
-            assertTrue(persistedEntity.contains(entry.getKey()));
-            assertFalse(persistedEntity.contains(entry.getValue()));
+            Asserts.assertStringContains(persistedEntity, entry.getKey());
+            Asserts.assertStringDoesNotContain(persistedEntity, entry.getValue());
         }
         
         File persistedEntityFile = new File(mementoDir, Os.mergePaths("entities", entityId));
@@ -71,8 +70,8 @@ public class RebindWithDeserializingClassRenamesTest extends RebindTestFixtureWi
         RebindTestUtils.waitForPersisted(mgmt());
         String newPersistedEntity = Joiner.on("\n").join(Files.readLines(persistedEntityFile, Charsets.UTF_8));
         for (Map.Entry<String, String> entry : expectedTransforms.entrySet()) {
-            assertFalse(newPersistedEntity.contains(entry.getKey()));
-            assertTrue(newPersistedEntity.contains(entry.getValue()));
+            Asserts.assertStringDoesNotContain(newPersistedEntity, entry.getKey());
+            Asserts.assertStringContains(newPersistedEntity, entry.getValue());
         }
 
         // Check the config keys are as expected 
@@ -82,17 +81,13 @@ public class RebindWithDeserializingClassRenamesTest extends RebindTestFixtureWi
         ConfigKey<?> keyWithInheritanceAlways = Iterables.find(config.keySet(), ConfigPredicates.nameEqualTo("my.config.inheritanceAlways"));
         ConfigKey<?> keyWithInheritanceMerged = Iterables.find(config.keySet(), ConfigPredicates.nameEqualTo("my.config.inheritanceMerged"));
         
-        assertLegacyConfigRuntimInheritanceMode(keyWithInheritanceNone, ConfigInheritance.InheritanceMode.NONE);
-        assertLegacyConfigRuntimInheritanceMode(keyWithInheritanceAlways, ConfigInheritance.InheritanceMode.IF_NO_EXPLICIT_VALUE);
-        assertLegacyConfigRuntimInheritanceMode(keyWithInheritanceMerged, ConfigInheritance.InheritanceMode.DEEP_MERGE);
+        assertConfigRuntimeInheritanceMode(keyWithInheritanceNone, BasicConfigInheritance.NOT_REINHERITED);
+        assertConfigRuntimeInheritanceMode(keyWithInheritanceAlways, BasicConfigInheritance.OVERWRITE);
+        assertConfigRuntimeInheritanceMode(keyWithInheritanceMerged, BasicConfigInheritance.DEEP_MERGE);
     }
 
-    @SuppressWarnings("deprecation")
-    private void assertLegacyConfigRuntimInheritanceMode(ConfigKey<?> key, ConfigInheritance.InheritanceMode expected) throws Exception {
+    private void assertConfigRuntimeInheritanceMode(ConfigKey<?> key, ConfigInheritance expected) throws Exception {
         ConfigInheritance val = key.getInheritanceByContext().get(InheritanceContext.RUNTIME_MANAGEMENT);
-        Method method = val.getClass().getDeclaredMethod("getMode");
-        method.setAccessible(true);
-        ConfigInheritance.InheritanceMode mode = (ConfigInheritance.InheritanceMode) method.invoke(val);
-        assertEquals(mode, expected);
+        assertEquals(val, expected);
     }
 }

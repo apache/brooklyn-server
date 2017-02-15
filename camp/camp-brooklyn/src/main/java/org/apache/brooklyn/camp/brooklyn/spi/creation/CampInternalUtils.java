@@ -140,12 +140,7 @@ class CampInternalUtils {
 
         String versionedId = (String) checkNotNull(Yamls.getMultinameAttribute(itemMap, "policy_type", "policyType", "type"), "policy type");
         PolicySpec<? extends Policy> spec = resolvePolicySpec(versionedId, loader, encounteredCatalogTypes);
-        Map<String, Object> brooklynConfig = (Map<String, Object>) itemMap.get(BrooklynCampReservedKeys.BROOKLYN_CONFIG);
-        if (brooklynConfig != null) {
-            spec.configure(brooklynConfig);
-        }
-        List<?> parameters = (List<?>) itemMap.get(BrooklynCampReservedKeys.BROOKLYN_PARAMETERS);
-        initParameters(parameters, spec, loader);
+        initConfigAndParameters(spec, itemMap, loader);
         return spec;
     }
 
@@ -173,19 +168,21 @@ class CampInternalUtils {
 
         String type = (String) checkNotNull(Yamls.getMultinameAttribute(itemMap, "location_type", "locationType", "type"), "location type");
         Map<String, Object> brooklynConfig = (Map<String, Object>) itemMap.get(BrooklynCampReservedKeys.BROOKLYN_CONFIG);
-        if (brooklynConfig==null) brooklynConfig = MutableMap.of();
         LocationSpec<?> locationSpec = resolveLocationSpec(type, brooklynConfig, loader);
-        List<?> explicitParams = (List<?>) itemMap.get(BrooklynCampReservedKeys.BROOKLYN_PARAMETERS);
-        initParameters(explicitParams, locationSpec, loader);
+        // config loaded twice, but used twice
+        initConfigAndParameters(locationSpec, itemMap, loader);
         return locationSpec;
     }
 
-    private static void initParameters(List<?> explicitParams, AbstractBrooklynObjectSpec<?, ?> spec, BrooklynClassLoadingContext loader) {
-        if (explicitParams != null) {
-            BasicSpecParameter.addParameters(spec, BasicSpecParameter.fromConfigList(explicitParams, null, loader), loader);
-        } else {
-            BasicSpecParameter.addParameters(spec, ImmutableList.<SpecParameter<?>>of(), loader);
+    protected static void initConfigAndParameters(AbstractBrooklynObjectSpec<?,?> spec, Map<String, Object> itemMap, BrooklynClassLoadingContext loader) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> brooklynConfig = (Map<String, Object>) itemMap.get(BrooklynCampReservedKeys.BROOKLYN_CONFIG);
+        if (brooklynConfig != null) {
+            spec.configure(brooklynConfig);
         }
+
+        List<?> explicitParams = (List<?>) itemMap.get(BrooklynCampReservedKeys.BROOKLYN_PARAMETERS);
+        BasicSpecParameter.initializeSpecWithExplicitParameters(spec, BasicSpecParameter.parseParameterDefinitionList(explicitParams, null, loader), loader);
     }
 
     public static DeploymentPlan makePlanFromYaml(ManagementContext mgmt, String yaml) {
@@ -224,21 +221,22 @@ class CampInternalUtils {
             String type,
             Map<String, Object> brooklynConfig,
             BrooklynClassLoadingContext loader) {
+        if (brooklynConfig==null) {
+            brooklynConfig = MutableMap.of();
+        }
         Maybe<Class<? extends Location>> javaClass = loader.tryLoadClass(type, Location.class);
+        LocationSpec<?> spec;
         if (javaClass.isPresent()) {
-            LocationSpec<?> spec = LocationSpec.create(javaClass.get());
-            if (brooklynConfig != null) {
-                spec.configure(brooklynConfig);
-            }
-            return spec;
+            spec = LocationSpec.create(javaClass.get());
         } else {
             Maybe<LocationSpec<? extends Location>> loc = loader.getManagementContext().getLocationRegistry().getLocationSpec(type, brooklynConfig);
             if (loc.isPresent()) {
-                return loc.get().configure(brooklynConfig);
+                spec = loc.get();
             } else {
                 throw new IllegalStateException("No class or resolver found for location type "+type);
             }
         }
+        return spec;
     }
 
 }

@@ -69,7 +69,7 @@ public class ConfigInheritances {
             ancestorContainerKeyValues, key, context, defaultInheritance);
     }
     
-    /** as {@link #resolveInheriting(Object, ConfigKey, Maybe, Iterator, ConfigInheritanceContext, ConfigInheritance)}
+    /** as {@link #resolveInheriting(Object, ConfigKey, Maybe, Maybe, Iterator, ConfigInheritanceContext, ConfigInheritance)}
      * but convenient when the local info is already in a {@link ConfigValueAtContainer} */
     public static <TContainer,TValue> ReferenceWithError<ConfigValueAtContainer<TContainer,TValue>> resolveInheriting(
         ConfigValueAtContainer<TContainer,TValue> local,
@@ -77,7 +77,9 @@ public class ConfigInheritances {
         ConfigKey<TValue> queryKey,
         ConfigInheritanceContext context,
         ConfigInheritance defaultInheritance) {
-                    
+
+        BasicConfigValueAtContainer<TContainer, TValue> result = null;
+        
         if (ancestorContainerKeyValues.hasNext()) {
             ConfigValueAtContainer<TContainer, TValue> parent = ancestorContainerKeyValues.next();
             ConfigInheritance parentInheritance = findInheritance(parent, context, null);
@@ -86,18 +88,28 @@ public class ConfigInheritances {
                 if (currentInheritance.considerParent(local, parent, context)) {
                     ReferenceWithError<ConfigValueAtContainer<TContainer, TValue>> parentResult = resolveInheriting(parent, ancestorContainerKeyValues, queryKey, context, currentInheritance);
                     ReferenceWithError<ConfigValueAtContainer<TContainer,TValue>> resultWithParent = currentInheritance.resolveWithParent(local, parentResult.getWithoutError(), context);
-                    if (resultWithParent!=null && resultWithParent.getWithoutError()!=null && resultWithParent.getWithoutError().isValueExplicitlySet()) {
-                        if (!resultWithParent.hasError() && parentResult!=null && parentResult.hasError()) {
-                            return ReferenceWithError.newInstanceThrowingError(resultWithParent.getWithoutError(), parentResult.getError());
+                    if (resultWithParent!=null) {
+                        if (resultWithParent.getWithoutError()!=null && resultWithParent.getWithoutError().isValueExplicitlySet()) {
+                            if (!resultWithParent.hasError() && parentResult!=null && parentResult.hasError()) {
+                                return ReferenceWithError.newInstanceThrowingError(resultWithParent.getWithoutError(), parentResult.getError());
+                            }
+                            return resultWithParent;
+                        } else {
+                            result = new BasicConfigValueAtContainer<TContainer, TValue>( resultWithParent.getWithoutError() );
                         }
-                        return resultWithParent;
                     }
                 }
             }
         }
-        BasicConfigValueAtContainer<TContainer, TValue> result = new BasicConfigValueAtContainer<TContainer, TValue>(local);
-        if (!local.isValueExplicitlySet() && local.getDefaultValue().isPresent()) {
-            result.value = local.getDefaultValue();
+        if (result==null) {
+            result = new BasicConfigValueAtContainer<TContainer, TValue>(local);
+            if (!local.isValueExplicitlySet() && local.getDefaultValue().isPresent()) {
+                result.value = local.getDefaultValue();
+            }
+        } else {
+            if (!result.isValueExplicitlySet()) {
+                result.value = result.getDefaultValue();
+            }
         }
         return ReferenceWithError.newInstanceWithoutError(result);
     }

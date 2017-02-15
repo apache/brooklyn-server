@@ -209,13 +209,15 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
         @Override
         public void decorate(EntitySpec<?> entitySpec, ConfigBag attrs, Set<String> encounteredRegisteredTypeIds) {
             transformer = new BrooklynComponentTemplateResolver.SpecialFlagsTransformer(instantiator.loader, encounteredRegisteredTypeIds);
+            // entitySpec is the parent
             List<? extends SpecParameter<?>> explicitParams = buildListOfTheseDecorationsFromEntityAttributes(attrs);
-            BasicSpecParameter.addParameters(entitySpec, explicitParams, instantiator.loader);
+            BasicSpecParameter.initializeSpecWithExplicitParameters(entitySpec, explicitParams, instantiator.loader);
         }
 
         @Override
         protected List<SpecParameter<?>> buildListOfTheseDecorationsFromIterable(Iterable<?> value) {
-            return BasicSpecParameter.fromConfigList(ImmutableList.copyOf(value), transformer, instantiator.loader);
+            // returns definitions, used only by #decorate method above
+            return BasicSpecParameter.parseParameterDefinitionList(ImmutableList.copyOf(value), transformer, instantiator.loader);
         }
 
         @Override

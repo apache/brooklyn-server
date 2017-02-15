@@ -80,8 +80,25 @@ public interface ConfigMap {
     // also it encourages subsequent calls to deprecated methods such as #getAllConfig
     public ConfigMap submap(Predicate<ConfigKey<?>> filter);
     
-    /** returns all keys matching the given filter predicate; see ConfigPredicates for common predicates */
+    /** @deprecated since 0.11.0 use {@link #findKeysDeclared(Predicate)} or {@link #findKeysPresent(Predicate)}
+     * <p>
+     * this method is like the above but it does not compare against reference keys in the container / type context.
+     * there are no known cases where that is the desired behaviour, so callers are being forced to migrate to
+     * one of the above other two methods. if keys in the map are needed and not the reference keys,
+     * let the brooklyn developers know to keep this functionality! */
+    @Deprecated
     public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter);
+
+    /** returns all keys present in the map matching the given filter predicate; see ConfigPredicates for common predicates.
+     * if the map is associated with a container or type context where reference keys are defined,
+     * those keys are included in the result whether or not present in the map (unlike {@link #findKeysPresent(Predicate)}) */
+    public Set<ConfigKey<?>> findKeysDeclared(Predicate<? super ConfigKey<?>> filter);
+
+    /** as {@link #findKeysDeclared(Predicate)} but restricted to keys actually present in the map
+     * <p>
+     * if there is a container or type context defining reference keys, those key definitions will be
+     * preferred over any config keys used as keys in this map. */
+    public Set<ConfigKey<?>> findKeysPresent(Predicate<? super ConfigKey<?>> filter);
 
     /** returns a read-only map view which has string keys (corresponding to the config key names);
      * callers encouraged to use the typed keys (and so not use this method),

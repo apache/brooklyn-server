@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -40,19 +41,28 @@ import org.apache.brooklyn.api.objs.BrooklynType;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigInheritance;
+import org.apache.brooklyn.config.ConfigInheritances;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey.Builder;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
 import org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
@@ -64,12 +74,14 @@ import com.google.common.reflect.TypeToken;
 public class BasicSpecParameter<T> implements SpecParameter<T>{
     private static final long serialVersionUID = -4728186276307619778L;
 
-    private final String label;
+    private static final Logger log = LoggerFactory.getLogger(BasicSpecParameter.class);
     
+    private final String label;
+
     /** pinning may become a priority or other more expansive indicator */
     @Beta
     private final boolean pinned;
-    
+
     private final ConfigKey<T> configKey;
     private final AttributeSensor<?> sensor;
 
@@ -77,15 +89,16 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
     // Automatically called by xstream (which is used under the covers by XmlMementoSerializer).
     // Required for those who have state from a version between
     // 29th October 2015 and 21st January 2016 (when this class was introduced, and then when it was changed).
+    /** @deprecated since 0.9.0 can be removed, along with readResolve, when field not used any further */
     private ConfigKey<T> type;
     private Object readResolve() {
         if (type != null && configKey == null) {
-            return new BasicSpecParameter(label, pinned, type, sensor);
+            return new BasicSpecParameter<T>(label, pinned, type, sensor);
         } else {
             return this;
         }
     }
-    
+
     @Beta
     public BasicSpecParameter(String label, boolean pinned, ConfigKey<T> config) {
         this(label, pinned, config, null);
@@ -108,7 +121,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
     public boolean isPinned() {
         return pinned;
     }
-    
+
     @Override
     public ConfigKey<T> getConfigKey() {
         return configKey;
@@ -138,7 +151,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("label", label)
                 .add("pinned", pinned)
                 .add("type", configKey)
@@ -146,12 +159,14 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
     }
 
     // Not CAMP specific since it's used to get the parameters from catalog items meta which are syntax independent.
-    public static List<SpecParameter<?>> fromConfigList(List<?> obj, Function<Object, Object> specialFlagsTransformer, BrooklynClassLoadingContext loader) {
+    /** Returns a list of {@link SpecParameterIncludingDefinitionForInheritance} objects from the given list;
+     * these should be resolved against ancestors before using, converting that object to {@link BasicSpecParameter} instances. */
+    public static List<SpecParameter<?>> parseParameterDefinitionList(List<?> obj, Function<Object, Object> specialFlagsTransformer, BrooklynClassLoadingContext loader) {
         return ParseYamlInputs.parseParameters(obj, specialFlagsTransformer, loader);
     }
 
     public static List<SpecParameter<?>> fromClass(ManagementContext mgmt, Class<?> type) {
-        return ParseClassParameters.parseParameters(getImplementedBy(mgmt, type));
+        return ParseClassParameters.collectParameters(getImplementedBy(mgmt, type));
     }
 
     public static List<SpecParameter<?>> fromSpec(ManagementContext mgmt, AbstractBrooklynObjectSpec<?, ?> spec) {
@@ -168,7 +183,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         if (type == null) {
             type = getImplementedBy(mgmt, spec.getType());
         }
-        return ParseClassParameters.parseParameters(getImplementedBy(mgmt, type));
+        return ParseClassParameters.collectParameters(getImplementedBy(mgmt, type));
     }
 
     private static Class<?> getImplementedBy(ManagementContext mgmt, Class<?> type) {
@@ -216,7 +231,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                         return StringPredicates.matchesRegex((String)input);
                     }});
         
-        public static List<SpecParameter<?>> parseParameters(List<?> inputsRaw, Function<Object, Object> specialFlagTransformer, BrooklynClassLoadingContext loader) {
+        private static List<SpecParameter<?>> parseParameters(List<?> inputsRaw, Function<Object, Object> specialFlagTransformer, BrooklynClassLoadingContext loader) {
             if (inputsRaw == null) return ImmutableList.of();
             List<SpecParameter<?>> inputs = new ArrayList<>(inputsRaw.size());
             for (Object obj : inputsRaw) {
@@ -226,7 +241,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         }
 
         @SuppressWarnings({ "unchecked", "rawtypes" })
-        private static SpecParameter<?> parseParameter(Object obj, Function<Object, Object> specialFlagTransformer, BrooklynClassLoadingContext loader) {
+        private static SpecParameterIncludingDefinitionForInheritance<?> parseParameter(Object obj, Function<Object, Object> specialFlagTransformer, BrooklynClassLoadingContext loader) {
             Map inputDef;
             if (obj instanceof String) {
                 inputDef = ImmutableMap.of("name", obj);
@@ -239,13 +254,30 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             String label = (String)inputDef.get("label");
             String description = (String)inputDef.get("description");
             String type = (String)inputDef.get("type");
-            Object defaultValue = inputDef.get("default");
             Boolean pinned = (Boolean)inputDef.get("pinned");
+            boolean hasDefaultValue = inputDef.containsKey("default");
+            Object defaultValue = inputDef.get("default");
             if (specialFlagTransformer != null) {
                 defaultValue = specialFlagTransformer.apply(defaultValue);
             }
+            boolean hasConstraints = inputDef.containsKey("constraints");
             Predicate<?> constraint = parseConstraints(inputDef.get("constraints"), loader);
-            ConfigInheritance parentInheritance = parseInheritance(inputDef.get("inheritance.parent"), loader);
+
+            ConfigInheritance runtimeInheritance;
+            boolean hasRuntimeInheritance;
+            if (inputDef.containsKey("inheritance.runtime")) {
+                hasRuntimeInheritance = true;
+                runtimeInheritance = parseInheritance(inputDef.get("inheritance.runtime"), loader);
+            } else if (inputDef.containsKey("inheritance.parent")) {
+                log.warn("Using deprecated key 'inheritance.parent' for "+inputDef+"; replace with 'inheritance.runtime'");
+                hasRuntimeInheritance = true;
+                runtimeInheritance = parseInheritance(inputDef.get("inheritance.parent"), loader);
+            } else {
+                hasRuntimeInheritance = false;
+                runtimeInheritance = null;
+            }
+
+            boolean hasTypeInheritance = inputDef.containsKey("inheritance.type");
             ConfigInheritance typeInheritance = parseInheritance(inputDef.get("inheritance.type"), loader);
 
             if (name == null) {
@@ -254,15 +286,17 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
 
             ConfigKey configType;
             AttributeSensor sensorType = null;
-            
+
+            boolean hasType = type!=null;
+
             TypeToken typeToken = inferType(type, loader);
             Builder builder = BasicConfigKey.builder(typeToken)
-                .name(name)
-                .description(description)
-                .defaultValue(defaultValue)
-                .constraint(constraint)
-                .runtimeInheritance(parentInheritance)
-                .typeInheritance(typeInheritance);
+                    .name(name)
+                    .description(description)
+                    .defaultValue(defaultValue)
+                    .constraint(constraint)
+                    .runtimeInheritance(runtimeInheritance)
+                    .typeInheritance(typeInheritance);
 
             if (PortRange.class.equals(typeToken.getRawType())) {
                 sensorType = new PortAttributeSensorAndConfigKey(builder);
@@ -270,7 +304,9 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             } else {
                 configType = builder.build();
             }
-            return new BasicSpecParameter(Objects.firstNonNull(label, name), !Boolean.FALSE.equals(pinned), configType, sensorType);
+
+            return new SpecParameterIncludingDefinitionForInheritance(label, pinned, configType, sensorType,
+                    hasType, hasDefaultValue, hasConstraints, hasRuntimeInheritance, hasTypeInheritance);
         }
 
         @SuppressWarnings({ "rawtypes" })
@@ -317,7 +353,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                 return Predicates.alwaysTrue();
             }
         }
-        
+
         private static Predicate<?> parseConstraint(Object untypedConstraint, BrooklynClassLoadingContext loader) {
             // TODO Could try to handle deferred supplier as well?
             if (untypedConstraint instanceof Predicate) {
@@ -357,8 +393,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         
         private static ConfigInheritance parseInheritance(Object obj, BrooklynClassLoadingContext loader) {
             if (obj == null || obj instanceof String) {
-                // TODO
-                return ConfigInheritance.Legacy.fromString((String)obj);
+                return BasicConfigInheritance.fromString((String)obj);
             } else {
                 throw new IllegalArgumentException ("The config-inheritance '" + obj + "' for a catalog input is invalid format - string supported");
             }
@@ -397,7 +432,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             }
         }
 
-        public static List<SpecParameter<?>> parseParameters(Class<?> c) {
+        static List<SpecParameter<?>> collectParameters(Class<?> c) {
             MutableList<WeightedParameter> parameters = MutableList.<WeightedParameter>of();
             if (BrooklynObject.class.isAssignableFrom(c)) {
                 @SuppressWarnings("unchecked")
@@ -439,17 +474,115 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
 
     /**
      * Adds the given list of {@link SpecParameter parameters} to the provided
-     * {@link AbstractBrooklynObjectSpec spec} or generates a list from the
-     * spec if the provided list is empty.
+     * {@link AbstractBrooklynObjectSpec spec}, and if spec has no parameters it 
+     * also generates a list from the spec
      *
      * @see EntitySpec#parameters(List)
      */
-    public static void addParameters(AbstractBrooklynObjectSpec<?, ?> spec, List<? extends SpecParameter<?>> explicitParams, BrooklynClassLoadingContext loader) {
+    @Beta
+    public static void initializeSpecWithExplicitParameters(AbstractBrooklynObjectSpec<?, ?> spec, List<? extends SpecParameter<?>> explicitParams, BrooklynClassLoadingContext loader) {
+        // spec params list is empty if created from java (or there are none); non-empty if created from a parent entity spec
+        // so if empty, we may need to populate (or it is no op), and if non-empty, we can skip
         if (spec.getParameters().isEmpty()) {
             spec.parametersAdd(BasicSpecParameter.fromSpec(loader.getManagementContext(), spec));
         }
-        if (explicitParams.size() > 0) {
-            spec.parametersAdd(explicitParams);
+        
+        // but now we need to filter non-reinheritable, and merge where params are extended/overridden 
+        spec.parametersReplace(resolveParameters(explicitParams, spec));
+    }
+
+    /** merge parameters against other parameters and known and type-inherited config keys */
+    private static Collection<SpecParameter<?>> resolveParameters(Collection<? extends SpecParameter<?>> newParams, AbstractBrooklynObjectSpec<?,?> spec) {
+        Collection<? extends SpecParameter<?>> existingReferenceParams = spec.getParameters();
+        
+        Map<String,SpecParameter<?>> existingToKeep = MutableMap.of();
+        if (existingReferenceParams!=null) {
+            for (SpecParameter<?> p: existingReferenceParams) {
+                if (ConfigInheritances.isKeyReinheritable(p.getConfigKey(), InheritanceContext.TYPE_DEFINITION)) {
+                    existingToKeep.put(p.getConfigKey().getName(), p);
+                }
+            }
+        }
+
+        List<SpecParameter<?>> result = MutableList.<SpecParameter<?>>of();
+
+        if (newParams!=null) {
+            for (SpecParameter<?> p: newParams) {
+                final SpecParameter<?> existingP = existingToKeep.remove(p.getConfigKey().getName());
+                if (p instanceof SpecParameterIncludingDefinitionForInheritance) {
+                    // config keys should be transformed to parameters and so should be found;
+                    // so the code below is correct whether existingP is set or is null 
+                    p = ((SpecParameterIncludingDefinitionForInheritance<?>)p).resolveWithAncestor(existingP);
+                } else {
+                    // shouldn't happen; all calling logic should get SpecParameterForInheritance;
+                    log.warn("Found non-definitional spec parameter: "+p+" adding to "+spec);
+                }
+                result.add(p);
+            }
+        }
+
+        result.addAll(existingToKeep.values());
+        return result;
+    }
+
+    /** instance of {@link SpecParameter} which includes information about what fields are explicitly set,
+     * for use with a subsequent merge with ancestor config keys; see {@link #resolveParameters(Collection, Collection, AbstractBrooklynObjectSpec)}*/
+    @SuppressWarnings("serial")
+    @Beta
+    static class SpecParameterIncludingDefinitionForInheritance<T> extends BasicSpecParameter<T> {
+
+        private final boolean hasType, hasLabelSet, hasPinnedSet, hasDefaultValue, hasConstraints, hasRuntimeInheritance, hasTypeInheritance;
+
+        private <SensorType> SpecParameterIncludingDefinitionForInheritance(String label, Boolean pinned, ConfigKey<T> config, AttributeSensor<SensorType> sensor,
+                boolean hasType, boolean hasDefaultValue, boolean hasConstraints, boolean hasRuntimeInheritance, boolean hasTypeInheritance) {
+            super(Preconditions.checkNotNull(label!=null ? label : config.getName(), "label or config name must be set"), 
+                    pinned==null ? true : pinned, config, sensor);
+            this.hasType = hasType;
+            this.hasLabelSet = label!=null;
+            this.hasPinnedSet = pinned!=null;
+            this.hasDefaultValue = hasDefaultValue;
+            this.hasConstraints = hasConstraints;
+            this.hasRuntimeInheritance = hasRuntimeInheritance;
+            this.hasTypeInheritance = hasTypeInheritance;
+        }
+
+        /** used if yaml specifies a parameter, but possibly incomplete, and a spec supertype has a parameter */
+        SpecParameter<?> resolveWithAncestor(SpecParameter<?> ancestor) {
+            if (ancestor==null) return new BasicSpecParameter<>(getLabel(), isPinned(), getConfigKey(), getSensor());
+
+            return new BasicSpecParameter<>(
+                    hasLabelSet ? getLabel() : ancestor.getLabel(), 
+                    hasPinnedSet ? isPinned() : ancestor.isPinned(), 
+                    resolveWithAncestorConfigKey(ancestor.getConfigKey()), 
+                    hasType ? getSensor() : ancestor.getSensor());
+        }
+
+        @SuppressWarnings({ "unchecked", "rawtypes" })
+        private ConfigKey<?> resolveWithAncestorConfigKey(ConfigKey<?> ancestor) {
+            ConfigKey<?> dominant = getConfigKey();
+            return ConfigKeys.<Object>builder((TypeToken)(hasType ? dominant : ancestor).getTypeToken())
+                    .name(dominant.getName())
+                    .description((dominant.getDescription()!=null ? dominant : ancestor).getDescription())
+                    .defaultValue((hasDefaultValue ? dominant : ancestor).getDefaultValue())
+                    .constraint((Predicate<Object>) (hasConstraints ? dominant : ancestor).getConstraint())
+                    .runtimeInheritance( (hasRuntimeInheritance ? dominant : ancestor).getInheritanceByContext(InheritanceContext.RUNTIME_MANAGEMENT))
+                    .typeInheritance( (hasTypeInheritance ? dominant : ancestor).getInheritanceByContext(InheritanceContext.TYPE_DEFINITION))
+                    // not yet configurable from yaml
+                    //.reconfigurable()
+                    .build();
+        }
+
+        public boolean isHasDefaultValue() {
+            return hasDefaultValue;
+        }
+        public boolean isHasConstraints() {
+            return hasConstraints;
+        }
+        public boolean isHasRuntimeInheritance() {
+            return hasRuntimeInheritance;
+        }
+        public boolean isHasTypeInheritance() {
+            return hasTypeInheritance;
         }
     }
 

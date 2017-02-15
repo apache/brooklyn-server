@@ -1,0 +1,137 @@
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+<entity>
+  <brooklynVersion>0.10.0-20160908.1322</brooklynVersion>
+  <type>org.apache.brooklyn.entity.stock.BasicApplicationImpl</type>
+  <id>toruf2wxg4</id>
+  <displayName>Application (toruf2wxg4)</displayName>
+  <tags>
+    <org.apache.brooklyn.core.mgmt.BrooklynTags_-NamedStringTag>
+      <kind>yaml_spec</kind>
+      <contents>services:
+- type: org.apache.brooklyn.entity.stock.BasicApplication</contents>
+    </org.apache.brooklyn.core.mgmt.BrooklynTags_-NamedStringTag>
+  </tags>
+  <config>
+    <my.config.inheritanceNone>myval</my.config.inheritanceNone>
+    <my.config.inheritanceMerged>myval</my.config.inheritanceMerged>
+    <my.config.inheritanceAlways>myval</my.config.inheritanceAlways>
+  </config>
+  <attributes>
+    <service.notUp.indicators>
+      <MutableMap/>
+    </service.notUp.indicators>
+    <entity.id>toruf2wxg4</entity.id>
+    <application.id>toruf2wxg4</application.id>
+    <catalog.id>
+      <null/>
+    </catalog.id>
+    <service.isUp type="boolean">true</service.isUp>
+    <service.problems>
+      <MutableMap/>
+    </service.problems>
+    <service.state type="org.apache.brooklyn.core.entity.lifecycle.Lifecycle">RUNNING</service.state>
+    <service.state.expected>
+      <org.apache.brooklyn.core.entity.lifecycle.Lifecycle_-Transition>
+        <state>RUNNING</state>
+        <timestampUtc>1476100554627</timestampUtc>
+      </org.apache.brooklyn.core.entity.lifecycle.Lifecycle_-Transition>
+    </service.state.expected>
+  </attributes>
+
+  <configKeys>
+    <!-- Hand-crafted config, for testing -->
+    <my.config.inheritanceNone>
+      <configKey>
+        <name>my.config.inheritanceNone</name>
+        <type>java.lang.String</type>
+        <reconfigurable>false</reconfigurable>
+        <parentInheritance class="org.apache.brooklyn.config.ConfigInheritance$None"/>
+      </configKey>
+    </my.config.inheritanceNone>
+    <my.config.inheritanceMerged>
+      <configKey>
+        <name>my.config.inheritanceMerged</name>
+        <type>java.lang.String</type>
+        <reconfigurable>false</reconfigurable>
+        <parentInheritance class="org.apache.brooklyn.config.ConfigInheritance$Merged"/>
+      </configKey>
+    </my.config.inheritanceMerged>
+    <my.config.inheritanceAlways>
+      <configKey>
+        <name>my.config.inheritanceAlways</name>
+        <type>java.lang.String</type>
+        <reconfigurable>false</reconfigurable>
+        <parentInheritance class="org.apache.brooklyn.config.ConfigInheritance$Always"/>
+      </configKey>
+    </my.config.inheritanceAlways>
+  </configKeys>
+  
+  <attributeKeys>
+    <service.notUp.indicators>
+      <attributeSensor>
+        <typeToken class="org.apache.brooklyn.core.entity.Attributes$1" resolves-to="com.google.common.reflect.TypeToken$SimpleTypeToken">
+          <runtimeType class="com.google.common.reflect.Types$ParameterizedTypeImpl">
+            <argumentsList>
+              <java-class>java.lang.String</java-class>
+              <java-class>java.lang.Object</java-class>
+            </argumentsList>
+            <rawType>java.util.Map</rawType>
+          </runtimeType>
+        </typeToken>
+        <name>service.notUp.indicators</name>
+        <description>A map of namespaced indicators that the service is not up</description>
+        <persistence>REQUIRED</persistence>
+      </attributeSensor>
+    </service.notUp.indicators>
+    <service.problems>
+      <attributeSensor>
+        <typeToken class="org.apache.brooklyn.core.entity.Attributes$3" resolves-to="com.google.common.reflect.TypeToken$SimpleTypeToken">
+          <runtimeType class="com.google.common.reflect.Types$ParameterizedTypeImpl">
+            <argumentsList>
+              <java-class>java.lang.String</java-class>
+              <java-class>java.lang.Object</java-class>
+            </argumentsList>
+            <rawType>java.util.Map</rawType>
+          </runtimeType>
+        </typeToken>
+        <name>service.problems</name>
+        <description>A map of namespaced indicators of problems with a service</description>
+        <persistence>REQUIRED</persistence>
+      </attributeSensor>
+    </service.problems>
+    <service.state>
+      <attributeSensor>
+        <type>org.apache.brooklyn.core.entity.lifecycle.Lifecycle</type>
+        <name>service.state</name>
+        <description>Actual lifecycle state of the service</description>
+        <persistence>REQUIRED</persistence>
+      </attributeSensor>
+    </service.state>
+    <service.state.expected>
+      <attributeSensor>
+        <type>org.apache.brooklyn.core.entity.lifecycle.Lifecycle$Transition</type>
+        <name>service.state.expected</name>
+        <description>Last controlled change to service state, indicating what the expected state should be</description>
+        <persistence>REQUIRED</persistence>
+      </attributeSensor>
+    </service.state.expected>
+  </attributeKeys>
+</entity>

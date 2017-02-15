@@ -48,8 +48,10 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemDtoAbstract;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.location.SimulatedLocation;
@@ -77,6 +79,7 @@ import org.osgi.framework.Bundle;
 import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -791,4 +794,13 @@ public class XmlMementoSerializerTest {
         Framework framework = osgiManager.getFramework();
         return Osgis.install(framework, bundleUrl);
     }
+    
+    @Test
+    public void testConfigInheritanceVals() throws Exception {
+        ConfigInheritance val = BasicConfigInheritance.NEVER_INHERITED;
+
+        ConfigInheritance newVal = assertSerializeAndDeserialize(val);
+        Assert.assertSame(val, newVal);
+    }
+    
 }

@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.config.ConfigInheritances.BasicConfigValueAtContainer;
 import org.apache.brooklyn.util.collections.CollectionMerger;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
@@ -47,11 +48,11 @@ public interface ConfigInheritance extends Serializable {
         DEEP_MERGE
     }
     
-    /** @deprecated since 0.10.0 see implementations of this interface */ @Deprecated
+    /** @deprecated since 0.10.0 see implementations of this interface (look for NOT_REINHERITED, or possibly NEVER_REINHERITED) */ @Deprecated
     public static final ConfigInheritance NONE = new Legacy.None();
-    /** @deprecated since 0.10.0 see implementations of this interface */ @Deprecated
+    /** @deprecated since 0.10.0 see implementations of this interface (look for OVERWRITE) */ @Deprecated
     public static final ConfigInheritance ALWAYS = new Legacy.Always();
-    /** @deprecated since 0.10.0 see implementations of this interface */ @Deprecated
+    /** @deprecated since 0.10.0 see implementations of this interface (look for the same name, DEEP_MERGE) */ @Deprecated
     public static final ConfigInheritance DEEP_MERGE = new Legacy.Merged();
     
     /** @deprecated since 0.10.0 more complex inheritance conditions now require other methods */
@@ -60,14 +61,18 @@ public interface ConfigInheritance extends Serializable {
 
     /** Returns whether any value from the given node or ancestors can be considered 
      * for inheritance by descendants, according to the {@link ConfigInheritance} defined there.
-     * Implementations should not normally consider the value here
-     * as there may be other ancestors whose values have not yet been considered and are not supplied.
+     * The implementation of this method is usually a constant depending on the inheritance in effect;
+     * in particular it will not normally consider any values or inform whether something should be inherited:
+     * it is only advising whether inheritance is permitted <i>from</i> a given point in the inheritance hierarchy.
      * <p> 
      * If there is a {@link ConfigInheritance} defined at this node,
      * this method must be called on that instance and that instance only.
      * In that case it is an error to invoke this method on any other {@link ConfigInheritance} instance. 
-     * If there is not one, the config generally should be considered reinheritable;
-     * callers will typically not invoke this method from a descendant inheritance context.
+     * If there is not one, the config generally should be considered reinheritable.
+     * <p>
+     * Key inference (continuing from the above): Callers should not try to infer any descendant key and look at 
+     * what it says about reinheritability;
+     * if a container does not define a key it would be pointless for it not to be reinheritable).
      * <p>
      * Consumers will typically find the methods in {@link ConfigInheritances} more convenient. */
     public <TContainer,TValue> boolean isReinheritable(
@@ -84,7 +89,10 @@ public interface ConfigInheritance extends Serializable {
      * <p>
      * If there is a {@link ConfigInheritance} defined at the local container,
      * this method must be called on that instance and that instance only.
-     * In that case it is an error to invoke this method on any other {@link ConfigInheritance} instance. 
+     * In that case it is an error to invoke this method on any other {@link ConfigInheritance} instance.
+     * <p>
+     * Key inference: if a container does not define a key, the inheritance in the key definition in the nearest descendant
+     * of that container should be used.
      * <p>
      * Consumers should consider this in conjuction with the 
      * {@link #isReinheritable(ConfigValueAtContainer, ConfigInheritanceContext)}
@@ -111,6 +119,9 @@ public interface ConfigInheritance extends Serializable {
      * this method must be called on that instance and that instance only.
      * In that case it is an error to invoke this method on any other {@link ConfigInheritance} instance. 
      * <p>
+     * Key inference: if a container does not define a key, the inheritance in the key definition in the nearest descendant
+     * of that container should be used.
+     * <p>
      * Consumers will typically find the methods in {@link ConfigInheritances} more convenient. */
     public <TContainer,TValue> ReferenceWithError<ConfigValueAtContainer<TContainer,TValue>> resolveWithParent(
         @Nonnull ConfigValueAtContainer<TContainer,TValue> local,
@@ -119,6 +130,7 @@ public interface ConfigInheritance extends Serializable {
 
     /** @deprecated since 0.10.0 see implementations of this interface */ @Deprecated
     public static class Legacy {
+        /** @deprecated since 0.10.0 see fromString in selected subclasses of {@link ConfigInheritance} eg BasicConfigInheritance */
         public static ConfigInheritance fromString(String val) {
             if (Strings.isBlank(val)) return null;
             switch (val.toLowerCase().trim()) {
@@ -132,6 +144,16 @@ public interface ConfigInheritance extends Serializable {
             default:
                 throw new IllegalArgumentException("Invalid config-inheritance '"+val+"' (legal values are none, always or merge)");
             }
+        }
+        private static Map<ConfigInheritance,ConfigInheritance> REPLACEMENTS = MutableMap.of();
+        /** used to assist in migration to new classes */
+        public static void registerReplacement(ConfigInheritance old, ConfigInheritance replacement) {
+            REPLACEMENTS.put(old, replacement);
+        }
+        private static ConfigInheritance orReplacement(ConfigInheritance orig) {
+            ConfigInheritance repl = REPLACEMENTS.get(orig);
+            if (repl!=null) return repl;
+            return orig;
         }
         private abstract static class LegacyAbstractConversion implements ConfigInheritance {
 
@@ -200,17 +222,29 @@ public interface ConfigInheritance extends Serializable {
             public InheritanceMode getMode() {
                 return InheritanceMode.IF_NO_EXPLICIT_VALUE;
             }
+            @SuppressWarnings("unused") // standard deserialization method
+            private ConfigInheritance readResolve() {
+                return orReplacement(ConfigInheritance.ALWAYS);
+            }
         }
         private static class None extends LegacyAbstractConversion {
             @Override
             public InheritanceMode getMode() {
                 return InheritanceMode.NONE;
             }
+            @SuppressWarnings("unused") // standard deserialization method
+            private ConfigInheritance readResolve() {
+                return orReplacement(ConfigInheritance.NONE);
+            }
         }
         private static class Merged extends LegacyAbstractConversion {
             @Override
             public InheritanceMode getMode() {
                 return InheritanceMode.DEEP_MERGE;
+            }
+            @SuppressWarnings("unused") // standard deserialization method
+            private ConfigInheritance readResolve() {
+                return orReplacement(ConfigInheritance.DEEP_MERGE);
             }
         }
     }

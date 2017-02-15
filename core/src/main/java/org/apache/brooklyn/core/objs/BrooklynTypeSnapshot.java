@@ -25,8 +25,9 @@ import org.apache.brooklyn.api.objs.BrooklynType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.text.Strings;
 
+import com.google.common.base.MoreObjects;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.base.Objects;
-import com.google.common.base.Objects.ToStringHelper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -95,7 +96,7 @@ public class BrooklynTypeSnapshot implements BrooklynType {
     }
     
     protected ToStringHelper toStringHelper() {
-        return Objects.toStringHelper(name)
+        return MoreObjects.toStringHelper(name)
                 .add("configKeys", configKeys);
     }
 }

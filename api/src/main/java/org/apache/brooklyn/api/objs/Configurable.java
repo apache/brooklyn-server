@@ -22,6 +22,7 @@ import java.util.Set;
 
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 
 import com.google.common.annotations.Beta;
@@ -98,6 +99,14 @@ public interface Configurable {
          */
         <T> T set(HasConfigKey<T> key, Task<T> val);
         
-        Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> predicate);
+        /** @deprecated since 0.11.0 see {@link ConfigMap#findKeys(Predicate)} */
+        @Deprecated
+        Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter);
+
+        /** see {@link ConfigMap#findKeysDeclared(Predicate)}  */
+        public Set<ConfigKey<?>> findKeysDeclared(Predicate<? super ConfigKey<?>> filter);
+
+        /** see {@link ConfigMap#findKeysPresent(Predicate)}  */
+        public Set<ConfigKey<?>> findKeysPresent(Predicate<? super ConfigKey<?>> filter);
     }
 }
