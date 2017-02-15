@@ -27,16 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.Beta;
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-
 import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -45,6 +35,16 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.Beta;
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 
 /**
  * Defines a spec for creating a {@link BrooklynObject}.
@@ -85,7 +85,7 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).omitNullValues()
+        return MoreObjects.toStringHelper(this).omitNullValues()
                 .add("type", type)
                 .add("displayName", displayName)
                 .toString();
@@ -147,27 +147,28 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
     // it is a CatalogConfig or merely a config key, maybe introducing displayable, or even priority 
     // (but note part of the reason for CatalogConfig.priority is that java reflection doesn't preserve field order) .
     // see also comments on the camp SpecParameterResolver.
+    
+    // probably the thing to do is deprecate the ambiguous method in favour of an explicit
     @Beta
-    public SpecT parameters(List<? extends SpecParameter<?>> parameters) {
+    public SpecT parameters(Iterable<? extends SpecParameter<?>> parameters) {
         return parametersReplace(parameters);
     }
-    /** adds the given parameters */
+    /** adds the given parameters, new ones first so they dominate subsequent ones */
     @Beta
-    public SpecT parametersAdd(List<? extends SpecParameter<?>> parameters) {
+    public SpecT parametersAdd(Iterable<? extends SpecParameter<?>> parameters) {
         // parameters follows immutable pattern, unlike the other fields
         Set<SpecParameter<?>> params = MutableSet.<SpecParameter<?>>copyOf(parameters);
         Set<SpecParameter<?>> current = MutableSet.<SpecParameter<?>>copyOf(this.parameters);
         current.removeAll(params);
 
-        this.parameters = ImmutableList.<SpecParameter<?>>builder()
+        return parametersReplace(ImmutableList.<SpecParameter<?>>builder()
                 .addAll(params)
                 .addAll(current)
-                .build();
-        return self();
+                .build());
     }
     /** replaces parameters with the given */
     @Beta
-    public SpecT parametersReplace(List<? extends SpecParameter<?>> parameters) {
+    public SpecT parametersReplace(Iterable<? extends SpecParameter<?>> parameters) {
         this.parameters = ImmutableList.copyOf(checkNotNull(parameters, "parameters"));
         return self();
     }

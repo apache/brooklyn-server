@@ -34,12 +34,13 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.effector.EffectorAndBody;
 import org.apache.brooklyn.core.effector.EffectorBody;
+import org.apache.brooklyn.core.effector.EffectorTasks.EffectorBodyTaskFactory;
+import org.apache.brooklyn.core.effector.EffectorTasks.EffectorTaskFactory;
 import org.apache.brooklyn.core.effector.EffectorWithBody;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.effector.MethodEffector;
-import org.apache.brooklyn.core.effector.EffectorTasks.EffectorBodyTaskFactory;
-import org.apache.brooklyn.core.effector.EffectorTasks.EffectorTaskFactory;
 import org.apache.brooklyn.core.objs.BrooklynDynamicType;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -264,6 +265,15 @@ public class EntityDynamicType extends BrooklynDynamicType<Entity, AbstractEntit
             return true;
         } else {
             return false;
+        }
+    }
+    
+    public void clearConfigKeys() {
+        Map<String, FieldAndValue<ConfigKey<?>>> oldKeys = MutableMap.copyOf(configKeys);
+        configKeys.clear();
+        invalidateSnapshot();
+        for (FieldAndValue<ConfigKey<?>> k: oldKeys.values()) {
+            instance.sensors().emit(AbstractEntity.CONFIG_KEY_REMOVED, k.value);
         }
     }
 

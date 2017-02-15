@@ -240,7 +240,6 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     @Override
     public CatalogItem<?,?> getCatalogItem(String symbolicName, String version) {
         if (symbolicName == null) return null;
-        checkNotNull(version, "version");
         CatalogItemDo<?, ?> itemDo = getCatalogItemDo(symbolicName, version);
         if (itemDo == null) return null;
         return itemDo.getDto();
@@ -607,7 +606,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 version = setFromItemIfUnset(version, itemAsMap, "version");
                 version = setFromItemIfUnset(version, itemAsMap, "template_version");
                 if (version==null) {
-                    log.warn("No version specified for catalog item " + symbolicName + ". Using default value.");
+                    log.debug("No version specified for catalog item " + symbolicName + ". Using default value.");
                     version = null;
                 }
             }

@@ -33,8 +33,8 @@ import org.apache.brooklyn.core.objs.BrooklynTypeSnapshot;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.base.Objects;
-import com.google.common.base.Objects.ToStringHelper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 

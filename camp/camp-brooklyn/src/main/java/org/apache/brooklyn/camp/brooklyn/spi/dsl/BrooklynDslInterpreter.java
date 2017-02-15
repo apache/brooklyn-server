@@ -157,7 +157,7 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
             throw new IllegalStateException("Invalid function-only expression '"+f.getFunction()+"'");
 
         String fn = f.getFunction();
-        fn = Strings.removeFromStart(fn, "$brooklyn:");
+        fn = Strings.removeFromStart(fn, BrooklynDslCommon.PREFIX);
         if (fn.contains("-")) {
             fn = CaseFormat.LOWER_HYPHEN.to(CaseFormat.LOWER_CAMEL, fn);
         }

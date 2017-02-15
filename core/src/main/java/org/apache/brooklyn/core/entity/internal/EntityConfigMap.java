@@ -101,6 +101,7 @@ public class EntityConfigMap extends AbstractConfigMapImpl<Entity> {
 
     @Override
     protected <T> ConfigKey<?> getKeyAtContainerImpl(Entity container, ConfigKey<T> queryKey) {
+        if (queryKey==null) return null;
         return container.getEntityType().getConfigKey(queryKey.getName());
     }
 

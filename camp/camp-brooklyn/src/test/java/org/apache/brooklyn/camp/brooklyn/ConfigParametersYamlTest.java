@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -28,9 +29,16 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.entity.ImplementedBy;
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.location.PortRange;
+import org.apache.brooklyn.camp.brooklyn.catalog.SpecParameterUnwrappingTest;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.ConfigPredicates;
+import org.apache.brooklyn.core.config.ConstraintViolationException;
+import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -47,16 +55,19 @@ import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
-    @SuppressWarnings("unused")
+	
     private static final Logger LOG = LoggerFactory.getLogger(ConfigParametersYamlTest.class);
 
     @BeforeMethod(alwaysRun=true)
@@ -538,11 +549,8 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.other.obj")), "myDefaultObj");
     }
-    
-    // TODO: fails; times out getting config. Problem is that scopeRoot() resolves to entity-with-keys!
-    // Presumably because it is resolved from inside the entity-with-keys?
-    // https://issues.apache.org/jira/browse/BROOKLYN-329
-    @Test(groups={"WIP", "Broken"})
+
+    @Test
     public void testConfigParameterPassedFromOuterConfigParameter() throws Exception {
         addCatalogItems(
                 "brooklyn.catalog:",
@@ -556,7 +564,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "        type: string",
                 "        default: myDefaultVal",
                 "      brooklyn.config:",
-                "        my.other.key: $brooklyn:config(\"my.param.key\")");
+                "        key2: $brooklyn:config(\"my.param.key\")");
 
         addCatalogItems(
                 "brooklyn.catalog:",
@@ -570,20 +578,81 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "        default: myDefaultValInOuter",
                 "      type: entity-with-keys",
                 "      brooklyn.config:",
-                "        my.param.key: $brooklyn:scopeRoot().config(\"my.param.key\")");
+                "        key3: $brooklyn:config(\"my.param.key\")",
+                "        key3.from.root: $brooklyn:scopeRoot().config(\"my.param.key\")");
         
         String yaml = Joiner.on("\n").join(
                 "services:",
-                "- type: wrapper-entity");
+                "- type: wrapper-entity",
+                "  brooklyn.config:",
+                "    key4: $brooklyn:config(\"my.param.key\")",
+                "    key4.from.root: $brooklyn:scopeRoot().config(\"my.param.key\")");
         
         Entity app = createStartWaitAndLogApplication(yaml);
         final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
-        Asserts.assertReturnsEventually(new Runnable() {
-            @Override
-            public void run() {
-                assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.other.key")), "myDefaultValInOuter");
-            }},
-            Asserts.DEFAULT_LONG_TIMEOUT);
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.param.key")), "myDefaultValInOuter");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key2")), "myDefaultValInOuter");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key3")), "myDefaultValInOuter");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key3.from.root")), "myDefaultValInOuter");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key4")), "myDefaultValInOuter");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key4.from.root")), "myDefaultValInOuter");
+    }
+    
+    @Test
+    public void testConfigParameterInSubInheritsDefaultFromYaml() throws Exception {
+    	// TODO note that the corresponding functionality to inherit config info from a *java* config key is not supported
+    	// see notes in BasicParameterSpec
+    	
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+TestEntity.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: my.param.key",
+                "        type: string",
+                "        description: description one",
+                "        default: myDefaultVal",
+                "      brooklyn.config:",
+                "        key2: $brooklyn:config(\"my.param.key\")");
+
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: wrapper-entity",
+                "    item:",
+                "      brooklyn.parameters:",
+                "      - name: my.param.key",
+                "        description: description two",
+                "      type: entity-with-keys",
+                "      brooklyn.config:",
+                "        key3: $brooklyn:config(\"my.param.key\")",
+                "        key3.from.root: $brooklyn:scopeRoot().config(\"my.param.key\")");
+
+        
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: wrapper-entity",
+                "  brooklyn.config:",
+                "    key4: $brooklyn:config(\"my.param.key\")",
+                "    key4.from.root: $brooklyn:scopeRoot().config(\"my.param.key\")");
+        
+        Entity app = createStartWaitAndLogApplication(yaml);
+        final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        LOG.info("Config keys declared on "+entity+": "+entity.config().findKeysDeclared(Predicates.alwaysTrue()));
+        ConfigKey<?> key = Iterables.getOnlyElement( entity.config().findKeysDeclared(ConfigPredicates.nameEqualTo("my.param.key")) );
+        assertEquals(key.getDescription(), "description two");
+        assertEquals(entity.config().get(key), "myDefaultVal");
+        
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.param.key")), "myDefaultVal");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key2")), "myDefaultVal");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key3")), "myDefaultVal");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key3.from.root")), "myDefaultVal");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key4")), "myDefaultVal");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key4.from.root")), "myDefaultVal");
     }
     
     @Test
@@ -750,6 +819,180 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         assertEquals(entity.sensors().get(Sensors.newSensor(Object.class, "my.param.key")), 1234);
     }
 
+    @Test
+    public void testConfigParameterConstraintRequired() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+TestEntity.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: testRequired",
+                "        type: String",
+                "        constraints:",
+                "        - required");
+        
+        String yamlNoVal = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys");
+
+        String yamlWithVal = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys",
+                "  brooklyn.config:",
+                "    testRequired: myval");
+
+        try {
+            createStartWaitAndLogApplication(yamlNoVal);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ConstraintViolationException e) {
+            // success
+        }
+
+        Entity app = createStartWaitAndLogApplication(yamlWithVal);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        assertKeyEquals(entity, "testRequired", null, String.class, null, "myval");
+
+        // Rebind, and then check again that the config key is listed
+        Entity newApp = rebind();
+        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
+        assertKeyEquals(newEntity, "testRequired", null, String.class, null, "myval");
+    }
+
+    @Test
+    public void testConfigParameterConstraintRegex() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+TestEntity.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: testRequired",
+                "        type: String",
+                "        constraints:",
+                "        - regex: myprefix.*");
+        
+        String yamlNoVal = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys");
+
+        String yamlWrongVal = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys",
+                "  brooklyn.config:",
+                "    testRequired: wrongval");
+
+        String yamlWithVal = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys",
+                "  brooklyn.config:",
+                "    testRequired: myprefix-myVal");
+
+        try {
+            createStartWaitAndLogApplication(yamlNoVal);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ConstraintViolationException e) {
+            Asserts.expectedFailureContains(e, "matchesRegex"); // success
+        }
+
+        try {
+            createStartWaitAndLogApplication(yamlWrongVal);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ConstraintViolationException e) {
+            Asserts.expectedFailureContains(e, "Invalid value for", "wrongval"); // success
+        }
+
+        Entity app = createStartWaitAndLogApplication(yamlWithVal);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        assertKeyEquals(entity, "testRequired", null, String.class, null, "myprefix-myVal");
+
+        // Rebind, and then check again that the config key is listed
+        Entity newApp = rebind();
+        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
+        assertKeyEquals(newEntity, "testRequired", null, String.class, null, "myprefix-myVal");
+    }
+
+    @Test
+    public void testConfigParameterConstraintObject() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+TestEntity.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: testRequired",
+                "        type: String",
+                "        constraints:",
+                "        - $brooklyn:object:",
+                "            type: " + PredicateRegexPojo.class.getName(),
+                "            object.fields:",
+                "              regex: myprefix.*");
+                
+        
+        String yamlNoVal = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys");
+
+        String yamlWrongVal = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys",
+                "  brooklyn.config:",
+                "    testRequired: wrongval");
+
+        String yamlWithVal = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys",
+                "  brooklyn.config:",
+                "    testRequired: myprefix-myVal");
+
+        try {
+            createStartWaitAndLogApplication(yamlNoVal);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ConstraintViolationException e) {
+            Asserts.expectedFailureContains(e, "Error configuring", "PredicateRegexPojo(myprefix.*)"); // success
+        }
+
+        try {
+            createStartWaitAndLogApplication(yamlWrongVal);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ConstraintViolationException e) {
+            Asserts.expectedFailureContains(e, "Invalid value for", "wrongval"); // success
+        }
+
+        Entity app = createStartWaitAndLogApplication(yamlWithVal);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        assertKeyEquals(entity, "testRequired", null, String.class, null, "myprefix-myVal");
+
+        // Rebind, and then check again that the config key is listed
+        Entity newApp = rebind();
+        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
+        assertKeyEquals(newEntity, "testRequired", null, String.class, null, "myprefix-myVal");
+    }
+
+    public static class PredicateRegexPojo implements Predicate<Object> {
+        private String regex;
+
+        public void setRegex(final String regex) {
+            this.regex = checkNotNull(regex, "regex");
+        }
+
+        @Override
+        public boolean apply(Object input) {
+            return (input instanceof String) && ((String)input).matches(regex);
+        }
+        
+        @Override
+        public String toString() {
+            return "PredicateRegexPojo("+regex+")";
+        }
+    }
+
     protected <T> void assertKeyEquals(Entity entity, String keyName, String expectedDescription, Class<T> expectedType, T expectedDefaultVal, T expectedEntityVal) {
         ConfigKey<?> key = entity.getEntityType().getConfigKey(keyName);
         assertNotNull(key, "No key '"+keyName+"'; keys="+entity.getEntityType().getConfigKeys());
@@ -761,4 +1004,87 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         
         assertEquals(entity.config().get(key), expectedEntityVal);
     }
+    
+    @ImplementedBy(TestEntityWithUninheritedConfigImpl.class)
+    public static interface TestEntityWithUninheritedConfig extends Entity {}
+    public static class TestEntityWithUninheritedConfigImpl extends TestEntityWithUninheritedConfigImplParent implements TestEntityWithUninheritedConfig {
+        public static final ConfigKey<String> P1 = ConfigKeys.builder(String.class).name("p1").typeInheritance(BasicConfigInheritance.NEVER_INHERITED).build();
+    }
+    public static class TestEntityWithUninheritedConfigImplParent extends AbstractEntity {
+        public static final ConfigKey<String> P1 = ConfigKeys.builder(String.class).name("p1-proto").typeInheritance(BasicConfigInheritance.NEVER_INHERITED).build();
+    }
+    
+    @Test
+    public void testConfigDefaultIsNotInheritedWith_LocalDefaultResolvesWithAncestorValue_SetToTrue() throws Exception {
+
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  itemType: entity",
+            "  version: 0.1",
+            "  items:",
+            "  - id: entity-with-keys",
+            "    item:",
+            "      type: "+TestEntityWithUninheritedConfig.class.getName(),
+            "      brooklyn.parameters:",
+            "      - name: p2",
+            "        type: string",
+            "        inheritance.type: never",
+            "      - name: my.param.key",
+            "        type: string",
+            "        inheritance.type: never",
+            "        description: description one",
+            "        default: myDefaultVal",
+            "      brooklyn.config:",
+            "        my.other.key: $brooklyn:config(\"my.param.key\")");
+
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  itemType: entity",
+            "  version: 0.1",
+            "  items:",
+            "  - id: wrapper-entity",
+            "    item:",
+            "      brooklyn.parameters:",
+            "      - name: my.param.key",
+            "        description: description two",
+            "      type: entity-with-keys");
+
+        String yaml = Joiner.on("\n").join(
+            "brooklyn.parameters:",
+            "- name: p0",
+            "  type: string",
+            "  inheritance.runtime: never",
+            "  default: default-invisible-at-child",
+            "brooklyn.config:",
+            "  p0: invisible-at-child",
+            "services:",
+            "- type: wrapper-entity");
+        final int NUM_CONFIG_KEYS_FROM_TEST_BLUEPRINT = 1;
+
+        /* With "never" inheritance, test that p0, p1, and p2 aren't visible, and my.param.key has no default. */
+        
+        // check on spec
+        
+        AbstractBrooklynObjectSpec<?, ?> spec = mgmt().getCatalog().peekSpec(mgmt().getCatalog().getCatalogItem("wrapper-entity", null));
+        Assert.assertEquals(spec.getParameters().size(), SpecParameterUnwrappingTest.NUM_ENTITY_DEFAULT_CONFIG_KEYS + NUM_CONFIG_KEYS_FROM_TEST_BLUEPRINT, 
+            "params: "+spec.getParameters());
+        
+        Entity app = createStartWaitAndLogApplication(yaml);
+        final Entity entity = Iterables.getOnlyElement(app.getChildren());
+        
+        // check key values
+        
+        ConfigKey<?> key = Iterables.getOnlyElement( entity.config().findKeysDeclared(ConfigPredicates.nameEqualTo("my.param.key")) );
+        assertEquals(key.getDescription(), "description two");
+        assertEquals(entity.config().get(key), null);
+        
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("p0")), null);
+        assertEquals(app.config().get(ConfigKeys.newStringConfigKey("p0")), "invisible-at-child");
+
+        // check declared keys
+
+        // none of the p? items are present
+        Asserts.assertSize(entity.config().findKeysDeclared(ConfigPredicates.nameMatchesRegex("p.*")), 0);
+    }
+    
 }

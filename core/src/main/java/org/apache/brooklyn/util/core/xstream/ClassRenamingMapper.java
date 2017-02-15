@@ -22,11 +22,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Map;
 
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Optional;
 import com.thoughtworks.xstream.mapper.Mapper;
 import com.thoughtworks.xstream.mapper.MapperWrapper;
 
@@ -42,7 +42,7 @@ public class ClassRenamingMapper extends MapperWrapper {
     
     @Override
     public Class<?> realClass(String elementName) {
-        Optional<String> elementNameOpt = Reflections.tryFindMappedName(nameToType, elementName);
+        Maybe<String> elementNameOpt = Reflections.findMappedNameMaybe(nameToType, elementName);
         if (elementNameOpt.isPresent()) {
             LOG.debug("Mapping class '"+elementName+"' to '"+elementNameOpt.get()+"'");
             elementName = elementNameOpt.get();

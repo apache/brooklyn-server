@@ -65,7 +65,7 @@ public class PerUserEntitlementManager implements EntitlementManager {
     public PerUserEntitlementManager(BrooklynProperties properties) {
         this(load(properties, properties.getConfig(DEFAULT_MANAGER)));
         
-        Set<ConfigKey<?>> users = properties.findKeys(ConfigPredicates.nameStartsWith(PER_USER_ENTITLEMENTS_CONFIG_PREFIX+"."));
+        Set<ConfigKey<?>> users = properties.findKeysPresent(ConfigPredicates.nameStartsWith(PER_USER_ENTITLEMENTS_CONFIG_PREFIX+"."));
         for (ConfigKey<?> key: users) {
             if (key.getName().equals(DEFAULT_MANAGER.getName())) continue;
             String user = Strings.removeFromStart(key.getName(), PER_USER_ENTITLEMENTS_CONFIG_PREFIX+".");
