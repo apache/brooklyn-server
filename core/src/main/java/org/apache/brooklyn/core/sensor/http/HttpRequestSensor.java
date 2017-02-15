@@ -19,13 +19,14 @@
 package org.apache.brooklyn.core.sensor.http;
 
 import java.net.URI;
-
-import net.minidev.json.JSONObject;
+import java.util.Map;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.effector.AddSensor;
+import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.sensor.ssh.SshCommandSensor;
 import org.apache.brooklyn.feed.http.HttpFeed;
 import org.apache.brooklyn.feed.http.HttpPollConfig;
@@ -37,6 +38,8 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Functions;
 import com.google.common.base.Supplier;
+
+import net.minidev.json.JSONObject;
 
 /**
  * Configurable {@link org.apache.brooklyn.api.entity.EntityInitializer} which adds an HTTP sensor feed to retrieve the
@@ -53,24 +56,10 @@ public final class HttpRequestSensor<T> extends AddSensor<T> {
     public static final ConfigKey<String> JSON_PATH = ConfigKeys.newStringConfigKey("jsonPath", "JSON path to select in HTTP response; default $", "$");
     public static final ConfigKey<String> USERNAME = ConfigKeys.newStringConfigKey("username", "Username for HTTP request, if required");
     public static final ConfigKey<String> PASSWORD = ConfigKeys.newStringConfigKey("password", "Password for HTTP request, if required");
-
-    protected final Supplier<URI> uri;
-    protected final String jsonPath;
-    protected final String username;
-    protected final String password;
+    public static final ConfigKey<Map<String, String>> HEADERS = new MapConfigKey(String.class, "headers");
 
     public HttpRequestSensor(final ConfigBag params) {
         super(params);
-
-        uri = new Supplier<URI>() {
-            @Override
-            public URI get() {
-                return URI.create(params.get(SENSOR_URI));
-            }
-        };
-        jsonPath = params.get(JSON_PATH);
-        username = params.get(USERNAME);
-        password = params.get(PASSWORD);
     }
 
     @Override
@@ -81,18 +70,36 @@ public final class HttpRequestSensor<T> extends AddSensor<T> {
             LOG.debug("Adding HTTP JSON sensor {} to {}", name, entity);
         }
 
+        final ConfigBag allConfig = ConfigBag.newInstanceCopying(this.params).putAll(params);
+        final Supplier<URI> uri = new Supplier<URI>() {
+            @Override
+            public URI get() {
+                return URI.create(EntityInitializers.resolve(allConfig, SENSOR_URI));
+            }
+        };
+        final String jsonPath = EntityInitializers.resolve(allConfig, JSON_PATH);
+        final String username = EntityInitializers.resolve(allConfig, USERNAME);
+        final String password = EntityInitializers.resolve(allConfig, PASSWORD);
+        final Map<String, String> headers = EntityInitializers.resolve(allConfig, HEADERS);
+
+        
         HttpPollConfig<T> pollConfig = new HttpPollConfig<T>(sensor)
                 .checkSuccess(HttpValueFunctions.responseCodeEquals(200))
                 .onFailureOrException(Functions.constant((T) null))
                 .onSuccess(HttpValueFunctions.<T>jsonContentsFromPath(jsonPath))
                 .period(period);
 
-        HttpFeed feed = HttpFeed.builder().entity(entity)
+        HttpFeed.Builder httpRequestBuilder = HttpFeed.builder().entity(entity)
                 .baseUri(uri)
                 .credentialsIfNotNull(username, password)
-                .poll(pollConfig)
-                .build();
+                .poll(pollConfig);
 
+        if (headers != null) {
+            httpRequestBuilder.headers(headers);
+        }
+        
+        HttpFeed feed = httpRequestBuilder.build();
         entity.addFeed(feed);
     }
+
 }

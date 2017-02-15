@@ -18,19 +18,27 @@
  */
 package org.apache.brooklyn.rest.api;
 
-import io.swagger.annotations.Api;
-import org.apache.brooklyn.rest.domain.EffectorSummary;
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
-
-import javax.validation.Valid;
-import javax.ws.rs.*;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
 import java.util.List;
 import java.util.Map;
+
+import javax.validation.Valid;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+
+import org.apache.brooklyn.rest.domain.EffectorSummary;
+
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
 
 @Path("/applications/{application}/entities/{entity}/effectors")
 @Api("Entity Effectors")
@@ -54,7 +62,7 @@ public interface EffectorApi {
     @POST
     @Path("/{effector}")
     @ApiOperation(value = "Trigger an effector",
-            notes="Returns the return value (status 200) if it completes, or an activity task ID (status 202) if it times out")
+            notes="Returns the return value (status 200) if it completes, or an activity task ID (status 202) if it times out", response = String.class)
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Could not find application, entity or effector")
     })
