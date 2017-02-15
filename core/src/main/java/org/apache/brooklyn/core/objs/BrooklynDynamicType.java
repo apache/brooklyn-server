@@ -204,8 +204,8 @@ public abstract class BrooklynDynamicType<T extends BrooklynObject, AbstractT ex
                             configKeysAll.remove(kn, k2);
                     }
                 }
-                kk = Lists.newArrayList(configKeysAll.get(kn));
             }
+            kk = Lists.newArrayList(configKeysAll.get(kn));
             // multiple keys, not overwriting; if their values are the same then we don't mind
             FieldAndValue<ConfigKey<?>> best = null;
             for (FieldAndValue<ConfigKey<?>> k: kk) {
