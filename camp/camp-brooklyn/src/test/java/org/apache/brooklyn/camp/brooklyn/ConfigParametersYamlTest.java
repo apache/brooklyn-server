@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -36,6 +37,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigPredicates;
+import org.apache.brooklyn.core.config.ConstraintViolationException;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.PortRanges;
@@ -59,6 +61,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -814,6 +817,180 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
 
         assertEquals(entity.config().get(ConfigKeys.newConfigKey(Object.class, "my.param.key")), PortRanges.fromInteger(1234));
         assertEquals(entity.sensors().get(Sensors.newSensor(Object.class, "my.param.key")), 1234);
+    }
+
+    @Test
+    public void testConfigParameterConstraintRequired() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+TestEntity.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: testRequired",
+                "        type: String",
+                "        constraints:",
+                "        - required");
+        
+        String yamlNoVal = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys");
+
+        String yamlWithVal = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys",
+                "  brooklyn.config:",
+                "    testRequired: myval");
+
+        try {
+            createStartWaitAndLogApplication(yamlNoVal);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ConstraintViolationException e) {
+            // success
+        }
+
+        Entity app = createStartWaitAndLogApplication(yamlWithVal);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        assertKeyEquals(entity, "testRequired", null, String.class, null, "myval");
+
+        // Rebind, and then check again that the config key is listed
+        Entity newApp = rebind();
+        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
+        assertKeyEquals(newEntity, "testRequired", null, String.class, null, "myval");
+    }
+
+    @Test
+    public void testConfigParameterConstraintRegex() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+TestEntity.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: testRequired",
+                "        type: String",
+                "        constraints:",
+                "        - regex: myprefix.*");
+        
+        String yamlNoVal = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys");
+
+        String yamlWrongVal = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys",
+                "  brooklyn.config:",
+                "    testRequired: wrongval");
+
+        String yamlWithVal = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys",
+                "  brooklyn.config:",
+                "    testRequired: myprefix-myVal");
+
+        try {
+            createStartWaitAndLogApplication(yamlNoVal);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ConstraintViolationException e) {
+            Asserts.expectedFailureContains(e, "matchesRegex"); // success
+        }
+
+        try {
+            createStartWaitAndLogApplication(yamlWrongVal);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ConstraintViolationException e) {
+            Asserts.expectedFailureContains(e, "Invalid value for", "wrongval"); // success
+        }
+
+        Entity app = createStartWaitAndLogApplication(yamlWithVal);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        assertKeyEquals(entity, "testRequired", null, String.class, null, "myprefix-myVal");
+
+        // Rebind, and then check again that the config key is listed
+        Entity newApp = rebind();
+        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
+        assertKeyEquals(newEntity, "testRequired", null, String.class, null, "myprefix-myVal");
+    }
+
+    @Test
+    public void testConfigParameterConstraintObject() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+TestEntity.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: testRequired",
+                "        type: String",
+                "        constraints:",
+                "        - $brooklyn:object:",
+                "            type: " + PredicateRegexPojo.class.getName(),
+                "            object.fields:",
+                "              regex: myprefix.*");
+                
+        
+        String yamlNoVal = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys");
+
+        String yamlWrongVal = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys",
+                "  brooklyn.config:",
+                "    testRequired: wrongval");
+
+        String yamlWithVal = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys",
+                "  brooklyn.config:",
+                "    testRequired: myprefix-myVal");
+
+        try {
+            createStartWaitAndLogApplication(yamlNoVal);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ConstraintViolationException e) {
+            Asserts.expectedFailureContains(e, "Error configuring", "PredicateRegexPojo(myprefix.*)"); // success
+        }
+
+        try {
+            createStartWaitAndLogApplication(yamlWrongVal);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ConstraintViolationException e) {
+            Asserts.expectedFailureContains(e, "Invalid value for", "wrongval"); // success
+        }
+
+        Entity app = createStartWaitAndLogApplication(yamlWithVal);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        assertKeyEquals(entity, "testRequired", null, String.class, null, "myprefix-myVal");
+
+        // Rebind, and then check again that the config key is listed
+        Entity newApp = rebind();
+        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
+        assertKeyEquals(newEntity, "testRequired", null, String.class, null, "myprefix-myVal");
+    }
+
+    public static class PredicateRegexPojo implements Predicate<Object> {
+        private String regex;
+
+        public void setRegex(final String regex) {
+            this.regex = checkNotNull(regex, "regex");
+        }
+
+        @Override
+        public boolean apply(Object input) {
+            return (input instanceof String) && ((String)input).matches(regex);
+        }
+        
+        @Override
+        public String toString() {
+            return "PredicateRegexPojo("+regex+")";
+        }
     }
 
     protected <T> void assertKeyEquals(Entity entity, String keyName, String expectedDescription, Class<T> expectedType, T expectedDefaultVal, T expectedEntityVal) {

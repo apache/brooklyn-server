@@ -54,7 +54,9 @@ public interface ActivityApi {
             @ApiResponse(code = 404, message = "Could not find task")
     })
     public List<TaskSummary> children(
-            @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId);
+            @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId,
+            @ApiParam(value = "Whether to include non-subtask backgrounded tasks submitted by this task", required = false)
+            @QueryParam("includeBackground") @DefaultValue("false") Boolean includeBackground);
 
     @GET
     @Path("/{task}/children/recurse")

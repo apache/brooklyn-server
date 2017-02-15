@@ -191,6 +191,7 @@ public class CampYamlLiteTest {
         assertMgmtHasSampleMyCatalogApp(symbolicName, bundleUrl);
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     public void testResetXmlWithCustomEntity() throws IOException {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
