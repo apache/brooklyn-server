@@ -121,6 +121,7 @@ public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphaned
         PersistenceExceptionHandler persistenceExceptionHandler = PersistenceExceptionHandlerImpl.builder().build();
         ((RebindManagerImpl) rebindManager).setPeriodicPersistPeriod(Duration.ONE_SECOND);
         rebindManager.setPersister(persister, persistenceExceptionHandler);
+        ((RebindManagerImpl) rebindManager).forcePersistNow();
     }
 
     @Test
