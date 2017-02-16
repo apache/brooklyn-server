@@ -71,6 +71,8 @@ public class BrooklynTaskTags extends TaskTags {
     public static final String BROOKLYN_SERVER_TASK_TAG = "BROOKLYN-SERVER";
     /** Tag for a task which represents an effector */
     public static final String EFFECTOR_TAG = "EFFECTOR";
+    /** Tag for a task which represents a sensor being published */
+    public static final String SENSOR_TAG = "SENSOR";
     /** Tag for a task which *is* interesting, in contrast to {@link #TRANSIENT_TASK_TAG} */
     public static final String NON_TRANSIENT_TASK_TAG = "NON-TRANSIENT";
     /** indicates a task is transient, roughly that is to say it is uninteresting -- 
