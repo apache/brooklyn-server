@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -160,6 +161,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
     private final AtomicLong totalEffectorInvocationCount = new AtomicLong();
 
     protected DeferredBrooklynProperties configMap;
+    protected Map<Object, Object> scratchpad;
     protected BasicLocationRegistry locationRegistry;
     protected final BasicBrooklynCatalog catalog;
     protected final BrooklynTypeRegistry typeRegistry;
@@ -193,6 +195,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
 
     public AbstractManagementContext(BrooklynProperties brooklynProperties, DataGridFactory datagridFactory) {
         this.configMap = new DeferredBrooklynProperties(brooklynProperties, this);
+        this.scratchpad = new ConcurrentHashMap<>();
         this.entityDriverManager = new BasicEntityDriverManager();
         this.downloadsManager = BasicDownloadsManager.newDefault(configMap);
         if (datagridFactory == null) {
@@ -380,6 +383,11 @@ public abstract class AbstractManagementContext implements ManagementContextInte
     @Override
     public BrooklynProperties getBrooklynProperties() {
         return configMap;
+    }
+
+    @Override
+    public Map<Object, Object> getScratchpad() {
+        return scratchpad;
     }
 
     private final Object locationRegistrySemaphore = new Object();

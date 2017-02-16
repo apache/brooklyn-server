@@ -297,6 +297,12 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
     }
 
     @Override
+    public Map<Object, Object> getScratchpad() {
+        checkInitialManagementContextReal();
+        return initialManagementContext.getScratchpad();
+    }
+
+    @Override
     public BrooklynStorage getStorage() {
         checkInitialManagementContextReal();
         return initialManagementContext.getStorage();

@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.mgmt.internal;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
@@ -111,6 +112,8 @@ public class LocalManagementContextTest {
         properties.put("myname", "myval");
         context = LocalManagementContextForTests.builder(true).useProperties(properties).build();
         PropertiesReloadListener listener = new PropertiesReloadListener() {
+            private static final long serialVersionUID = 8929322444940982033L;
+
             @Override
             public void reloaded() {
                 reloadedCallbackCount.incrementAndGet();
@@ -123,5 +126,20 @@ public class LocalManagementContextTest {
         context.removePropertiesReloadListener(listener);
         context.reloadBrooklynProperties();
         assertEquals(reloadedCallbackCount.get(), 1);
+    }
+    
+    @Test
+    public void testScratchpadSurvivesReload() throws Exception {
+        String globalPropertiesContents = "brooklyn.location.localhost.displayName=myname";
+        Files.write(globalPropertiesContents, globalPropertiesFile, Charsets.UTF_8);
+        BrooklynProperties brooklynProperties = BrooklynProperties.Factory.builderDefault()
+            .globalPropertiesFile(globalPropertiesFile.getAbsolutePath())
+            .build();
+        context = LocalManagementContextForTests.builder(true).useProperties(brooklynProperties).build();
+        assertTrue(context.getScratchpad().isEmpty(), "New scratchpad should be empty, no config here.");
+        context.getScratchpad().put("my", "key");
+        assertEquals(context.getScratchpad().get("my"), "key");
+        context.reloadBrooklynProperties();
+        assertEquals(context.getScratchpad().get("my"), "key");
     }
 }
