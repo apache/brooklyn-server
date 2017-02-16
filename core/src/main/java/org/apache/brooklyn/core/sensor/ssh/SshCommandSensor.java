@@ -22,6 +22,8 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.feed.CommandPollConfig;
+import org.apache.brooklyn.feed.ssh.SshFeed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +42,7 @@ import org.apache.brooklyn.core.effector.AddSensor;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
-import org.apache.brooklyn.feed.ssh.SshFeed;
+import org.apache.brooklyn.feed.AbstractCommandFeed;
 import org.apache.brooklyn.feed.ssh.SshPollConfig;
 import org.apache.brooklyn.feed.ssh.SshValueFunctions;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -119,7 +121,7 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
             }
         };
 
-        SshPollConfig<T> pollConfig = new SshPollConfig<T>(sensor)
+        CommandPollConfig<T> pollConfig = new CommandPollConfig<T>(sensor)
                 .period(period)
                 .env(envSupplier)
                 .command(commandSupplier)

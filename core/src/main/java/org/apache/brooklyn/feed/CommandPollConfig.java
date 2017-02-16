@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.feed.ssh;
+package org.apache.brooklyn.feed;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -34,10 +34,11 @@ import com.google.common.base.Suppliers;
 
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.feed.PollConfig;
+import org.apache.brooklyn.feed.ssh.SshPollValue;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 
-public class SshPollConfig<T> extends PollConfig<SshPollValue, T, SshPollConfig<T>> {
+public class CommandPollConfig<T> extends PollConfig<SshPollValue, T, CommandPollConfig<T>> {
 
     private Supplier<String> commandSupplier;
     private List<Supplier<Map<String,String>>> dynamicEnvironmentSupplier = MutableList.of();
@@ -48,20 +49,20 @@ public class SshPollConfig<T> extends PollConfig<SshPollValue, T, SshPollConfig<
             return input != null && input.getExitStatus() == 0;
         }};
 
-    public static <T> SshPollConfig<T> forSensor(AttributeSensor<T> sensor) {
-        return new SshPollConfig<T>(sensor);
+    public static <T> CommandPollConfig<T> forSensor(AttributeSensor<T> sensor) {
+        return new CommandPollConfig<T>(sensor);
     }
 
-    public static SshPollConfig<Void> forMultiple() {
-        return new SshPollConfig<Void>(PollConfig.NO_SENSOR);
+    public static CommandPollConfig<Void> forMultiple() {
+        return new CommandPollConfig<Void>(PollConfig.NO_SENSOR);
     }
 
-    public SshPollConfig(AttributeSensor<T> sensor) {
+    public CommandPollConfig(AttributeSensor<T> sensor) {
         super(sensor);
         super.checkSuccess(DEFAULT_SUCCESS);
     }
 
-    public SshPollConfig(SshPollConfig<T> other) {
+    public CommandPollConfig(CommandPollConfig<T> other) {
         super(other);
         commandSupplier = other.commandSupplier;
     }
@@ -83,29 +84,7 @@ public class SshPollConfig<T> extends PollConfig<SshPollValue, T, SshPollConfig<
     
     @SuppressWarnings("unused")
     public Supplier<Map<String,String>> getEnvSupplier() {
-        if (true) return new CombiningEnvSupplier(dynamicEnvironmentSupplier);
-        
-        // TODO Kept in case it's persisted; new code will not use this.
-        return new Supplier<Map<String,String>>() {
-            @Override
-            public Map<String, String> get() {
-                Map<String,String> result = MutableMap.of();
-                for (Supplier<Map<String, String>> envS: dynamicEnvironmentSupplier) {
-                    if (envS!=null) {
-                        Map<String, String> envM = envS.get();
-                        if (envM!=null) {
-                            mergeEnvMaps(envM, result);
-                        }
-                    }
-                }
-                return result;
-            }
-            private void mergeEnvMaps(Map<String,String> supplied, Map<String,String> target) {
-                if (supplied==null) return;
-                // as the value is a string there is no need to look at deep merge behaviour
-                target.putAll(supplied);
-            }
-        };
+        return new CombiningEnvSupplier(dynamicEnvironmentSupplier);
     }
     
     private static class CombiningEnvSupplier implements Supplier<Map<String,String>> {
@@ -149,14 +128,14 @@ public class SshPollConfig<T> extends PollConfig<SshPollValue, T, SshPollConfig<
         }
     }
 
-    public SshPollConfig<T> command(String val) { return command(Suppliers.ofInstance(val)); }
-    public SshPollConfig<T> command(Supplier<String> val) {
+    public CommandPollConfig<T> command(String val) { return command(Suppliers.ofInstance(val)); }
+    public CommandPollConfig<T> command(Supplier<String> val) {
         this.commandSupplier = val;
         return this;
     }
 
     /** add the given env param; sequence is as per {@link #env(Supplier)} */
-    public SshPollConfig<T> env(String key, String val) {
+    public CommandPollConfig<T> env(String key, String val) {
         return env(Collections.singletonMap(key, val));
     }
     
@@ -164,7 +143,7 @@ public class SshPollConfig<T> extends PollConfig<SshPollValue, T, SshPollConfig<
      * behaviour is undefined if the map supplied here is subsequently changed.
      * <p>
      * if a map's contents might change, use {@link #env(Supplier)} */
-    public SshPollConfig<T> env(Map<String,String> val) {
+    public CommandPollConfig<T> env(Map<String,String> val) {
         if (val==null) return this;
         return env(Suppliers.ofInstance(val));
     }
@@ -179,7 +158,7 @@ public class SshPollConfig<T> extends PollConfig<SshPollValue, T, SshPollConfig<
      * key value pairs, the order in which they are specified here is the order
      * in which they are computed and applied. 
      **/
-    public SshPollConfig<T> env(Supplier<Map<String,String>> val) {
+    public CommandPollConfig<T> env(Supplier<Map<String,String>> val) {
         Preconditions.checkNotNull(val);
         dynamicEnvironmentSupplier.add(val);
         return this;

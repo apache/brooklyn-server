@@ -16,11 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.feed.ssh;
+package org.apache.brooklyn.feed;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.feed.AbstractFeed;
@@ -37,30 +37,26 @@ import org.apache.brooklyn.core.feed.AttributePollHandler;
 import org.apache.brooklyn.core.feed.DelegatingPollHandler;
 import org.apache.brooklyn.core.feed.Poller;
 import org.apache.brooklyn.core.location.Locations;
+import org.apache.brooklyn.feed.ssh.SshPollValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
 
 /**
- * Provides a feed of attribute values, by polling over ssh.
+ * Provides a feed of attribute values, by polling over Command Line Shell Interface.
  * 
  * Example usage (e.g. in an entity that extends SoftwareProcessImpl):
  * <pre>
  * {@code
- * private SshFeed feed;
+ * private AbstractCommandFeed feed;
  * 
  * //@Override
  * protected void connectSensors() {
@@ -69,7 +65,7 @@ import com.google.common.reflect.TypeToken;
  *   feed = SshFeed.builder()
  *       .entity(this)
  *       .machine(mySshMachineLachine)
- *       .poll(new SshPollConfig<Boolean>(SERVICE_UP)
+ *       .poll(new CommandPollConfig<Boolean>(SERVICE_UP)
  *           .command("rabbitmqctl -q status")
  *           .onSuccess(new Function<SshPollValue, Boolean>() {
  *               public Boolean apply(SshPollValue input) {
@@ -86,98 +82,97 @@ import com.google.common.reflect.TypeToken;
  * }
  * </pre>
  * 
- * @author aled
  */
-public class SshFeed extends AbstractFeed {
+public abstract class AbstractCommandFeed extends AbstractFeed {
 
-    public static final Logger log = LoggerFactory.getLogger(SshFeed.class);
+    public static final Logger log = LoggerFactory.getLogger(AbstractCommandFeed.class);
     
     @SuppressWarnings("serial")
-    public static final ConfigKey<Supplier<SshMachineLocation>> MACHINE = ConfigKeys.newConfigKey(
-            new TypeToken<Supplier<SshMachineLocation>>() {},
+    public static final ConfigKey<Supplier<MachineLocation>> MACHINE = ConfigKeys.newConfigKey(
+            new TypeToken<Supplier<MachineLocation>>() {},
             "machine");
-    
+
     public static final ConfigKey<Boolean> EXEC_AS_COMMAND = ConfigKeys.newBooleanConfigKey("execAsCommand");
     
     @SuppressWarnings("serial")
-    public static final ConfigKey<SetMultimap<SshPollIdentifier, SshPollConfig<?>>> POLLS = ConfigKeys.newConfigKey(
-            new TypeToken<SetMultimap<SshPollIdentifier, SshPollConfig<?>>>() {},
+    public static final ConfigKey<SetMultimap<CommandPollIdentifier, CommandPollConfig<?>>> POLLS = ConfigKeys.newConfigKey(
+            new TypeToken<SetMultimap<CommandPollIdentifier, CommandPollConfig<?>>>() {},
             "polls");
     
-    public static Builder builder() {
-        return new Builder();
-    }
-    
-    public static class Builder {
+    public static abstract class Builder<T extends AbstractCommandFeed, B extends Builder<T, B>> {
         private Entity entity;
         private boolean onlyIfServiceUp = false;
-        private Supplier<SshMachineLocation> machine;
+        private Supplier<MachineLocation> machine;
         private Duration period = Duration.of(500, TimeUnit.MILLISECONDS);
-        private List<SshPollConfig<?>> polls = Lists.newArrayList();
         private boolean execAsCommand = false;
         private String uniqueTag;
         private volatile boolean built;
         
-        public Builder entity(Entity val) {
+        public B entity(Entity val) {
             this.entity = val;
-            return this;
+            return self();
         }
-        public Builder onlyIfServiceUp() { return onlyIfServiceUp(true); }
-        public Builder onlyIfServiceUp(boolean onlyIfServiceUp) { 
+        public B onlyIfServiceUp() { return onlyIfServiceUp(true); }
+        public B onlyIfServiceUp(boolean onlyIfServiceUp) {
             this.onlyIfServiceUp = onlyIfServiceUp; 
-            return this; 
+            return self();
         }
         /** optional, to force a machine; otherwise it is inferred from the entity */
-        public Builder machine(SshMachineLocation val) { return machine(Suppliers.ofInstance(val)); }
+        public B machine(MachineLocation val) { return machine(Suppliers.ofInstance(val)); }
         /** optional, to force a machine; otherwise it is inferred from the entity */
-        public Builder machine(Supplier<SshMachineLocation> val) {
+        public B machine(Supplier<MachineLocation> val) {
             this.machine = val;
-            return this;
+            return self();
         }
-        public Builder period(Duration period) {
+        public B period(Duration period) {
             this.period = period;
-            return this;
+            return self();
         }
-        public Builder period(long millis) {
+        public B period(long millis) {
             return period(Duration.of(millis, TimeUnit.MILLISECONDS));
         }
-        public Builder period(long val, TimeUnit units) {
+        public B period(long val, TimeUnit units) {
             return period(Duration.of(val, units));
         }
-        public Builder poll(SshPollConfig<?> config) {
-            polls.add(config);
-            return this;
-        }
-        public Builder execAsCommand() {
+        public abstract B poll(CommandPollConfig<?> config);
+        public abstract List<CommandPollConfig<?>> getPolls();
+
+        public B execAsCommand() {
             execAsCommand = true;
-            return this;
+            return self();
         }
-        public Builder execAsScript() {
+        public B execAsScript() {
             execAsCommand = false;
-            return this;
+            return self();
         }
-        public Builder uniqueTag(String uniqueTag) {
+        public B uniqueTag(String uniqueTag) {
             this.uniqueTag = uniqueTag;
-            return this;
+            return self();
         }
-        public SshFeed build() {
+        
+        protected abstract B self();
+        
+        protected abstract T instantiateFeed();
+
+        public T build() {
             built = true;
-            SshFeed result = new SshFeed(this);
+            T result = instantiateFeed();
             result.setEntity(checkNotNull((EntityLocal)entity, "entity"));
             result.start();
             return result;
         }
+
         @Override
         protected void finalize() {
             if (!built) log.warn("SshFeed.Builder created, but build() never called");
         }
     }
     
-    private static class SshPollIdentifier {
+    private static class CommandPollIdentifier {
         final Supplier<String> command;
         final Supplier<Map<String, String>> env;
 
-        private SshPollIdentifier(Supplier<String> command, Supplier<Map<String, String>> env) {
+        private CommandPollIdentifier(Supplier<String> command, Supplier<Map<String, String>> env) {
             this.command = checkNotNull(command, "command");
             this.env = checkNotNull(env, "env");
         }
@@ -189,10 +184,10 @@ public class SshFeed extends AbstractFeed {
         
         @Override
         public boolean equals(Object other) {
-            if (!(other instanceof SshPollIdentifier)) {
+            if (!(other instanceof CommandPollIdentifier)) {
                 return false;
             }
-            SshPollIdentifier o = (SshPollIdentifier) other;
+            CommandPollIdentifier o = (CommandPollIdentifier) other;
             return Objects.equal(command, o.command) &&
                     Objects.equal(env, o.env);
         }
@@ -201,44 +196,44 @@ public class SshFeed extends AbstractFeed {
     /**
      * For rebind; do not call directly; use builder
      */
-    public SshFeed() {
+    public AbstractCommandFeed() {
     }
 
-    protected SshFeed(final Builder builder) {
+    protected AbstractCommandFeed(final Builder builder) {
         config().set(ONLY_IF_SERVICE_UP, builder.onlyIfServiceUp);
         config().set(MACHINE, builder.machine);
         config().set(EXEC_AS_COMMAND, builder.execAsCommand);
         
-        SetMultimap<SshPollIdentifier, SshPollConfig<?>> polls = HashMultimap.<SshPollIdentifier,SshPollConfig<?>>create();
-        for (SshPollConfig<?> config : builder.polls) {
+        SetMultimap<CommandPollIdentifier, CommandPollConfig<?>> polls = HashMultimap.<CommandPollIdentifier,CommandPollConfig<?>>create();
+        for (CommandPollConfig<?> config : (List<CommandPollConfig<?>>)builder.getPolls()) {
             @SuppressWarnings({ "unchecked", "rawtypes" })
-            SshPollConfig<?> configCopy = new SshPollConfig(config);
+            CommandPollConfig<?> configCopy = new CommandPollConfig(config);
             if (configCopy.getPeriod() < 0) configCopy.period(builder.period);
-            polls.put(new SshPollIdentifier(config.getCommandSupplier(), config.getEnvSupplier()), configCopy);
+            polls.put(new CommandPollIdentifier(config.getCommandSupplier(), config.getEnvSupplier()), configCopy);
         }
         config().set(POLLS, polls);
         initUniqueTag(builder.uniqueTag, polls.values());
     }
 
-    protected SshMachineLocation getMachine() {
-        Supplier<SshMachineLocation> supplier = config().get(MACHINE);
+    protected MachineLocation getMachine() {
+        Supplier<MachineLocation> supplier = config().get(MACHINE);
         if (supplier != null) {
             return supplier.get();
         } else {
-            return Locations.findUniqueSshMachineLocation(entity.getLocations()).get();
+            return Locations.findUniqueMachineLocation(entity.getLocations()).get();
         }
     }
     
     @Override
     protected void preStart() {
-        SetMultimap<SshPollIdentifier, SshPollConfig<?>> polls = config().get(POLLS);
+        SetMultimap<CommandPollIdentifier, CommandPollConfig<?>> polls = config().get(POLLS);
         
-        for (final SshPollIdentifier pollInfo : polls.keySet()) {
-            Set<SshPollConfig<?>> configs = polls.get(pollInfo);
+        for (final CommandPollIdentifier pollInfo : polls.keySet()) {
+            Set<CommandPollConfig<?>> configs = polls.get(pollInfo);
             long minPeriod = Integer.MAX_VALUE;
             Set<AttributePollHandler<? super SshPollValue>> handlers = Sets.newLinkedHashSet();
 
-            for (SshPollConfig<?> config : configs) {
+            for (CommandPollConfig<?> config : configs) {
                 handlers.add(new AttributePollHandler<SshPollValue>(config, entity, this));
                 if (config.getPeriod() > 0) minPeriod = Math.min(minPeriod, config.getPeriod());
             }
@@ -260,26 +255,5 @@ public class SshFeed extends AbstractFeed {
         return (Poller<SshPollValue>) super.getPoller();
     }
     
-    private SshPollValue exec(String command, Map<String,String> env) throws IOException {
-        SshMachineLocation machine = getMachine();
-        Boolean execAsCommand = config().get(EXEC_AS_COMMAND);
-        if (log.isTraceEnabled()) log.trace("Ssh polling for {}, executing {} with env {}", new Object[] {machine, command, env});
-        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
-        ByteArrayOutputStream stderr = new ByteArrayOutputStream();
-
-        int exitStatus;
-        ConfigBag flags = ConfigBag.newInstanceExtending(config().getBag())
-            .configure(SshTool.PROP_NO_EXTRA_OUTPUT, true)
-            .configure(SshTool.PROP_OUT_STREAM, stdout)
-            .configure(SshTool.PROP_ERR_STREAM, stderr);
-        if (Boolean.TRUE.equals(execAsCommand)) {
-            exitStatus = machine.execCommands(flags.getAllConfig(),
-                    "ssh-feed", ImmutableList.of(command), env);
-        } else {
-            exitStatus = machine.execScript(flags.getAllConfig(),
-                    "ssh-feed", ImmutableList.of(command), env);
-        }
-
-        return new SshPollValue(machine, exitStatus, new String(stdout.toByteArray()), new String(stderr.toByteArray()));
-    }
+    protected abstract SshPollValue exec(String command, Map<String,String> env) throws IOException;
 }
