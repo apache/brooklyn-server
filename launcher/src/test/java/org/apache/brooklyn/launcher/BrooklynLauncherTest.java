@@ -293,7 +293,7 @@ public class BrooklynLauncherTest {
                 }))
                 .installSecurityFilter(false)
                 .start();
-        // such an error should be thrown, then caught in this calling thread
+        // 'deliberate-exception' error above should be thrown, then caught in this calling thread
         ManagementContext mgmt = launcher.getServerDetails().getManagementContext();
         Assert.assertFalse( ((ManagementContextInternal)mgmt).errors().isEmpty() );
         Assert.assertTrue( ((ManagementContextInternal)mgmt).errors().get(0).toString().contains("deliberate"), ""+((ManagementContextInternal)mgmt).errors() );

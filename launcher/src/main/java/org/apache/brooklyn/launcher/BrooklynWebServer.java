@@ -20,6 +20,7 @@ package org.apache.brooklyn.launcher;
 
 import java.io.File;
 import java.io.InputStream;
+import java.net.BindException;
 import java.net.InetAddress;
 import java.net.URI;
 import java.security.KeyPair;
@@ -82,6 +83,8 @@ import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.web.ContextHandlerCollectionHotSwappable;
 import org.eclipse.jetty.http.HttpVersion;
 import org.eclipse.jetty.jaas.JAASLoginService;
@@ -447,7 +450,15 @@ public class BrooklynWebServer {
         rootContext.setTempDirectory(Os.mkdirs(new File(webappTempDir, "war-root")));
 
         server.setHandler(handlers);
-        server.start();
+        try {
+            server.start();
+        } catch (BindException e) {
+            // port discovery routines may take some time to clear, e.g. 250ms for SO_TIMEOUT
+            // tests fail because of this; see if adding a delay improves things
+            log.warn("Initial server start-up failed binding (retrying after a delay): "+e);
+            Time.sleep(Duration.millis(500));
+            server.start();
+        }
         //reinit required because some webapps (eg grails) might wipe our language extension bindings
         BrooklynInitialization.reinitAll();
 

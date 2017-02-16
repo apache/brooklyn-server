@@ -103,12 +103,14 @@ public class Networking {
                 ss = new ServerSocket();
                 ss.setSoTimeout(250);
                 ss.setReuseAddress(true);
+                if (!ss.getReuseAddress()) { logReuseAddressNotSupported(); }
                 ss.bind(new InetSocketAddress(localAddress, port));
 
                 // Check UDP port
                 ds = new DatagramSocket(null);
                 ds.setSoTimeout(250);
                 ds.setReuseAddress(true);
+                if (!ds.getReuseAddress()) { logReuseAddressNotSupported(); }
                 ds.bind(new InetSocketAddress(localAddress, port));
             } catch (IOException e) {
                 if (log.isTraceEnabled()) log.trace("Failed binding to " + localAddress + " : " + port, e);
@@ -176,6 +178,10 @@ public class Networking {
         }
     }
 
+    private static void logReuseAddressNotSupported() {
+        log.debug("Socket reuse-address not supported on this platform; port discovery may mis-report available ports");
+    }
+    
     /**
      * Bind to the specified IP, but let the OS pick a port.
      * If the operation fails we know it's not because of

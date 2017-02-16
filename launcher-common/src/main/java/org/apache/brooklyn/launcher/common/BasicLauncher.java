@@ -46,7 +46,6 @@ import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
@@ -426,7 +425,10 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
         CatalogInitialization catInit = ((ManagementContextInternal)managementContext).getCatalogInitialization();
 
         markCatalogStartingUp(catInit);
+        
+        // note: web console is started by subclass overriding this method
         startingUp();
+        
         initCamp();
         handlePersistence();
         populateCatalog(catInit);
