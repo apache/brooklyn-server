@@ -30,14 +30,6 @@
     <artifactId>brooklyn-features-itests</artifactId>
     <name>Brooklyn Karaf Tests</name>
 
-    <properties>
-        <osgi.version>6.0.0</osgi.version>
-        <pax.exam.version>4.9.1</pax.exam.version>
-        <pax-url.version>2.5.2</pax-url.version>
-        <servlet.api.version>3.1.0</servlet.api.version>
-        <validation.api.version>1.1.0.Final</validation.api.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.brooklyn</groupId>
@@ -106,7 +98,7 @@
             <plugin>
                 <groupId>org.apache.servicemix.tooling</groupId>
                 <artifactId>depends-maven-plugin</artifactId>
-                <version>1.3</version>
+                <version>${maven.depends.plugin.version}</version>
                 <executions>
                     <execution>
                         <id>generate-depends-file</id>
