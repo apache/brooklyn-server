@@ -38,10 +38,6 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.Range;
-import com.google.common.collect.RangeSet;
-import com.google.common.collect.TreeRangeSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
@@ -50,8 +46,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
+import com.google.common.collect.TreeRangeSet;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.UnsignedBytes;
 
@@ -90,25 +90,20 @@ public class Networking {
 
         Stopwatch watch = Stopwatch.createStarted();
         try {
-            //despite http://stackoverflow.com/questions/434718/sockets-discover-port-availability-using-java
-            //(recommending the following) it isn't 100% reliable (e.g. nginx will happily coexist with ss+ds)
-            //
-            //Svet - SO_REUSEADDR (enabled below) will allow one socket to listen on 0.0.0.0:X and another on
-            //192.168.0.1:X which explains the above comment (nginx sets SO_REUSEADDR as well). Moreover there
-            //is no TIME_WAIT for listening sockets without any connections so why enable it at all.
-            ServerSocket ss = null;
+            Socket ss = null;
             DatagramSocket ds = null;
             try {
                 // Check TCP port
-                ss = new ServerSocket();
-                ss.setSoTimeout(250);
-                ss.setReuseAddress(true);
+                ss = new Socket();
+                // Should be false, but disable it just in case.
+                ss.setReuseAddress(false);
+                // Bind doesn't result in TIME_WAIT. It's reserving the port in OS's internal structures
+                // but as observed from the network the port is still closed.
                 ss.bind(new InetSocketAddress(localAddress, port));
 
                 // Check UDP port
                 ds = new DatagramSocket(null);
-                ds.setSoTimeout(250);
-                ds.setReuseAddress(true);
+                ds.setReuseAddress(false);
                 ds.bind(new InetSocketAddress(localAddress, port));
             } catch (IOException e) {
                 if (log.isTraceEnabled()) log.trace("Failed binding to " + localAddress + " : " + port, e);
@@ -118,6 +113,7 @@ public class Networking {
                 closeQuietly(ss);
             }
 
+            // Following could no longer be needed since above test doesn't use SO_REUSEADDR any more.
             if (localAddress==null || ANY_NIC.equals(localAddress)) {
                 // sometimes 0.0.0.0 can be bound to even if 127.0.0.1 has the port as in use;
                 // check all interfaces if 0.0.0.0 was requested

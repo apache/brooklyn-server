@@ -26,11 +26,18 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 import java.io.IOException;
+import java.net.BindException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Collection;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.test.Asserts;
@@ -226,6 +233,58 @@ public class NetworkingUtilsTest {
         //will run isAddressValid before returning
         assertFalse(Networking.isPortAvailable(boundPort));
         ss.close();
+    }
+    
+    @Test
+    public void testIsPortAvailableTimeWait() throws Exception {
+        final ServerSocket ss = new ServerSocket();
+        boolean reuse = ss.getReuseAddress();
+        // Default is "true" on macOS & Linux
+        log.info("Platform default SO_REUSEADDR is " + reuse);
+        ss.bind(new InetSocketAddress(InetAddress.getLocalHost(), 0));
+        int boundPort = ss.getLocalPort();
+        assertTrue(ss.isBound());
+        assertNotEquals(boundPort, 0);
+
+        assertFalse(Networking.isPortAvailable(boundPort));
+        connectAndClose(ss);
+        ss.close();
+
+        Networking.nextAvailablePort(boundPort);
+        ServerSocket ff = new ServerSocket();
+        ff.bind(new InetSocketAddress(InetAddress.getLocalHost(), boundPort));
+        ff.close();
+
+        try {
+            Socket s = new Socket();
+            s.bind(ss.getLocalSocketAddress());
+            s.close();
+            Asserts.shouldHaveFailedPreviously("Bind should fail because of TIME_WAIT");
+        } catch (BindException e) {
+            // expected
+        }
+
+        // Because of TIME_WAIT - it's pretty long so the test shouldn't be time sensitive
+        assertFalse(Networking.isPortAvailable(boundPort));
+
+        int nextAvailable = Networking.nextAvailablePort(boundPort);
+        assertNotEquals(nextAvailable, boundPort);
+    }
+
+    protected void connectAndClose(final ServerSocket ss) throws IOException, InterruptedException, ExecutionException {
+        ExecutorService exec = Executors.newSingleThreadExecutor();
+        Future<Socket> client = exec.submit(new Callable<Socket>() {
+            @Override
+            public Socket call() throws Exception {
+                Socket client = new Socket();
+                client.connect(ss.getLocalSocketAddress());
+                return client;
+            }
+        });
+        Socket server = ss.accept();
+        server.close();
+        client.get().close();
+        exec.shutdown();
     }
     
     //just some system health-checks... localhost may not resolve properly elsewhere

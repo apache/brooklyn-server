@@ -78,14 +78,13 @@ public class WebAppRunnerTest {
     
     @Test
     public void testStartWar1() throws Exception {
-        if (!Networking.isPortAvailable(8090))
-            fail("Another process is using port 8090 which is required for this test.");
-        BrooklynWebServer server = createWebServer(MutableMap.of("port", 8090));
+        int port = Networking.nextAvailablePort(8090);
+        BrooklynWebServer server = createWebServer(MutableMap.of("port", port));
         assertNotNull(server);
         
         try {
             server.start();
-            assertBrooklynEventuallyAt("http://localhost:8090/");
+            assertBrooklynEventuallyAt("http://localhost:" + port + "/");
         } finally {
             server.stop();
         }
@@ -99,17 +98,17 @@ public class WebAppRunnerTest {
     public void testStartSecondaryWar() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), "/hello-world.war");
 
-        if (!Networking.isPortAvailable(8090))
-            fail("Another process is using port 8090 which is required for this test.");
+        int port = Networking.nextAvailablePort(8090);
         BrooklynWebServer server = createWebServer(
-            MutableMap.of("port", 8090, "war", "brooklyn.war", "wars", MutableMap.of("hello", "hello-world.war")) );
+            MutableMap.of("port", port, "war", "brooklyn.war", "wars", MutableMap.of("hello", "hello-world.war")) );
         assertNotNull(server);
         
         try {
             server.start();
 
-            assertBrooklynEventuallyAt("http://localhost:8090/");
-            HttpTestUtils.assertContentEventuallyContainsText("http://localhost:8090/hello",
+            String url = "http://localhost:" + port + "/";
+            assertBrooklynEventuallyAt(url);
+            HttpTestUtils.assertContentEventuallyContainsText(url + "hello",
                 "This is the home page for a sample application");
 
         } finally {
@@ -121,17 +120,17 @@ public class WebAppRunnerTest {
     public void testStartSecondaryWarAfter() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), "/hello-world.war");
 
-        if (!Networking.isPortAvailable(8090))
-            fail("Another process is using port 8090 which is required for this test.");
-        BrooklynWebServer server = createWebServer(MutableMap.of("port", 8090, "war", "brooklyn.war"));
+        int port = Networking.nextAvailablePort(8090);
+        BrooklynWebServer server = createWebServer(MutableMap.of("port", port, "war", "brooklyn.war"));
         assertNotNull(server);
         
         try {
             server.start();
             server.deploy("/hello", "hello-world.war");
-
-            assertBrooklynEventuallyAt("http://localhost:8090/");
-            HttpTestUtils.assertContentEventuallyContainsText("http://localhost:8090/hello",
+            
+            String url = "http://localhost:" + port + "/";
+            assertBrooklynEventuallyAt(url);
+            HttpTestUtils.assertContentEventuallyContainsText(url + "hello",
                 "This is the home page for a sample application");
 
         } finally {
