@@ -30,7 +30,9 @@ public class CampPlatformWithJustBrooklynMgmt extends BasicCampPlatform implemen
 
     public CampPlatformWithJustBrooklynMgmt(ManagementContext mgmt) {
         this.mgmt = mgmt;
+        // Deprecated in 0.11.0. Add to release notes and remove in next release.
         ((BrooklynProperties)mgmt.getConfig()).put(BrooklynCampConstants.CAMP_PLATFORM, this);
+        mgmt.getScratchpad().put(BrooklynCampConstants.CAMP_PLATFORM, this);
     }
     
     @Override

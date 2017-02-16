@@ -115,7 +115,11 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
         BrooklynProperties brooklynProperties = (BrooklynProperties) managementContext.getConfig();
         if (BrooklynWebConfig.hasNoSecurityOptions(brooklynProperties)) {
             LOG.info("No security provider options specified. Define a security provider or users to prevent a random password being created and logged.");
+            // Deprecated in 0.11.0. Add to release notes and remove in next release.
             brooklynProperties.put(
+                    BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE,
+                    new BrooklynUserWithRandomPasswordSecurityProvider(managementContext));
+            managementContext.getScratchpad().put(
                     BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE,
                     new BrooklynUserWithRandomPasswordSecurityProvider(managementContext));
         }

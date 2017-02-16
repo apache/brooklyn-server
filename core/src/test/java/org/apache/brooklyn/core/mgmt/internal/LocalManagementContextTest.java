@@ -20,7 +20,6 @@ package org.apache.brooklyn.core.mgmt.internal;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,9 +27,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext.PropertiesReloadListener;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.internal.BrooklynProperties.Factory.Builder;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.util.os.Os;
 import org.testng.annotations.AfterMethod;
@@ -136,10 +136,10 @@ public class LocalManagementContextTest {
             .globalPropertiesFile(globalPropertiesFile.getAbsolutePath())
             .build();
         context = LocalManagementContextForTests.builder(true).useProperties(brooklynProperties).build();
-        assertTrue(context.getScratchpad().isEmpty(), "New scratchpad should be empty, no config here.");
-        context.getScratchpad().put("my", "key");
-        assertEquals(context.getScratchpad().get("my"), "key");
+        ConfigKey<String> myKey = ConfigKeys.newStringConfigKey("my");
+        context.getScratchpad().put(myKey, "key");
+        assertEquals(context.getScratchpad().get(myKey), "key");
         context.reloadBrooklynProperties();
-        assertEquals(context.getScratchpad().get("my"), "key");
+        assertEquals(context.getScratchpad().get(myKey), "key");
     }
 }

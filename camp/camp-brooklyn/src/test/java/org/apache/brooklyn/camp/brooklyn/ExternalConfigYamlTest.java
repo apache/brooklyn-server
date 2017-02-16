@@ -89,7 +89,7 @@ public class ExternalConfigYamlTest extends AbstractYamlTest {
 
     @Test
     public void testCampYamlParserHandlesExternalisedConfig() throws Exception {
-        CampYamlParser parser = mgmt().getConfig().getConfig(CampYamlParser.YAML_PARSER_KEY);
+        CampYamlParser parser = mgmt().getScratchpad().get(CampYamlParser.YAML_PARSER_KEY);
         
         DeferredSupplier<?> supplier = (DeferredSupplier<?>) parser.parse("$brooklyn:external(\"myprovider\", \"mykey\")");
         

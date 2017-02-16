@@ -16,23 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.mgmt.internal;
-
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+package org.apache.brooklyn.api.mgmt;
 
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
-import org.testng.annotations.Test;
 
-public class LocalManagementContextRebindTest extends RebindTestFixtureWithApp {
-    @Test
-    public void testScratchpadLostOnRebind() throws Exception {
-        ConfigKey<String> myKey = ConfigKeys.newStringConfigKey("my");
-        origManagementContext.getScratchpad().put(myKey, "key");
-        assertEquals(origManagementContext.getScratchpad().get(myKey), "key");
-        rebind();
-        assertFalse(newManagementContext.getScratchpad().contains(myKey), "Scratchpad lost on rebind");
-    }
+public interface Scratchpad {
+    <T> T get(ConfigKey<T> key);
+    <T> void put(ConfigKey<T> key, T value);
+    boolean contains(ConfigKey<?> key);
 }

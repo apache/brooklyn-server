@@ -56,17 +56,17 @@ public class ReloadBrooklynPropertiesTest {
     
     @Test
     public void testReloadBrooklynPropertiesNonDeploy() {
-        CampPlatform platform = brooklynMgmt.getConfig().getConfig(BrooklynCampConstants.CAMP_PLATFORM);
+        CampPlatform platform = brooklynMgmt.getScratchpad().get(BrooklynCampConstants.CAMP_PLATFORM);
         Assert.assertNotNull(platform);
         brooklynMgmt.reloadBrooklynProperties();
-        CampPlatform reloadedPlatform = brooklynMgmt.getConfig().getConfig(BrooklynCampConstants.CAMP_PLATFORM);
+        CampPlatform reloadedPlatform = brooklynMgmt.getScratchpad().get(BrooklynCampConstants.CAMP_PLATFORM);
         Assert.assertEquals(reloadedPlatform, platform);
     }
     
     @Test
     public void testReloadBrooklynPropertiesDeploy() {
         brooklynMgmt.reloadBrooklynProperties();
-        CampPlatform reloadedPlatform = brooklynMgmt.getConfig().getConfig(BrooklynCampConstants.CAMP_PLATFORM);
+        CampPlatform reloadedPlatform = brooklynMgmt.getScratchpad().get(BrooklynCampConstants.CAMP_PLATFORM);
         Assert.assertNotNull(reloadedPlatform);
         Reader input = Streams.reader(new ResourceUtils(this).getResourceFromUrl("test-entity-basic-template.yaml"));
         AssemblyTemplate template = reloadedPlatform.pdp().registerDeploymentPlan(input);

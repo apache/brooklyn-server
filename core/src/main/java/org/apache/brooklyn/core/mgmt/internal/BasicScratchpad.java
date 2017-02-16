@@ -18,21 +18,26 @@
  */
 package org.apache.brooklyn.core.mgmt.internal;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-
+import org.apache.brooklyn.api.mgmt.Scratchpad;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
-import org.testng.annotations.Test;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 
-public class LocalManagementContextRebindTest extends RebindTestFixtureWithApp {
-    @Test
-    public void testScratchpadLostOnRebind() throws Exception {
-        ConfigKey<String> myKey = ConfigKeys.newStringConfigKey("my");
-        origManagementContext.getScratchpad().put(myKey, "key");
-        assertEquals(origManagementContext.getScratchpad().get(myKey), "key");
-        rebind();
-        assertFalse(newManagementContext.getScratchpad().contains(myKey), "Scratchpad lost on rebind");
+public class BasicScratchpad implements Scratchpad {
+    private final ConfigBag storage = ConfigBag.newInstance();
+
+    @Override
+    public <T> T get(ConfigKey<T> key) {
+        return storage.get(key);
     }
+
+    @Override
+    public <T> void put(ConfigKey<T> key, T value) {
+        storage.put(key, value);
+    }
+
+    @Override
+    public boolean contains(ConfigKey<?> key) {
+        return storage.containsKey(key);
+    }
+
 }

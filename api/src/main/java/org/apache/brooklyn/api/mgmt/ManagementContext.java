@@ -21,7 +21,6 @@ package org.apache.brooklyn.api.mgmt;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Collection;
-import java.util.Map;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.entity.Application;
@@ -199,7 +198,7 @@ public interface ManagementContext {
      * <p>
      * The returned map is thread safe, no locking is required to use it from parallel threads.
      */
-    Map<Object, Object> getScratchpad();
+    Scratchpad getScratchpad();
     
     /**
      * Whether the management context has been initialized and not yet terminated.
