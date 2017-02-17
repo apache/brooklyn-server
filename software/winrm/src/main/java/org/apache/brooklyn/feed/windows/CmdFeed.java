@@ -25,6 +25,7 @@ import org.apache.brooklyn.feed.CommandPollConfig;
 import org.apache.brooklyn.feed.ssh.SshPollValue;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse;
 
 import java.io.IOException;
@@ -71,7 +72,8 @@ public class CmdFeed extends AbstractCommandFeed {
 
         WinRmToolResponse winRmToolResponse;
         int exitStatus;
-        ConfigBag flags = ConfigBag.newInstanceExtending(config().getBag());
+        ConfigBag flags = ConfigBag.newInstanceExtending(config().getBag())
+                .configure(WinRmTool.ENVIRONMENT, env);
         winRmToolResponse = machine.executeCommand(flags.getAllConfig(),
                 ImmutableList.of(command));
         exitStatus = winRmToolResponse.getStatusCode();

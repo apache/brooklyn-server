@@ -74,7 +74,8 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
     private final String authenticationScheme;
     private final String operationTimeout;
     private final Integer retriesOfNetworkFailures;
-    
+    private final Map<String, String> environment;
+
     public Winrm4jTool(Map<String,?> config) {
         this(ConfigBag.newInstance(config));
     }
@@ -93,6 +94,7 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
         logCredentials = getRequiredConfig(config, LOG_CREDENTIALS);
         operationTimeout = config.get(OPERATION_TIMEOUT);
         retriesOfNetworkFailures = config.get(RETRIES_OF_NETWORK_FAILURES);
+        environment = config.get(ENVIRONMENT);
     }
     
     @Override
@@ -202,6 +204,9 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
         builder.setAuthenticationScheme(authenticationScheme);
         builder.useHttps(useSecureWinrm);
         builder.port(port);
+        if (environment != null) {
+            builder.environment(environment);
+        }
 
         // FIXME USE_HTTPS_WINRM shouldn't disable certificates checks
         // However to do that Winrm4JTool should also support whitelisting certificates.
