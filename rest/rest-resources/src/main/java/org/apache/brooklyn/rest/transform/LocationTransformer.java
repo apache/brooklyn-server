@@ -71,9 +71,11 @@ public class LocationTransformer {
         Map<String, Object> config = MutableMap.copyOf(explicitConfig==null ? null : explicitConfig.getAllConfig());
         if (spec!=null && (level==LocationDetailLevel.FULL_EXCLUDING_SECRET || level==LocationDetailLevel.FULL_INCLUDING_SECRET)) {
             // full takes from any resolved spec AND from explicit config
-            config = ConfigBag.newInstance(spec.getConfig()).putAll(config).getAllConfig();
+            // TODO include flags? esp need provider, region, and endpoint
+            config = ConfigBag.newInstance(spec.getFlags()).putAll(spec.getConfig()).putAll(config).getAllConfig();
         } else if (level==LocationDetailLevel.LOCAL_EXCLUDING_SECRET) {
             // in local mode, just make sure display name is set
+            // TODO include provider, region, and endpoint ?
             if (spec!=null && !explicitConfig.containsKey(LocationConfigKeys.DISPLAY_NAME) ) {
                 if (Strings.isNonBlank((String) spec.getFlags().get(LocationConfigKeys.DISPLAY_NAME.getName()))){
                     config.put(LocationConfigKeys.DISPLAY_NAME.getName(), spec.getFlags().get(LocationConfigKeys.DISPLAY_NAME.getName()));
@@ -146,6 +148,7 @@ public class LocationTransformer {
             // walk parent locations
             // TODO not sure this is the best strategy, or if it's needed, as the spec config is inherited anyway... 
             if (spec==null) {
+                // TODO should be "named spec" ?
                 Maybe<Object> originalSpec = ((LocationInternal)lp).config().getRaw(LocationInternal.ORIGINAL_SPEC);
                 if (originalSpec.isPresent())
                     spec = Strings.toString(originalSpec.get());
@@ -206,4 +209,22 @@ public class LocationTransformer {
                 .addIfNotNull("spec", specUri)
                 .asUnmodifiable() );
     }
+    
+    public static LocationSummary newInstance(ManagementContext mgmt, String id, LocationDetailLevel level, UriBuilder uriBuilder) {
+        // if it's an ID of a deployed location
+        Location l1 = mgmt.getLocationManager().getLocation(id);
+        if (l1!=null) {
+            return newInstance(mgmt, l1, level, uriBuilder);
+        }
+        
+        // a catalog item OR a legacy properties-based -- but currently goes via registry
+        LocationDefinition l2 = mgmt.getLocationRegistry().getDefinedLocationById(id);
+        if (l2!=null) {
+            return LocationTransformer.newInstance(mgmt, l2, level, uriBuilder);
+        }
+        
+        // not recognised
+        return null;
+    }
+
 }

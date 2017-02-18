@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.rest.resources;
 
+import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
+
 import java.net.URI;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -51,7 +53,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 @SuppressWarnings("deprecation")
 @HaHotStateRequired
@@ -135,14 +136,11 @@ public class LocationResource extends AbstractBrooklynRestResource implements Lo
 
     public LocationSummary get(String locationId, boolean fullConfig) {
         LocationDetailLevel configLevel = fullConfig ? LocationDetailLevel.FULL_EXCLUDING_SECRET : LocationDetailLevel.LOCAL_EXCLUDING_SECRET;
-        Location l1 = mgmt().getLocationManager().getLocation(locationId);
-        if (l1!=null) {
-            return LocationTransformer.newInstance(mgmt(), l1, configLevel, ui.getBaseUriBuilder());
+        LocationSummary result = LocationTransformer.newInstance(mgmt(), locationId, configLevel, ui.getBaseUriBuilder());
+        if (result!=null) {
+            return result;
         }
-
-        LocationDefinition l2 = brooklyn().getLocationRegistry().getDefinedLocationById(locationId);
-        if (l2==null) throw WebResourceUtils.notFound("No location matching %s", locationId);
-        return LocationTransformer.newInstance(mgmt(), l2, configLevel, ui.getBaseUriBuilder());
+        throw WebResourceUtils.notFound("No location matching %s", locationId);
     }
 
     @Override

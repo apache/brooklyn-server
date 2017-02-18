@@ -633,7 +633,14 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
         putIfNotNull(builder, "provider", (parent != null) ? parent.getProvider() : null);
         putIfNotNull(builder, "account", (parent != null) ? parent.getIdentity() : null);
         putIfNotNull(builder, "region", (parent != null) ? parent.getRegion() : null);
+        putIfNotNull(builder, "endpoint", (parent != null) ? parent.getEndpoint() : null);
         putIfNotNull(builder, "serverId", getJcloudsId());
+        
+        putIfNotNull(builder, "hostname", getHostname());
+        putIfNotNull(builder, "address", getAddress()!=null ? getAddress().getHostAddress() : null);
+        putIfNotNull(builder, "subnetHostname", getSubnetHostname());
+        putIfNotNull(builder, "subnetAddress", getSubnetIp());
+        
         putIfNotNull(builder, "imageId", getImageId());
         putIfNotNull(builder, "instanceTypeName", (hardware.isPresent() ? hardware.get().getName() : null));
         putIfNotNull(builder, "instanceTypeId", (hardware.isPresent() ? hardware.get().getProviderId() : null));
