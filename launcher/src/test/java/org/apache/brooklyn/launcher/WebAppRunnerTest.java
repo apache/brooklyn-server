@@ -19,7 +19,6 @@
 package org.apache.brooklyn.launcher;
 
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.fail;
 
 import java.util.List;
 import java.util.Map;
@@ -31,7 +30,6 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.http.HttpAsserts;
-import org.apache.brooklyn.util.net.Networking;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
@@ -78,14 +76,12 @@ public class WebAppRunnerTest {
     
     @Test
     public void testStartWar1() throws Exception {
-        if (!Networking.isPortAvailable(8090))
-            fail("Another process is using port 8090 which is required for this test.");
-        BrooklynWebServer server = createWebServer(MutableMap.of("port", 8090));
+        BrooklynWebServer server = createWebServer(MutableMap.of("port", "8091+"));
         assertNotNull(server);
         
         try {
             server.start();
-            assertBrooklynEventuallyAt("http://localhost:8090/");
+            assertBrooklynEventuallyAt("http://localhost:"+server.getActualPort()+"/");
         } finally {
             server.stop();
         }
