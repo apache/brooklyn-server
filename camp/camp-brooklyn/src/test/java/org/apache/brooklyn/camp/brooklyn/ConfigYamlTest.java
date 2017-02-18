@@ -103,7 +103,6 @@ public class ConfigYamlTest extends AbstractYamlTest {
         doTestRecursiveConfigFailsGracefully(false);
     }
     
-    // TODO this test fails because entities aren't available when evaluating immediately
     @Test
     public void testRecursiveConfigImmediateFailsGracefully() throws Exception {
         doTestRecursiveConfigFailsGracefully(true);
@@ -127,9 +126,9 @@ public class ConfigYamlTest extends AbstractYamlTest {
                     // error, loop wasn't interrupted or detected
                     LOG.warn("Timeout elapsed, destroying items; usage: "+
                             ((LocalManagementContext)mgmt()).getGarbageCollector().getUsageString());
-                    //Entities.destroy(app);
+                    Entities.destroy(app);
                 } catch (RuntimeInterruptedException e) {
-                    // expected on normal execution
+                    // expected on normal execution; clear the interrupted flag to prevent ugly further warnings being logged
                     Thread.interrupted();
                 }
             }

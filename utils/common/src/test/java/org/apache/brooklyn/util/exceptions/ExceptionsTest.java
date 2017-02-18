@@ -34,6 +34,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 
 public class ExceptionsTest {
 
@@ -304,6 +305,25 @@ public class ExceptionsTest {
         t = new org.apache.brooklyn.util.exceptions.PropagatedRuntimeException(t);
         t = new java.util.concurrent.ExecutionException(t);
         Assert.assertEquals(Exceptions.collapseText(t), "IOException: 1");
+    }
+    
+    @Test
+    public void testGetCausalChain() throws Exception {
+        Exception e1 = new Exception("e1");
+        Exception e2 = new Exception("e2", e1);
+        assertEquals(Exceptions.getCausalChain(e2), ImmutableList.of(e2, e1));
+    }
+    
+    @Test
+    public void testGetCausalChainRecursive() throws Exception {
+        Exception e1 = new Exception("e1") {
+            private static final long serialVersionUID = 1L;
+            public synchronized Throwable getCause() {
+                return this;
+            }
+        };
+        Exception e2 = new Exception("e2", e1);
+        assertEquals(Exceptions.getCausalChain(e2), ImmutableList.of(e2, e1));
     }
     
     @Test

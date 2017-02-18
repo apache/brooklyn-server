@@ -372,31 +372,39 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
     
     @Test(groups="Integration") // because takes 1s+
     public void testGetTaskNonBlockingKey() throws Exception {
-        new ConfigNonBlockingFixture().usingTask().runGetConfigNonBlockingInKey(); }
+        new ConfigNonBlockingFixture().usingTask().runGetConfigNonBlockingInKey(); 
+    }
     @Test(groups="Integration") // because takes 1s+
     public void testGetTaskNonBlockingMap() throws Exception {
-        new ConfigNonBlockingFixture().usingTask().runGetConfigNonBlockingInMap(); }
+        new ConfigNonBlockingFixture().usingTask().runGetConfigNonBlockingInMap(); 
+    }
     
     @Test(groups="Integration") // because takes 1s+
     public void testGetTaskFactoryNonBlockingKey() throws Exception {
-        new ConfigNonBlockingFixture().usingTaskFactory().runGetConfigNonBlockingInKey(); }
+        new ConfigNonBlockingFixture().usingTaskFactory().runGetConfigNonBlockingInKey(); 
+    }
     @Test(groups="Integration") // because takes 1s+
     public void testGetTaskFactoryNonBlockingMap() throws Exception {
-        new ConfigNonBlockingFixture().usingTaskFactory().runGetConfigNonBlockingInMap(); }
+        new ConfigNonBlockingFixture().usingTaskFactory().runGetConfigNonBlockingInMap(); 
+    }
     
     @Test(groups="Integration") // because takes 1s+
     public void testGetSupplierNonBlockingKey() throws Exception {
-        new ConfigNonBlockingFixture().usingDeferredSupplier().runGetConfigNonBlockingInKey(); }
+        new ConfigNonBlockingFixture().usingDeferredSupplier().runGetConfigNonBlockingInKey(); 
+    }
     @Test(groups="Integration") // because takes 1s+
     public void testGetSuppierNonBlockingMap() throws Exception {
-        new ConfigNonBlockingFixture().usingDeferredSupplier().runGetConfigNonBlockingInMap(); }
+        new ConfigNonBlockingFixture().usingDeferredSupplier().runGetConfigNonBlockingInMap(); 
+    }
     
     @Test // fast 
     public void testGetImmediateSupplierNonBlockingKey() throws Exception {
-        new ConfigNonBlockingFixture().usingImmediateSupplier().runGetConfigNonBlockingInKey(); }
+        new ConfigNonBlockingFixture().usingImmediateSupplier().runGetConfigNonBlockingInKey(); 
+    }
     @Test(groups="Integration") // because takes 1s+
     public void testGetImmediateSupplierNonBlockingMap() throws Exception {
-        new ConfigNonBlockingFixture().usingImmediateSupplier().runGetConfigNonBlockingInMap(); }
+        new ConfigNonBlockingFixture().usingImmediateSupplier().runGetConfigNonBlockingInMap(); 
+    }
     
     @Test
     public void testGetConfigKeysReturnsFromSuperAndInterfacesAndSubClass() throws Exception {

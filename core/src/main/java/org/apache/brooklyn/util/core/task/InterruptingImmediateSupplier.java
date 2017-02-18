@@ -44,7 +44,7 @@ import com.google.common.base.Supplier;
 @Beta
 public class InterruptingImmediateSupplier<T> implements ImmediateSupplier<T>, DeferredSupplier<T> {
 
-    final Supplier<T> nestedSupplier;
+    private final Supplier<T> nestedSupplier;
     
     public InterruptingImmediateSupplier(Supplier<T> nestedSupplier) {
         this.nestedSupplier = nestedSupplier;

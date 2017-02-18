@@ -26,6 +26,8 @@ import java.util.concurrent.Executor;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.util.guava.Maybe;
 
+import com.google.common.annotations.Beta;
+
 /**
  * This is a Brooklyn extension to the Java {@link Executor}.
  * 
@@ -65,6 +67,18 @@ public interface ExecutionContext extends Executor {
 
     boolean isShutdown();
 
+    /**
+     * Gets the value promptly, or returns {@link Maybe#absent()} if the value is not yet available.
+     * It may throw an error if it cannot be determined whether a value is available immediately or not.
+     * <p>
+     * Implementations will typically attempt to execute in the current thread, with appropriate
+     * tricks to make it look like it is in a sub-thread, and will attempt to be non-blocking but
+     * if needed they may block.
+     * <p>
+     * Supports {@link Callable} and {@link Runnable} targets to be evaluated with "immediate" semantics.
+     */
+    // TODO reference ImmediateSupplier when that class is moved to utils project
+    @Beta
     <T> Maybe<T> getImmediately(Object callableOrSupplier);
 
 }
