@@ -66,6 +66,10 @@ public class Networking {
     public static final int MIN_PORT_NUMBER = 1;
     public static final int MAX_PORT_NUMBER = 65535;
 
+    // set this `false` because not all routines that want a port will be as forgiving as reuse_address is;
+    // in some cases it might be preferable for this to be true, if needed we can expand API
+    public static final Boolean SET_REUSE_ADDRESS = false;
+
     // based on http://stackoverflow.com/questions/106179/regular-expression-to-match-hostname-or-ip-address
     // but updated to allow leading zeroes
     public static final String VALID_IP_ADDRESS_REGEX = "^((0*[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(0*[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$";
@@ -102,15 +106,13 @@ public class Networking {
                 // Check TCP port
                 ss = new ServerSocket();
                 ss.setSoTimeout(250);
-                ss.setReuseAddress(true);
-                if (!ss.getReuseAddress()) { logReuseAddressNotSupported(); }
+                if (SET_REUSE_ADDRESS!=null) { ss.setReuseAddress(SET_REUSE_ADDRESS); }
                 ss.bind(new InetSocketAddress(localAddress, port));
 
                 // Check UDP port
                 ds = new DatagramSocket(null);
                 ds.setSoTimeout(250);
-                ds.setReuseAddress(true);
-                if (!ds.getReuseAddress()) { logReuseAddressNotSupported(); }
+                if (SET_REUSE_ADDRESS!=null) { ss.setReuseAddress(SET_REUSE_ADDRESS); }
                 ds.bind(new InetSocketAddress(localAddress, port));
             } catch (IOException e) {
                 if (log.isTraceEnabled()) log.trace("Failed binding to " + localAddress + " : " + port, e);
@@ -178,10 +180,6 @@ public class Networking {
         }
     }
 
-    private static void logReuseAddressNotSupported() {
-        log.debug("Socket reuse-address not supported on this platform; port discovery may mis-report available ports");
-    }
-    
     /**
      * Bind to the specified IP, but let the OS pick a port.
      * If the operation fails we know it's not because of

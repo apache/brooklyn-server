@@ -453,8 +453,7 @@ public class BrooklynWebServer {
         try {
             server.start();
         } catch (BindException e) {
-            // port discovery routines may take some time to clear, e.g. 250ms for SO_TIMEOUT
-            // tests fail because of this; see if adding a delay improves things
+            // retry once just in case it was some fluke or race
             log.warn("Initial server start-up failed binding (retrying after a delay): "+e);
             Time.sleep(Duration.millis(500));
             server.start();
