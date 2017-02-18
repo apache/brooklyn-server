@@ -371,7 +371,7 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
             
             ManagementPlaneSyncRecord planeState = managementContext.getHighAvailabilityManager().loadManagementPlaneSyncRecord(true);
             
-            LOG.info("Persisting state to "+destinationDir+(destinationLocationSpec!=null ? " @ "+destinationLocationSpec : ""));
+            LOG.info("Copying persisted state to "+destinationDir+(destinationLocationSpec!=null ? " @ "+destinationLocationSpec : ""));
             PersistenceObjectStore destinationObjectStore = BrooklynPersistenceUtils.newPersistenceObjectStore(
                 managementContext, destinationLocationSpec, destinationDir);
             BrooklynPersistenceUtils.writeMemento(managementContext, memento, destinationObjectStore);

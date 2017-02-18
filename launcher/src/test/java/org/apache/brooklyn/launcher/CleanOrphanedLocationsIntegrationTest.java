@@ -41,6 +41,7 @@ import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -147,6 +148,7 @@ public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphaned
 
     @Test
     public void testCleanedCopiedPersistedState() throws Exception {
+        LOG.info(JavaClassNames.niceClassAndMethod()+" taking persistence from "+persistenceDirWithOrphanedLocations);
         BrooklynLauncher launcher = BrooklynLauncher.newInstance()
                 .webconsole(false)
                 .brooklynProperties(OsgiManager.USE_OSGI, false)
