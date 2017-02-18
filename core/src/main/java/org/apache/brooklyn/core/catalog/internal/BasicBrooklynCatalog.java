@@ -1053,7 +1053,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         log.debug("Adding manual catalog item to "+mgmt+": "+type);
         checkNotNull(type, "type");
         if (manualAdditionsCatalog==null) loadManualAdditionsCatalog();
-        manualAdditionsClasses.addClass(type);
+        manualAdditionsClasses.registerClass(type);
         CatalogItem<?, ?> result = manualAdditionsCatalog.classpath.addCatalogEntry(type);
         
         // Clear spec-cache (in-case overwriting)
