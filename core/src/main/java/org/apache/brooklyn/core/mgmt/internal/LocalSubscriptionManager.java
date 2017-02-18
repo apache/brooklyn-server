@@ -49,6 +49,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.SingleThreadedScheduler;
 import org.apache.brooklyn.util.text.Identifiers;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -233,15 +234,17 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
         
         StringBuilder name = new StringBuilder("sensor ");
         StringBuilder description = new StringBuilder("Sensor ");
-        String sensorName = s.sensor==null ? null : s.sensor.getName();
+        String sensorName = s.sensor==null ? "<null-sensor>" : s.sensor.getName();
         String sourceName = event.getSource()==null ? null : event.getSource().getId();
-        name.append(sourceName);
-        name.append(":");
+        if (Strings.isNonBlank(sourceName)) {
+            name.append(sourceName);
+            name.append(":");
+        }
         name.append(sensorName);
         
         description.append(sensorName);
         description.append(" on ");
-        description.append(sourceName);
+        description.append(sourceName==null ? "<null-source>" : sourceName);
         description.append(" publishing to ");
         description.append(s.subscriber instanceof Entity ? ((Entity)s.subscriber).getId() : s.subscriber);
         
