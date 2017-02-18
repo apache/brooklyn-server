@@ -553,7 +553,6 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             if (targetEntityMaybe.isAbsent()) return Maybe.<Object>cast(targetEntityMaybe);
             EntityInternal targetEntity = (EntityInternal) targetEntityMaybe.get();
             checkAndTagForRecursiveReference(targetEntity);
-
             String keyNameS = resolveKeyName(true);
             ConfigKey<?> key = targetEntity.getEntityType().getConfigKey(keyNameS);
             Maybe<?> result = targetEntity.config().getNonBlocking(key != null ? key : ConfigKeys.newConfigKey(Object.class, keyNameS));
@@ -582,6 +581,13 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         private void checkAndTagForRecursiveReference(Entity targetEntity) {
             String tag = "DSL:entity('"+targetEntity.getId()+"').config('"+keyName+"')";
             Task<?> ancestor = Tasks.current();
+            if (ancestor!=null) {
+                // don't check on ourself; only look higher in hierarchy;
+                // this assumes impls always spawn new tasks (which they do, just maybe not always in new threads)
+                // but it means it does not rely on tag removal to prevent weird errors, 
+                // and more importantly it makes the strategy idempotent
+                ancestor = ancestor.getSubmittedByTask();
+            }
             while (ancestor!=null) {
                 if (TaskTags.hasTag(ancestor, tag)) {
                     throw new IllegalStateException("Recursive config reference "+tag); 
