@@ -28,9 +28,9 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.test.HttpTestUtils;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.net.Networking;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,24 +92,22 @@ public class WebAppRunnerTest {
     }
 
     public static void assertBrooklynEventuallyAt(String url) {
-        HttpTestUtils.assertContentEventuallyContainsText(url, "Brooklyn Web Console");
+        HttpAsserts.assertContentEventuallyContainsText(url, "Brooklyn Web Console");
     }
 
     @Test
     public void testStartSecondaryWar() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), "/hello-world.war");
 
-        if (!Networking.isPortAvailable(8090))
-            fail("Another process is using port 8090 which is required for this test.");
         BrooklynWebServer server = createWebServer(
-            MutableMap.of("port", 8090, "war", "brooklyn.war", "wars", MutableMap.of("hello", "hello-world.war")) );
+            MutableMap.of("port", "8091+", "war", "brooklyn.war", "wars", MutableMap.of("hello", "hello-world.war")) );
         assertNotNull(server);
         
         try {
             server.start();
 
-            assertBrooklynEventuallyAt("http://localhost:8090/");
-            HttpTestUtils.assertContentEventuallyContainsText("http://localhost:8090/hello",
+            assertBrooklynEventuallyAt("http://localhost:"+server.getActualPort()+"/");
+            HttpAsserts.assertContentEventuallyContainsText("http://localhost:"+server.getActualPort()+"/hello",
                 "This is the home page for a sample application");
 
         } finally {
@@ -121,17 +119,15 @@ public class WebAppRunnerTest {
     public void testStartSecondaryWarAfter() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), "/hello-world.war");
 
-        if (!Networking.isPortAvailable(8090))
-            fail("Another process is using port 8090 which is required for this test.");
-        BrooklynWebServer server = createWebServer(MutableMap.of("port", 8090, "war", "brooklyn.war"));
+        BrooklynWebServer server = createWebServer(MutableMap.of("port", "8091+", "war", "brooklyn.war"));
         assertNotNull(server);
         
         try {
             server.start();
             server.deploy("/hello", "hello-world.war");
 
-            assertBrooklynEventuallyAt("http://localhost:8090/");
-            HttpTestUtils.assertContentEventuallyContainsText("http://localhost:8090/hello",
+            assertBrooklynEventuallyAt("http://localhost:"+server.getActualPort()+"/");
+            HttpAsserts.assertContentEventuallyContainsText("http://localhost:"+server.getActualPort()+"/hello",
                 "This is the home page for a sample application");
 
         } finally {
@@ -154,9 +150,9 @@ public class WebAppRunnerTest {
             details.getWebServer().deploy("/hello2", "hello-world.war");
 
             assertBrooklynEventuallyAt(details.getWebServerUrl());
-            HttpTestUtils.assertContentEventuallyContainsText(details.getWebServerUrl()+"hello", "This is the home page for a sample application");
-            HttpTestUtils.assertContentEventuallyContainsText(details.getWebServerUrl()+"hello2", "This is the home page for a sample application");
-            HttpTestUtils.assertHttpStatusCodeEventuallyEquals(details.getWebServerUrl()+"hello0", 404);
+            HttpAsserts.assertContentEventuallyContainsText(details.getWebServerUrl()+"hello", "This is the home page for a sample application");
+            HttpAsserts.assertContentEventuallyContainsText(details.getWebServerUrl()+"hello2", "This is the home page for a sample application");
+            HttpAsserts.assertHttpStatusCodeEventuallyEquals(details.getWebServerUrl()+"hello0", 404);
 
         } finally {
             details.getWebServer().stop();
