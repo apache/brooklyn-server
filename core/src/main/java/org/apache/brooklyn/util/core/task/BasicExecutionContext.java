@@ -41,6 +41,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedEntity;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier.ImmediateUnsupportedException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -103,7 +104,20 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     @SuppressWarnings("unchecked")
     @Override
     public <T> Maybe<T> getImmediately(Object callableOrSupplier) {
-        BasicTask<?> fakeTaskForContext = new BasicTask<Object>(MutableMap.of("displayName", "immediate evaluation"));
+        BasicTask<?> fakeTaskForContext;
+        if (callableOrSupplier instanceof BasicTask) {
+            fakeTaskForContext = (BasicTask<?>)callableOrSupplier;
+            if (fakeTaskForContext.isQueuedOrSubmitted()) {
+                if (fakeTaskForContext.isDone()) {
+                    return Maybe.of((T)fakeTaskForContext.getUnchecked());
+                } else {
+                    throw new ImmediateUnsupportedException("Task is in progress and incomplete: "+fakeTaskForContext);
+                }
+            }
+            callableOrSupplier = fakeTaskForContext.getJob();
+        } else {
+            fakeTaskForContext = new BasicTask<Object>(MutableMap.of("displayName", "immediate evaluation"));
+        }
         fakeTaskForContext.tags.addAll(tags);
         fakeTaskForContext.tags.add(BrooklynTaskTags.IMMEDIATE_TASK_TAG);
         fakeTaskForContext.tags.add(BrooklynTaskTags.TRANSIENT_TASK_TAG);

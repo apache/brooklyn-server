@@ -75,10 +75,10 @@ public interface ExecutionContext extends Executor {
      * tricks to make it look like it is in a sub-thread, and will attempt to be non-blocking but
      * if needed they may block.
      * <p>
-     * Supports {@link Callable} and {@link Runnable} targets to be evaluated with "immediate" semantics.
+     * Supports {@link Callable} and {@link Runnable} and some {@link Task} targets to be evaluated with "immediate" semantics.
      */
     // TODO reference ImmediateSupplier when that class is moved to utils project
     @Beta
-    <T> Maybe<T> getImmediately(Object callableOrSupplier);
+    <T> Maybe<T> getImmediately(Object callableOrSupplierOrTask);
 
 }

@@ -22,6 +22,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.Maybe;
 
@@ -72,12 +73,16 @@ public class InterruptingImmediateSupplier<T> implements ImmediateSupplier<T>, D
         return nestedSupplier.get();
     }
 
-    @SuppressWarnings("unchecked")
     public static <T> InterruptingImmediateSupplier<T> of(final Object o) {
+        return InterruptingImmediateSupplier.<T>ofSafe(o).get();
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> ReferenceWithError<InterruptingImmediateSupplier<T>> ofSafe(final Object o) {
         if (o instanceof Supplier) {
-            return new InterruptingImmediateSupplier<T>((Supplier<T>)o);
+            return ReferenceWithError.newInstanceWithoutError(new InterruptingImmediateSupplier<T>((Supplier<T>)o));
         } else if (o instanceof Callable) {
-            return new InterruptingImmediateSupplier<T>(new Supplier<T>() {
+            return ReferenceWithError.newInstanceWithoutError(new InterruptingImmediateSupplier<T>(new Supplier<T>() {
                 @Override
                 public T get() {
                     try {
@@ -86,18 +91,25 @@ public class InterruptingImmediateSupplier<T> implements ImmediateSupplier<T>, D
                         throw Exceptions.propagate(e);
                     }
                 }
-            });
+            }));
         } else if (o instanceof Runnable) {
-            return new InterruptingImmediateSupplier<T>(new Supplier<T>() {
+            return ReferenceWithError.newInstanceWithoutError(new InterruptingImmediateSupplier<T>(new Supplier<T>() {
                 @Override
                 public T get() {
                     ((Runnable)o).run();
                     return null;
                 }
-            });
+            }));
         } else {
-            throw new UnsupportedOperationException("Type "+o.getClass()+" not supported as InterruptingImmediateSupplier (instance "+o+")");
+            return ReferenceWithError.newInstanceThrowingError(null, new InterruptingImmediateSupplierNotSupportedForObject(o)); 
         }
     }
 
+    public static class InterruptingImmediateSupplierNotSupportedForObject extends UnsupportedOperationException {
+        private static final long serialVersionUID = 307517409005386500L;
+
+        public InterruptingImmediateSupplierNotSupportedForObject(Object o) {
+            super("Type "+o.getClass()+" not supported as InterruptingImmediateSupplier (instance "+o+")");
+        }
+    }
 }

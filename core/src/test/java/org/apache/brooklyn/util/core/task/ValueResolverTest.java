@@ -24,8 +24,11 @@ import static org.testng.Assert.fail;
 
 import java.util.Arrays;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.test.Asserts;
@@ -35,6 +38,8 @@ import org.apache.brooklyn.util.time.Time;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import com.google.common.util.concurrent.Callables;
 
 /**
  * see also {@link TasksTest} for more tests
@@ -219,6 +224,52 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
             assertEquals(result.getClass(), FailingImmediateAndDeferredSupplier.class);
     }
 
+    public void testTaskFactoryGet() {
+        TaskFactory<TaskAdaptable<String>> taskFactory = new TaskFactory<TaskAdaptable<String>>() {
+            @Override public TaskAdaptable<String> newTask() {
+                return new BasicTask<>(Callables.returning("myval"));
+            }
+        };
+        String result = Tasks.resolving(taskFactory).as(String.class).context(app).get();
+        assertEquals(result, "myval");
+    }
+    
+    public void testTaskFactoryGetImmediately() {
+        TaskFactory<TaskAdaptable<String>> taskFactory = new TaskFactory<TaskAdaptable<String>>() {
+            @Override public TaskAdaptable<String> newTask() {
+                return new BasicTask<>(Callables.returning("myval"));
+            }
+        };
+        String result = Tasks.resolving(taskFactory).as(String.class).context(app).immediately(true).get();
+        assertEquals(result, "myval");
+    }
+    
+    public void testTaskFactoryGetImmediatelyDoesNotBlock() {
+        final AtomicBoolean executing = new AtomicBoolean();
+        TaskFactory<TaskAdaptable<String>> taskFactory = new TaskFactory<TaskAdaptable<String>>() {
+            @Override public TaskAdaptable<String> newTask() {
+                return new BasicTask<>(new Callable<String>() {
+                    public String call() {
+                        executing.set(true);
+                        try {
+                            Time.sleep(Duration.ONE_MINUTE);
+                            return "myval";
+                        } finally {
+                            executing.set(false);
+                        }
+                    }});
+            }
+        };
+        Maybe<String> result = Tasks.resolving(taskFactory).as(String.class).context(app).immediately(true).getMaybe();
+        Asserts.assertTrue(result.isAbsent(), "result="+result);
+        // the call below default times out after 30s while the task above is still running
+        Asserts.succeedsEventually(new Runnable() {
+            public void run() {
+                Asserts.assertFalse(executing.get());
+            }
+        });
+    }
+    
     private static class MyImmediateAndDeferredSupplier implements ImmediateSupplier<CallInfo>, DeferredSupplier<CallInfo> {
         private final boolean failImmediately;
         
