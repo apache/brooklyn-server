@@ -68,6 +68,7 @@ import org.apache.brooklyn.util.exceptions.RuntimeTimeoutException;
 import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.Maybe.Absent;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.StringFunctions;
 import org.apache.brooklyn.util.text.StringFunctions.RegexReplacer;
@@ -499,7 +500,7 @@ public class DependentConfiguration {
         List<Object> resolvedArgs = Lists.newArrayList();
         for (Object arg : args) {
             Maybe<?> argVal = resolveImmediately(arg);
-            if (argVal.isAbsent()) return Maybe.absent();
+            if (argVal.isAbsent()) return  Maybe.Absent.castAbsent(argVal);
             resolvedArgs.add(argVal.get());
         }
 
@@ -511,7 +512,7 @@ public class DependentConfiguration {
      */
     public static Maybe<String> urlEncodeImmediately(Object arg) {
         Maybe<?> resolvedArg = resolveImmediately(arg);
-        if (resolvedArg.isAbsent()) return Maybe.absent();
+        if (resolvedArg.isAbsent()) return Absent.castAbsent(resolvedArg);
         if (resolvedArg.isNull()) return Maybe.<String>of((String)null);
         
         String resolvedString = resolvedArg.get().toString();
@@ -564,15 +565,15 @@ public class DependentConfiguration {
     
     public static Maybe<String> regexReplacementImmediately(Object source, Object pattern, Object replacement) {
         Maybe<?> resolvedSource = resolveImmediately(source);
-        if (resolvedSource.isAbsent()) return Maybe.absent();
+        if (resolvedSource.isAbsent()) return Absent.castAbsent(resolvedSource);
         String resolvedSourceStr = String.valueOf(resolvedSource.get());
         
         Maybe<?> resolvedPattern = resolveImmediately(pattern);
-        if (resolvedPattern.isAbsent()) return Maybe.absent();
+        if (resolvedPattern.isAbsent()) return Absent.castAbsent(resolvedPattern);
         String resolvedPatternStr = String.valueOf(resolvedPattern.get());
         
         Maybe<?> resolvedReplacement = resolveImmediately(replacement);
-        if (resolvedReplacement.isAbsent()) return Maybe.absent();
+        if (resolvedReplacement.isAbsent()) return Absent.castAbsent(resolvedReplacement);
         String resolvedReplacementStr = String.valueOf(resolvedReplacement.get());
 
         String result = new StringFunctions.RegexReplacer(resolvedPatternStr, resolvedReplacementStr).apply(resolvedSourceStr);
@@ -591,11 +592,11 @@ public class DependentConfiguration {
 
     public static Maybe<Function<String, String>> regexReplacementImmediately(Object pattern, Object replacement) {
         Maybe<?> resolvedPattern = resolveImmediately(pattern);
-        if (resolvedPattern.isAbsent()) return Maybe.absent();
+        if (resolvedPattern.isAbsent()) return Absent.castAbsent(resolvedPattern);
         String resolvedPatternStr = String.valueOf(resolvedPattern.get());
         
         Maybe<?> resolvedReplacement = resolveImmediately(replacement);
-        if (resolvedReplacement.isAbsent()) return Maybe.absent();
+        if (resolvedReplacement.isAbsent()) return Absent.castAbsent(resolvedReplacement);
         String resolvedReplacementStr = String.valueOf(resolvedReplacement.get());
 
         RegexReplacer result = new StringFunctions.RegexReplacer(resolvedPatternStr, resolvedReplacementStr);

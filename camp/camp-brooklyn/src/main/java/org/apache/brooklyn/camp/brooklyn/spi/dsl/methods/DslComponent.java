@@ -288,7 +288,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 
                 if (immediate) {
                     if (maybeComponentId.isAbsent()) {
-                        return Maybe.absent(Maybe.getException(maybeComponentId));
+                        return ImmediateValueNotAvailableException.newAbsentWrapping("Cannot find component ID", maybeComponentId);
                     }
                 }
                 
@@ -418,7 +418,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         @Override
         public Maybe<Object> getImmediately() {
             Maybe<Entity> targetEntityMaybe = component.getImmediately();
-            if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
+            if (targetEntityMaybe.isAbsent()) return ImmediateValueNotAvailableException.newAbsentWrapping("Target entity is not available: "+component, targetEntityMaybe);
             Entity targetEntity = targetEntityMaybe.get();
 
             return Maybe.<Object>of(targetEntity.getId());
@@ -477,7 +477,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         @Override
         public final Maybe<Object> getImmediately() {
             Maybe<Entity> targetEntityMaybe = component.getImmediately();
-            if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
+            if (targetEntityMaybe.isAbsent()) return ImmediateValueNotAvailableException.newAbsentWrapping("Target entity not available: "+component, targetEntityMaybe);
             Entity targetEntity = targetEntityMaybe.get();
 
             String sensorNameS = resolveSensorName(true);
@@ -486,7 +486,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 targetSensor = Sensors.newSensor(Object.class, sensorNameS);
             }
             Object result = targetEntity.sensors().get(targetSensor);
-            return GroovyJavaMethods.truth(result) ? Maybe.of(result) : Maybe.absent();
+            return GroovyJavaMethods.truth(result) ? Maybe.of(result) : ImmediateValueNotAvailableException.newAbsentWithExceptionSupplier();
         }
 
         @SuppressWarnings("unchecked")
@@ -660,7 +660,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 return Maybe.<Sensor<?>>of((Sensor<?>)si);
             } else if (si instanceof String) {
                 Maybe<Entity> targetEntityMaybe = component.getImmediately();
-                if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
+                if (targetEntityMaybe.isAbsent()) return ImmediateValueNotAvailableException.newAbsentWrapping("Target entity is not available: "+component, targetEntityMaybe);
                 Entity targetEntity = targetEntityMaybe.get();
 
                 Sensor<?> result = null;

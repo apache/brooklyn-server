@@ -22,8 +22,6 @@ package org.apache.brooklyn.core.objs;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 
 import javax.annotation.Nullable;
 
@@ -41,8 +39,9 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier.ImmediateUnsupportedException;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier.ImmediateValueNotAvailableException;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -53,6 +52,7 @@ import com.google.common.base.Predicate;
 
 public abstract class AbstractConfigurationSupportInternal implements BrooklynObjectInternal.ConfigurationSupportInternal {
 
+    @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(AbstractConfigurationSupportInternal.class);
 
     @Override
@@ -77,10 +77,16 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
 
     @Override
     public <T> Maybe<T> getNonBlocking(final ConfigKey<T> key) {
-        if (key instanceof StructuredConfigKey || key instanceof SubElementConfigKey) {
-            return getNonBlockingResolvingStructuredKey(key);
-        } else {
-            return getNonBlockingResolvingSimple(key);
+        try {
+            if (key instanceof StructuredConfigKey || key instanceof SubElementConfigKey) {
+                return getNonBlockingResolvingStructuredKey(key);
+            } else {
+                return getNonBlockingResolvingSimple(key);
+            }
+        } catch (ImmediateValueNotAvailableException e) {
+            return Maybe.absent(e);
+        } catch (ImmediateUnsupportedException e) {
+            return Maybe.absent(e);
         }
     }
 
@@ -89,12 +95,6 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
      * execute the custom logic, as is done by {@link #get(ConfigKey)}, but non-blocking!
      */
     protected <T> Maybe<T> getNonBlockingResolvingStructuredKey(final ConfigKey<T> key) {
-        // TODO This is a poor implementation. We risk timing out when it's just doing its
-        // normal work (e.g. because job's thread was starved), rather than when it's truly 
-        // blocked. Really we'd need to dig into the implementation of get(key), so that the 
-        // underlying work can be configured with a timeout, for when it finally calls 
-        // ValueResolver.
-
         Callable<T> job = new Callable<T>() {
             @Override
             public T call() {
@@ -106,22 +106,15 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
             }
         };
 
-        Task<T> t = getContext().submit(Tasks.<T>builder().body(job)
+        Task<T> t = Tasks.<T>builder().body(job)
                 .displayName("Resolving dependent value")
                 .description("Resolving "+key.getName())
                 .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
-                .build());
+                .build();
         try {
-            T result = t.get(ValueResolver.NON_BLOCKING_WAIT);
-            return Maybe.of(result);
-        } catch (TimeoutException e) {
-            t.cancel(true);
-            return Maybe.<T>absent();
-        } catch (ExecutionException e) {
-            LOG.debug("Problem resolving "+key.getName()+", returning <absent>", e);
-            return Maybe.<T>absent();
-        } catch (InterruptedException e) {
-            throw Exceptions.propagate(e);
+            return getContext().getImmediately(t);
+        } catch (ImmediateUnsupportedException e) {
+            return Maybe.absent();
         }
     }
 
@@ -139,17 +132,19 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
         // or Absent if the config key was unset.
         Object unresolved = getRaw(key).or(key.getDefaultValue());
         final Object marker = new Object();
-        // Give tasks a short grace period to resolve.
-        Object resolved = Tasks.resolving(unresolved)
+        Maybe<Object> resolved = Tasks.resolving(unresolved)
                 .as(Object.class)
                 .defaultValue(marker)
                 .immediately(true)
                 .deep(true)
                 .context(getContext())
-                .get();
-        return (resolved != marker)
-                ? TypeCoercions.tryCoerce(resolved, key.getTypeToken())
-                        : Maybe.<T>absent();
+                .getMaybe();
+        if (resolved.isAbsent()) return Maybe.Absent.<T>castAbsent(resolved);
+        if (resolved.get()==marker) {
+            // TODO changed Feb 2017, previously returned absent, in contrast to what the javadoc says
+            return Maybe.of((T)null);
+        }
+        return TypeCoercions.tryCoerce(resolved.get(), key.getTypeToken());
     }
 
     @Override

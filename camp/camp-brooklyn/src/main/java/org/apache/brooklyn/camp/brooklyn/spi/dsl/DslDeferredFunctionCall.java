@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslToStringHelpers;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -94,7 +95,7 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
             return invokeOn(instance);
         } else {
             if (immediate) {
-                return Maybe.absent("Could not evaluate immediately: " + obj);
+                return Maybe.absent(new ImmediateSupplier.ImmediateValueNotAvailableException("Could not evaluate immediately: " + obj));
             } else {
                 return Maybe.absent(Maybe.getException(resolvedMaybe));
             }

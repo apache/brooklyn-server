@@ -374,7 +374,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
                 assertAllOurConfigTasksCancelled();
             } else {
                 // TaskFactory tasks are cancelled, but others are not,
-                // things (ValueResolver?) are smart enough to know to leave it running
+                // things (ValueResolver.getMaybeInternal()) are smart enough to know to leave it running
                 assertAllOurConfigTasksNotCancelled();
             }
             
@@ -411,30 +411,30 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         }
     }
     
-    @Test(groups="Integration") // because takes 1s+
+    @Test(groups="Integration") // still takes 1s+ -- because we don't want to interrupt the task, we have to run it in BG
     public void testGetTaskNonBlockingKey() throws Exception {
         new ConfigNonBlockingFixture().usingTask().runGetConfigNonBlockingInKey(); 
     }
-    @Test(groups="Integration") // because takes 1s+
+    @Test
     public void testGetTaskNonBlockingMap() throws Exception {
         new ConfigNonBlockingFixture().usingTask().runGetConfigNonBlockingInMap(); 
     }
     
-    @Test(groups="Integration") // because takes 1s+
+    @Test
     public void testGetTaskFactoryNonBlockingKey() throws Exception {
         new ConfigNonBlockingFixture().usingTaskFactory().runGetConfigNonBlockingInKey();
     }
-    @Test(groups="Integration") // because takes 1s+
+    @Test
     public void testGetTaskFactoryNonBlockingMap() throws Exception {
         new ConfigNonBlockingFixture().usingTaskFactory().runGetConfigNonBlockingInMap(); 
     }
     
-    @Test(groups="Integration") // because takes 1s+
+    @Test
     public void testGetSupplierNonBlockingKey() throws Exception {
         new ConfigNonBlockingFixture().usingDeferredSupplier().runGetConfigNonBlockingInKey(); 
     }
-    @Test(groups="Integration") // because takes 1s+
-    public void testGetSuppierNonBlockingMap() throws Exception {
+    @Test
+    public void testGetSupplierNonBlockingMap() throws Exception {
         new ConfigNonBlockingFixture().usingDeferredSupplier().runGetConfigNonBlockingInMap(); 
     }
     
@@ -442,7 +442,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
     public void testGetImmediateSupplierNonBlockingKey() throws Exception {
         new ConfigNonBlockingFixture().usingImmediateSupplier().runGetConfigNonBlockingInKey(); 
     }
-    @Test(groups="Integration") // because takes 1s+
+    @Test
     public void testGetImmediateSupplierNonBlockingMap() throws Exception {
         new ConfigNonBlockingFixture().usingImmediateSupplier().runGetConfigNonBlockingInMap(); 
     }
