@@ -117,6 +117,7 @@ public class RebindConfigInheritanceTest extends RebindTestFixtureWithApp {
         checkNewAppNonInheritingKey1(rebindedApp);
         
         String origMementoTidied = origMemento.substring(origMemento.indexOf("<entity>"));
+        origMementoTidied = origMementoTidied.replaceFirst("</displayName>", "</displayName>\n  <catalogItemSuperIds class=\"ImmutableList\"/>");
         origMementoTidied = Strings.replaceAllNonRegex(origMementoTidied, "VERSION", BrooklynVersion.get());
         Asserts.assertEquals(origMementoTidied, newMemento);
     }
