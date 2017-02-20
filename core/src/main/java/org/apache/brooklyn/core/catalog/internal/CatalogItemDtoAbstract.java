@@ -46,8 +46,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
-// TODO add support for nested catalog items, implement nestCatalogItemId in terms of symbolicName/Version
-// TODO also getCatalogItemSuperIds.
 public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynObject implements CatalogItem<T, SpecT> {
 
     private static Logger LOG = LoggerFactory.getLogger(CatalogItemDtoAbstract.class);

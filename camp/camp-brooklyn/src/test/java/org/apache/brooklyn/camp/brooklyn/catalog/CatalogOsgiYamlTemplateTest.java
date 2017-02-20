@@ -87,7 +87,7 @@ public class CatalogOsgiYamlTemplateTest extends AbstractYamlTest {
         
         EntitySpec<?> child = Iterables.getOnlyElement( spec.getChildren() );
         Assert.assertEquals(child.getType().getName(), SIMPLE_ENTITY_TYPE);
-        Assert.assertEquals(child.getCatalogItemId(), "t1:"+TEST_VERSION);
+        Assert.assertEquals(child.getOuterCatalogItemId(), "t1:"+TEST_VERSION);
     }
     
     private RegisteredType makeItem(String symbolicName, String templateType) {

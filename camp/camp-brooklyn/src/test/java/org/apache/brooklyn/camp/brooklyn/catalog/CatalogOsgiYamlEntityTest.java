@@ -708,7 +708,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
         BrooklynTypeRegistry registry = mgmt().getTypeRegistry();
         RegisteredType item = registry.get(symbolicName, TEST_VERSION);
         AbstractBrooklynObjectSpec<?, ?> spec = registry.createSpec(item, null, null);
-        assertEquals(spec.getCatalogItemId(), ver(symbolicName));
+        assertEquals(spec.getOuterCatalogItemId(), ver(symbolicName));
 
         deleteCatalogEntity(symbolicName);
     }

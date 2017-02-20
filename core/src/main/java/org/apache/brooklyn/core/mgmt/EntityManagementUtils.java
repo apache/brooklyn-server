@@ -259,7 +259,7 @@ public class EntityManagementUtils {
             wrappedChild.parametersAdd(wrapperParent.getParameters());
         }
 
-        wrappedChild.nestCatalogItemId(wrapperParent.getCatalogItemId());
+        wrappedChild.stackCatalogItemId(wrapperParent.getOuterCatalogItemId());
 
         // NB: this clobber's child config wherever they conflict; might prefer to deeply merge maps etc
         // (or maybe even prevent the merge in these cases; 
