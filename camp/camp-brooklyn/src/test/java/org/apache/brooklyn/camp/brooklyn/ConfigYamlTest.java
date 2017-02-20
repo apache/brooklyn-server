@@ -372,10 +372,10 @@ public class ConfigYamlTest extends AbstractYamlTest {
         final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
 
         // Attribute not yet set; non-blocking will return promptly without the value
-        assertTrue(entity.config().getNonBlocking(TestEntity.CONF_NAME).isAbsent());
-        assertTrue(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING).isAbsent());
-        assertTrue(entity.config().getNonBlocking(TestEntity.CONF_LIST_THING).isAbsent());
-        assertTrue(entity.config().getNonBlocking(TestEntity.CONF_SET_THING).isAbsent());
+        Asserts.assertNotPresent(entity.config().getNonBlocking(TestEntity.CONF_NAME));
+        Asserts.assertNotPresent(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING));
+        Asserts.assertNotPresent(entity.config().getNonBlocking(TestEntity.CONF_LIST_THING));
+        Asserts.assertNotPresent(entity.config().getNonBlocking(TestEntity.CONF_SET_THING));
 
         // Now set the attribute: get will return once that has happened
         executor.submit(new Callable<Object>() {
