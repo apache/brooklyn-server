@@ -22,6 +22,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -46,10 +47,12 @@ import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.InterruptingImmediateSupplier;
+import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
@@ -276,6 +279,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         final Semaphore latch = new Semaphore(0);
         final String expectedVal = "myval";
         Object blockingVal;
+        List<Task<String>> tasksMadeByFactory = MutableList.of();
 
         protected ConfigNonBlockingFixture usingTask() {
             blockingVal = taskFactory().newTask();
@@ -298,15 +302,22 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         }
 
         private TaskFactory<Task<String>> taskFactory() {
-            return Tasks.<String>builder().body(
+            final TaskBuilder<String> tb = Tasks.<String>builder().body(
                 new Callable<String>() {
                     @Override
                     public String call() throws Exception {
                         if (!latch.tryAcquire()) latch.acquire();
                         latch.release();
                         return "myval";
-                    }})
-                .buildFactory();
+                    }});
+            return new TaskFactory<Task<String>>() {
+                @Override
+                public Task<String> newTask() {
+                    Task<String> t = tb.build();
+                    tasksMadeByFactory.add(t);
+                    return t;
+                }
+            };
         }
         
         private DeferredSupplier<String> deferredSupplier() {
@@ -358,6 +369,14 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
             // Will initially return absent, because task is not done
             assertTrue(entity.config().getNonBlocking(TestEntity.CONF_MAP_OBJ_THING).isAbsent());
             assertTrue(entity.config().getNonBlocking(TestEntity.CONF_MAP_OBJ_THING.subKey("mysub")).isAbsent());
+
+            if (blockingVal instanceof TaskFactory) {
+                assertAllOurConfigTasksCancelled();
+            } else {
+                // TaskFactory tasks are cancelled, but others are not,
+                // things (ValueResolver?) are smart enough to know to leave it running
+                assertAllOurConfigTasksNotCancelled();
+            }
             
             latch.release();
             
@@ -367,6 +386,28 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
             
             assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_OBJ_THING).get(), ImmutableMap.of("mysub", expectedVal));
             assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_OBJ_THING.subKey("mysub")).get(), expectedVal);
+            
+            assertAllTasksDone();
+        }
+
+        private void assertAllOurConfigTasksNotCancelled() {
+            for (Task<?> t: tasksMadeByFactory) {
+                Assert.assertFalse( t.isCancelled(), "Task should not have been cancelled: "+t+" - "+t.getStatusDetail(false) );
+            }
+        }
+        
+        private void assertAllOurConfigTasksCancelled() {
+            // TODO added Feb 2017 - but might need an "eventually" here, if cancel is happening in a BG thread
+            // (but I think it is always foreground)
+            for (Task<?> t: tasksMadeByFactory) {
+                Assert.assertTrue( t.isCancelled(), "Task should have been cancelled: "+t+" - "+t.getStatusDetail(false) );
+            }
+        }
+        
+        private void assertAllTasksDone() {
+            for (Task<?> t: tasksMadeByFactory) {
+                Assert.assertTrue( t.isDone(), "Task should have been done: "+t+" - "+t.getStatusDetail(false) );
+            }
         }
     }
     
@@ -381,7 +422,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
     
     @Test(groups="Integration") // because takes 1s+
     public void testGetTaskFactoryNonBlockingKey() throws Exception {
-        new ConfigNonBlockingFixture().usingTaskFactory().runGetConfigNonBlockingInKey(); 
+        new ConfigNonBlockingFixture().usingTaskFactory().runGetConfigNonBlockingInKey();
     }
     @Test(groups="Integration") // because takes 1s+
     public void testGetTaskFactoryNonBlockingMap() throws Exception {
