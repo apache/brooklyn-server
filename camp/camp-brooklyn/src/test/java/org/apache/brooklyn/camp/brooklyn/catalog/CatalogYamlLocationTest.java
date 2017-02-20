@@ -176,10 +176,10 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         LocationSpec<? extends Location> spec1 = mgmt().getLocationRegistry().getLocationSpec(def1).get();
         LocationSpec<? extends Location> spec2 = mgmt().getLocationRegistry().getLocationSpec(def2).get();
         
-        assertEquals(spec1.getCatalogItemId(), "loc1:0.1.2");
+        assertEquals(spec1.getOuterCatalogItemId(), "loc1:0.1.2");
         assertEquals(spec1.getDisplayName(), "My Loc 1");
         assertContainsAll(spec1.getFlags(), ImmutableMap.of("mykey1", "myval1", "mykey1b", "myval1b"));
-        assertEquals(spec2.getCatalogItemId(), "loc2:0.1.2");
+        assertEquals(spec2.getOuterCatalogItemId(), "loc2:0.1.2");
         assertEquals(spec2.getDisplayName(), "My Loc 2");
         assertContainsAll(spec2.getFlags(), ImmutableMap.of("mykey1", "myvalOverridden", "mykey1b", "myval1b", "mykey2", "myval2"));
     }
