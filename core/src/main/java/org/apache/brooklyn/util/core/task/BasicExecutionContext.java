@@ -123,6 +123,9 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         fakeTaskForContext.tags.add(BrooklynTaskTags.TRANSIENT_TASK_TAG);
         
         Task<?> previousTask = BasicExecutionManager.getPerThreadCurrentTask().get();
+        BasicExecutionContext oldExecutionContext = getCurrentExecutionContext();
+        registerPerThreadExecutionContext();
+
         if (previousTask!=null) fakeTaskForContext.setSubmittedByTask(previousTask);
         fakeTaskForContext.cancel();
         try {
@@ -135,6 +138,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
  
         } finally {
             BasicExecutionManager.getPerThreadCurrentTask().set(previousTask);
+            perThreadExecutionContext.set(oldExecutionContext);
         }
     }
     
