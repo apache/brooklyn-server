@@ -49,7 +49,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
         protected String displayName;
         // catalogItemId is retained to support rebind of previously persisted state (prior to catalogItemHierarchy)
         protected String catalogItemId;
-        protected List<String> catalogItemHierarchy = MutableList.of();
+        protected List<String> catalogItemHierarchy;
         protected Map<String, Object> customFields = Maps.newLinkedHashMap();
         protected List<Object> tags = Lists.newArrayList();
         protected Map<String,Set<String>> relations = Maps.newLinkedHashMap();
@@ -110,7 +110,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
       */
     protected String catalogItemId;
 
-    private List<String> catalogItemHierarchy = MutableList.of();
+    private List<String> catalogItemHierarchy;
     private List<Object> tags;
     private Map<String,Set<String>> relations;
     
