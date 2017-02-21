@@ -952,12 +952,16 @@ public abstract class RebindIteration {
             List<String> idsFromReboundCatalog = MutableList.of();
             if (catalogItemIds != null && !catalogItemIds.isEmpty()) {
                 findCatalogIdsInReboundCatalog(bType, catalogItemIds, contextSuchAsId, idsFromReboundCatalog);
-                if (idsFromReboundCatalog.size() == catalogItemIds.size()) {
+                if (idsFromReboundCatalog.size() != catalogItemIds.size()) {
+                    LOG.warn("Unable to load all catalog items "+ Iterables.toString(catalogItemIds)
+                        +" for "+contextSuchAsId + " (" + bType.getSimpleName()+"); attempting load nevertheless");
+                }
+                try {
                     BrooklynClassLoadingContext loader = CatalogUtils.newClassLoadingContextForCatalogItems(managementContext, idsFromReboundCatalog);
                     return new LoadedClass<T>(loader.loadClass(jType, bType), idsFromReboundCatalog);
-                } else {
-                    LOG.warn("Unable to load all catalog items "+ Iterables.toString(catalogItemIds) +" for "+contextSuchAsId
-                            +" ("+bType.getSimpleName()+"); will try default class loader");
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    LOG.warn("Unable to load "+jType+" using loader; will try reflections");
                 }
             }
             
