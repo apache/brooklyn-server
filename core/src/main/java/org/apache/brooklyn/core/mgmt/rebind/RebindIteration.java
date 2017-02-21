@@ -782,24 +782,28 @@ public abstract class RebindIteration {
     }
     
     protected List<String> findCatalogItemIds(ClassLoader cl, Map<String, EntityMementoManifest> entityIdToManifest, EntityMementoManifest entityManifest) {
-        if (!entityManifest.getCatalogItemSuperIds().isEmpty()) {
-            return entityManifest.getCatalogItemSuperIds();
+        if (!entityManifest.getCatalogItemHierarchy().isEmpty()) {
+            return entityManifest.getCatalogItemHierarchy();
         }
 
         if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND)) {
             //First check if any of the parent entities has a catalogItemId set.
             EntityMementoManifest ptr = entityManifest;
             while (ptr != null) {
-                if (ptr.getCatalogItemId() != null) {
-                    RegisteredType type = managementContext.getTypeRegistry().get(ptr.getCatalogItemId());
-                    if (type != null) {
-                        return ImmutableList.of(type.getId());
-                    } else {
-                        //Couldn't find a catalog item with this id, but return it anyway and
-                        //let the caller deal with the error.
-                        //TODO under what circumstances is this permitted?
-                        return ImmutableList.of(ptr.getCatalogItemId());
+                if (ptr.getCatalogItemHierarchy() != null) {
+                    List<String> ids = MutableList.of();
+                    for (String id : ptr.getCatalogItemHierarchy()) {
+                        RegisteredType type = managementContext.getTypeRegistry().get(id);
+                        if (type != null) {
+                            ids.add(type.getId());
+                        } else {
+                            //Couldn't find a catalog item with this id, but return it anyway and
+                            //let the caller deal with the error.
+                            //TODO under what circumstances is this permitted?
+                            ids.add(id);
+                        }
                     }
+                    return ids;
                 }
                 if (ptr.getParent() != null) {
                     ptr = entityIdToManifest.get(ptr.getParent());
@@ -923,7 +927,7 @@ public abstract class RebindIteration {
 
 
         protected <T extends BrooklynObject> LoadedClass<? extends T> load(Class<T> bType, Memento memento) {
-            return load(bType, memento.getType(), memento.getCatalogItemSuperIds(), memento.getId());
+            return load(bType, memento.getType(), memento.getCatalogItemHierarchy(), memento.getId());
         }
         
         @SuppressWarnings("unchecked")
@@ -1047,7 +1051,7 @@ public abstract class RebindIteration {
          */
         protected Policy newPolicy(PolicyMemento memento) {
             String id = memento.getId();
-            LoadedClass<? extends Policy> loaded = load(Policy.class, memento.getType(), memento.getCatalogItemSuperIds(), id);
+            LoadedClass<? extends Policy> loaded = load(Policy.class, memento.getType(), memento.getCatalogItemHierarchy(), id);
             Class<? extends Policy> policyClazz = loaded.clazz;
 
             Policy policy;
@@ -1072,7 +1076,7 @@ public abstract class RebindIteration {
                 policy = invokeConstructor(null, policyClazz, new Object[] {flags});
             }
             
-            setCatalogItemIds(policy, memento.getCatalogItemSuperIds());
+            setCatalogItemIds(policy, memento.getCatalogItemHierarchy());
             return policy;
         }
 
@@ -1106,7 +1110,7 @@ public abstract class RebindIteration {
                 enricher = invokeConstructor(reflections, enricherClazz, new Object[] {flags});
             }
             
-            setCatalogItemIds(enricher, memento.getCatalogItemSuperIds());
+            setCatalogItemIds(enricher, memento.getCatalogItemHierarchy());
             return enricher;
         }
 
@@ -1129,7 +1133,7 @@ public abstract class RebindIteration {
                 throw new IllegalStateException("rebind of feed without no-arg constructor unsupported: id="+id+"; type="+feedClazz);
             }
             
-            setCatalogItemIds(feed, memento.getCatalogItemSuperIds());
+            setCatalogItemIds(feed, memento.getCatalogItemHierarchy());
             return feed;
         }
 

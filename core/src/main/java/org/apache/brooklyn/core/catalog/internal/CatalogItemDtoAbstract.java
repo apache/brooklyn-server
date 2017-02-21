@@ -104,7 +104,7 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
     }
 
     @Override
-    public List<String> getCatalogItemSuperIds() {
+    public List<String> getCatalogItemHierarchy() {
         return ImmutableList.of(getCatalogItemId());
     }
 

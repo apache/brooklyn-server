@@ -37,10 +37,8 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
-import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.testng.Assert;
@@ -645,9 +643,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
 
         Entity entity = app.getChildren().iterator().next();
         assertEquals(entity.getCatalogItemId(), ver(symbolicNameOuter));
-        assertEquals(entity.getCatalogItemSuperIds().size(), 2);
-        assertEquals(entity.getCatalogItemSuperIds().get(0), ver(symbolicNameOuter));
-        assertEquals(entity.getCatalogItemSuperIds().get(1), ver(symbolicNameInner));
+        assertEquals(entity.getCatalogItemHierarchy().size(), 2);
+        assertEquals(entity.getCatalogItemHierarchy().get(0), ver(symbolicNameOuter));
+        assertEquals(entity.getCatalogItemHierarchy().get(1), ver(symbolicNameInner));
 
         deleteCatalogEntity(symbolicNameInner);
         deleteCatalogEntity(symbolicNameOuter);

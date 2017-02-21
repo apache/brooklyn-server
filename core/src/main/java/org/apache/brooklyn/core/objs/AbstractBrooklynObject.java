@@ -219,7 +219,7 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
         }
     }
 
-    public List<String> getCatalogItemSuperIds() {
+    public List<String> getCatalogItemHierarchy() {
         return ImmutableList.copyOf(catalogItemIdStack);
     }
 

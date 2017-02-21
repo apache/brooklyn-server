@@ -137,8 +137,8 @@ public class CatalogItemDo<T,SpecT> implements CatalogItem<T,SpecT>, BrooklynObj
     }
 
     @Override
-    public List<String> getCatalogItemSuperIds() {
-        return itemDto.getCatalogItemSuperIds();
+    public List<String> getCatalogItemHierarchy() {
+        return itemDto.getCatalogItemHierarchy();
     }
 
     @Override

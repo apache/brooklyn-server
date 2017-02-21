@@ -68,7 +68,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
             type = other.getType();
             typeClass = other.getTypeClass();
             displayName = other.getDisplayName();
-            setCatalogItemIds(other.getCatalogItemSuperIds(), other.getCatalogItemId());
+            setCatalogItemIds(other.getCatalogItemHierarchy(), other.getCatalogItemId());
             customFields.putAll(other.getCustomFields());
             tags.addAll(other.getTags());
             relations.putAll(other.getRelations());
@@ -180,11 +180,11 @@ public abstract class AbstractMemento implements Memento, Serializable {
     @Override
     public String getCatalogItemId() {
         normalizeCatalogItemIds();
-        return Iterables.getFirst(getCatalogItemSuperIds(), null);
+        return Iterables.getFirst(getCatalogItemHierarchy(), null);
     }
 
     @Override
-    public List<String> getCatalogItemSuperIds() {
+    public List<String> getCatalogItemHierarchy() {
         normalizeCatalogItemIds();
         return catalogItemSuperIds;
     }

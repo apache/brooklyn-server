@@ -58,7 +58,7 @@ public class EntityMementoManifestImpl implements EntityMementoManifest {
     }
 
     @Override
-    public List<String> getCatalogItemSuperIds() {
+    public List<String> getCatalogItemHierarchy() {
         return catalogItemIds;
     }
 
