@@ -255,7 +255,7 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
                   ComputeService computeService = getComputeServiceOrNull();
                   if (computeService == null) {
                       if (LOG.isDebugEnabled()) LOG.debug("Cannot get image (with id {}) for {}, because cannot get compute-service from parent {}", new Object[] {imageId, this, getParent()});
-                      _node = Optional.absent();
+                      _image = Optional.absent();
                   } else {
                       _image = Optional.fromNullable(computeService.getImage(imageId));
                   }
