@@ -352,14 +352,14 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
     }
 
     // We must be able to cope with XML serialized with either a single "catalogItemId"
-    // or a list "catalogItemSuperIds" of catalog item ids. Only one should be encountered
+    // or a list "catalogItemHierarchy" of catalog item ids. Only one should be encountered
     // but in any case prefer the list of ids.
     private ImmutableList<String> getCatalogItemIds(XPathHelper x) {
         final MutableList<String> list = MutableList.of();
-        final List<String> catalogItemSuperIds = x.getStringList("catalogItemSuperIds");
+        final List<String> catalogItemHierarchy = x.getStringList("catalogItemHierarchy");
         final String catalogItemId = Strings.emptyToNull(x.get("catalogItemId"));
-        if (!catalogItemSuperIds.isEmpty()) {
-            list.addAll(catalogItemSuperIds);
+        if (!catalogItemHierarchy.isEmpty()) {
+            list.addAll(catalogItemHierarchy);
         } else if (catalogItemId != null) {
             list.add(catalogItemId);
         }

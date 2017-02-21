@@ -379,7 +379,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         this.entity = entity;
         this.execution = ((EntityInternal) entity).getExecutionContext();
         if (entity!=null && getCatalogItemId() == null) {
-            setCatalogItemIds(entity.getCatalogItemHierarchy());
+            setCatalogItemIdHierarchy(entity.getCatalogItemHierarchy());
         }
     }
     

@@ -936,8 +936,8 @@ public abstract class RebindIteration {
             return entity;
         }
 
-        protected void setCatalogItemIds(BrooklynObject object, List<String> superIds) {
-            ((BrooklynObjectInternal)object).setCatalogItemIds(superIds);
+        protected void setCatalogItemIds(BrooklynObject object, List<String> idHierarchy) {
+            ((BrooklynObjectInternal)object).setCatalogItemIdHierarchy(idHierarchy);
         }
 
 
