@@ -69,7 +69,7 @@ public interface BrooklynObject extends Identifiable, Configurable {
      * </pre>
      * then the list will contain X, Y.
      */
-    List<String> getCatalogItemSuperIds();
+    List<String> getCatalogItemHierarchy();
     
     /** 
      * Tags are arbitrary objects which can be attached to an entity for subsequent reference.

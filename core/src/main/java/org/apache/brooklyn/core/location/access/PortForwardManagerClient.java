@@ -27,7 +27,6 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
-import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
 import com.google.common.base.Preconditions;
@@ -389,8 +388,8 @@ public class PortForwardManagerClient implements PortForwardManager {
     }
 
     @Override
-    public List<String> getCatalogItemSuperIds() {
-        return getDelegate().getCatalogItemSuperIds();
+    public List<String> getCatalogItemHierarchy() {
+        return getDelegate().getCatalogItemHierarchy();
     }
 
     @Override

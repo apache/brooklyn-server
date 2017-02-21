@@ -54,7 +54,6 @@ import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
-import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.drivers.BasicEntityDriverManager;
@@ -131,7 +130,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
             public BrooklynClassLoadingContext apply(@Nullable Object input) {
                 if (input instanceof EntityInternal) {
                     EntityInternal internal = (EntityInternal)input;
-                    final List<String> catalogItemSuperIds = internal.getCatalogItemSuperIds();
+                    final List<String> catalogItemSuperIds = internal.getCatalogItemHierarchy();
                     if (catalogItemSuperIds.size() > 0) {
                         BrooklynClassLoadingContextSequential seqLoader =
                             newClassLoadingContextForCatalogItems(internal.getManagementContext(), catalogItemSuperIds);

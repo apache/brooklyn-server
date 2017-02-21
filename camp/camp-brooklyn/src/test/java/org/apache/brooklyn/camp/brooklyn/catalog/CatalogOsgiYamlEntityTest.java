@@ -813,9 +813,9 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
 
       Entity entity = app.getChildren().iterator().next();
       assertEquals(entity.getCatalogItemId(), ver(symbolicNameOuter));
-      assertEquals(entity.getCatalogItemSuperIds().size(), 2);
-      assertEquals(entity.getCatalogItemSuperIds().get(0), ver(symbolicNameOuter));
-      assertEquals(entity.getCatalogItemSuperIds().get(1), ver(symbolicNameInner));
+      assertEquals(entity.getCatalogItemHierarchy().size(), 2);
+      assertEquals(entity.getCatalogItemHierarchy().get(0), ver(symbolicNameOuter));
+      assertEquals(entity.getCatalogItemHierarchy().get(1), ver(symbolicNameInner));
 
       deleteCatalogEntity(symbolicNameInner);
       deleteCatalogEntity(symbolicNameOuter);
