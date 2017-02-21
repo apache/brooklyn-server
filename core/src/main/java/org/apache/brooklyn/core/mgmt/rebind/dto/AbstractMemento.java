@@ -47,9 +47,9 @@ public abstract class AbstractMemento implements Memento, Serializable {
         protected String type;
         protected Class<?> typeClass;
         protected String displayName;
-        // catalogItemId is retained to support rebind of previously persisted state (prior to catalogItemSuperIds)
+        // catalogItemId is retained to support rebind of previously persisted state (prior to catalogItemHierarchy)
         protected String catalogItemId;
-        protected List<String> catalogItemSuperIds = MutableList.of();
+        protected List<String> catalogItemHierarchy = MutableList.of();
         protected Map<String, Object> customFields = Maps.newLinkedHashMap();
         protected List<Object> tags = Lists.newArrayList();
         protected Map<String,Set<String>> relations = Maps.newLinkedHashMap();
@@ -68,7 +68,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
             type = other.getType();
             typeClass = other.getTypeClass();
             displayName = other.getDisplayName();
-            setCatalogItemIds(other.getCatalogItemHierarchy(), other.getCatalogItemId());
+            setCatalogItemIdHierarchy(other.getCatalogItemHierarchy(), other.getCatalogItemId());
             customFields.putAll(other.getCustomFields());
             tags.addAll(other.getTags());
             relations.putAll(other.getRelations());
@@ -76,13 +76,13 @@ public abstract class AbstractMemento implements Memento, Serializable {
             return self();
         }
 
-        private void setCatalogItemIds(List<String> otherItemSuperIds, String otherItemId) {
-            if (isEmpty(otherItemSuperIds) && otherItemId == null) {
-                catalogItemSuperIds = MutableList.of();
-            } else if (isEmpty(otherItemSuperIds) && otherItemId != null) {
-                catalogItemSuperIds = MutableList.of(otherItemId);
+        private void setCatalogItemIdHierarchy(List<String> otherItemIdHierarchy, String otherItemId) {
+            if (isEmpty(otherItemIdHierarchy) && otherItemId == null) {
+                catalogItemHierarchy = MutableList.of();
+            } else if (isEmpty(otherItemIdHierarchy) && otherItemId != null) {
+                catalogItemHierarchy = MutableList.of(otherItemId);
             } else {
-                catalogItemSuperIds = MutableList.copyOf(otherItemSuperIds);
+                catalogItemHierarchy = MutableList.copyOf(otherItemIdHierarchy);
             }
         }
 
@@ -103,9 +103,14 @@ public abstract class AbstractMemento implements Memento, Serializable {
     private String type;
     private String id;
     private String displayName;
-    // catalogItemId is retained to support rebind of previously persisted state (prior to catalogItemSuperIds)
+
+    @Deprecated
+    /**
+     @deprecated since 0.11.0; retained to support rebind of previously persisted state (prior to catalogItemHierarchy)
+      */
     protected String catalogItemId;
-    private List<String> catalogItemSuperIds = MutableList.of();
+
+    private List<String> catalogItemHierarchy = MutableList.of();
     private List<Object> tags;
     private Map<String,Set<String>> relations;
     
@@ -125,7 +130,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
         type = builder.type;
         typeClass = builder.typeClass;
         displayName = builder.displayName;
-        catalogItemSuperIds = builder.catalogItemSuperIds;
+        catalogItemHierarchy = builder.catalogItemHierarchy;
         setCustomFields(builder.customFields);
         tags = toPersistedList(builder.tags);
         relations = toPersistedMap(builder.relations);
@@ -138,11 +143,11 @@ public abstract class AbstractMemento implements Memento, Serializable {
 
     // deals with value created by deserialization of state persisted with <catalogItemId>
     private void normalizeCatalogItemIds() {
-        if (catalogItemSuperIds == null) {
-            catalogItemSuperIds = MutableList.of();
+        if (catalogItemHierarchy == null) {
+            catalogItemHierarchy = MutableList.of();
         }
-        if (catalogItemSuperIds.isEmpty() && catalogItemId != null) {
-            catalogItemSuperIds = MutableList.of(catalogItemId);
+        if (catalogItemHierarchy.isEmpty() && catalogItemId != null) {
+            catalogItemHierarchy = MutableList.of(catalogItemId);
             catalogItemId = null;
         }
     }
@@ -186,7 +191,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
     @Override
     public List<String> getCatalogItemHierarchy() {
         normalizeCatalogItemIds();
-        return catalogItemSuperIds;
+        return catalogItemHierarchy;
     }
 
     @Override

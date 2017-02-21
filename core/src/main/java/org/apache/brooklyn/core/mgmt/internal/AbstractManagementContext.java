@@ -130,10 +130,10 @@ public abstract class AbstractManagementContext implements ManagementContextInte
             public BrooklynClassLoadingContext apply(@Nullable Object input) {
                 if (input instanceof EntityInternal) {
                     EntityInternal internal = (EntityInternal)input;
-                    final List<String> catalogItemSuperIds = internal.getCatalogItemHierarchy();
-                    if (catalogItemSuperIds.size() > 0) {
+                    final List<String> catalogItemHierarchy = internal.getCatalogItemHierarchy();
+                    if (catalogItemHierarchy.size() > 0) {
                         BrooklynClassLoadingContextSequential seqLoader =
-                            newClassLoadingContextForCatalogItems(internal.getManagementContext(), catalogItemSuperIds);
+                            newClassLoadingContextForCatalogItems(internal.getManagementContext(), catalogItemHierarchy);
                         JavaBrooklynClassLoadingContext entityLoader =
                             JavaBrooklynClassLoadingContext.create(input.getClass().getClassLoader());
                         seqLoader.add(entityLoader);

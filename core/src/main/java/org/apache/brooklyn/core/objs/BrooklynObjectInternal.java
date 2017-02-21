@@ -38,7 +38,7 @@ import com.google.common.annotations.Beta;
 public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
     
     void setCatalogItemId(String id);
-    void setCatalogItemIds(List<String> id);
+    void setCatalogItemIdHierarchy(List<String> id);
 
     void nestCatalogItemId(String id);
     

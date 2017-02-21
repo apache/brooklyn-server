@@ -52,6 +52,10 @@ public class EntityMementoManifestImpl implements EntityMementoManifest {
         return parentId;
     }
 
+    /**
+     * @deprecated since 0.11.0, use {@link #getCatalogItemHierarchy()} instead
+     */
+    @Deprecated
     @Override
     public String getCatalogItemId() {
         return Iterables.getFirst(catalogItemIds, null);

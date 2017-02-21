@@ -207,7 +207,7 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
     }
 
     @Override
-    public void setCatalogItemIds(List<String> ids) {
+    public void setCatalogItemIdHierarchy(List<String> ids) {
         catalogItemIdStack.clear();
         catalogItemIdStack.addAll(ids);
     }

@@ -247,7 +247,7 @@ public class InternalEntityFactory extends InternalFactory {
                 ((AbstractEntity)entity).setDisplayName(spec.getDisplayName());
             
             if (spec.getOuterCatalogItemId()!=null) {
-                ((AbstractEntity)entity).setCatalogItemIds(spec.getCatalogItemIdHierarchy());
+                ((AbstractEntity)entity).setCatalogItemIdHierarchy(spec.getCatalogItemIdHierarchy());
             }
             
             entity.tags().addTags(spec.getTags());
