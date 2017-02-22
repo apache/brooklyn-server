@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.catalog.internal;
 
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -173,13 +172,6 @@ public class CatalogUtils {
     public static String getCatalogItemIdFromLoader(BrooklynClassLoadingContext loader) {
         if (loader instanceof OsgiBrooklynClassLoadingContext) {
             return ((OsgiBrooklynClassLoadingContext)loader).getCatalogItemId();
-        } else if (loader instanceof BrooklynClassLoadingContextSequential) {
-            final Iterator<BrooklynClassLoadingContext> iterator = ((BrooklynClassLoadingContextSequential) loader).getPrimaries().iterator();
-            if (iterator.hasNext()) {
-                BrooklynClassLoadingContext osgiLoader = iterator.next();
-                return getCatalogItemIdFromLoader(osgiLoader);
-            }
-            else return null;
         } else {
             return null;
         }
