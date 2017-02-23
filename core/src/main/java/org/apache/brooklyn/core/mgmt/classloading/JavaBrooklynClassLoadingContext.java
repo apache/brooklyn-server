@@ -82,12 +82,13 @@ public class JavaBrooklynClassLoadingContext extends AbstractBrooklynClassLoadin
     @Override
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public Maybe<Class<?>> tryLoadClass(String className) {
-        Maybe<Class<?>> cls = tryLoadClass0(className);
+        String mappedClassName = DeserializingClassRenamesProvider.INSTANCE.findMappedName(className);
+        Maybe<Class<?>> cls = tryLoadClass0(mappedClassName);
         if (cls.isPresent()) {
             return cls;
         }
         try {
-            return (Maybe) Maybe.of(new ClassLoaderUtils(loader, mgmt).loadClass(className));
+            return (Maybe) Maybe.of(new ClassLoaderUtils(loader, mgmt).loadClass(mappedClassName));
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             // return original error
@@ -98,7 +99,6 @@ public class JavaBrooklynClassLoadingContext extends AbstractBrooklynClassLoadin
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private Maybe<Class<?>> tryLoadClass0(String className) {
         try {
-            className = DeserializingClassRenamesProvider.INSTANCE.findMappedName(className);
             return (Maybe) Maybe.of(getClassLoader().loadClass(className));
         } catch (NoClassDefFoundError e) {
             String msg = "Invalid linkage in (transitive dependencies of) class "+className+": "+e.toString();
