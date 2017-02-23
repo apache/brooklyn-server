@@ -29,6 +29,7 @@ import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.trait.FailingEntity;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.entity.TestApplicationImpl;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
@@ -67,6 +68,21 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
         
         startAndAssertException(app, ImmutableList.<Location>of());
         assertHealthEventually(child, Lifecycle.ON_FIRE, false);
+        assertHealthEventually(app, Lifecycle.ON_FIRE, false);
+    }
+    
+    public static class TestApplicationDoStartFailing extends TestApplicationImpl {
+        @Override
+        protected void doStart(Collection<? extends Location> locations) {
+            super.doStart(locations);
+            throw new RuntimeException("deliberate failure");
+        }
+    }
+    public void testAppFailsCausesAppToFail() throws Exception {
+        TestApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class,
+                TestApplicationDoStartFailing.class));
+        
+        startAndAssertException(app, ImmutableList.<Location>of());
         assertHealthEventually(app, Lifecycle.ON_FIRE, false);
     }
     
