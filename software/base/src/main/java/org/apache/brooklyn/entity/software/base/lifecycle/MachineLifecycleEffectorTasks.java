@@ -495,10 +495,18 @@ public abstract class MachineLifecycleEffectorTasks {
             // simply because subnet is still being looked up)
             Maybe<String> lh = Machines.getSubnetHostname(machine);
             Maybe<String> la = Machines.getSubnetIp(machine);
-            if (lh.isPresent()) entity().sensors().set(Attributes.SUBNET_HOSTNAME, lh.get());
-            if (la.isPresent()) entity().sensors().set(Attributes.SUBNET_ADDRESS, la.get());
-            entity().sensors().set(Attributes.HOSTNAME, machine.getAddress().getHostName());
-            entity().sensors().set(Attributes.ADDRESS, machine.getAddress().getHostAddress());
+            if (lh.isPresent() && entity().sensors().get(Attributes.SUBNET_HOSTNAME) == null) {
+                entity().sensors().set(Attributes.SUBNET_HOSTNAME, lh.get());
+            }
+            if (la.isPresent() && entity().sensors().get(Attributes.SUBNET_ADDRESS) == null) {
+                entity().sensors().set(Attributes.SUBNET_ADDRESS, la.get());
+            }
+            if (entity().sensors().get(Attributes.HOSTNAME) == null) {
+                entity().sensors().set(Attributes.HOSTNAME, machine.getAddress().getHostName());
+            }
+            if (entity().sensors().get(Attributes.ADDRESS) == null) {
+                entity().sensors().set(Attributes.ADDRESS, machine.getAddress().getHostAddress());
+            }
             if (machine instanceof SshMachineLocation) {
                 SshMachineLocation sshMachine = (SshMachineLocation) machine;
                 UserAndHostAndPort sshAddress = UserAndHostAndPort.fromParts(
