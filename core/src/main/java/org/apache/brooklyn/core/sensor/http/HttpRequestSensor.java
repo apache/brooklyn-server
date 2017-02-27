@@ -31,6 +31,7 @@ import org.apache.brooklyn.core.sensor.ssh.SshCommandSensor;
 import org.apache.brooklyn.feed.http.HttpFeed;
 import org.apache.brooklyn.feed.http.HttpPollConfig;
 import org.apache.brooklyn.feed.http.HttpValueFunctions;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,10 +57,16 @@ public final class HttpRequestSensor<T> extends AddSensor<T> {
     public static final ConfigKey<String> JSON_PATH = ConfigKeys.newStringConfigKey("jsonPath", "JSON path to select in HTTP response; default $", "$");
     public static final ConfigKey<String> USERNAME = ConfigKeys.newStringConfigKey("username", "Username for HTTP request, if required");
     public static final ConfigKey<String> PASSWORD = ConfigKeys.newStringConfigKey("password", "Password for HTTP request, if required");
-    public static final ConfigKey<Map<String, String>> HEADERS = new MapConfigKey(String.class, "headers");
+    public static final ConfigKey<Map<String, String>> HEADERS = new MapConfigKey<String>(String.class, "headers");
+    
+    private final Map<String, Object> extraParams = MutableMap.of();
 
     public HttpRequestSensor(final ConfigBag params) {
         super(params);
+        // TODO yoml serialization of this needs some attention; probably better to use a pure
+        // config bag approach (as in this class) rather than an "extract-in-constructor" (as in parent)
+        // so that there are no serialized fields, just serialized config
+        this.extraParams.putAll(params.getUnusedConfig());
     }
 
     @Override
@@ -70,7 +77,7 @@ public final class HttpRequestSensor<T> extends AddSensor<T> {
             LOG.debug("Adding HTTP JSON sensor {} to {}", name, entity);
         }
 
-        final ConfigBag allConfig = ConfigBag.newInstanceCopying(this.params).putAll(params);
+        final ConfigBag allConfig = ConfigBag.newInstance().putAll(extraParams);
         final Supplier<URI> uri = new Supplier<URI>() {
             @Override
             public URI get() {
