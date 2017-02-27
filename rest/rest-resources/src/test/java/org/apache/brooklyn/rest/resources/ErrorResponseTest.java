@@ -18,16 +18,16 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import com.google.common.collect.ImmutableMap;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response.Status;
+import java.io.IOException;
+import java.io.InputStream;
 
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
 
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.domain.ApplicationSpec;
@@ -36,9 +36,12 @@ import org.apache.brooklyn.rest.domain.PolicySummary;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.rest.testing.mocks.RestMockSimpleEntity;
 import org.apache.brooklyn.rest.testing.mocks.RestMockSimplePolicy;
+import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import javax.ws.rs.core.Response;
 
 @Test( // by using a different suite name we disallow interleaving other tests between the methods of this test class, which wrecks the test fixtures
         suiteName = "ErrorResponseTest")
@@ -80,10 +83,12 @@ public class ErrorResponseTest extends BrooklynRestResourceTest {
 
         ApiError error = response.readEntity(ApiError.class);
         assertTrue(error.getMessage().toLowerCase().contains("cannot coerce"));
+        assertNotNull(error.getError());
+        assertEquals(error.getError(), response.getStatus(), Status.BAD_REQUEST.getStatusCode());
     }
 
     @Test
-    public void testResponseToWrongMethod() {
+    public void testResponseToWrongMethod() throws IOException {
         String resource = "/applications/simple-app/entities/simple-ent/policies/"+policyId+"/config/"
                 + RestMockSimplePolicy.INTEGER_CONFIG.getName() + "/set";
 
@@ -93,6 +98,8 @@ public class ErrorResponseTest extends BrooklynRestResourceTest {
                 .get();
 
         assertEquals(response.getStatus(), 405);
-        // Can we assert anything about the content type?
+        // no input stream; not an API Error
+        InputStream entity = (InputStream) response.getEntity();
+        Assert.assertEquals(entity.read(), -1);
     }
 }

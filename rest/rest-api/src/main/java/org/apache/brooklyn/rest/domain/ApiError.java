@@ -30,8 +30,8 @@ import javax.ws.rs.core.Response.Status;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.base.Throwables;
 
 public class ApiError implements Serializable {
@@ -134,10 +134,10 @@ public class ApiError implements Serializable {
 
     private final String message;
 
-    @JsonSerialize(include= JsonSerialize.Inclusion.NON_EMPTY)
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private final String details;
 
-    @JsonSerialize(include= JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private final Integer error;
 
     public ApiError(String message) { this(message, null); }
@@ -167,10 +167,12 @@ public class ApiError implements Serializable {
         return asResponse(Status.BAD_REQUEST, MediaType.APPLICATION_JSON_TYPE);
     }
 
-    public Response asResponse(Status defaultStatus, MediaType type) {
-        return Response.status(error!=null ? error : defaultStatus!=null ? defaultStatus.getStatusCode() : Status.INTERNAL_SERVER_ERROR.getStatusCode())
+    public Response asResponse(Status defaultStatusIfNoErrorCodeAlready, MediaType type) {
+        boolean hasErrorAlready = this.getError()!=null && this.getError()!=0;
+        int errorCode = hasErrorAlready ? error : defaultStatusIfNoErrorCodeAlready!=null ? defaultStatusIfNoErrorCodeAlready.getStatusCode() : Status.INTERNAL_SERVER_ERROR.getStatusCode();
+        return Response.status(errorCode)
             .type(type)
-            .entity(this)
+            .entity(hasErrorAlready ? this: builder().copy(this).errorCode(errorCode).build())
             .build();
     }
 
