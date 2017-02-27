@@ -82,16 +82,17 @@ public interface CloudLocationConfig {
         "vmNameSaltLength", "Number of characters to use for a random identifier inserted in hostname "
             + "to uniquely identify machines", 4);
 
-    public static final ConfigKey<String> POLL_FOR_FIRST_REACHABLE_ADDRESS = ConfigKeys.newStringConfigKey("pollForFirstReachableAddress", 
-            "Whether and how long to wait for reaching the VM's ip:port; "
-            + "if 'false', will default to the node's first public IP (or private if no public IPs); "
-            + "if 'true' uses default duration; otherwise accepts a time string e.g. '5m' (the default) or a number of milliseconds", "5m");
+    ConfigKey<String> POLL_FOR_FIRST_REACHABLE_ADDRESS = ConfigKeys.newStringConfigKey("pollForFirstReachableAddress",
+            "Whether and how long to wait for reaching the VM's ip:port to be accessible over SSH or WinRM; "
+            + "if 'false', the location will will choose a public or private IP as appropriate; "
+            + "if 'true' uses default duration; otherwise accepts a time string e.g. '5m' (the default) or a number of milliseconds",
+            "5m");
 
     @SuppressWarnings("serial")
     ConfigKey<Predicate<? super HostAndPort>> POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE = ConfigKeys.newConfigKey(
             new TypeToken<Predicate<? super HostAndPort>>(){}, 
             "pollForFirstReachableAddress.predicate",
-            "Predicate<HostAndPort> implementation which checks whether machine is up or not.");
+            "Predicate<HostAndPort> implementation which checks whether an ip:port is reachable.");
 
     @SuppressWarnings("serial")
     ConfigKey<Class<? extends Predicate<? super HostAndPort>>> POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE_TYPE = ConfigKeys.newConfigKey(
@@ -101,15 +102,19 @@ public interface CloudLocationConfig {
                     "Other keys prefixed with pollForFirstReachableAddress.predicate.<property> will be passed to the Map constructor of the Predicate<HostAndPort> implementation.",
             Networking.IsReachablePredicate.class);
 
-    public static final ConfigKey<String> WAIT_FOR_SSHABLE = ConfigKeys.newStringConfigKey("waitForSshable",
+    /** @deprecated since 0.11.0 use {@link #POLL_FOR_FIRST_REACHABLE_ADDRESS} instead. */
+    @Deprecated
+    ConfigKey<String> WAIT_FOR_SSHABLE = ConfigKeys.newStringConfigKey("waitForSshable",
             "Whether and how long to wait for a newly provisioned VM to be accessible via ssh; " +
             "if 'false', won't check; if 'true' uses default duration; otherwise accepts a time string e.g. '5m' (the default) or a number of milliseconds", "5m");
 
-    public static final ConfigKey<String> WAIT_FOR_WINRM_AVAILABLE = ConfigKeys.newStringConfigKey("waitForWinRmAvailable",
+    /** @deprecated since 0.11.0 use {@link #POLL_FOR_FIRST_REACHABLE_ADDRESS} instead. */
+    @Deprecated
+    ConfigKey<String> WAIT_FOR_WINRM_AVAILABLE = ConfigKeys.newStringConfigKey("waitForWinRmAvailable",
             "Whether and how long to wait for a newly provisioned VM to be accessible via WinRm; " +
-                    "if 'false', won't check; if 'true' uses default duration; otherwise accepts a time string e.g. '30m' (the default) or a number of milliseconds", "30m");
+            "if 'false', won't check; if 'true' uses default duration; otherwise accepts a time string e.g. '30m' (the default) or a number of milliseconds", "30m");
 
-    public static final ConfigKey<Boolean> LOG_CREDENTIALS = ConfigKeys.newBooleanConfigKey(
+    ConfigKey<Boolean> LOG_CREDENTIALS = ConfigKeys.newBooleanConfigKey(
             "logCredentials", 
             "Whether to log credentials of a new VM - strongly recommended never be used in production, as it is a big security hole!",
             false);

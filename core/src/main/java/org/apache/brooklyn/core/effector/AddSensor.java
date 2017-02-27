@@ -65,6 +65,7 @@ public class AddSensor<T> implements EntityInitializer {
     protected final Duration period;
     protected final String targetType;
     protected AttributeSensor<T> sensor;
+    protected final ConfigBag params;
 
     public AddSensor(Map<String, String> params) {
         this(ConfigBag.newInstance(params));
@@ -74,6 +75,7 @@ public class AddSensor<T> implements EntityInitializer {
         this.name = Preconditions.checkNotNull(params.get(SENSOR_NAME), "Name must be supplied when defining a sensor");
         this.period = params.get(SENSOR_PERIOD);
         this.targetType = params.get(SENSOR_TYPE);
+        this.params = params;
     }
 
     @Override

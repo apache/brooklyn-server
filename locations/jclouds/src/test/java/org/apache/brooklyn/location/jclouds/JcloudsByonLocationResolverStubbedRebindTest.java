@@ -142,6 +142,8 @@ public class JcloudsByonLocationResolverStubbedRebindTest extends AbstractJcloud
         String spec = "jcloudsByon:(provider=\""+SOFTLAYER_PROVIDER+"\",region=\""+SOFTLAYER_AMS01_REGION_NAME+"\",user=\"myuser\",password=\"mypassword\",hosts=\""+nodeId+"\")";
         Map<?,?> specFlags = ImmutableMap.builder()
                 .put(JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry)
+                .put(JcloudsLocationConfig.WAIT_FOR_SSHABLE, Duration.ONE_SECOND.toString())
+                .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS, Duration.ONE_SECOND.toString())
                 .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE, Predicates.alwaysTrue())
                 .build();
 

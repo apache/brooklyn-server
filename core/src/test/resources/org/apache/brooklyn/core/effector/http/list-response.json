@@ -1,0 +1,19 @@
+{
+  "args": {},
+  "data": "[\"key\", \"value\"]",
+  "files": {},
+  "form": {},
+  "headers": {
+    "Accept": "*/*",
+    "Content-Length": "16",
+    "Content-Type": "application/json",
+    "Host": "httpbin.org",
+    "User-Agent": "curl/7.49.1"
+  },
+  "json": [
+    "key",
+    "value"
+  ],
+  "origin": "93.61.99.89",
+  "url": "http://httpbin.org/post"
+}

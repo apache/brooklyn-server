@@ -40,7 +40,6 @@ import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.net.Protocol;
 import org.apache.brooklyn.util.net.ReachableSocketFinder;

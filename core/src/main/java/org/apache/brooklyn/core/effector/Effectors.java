@@ -64,6 +64,10 @@ public class Effectors {
             this.returnType = returnType;
             this.effectorName = effectorName;
         }
+        public EffectorBuilder<T> name(String name) {
+            this.effectorName = name;
+            return this;
+        }
         public EffectorBuilder<T> description(String description) {
             this.description = description;
             return this;                
