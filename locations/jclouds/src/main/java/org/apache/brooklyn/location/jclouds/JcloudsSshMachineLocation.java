@@ -18,7 +18,7 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
-import static org.apache.brooklyn.location.jclouds.JcloudsLocationConfig.USE_MACHINE_PUBLIC_ADDRESS_AS_PRIVATE_ADDRESS;
+import static org.apache.brooklyn.location.jclouds.api.JcloudsLocationConfigPublic.USE_MACHINE_PUBLIC_ADDRESS_AS_PRIVATE_ADDRESS;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
 import java.util.List;
@@ -63,7 +63,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
@@ -184,7 +184,7 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
     
     @Override
     public String toVerboseString() {
-        return Objects.toStringHelper(this).omitNullValues()
+        return MoreObjects.toStringHelper(this).omitNullValues()
                 .add("id", getId()).add("name", getDisplayName())
                 .add("user", getUser()).add("address", getAddress()).add("port", getConfig(SSH_PORT))
                 .add("node", _node)

@@ -36,9 +36,11 @@ import com.google.common.reflect.TypeToken;
 @Beta
 public interface ConnectivityResolver {
 
+    @SuppressWarnings("serial")
     AttributeSensor<Iterable<String>> PUBLIC_ADDRESSES = Sensors.newSensor(new TypeToken<Iterable<String>>() {},
             "host.addresses.public", "Public addresses on an instance");
 
+    @SuppressWarnings("serial")
     AttributeSensor<Iterable<String>> PRIVATE_ADDRESSES = Sensors.newSensor(new TypeToken<Iterable<String>>() {},
             "host.addresses.private", "Private addresses on an instance");
 

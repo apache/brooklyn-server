@@ -43,6 +43,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+
 import javax.annotation.Nullable;
 import javax.xml.ws.WebServiceException;
 
@@ -74,9 +75,9 @@ import org.apache.brooklyn.core.location.cloud.names.AbstractCloudMachineNamer;
 import org.apache.brooklyn.core.location.cloud.names.CloudMachineNamer;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
-import org.apache.brooklyn.core.mgmt.persist.LocationWithObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.jclouds.JcloudsBlobStoreBasedObjectStore;
+import org.apache.brooklyn.location.jclouds.api.JcloudsLocationPublic;
 import org.apache.brooklyn.location.jclouds.networking.JcloudsPortForwarderExtension;
 import org.apache.brooklyn.location.jclouds.templates.PortableTemplateBuilder;
 import org.apache.brooklyn.location.jclouds.templates.customize.TemplateBuilderCustomizer;
@@ -183,8 +184,7 @@ import com.google.common.net.HostAndPort;
  * Configuration flags are defined in {@link JcloudsLocationConfig}.
  */
 public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation implements
-        JcloudsLocationConfig, MachineManagementMixins.RichMachineProvisioningLocation<MachineLocation>,
-        LocationWithObjectStore, MachineManagementMixins.SuspendResumeLocation {
+        JcloudsLocationPublic {
 
     // TODO After converting from Groovy to Java, this is now very bad code! It relies entirely on putting
     // things into and taking them out of maps; it's not type-safe, and it's thus very error-prone.
@@ -197,12 +197,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     // (inheritance only works when we call getConfig in this class)
 
     public static final Logger LOG = LoggerFactory.getLogger(JcloudsLocation.class);
-
-    public static final String ROOT_USERNAME = "root";
-    /** these userNames are known to be the preferred/required logins in some common/default images
-     *  where root@ is not allowed to log in */
-    public static final List<String> ROOT_ALIASES = ImmutableList.of("ubuntu", "centos", "ec2-user");
-    public static final List<String> COMMON_USER_NAMES_TO_TRY = ImmutableList.<String>builder().add(ROOT_USERNAME).addAll(ROOT_ALIASES).add("admin").build();
 
     private static final int NOTES_MAX_LENGTH = 1000;
 
@@ -296,23 +290,28 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 .toString();
     }
 
+    @Override
     public String getProvider() {
         return getConfig(CLOUD_PROVIDER);
     }
 
+    @Override
     public String getIdentity() {
         return getConfig(ACCESS_IDENTITY);
     }
 
+    @Override
     public String getCredential() {
         return getConfig(ACCESS_CREDENTIAL);
     }
 
     /** returns the location ID used by the provider, if set, e.g. us-west-1 */
+    @Override
     public String getRegion() {
         return getConfig(CLOUD_REGION_ID);
     }
 
+    @Override
     public String getEndpoint() {
         return (String) config().getBag().getWithDeprecation(CLOUD_ENDPOINT, JCLOUDS_KEY_ENDPOINT);
     }
@@ -1542,7 +1541,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
     }
 
-    protected String toStringNice() {
+    @Override
+    public String toStringNice() {
         String s = config().get(ORIGINAL_SPEC);
         if (Strings.isBlank(s)) s = config().get(NAMED_SPEC_NAME);
         if (Strings.isBlank(s)) s = config().get(FINAL_SPEC);
