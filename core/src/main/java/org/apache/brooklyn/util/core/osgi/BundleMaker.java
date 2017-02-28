@@ -52,6 +52,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.io.LineReader;
 
+@Beta   
 public class BundleMaker {
 
     final static String MANIFEST_PATH = JarFile.MANIFEST_NAME;
