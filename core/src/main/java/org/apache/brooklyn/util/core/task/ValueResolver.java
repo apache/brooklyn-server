@@ -405,9 +405,14 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                     if (bailOutAfterImmediateExecution) {
                         throw new ImmediateSupplier.ImmediateUnsupportedException("Cannot get immediately: "+v);
                     }
-                } catch (InterruptingImmediateSupplier.InterruptingImmediateSupplierNotSupportedForObject o) {
+                } catch (ImmediateSupplier.ImmediateUnsupportedException e) {
+                    if (bailOutAfterImmediateExecution) {
+                        throw new ImmediateSupplier.ImmediateUnsupportedException("Cannot get immediately: "+v, e);
+                    }
+                    log.debug("Unable to resolve-immediately for "+description+" ("+v+", unsupported, type "+v.getClass()+"); falling back to executing with timeout: "+e);
+                } catch (InterruptingImmediateSupplier.InterruptingImmediateSupplierNotSupportedForObject e) {
                     // ignore, continue below
-                    log.debug("Unable to resolve-immediately for "+description+" ("+v+", wrong type "+v.getClass()+"); falling back to executing with timeout");
+                    log.debug("Unable to resolve-immediately for "+description+" ("+v+", not supported for type "+v.getClass()+"); falling back to executing with timeout: "+e);
                 }
             }
             
@@ -559,17 +564,14 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         }
     }
 
+    /** tries to get immediately, then resolve recursively (including for casting) if {@link #recursive} is set
+     * 
+     * @throws InterruptingImmediateSupplier.InterruptingImmediateSupplierNotSupportedForObject
+     * ImmediateSupplier.ImmediateUnsupportedException
+     * if underlying call to {@link ExecutionContext#getImmediately(Object)} does so */
     protected Maybe<T> execImmediate(ExecutionContext exec, Object immediateSupplierOrImmediateTask) {
-        Maybe<T> result;
-        try {
-            result = exec.getImmediately(immediateSupplierOrImmediateTask);
-        } catch (ImmediateSupplier.ImmediateUnsupportedException e) {
-            return null;
-        }
-        // let InterruptingImmediateSupplier.InterruptingImmediateSupplierNotSupportedForObject 
-        // bet thrown, and caller who cares will catch that to know it can continue
+        Maybe<T> result = exec.getImmediately(immediateSupplierOrImmediateTask);
         
-        // Recurse: need to ensure returned value is cast, etc
         return (result.isPresent())
             ? recursive
                 ? new ValueResolver<T>(result.get(), type, this).getMaybe()
