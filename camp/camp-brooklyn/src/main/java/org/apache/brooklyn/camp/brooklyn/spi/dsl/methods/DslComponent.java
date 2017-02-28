@@ -31,9 +31,9 @@ import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
@@ -60,6 +60,7 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.base.CaseFormat;
@@ -552,6 +553,11 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             this.effectorName = effectorName;
             this.argList = args;
             this.args = null;
+        }
+
+        @Override
+        public Maybe<Object> getImmediately() {
+            return Maybe.absent();
         }
 
         @SuppressWarnings("unchecked")
