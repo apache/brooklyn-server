@@ -20,13 +20,19 @@ package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
@@ -43,25 +49,32 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.core.task.HasSideEffects;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Converter;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Callables;
 
 public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements DslFunctionSource {
@@ -510,6 +523,119 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     }
 
     @DslAccessible
+    public BrooklynDslDeferredSupplier<?> effector(final String effectorName) {
+        return new ExecuteEffector(this, effectorName, ImmutableMap.<String, Object>of());
+    }
+    @DslAccessible
+    public BrooklynDslDeferredSupplier<?> effector(final String effectorName, final Map<String, ?> args) {
+        return new ExecuteEffector(this, effectorName, args);
+    }
+    public BrooklynDslDeferredSupplier<?> effector(final String effectorName, Object... args) {
+        return new ExecuteEffector(this, effectorName, ImmutableList.copyOf(args));
+    }
+    protected static class ExecuteEffector extends BrooklynDslDeferredSupplier<Object> implements HasSideEffects {
+        private static final long serialVersionUID = 1740899524088902383L;
+        private final DslComponent component;
+        private final String effectorName;
+        private final Map<String, ?> args;
+        private final List<? extends Object> argList;
+        private Task<?> cachedTask;
+
+        public ExecuteEffector(DslComponent component, String effectorName, Map<String, ?> args) {
+            this.component = Preconditions.checkNotNull(component);
+            this.effectorName = effectorName;
+            this.args = args;
+            this.argList = null;
+        }
+
+        public ExecuteEffector(DslComponent component, String effectorName, List<? extends Object> args) {
+            this.component = Preconditions.checkNotNull(component);
+            this.effectorName = effectorName;
+            this.argList = args;
+            this.args = null;
+        }
+
+        @Override
+        public Maybe<Object> getImmediately() {
+            return Maybe.absent();
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public Task<Object> newTask() {
+            Entity targetEntity = component.get();
+            Maybe<Effector<?>> targetEffector = targetEntity.getEntityType().getEffectorByName(effectorName);
+            if (targetEffector.isAbsentOrNull()) {
+                throw new IllegalArgumentException("Effector " + effectorName + " not found on entity: " + targetEntity);
+            }
+            synchronized (this) {
+                if (cachedTask == null) {
+                    if (argList == null) {
+                        cachedTask = Entities.invokeEffector(targetEntity, targetEntity, targetEffector.get(), args);
+                    } else {
+                        cachedTask = invokeWithDeferredArgs(targetEntity, targetEffector.get(), argList);
+                    }
+                }
+            }
+            return (Task<Object>) cachedTask;
+        }
+
+        private Task<Object> invokeWithDeferredArgs(final Entity targetEntity, final Effector<?> targetEffector, final List<? extends Object> args) {
+            List<TaskAdaptable<Object>> taskArgs = Lists.newArrayList();
+            for (Object arg : args) {
+                if (arg instanceof TaskAdaptable) {
+                    taskArgs.add((TaskAdaptable<Object>) arg);
+                } else if (arg instanceof TaskFactory) {
+                    taskArgs.add(((TaskFactory<TaskAdaptable<Object>>) arg).newTask());
+                }
+            }
+
+            return DependentConfiguration.transformMultiple(
+                MutableMap.of("displayName", "invoking '"+targetEffector.getName()+"' with "+taskArgs.size()+" task"+(taskArgs.size()!=1?"s":"")), 
+                    new Function<List<Object>, Object>() {
+                        @Override
+                        public Object apply(List<Object> input) {
+                            Iterator<?> tri = input.iterator();
+                            Object[] vv = new Object[args.size()];
+                            int i=0;
+                            for (Object arg : args) {
+                                if (arg instanceof TaskAdaptable || arg instanceof TaskFactory) {
+                                    vv[i] = tri.next();
+                                } else if (arg instanceof DeferredSupplier) {
+                                    vv[i] = ((DeferredSupplier<?>) arg).get();
+                                } else {
+                                    vv[i] = arg;
+                                }
+                                i++;
+                            }
+                            return Entities.invokeEffectorWithArgs(targetEntity, targetEntity, targetEffector, vv);
+                        }
+                    },
+                    taskArgs);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(component, effectorName);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            ExecuteEffector that = ExecuteEffector.class.cast(obj);
+            return Objects.equal(this.component, that.component) &&
+                    Objects.equal(this.effectorName, that.effectorName);
+        }
+
+        @Override
+        public String toString() {
+            return (component.scope==Scope.THIS ? "" : component.toString()+".") +
+                "effector("+JavaStringEscapes.wrapJavaString(effectorName)+")";
+        }
+    }
+
+    @DslAccessible
     public BrooklynDslDeferredSupplier<?> config(final Object keyNameOrSupplier) {
         return new DslConfigSupplier(this, keyNameOrSupplier);
     }
@@ -763,5 +889,5 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                
         return DslToStringHelpers.component(scopeComponent, remainder);
     }
-    
+
 }

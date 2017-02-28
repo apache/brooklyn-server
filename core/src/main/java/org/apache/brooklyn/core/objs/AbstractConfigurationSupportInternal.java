@@ -147,6 +147,7 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
                 .deep(true)
                 .context(getContext())
                 .swallowExceptions()
+                .avoidSideEffects()
                 .get();
         return (resolved != marker)
                 ? TypeCoercions.tryCoerce(resolved, key.getTypeToken())
