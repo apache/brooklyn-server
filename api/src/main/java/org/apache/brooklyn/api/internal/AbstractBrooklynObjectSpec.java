@@ -75,7 +75,6 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
     protected AbstractBrooklynObjectSpec(Class<? extends T> type) {
         checkValidType(type);
         this.type = type;
-        this.catalogItemId = ApiObjectsFactory.get().getCatalogItemIdFromContext();
     }
     
     @SuppressWarnings("unchecked")
@@ -98,13 +97,18 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
         return self();
     }
     
+    /** Set the catalog item ID that defined this object, also used for searching for type and resources referenced */
+    // since https://issues.apache.org/jira/browse/BROOKLYN-445 this must no longer be used to indicate
+    // a caller-context catalog item that should be used for search purposes;
+    // if that behaviour is desired, the child should be refactored to be its own item in the catalog BOM
+    // (or TODO we add a separate field to record other catalog item IDs that could be applied for searching, see below)
     public SpecT catalogItemId(String val) {
         catalogItemId = val;
         return self();
     }
     // TODO in many places (callers to this method) we prefer a wrapper item ID;
     // that is right, because the wrapper's defn will refer to the wrapped,
-    // but we might need also to collect the item ID's so that *all* can be searched.
+    // but we might need also to collect the item ID's so that *all* can be searched, see #catalogItemId.
     // e.g. if R3 references R2 which references R1 any one of these might supply config keys 
     // referencing resources or types in their local bundles. 
     @Beta
