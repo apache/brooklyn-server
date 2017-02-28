@@ -347,7 +347,12 @@ public class BasicLocationRegistry implements LocationRegistry {
             .putAll(locationFlags)
             .putIfAbsentAndNotNull(LocationInternal.NAMED_SPEC_NAME, ld.getName())
             .putIfAbsentAndNotNull(LocationInternal.ORIGINAL_SPEC, ld.getName());
-        return getLocationSpec(ld.getSpec(), newLocationFlags.getAllConfigRaw());        
+        Maybe<LocationSpec<? extends Location>> result = getLocationSpec(ld.getSpec(), newLocationFlags.getAllConfigRaw());
+        if (result.isPresent()) {
+            result.get().configure(LocationInternal.NAMED_SPEC_NAME, ld.getName());
+            result.get().configure(LocationInternal.ORIGINAL_SPEC, ld.getName());
+        }
+        return result;
     }
 
     @Override
@@ -372,7 +377,10 @@ public class BasicLocationRegistry implements LocationRegistry {
 
             if (resolver != null) {
                 try {
-                    return (Maybe) Maybe.of(resolver.newLocationSpecFromString(spec, locationFlags, this));
+                    LocationSpec<? extends Location> specO = resolver.newLocationSpecFromString(spec, locationFlags, this);
+                    specO.configure(LocationInternal.ORIGINAL_SPEC, spec);
+                    specO.configure(LocationInternal.NAMED_SPEC_NAME, spec);
+                    return (Maybe) Maybe.of(specO);
                 } catch (RuntimeException e) {
                      return Maybe.absent(Suppliers.ofInstance(e));
                 }

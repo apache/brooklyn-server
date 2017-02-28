@@ -70,12 +70,13 @@ public class LocationTransformer {
         // mgmt not actually needed
         Map<String, Object> config = MutableMap.copyOf(explicitConfig==null ? null : explicitConfig.getAllConfig());
         if (spec!=null && (level==LocationDetailLevel.FULL_EXCLUDING_SECRET || level==LocationDetailLevel.FULL_INCLUDING_SECRET)) {
-            // full takes from any resolved spec AND from explicit config
-            // TODO include flags? esp need provider, region, and endpoint
+            // full takes from any resolved spec ie inherited, AND explicit config and flags;
+            // would be nice to distinguish flags from config, but more important to make sure flags are supplied
+            // (ideally would return yaml, using yoml)
             config = ConfigBag.newInstance(spec.getFlags()).putAll(spec.getConfig()).putAll(config).getAllConfig();
         } else if (level==LocationDetailLevel.LOCAL_EXCLUDING_SECRET) {
-            // in local mode, just make sure display name is set
-            // TODO include provider, region, and endpoint ?
+            // in local mode, make sure any inherited display name is set, but otherwise _no_ inherited
+            // NB this may not include provider, region, and endpoint -- use 'full' for that
             if (spec!=null && !explicitConfig.containsKey(LocationConfigKeys.DISPLAY_NAME) ) {
                 if (Strings.isNonBlank((String) spec.getFlags().get(LocationConfigKeys.DISPLAY_NAME.getName()))){
                     config.put(LocationConfigKeys.DISPLAY_NAME.getName(), spec.getFlags().get(LocationConfigKeys.DISPLAY_NAME.getName()));
@@ -148,7 +149,6 @@ public class LocationTransformer {
             // walk parent locations
             // TODO not sure this is the best strategy, or if it's needed, as the spec config is inherited anyway... 
             if (spec==null) {
-                // TODO should be "named spec" ?
                 Maybe<Object> originalSpec = ((LocationInternal)lp).config().getRaw(LocationInternal.ORIGINAL_SPEC);
                 if (originalSpec.isPresent())
                     spec = Strings.toString(originalSpec.get());
