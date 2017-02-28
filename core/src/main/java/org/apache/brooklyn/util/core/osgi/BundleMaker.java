@@ -90,9 +90,21 @@ public class BundleMaker {
                 path = "classpath:"+path;
             }
             
-            InputStream min = resources.getResourceFromUrl(Urls.mergePaths(path, MANIFEST_PATH));
+            InputStream min;
+            try {
+                min = resources.getResourceFromUrl(Urls.mergePaths(path, MANIFEST_PATH));
+            } catch (RuntimeException e) {
+                Exceptions.propagateIfFatal(e);
+                IOException ioe = Exceptions.getFirstThrowableOfType(e, IOException.class);
+                if (ioe != null && ioe.toString().contains("not found on classpath")) {
+                    min = null;
+                } else {
+                    throw e;
+                }
+            }
             if (min==null) {
-                addUrlItemRecursively(zout, path, path, Predicates.<String>alwaysTrue());
+                zout = new JarOutputStream(new FileOutputStream(f));
+                addUrlItemRecursively(zout, path, path, Predicates.alwaysTrue());
             } else {
                 zout = new JarOutputStream(new FileOutputStream(f), new Manifest(min));
                 addUrlItemRecursively(zout, path, path, Predicates.not(Predicates.equalTo(MANIFEST_PATH)));
@@ -158,12 +170,12 @@ public class BundleMaker {
     }
     
     /** create a copy of the given ZIP as a JAR with the given entries added at the end (removing any duplicates), returning the new temp file */
-    public File copyAdding(File f, Map<ZipEntry,InputStream> entries) {
+    public File copyAdding(File f, Map<ZipEntry, ? extends InputStream> entries) {
         return copyAdding(f, entries, Predicates.<String>alwaysTrue(), false);
     }
     
     /** create a copy of the given ZIP as a JAR with the given entries added at the end, returning the new temp file */
-    public File copyAddingAtEnd(File f, Map<ZipEntry,InputStream> entries) {
+    public File copyAddingAtEnd(File f, Map<ZipEntry, ? extends InputStream> entries) {
         return copyAdding(f, entries, Predicates.<String>alwaysTrue(), true);
     }
 
@@ -178,11 +190,11 @@ public class BundleMaker {
     }
     
     /** create a copy of the given ZIP as a JAR with the given entries removed, returning the new temp file */
-    public File copyRemoving(File f, Predicate<String> filter) {
+    public File copyRemoving(File f, Predicate<? super String> filter) {
         return copyAdding(f, MutableMap.<ZipEntry,InputStream>of(), filter, true);
     }
     
-    private File copyAdding(File f, Map<ZipEntry,InputStream> entries, final Predicate<String> filter, boolean addAtStart) {
+    private File copyAdding(File f, Map<ZipEntry, ? extends InputStream> entries, final Predicate<? super String> filter, boolean addAtStart) {
         final Set<String> entryNames = MutableSet.of();
         for (ZipEntry ze: entries.keySet()) {
             entryNames.add(ze.getName());
@@ -218,8 +230,8 @@ public class BundleMaker {
         }
     }
 
-    private void writeZipEntries(ZipOutputStream zout, Map<ZipEntry, InputStream> entries) throws IOException {
-        for (Map.Entry<ZipEntry,InputStream> ze: entries.entrySet()) {
+    private void writeZipEntries(ZipOutputStream zout, Map<ZipEntry, ? extends InputStream> entries) throws IOException {
+        for (Map.Entry<ZipEntry,? extends InputStream> ze: entries.entrySet()) {
             zout.putNextEntry(ze.getKey());
             InputStream zin = ze.getValue();
             Streams.copy(zin, zout);
@@ -228,7 +240,7 @@ public class BundleMaker {
         }
     }
 
-    private void writeZipEntriesFromFile(ZipOutputStream zout, File existingZip, Predicate<String> filter) throws IOException {
+    private void writeZipEntriesFromFile(ZipOutputStream zout, File existingZip, Predicate<? super String> filter) throws IOException {
         ZipFile zf = new ZipFile(existingZip);
         try {
             Enumeration<? extends ZipEntry> zfe = zf.entries();
@@ -271,7 +283,7 @@ public class BundleMaker {
         }
     }
     
-    private boolean addUrlItemRecursively(ZipOutputStream zout, String root, String item, Predicate<String> filter) throws IOException {
+    private boolean addUrlItemRecursively(ZipOutputStream zout, String root, String item, Predicate<? super String> filter) throws IOException {
         InputStream itemFound = null;
         try {
             itemFound = resources.getResourceFromUrl(item);
@@ -290,7 +302,7 @@ public class BundleMaker {
         return true;
     }
 
-    private boolean addUrlDirToZipRecursively(ZipOutputStream zout, String root, String item, InputStream itemFound, Predicate<String> filter) throws IOException {
+    private boolean addUrlDirToZipRecursively(ZipOutputStream zout, String root, String item, InputStream itemFound, Predicate<? super String> filter) throws IOException {
         LineReader lr = new LineReader(new InputStreamReader(itemFound));
         boolean readSubdirFile = false;
         while (true) {
@@ -314,7 +326,7 @@ public class BundleMaker {
         }
     }
     
-    private void addUrlFileToZip(ZipOutputStream zout, String root, String item, Predicate<String> filter) throws IOException {
+    private void addUrlFileToZip(ZipOutputStream zout, String root, String item, Predicate<? super String> filter) throws IOException {
         InputStream itemFound = null;
         try {
             itemFound = resources.getResourceFromUrl(item);
