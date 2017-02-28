@@ -23,14 +23,17 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.camp.brooklyn.catalog.SpecParameterUnwrappingTest;
 import org.apache.brooklyn.config.ConfigKey;
@@ -40,6 +43,7 @@ import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConstraintViolationException;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -789,6 +793,85 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
 
         Entity child = entity.addChild((EntitySpec<?>)defaultVal);
         assertTrue(child instanceof BasicApplication, "child="+child);
+    }
+    
+    @Test
+    public void testManuallyAddSpec() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: "+TestEntity.class.getName());
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity1 = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+
+        TestEntity entity2 = entity1.addChild(EntitySpec.create(TestEntity.class));
+        entity2.start(Collections.<Location>emptyList());
+        
+        Entities.dumpInfo(app);
+        
+        LOG.info("E1 keys: "+entity1.getEntityType().getConfigKeys());
+        LOG.info("E2 keys: "+entity2.getEntityType().getConfigKeys());
+        Assert.assertEquals(entity2.getEntityType().getConfigKeys(), entity1.getEntityType().getConfigKeys());
+    }
+    
+    @Test
+    public void testManuallyAddSpecFromCatalog() throws Exception {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  itemType: entity",
+            "  items:",
+            "  - id: test-entity",
+            "    item:",
+            "      type: "+TestEntity.class.getName());
+        
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: test-entity");
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity1 = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+
+        TestEntity entity2 = entity1.addChild(EntitySpec.create(TestEntity.class));
+        entity2.start(Collections.<Location>emptyList());
+        
+        Entities.dumpInfo(app);
+        
+        LOG.info("E1 keys: "+entity1.getEntityType().getConfigKeys());
+        LOG.info("E2 keys: "+entity2.getEntityType().getConfigKeys());
+        Assert.assertEquals(entity2.getEntityType().getConfigKeys(), entity1.getEntityType().getConfigKeys());
+    }
+    
+
+    @Test
+    public void testManuallyAddSpecInTaskOfOtherEntity() throws Exception {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  itemType: entity",
+            "  items:",
+            "  - id: test-entity",
+            "    item:",
+            "      type: "+TestEntity.class.getName());
+        
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: test-entity");
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        final TestEntity entity1 = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+
+        TestEntity entity2 = entity1.getExecutionContext().submit(new Callable<TestEntity>() {
+            public TestEntity call() {
+                TestEntity entity2 = entity1.addChild(EntitySpec.create(TestEntity.class));
+                entity2.start(Collections.<Location>emptyList());
+                return entity2;
+            } 
+        }).get();
+        
+        Entities.dumpInfo(app);
+        
+        LOG.info("E1 keys: "+entity1.getEntityType().getConfigKeys());
+        LOG.info("E2 keys: "+entity2.getEntityType().getConfigKeys());
+        Assert.assertEquals(entity2.getEntityType().getConfigKeys(), entity1.getEntityType().getConfigKeys());
     }
     
     @Test
