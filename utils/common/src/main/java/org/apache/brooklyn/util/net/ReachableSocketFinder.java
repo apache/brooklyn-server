@@ -86,12 +86,13 @@ public class ReachableSocketFinder {
         checkNotNull(sockets, "sockets");
         checkState(!Iterables.isEmpty(sockets), "No hostAndPort sockets supplied");
         checkNotNull(timeout, "timeout");
-        Iterator<HostAndPort> iter = findOpenSocketsOnNode(sockets, timeout).iterator();
+        Iterable<HostAndPort> reachable = Optional.presentInstances(tryReachable(sockets, timeout, false));
+        Iterator<HostAndPort> iter = reachable.iterator();
         if (iter.hasNext()) {
             return iter.next();
         } else {
             LOG.warn("No sockets in {} reachable after {}", sockets, timeout);
-            throw new NoSuchElementException("could not connect to any socket in " + sockets);
+            throw new NoSuchElementException("Could not connect to any socket in " + sockets);
         }
     }
 
@@ -110,7 +111,7 @@ public class ReachableSocketFinder {
         checkNotNull(sockets, "sockets");
         checkState(!Iterables.isEmpty(sockets), "No hostAndPort sockets supplied");
         checkNotNull(timeout, "timeout");
-        return Optional.presentInstances(tryReachable(sockets, timeout));
+        return Optional.presentInstances(tryReachable(sockets, timeout, true));
     }
 
     /**
@@ -118,8 +119,9 @@ public class ReachableSocketFinder {
      * according to {@link #socketTester} and absent values for those not. Checks are concurrent.
      * The iterable returned is ordered according sockets.
      */
-    private Iterable<Optional<HostAndPort>> tryReachable(Iterable<? extends HostAndPort> sockets, final Duration timeout) {
-        LOG.debug("blocking on reachable sockets in {} for {}", sockets, timeout);
+    private Iterable<Optional<HostAndPort>> tryReachable(
+            Iterable<? extends HostAndPort> sockets, final Duration timeout, final boolean useGracePeriod) {
+        LOG.debug("Blocking on reachable sockets in {} for {}", sockets, timeout);
         final List<ListenableFuture<Optional<HostAndPort>>> futures = Lists.newArrayList();
         final AtomicReference<Stopwatch> sinceFirstCompleted = new AtomicReference<>();
         final ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
@@ -134,7 +136,8 @@ public class ReachableSocketFinder {
 
                 private boolean gracePeriodExpired() {
                     Stopwatch firstCompleted = sinceFirstCompleted.get();
-                    return firstCompleted != null && gracePeriod.subtract(Duration.of(firstCompleted)).isNegative();
+                    return firstCompleted != null
+                            && (!useGracePeriod || gracePeriod.subtract(Duration.of(firstCompleted)).isNegative());
                 }
 
                 /** Checks checker for completion and reschedules it if time allows. */
@@ -175,7 +178,6 @@ public class ReachableSocketFinder {
                     }
                 }
             }));
-
         }
 
         ImmutableList.Builder<Optional<HostAndPort>> results = ImmutableList.builder();
