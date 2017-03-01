@@ -18,9 +18,14 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
+import static org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType.TEMPLATE;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
@@ -30,6 +35,7 @@ import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleEvent;
 import org.osgi.framework.ServiceReference;
 import org.osgi.util.tracker.BundleTracker;
@@ -38,14 +44,13 @@ import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
-import java.util.List;
-import java.util.Map;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 
-import static org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType.TEMPLATE;
-
+/** Scans bundles being added, filtered by a whitelist and blacklist, and adds catalog.bom files to the catalog.
+ * See karaf blueprint.xml for configuration, and tests in dist project. */
 public class CatalogBomScanner {
 
     private final String ACCEPT_ALL_BY_DEFAULT = ".*";
@@ -118,8 +123,8 @@ public class CatalogBomScanner {
 
     public class CatalogPopulator extends BundleTracker<Iterable<? extends CatalogItem<?, ?>>> {
 
-
         private ServiceReference<ManagementContext> mgmtContextReference;
+        private BundleContext bundleContext;
         private ManagementContext managementContext;
 
         public CatalogPopulator(ServiceReference<ManagementContext> serviceReference) {
@@ -127,22 +132,43 @@ public class CatalogBomScanner {
             this.mgmtContextReference = serviceReference;
             open();
         }
+        
+        public CatalogPopulator(BundleContext bundleContext, ManagementContext managementContext) {
+            super(Preconditions.checkNotNull(bundleContext, "bundleContext required; is OSGi running?"), Bundle.ACTIVE, null);
+            this.bundleContext = bundleContext;
+            this.managementContext = managementContext;
+            open();
+        }
 
         @Override
         public void open() {
-            managementContext = mgmtContextReference.getBundle().getBundleContext().getService(mgmtContextReference);
+            if (mgmtContextReference != null) {
+                bundleContext = getBundleContext();
+                managementContext = getManagementContext();
+            }
             super.open();
         }
 
         @Override
         public void close() {
             super.close();
-            managementContext = null;
-            mgmtContextReference.getBundle().getBundleContext().ungetService(mgmtContextReference);
+            if (mgmtContextReference != null) {
+                managementContext = null;
+                getBundleContext().ungetService(mgmtContextReference);
+                bundleContext = null;
+            }
         }
 
+        public BundleContext getBundleContext() {
+            if (bundleContext != null) return bundleContext;
+            if (mgmtContextReference != null) return mgmtContextReference.getBundle().getBundleContext();
+            throw new IllegalStateException("Bundle context or management context reference must be supplied");
+        }
+        
         public ManagementContext getManagementContext() {
-            return managementContext;
+            if (managementContext != null) return managementContext;
+            if (mgmtContextReference != null) return getBundleContext().getService(mgmtContextReference);
+            throw new IllegalStateException("Bundle context or management context reference must be supplied");
         }
 
         /**
@@ -239,13 +265,16 @@ public class CatalogBomScanner {
         }
 
         private String addLibraryDetails(Bundle bundle, String bomText) {
+            @SuppressWarnings("unchecked")
             final Map<String, Object> bom = (Map<String, Object>)Iterables.getOnlyElement(Yamls.parseAll(bomText));
             final Object catalog = bom.get(BROOKLYN_CATALOG);
             if (null != catalog) {
                 if (catalog instanceof Map<?, ?>) {
-                    addLibraryDetails(bundle, (Map<String, Object>) catalog);
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> catalogMap = (Map<String, Object>) catalog;
+                    addLibraryDetails(bundle, catalogMap);
                 } else {
-                    LOG.warn("Unexpected syntax for {} (expected Map), ignoring", BROOKLYN_CATALOG);
+                    LOG.warn("Unexpected syntax for {} (expected Map, but got {}), ignoring", BROOKLYN_CATALOG, catalog.getClass().getName());
                 }
             }
             final String updatedBom = backToYaml(bom);
@@ -266,9 +295,14 @@ public class CatalogBomScanner {
             }
             final Object librarySpec = catalog.get(BROOKLYN_LIBRARIES);
             if (!(librarySpec instanceof List)) {
-                throw new RuntimeException("expected " + BROOKLYN_LIBRARIES + " to be a list");
+                throw new RuntimeException("expected " + BROOKLYN_LIBRARIES + " to be a list, but got " 
+                        + (librarySpec == null ? "null" : librarySpec.getClass().getName()));
             }
-            List libraries = (List)librarySpec;
+            @SuppressWarnings("unchecked")
+            List<Map<String,String>> libraries = (List<Map<String,String>>)librarySpec;
+            if (bundle.getSymbolicName() == null || bundle.getVersion() == null) {
+                throw new IllegalStateException("Cannot scan "+bundle+" for catalog files: name or version is null");
+            }
             libraries.add(ImmutableMap.of(
                 "name", bundle.getSymbolicName(),
                 "version", bundle.getVersion().toString()));
