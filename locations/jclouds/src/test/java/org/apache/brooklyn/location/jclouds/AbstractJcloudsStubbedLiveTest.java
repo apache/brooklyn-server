@@ -80,7 +80,8 @@ public abstract class AbstractJcloudsStubbedLiveTest extends AbstractJcloudsLive
                 locationSpec,
                 jcloudsLocationConfig(ImmutableMap.<Object, Object>of(
                         JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry,
-                        JcloudsLocationConfig.WAIT_FOR_SSHABLE, "false")));
+                        JcloudsLocationConfig.WAIT_FOR_SSHABLE, "false",
+                        JcloudsLocationConfig.POLL_FOR_FIRST_REACHABLE_ADDRESS, "false")));
         return jcloudsLocation;
     }
     

@@ -307,6 +307,16 @@
                     </instructions>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.rat</groupId>
+                <artifactId>apache-rat-plugin</artifactId>
+                <configuration>
+                    <excludes combine.children="append">
+                        <exclude>**/src/test/resources/org/apache/brooklyn/util/core/osgi/test/bundlemaker/nomanifest/**</exclude>
+                        <exclude>**/src/test/resources/org/apache/brooklyn/util/core/osgi/test/bundlemaker/withmanifest/**</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
         </plugins>
         <pluginManagement>
             <plugins>

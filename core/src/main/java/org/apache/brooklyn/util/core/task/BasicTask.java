@@ -377,7 +377,9 @@ public class BasicTask<T> implements TaskInternal<T> {
     public synchronized void blockUntilStarted() {
         blockUntilStarted(null);
     }
-    
+
+    // TODO: This should log a message if timeout is null and the method blocks for an unreasonably long time -
+    // it probably means someone called .get() and forgot to submit the task.
     @Override
     public synchronized boolean blockUntilStarted(Duration timeout) {
         Long endTime = timeout==null ? null : System.currentTimeMillis() + timeout.toMillisecondsRoundingUp();

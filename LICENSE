@@ -230,7 +230,7 @@ This project includes the software: Font Awesome (code)
 
 This project includes the software: Font Awesome (fonts)
   Available at: http://fontawesome.io/
-  Inclusive of: font-awesome/fonts/*
+  Inclusive of: font-awesome/fonts/* cluster.svg
   Version used: 4.5.0
   Used under the following license: SIL OFL 1.1 (http://scripts.sil.org/OFL)
   Copyright (c) Dave Gandy (2016)
@@ -386,6 +386,12 @@ This project includes the software: Swagger UI
   Version used: 2.1.4
   Used under the following license: Apache License, version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
   Copyright (c) SmartBear Software (2011-2015)
+
+This project includes the software: Tango Project Icons
+  Available at: https://commons.wikimedia.org/wiki/File:Network-server.svg
+  Inclusive of: server.svg
+  Used under the following license: Public Domain (https://en.wikipedia.org/wiki/en:public_domain)
+  Released into the public domain by the people from the Tango! project (The Tango! Desktop Project), via Wikimedia Commons
 
 This project includes the software: typeahead.js
   Available at: https://github.com/twitter/typeahead.js

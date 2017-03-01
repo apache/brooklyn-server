@@ -70,7 +70,7 @@ public class DeferredBrooklynProperties implements BrooklynProperties {
         if (value instanceof CharSequence) {
             String raw = value.toString();
             if (raw.startsWith(BROOKLYN_YAML_PREFIX)) {
-                CampYamlParser parser = mgmt.getConfig().getConfig(CampYamlParser.YAML_PARSER_KEY);
+                CampYamlParser parser = mgmt.getScratchpad().get(CampYamlParser.YAML_PARSER_KEY);
                 if (parser == null) {
                     // TODO Should we fail or return the untransformed value?
                     // Problem is this gets called during initialisation, e.g. by BrooklynFeatureEnablement calling asMapWithStringKeys()

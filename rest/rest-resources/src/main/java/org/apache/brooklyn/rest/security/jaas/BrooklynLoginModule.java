@@ -183,6 +183,8 @@ public class BrooklynLoginModule implements LoginModule {
             throw new IllegalStateException("Missing JAAS module property " + PROPERTY_BUNDLE_SYMBOLIC_NAME + " pointing at the bundle where to load the security provider from.");
         }
         if (provider != null) return;
+        provider = getManagementContext().getScratchpad().get(BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE);
+        if (provider != null) return;
         if (symbolicName != null) {
             if (className == null) {
                 className = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME);

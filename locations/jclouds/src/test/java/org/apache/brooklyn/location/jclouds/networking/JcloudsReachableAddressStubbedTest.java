@@ -34,11 +34,12 @@ import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.location.jclouds.JcloudsLocationConfig;
 import org.apache.brooklyn.location.jclouds.JcloudsSshMachineLocation;
 import org.apache.brooklyn.location.jclouds.JcloudsWinRmMachineLocation;
+import org.apache.brooklyn.location.jclouds.DefaultConnectivityResolver;
+import org.apache.brooklyn.location.jclouds.ConnectivityResolver;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.AbstractNodeCreator;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.SingleNodeCreator;
 import org.apache.brooklyn.location.jclouds.networking.JcloudsPortForwardingStubbedTest.RecordingJcloudsPortForwarderExtension;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
-import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponse;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponseGenerator;
@@ -55,11 +56,14 @@ import org.jclouds.domain.LoginCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
 
@@ -75,6 +79,7 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsStubbedUn
     private static final Logger LOG = LoggerFactory.getLogger(JcloudsReachableAddressStubbedTest.class);
 
     protected String reachableIp;
+    protected ImmutableSet<String> additionalReachableIps;
     protected AddressChooser addressChooser;
     protected CustomResponseGeneratorImpl customResponseGenerator;
 
@@ -83,6 +88,7 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsStubbedUn
     public void setUp() throws Exception {
         super.setUp();
         reachableIp = null; // expect test method to set this
+        additionalReachableIps = null;
         addressChooser = new AddressChooser();
         customResponseGenerator = new CustomResponseGeneratorImpl();
     }
@@ -116,6 +122,7 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsStubbedUn
                 .build());
 
         addressChooser.assertCalled();
+        // Expect an SSH connection to have been made when determining readiness.
         assertEquals(RecordingSshTool.getLastExecCmd().constructorProps.get(SshTool.PROP_HOST.getName()), reachableIp);
 
         assertEquals(machine.getAddress().getHostAddress(), reachableIp);
@@ -231,7 +238,7 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsStubbedUn
 
         JcloudsSshMachineLocation machine = newMachine(ImmutableMap.<ConfigKey<?>,Object>builder()
                 .put(JcloudsLocationConfig.WAIT_FOR_SSHABLE, "false")
-                .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS, Duration.millis(50).toString())
+                .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS, "false")
                 .build());
 
         addressChooser.assertNotCalled();
@@ -336,7 +343,47 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsStubbedUn
 
         assertEquals(machine.getAddress().getHostAddress(), "1.1.1.1");
     }
-    
+
+    @DataProvider(name = "publicPrivateProvider")
+    public Object[][] publicPrivateProvider() {
+        List<String> pub = ImmutableList.of("1.1.1.1", "1.1.1.2");
+        List<String> pri = ImmutableList.of("2.1.1.1", "2.1.1.2", "2.1.1.3");
+        return new Object[][]{
+                // First available public address chosen.
+                {pub, pri, DefaultConnectivityResolver.NetworkMode.PREFER_PUBLIC, "1.1.1.1", ImmutableSet.of("1.1.1.2")},
+                // public desired and reachable. private address ignored.
+                {pub, pri, DefaultConnectivityResolver.NetworkMode.PREFER_PUBLIC, "1.1.1.2", ImmutableSet.of("2.1.1.1")},
+                // public desired but unreachable. first reachable private chosen.
+                {pub, pri, DefaultConnectivityResolver.NetworkMode.PREFER_PUBLIC, "2.1.1.2", ImmutableSet.of("2.1.1.3")},
+                // private desired and reachable. public addresses ignored.
+                {pub, pri, DefaultConnectivityResolver.NetworkMode.PREFER_PRIVATE, "2.1.1.2", ImmutableSet.of("1.1.1.1", "1.1.1.2")},
+                // private desired but unreachable.
+                {pub, pri, DefaultConnectivityResolver.NetworkMode.PREFER_PRIVATE, "1.1.1.1", ImmutableSet.of()},
+        };
+    }
+
+    @Test(dataProvider = "publicPrivateProvider")
+    public void testPublicPrivatePreference(
+            List<String> publicAddresses, List<String> privateAddresses,
+            DefaultConnectivityResolver.NetworkMode networkMode, String preferredIp, ImmutableSet<String> otherReachableIps) throws Exception {
+        LOG.info("Checking {} preferred when mode={}, other reachable IPs={}, public addresses={} and private={}",
+                new Object[]{preferredIp, networkMode, otherReachableIps, publicAddresses, privateAddresses});
+        this.reachableIp = preferredIp;
+        this.additionalReachableIps = otherReachableIps;
+        initNodeCreatorAndJcloudsLocation(newNodeCreator(publicAddresses, privateAddresses), ImmutableMap.of());
+
+        ConnectivityResolver customizer =
+                new DefaultConnectivityResolver(ImmutableMap.of(DefaultConnectivityResolver.NETWORK_MODE, networkMode));
+
+        JcloudsSshMachineLocation machine = newMachine(ImmutableMap.<ConfigKey<?>, Object>builder()
+                .put(JcloudsLocationConfig.WAIT_FOR_SSHABLE, Duration.ONE_SECOND.toString())
+                .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS, Duration.ONE_SECOND.toString())
+                .put(JcloudsLocation.CONNECTIVITY_RESOLVER, customizer)
+                .build());
+
+        assertEquals(machine.getAddress().getHostAddress(), preferredIp);
+    }
+
     protected JcloudsSshMachineLocation newMachine() throws Exception {
         return newMachine(ImmutableMap.<ConfigKey<?>, Object>of());
     }
@@ -366,7 +413,7 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsStubbedUn
         
         @Override public boolean apply(HostAndPort input) {
             calls.add(input);
-            return reachableIp != null && reachableIp.equals(input.getHostText());
+            return isReachable(input.getHostText());
         }
         
         public void assertCalled() {
@@ -376,17 +423,29 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsStubbedUn
         public void assertNotCalled() {
             assertTrue(calls.isEmpty(), "unexpected calls to "+this+": "+calls);
         }
+
+        @Override
+        public String toString() {
+            return MoreObjects.toStringHelper(this)
+                    .add("reachableIp", reachableIp)
+                    .toString();
+        }
     }
     
     protected class CustomResponseGeneratorImpl implements CustomResponseGenerator {
         @Override public CustomResponse generate(ExecParams execParams) throws Exception {
             System.out.println("ssh call: "+execParams);
             Object host = execParams.constructorProps.get(SshTool.PROP_HOST.getName());
-            if (reachableIp != null && reachableIp.equals(host)) {
+            if (isReachable(host.toString())) {
                 return new CustomResponse(0, "", "");
             } else {
                 throw new IOException("Simulate VM not reachable for host '"+host+"'");
             }
         }
+    }
+
+    protected boolean isReachable(String address) {
+        return (reachableIp != null && reachableIp.equals(address)) ||
+                (additionalReachableIps != null && additionalReachableIps.contains(address));
     }
 }

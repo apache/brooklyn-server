@@ -56,7 +56,7 @@ public class EntitlementContextFilterTest extends BrooklynRestResourceTest {
         BrooklynProperties props = (BrooklynProperties)getManagementContext().getConfig();
         props.put(BrooklynWebConfig.USERS, USER_PASS);
         props.put(BrooklynWebConfig.PASSWORD_FOR_USER(USER_PASS), USER_PASS);
-        props.put(BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE, new ExplicitUsersSecurityProvider(getManagementContext()));
+        getManagementContext().getScratchpad().put(BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE, new ExplicitUsersSecurityProvider(getManagementContext()));
 
         super.configureCXF(sf);
 

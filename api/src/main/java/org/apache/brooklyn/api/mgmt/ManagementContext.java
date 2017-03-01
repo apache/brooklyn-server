@@ -186,6 +186,21 @@ public interface ManagementContext {
     StringConfigMap getConfig();
     
     /**
+     * <p>
+     * Provides a scratchpad area for this ManagementContext. It can be used for storing any data useful to Brooklyn core
+     * or custom entities. Usually it's used for singleton-like objects per ManagementContext. The lifetime of he 
+     * scratch area is for the duration of the ManagementContext. It's not persisted or shared between HA nodes,
+     * doesn't survive restarts.
+     * <p>
+     * Code using {@link #getConfig()} for the same purpose should migrate to using this method as {@link #getConfig()}
+     * will become read-only in future releases. Note that the scratchpad is not reset on reloading {@code brooklyn.properties}
+     * unlike {@link #getConfig()}.
+     * <p>
+     * The returned map is thread safe, no locking is required to use it from parallel threads.
+     */
+    Scratchpad getScratchpad();
+    
+    /**
      * Whether the management context has been initialized and not yet terminated.
      * This does not mean startup is entirely completed. See also {@link #isStartupComplete()}.
      */

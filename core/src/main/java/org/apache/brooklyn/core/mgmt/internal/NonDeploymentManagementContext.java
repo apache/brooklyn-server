@@ -42,6 +42,7 @@ import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.LocationManager;
+import org.apache.brooklyn.api.mgmt.Scratchpad;
 import org.apache.brooklyn.api.mgmt.SubscriptionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementManager;
@@ -294,6 +295,12 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
     public BrooklynProperties getBrooklynProperties() {
         checkInitialManagementContextReal();
         return initialManagementContext.getBrooklynProperties();
+    }
+
+    @Override
+    public Scratchpad getScratchpad() {
+        checkInitialManagementContextReal();
+        return initialManagementContext.getScratchpad();
     }
 
     @Override

@@ -257,7 +257,7 @@ public class BrooklynFeatureEnablement {
     }
 
     @VisibleForTesting
-    static void clearCache() {
+    public static void clearCache() {
         synchronized (MUTEX) {
             FEATURE_ENABLEMENTS.clear();
             FEATURE_ENABLEMENTS_PROPERTIES.clear();
