@@ -27,9 +27,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext.PropertiesReloadListener;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.internal.BrooklynProperties.Factory.Builder;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.util.os.Os;
 import org.testng.annotations.AfterMethod;
@@ -111,6 +112,8 @@ public class LocalManagementContextTest {
         properties.put("myname", "myval");
         context = LocalManagementContextForTests.builder(true).useProperties(properties).build();
         PropertiesReloadListener listener = new PropertiesReloadListener() {
+            private static final long serialVersionUID = 8929322444940982033L;
+
             @Override
             public void reloaded() {
                 reloadedCallbackCount.incrementAndGet();
@@ -123,5 +126,20 @@ public class LocalManagementContextTest {
         context.removePropertiesReloadListener(listener);
         context.reloadBrooklynProperties();
         assertEquals(reloadedCallbackCount.get(), 1);
+    }
+    
+    @Test
+    public void testScratchpadSurvivesReload() throws Exception {
+        String globalPropertiesContents = "brooklyn.location.localhost.displayName=myname";
+        Files.write(globalPropertiesContents, globalPropertiesFile, Charsets.UTF_8);
+        BrooklynProperties brooklynProperties = BrooklynProperties.Factory.builderDefault()
+            .globalPropertiesFile(globalPropertiesFile.getAbsolutePath())
+            .build();
+        context = LocalManagementContextForTests.builder(true).useProperties(brooklynProperties).build();
+        ConfigKey<String> myKey = ConfigKeys.newStringConfigKey("my");
+        context.getScratchpad().put(myKey, "key");
+        assertEquals(context.getScratchpad().get(myKey), "key");
+        context.reloadBrooklynProperties();
+        assertEquals(context.getScratchpad().get(myKey), "key");
     }
 }

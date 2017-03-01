@@ -65,7 +65,7 @@ public class BrooklynCampPlatform extends AggregatingCampPlatform implements Has
 
     /** finds and returns the {@link CampPlatform} registered for the management context, or null if none */
     @Nullable public static CampPlatform findPlatform(ManagementContext mgmt) {
-        return mgmt.getConfig().getConfig(BrooklynCampConstants.CAMP_PLATFORM);
+        return mgmt.getScratchpad().get(BrooklynCampConstants.CAMP_PLATFORM);
     }
     
     // --- brooklyn setup
@@ -85,8 +85,12 @@ public class BrooklynCampPlatform extends AggregatingCampPlatform implements Has
     }
 
     public BrooklynCampPlatform setConfigKeyAtManagmentContext() {
+        // Deprecated in 0.11.0. Add to release notes and remove in next release.
         ((ManagementContextInternal)bmc).getBrooklynProperties().put(BrooklynCampConstants.CAMP_PLATFORM, this);
         ((ManagementContextInternal)bmc).getBrooklynProperties().put(CampYamlParser.YAML_PARSER_KEY, new YamlParserImpl(this));
+
+        bmc.getScratchpad().put(BrooklynCampConstants.CAMP_PLATFORM, this);
+        bmc.getScratchpad().put(CampYamlParser.YAML_PARSER_KEY, new YamlParserImpl(this));
         return this;
     }
     

@@ -105,9 +105,11 @@ public class DelegatingSecurityProvider implements SecurityProvider {
             log.warn("REST unable to instantiate security provider " + className + "; all logins are being disallowed", e);
             delegate = new BlackholeSecurityProvider();
         }
-        
+
+        // Deprecated in 0.11.0. Add to release notes and remove in next release.
         ((BrooklynProperties)mgmt.getConfig()).put(BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE, delegate);
-        
+        mgmt.getScratchpad().put(BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE, delegate);
+
         return delegate;
     }
 
