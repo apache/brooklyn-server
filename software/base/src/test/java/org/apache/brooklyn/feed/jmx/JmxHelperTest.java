@@ -38,9 +38,8 @@ import org.apache.brooklyn.entity.software.base.test.jmx.JmxService;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.net.Networking;
 import org.jclouds.util.Throwables2;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -52,8 +51,6 @@ import com.google.common.collect.Lists;
 
 public class JmxHelperTest {
 
-    private static final Logger log = LoggerFactory.getLogger(JmxHelperTest.class);
-    
     // NB: "localhost" resolves to the public-facing IP often which on the occasional box
     // (eg ubuntu-us1 at apache) makes the ports not locally accessible.  so use loopback explicitly.
     static final String LOCALHOST_NAME = "127.0.0.1";
@@ -75,7 +72,7 @@ public class JmxHelperTest {
     public void setUp() throws Exception {
         jmxObjectName = new ObjectName(objectName);
         jmxObjectNameWithWildcard = new ObjectName(objectNameWithWildcard);
-        jmxService = newJmxServiceRetrying(LOCALHOST_NAME, 5);
+        jmxService = new JmxService(LOCALHOST_NAME, Networking.nextAvailablePort(11000));
         jmxHelper = new JmxHelper(jmxService.getUrl());
         jmxHelper.setMinTimeBetweenReconnectAttempts(0);
         jmxHelper.connect(TIMEOUT_MS);
@@ -275,7 +272,7 @@ public class JmxHelperTest {
         jmxService.shutdown();
         jmxHelper.disconnect();
         
-        jmxService = newJmxServiceRetrying(LOCALHOST_NAME, 5);
+        jmxService = new JmxService(LOCALHOST_NAME, Networking.nextAvailablePort(11000));
         jmxHelper = new JmxHelper(jmxService.getUrl());
         jmxHelper.connect();
         
@@ -284,19 +281,6 @@ public class JmxHelperTest {
         for (int i = 0; i < 10; i++) {
             jmxHelper.findMBean(wrongObjectName);
         }
-    }
-
-    private JmxService newJmxServiceRetrying(String host, int retries) throws Exception {
-        Exception lastexception = null;
-        for (int i = 0; i < retries; i++) {
-            try {
-                return new JmxService(host, (int)(11000+(500*Math.random())));
-            } catch (Exception e) {
-                log.debug("Unable to create JMX service during test - "+retries+" retries remaining");
-                lastexception = e;
-            }
-        }
-        throw lastexception;
     }
 
     private Notification sendNotification(StandardEmitterMBean mbean, String type, long seq, Object userData) {
