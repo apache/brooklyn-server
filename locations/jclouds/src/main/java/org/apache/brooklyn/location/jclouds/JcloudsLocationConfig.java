@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
 
+import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -31,15 +32,16 @@ import org.apache.brooklyn.core.location.access.BrooklynAccessUtils;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.location.jclouds.networking.JcloudsPortForwarderExtension;
+import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.jclouds.Constants;
 import org.jclouds.compute.domain.Image;
 import org.jclouds.compute.domain.OsFamily;
 import org.jclouds.compute.domain.TemplateBuilder;
 import org.jclouds.domain.LoginCredentials;
-import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.reflect.TypeToken;
 
 public interface JcloudsLocationConfig extends CloudLocationConfig {
@@ -196,9 +198,13 @@ public interface JcloudsLocationConfig extends CloudLocationConfig {
             "customizer", "Optional location customizer");
 
     @SuppressWarnings("serial")
-    public static final ConfigKey<Collection<JcloudsLocationCustomizer>> JCLOUDS_LOCATION_CUSTOMIZERS = ConfigKeys.newConfigKey(
-            new TypeToken<Collection<JcloudsLocationCustomizer>>() {},
-            "customizers", "Optional location customizers");
+    public static final ConfigKey<Collection<JcloudsLocationCustomizer>> JCLOUDS_LOCATION_CUSTOMIZERS =
+            ConfigKeys.builder(new TypeToken<Collection<JcloudsLocationCustomizer>>() { })
+                    .name("customizers")
+                    .description("Optional location customizers")
+                    .defaultValue(ImmutableSet.<JcloudsLocationCustomizer>of())
+                    .typeInheritance(ConfigInheritance.DEEP_MERGE)
+                    .build();
 
     /** @deprecated since 0.7.0; use {@link #JCLOUDS_LOCATION_CUSTOMIZERS} instead */
     @Deprecated
