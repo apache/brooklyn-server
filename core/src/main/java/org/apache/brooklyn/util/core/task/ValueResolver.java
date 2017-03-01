@@ -112,7 +112,6 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     boolean immediately;
     boolean recursive = true;
     boolean isTransientTask = true;
-    boolean avoidSideEffects = false;
     
     T defaultValue = null;
     boolean returnDefaultOnGet = false;
@@ -141,8 +140,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         description = parent.description;
         forceDeep = parent.forceDeep;
         embedResolutionInTask = parent.embedResolutionInTask;
-        isTransientTask = parent.isTransientTask;
-        avoidSideEffects = parent.avoidSideEffects;
+
         parentOriginalValue = parent.getOriginalValue();
 
         timeout = parent.timeout;
@@ -235,11 +233,6 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
      * and swallowed altogether on a call to {@link #get()} in the presence of a {@link #defaultValue(Object)} */
     public ValueResolver<T> swallowExceptions() {
         this.swallowExceptions = true;
-        return this;
-    }
-
-    public ValueResolver<T> avoidSideEffects() {
-        this.avoidSideEffects = true;
         return this;
     }
     
@@ -356,7 +349,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         
         checkTypeNotNull();
         Object v = this.value;
-
+        
         //if the expected type is a closure or map and that's what we have, we're done (or if it's null);
         //but not allowed to return a future or DeferredSupplier as the resolved value
         if (v==null || (!forceDeep && type.isInstance(v) && !Future.class.isInstance(v) && !DeferredSupplier.class.isInstance(v)))
@@ -385,9 +378,6 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                 if (!((TaskAdaptable<?>) v).asTask().isSubmitted() ) {
                     if (exec==null)
                         return Maybe.absent("Value for unsubmitted task '"+getDescription()+"' requested but no execution context available");
-                    if (v instanceof HasSideEffects && avoidSideEffects) {
-                        return Maybe.absent();
-                    }
                     exec.submit(((TaskAdaptable<?>) v).asTask());
                 }
             }
@@ -415,9 +405,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
 
             } else if (v instanceof DeferredSupplier<?>) {
                 final DeferredSupplier<?> ds = (DeferredSupplier<?>) v;
-                if (v instanceof HasSideEffects && avoidSideEffects) {
-                    return Maybe.absent();
-                }
+
                 if ((!Boolean.FALSE.equals(embedResolutionInTask) && (exec!=null || timeout!=null)) || Boolean.TRUE.equals(embedResolutionInTask)) {
                     if (exec==null)
                         return Maybe.absent("Embedding in task needed for '"+getDescription()+"' but no execution context available");
