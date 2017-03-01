@@ -18,7 +18,6 @@ package org.apache.brooklyn.util.net;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 import java.net.ServerSocket;
@@ -26,8 +25,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -74,7 +71,7 @@ public class ReachableSocketFinderTest {
     public void setUp() throws Exception {
         reachabilityResults = Maps.newConcurrentMap();
         executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
-        finder = new ReachableSocketFinder(socketTester, Duration.ZERO);
+        finder = new ReachableSocketFinder(socketTester);
     }
 
     @AfterMethod(alwaysRun=true)
@@ -120,7 +117,7 @@ public class ReachableSocketFinderTest {
 
         // When port is reached, it completes
         reachabilityResults.put(socket1, true);
-        assertEquals(future.get(5, TimeUnit.SECONDS), socket1);
+        assertEquals(future.get(), socket1);
     }
 
     @Test
@@ -142,42 +139,11 @@ public class ReachableSocketFinderTest {
     }
 
     @Test
-    public void testReachableSocketsIteratesInInputOrder() throws Exception {
-        // i.e. not in the order that reachability was determined.
-        reachabilityResults.put(socket1, false);
-        reachabilityResults.put(socket2, true);
-        // Set a custom grace period
-        finder = new ReachableSocketFinder(socketTester, Duration.FIVE_SECONDS);
-        final Iterable<HostAndPort> actual = finder.findOpenSocketsOnNode(ImmutableList.of(socket1, socket2), TIMEOUT);
-        final Iterable<HostAndPort> expected = ImmutableList.of(socket1, socket2);
-        final Future<?> future = executor.submit(new Runnable() {
-            @Override
-            public void run() {
-                // This will block until the check for socket1 completes or times out.
-                assertEquals(actual, expected, "expected=" + expected + ", actual=" + Iterables.toString(actual));
-            }
-        });
-
-        // Should keep trying
-        Asserts.succeedsContinually(ImmutableMap.of("timeout", SHORT_WAIT), new Runnable() {
-            @Override public void run() {
-                assertFalse(future.isDone());
-            }});
-
-        // When port is reached, it completes. Demonstrates grace period.
-        reachabilityResults.put(socket1, true);
-
-        Asserts.succeedsEventually(ImmutableMap.of("timeout", TIMEOUT), new Runnable() {
-            @Override public void run() {
-                assertTrue(future.isDone());
-            }});
-    }
-
-    @Test
     public void testSocketResultIgnoredIfGracePeriodExpiresAfterFirstResultAvailable() {
         reachabilityResults.put(socket1, false);
         reachabilityResults.put(socket2, true);
-
+        // Override the default test grace period.
+        finder = new ReachableSocketFinder(socketTester, Duration.ZERO);
         final Iterable<HostAndPort> actual = finder.findOpenSocketsOnNode(ImmutableList.of(socket1, socket2), TIMEOUT);
         // Sleep through the grace period.
         Time.sleep(50);

@@ -19,6 +19,7 @@
 package org.apache.brooklyn.api.catalog;
 
 import java.util.Collection;
+import java.util.Locale;
 
 import javax.annotation.Nullable;
 
@@ -61,6 +62,11 @@ public interface CatalogItem<T,SpecT> extends BrooklynObject, Rebindable {
             if (Application.class.isAssignableFrom(type)) return TEMPLATE;
             if (Entity.class.isAssignableFrom(type)) return ENTITY;
             return null;
+        }
+
+        @Override
+        public String toString() {
+            return name().toLowerCase(Locale.ENGLISH);
         }
     }
     

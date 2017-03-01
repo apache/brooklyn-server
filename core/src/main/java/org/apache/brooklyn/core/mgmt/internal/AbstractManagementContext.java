@@ -41,6 +41,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationRegistry;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.Scratchpad;
 import org.apache.brooklyn.api.mgmt.SubscriptionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
@@ -160,6 +161,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
     private final AtomicLong totalEffectorInvocationCount = new AtomicLong();
 
     protected DeferredBrooklynProperties configMap;
+    protected Scratchpad scratchpad;
     protected BasicLocationRegistry locationRegistry;
     protected final BasicBrooklynCatalog catalog;
     protected final BrooklynTypeRegistry typeRegistry;
@@ -193,6 +195,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
 
     public AbstractManagementContext(BrooklynProperties brooklynProperties, DataGridFactory datagridFactory) {
         this.configMap = new DeferredBrooklynProperties(brooklynProperties, this);
+        this.scratchpad = new BasicScratchpad();
         this.entityDriverManager = new BasicEntityDriverManager();
         this.downloadsManager = BasicDownloadsManager.newDefault(configMap);
         if (datagridFactory == null) {
@@ -380,6 +383,11 @@ public abstract class AbstractManagementContext implements ManagementContextInte
     @Override
     public BrooklynProperties getBrooklynProperties() {
         return configMap;
+    }
+
+    @Override
+    public Scratchpad getScratchpad() {
+        return scratchpad;
     }
 
     private final Object locationRegistrySemaphore = new Object();
