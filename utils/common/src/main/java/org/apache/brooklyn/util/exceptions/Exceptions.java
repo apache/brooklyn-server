@@ -20,7 +20,6 @@ package org.apache.brooklyn.util.exceptions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.instanceOf;
-import static com.google.common.base.Throwables.getCausalChain;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.UndeclaredThrowableException;
@@ -55,6 +54,8 @@ public class Exceptions {
     private static final List<Class<? extends Throwable>> BORING_IF_NO_MESSAGE_THROWABLE_SUPERTYPES = ImmutableList.<Class<? extends Throwable>>of(
         PropagatedRuntimeException.class);
 
+    public static final int MAX_COLLAPSE_RECURSIVE_DEPTH = 100;
+    
     /** NB: might be useful for stack trace, e.g. {@link ExecutionException} */
     private static boolean isBoringForMessage(Throwable t) {
         for (Class<? extends Throwable> type: ALWAYS_BORING_MESSAGE_THROWABLE_SUPERTYPES)
@@ -263,8 +264,41 @@ public class Exceptions {
     public static Throwable collapse(Throwable source, boolean collapseCausalChain) {
         return collapse(source, collapseCausalChain, false, ImmutableSet.<Throwable>of(), new Object[0]);
     }
+
+    /** As {@link Throwables#getCausalChain(Throwable)} but safe in the face of perverse classes which return themselves as their cause or otherwise have a recursive causal chain. */
+    public static List<Throwable> getCausalChain(Throwable t) {
+        Set<Throwable> result = MutableSet.of();
+        while (t!=null) {
+            if (!result.add(t)) break;
+            t = t.getCause();
+        }
+        return ImmutableList.copyOf(result);
+    }
+    
+    private static boolean isCausalChainDepthExceeding(Throwable t, int size) {
+        if (size<0) return true;
+        if (t==null) return false;
+        return isCausalChainDepthExceeding(t.getCause(), size-1);
+    }
     
     private static Throwable collapse(Throwable source, boolean collapseCausalChain, boolean includeAllCausalMessages, Set<Throwable> visited, Object contexts[]) {
+        if (visited.isEmpty()) {
+            if (isCausalChainDepthExceeding(source, MAX_COLLAPSE_RECURSIVE_DEPTH)) {
+                // do fast check above, then do deeper check which survives recursive causes
+                List<Throwable> chain = getCausalChain(source);
+                if (chain.size() > MAX_COLLAPSE_RECURSIVE_DEPTH) {
+                    // if it's an OOME or other huge stack, shrink it so we don't spin huge cycles processing the trace and printing it
+                    // (sometimes generating subsequent OOME's in logback that mask the first!)
+                    // coarse heuristic for how to reduce it, but that's better than killing cpu, causing further errors, and suppressing the root cause altogether!
+                    String msg = chain.get(0).getMessage();
+                    if (msg.length() > 512) msg = msg.substring(0, 500)+"...";
+                    return new PropagatedRuntimeException("Huge stack trace (size "+chain.size()+", removing all but last few), "
+                            + "starting: "+chain.get(0).getClass().getName()+": "+msg+"; ultimately caused by: ", 
+                            chain.get(chain.size() - 10));
+                }
+            }
+        }
+
         visited = MutableSet.copyOf(visited);
         String message = "";
         Throwable collapsed = source;

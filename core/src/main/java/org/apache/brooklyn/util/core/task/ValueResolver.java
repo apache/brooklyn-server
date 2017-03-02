@@ -29,6 +29,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
@@ -322,6 +323,10 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         return result;
     }
     
+    protected boolean isEvaluatingImmediately() {
+        return immediately || BrooklynTaskTags.hasTag(Tasks.current(), BrooklynTaskTags.IMMEDIATE_TASK_TAG);
+    }
+    
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected Maybe<T> getMaybeInternal() {
         if (started.getAndSet(true))
@@ -352,33 +357,78 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         
         //if the expected type is a closure or map and that's what we have, we're done (or if it's null);
         //but not allowed to return a future or DeferredSupplier as the resolved value
-        if (v==null || (!forceDeep && type.isInstance(v) && !Future.class.isInstance(v) && !DeferredSupplier.class.isInstance(v)))
+        if (v==null || (!forceDeep && type.isInstance(v) && !Future.class.isInstance(v) && !DeferredSupplier.class.isInstance(v) && !TaskFactory.class.isInstance(v)))
             return Maybe.of((T) v);
         
         try {
-            if (immediately && v instanceof ImmediateSupplier) {
-                final ImmediateSupplier<?> supplier = (ImmediateSupplier<?>) v;
-                try {
-                    Maybe<?> result = supplier.getImmediately();
-                    
-                    // Recurse: need to ensure returned value is cast, etc
-                    return (result.isPresent())
-                            ? recursive
-                                ? new ValueResolver(result.get(), type, this).getMaybe()
-                                : result
-                            : Maybe.<T>absent();
-                } catch (ImmediateSupplier.ImmediateUnsupportedException e) {
-                    log.debug("Unable to resolve-immediately for "+description+" ("+v+"); falling back to executing with timeout", e);
+            boolean allowImmediateExecution = false;
+            boolean bailOutAfterImmediateExecution = false;
+            
+            if (v instanceof ImmediateSupplier) {
+                allowImmediateExecution = true;
+                
+            } else {
+                if ((v instanceof TaskFactory<?>) && !(v instanceof DeferredSupplier)) {
+                    v = ((TaskFactory<?>)v).newTask();
+                    allowImmediateExecution = true;
+                    bailOutAfterImmediateExecution = true;
+                    BrooklynTaskTags.setTransient(((TaskAdaptable<?>)v).asTask());
+                    if (isEvaluatingImmediately()) {
+                        // not needed if executing immediately
+                        BrooklynTaskTags.addTagDynamically( ((TaskAdaptable<?>)v).asTask(), BrooklynTaskTags.IMMEDIATE_TASK_TAG );
+                    }
+                }
+                
+                //if it's a task or a future, we wait for the task to complete
+                if (v instanceof TaskAdaptable<?>) {
+                    v = ((TaskAdaptable<?>) v).asTask();
                 }
             }
             
-            //if it's a task or a future, we wait for the task to complete
-            if (v instanceof TaskAdaptable<?>) {
+            if (allowImmediateExecution && isEvaluatingImmediately()) {
+                // TODO could allow for everything, when evaluating immediately -- but if the target isn't safe to run again
+                // then we have to fail if immediate didn't work; to avoid breaking semantics we only do that for a few cases;
+                // might be nice to get to the point where we can break those semantics however, 
+                // ie weakening what getImmediate supports and making it be non-blocking, so that bailOut=true is the default.
+                // if: v instanceof TaskFactory -- it is safe, it's a new API (but it is currently the only one supported);
+                //     more than safe, we have to do it -- or add code here to cancel tasks -- because it spawns new tasks
+                //     (other objects passed through here don't get cancelled, because other things might try again later;
+                //     ie a task or future passed in here might naturally be long-running so cancelling is wrong,
+                //     but with a task factory generated task it would leak if we submitted and didn't cancel!)
+                // if: v instanceof ImmediateSupplier -- it probably is safe to change to bailOut = true  ?
+                // if: v instanceof Task or other things -- it currently isn't safe, there are places where
+                //     we expect to getImmediate on things which don't support it nicely,
+                //     and we rely on the blocking-short-wait behaviour, e.g. QuorumChecks in ConfigYamlTest
+                try {
+                    Maybe<T> result = execImmediate(exec, v);
+                    if (result!=null) return result;
+                    if (bailOutAfterImmediateExecution) {
+                        throw new ImmediateSupplier.ImmediateUnsupportedException("Cannot get immediately: "+v);
+                    }
+                } catch (ImmediateSupplier.ImmediateUnsupportedException e) {
+                    if (bailOutAfterImmediateExecution) {
+                        throw new ImmediateSupplier.ImmediateUnsupportedException("Cannot get immediately: "+v, e);
+                    }
+                    log.debug("Unable to resolve-immediately for "+description+" ("+v+", unsupported, type "+v.getClass()+"); falling back to executing with timeout: "+e);
+                } catch (InterruptingImmediateSupplier.InterruptingImmediateSupplierNotSupportedForObject e) {
+                    // ignore, continue below
+                    log.debug("Unable to resolve-immediately for "+description+" ("+v+", not supported for type "+v.getClass()+"); falling back to executing with timeout: "+e);
+                }
+            }
+            
+            if (v instanceof Task) {
                 //if it's a task, we make sure it is submitted
-                if (!((TaskAdaptable<?>) v).asTask().isSubmitted() ) {
-                    if (exec==null)
+                Task<?> task = (Task<?>) v;
+                if (!task.isSubmitted()) {
+                    if (exec==null) {
                         return Maybe.absent("Value for unsubmitted task '"+getDescription()+"' requested but no execution context available");
-                    exec.submit(((TaskAdaptable<?>) v).asTask());
+                    }
+                    if (!task.getTags().contains(BrooklynTaskTags.TRANSIENT_TASK_TAG)) {
+                        // mark this non-transient, because this value is usually something set e.g. in config
+                        // (should discourage this in favour of task factories which can be transiently interrupted?)
+                        BrooklynTaskTags.addTagDynamically(task, BrooklynTaskTags.NON_TRANSIENT_TASK_TAG);
+                    }
+                    exec.submit(task);
                 }
             }
 
@@ -493,7 +543,9 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             
-            IllegalArgumentException problem = new IllegalArgumentException("Error resolving "+(description!=null ? description+", " : "")+v+", in "+exec+": "+e, e);
+            String msg = "Error resolving "+(description!=null ? description+", " : "")+v+", in "+exec;
+            String eTxt = Exceptions.collapseText(e);
+            IllegalArgumentException problem = eTxt.startsWith(msg) ? new IllegalArgumentException(e) : new IllegalArgumentException(msg+": "+eTxt, e);
             if (swallowExceptions) {
                 if (log.isDebugEnabled())
                     log.debug("Resolution of "+this+" failed, swallowing and returning: "+e);
@@ -510,6 +562,21 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
             // T expected to be Object.class
             return (Maybe<T>) Maybe.of(v);
         }
+    }
+
+    /** tries to get immediately, then resolve recursively (including for casting) if {@link #recursive} is set
+     * 
+     * @throws InterruptingImmediateSupplier.InterruptingImmediateSupplierNotSupportedForObject
+     * ImmediateSupplier.ImmediateUnsupportedException
+     * if underlying call to {@link ExecutionContext#getImmediately(Object)} does so */
+    protected Maybe<T> execImmediate(ExecutionContext exec, Object immediateSupplierOrImmediateTask) {
+        Maybe<T> result = exec.getImmediately(immediateSupplierOrImmediateTask);
+        
+        return (result.isPresent())
+            ? recursive
+                ? new ValueResolver<T>(result.get(), type, this).getMaybe()
+                    : result
+                    : result;
     }
 
     protected String getDescription() {

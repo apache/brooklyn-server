@@ -30,6 +30,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigInheritances;
@@ -231,7 +232,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
     }
 
     protected Object coerceConfigVal(ConfigKey<?> key, Object v) {
-        if ((v instanceof Future) || (v instanceof DeferredSupplier)) {
+        if ((v instanceof Future) || (v instanceof DeferredSupplier) || (v instanceof TaskFactory)) {
             // no coercion for these (coerce on exit)
             return v;
         } else if (key instanceof StructuredConfigKey) {

@@ -20,13 +20,17 @@ package org.apache.brooklyn.util.core.task;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.fail;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.test.Asserts;
@@ -36,6 +40,10 @@ import org.apache.brooklyn.util.time.Time;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.Callables;
 
 /**
  * see also {@link TasksTest} for more tests
@@ -137,19 +145,17 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         assertMaybeIsAbsent(result);
         Assert.assertEquals(result.get(), "foo");
     }
-
+    
     public void testGetImmediately() {
         MyImmediateAndDeferredSupplier supplier = new MyImmediateAndDeferredSupplier();
         CallInfo callInfo = Tasks.resolving(supplier).as(CallInfo.class).context(app).immediately(true).get();
-        assertNull(callInfo.task);
-        assertContainsCallingMethod(callInfo.stackTrace, "testGetImmediately");
+        assertImmediateFakeTaskFromMethod(callInfo, "testGetImmediately");
     }
     
     public void testImmediateSupplierWithTimeoutUsesBlocking() {
         MyImmediateAndDeferredSupplier supplier = new MyImmediateAndDeferredSupplier();
         CallInfo callInfo = Tasks.resolving(supplier).as(CallInfo.class).context(app).timeout(Asserts.DEFAULT_LONG_TIMEOUT).get();
-        assertNotNull(callInfo.task);
-        assertNotContainsCallingMethod(callInfo.stackTrace, "testImmediateSupplierWithTimeoutUsesBlocking");
+        assertRealTaskNotFromMethod(callInfo, "testImmediateSupplierWithTimeoutUsesBlocking");
     }
     
     public void testGetImmediatelyInTask() throws Exception {
@@ -164,16 +170,14 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
             }
         });
         CallInfo callInfo = task.get();
-        assertEquals(callInfo.task, task);
-        assertContainsCallingMethod(callInfo.stackTrace, "myUniquelyNamedMethod");
+        assertImmediateFakeTaskFromMethod(callInfo, "myUniquelyNamedMethod");
     }
     
     public void testGetImmediatelyFallsBackToDeferredCallInTask() throws Exception {
         final MyImmediateAndDeferredSupplier supplier = new MyImmediateAndDeferredSupplier(true);
         CallInfo callInfo = Tasks.resolving(supplier).as(CallInfo.class).context(app).immediately(true).get();
-        assertNotNull(callInfo.task);
+        assertRealTaskNotFromMethod(callInfo, "testGetImmediatelyFallsBackToDeferredCallInTask");
         assertEquals(BrooklynTaskTags.getContextEntity(callInfo.task), app);
-        assertNotContainsCallingMethod(callInfo.stackTrace, "testGetImmediatelyFallsBackToDeferredCallInTask");
     }
 
     public void testNonRecursiveBlockingFailsOnNonObjectType() throws Exception {
@@ -224,6 +228,94 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
             assertEquals(result.getClass(), FailingImmediateAndDeferredSupplier.class);
     }
 
+    public void testTaskFactoryGet() {
+        TaskFactory<TaskAdaptable<String>> taskFactory = new TaskFactory<TaskAdaptable<String>>() {
+            @Override public TaskAdaptable<String> newTask() {
+                return new BasicTask<>(Callables.returning("myval"));
+            }
+        };
+        String result = Tasks.resolving(taskFactory).as(String.class).context(app).get();
+        assertEquals(result, "myval");
+    }
+    
+    public void testTaskFactoryGetImmediately() {
+        TaskFactory<TaskAdaptable<String>> taskFactory = new TaskFactory<TaskAdaptable<String>>() {
+            @Override public TaskAdaptable<String> newTask() {
+                return new BasicTask<>(Callables.returning("myval"));
+            }
+        };
+        String result = Tasks.resolving(taskFactory).as(String.class).context(app).immediately(true).get();
+        assertEquals(result, "myval");
+    }
+    
+    public void testTaskFactoryGetImmediatelyDoesNotBlock() {
+        final AtomicBoolean executing = new AtomicBoolean();
+        TaskFactory<TaskAdaptable<String>> taskFactory = new TaskFactory<TaskAdaptable<String>>() {
+            @Override public TaskAdaptable<String> newTask() {
+                return new BasicTask<>(new Callable<String>() {
+                    public String call() {
+                        executing.set(true);
+                        try {
+                            Time.sleep(Duration.ONE_MINUTE);
+                            return "myval";
+                        } finally {
+                            executing.set(false);
+                        }
+                    }});
+            }
+        };
+        Maybe<String> result = Tasks.resolving(taskFactory).as(String.class).context(app).immediately(true).getMaybe();
+        Asserts.assertTrue(result.isAbsent(), "result="+result);
+        // the call below default times out after 30s while the task above is still running
+        Asserts.succeedsEventually(new Runnable() {
+            public void run() {
+                Asserts.assertFalse(executing.get());
+            }
+        });
+    }
+    
+    public void testTaskFactoryGetImmediatelyDoesNotBlockWithNestedTasks() {
+        final int NUM_CALLS = 3;
+        final AtomicInteger executingCount = new AtomicInteger();
+        final List<SequentialTask<?>> outerTasks = Lists.newArrayList();
+        
+        TaskFactory<Task<?>> taskFactory = new TaskFactory<Task<?>>() {
+            @Override public Task<?> newTask() {
+                SequentialTask<?> result = new SequentialTask<>(ImmutableList.of(new Callable<String>() {
+                    public String call() {
+                        executingCount.incrementAndGet();
+                        try {
+                            Time.sleep(Duration.ONE_MINUTE);
+                            return "myval";
+                        } finally {
+                            executingCount.decrementAndGet();
+                        }
+                    }}));
+                outerTasks.add(result);
+                return result;
+            }
+        };
+        for (int i = 0; i < NUM_CALLS; i++) {
+            Maybe<String> result = Tasks.resolving(taskFactory).as(String.class).context(app).immediately(true).getMaybe();
+            Asserts.assertTrue(result.isAbsent(), "result="+result);
+        }
+        // the call below default times out after 30s while the task above is still running
+        Asserts.succeedsEventually(new Runnable() {
+            public void run() {
+                Asserts.assertEquals(outerTasks.size(), NUM_CALLS);
+                for (Task<?> task : outerTasks) {
+                    Asserts.assertTrue(task.isDone());
+                    Asserts.assertTrue(task.isCancelled());
+                }
+            }
+        });
+        Asserts.succeedsEventually(new Runnable() {
+            public void run() {
+                Asserts.assertEquals(executingCount.get(), 0);
+            }
+        });
+    }
+    
     private static class MyImmediateAndDeferredSupplier implements ImmediateSupplier<CallInfo>, DeferredSupplier<CallInfo> {
         private final boolean failImmediately;
         
@@ -359,4 +451,18 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
             }
         }
     }
+    
+    private void assertImmediateFakeTaskFromMethod(CallInfo callInfo, String method) {
+        // previously task was null, but now there is a "fake task"
+        assertNotNull(callInfo.task);
+        Assert.assertFalse(callInfo.task.isSubmitted());       
+        assertContainsCallingMethod(callInfo.stackTrace, method);
+    }
+    
+    private void assertRealTaskNotFromMethod(CallInfo callInfo, String method) {
+        assertNotNull(callInfo.task);
+        Assert.assertTrue(callInfo.task.isSubmitted());   
+        assertNotContainsCallingMethod(callInfo.stackTrace, method); 
+    }
+
 }

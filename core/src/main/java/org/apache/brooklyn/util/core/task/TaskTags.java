@@ -62,6 +62,7 @@ public class TaskTags {
     }
 
     public static boolean hasTag(Task<?> task, Object tag) {
+        if (task==null) return false;
         return task.getTags().contains(tag);
     }
     
