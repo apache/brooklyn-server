@@ -33,6 +33,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
+import javax.annotation.Nonnull;
+
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -60,16 +62,22 @@ public class BundleMaker {
     private ResourceUtils resources;
     private Class<?> optionalDefaultClassForLoading;
 
-    public BundleMaker(Framework f, ResourceUtils resources) {
+    /** Constructor for use when not expecting to use with a framework */
+    public BundleMaker(@Nonnull ResourceUtils resources) {
+        this.resources = resources;
+    }
+    
+    public BundleMaker(@Nonnull Framework f, @Nonnull ResourceUtils resources) {
         this.framework = f;
         this.resources = resources;
     }
     
-    public BundleMaker(ManagementContext mgmt) {
+    public BundleMaker(@Nonnull ManagementContext mgmt) {
         this( ((LocalManagementContext)mgmt).getOsgiManager().get().getFramework(), ResourceUtils.create() );
     }
 
-    /** if set, this will be used to resolve relative classpath fragments */
+    /** if set, this will be used to resolve relative classpath fragments;
+     * the {@link ResourceUtils} supplied in the constructor must also be with respect to the given class */
     public void setDefaultClassForLoading(Class<?> optionalDefaultClassForLoading) {
         this.optionalDefaultClassForLoading = optionalDefaultClassForLoading;
     }
@@ -91,24 +99,13 @@ public class BundleMaker {
                 path = "classpath:"+path;
             }
             
-            InputStream min;
-            try {
-                min = resources.getResourceFromUrl(Urls.mergePaths(path, MANIFEST_PATH));
-            } catch (RuntimeException e) {
-                Exceptions.propagateIfFatal(e);
-                IOException ioe = Exceptions.getFirstThrowableOfType(e, IOException.class);
-                if (ioe != null && ioe.toString().contains("not found on classpath")) {
-                    min = null;
-                } else {
-                    throw e;
-                }
-            }
-            if (min==null) {
-                zout = new JarOutputStream(new FileOutputStream(f));
-                addUrlItemRecursively(zout, path, path, Predicates.alwaysTrue());
-            } else {
+            if (resources.doesUrlExist(Urls.mergePaths(path, MANIFEST_PATH))) {
+                InputStream min = resources.getResourceFromUrl(Urls.mergePaths(path, MANIFEST_PATH));
                 zout = new JarOutputStream(new FileOutputStream(f), new Manifest(min));
                 addUrlItemRecursively(zout, path, path, Predicates.not(Predicates.equalTo(MANIFEST_PATH)));
+            } else {
+                zout = new JarOutputStream(new FileOutputStream(f));
+                addUrlItemRecursively(zout, path, path, Predicates.alwaysTrue());
             }
             
             Streams.closeQuietly(zout);

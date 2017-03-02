@@ -326,7 +326,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
             webServer.start();
 
         } catch (Exception e) {
-            LOG.warn("Failed to start Brooklyn web-console (rethrowing): " + Exceptions.collapseText(e));
+            LOG.warn("Failed to start Brooklyn web-console (rethrowing) on "+bindAddress+" (port constraint "+port+"): " + Exceptions.collapseText(e));
             throw new FatalRuntimeException("Failed to start Brooklyn web-console: " + Exceptions.collapseText(e), e);
         }
     }

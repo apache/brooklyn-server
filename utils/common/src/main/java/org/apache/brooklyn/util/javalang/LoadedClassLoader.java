@@ -36,8 +36,16 @@ public class LoadedClassLoader extends ClassLoader {
         return result;
     }
 
-    public void addClass(Class<?> clazz) {
+    public void registerClass(Class<?> clazz) {
         loadedClasses.put(clazz.getName(), clazz);
+    }
+    
+    /** @deprecated since 0.11.0 because there is a private superclass method with the same signature;
+     *  use {@link #registerClass(Class)} instead to avoid confusion
+     */
+    @Deprecated 
+    public void addClass(Class<?> clazz) {
+        registerClass(clazz);
     }
     
     // TODO could also add resources

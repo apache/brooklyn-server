@@ -20,6 +20,7 @@ package org.apache.brooklyn.launcher;
 
 import java.io.File;
 import java.util.Set;
+import java.util.zip.ZipFile;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
@@ -41,6 +42,11 @@ import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.core.file.ArchiveUtils;
+import org.apache.brooklyn.util.core.osgi.BundleMaker;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -66,13 +72,26 @@ public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphaned
     private Set<ManagementContext> mgmts;
     private ManagementContext mgmt;
 
+    private String copyResourcePathToTempPath(String resourcePath) {
+        BundleMaker bm = new BundleMaker(ResourceUtils.create(this));
+        bm.setDefaultClassForLoading(CleanOrphanedLocationsIntegrationTest.class);
+        File jar = bm.createJarFromClasspathDir(resourcePath);
+        File output = Os.newTempDir("brooklyn-test-resouce-from-"+resourcePath);
+        try {
+            ArchiveUtils.extractZip(new ZipFile(jar), output.getAbsolutePath());
+            return output.getAbsolutePath();
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
+    }
+    
     @BeforeMethod(alwaysRun = true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        persistenceDirWithOrphanedLocations = getClass().getResource(PERSISTED_STATE_PATH_WITH_ORPHANED_LOCATIONS).getFile();
-        persistenceDirWithoutOrphanedLocations = getClass().getResource(PERSISTED_STATE_PATH_WITHOUT_ORPHANED_LOCATIONS).getFile();
-        persistenceDirWithMultipleLocationsOccurrence = getClass().getResource(PERSISTED_STATE_PATH_WITH_MULTIPLE_LOCATIONS_OCCURRENCE).getFile();
+        persistenceDirWithOrphanedLocations = copyResourcePathToTempPath(PERSISTED_STATE_PATH_WITH_ORPHANED_LOCATIONS);
+        persistenceDirWithoutOrphanedLocations = copyResourcePathToTempPath(PERSISTED_STATE_PATH_WITHOUT_ORPHANED_LOCATIONS);
+        persistenceDirWithMultipleLocationsOccurrence = copyResourcePathToTempPath(PERSISTED_STATE_PATH_WITH_MULTIPLE_LOCATIONS_OCCURRENCE);
 
         destinationDir = Os.newTempDir(getClass());
         
@@ -121,6 +140,7 @@ public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphaned
         PersistenceExceptionHandler persistenceExceptionHandler = PersistenceExceptionHandlerImpl.builder().build();
         ((RebindManagerImpl) rebindManager).setPeriodicPersistPeriod(Duration.ONE_SECOND);
         rebindManager.setPersister(persister, persistenceExceptionHandler);
+        ((RebindManagerImpl) rebindManager).forcePersistNow();
     }
 
     @Test
@@ -146,6 +166,7 @@ public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphaned
 
     @Test
     public void testCleanedCopiedPersistedState() throws Exception {
+        LOG.info(JavaClassNames.niceClassAndMethod()+" taking persistence from "+persistenceDirWithOrphanedLocations);
         BrooklynLauncher launcher = BrooklynLauncher.newInstance()
                 .webconsole(false)
                 .brooklynProperties(OsgiManager.USE_OSGI, false)
