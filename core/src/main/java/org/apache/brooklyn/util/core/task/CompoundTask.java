@@ -128,4 +128,19 @@ public abstract class CompoundTask<T> extends BasicTask<List<T>> implements HasT
         return (List) getChildrenTyped();
     }
     
+    @Override
+    protected boolean doCancel(org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode mode) {
+        boolean result = false;
+        if (mode.isAllowedToInterruptDependentSubmittedTasks()) {
+            for (Task<?> t: getChildren()) {
+                if (!t.isDone()) {
+                    result = ((TaskInternal<?>)t).cancel(mode) || result;
+                }
+            }
+        }
+        result = super.doCancel(mode) || result;
+        return result;
+        // returns true if anything is successfully cancelled
+    }
+    
 }

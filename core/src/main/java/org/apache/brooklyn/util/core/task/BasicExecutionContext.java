@@ -47,6 +47,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
+import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 
 /**
@@ -100,7 +101,12 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     public Set<Task<?>> getTasks() { return executionManager.getTasksWithAllTags(tags); }
 
     /** performs execution without spawning a new task thread, though it does temporarily set a fake task for the purpose of getting context;
-     * currently supports suppliers or callables  */
+     * currently supports {@link Supplier}, {@link Callable}, {@link Runnable}, or {@link Task} instances; 
+     * with tasks if it is submitted or in progress,
+     * it fails if not completed; with unsubmitted, unqueued tasks, it gets the {@link Callable} job and 
+     * uses that; with such a job, or any other callable/supplier/runnable, it runs that
+     * in an {@link InterruptingImmediateSupplier}, with as much metadata as possible (eg task name if
+     * given a task) set <i>temporarily</i> in the current thread context */
     @SuppressWarnings("unchecked")
     @Override
     public <T> Maybe<T> getImmediately(Object callableOrSupplier) {

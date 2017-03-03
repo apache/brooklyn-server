@@ -23,8 +23,10 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.fail;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
@@ -40,6 +42,8 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Callables;
 
 /**
@@ -282,6 +286,48 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         Asserts.succeedsEventually(new Runnable() {
             public void run() {
                 Asserts.assertFalse(executing.get());
+            }
+        });
+    }
+    
+    public void testTaskFactoryGetImmediatelyDoesNotBlockWithNestedTasks() {
+        final int NUM_CALLS = 3;
+        final AtomicInteger executingCount = new AtomicInteger();
+        final List<SequentialTask<?>> outerTasks = Lists.newArrayList();
+        
+        TaskFactory<Task<?>> taskFactory = new TaskFactory<Task<?>>() {
+            @Override public Task<?> newTask() {
+                SequentialTask<?> result = new SequentialTask<>(ImmutableList.of(new Callable<String>() {
+                    public String call() {
+                        executingCount.incrementAndGet();
+                        try {
+                            Time.sleep(Duration.ONE_MINUTE);
+                            return "myval";
+                        } finally {
+                            executingCount.decrementAndGet();
+                        }
+                    }}));
+                outerTasks.add(result);
+                return result;
+            }
+        };
+        for (int i = 0; i < NUM_CALLS; i++) {
+            Maybe<String> result = Tasks.resolving(taskFactory).as(String.class).context(app).immediately(true).getMaybe();
+            Asserts.assertTrue(result.isAbsent(), "result="+result);
+        }
+        // the call below default times out after 30s while the task above is still running
+        Asserts.succeedsEventually(new Runnable() {
+            public void run() {
+                Asserts.assertEquals(outerTasks.size(), NUM_CALLS);
+                for (Task<?> task : outerTasks) {
+                    Asserts.assertTrue(task.isDone());
+                    Asserts.assertTrue(task.isCancelled());
+                }
+            }
+        });
+        Asserts.succeedsEventually(new Runnable() {
+            public void run() {
+                Asserts.assertEquals(executingCount.get(), 0);
             }
         });
     }

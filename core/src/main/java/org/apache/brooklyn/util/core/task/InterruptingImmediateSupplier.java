@@ -19,6 +19,7 @@
 package org.apache.brooklyn.util.core.task;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.Semaphore;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -62,7 +63,8 @@ public class InterruptingImmediateSupplier<T> implements ImmediateSupplier<T>, D
                 return Maybe.absent(Exceptions.getFirstThrowableOfType(t, ImmediateValueNotAvailableException.class));
             }
             if (Exceptions.getFirstThrowableOfType(t, InterruptedException.class)!=null || 
-                    Exceptions.getFirstThrowableOfType(t, RuntimeInterruptedException.class)!=null) {
+                    Exceptions.getFirstThrowableOfType(t, RuntimeInterruptedException.class)!=null || 
+                    Exceptions.getFirstThrowableOfType(t, CancellationException.class)!=null) {
                 return Maybe.absent(new ImmediateValueNotAvailableException("Immediate value not available, required non-blocking execution", t));
             }
             throw Exceptions.propagate(t);

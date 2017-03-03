@@ -405,11 +405,14 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                     if (bailOutAfterImmediateExecution) {
                         throw new ImmediateSupplier.ImmediateUnsupportedException("Cannot get immediately: "+v);
                     }
-                    // else proceed to below
+                    // ignore, continue below
+                    if (log.isTraceEnabled()) {
+                        log.trace("Unable to resolve-immediately for "+description+" ("+v+", unsupported, type "+v.getClass()+"); falling back to executing with timeout: "+e);
+                    }
                 } catch (ImmediateSupplier.ImmediateValueNotAvailableException e) {
                     // definitively not available
                     return ImmediateSupplier.ImmediateValueNotAvailableException.newAbsentWithExceptionSupplier();
-                }                
+                }
             }
             
             if (v instanceof Task) {
@@ -558,6 +561,21 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
             return (Maybe<T>) Maybe.of(v);
         }
     }
+
+//    /** tries to get immediately, then resolve recursively (including for casting) if {@link #recursive} is set
+//     * 
+//     * @throws InterruptingImmediateSupplier.InterruptingImmediateSupplierNotSupportedForObject
+//     * ImmediateSupplier.ImmediateUnsupportedException
+//     * if underlying call to {@link ExecutionContext#getImmediately(Object)} does so */
+//    protected Maybe<T> execImmediate(ExecutionContext exec, Object immediateSupplierOrImmediateTask) {
+//        Maybe<T> result = exec.getImmediately(immediateSupplierOrImmediateTask);
+//        
+//        return (result.isPresent())
+//            ? recursive
+//                ? new ValueResolver<T>(result.get(), type, this).getMaybe()
+//                    : result
+//                    : result;
+//    }
 
     protected String getDescription() {
         return description!=null ? description : ""+value;

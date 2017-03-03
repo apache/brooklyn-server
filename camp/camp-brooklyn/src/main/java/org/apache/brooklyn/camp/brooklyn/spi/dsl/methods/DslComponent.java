@@ -549,7 +549,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         
         @Override
         public final Maybe<Object> getImmediately() {
-            Maybe<Object> maybeWrappedMaybe = findExecutionContext(this).getImmediately(newCallable(true));
+            Maybe<Object> maybeWrappedMaybe = findExecutionContext(this).getImmediately(newCallableReturningImmediateMaybeOrNonImmediateValue(true));
             // the answer will be wrapped twice due to the callable semantics;
             // the inner present/absent is important; it will only get an outer absent if interrupted
             if (maybeWrappedMaybe.isAbsent()) return maybeWrappedMaybe;
@@ -562,10 +562,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     .displayName("retrieving config for "+keyName)
                     .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
                     .dynamic(false)
-                    .body(newCallable(false)).build();
+                    .body(newCallableReturningImmediateMaybeOrNonImmediateValue(false)).build();
         }
 
-        private Callable<Object> newCallable(final boolean immediate) {
+        private Callable<Object> newCallableReturningImmediateMaybeOrNonImmediateValue(final boolean immediate) {
             return new Callable<Object>() {
                 @Override
                 public Object call() throws Exception {

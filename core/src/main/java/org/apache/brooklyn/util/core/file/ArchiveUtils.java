@@ -21,15 +21,19 @@ package org.apache.brooklyn.util.core.file;
 import static java.lang.String.format;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.EnumSet;
+import java.util.Enumeration;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -42,7 +46,10 @@ import org.apache.brooklyn.util.javalang.StackTraceSimplifier;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
@@ -347,4 +354,22 @@ public class ArchiveUtils {
         }
     }
 
+    public static void extractZip(final ZipFile zip, final String targetFolder) {
+        new File(targetFolder).mkdir();
+        Enumeration<? extends ZipEntry> zipFileEntries = zip.entries();
+        while (zipFileEntries.hasMoreElements()) {
+            ZipEntry entry = (ZipEntry) zipFileEntries.nextElement();
+            File destFile = new File(targetFolder, entry.getName());
+            destFile.getParentFile().mkdirs();
+
+            if (!entry.isDirectory()) {
+                try (InputStream in=zip.getInputStream(entry); OutputStream out=new FileOutputStream(destFile)) {
+                    Streams.copy(in, out);
+                } catch (IOException e) {
+                    throw Exceptions.propagate(e);
+                }
+            }
+        }
+    }
+    
 }

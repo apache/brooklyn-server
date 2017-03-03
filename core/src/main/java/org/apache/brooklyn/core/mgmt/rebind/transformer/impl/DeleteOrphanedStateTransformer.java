@@ -91,10 +91,10 @@ public class DeleteOrphanedStateTransformer extends CompoundTransformer {
         Set<String> enrichersToDelete = Sets.difference(input.getEnrichers().keySet(), enrichersToKeep.keySet());
         Set<String> policiesToDelete = Sets.difference(input.getPolicies().keySet(), policiesToKeep.keySet());
         Set<String> feedsToDelete = Sets.difference(input.getFeeds().keySet(), feedsToKeep.keySet());
-        LOG.info("Deleting {} orphaned location{}: {}", new Object[] {locsToDelete.size(), Strings.s(locsToDelete.size()), locsToDelete});
-        LOG.info("Deleting {} orphaned enricher{}: {}", new Object[] {enrichersToDelete.size(), Strings.s(enrichersToDelete.size()), enrichersToDelete});
-        LOG.info("Deleting {} orphaned polic{}: {}", new Object[] {policiesToDelete.size(), (policiesToDelete.size() == 1 ? "y" : "ies"), policiesToDelete});
-        LOG.info("Deleting {} orphaned feed{}: {}", new Object[] {feedsToDelete.size(), Strings.s(feedsToDelete.size()), feedsToDelete});
+        LOG.info("Deleting {} orphaned location{} (of {}): {}", new Object[] {locsToDelete.size(), Strings.s(locsToDelete.size()), input.getLocations().size(), locsToDelete});
+        LOG.info("Deleting {} orphaned enricher{} (of {}): {}", new Object[] {enrichersToDelete.size(), Strings.s(enrichersToDelete.size()), input.getEnrichers().size(), enrichersToDelete});
+        LOG.info("Deleting {} orphaned polic{} (of {}): {}", new Object[] {policiesToDelete.size(), (policiesToDelete.size() == 1 ? "y" : "ies"), input.getPolicies().size(), policiesToDelete});
+        LOG.info("Deleting {} orphaned feed{} (of {}): {}", new Object[] {feedsToDelete.size(), Strings.s(feedsToDelete.size()), input.getFeeds().size(), feedsToDelete});
         
         return BrooklynMementoRawData.builder()
                 .brooklynVersion(input.getBrooklynVersion())

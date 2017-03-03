@@ -2051,6 +2051,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         String address = winrmHostAndPort.getHostText();
         String displayName = getPublicHostnameGeneric(node, setup, Optional.of(address));
 
+        final Object password = winrmConfig.get(WinRmMachineLocation.PASSWORD.getName()) != null
+                ? winrmConfig.get(WinRmMachineLocation.PASSWORD.getName())
+                : userCredentials.getOptionalPassword().orNull();
         if (isManaged()) {
             final LocationSpec<JcloudsWinRmMachineLocation> spec = LocationSpec.create(JcloudsWinRmMachineLocation.class)
                     .configure(winrmConfig)
@@ -2058,11 +2061,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     .configure("displayName", displayName)
                     .configure("address", address)
                     .configure(WinRmMachineLocation.WINRM_CONFIG_PORT, winrmHostAndPort.getPort())
-                    .configure("user", getUser(setup))
-                    .configure(WinRmMachineLocation.USER, setup.get(USER))
-                    .configure(SshMachineLocation.PASSWORD.getName(), winrmConfig.get(WinRmMachineLocation.PASSWORD.getName()) != null ?
-                            winrmConfig.get(WinRmMachineLocation.PASSWORD.getName()) :
-                            userCredentials.getOptionalPassword().orNull())
+                    .configure(WinRmMachineLocation.USER.getName(), userCredentials.getUser())
+                    .configure(WinRmMachineLocation.PASSWORD.getName(), password)
                     .configure("node", node)
                     .configureIfNotNull(CLOUD_AVAILABILITY_ZONE_ID, nodeAvailabilityZone)
                     .configureIfNotNull(CLOUD_REGION_ID, nodeRegion)
