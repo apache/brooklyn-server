@@ -275,6 +275,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
             spec = createEntitySpecForApplication(yaml);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
+            log.warn("Failed REST deployment, could not create spec: "+e);
             UserFacingException userFacing = Exceptions.getFirstThrowableOfType(e, UserFacingException.class);
             if (userFacing!=null) {
                 log.debug("Throwing "+userFacing+", wrapped in "+e);
@@ -291,6 +292,8 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         try {
             return launch(yaml, spec);
         } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            log.warn("Failed REST deployment launching "+spec+": "+e);
             throw WebResourceUtils.badRequest(e, "Error launching blueprint");
         }
     }
@@ -366,6 +369,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
             spec = createEntitySpecForApplication(potentialYaml);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
+            log.warn("Failed REST deployment, could not create spec (autodetecting): "+e);
             
             // TODO if not yaml/json - try ZIP, etc
             
@@ -374,7 +378,13 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
 
         if (spec != null) {
-            return launch(potentialYaml, spec);
+            try {
+                return launch(potentialYaml, spec);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                log.warn("Failed REST deployment launching "+spec+": "+e);
+                throw WebResourceUtils.badRequest(e, "Error launching blueprint (autodetecting)");
+            }
         } else if (looksLikeLegacy) {
             throw Exceptions.propagate(legacyFormatException);
         } else {
