@@ -18,41 +18,19 @@
  */
 package org.apache.brooklyn.feed.ssh;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import org.apache.brooklyn.feed.CommandPollConfig;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.internal.ssh.SshTool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.feed.AbstractFeed;
-import org.apache.brooklyn.core.feed.AttributePollHandler;
-import org.apache.brooklyn.core.feed.DelegatingPollHandler;
-import org.apache.brooklyn.core.feed.Poller;
-import org.apache.brooklyn.core.location.Locations;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.internal.ssh.SshTool;
-import org.apache.brooklyn.util.time.Duration;
-
-import com.google.common.base.Objects;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
-import com.google.common.reflect.TypeToken;
 
 /**
  * Provides a feed of attribute values, by polling over ssh.
@@ -88,180 +66,51 @@ import com.google.common.reflect.TypeToken;
  * 
  * @author aled
  */
-public class SshFeed extends AbstractFeed {
-
+public class SshFeed extends org.apache.brooklyn.feed.AbstractCommandFeed {
     public static final Logger log = LoggerFactory.getLogger(SshFeed.class);
-    
-    @SuppressWarnings("serial")
-    public static final ConfigKey<Supplier<SshMachineLocation>> MACHINE = ConfigKeys.newConfigKey(
-            new TypeToken<Supplier<SshMachineLocation>>() {},
-            "machine");
-    
-    public static final ConfigKey<Boolean> EXEC_AS_COMMAND = ConfigKeys.newBooleanConfigKey("execAsCommand");
-    
-    @SuppressWarnings("serial")
-    public static final ConfigKey<SetMultimap<SshPollIdentifier, SshPollConfig<?>>> POLLS = ConfigKeys.newConfigKey(
-            new TypeToken<SetMultimap<SshPollIdentifier, SshPollConfig<?>>>() {},
-            "polls");
-    
+
+    public static class Builder extends org.apache.brooklyn.feed.AbstractCommandFeed.Builder<SshFeed, Builder> {
+        private List<CommandPollConfig<?>> polls = Lists.newArrayList();
+
+        @Override
+        public Builder poll(CommandPollConfig<?> config) {
+            polls.add(config);
+            return self();
+        }
+
+        @Override
+        public List<CommandPollConfig<?>> getPolls() {
+            return polls;
+        }
+
+        @Override
+        protected Builder self() {
+           return this;
+        }
+   
+        @Override
+        protected SshFeed instantiateFeed() {
+           return new SshFeed(this);
+        }
+     }
+
     public static Builder builder() {
         return new Builder();
     }
     
-    public static class Builder {
-        private Entity entity;
-        private boolean onlyIfServiceUp = false;
-        private Supplier<SshMachineLocation> machine;
-        private Duration period = Duration.of(500, TimeUnit.MILLISECONDS);
-        private List<SshPollConfig<?>> polls = Lists.newArrayList();
-        private boolean execAsCommand = false;
-        private String uniqueTag;
-        private volatile boolean built;
-        
-        public Builder entity(Entity val) {
-            this.entity = val;
-            return this;
-        }
-        public Builder onlyIfServiceUp() { return onlyIfServiceUp(true); }
-        public Builder onlyIfServiceUp(boolean onlyIfServiceUp) { 
-            this.onlyIfServiceUp = onlyIfServiceUp; 
-            return this; 
-        }
-        /** optional, to force a machine; otherwise it is inferred from the entity */
-        public Builder machine(SshMachineLocation val) { return machine(Suppliers.ofInstance(val)); }
-        /** optional, to force a machine; otherwise it is inferred from the entity */
-        public Builder machine(Supplier<SshMachineLocation> val) {
-            this.machine = val;
-            return this;
-        }
-        public Builder period(Duration period) {
-            this.period = period;
-            return this;
-        }
-        public Builder period(long millis) {
-            return period(Duration.of(millis, TimeUnit.MILLISECONDS));
-        }
-        public Builder period(long val, TimeUnit units) {
-            return period(Duration.of(val, units));
-        }
-        public Builder poll(SshPollConfig<?> config) {
-            polls.add(config);
-            return this;
-        }
-        public Builder execAsCommand() {
-            execAsCommand = true;
-            return this;
-        }
-        public Builder execAsScript() {
-            execAsCommand = false;
-            return this;
-        }
-        public Builder uniqueTag(String uniqueTag) {
-            this.uniqueTag = uniqueTag;
-            return this;
-        }
-        public SshFeed build() {
-            built = true;
-            SshFeed result = new SshFeed(this);
-            result.setEntity(checkNotNull((EntityLocal)entity, "entity"));
-            result.start();
-            return result;
-        }
-        @Override
-        protected void finalize() {
-            if (!built) log.warn("SshFeed.Builder created, but build() never called");
-        }
-    }
-    
-    private static class SshPollIdentifier {
-        final Supplier<String> command;
-        final Supplier<Map<String, String>> env;
-
-        private SshPollIdentifier(Supplier<String> command, Supplier<Map<String, String>> env) {
-            this.command = checkNotNull(command, "command");
-            this.env = checkNotNull(env, "env");
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hashCode(command, env);
-        }
-        
-        @Override
-        public boolean equals(Object other) {
-            if (!(other instanceof SshPollIdentifier)) {
-                return false;
-            }
-            SshPollIdentifier o = (SshPollIdentifier) other;
-            return Objects.equal(command, o.command) &&
-                    Objects.equal(env, o.env);
-        }
-    }
-
     /**
      * For rebind; do not call directly; use builder
      */
     public SshFeed() {
     }
 
-    protected SshFeed(final Builder builder) {
-        config().set(ONLY_IF_SERVICE_UP, builder.onlyIfServiceUp);
-        config().set(MACHINE, builder.machine);
-        config().set(EXEC_AS_COMMAND, builder.execAsCommand);
-        
-        SetMultimap<SshPollIdentifier, SshPollConfig<?>> polls = HashMultimap.<SshPollIdentifier,SshPollConfig<?>>create();
-        for (SshPollConfig<?> config : builder.polls) {
-            @SuppressWarnings({ "unchecked", "rawtypes" })
-            SshPollConfig<?> configCopy = new SshPollConfig(config);
-            if (configCopy.getPeriod() < 0) configCopy.period(builder.period);
-            polls.put(new SshPollIdentifier(config.getCommandSupplier(), config.getEnvSupplier()), configCopy);
-        }
-        config().set(POLLS, polls);
-        initUniqueTag(builder.uniqueTag, polls.values());
+    public SshFeed(final Builder builder) {
+        super(builder);
     }
 
-    protected SshMachineLocation getMachine() {
-        Supplier<SshMachineLocation> supplier = config().get(MACHINE);
-        if (supplier != null) {
-            return supplier.get();
-        } else {
-            return Locations.findUniqueSshMachineLocation(entity.getLocations()).get();
-        }
-    }
-    
     @Override
-    protected void preStart() {
-        SetMultimap<SshPollIdentifier, SshPollConfig<?>> polls = config().get(POLLS);
-        
-        for (final SshPollIdentifier pollInfo : polls.keySet()) {
-            Set<SshPollConfig<?>> configs = polls.get(pollInfo);
-            long minPeriod = Integer.MAX_VALUE;
-            Set<AttributePollHandler<? super SshPollValue>> handlers = Sets.newLinkedHashSet();
-
-            for (SshPollConfig<?> config : configs) {
-                handlers.add(new AttributePollHandler<SshPollValue>(config, entity, this));
-                if (config.getPeriod() > 0) minPeriod = Math.min(minPeriod, config.getPeriod());
-            }
-            
-            getPoller().scheduleAtFixedRate(
-                    new Callable<SshPollValue>() {
-                        @Override
-                        public SshPollValue call() throws Exception {
-                            return exec(pollInfo.command.get(), pollInfo.env.get());
-                        }}, 
-                    new DelegatingPollHandler<SshPollValue>(handlers),
-                    minPeriod);
-        }
-    }
-    
-    @Override
-    @SuppressWarnings("unchecked")
-    protected Poller<SshPollValue> getPoller() {
-        return (Poller<SshPollValue>) super.getPoller();
-    }
-    
-    private SshPollValue exec(String command, Map<String,String> env) throws IOException {
-        SshMachineLocation machine = getMachine();
+    protected SshPollValue exec(String command, Map<String,String> env) throws IOException {
+        SshMachineLocation machine = (SshMachineLocation)getMachine();
         Boolean execAsCommand = config().get(EXEC_AS_COMMAND);
         if (log.isTraceEnabled()) log.trace("Ssh polling for {}, executing {} with env {}", new Object[] {machine, command, env});
         ByteArrayOutputStream stdout = new ByteArrayOutputStream();

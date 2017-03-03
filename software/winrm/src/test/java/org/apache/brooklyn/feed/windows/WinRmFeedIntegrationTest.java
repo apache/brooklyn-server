@@ -16,26 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.feed.ssh;
+package org.apache.brooklyn.feed.windows;
 
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
-
+import com.google.common.base.Function;
+import com.google.common.base.Predicates;
+import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityInternal.FeedSupport;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.feed.CommandPollConfig;
+import org.apache.brooklyn.feed.ssh.SshPollValue;
+import org.apache.brooklyn.feed.ssh.SshValueFunctions;
+import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.StringFunctions;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.slf4j.Logger;
@@ -44,34 +49,38 @@ import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 
-import com.google.common.base.Function;
-import com.google.common.base.Predicates;
-import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableList;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
+/**
+ * Test is almost identical to {@link org.apache.brooklyn.feed.ssh.SshFeedIntegrationTest}.
+ * To launch the test I put in ~/.brooklyn/brooklyn.properties
+ *   brooklyn.location.named.WindowsLiveTest=byon:(hosts=192.168.1.2,osFamily=windows,user=winUser,password=p0ssw0rd)
+ */
+public class WinRmFeedIntegrationTest extends BrooklynAppLiveTestSupport {
 
-    private static final Logger log = LoggerFactory.getLogger(SshFeedIntegrationTest.class);
+    private static final Logger log = LoggerFactory.getLogger(WinRmFeedIntegrationTest.class);
+
+    private static final String LOCATION_SPEC = "named:WindowsLiveTest";
     
     final static AttributeSensor<String> SENSOR_STRING = Sensors.newStringSensor("aString", "");
     final static AttributeSensor<Integer> SENSOR_INT = Sensors.newIntegerSensor("aLong", "");
 
-    private LocalhostMachineProvisioningLocation loc;
-    private SshMachineLocation machine;
+    private WinRmMachineLocation machine;
     private TestEntity entity;
-    private SshFeed feed;
+    private CmdFeed feed;
     
     @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        loc = app.newLocalhostProvisioningLocation();
-        machine = loc.obtain();
+
+        MachineProvisioningLocation<?> provisioningLocation = (MachineProvisioningLocation<?>)
+                mgmt.getLocationRegistry().getLocationManaged(LOCATION_SPEC);
+        machine = (WinRmMachineLocation)provisioningLocation.obtain(ImmutableMap.of());
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
-        app.start(ImmutableList.of(loc));
+        app.start(ImmutableList.of(machine));
     }
 
     @AfterMethod(alwaysRun=true)
@@ -79,18 +88,17 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
     public void tearDown() throws Exception {
         if (feed != null) feed.stop();
         super.tearDown();
-        if (loc != null) Streams.closeQuietly(loc);
     }
     
     /** this is one of the most common pattern */
     @Test(groups="Integration")
-    public void testReturnsSshStdoutAndInfersMachine() throws Exception {
+    public void testReturnsStdoutAndInfersMachine() throws Exception {
         final TestEntity entity2 = app.createAndManageChild(EntitySpec.create(TestEntity.class)
             // inject the machine location, because the app was started with a provisioning location
             // and TestEntity doesn't provision
             .location(machine));
         
-        feed = SshFeed.builder()
+        feed = CmdFeed.builder()
                 .entity(entity2)
                 .poll(new CommandPollConfig<String>(SENSOR_STRING)
                         .command("echo hello")
@@ -105,11 +113,11 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
 
     @Test(groups="Integration")
     public void testFeedDeDupe() throws Exception {
-        testReturnsSshStdoutAndInfersMachine();
+        testReturnsStdoutAndInfersMachine();
         entity.addFeed(feed);
         log.info("Feed 0 is: "+feed);
         
-        testReturnsSshStdoutAndInfersMachine();
+        testReturnsStdoutAndInfersMachine();
         log.info("Feed 1 is: "+feed);
         entity.addFeed(feed);
                 
@@ -119,7 +127,7 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
     
     @Test(groups="Integration")
     public void testReturnsSshExitStatus() throws Exception {
-        feed = SshFeed.builder()
+        feed = CmdFeed.builder()
                 .entity(entity)
                 .machine(machine)
                 .poll(new CommandPollConfig<Integer>(SENSOR_INT)
@@ -132,8 +140,8 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
     }
     
     @Test(groups="Integration")
-    public void testReturnsSshStdout() throws Exception {
-        feed = SshFeed.builder()
+    public void testReturnsStdout() throws Exception {
+        feed = CmdFeed.builder()
                 .entity(entity)
                 .machine(machine)
                 .poll(new CommandPollConfig<String>(SENSOR_STRING)
@@ -146,10 +154,10 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test(groups="Integration")
-    public void testReturnsSshStderr() throws Exception {
+    public void testReturnsStderr() throws Exception {
         final String cmd = "thiscommanddoesnotexist";
         
-        feed = SshFeed.builder()
+        feed = CmdFeed.builder()
                 .entity(entity)
                 .machine(machine)
                 .poll(new CommandPollConfig<String>(SENSOR_STRING)
@@ -162,7 +170,7 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
     
     @Test(groups="Integration")
     public void testFailsOnNonZero() throws Exception {
-        feed = SshFeed.builder()
+        feed = CmdFeed.builder()
                 .entity(entity)
                 .machine(machine)
                 .poll(new CommandPollConfig<String>(SENSOR_STRING)
@@ -184,7 +192,7 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
             .addInitializer(new EntityInitializer() {
                 @Override
                 public void apply(EntityLocal entity) {
-                    SshFeed.builder()
+                    CmdFeed.builder()
                         .entity(entity)
                         .onlyIfServiceUp()
                         .poll(new CommandPollConfig<String>(SENSOR_STRING)
@@ -216,11 +224,11 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
         Supplier<String> cmdSupplier = new Supplier<String>() {
             @Override
             public String get() {
-                return "echo count-"+count.incrementAndGet()+"-$COUNT";
+                return "echo count-"+count.incrementAndGet()+"-%COUNT%";
             }
         };
         
-        feed = SshFeed.builder()
+        feed = CmdFeed.builder()
                 .entity(entity2)
                 .poll(new CommandPollConfig<String>(SENSOR_STRING)
                         .env(envSupplier)
