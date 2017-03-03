@@ -562,21 +562,6 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         }
     }
 
-//    /** tries to get immediately, then resolve recursively (including for casting) if {@link #recursive} is set
-//     * 
-//     * @throws InterruptingImmediateSupplier.InterruptingImmediateSupplierNotSupportedForObject
-//     * ImmediateSupplier.ImmediateUnsupportedException
-//     * if underlying call to {@link ExecutionContext#getImmediately(Object)} does so */
-//    protected Maybe<T> execImmediate(ExecutionContext exec, Object immediateSupplierOrImmediateTask) {
-//        Maybe<T> result = exec.getImmediately(immediateSupplierOrImmediateTask);
-//        
-//        return (result.isPresent())
-//            ? recursive
-//                ? new ValueResolver<T>(result.get(), type, this).getMaybe()
-//                    : result
-//                    : result;
-//    }
-
     protected String getDescription() {
         return description!=null ? description : ""+value;
     }
