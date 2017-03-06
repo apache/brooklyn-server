@@ -796,7 +796,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
     }
     
     @Test
-    public void testManuallyAddSpec() throws Exception {
+    public void testManuallyAdd() throws Exception {
         String yaml = Joiner.on("\n").join(
                 "services:",
                 "- type: "+TestEntity.class.getName());
@@ -812,10 +812,12 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         LOG.info("E1 keys: "+entity1.getEntityType().getConfigKeys());
         LOG.info("E2 keys: "+entity2.getEntityType().getConfigKeys());
         Assert.assertEquals(entity2.getEntityType().getConfigKeys(), entity1.getEntityType().getConfigKeys());
+        Assert.assertEquals(entity1.getCatalogItemId(), null);
+        Assert.assertEquals(entity2.getCatalogItemId(), null);
     }
     
     @Test
-    public void testManuallyAddSpecFromCatalog() throws Exception {
+    public void testManuallyAddWithParentFromCatalog() throws Exception {
         addCatalogItems(
             "brooklyn.catalog:",
             "  itemType: entity",
@@ -839,11 +841,17 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         LOG.info("E1 keys: "+entity1.getEntityType().getConfigKeys());
         LOG.info("E2 keys: "+entity2.getEntityType().getConfigKeys());
         Assert.assertEquals(entity2.getEntityType().getConfigKeys(), entity1.getEntityType().getConfigKeys());
+        Assert.assertEquals(entity1.getCatalogItemId(), "test-entity:0.0.0.SNAPSHOT");
+        
+        // TODO currently the child has item ID set from CatalogUtils.setCatalogItemIdOnAddition
+        // that should set a search path instead of setting the actual item
+        // (ideally we'd assert null here)
+        Assert.assertEquals(entity2.getCatalogItemId(), "test-entity:0.0.0.SNAPSHOT");
     }
     
 
     @Test
-    public void testManuallyAddSpecInTaskOfOtherEntity() throws Exception {
+    public void testManuallyAddInTaskOfOtherEntity() throws Exception {
         addCatalogItems(
             "brooklyn.catalog:",
             "  itemType: entity",
@@ -872,6 +880,12 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         LOG.info("E1 keys: "+entity1.getEntityType().getConfigKeys());
         LOG.info("E2 keys: "+entity2.getEntityType().getConfigKeys());
         Assert.assertEquals(entity2.getEntityType().getConfigKeys(), entity1.getEntityType().getConfigKeys());
+        Assert.assertEquals(entity1.getCatalogItemId(), "test-entity:0.0.0.SNAPSHOT");
+        
+        // TODO currently the child has item ID set from context in constructor of AbstractBrooklynObject;
+        // that should set a search path instead of setting the actual item
+        // (ideally we'd assert null here)
+        Assert.assertEquals(entity2.getCatalogItemId(), "test-entity:0.0.0.SNAPSHOT");
     }
     
     @Test

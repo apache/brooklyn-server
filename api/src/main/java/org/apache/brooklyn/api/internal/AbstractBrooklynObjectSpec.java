@@ -114,7 +114,7 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
     @Beta
     public SpecT catalogItemIdIfNotNull(String val) {
         if (val!=null) {
-            catalogItemId = val;
+            catalogItemId(val);
         }
         return self();
     }
