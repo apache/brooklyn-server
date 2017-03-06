@@ -40,10 +40,17 @@ public interface LogoutApi {
     })
     Response logout();
 
+
+    @POST
+    @Path("/unauthorize")
+    @ApiOperation(value = "Return UNAUTHORIZED 401 response")
+    Response unAuthorize();
+
     @POST
     @Path("/{user}")
     @ApiOperation(value = "Logout and clean session if matching user logged")
     Response logoutUser(
         @ApiParam(value = "User to log out", required = true)
         @PathParam("user") final String user);
+
 }
