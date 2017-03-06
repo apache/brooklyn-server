@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-$Path="C:\InstallTemp"
+$Path = "C:\InstallTemp"
 New-Item -ItemType Directory -Force -Path $Path
 
 $Url = "${config['installer.download.url']}"
@@ -23,13 +23,6 @@ $Dl = [System.IO.Path]::Combine($Path, "installer.msi")
 
 $WebClient = New-Object System.Net.WebClient
 
-$WebClient.DownloadFile($Url, $Dl)
+$WebClient.DownloadFile( $Url, $Dl )
 
-$pass = '${attribute['windows.password']}'
-$secpasswd = ConvertTo-SecureString $pass -AsPlainText -Force
-$mycreds = New-Object System.Management.Automation.PSCredential ($($env:COMPUTERNAME + "\Administrator"), $secpasswd)
-
-Invoke-Command -ComputerName localhost -credential $mycreds -scriptblock {
-    param($Dl)
-    Start-Process "msiexec" -ArgumentList '/qn','/i',$Dl,'/L c:\7ziplog.txt' -Wait
-} -Authentication CredSSP -argumentlist $Dl
+Start-Process "msiexec" -ArgumentList '/qn','/i',$Dl -RedirectStandardOutput ( [System.IO.Path]::Combine($Path, "stdout.txt") ) -RedirectStandardError ( [System.IO.Path]::Combine($Path, "stderr.txt") ) -Wait
