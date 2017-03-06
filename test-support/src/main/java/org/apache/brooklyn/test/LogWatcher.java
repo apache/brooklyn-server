@@ -113,7 +113,7 @@ public class LogWatcher implements Closeable {
         Answer<Void> answer = new Answer<Void>() {
             @Override
             public Void answer(InvocationOnMock invocation) throws Throwable {
-                ILoggingEvent event = invocation.getArgumentAt(0, ILoggingEvent.class);
+                ILoggingEvent event = invocation.getArgument(0);
                 if (event != null && filter.apply(event)) {
                     events.add(event);
                 }
