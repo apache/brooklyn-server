@@ -303,8 +303,13 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
             return this;
         }
 
-        protected ConfigNonBlockingFixture usingImmediateSupplier() {
-            blockingVal = immediateSupplier();
+        protected ConfigNonBlockingFixture usingImmediateSupplierNoSleep() {
+            blockingVal = immediateSupplier(false);
+            return this;
+        }
+
+        protected ConfigNonBlockingFixture usingImmediateSupplierWithSleep() {
+            blockingVal = immediateSupplier(true);
             return this;
         }
 
@@ -344,24 +349,18 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
             };
         }
         
-        private DeferredSupplier<String> immediateSupplier() {
+        private DeferredSupplier<String> immediateSupplier(final boolean withSleep) {
             class DeferredImmediateSupplier implements DeferredSupplier<String>, ImmediateSupplier<String> {
                 @Override
                 public Maybe<String> getImmediately() {
                     try {
-                        // Do a blocking operation (which would cause interrupt, if called in 
-                        // InterruptingImmediateSupplier). This is to simulate use-cases like
-                        // use of `$brooklyn:external("vault", "aws.secretKey")`, which is not
-                        // blocked by other Brooklyn tasks, but will do IO operations.
-                        Thread.sleep(1); 
+                        sleepIfNeeded();
                         log.trace("acquiring");
                         if (latch.tryAcquire()) {
                             latch.release();
                             return Maybe.of("myval");
                         } else {
-                            // TODO After Alex's changes in PR #565, use: 
-                            //      Maybe.absent(new ImmediateSupplier.ImmediateValueNotAvailableException()));
-                            return Maybe.absent();
+                            return Maybe.absent(new ImmediateSupplier.ImmediateValueNotAvailableException());
                         }
                     } catch (InterruptedException e) {
                         log.trace("interrupted");
@@ -370,7 +369,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
                 }
                 @Override public String get() {
                     try {
-                        Thread.sleep(1); // See explanation in getImmediately()
+                        sleepIfNeeded();
                         log.trace("acquiring");
                         if (!latch.tryAcquire()) latch.acquire();
                         latch.release();
@@ -380,6 +379,20 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
                         throw Exceptions.propagate(e);
                     }
                     return "myval";
+                }
+                private void sleepIfNeeded() throws InterruptedException {
+                    if (withSleep) {
+                        try {
+                            // Do a blocking operation (which would cause interrupt, if called in 
+                            // InterruptingImmediateSupplier). This is to simulate use-cases like
+                            // use of `$brooklyn:external("vault", "aws.secretKey")`, which is not
+                            // blocked by other Brooklyn tasks, but will do IO operations.
+                            Thread.sleep(1);
+                        } catch (InterruptedException e) {
+                            log.debug("Sleep was interrupted during eval (expected in many cases)", e);
+                            throw Exceptions.propagate(e);
+                        }
+                    }
                 }
             }
             return new DeferredImmediateSupplier();
@@ -487,7 +500,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         new ConfigNonBlockingFixture().usingDeferredSupplier().runGetConfigNonBlockingInMap(); 
     }
     
-    @Test // fast 
+    @Test 
     public void testGetInterruptingImmediateSupplierNonBlockingKey() throws Exception {
         new ConfigNonBlockingFixture().usingInterruptingImmediateSupplier().runGetConfigNonBlockingInKey(); 
     }
@@ -496,13 +509,21 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         new ConfigNonBlockingFixture().usingInterruptingImmediateSupplier().runGetConfigNonBlockingInMap(); 
     }
     
-    @Test // fast 
-    public void testGetImmediateSupplierNonBlockingKey() throws Exception {
-        new ConfigNonBlockingFixture().usingImmediateSupplier().runGetConfigNonBlockingInKey(); 
+    @Test 
+    public void testGetImmediateSupplierNoSleepNonBlockingKey() throws Exception {
+        new ConfigNonBlockingFixture().usingImmediateSupplierNoSleep().runGetConfigNonBlockingInKey(); 
     }
     @Test
-    public void testGetImmediateSupplierNonBlockingMap() throws Exception {
-        new ConfigNonBlockingFixture().usingImmediateSupplier().runGetConfigNonBlockingInMap(); 
+    public void testGetImmediateSupplierNoSleepNonBlockingMap() throws Exception {
+        new ConfigNonBlockingFixture().usingImmediateSupplierNoSleep().runGetConfigNonBlockingInMap(); 
+    }
+    @Test 
+    public void testGetImmediateSupplierWithSleepNonBlockingKey() throws Exception {
+        new ConfigNonBlockingFixture().usingImmediateSupplierWithSleep().runGetConfigNonBlockingInKey(); 
+    }
+    @Test
+    public void testGetImmediateSupplierWithSleepNonBlockingMap() throws Exception {
+        new ConfigNonBlockingFixture().usingImmediateSupplierWithSleep().runGetConfigNonBlockingInMap(); 
     }
     
     @Test
