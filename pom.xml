@@ -117,8 +117,10 @@
         <kxml2.servicemix.version>2.3.0_3</kxml2.servicemix.version>
         <!-- double-check downstream projects before changing jackson version -->
         <fasterxml.jackson.version>2.7.5</fasterxml.jackson.version>
-        <cxf.version>3.1.4</cxf.version>
-        <httpclient.version>4.4.1</httpclient.version>
+        <cxf.version>3.1.10</cxf.version>
+        <httpcomponents.httpclient.version>4.5.2</httpcomponents.httpclient.version>
+        <httpcomponents.httpcore.version>4.4.4</httpcomponents.httpcore.version>
+        <httpclient.version>4.4.1</httpclient.version> <!-- kept for compatibility in 0.11.0-SNAPSHOT, remove after -->
         <commons-lang3.version>3.3.2</commons-lang3.version>
         <groovy.version>2.3.7</groovy.version> <!-- Version supported by https://github.com/groovy/groovy-eclipse/wiki/Groovy-Eclipse-2.9.1-Release-Notes -->
         <jsr305.version>2.0.1</jsr305.version>
@@ -166,7 +168,7 @@
         <jax-rs-api.version>2.0.1</jax-rs-api.version>
         <maxmind.version>2.8.0-rc1</maxmind.version>
         <maxmind-db.version>1.2.1</maxmind-db.version>
-        <winrm4j.version>0.4.0</winrm4j.version>
+        <winrm4j.version>0.5.0</winrm4j.version>
         <karaf.version>4.0.8</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
         <felix-osgi-compendium.version>1.4.0</felix-osgi-compendium.version>
