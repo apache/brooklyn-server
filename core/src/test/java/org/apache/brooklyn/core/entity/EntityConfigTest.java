@@ -51,10 +51,12 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.InterruptingImmediateSupplier;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -296,8 +298,13 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
             return this;
         }
         
-        protected ConfigNonBlockingFixture usingImmediateSupplier() {
+        protected ConfigNonBlockingFixture usingInterruptingImmediateSupplier() {
             blockingVal = new InterruptingImmediateSupplier<String>(deferredSupplier());
+            return this;
+        }
+
+        protected ConfigNonBlockingFixture usingImmediateSupplier() {
+            blockingVal = immediateSupplier();
             return this;
         }
 
@@ -337,6 +344,48 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
             };
         }
         
+        private DeferredSupplier<String> immediateSupplier() {
+            class DeferredImmediateSupplier implements DeferredSupplier<String>, ImmediateSupplier<String> {
+                @Override
+                public Maybe<String> getImmediately() {
+                    try {
+                        // Do a blocking operation (which would cause interrupt, if called in 
+                        // InterruptingImmediateSupplier). This is to simulate use-cases like
+                        // use of `$brooklyn:external("vault", "aws.secretKey")`, which is not
+                        // blocked by other Brooklyn tasks, but will do IO operations.
+                        Thread.sleep(1); 
+                        log.trace("acquiring");
+                        if (latch.tryAcquire()) {
+                            latch.release();
+                            return Maybe.of("myval");
+                        } else {
+                            // TODO After Alex's changes in PR #565, use: 
+                            //      Maybe.absent(new ImmediateSupplier.ImmediateValueNotAvailableException()));
+                            return Maybe.absent();
+                        }
+                    } catch (InterruptedException e) {
+                        log.trace("interrupted");
+                        throw Exceptions.propagate(e);
+                    }
+                }
+                @Override public String get() {
+                    try {
+                        Thread.sleep(1); // See explanation in getImmediately()
+                        log.trace("acquiring");
+                        if (!latch.tryAcquire()) latch.acquire();
+                        latch.release();
+                        log.trace("acquired and released");
+                    } catch (InterruptedException e) {
+                        log.trace("interrupted");
+                        throw Exceptions.propagate(e);
+                    }
+                    return "myval";
+                }
+            }
+            return new DeferredImmediateSupplier();
+        }
+        
+
         protected void runGetConfigNonBlockingInKey() throws Exception {
             Preconditions.checkNotNull(blockingVal, "Fixture must set blocking val before running this");
             
@@ -436,6 +485,15 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testGetSupplierNonBlockingMap() throws Exception {
         new ConfigNonBlockingFixture().usingDeferredSupplier().runGetConfigNonBlockingInMap(); 
+    }
+    
+    @Test // fast 
+    public void testGetInterruptingImmediateSupplierNonBlockingKey() throws Exception {
+        new ConfigNonBlockingFixture().usingInterruptingImmediateSupplier().runGetConfigNonBlockingInKey(); 
+    }
+    @Test(groups="Integration") // because takes 1s+
+    public void testGetInterruptingImmediateSupplierNonBlockingMap() throws Exception {
+        new ConfigNonBlockingFixture().usingInterruptingImmediateSupplier().runGetConfigNonBlockingInMap(); 
     }
     
     @Test // fast 

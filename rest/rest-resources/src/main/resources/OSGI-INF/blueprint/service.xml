@@ -114,6 +114,7 @@ limitations under the License.
             <bean class="org.apache.brooklyn.rest.util.FormMapProvider"/>
             <bean class="org.apache.cxf.jaxrs.security.JAASAuthenticationFilter">
                 <property name="contextName" value="webconsole"/>
+                <property name="realmName" value="webconsole"/>
             </bean>
             <bean class="org.apache.brooklyn.rest.util.ManagementContextProvider">
                 <argument ref="localManagementContext"/>
