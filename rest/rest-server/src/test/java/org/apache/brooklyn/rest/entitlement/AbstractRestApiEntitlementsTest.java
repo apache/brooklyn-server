@@ -19,6 +19,7 @@
 package org.apache.brooklyn.rest.entitlement;
 
 import static org.testng.Assert.assertEquals;
+
 import java.net.URI;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -30,6 +31,7 @@ import org.apache.brooklyn.core.mgmt.entitlement.PerUserEntitlementManager;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.rest.BrooklynRestApiLauncher;
 import org.apache.brooklyn.rest.BrooklynRestApiLauncherTestFixture;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.util.http.HttpTool;
@@ -70,6 +72,11 @@ public abstract class AbstractRestApiEntitlementsTest extends BrooklynRestApiLau
                 .managementContext(mgmt)
                 .forceUseOfDefaultCatalogWithJavaClassPath(true)
                 .start());
+    }
+
+    @Override
+    protected BrooklynRestApiLauncher baseLauncher() {
+        return BrooklynRestApiLauncher.launcher();
     }
 
     @AfterMethod(alwaysRun=true)
