@@ -75,7 +75,7 @@ public class Windows7zipBlueprintLiveTest extends AbstractBlueprintTest {
                 "  byon:",
                 "    hosts:",
                 "    - winrm: "+machine.getAddress().getHostAddress()+":5985",
-                "      password: "+machine.config().get(WinRmMachineLocation.PASSWORD),
+                "      password: \""+machine.config().get(WinRmMachineLocation.PASSWORD).replace("\"", "\\\"") + "\"",
                 "      user: Administrator",
                 "      osFamily: windows",
                 "services:",
@@ -89,7 +89,7 @@ public class Windows7zipBlueprintLiveTest extends AbstractBlueprintTest {
                 String user = Strings.getFirstWord(winRMAddress);
                 String password = Strings.getFirstWordAfter(winRMAddress, ":");
                 
-                WinRmTool winRmTool = WinRmTool.connect(ipPort, user, password);
+                WinRmTool winRmTool = WinRmTool.Builder.builder(ipPort, user, password).build();
                 WinRmToolResponse winRmResponse = winRmTool.executePs(ImmutableList.of("(Get-Item \"C:\\\\Program Files\\\\7-Zip\\\\7z.exe\").name"));
                 
                 LOG.info("winRmResponse: code="+winRmResponse.getStatusCode()+"; out="+winRmResponse.getStdOut()+"; err="+winRmResponse.getStdErr());

@@ -120,7 +120,8 @@
         <cxf.version>3.1.10</cxf.version>
         <httpcomponents.httpclient.version>4.5.2</httpcomponents.httpclient.version>
         <httpcomponents.httpcore.version>4.4.4</httpcomponents.httpcore.version>
-        <httpclient.version>4.4.1</httpclient.version> <!-- kept for compatibility in 0.11.0-SNAPSHOT, remove after -->
+        <!-- @deprecated since 0.11 -->
+        <httpclient.version>4.5.2</httpclient.version> <!-- kept for compatibility in 0.11.0-SNAPSHOT, remove after -->
         <commons-lang3.version>3.3.2</commons-lang3.version>
         <groovy.version>2.3.7</groovy.version> <!-- Version supported by https://github.com/groovy/groovy-eclipse/wiki/Groovy-Eclipse-2.9.1-Release-Notes -->
         <jsr305.version>2.0.1</jsr305.version>
@@ -187,12 +188,8 @@
         <commons-collections.version>3.2.1</commons-collections.version>
         <javax.mail.version>1.4.4</javax.mail.version>
         <cxf.javax.annotation-api.version>1.2</cxf.javax.annotation-api.version>
-
-        <!-- Testing Dependency Versions -->
-        <!-- testng 6.9.13 has this problem https://github.com/cbeust/testng/issues/1168, to be fixed in the release following 6.9.13.8. -->
-        <!-- Recent versions of testng are not pushed to maven central, they are publishing to jcentral. -->
-        <testng.version>6.9.10</testng.version>
-        <mockito.version>1.10.8</mockito.version>
+        <testng.version>6.10</testng.version>
+        <mockito.version>2.7.12</mockito.version>
         <assertj.version>2.2.0</assertj.version> <!-- v 2.2.0 is being used as v 3.20 introduces Java8 dependencies-->
         <cobertura.plugin.version>2.7</cobertura.plugin.version>
         <surefire.version>2.19.1</surefire.version>

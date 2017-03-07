@@ -44,6 +44,7 @@ import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
+import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
@@ -355,6 +356,9 @@ public class WinRmMachineLocation extends AbstractLocation implements MachineLoc
             String toolClass = args.get(WINRM_TOOL_CLASS);
             if (toolClass == null) toolClass = Winrm4jTool.class.getName();
             WinRmTool tool = (WinRmTool) new ClassLoaderUtils(this, getManagementContext()).loadClass(toolClass).getConstructor(Map.class).newInstance(args.getAllConfig());
+            if (tool instanceof ManagementContextInjectable) {
+                ((ManagementContextInjectable)tool).setManagementContext(getManagementContext());
+            }
 
             if (LOG.isTraceEnabled()) LOG.trace("using ssh-tool {} (of type {}); props ", tool, toolClass);
 
