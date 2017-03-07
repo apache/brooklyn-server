@@ -48,6 +48,7 @@ import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
+import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
@@ -207,6 +208,15 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         }
 
         @Override
+        public Entity get() {
+            try {
+                return call();
+            } catch (Exception e) {
+                throw Exceptions.propagate(e);
+            }
+        }
+        
+        @Override
         public Entity call() throws Exception {
             return callImpl(false).get();
         }
@@ -219,7 +229,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     return Maybe.of(scopeComponent.get());
                 }
             } else {
-                return Maybe.<Entity>of(entity());
+                return Maybe.<Entity>ofDisallowingNull(entity()).or(Maybe.<Entity>absent("Context entity not available when trying to evaluate Brooklyn DSL"));
             }
         }
         
@@ -311,10 +321,11 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 return Maybe.of(result.get());
             }
             
-            // TODO may want to block and repeat on new entities joining?
-            throw new NoSuchElementException("No entity matching id " + desiredComponentId+
+            // could be nice if DSL has an extra .block() method to allow it to wait for a matching entity.
+            // previously we threw if nothing existed; now we return an absent with a detailed error
+            return Maybe.absent(new NoSuchElementException("No entity matching id " + desiredComponentId+
                 (scope==Scope.GLOBAL ? "" : ", in scope "+scope+" wrt "+entity+
-                (scopeComponent!=null ? " ("+scopeComponent+" from "+entity()+")" : "")));
+                (scopeComponent!=null ? " ("+scopeComponent+" from "+entity()+")" : ""))));
         }
         
         private ExecutionContext getExecutionContext() {
@@ -538,14 +549,11 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         
         @Override
         public final Maybe<Object> getImmediately() {
-            Maybe<Entity> targetEntityMaybe = component.getImmediately();
-            if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
-            EntityInternal targetEntity = (EntityInternal) targetEntityMaybe.get();
-
-            String keyNameS = resolveKeyName(true);
-            ConfigKey<?> key = targetEntity.getEntityType().getConfigKey(keyNameS);
-            Maybe<?> result = targetEntity.config().getNonBlocking(key != null ? key : ConfigKeys.newConfigKey(Object.class, keyNameS));
-            return Maybe.<Object>cast(result);
+            Maybe<Object> maybeWrappedMaybe = findExecutionContext(this).getImmediately(newCallableReturningImmediateMaybeOrNonImmediateValue(true));
+            // the answer will be wrapped twice due to the callable semantics;
+            // the inner present/absent is important; it will only get an outer absent if interrupted
+            if (maybeWrappedMaybe.isAbsent()) return maybeWrappedMaybe;
+            return Maybe.<Object>cast( (Maybe<?>) maybeWrappedMaybe.get() );
         }
 
         @Override
@@ -554,15 +562,55 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     .displayName("retrieving config for "+keyName)
                     .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
                     .dynamic(false)
-                    .body(new Callable<Object>() {
-                        @Override
-                        public Object call() throws Exception {
-                            Entity targetEntity = component.get();
-                            String keyNameS = resolveKeyName(true);
-                            ConfigKey<?> key = targetEntity.getEntityType().getConfigKey(keyNameS);
-                            return targetEntity.getConfig(key != null ? key : ConfigKeys.newConfigKey(Object.class, keyNameS));
-                        }})
-                    .build();
+                    .body(newCallableReturningImmediateMaybeOrNonImmediateValue(false)).build();
+        }
+
+        private Callable<Object> newCallableReturningImmediateMaybeOrNonImmediateValue(final boolean immediate) {
+            return new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                    Entity targetEntity;
+                    if (immediate) { 
+                        Maybe<Entity> targetEntityMaybe = component.getImmediately();
+                        if (targetEntityMaybe.isAbsent()) return Maybe.<Object>cast(targetEntityMaybe);
+                        targetEntity = (EntityInternal) targetEntityMaybe.get();
+                    } else {
+                        targetEntity = component.get();
+                    }
+                    
+                    // this is always run in a new dedicated task (possibly a fake task if immediate), so no need to clear
+                    checkAndTagForRecursiveReference(targetEntity);
+
+                    String keyNameS = resolveKeyName(true);
+                    ConfigKey<?> key = targetEntity.getEntityType().getConfigKey(keyNameS);
+                    if (key==null) key = ConfigKeys.newConfigKey(Object.class, keyNameS);
+                    if (immediate) {
+                        return ((EntityInternal)targetEntity).config().getNonBlocking(key);
+                    } else {
+                        return targetEntity.getConfig(key);
+                    }
+                }
+            };
+        }
+        
+        private void checkAndTagForRecursiveReference(Entity targetEntity) {
+            String tag = "DSL:entity('"+targetEntity.getId()+"').config('"+keyName+"')";
+            Task<?> ancestor = Tasks.current();
+            if (ancestor!=null) {
+                // don't check on ourself; only look higher in hierarchy;
+                // this assumes impls always spawn new tasks (which they do, just maybe not always in new threads)
+                // but it means it does not rely on tag removal to prevent weird errors, 
+                // and more importantly it makes the strategy idempotent
+                ancestor = ancestor.getSubmittedByTask();
+            }
+            while (ancestor!=null) {
+                if (TaskTags.hasTag(ancestor, tag)) {
+                    throw new IllegalStateException("Recursive config reference "+tag); 
+                }
+                ancestor = ancestor.getSubmittedByTask();
+            }
+            
+            Tasks.addTagDynamically(tag);
         }
 
         @Override

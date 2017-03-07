@@ -456,7 +456,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 .build();
         
         // Parse CAMP-YAML DSL in item metadata (but not in item or items - those will be parsed only when used). 
-        CampYamlParser parser = mgmt.getConfig().getConfig(CampYamlParser.YAML_PARSER_KEY);
+        CampYamlParser parser = mgmt.getScratchpad().get(CampYamlParser.YAML_PARSER_KEY);
         if (parser != null) {
             itemMetadataWithoutItemDef = parser.parse((Map<String, Object>) itemMetadataWithoutItemDef);
             try {
@@ -1053,7 +1053,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         log.debug("Adding manual catalog item to "+mgmt+": "+type);
         checkNotNull(type, "type");
         if (manualAdditionsCatalog==null) loadManualAdditionsCatalog();
-        manualAdditionsClasses.addClass(type);
+        manualAdditionsClasses.registerClass(type);
         CatalogItem<?, ?> result = manualAdditionsCatalog.classpath.addCatalogEntry(type);
         
         // Clear spec-cache (in-case overwriting)

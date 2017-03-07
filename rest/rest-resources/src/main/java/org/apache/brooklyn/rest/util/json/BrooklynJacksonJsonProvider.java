@@ -116,12 +116,12 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
         checkNotNull(mgmt, "mgmt");
         synchronized (mgmt) {
             ConfigKey<ObjectMapper> key = ConfigKeys.newConfigKey(ObjectMapper.class, BROOKLYN_REST_OBJECT_MAPPER);
-            ObjectMapper mapper = mgmt.getConfig().getConfig(key);
+            ObjectMapper mapper = (ObjectMapper) mgmt.getScratchpad().get(key);
             if (mapper != null) return mapper;
 
             mapper = newPrivateObjectMapper(mgmt);
             log.debug("Storing new ObjectMapper against "+mgmt+" because no ServletContext available: "+mapper);
-            ((BrooklynProperties)mgmt.getConfig()).put(key, mapper);
+            mgmt.getScratchpad().put(key, mapper);
             return mapper;
         }
     }

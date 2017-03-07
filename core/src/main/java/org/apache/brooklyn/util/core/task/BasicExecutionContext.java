@@ -41,10 +41,13 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedEntity;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier.ImmediateUnsupportedException;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
+import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 
 /**
@@ -96,7 +99,55 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     /** returns tasks started by this context (or tasks which have all the tags on this object) */
     @Override
     public Set<Task<?>> getTasks() { return executionManager.getTasksWithAllTags(tags); }
-     
+
+    /** performs execution without spawning a new task thread, though it does temporarily set a fake task for the purpose of getting context;
+     * currently supports {@link Supplier}, {@link Callable}, {@link Runnable}, or {@link Task} instances; 
+     * with tasks if it is submitted or in progress,
+     * it fails if not completed; with unsubmitted, unqueued tasks, it gets the {@link Callable} job and 
+     * uses that; with such a job, or any other callable/supplier/runnable, it runs that
+     * in an {@link InterruptingImmediateSupplier}, with as much metadata as possible (eg task name if
+     * given a task) set <i>temporarily</i> in the current thread context */
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> Maybe<T> getImmediately(Object callableOrSupplier) {
+        BasicTask<?> fakeTaskForContext;
+        if (callableOrSupplier instanceof BasicTask) {
+            fakeTaskForContext = (BasicTask<?>)callableOrSupplier;
+            if (fakeTaskForContext.isQueuedOrSubmitted()) {
+                if (fakeTaskForContext.isDone()) {
+                    return Maybe.of((T)fakeTaskForContext.getUnchecked());
+                } else {
+                    throw new ImmediateUnsupportedException("Task is in progress and incomplete: "+fakeTaskForContext);
+                }
+            }
+            callableOrSupplier = fakeTaskForContext.getJob();
+        } else {
+            fakeTaskForContext = new BasicTask<Object>(MutableMap.of("displayName", "immediate evaluation"));
+        }
+        fakeTaskForContext.tags.addAll(tags);
+        fakeTaskForContext.tags.add(BrooklynTaskTags.IMMEDIATE_TASK_TAG);
+        fakeTaskForContext.tags.add(BrooklynTaskTags.TRANSIENT_TASK_TAG);
+        
+        Task<?> previousTask = BasicExecutionManager.getPerThreadCurrentTask().get();
+        BasicExecutionContext oldExecutionContext = getCurrentExecutionContext();
+        registerPerThreadExecutionContext();
+
+        if (previousTask!=null) fakeTaskForContext.setSubmittedByTask(previousTask);
+        fakeTaskForContext.cancel();
+        try {
+            BasicExecutionManager.getPerThreadCurrentTask().set(fakeTaskForContext);
+            
+            if (!(callableOrSupplier instanceof ImmediateSupplier)) {
+                callableOrSupplier = InterruptingImmediateSupplier.of(callableOrSupplier);
+            }
+            return ((ImmediateSupplier<T>)callableOrSupplier).getImmediately();
+ 
+        } finally {
+            BasicExecutionManager.getPerThreadCurrentTask().set(previousTask);
+            perThreadExecutionContext.set(oldExecutionContext);
+        }
+    }
+    
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     protected <T> Task<T> submitInternal(Map<?,?> propertiesQ, final Object task) {

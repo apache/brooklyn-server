@@ -553,7 +553,7 @@ public class Os {
 
     /** creates a temp dir which will be deleted on exit */
     public static File newTempDir(String prefix) {
-        String sanitizedPrefix = (prefix==null ? "" : prefix + "-");
+        String sanitizedPrefix = (prefix==null ? "" : Strings.makeValidFilename(prefix) + "-");
         String tmpParent = tmp();
         
         //With lots of stale temp dirs it is possible to have 

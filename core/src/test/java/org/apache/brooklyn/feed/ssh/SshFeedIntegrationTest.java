@@ -32,11 +32,7 @@ import org.apache.brooklyn.core.entity.EntityInternal.FeedSupport;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.feed.ssh.SshFeed;
-import org.apache.brooklyn.feed.ssh.SshFeedIntegrationTest;
-import org.apache.brooklyn.feed.ssh.SshPollConfig;
-import org.apache.brooklyn.feed.ssh.SshPollValue;
-import org.apache.brooklyn.feed.ssh.SshValueFunctions;
+import org.apache.brooklyn.feed.CommandPollConfig;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.stream.Streams;
@@ -96,7 +92,7 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
         
         feed = SshFeed.builder()
                 .entity(entity2)
-                .poll(new SshPollConfig<String>(SENSOR_STRING)
+                .poll(new CommandPollConfig<String>(SENSOR_STRING)
                         .command("echo hello")
                         .onSuccess(SshValueFunctions.stdout()))
                 .build();
@@ -126,7 +122,7 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
         feed = SshFeed.builder()
                 .entity(entity)
                 .machine(machine)
-                .poll(new SshPollConfig<Integer>(SENSOR_INT)
+                .poll(new CommandPollConfig<Integer>(SENSOR_INT)
                         .command("exit 123")
                         .checkSuccess(Predicates.alwaysTrue())
                         .onSuccess(SshValueFunctions.exitStatus()))
@@ -140,7 +136,7 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
         feed = SshFeed.builder()
                 .entity(entity)
                 .machine(machine)
-                .poll(new SshPollConfig<String>(SENSOR_STRING)
+                .poll(new CommandPollConfig<String>(SENSOR_STRING)
                         .command("echo hello")
                         .onSuccess(SshValueFunctions.stdout()))
                 .build();
@@ -156,7 +152,7 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
         feed = SshFeed.builder()
                 .entity(entity)
                 .machine(machine)
-                .poll(new SshPollConfig<String>(SENSOR_STRING)
+                .poll(new CommandPollConfig<String>(SENSOR_STRING)
                         .command(cmd)
                         .onFailure(SshValueFunctions.stderr()))
                 .build();
@@ -169,7 +165,7 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
         feed = SshFeed.builder()
                 .entity(entity)
                 .machine(machine)
-                .poll(new SshPollConfig<String>(SENSOR_STRING)
+                .poll(new CommandPollConfig<String>(SENSOR_STRING)
                         .command("exit 123")
                         .onFailure(new Function<SshPollValue, String>() {
                             @Override
@@ -191,7 +187,7 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
                     SshFeed.builder()
                         .entity(entity)
                         .onlyIfServiceUp()
-                        .poll(new SshPollConfig<String>(SENSOR_STRING)
+                        .poll(new CommandPollConfig<String>(SENSOR_STRING)
                             .command("echo hello")
                             .onSuccess(SshValueFunctions.stdout()))
                         .build();
@@ -226,7 +222,7 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
         
         feed = SshFeed.builder()
                 .entity(entity2)
-                .poll(new SshPollConfig<String>(SENSOR_STRING)
+                .poll(new CommandPollConfig<String>(SENSOR_STRING)
                         .env(envSupplier)
                         .command(cmdSupplier)
                         .onSuccess(SshValueFunctions.stdout()))
