@@ -131,19 +131,13 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
         // getRaw returns Maybe(val) if the key was explicitly set (where val can be null)
         // or Absent if the config key was unset.
         Object unresolved = getRaw(key).or(key.getDefaultValue());
-        final Object marker = new Object();
         Maybe<Object> resolved = Tasks.resolving(unresolved)
                 .as(Object.class)
-                .defaultValue(marker)
                 .immediately(true)
                 .deep(true)
                 .context(getContext())
                 .getMaybe();
         if (resolved.isAbsent()) return Maybe.Absent.<T>castAbsent(resolved);
-        if (resolved.get()==marker) {
-            // TODO changed Feb 2017, previously returned absent, in contrast to what the javadoc says
-            return Maybe.of((T)null);
-        }
         return TypeCoercions.tryCoerce(resolved.get(), key.getTypeToken());
     }
 
