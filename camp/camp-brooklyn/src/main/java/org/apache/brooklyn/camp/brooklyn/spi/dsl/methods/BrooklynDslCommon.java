@@ -56,6 +56,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -292,6 +293,7 @@ public class BrooklynDslCommon {
         List<Object> factoryMethodArgs = (List<Object>) config.getStringKeyMaybe("factoryMethod.args").or(ImmutableList.of());
         Map<String,Object> objectFields = (Map<String, Object>) config.getStringKeyMaybe("object.fields").or(MutableMap.of());
         Map<String,Object> brooklynConfig = (Map<String, Object>) config.getStringKeyMaybe(BrooklynCampReservedKeys.BROOKLYN_CONFIG).or(MutableMap.of());
+        boolean deferred = TypeCoercions.coerce(config.getStringKeyMaybe("deferred").or(Boolean.FALSE), Boolean.class);
 
         String mappedTypeName = DeserializingClassRenamesProvider.INSTANCE.findMappedName(typeName);
         Class<?> type;
@@ -302,7 +304,7 @@ public class BrooklynDslCommon {
             return new DslObject(mappedTypeName, constructorArgs, objectFields, brooklynConfig);
         }
 
-        if (resolved(constructorArgs) && resolved(factoryMethodArgs) && resolved(objectFields.values()) && resolved(brooklynConfig.values())) {
+        if (!deferred && resolved(constructorArgs) && resolved(factoryMethodArgs) && resolved(objectFields.values()) && resolved(brooklynConfig.values())) {
             if (factoryMethodName == null) {
                 return DslObject.create(type, constructorArgs, objectFields, brooklynConfig);
             } else {
