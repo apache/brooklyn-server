@@ -148,4 +148,16 @@ public class Functionals {
         return new FunctionAsPredicate();
     }
 
+    /**
+     * Simple adapter from {@link Predicate} to {@link Callable} by currying the passed <tt>subject</tt> parameter.
+     */
+    public static <T> Callable<Boolean> isSatisfied(final T subject, final Predicate<T> predicate) {
+        return new Callable<Boolean>() {
+            @Override
+            public Boolean call() {
+                return predicate.apply(subject);
+            }
+        };
+    }
+
 }
