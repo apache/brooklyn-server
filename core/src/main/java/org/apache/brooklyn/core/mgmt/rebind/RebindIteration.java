@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.mgmt.rebind;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoadingContextForCatalogItems;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -74,6 +75,7 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.feed.AbstractFeed;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
+import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagementMode;
 import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagerInternal;
@@ -942,7 +944,8 @@ public abstract class RebindIteration {
                         +" for "+contextSuchAsId + " (" + bType.getSimpleName()+"); attempting load nevertheless");
                 }
                 try {
-                    BrooklynClassLoadingContext loader = CatalogUtils.newClassLoadingContextForCatalogItems(managementContext, idsFromReboundCatalog);
+                    BrooklynClassLoadingContextSequential loader = new BrooklynClassLoadingContextSequential(managementContext);
+                    loader.add(newClassLoadingContextForCatalogItems(managementContext, idsFromReboundCatalog));
                     return new LoadedClass<T>(loader.loadClass(jType, bType), idsFromReboundCatalog);
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);

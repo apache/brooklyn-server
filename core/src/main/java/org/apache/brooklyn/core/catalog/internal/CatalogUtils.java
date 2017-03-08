@@ -140,6 +140,17 @@ public class CatalogUtils {
         return result;
     }
 
+    public static BrooklynClassLoadingContext newClassLoadingContextForCatalogItems(
+        ManagementContext managementContext, List<String> catalogItemIds) {
+
+        BrooklynClassLoadingContextSequential seqLoader =
+            new BrooklynClassLoadingContextSequential(managementContext);
+        for (String catalogItemId : catalogItemIds) {
+            addCatalogItemContext(managementContext, seqLoader, catalogItemId);
+        }
+        return seqLoader;
+    }
+
     /**
      * Registers all bundles with the management context's OSGi framework.
      */
@@ -322,17 +333,6 @@ public class CatalogUtils {
         Preconditions.checkNotNull(item, "No such item: "+symbolicName+" v "+version);
         item.setDisabled(newValue);
         mgmt.getCatalog().persist(item);
-    }
-
-    public static BrooklynClassLoadingContextSequential newClassLoadingContextForCatalogItems(
-        ManagementContext managementContext, List<String> catalogItemIds) {
-
-        BrooklynClassLoadingContextSequential seqLoader =
-            new BrooklynClassLoadingContextSequential(managementContext);
-        for (String catalogItemId : catalogItemIds) {
-            addCatalogItemContext(managementContext, seqLoader, catalogItemId);
-        }
-        return seqLoader;
     }
 
     private static void addCatalogItemContext(ManagementContext managementContext, BrooklynClassLoadingContextSequential loader, String catalogItemId) {
