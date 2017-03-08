@@ -16,6 +16,7 @@
 package org.apache.brooklyn.util.core;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoadingContextForCatalogItems;
 
 import java.net.URL;
 import java.util.List;
@@ -30,6 +31,7 @@ import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.core.LoaderDispatcher.ClassLoaderDispatcher;
@@ -254,8 +256,8 @@ public class ClassLoaderUtils {
             if (catalogItemId != null) {
                 CatalogItem<?, ?> item = CatalogUtils.getCatalogItemOptionalVersion(mgmt, catalogItemId);
                 if (item != null) {
-                    BrooklynClassLoadingContext loader =
-                        CatalogUtils.newClassLoadingContextForCatalogItems(mgmt, item.getCatalogItemHierarchy());
+                    BrooklynClassLoadingContextSequential loader = new BrooklynClassLoadingContextSequential(mgmt);
+                    loader.add(newClassLoadingContextForCatalogItems(mgmt, item.getCatalogItemHierarchy()));
                     cls = dispatcher.tryLoadFrom(loader, className);
                     if (cls.isPresent()) {
                         return cls;

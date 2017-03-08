@@ -38,6 +38,8 @@ import javax.annotation.Nullable;
 import javax.xml.xpath.XPathConstants;
 
 import com.google.common.collect.ImmutableList;
+
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.rebind.PersistenceExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMemento;
@@ -53,6 +55,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.classloading.ClassLoaderFromBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore.StoreObjectAccessor;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore.StoreObjectAccessorWithLock;
@@ -183,16 +186,18 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         }
         // See RebindIteration.BrooklynObjectInstantiator.load(), for handling where catalog item is missing;
         // similar logic here.
-        RegisteredType catalogItem = lookupContext.lookupManagementContext().getTypeRegistry().get(catalogItemId);
+        final ManagementContext managementContext = lookupContext.lookupManagementContext();
+        RegisteredType catalogItem = managementContext.getTypeRegistry().get(catalogItemId);
         if (catalogItem == null) {
             // TODO do we need to only log once, rather than risk log.warn too often? I think this only happens on rebind, so ok.
             LOG.warn("Unable to load catalog item "+catalogItemId
                 +" for custom class loader of " + type + " " + objectId + "; will use default class loader");
             return null;
         } else {
-            return ClassLoaderFromBrooklynClassLoadingContext.of(
-                CatalogUtils.newClassLoadingContextForCatalogItems(lookupContext.lookupManagementContext(),
-                    item.getCatalogItemHierarchy()));
+            final BrooklynClassLoadingContextSequential ctx = new BrooklynClassLoadingContextSequential(managementContext);
+            ctx.add(
+                CatalogUtils.newClassLoadingContextForCatalogItems(managementContext, item.getCatalogItemHierarchy()));
+            return ClassLoaderFromBrooklynClassLoadingContext.of(ctx);
         }
     }
     
