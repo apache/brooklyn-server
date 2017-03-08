@@ -40,6 +40,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -396,6 +397,23 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         assertEquals(testObject.getString(), "myDefaultFirst");
         assertEquals(testObject.getNumber(), Integer.valueOf(1));
         assertEquals(testObject.getObject(), "myDefaultThird");
+    }
+    
+    @Test
+    public void testBrooklynObjectWithFactoryMethodWithArgCoercion() throws Exception {
+        Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
+            "  brooklyn.config:",
+            "    test.confObject:",
+            "      $brooklyn:object:",
+            "        type: " + Time.class.getName(),
+            "        factoryMethod.name: makeDateString",
+            "        factoryMethod.args:",
+            "        - 1000",
+            "        - yyyy-MM-dd'T'HH:mm:ss",
+            "        - UTC");
+
+        String val = (String) testEntity.getConfig(TestEntity.CONF_OBJECT);
+        assertEquals(val, "1970-01-01T00:00:01");
     }
 
     @Test

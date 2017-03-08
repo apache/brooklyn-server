@@ -26,10 +26,13 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.javalang.coerce.CommonAdaptorTypeCoercions;
+import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
+import org.apache.brooklyn.util.javalang.coerce.TypeCoercerExtensible;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -126,6 +129,22 @@ public class ReflectionsTest {
         
         Assert.assertEquals(Reflections.invokeMethodFromArgs(CI1.class, "m1", Arrays.<Object>asList("hello", 3)).get(), "hello3");
         Assert.assertEquals(Reflections.invokeMethodFromArgs(CI1.class, "m1", Arrays.<Object>asList("hello", 3, 4, 5)).get(), "hello12");
+    }
+    
+    @Test
+    public void testInvocationCoercingArgs() throws Exception {
+        TypeCoercerExtensible rawCoercer = TypeCoercerExtensible.newDefault();
+        new CommonAdaptorTypeCoercions(rawCoercer).registerAllAdapters();
+        Optional<TypeCoercer> coercer = Optional.<TypeCoercer>of(rawCoercer);
+        
+        Method m1Short = CI1.class.getMethod("m1", String.class, int.class);
+        Method m1Long = CI1.class.getMethod("m1", String.class, int.class, int.class, int[].class);
+        Assert.assertEquals(m1Short.invoke(null, "hello", 1), "hello1");
+        Assert.assertEquals(m1Long.invoke(null, "hello", 1, 2, new int[] { 3, 4}), "hello10");
+        
+        Assert.assertEquals(Reflections.invokeMethodFromArgs(CI1.class, "m1", Arrays.<Object>asList('a', "2"), false, coercer).get(), "a2");
+        Assert.assertEquals(Reflections.invokeMethodFromArgs(CI1.class, "m1", Arrays.<Object>asList('a', "3", "4", "5"), false, coercer).get(), "a12");
+        Assert.assertEquals(Reflections.invokeMethodFromArgs(CI1.class, "m1", Arrays.<Object>asList('a', (byte)3, (byte)4, (byte)5), false, coercer).get(), "a12");
     }
     
     @Test

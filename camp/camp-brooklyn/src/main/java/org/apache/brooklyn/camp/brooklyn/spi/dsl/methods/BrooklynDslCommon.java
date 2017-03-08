@@ -63,6 +63,7 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.commons.beanutils.BeanUtils;
 import org.slf4j.Logger;
@@ -70,6 +71,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -697,7 +699,8 @@ public class BrooklynDslCommon {
 
         public static Object create(Class<?> type, String factoryMethodName, List<?> factoryMethodArgs, Map<String,?> fields, Map<String,?> config) {
             try {
-                Object bean = Reflections.invokeMethodFromArgs(type, factoryMethodName, factoryMethodArgs).get();
+                Optional<TypeCoercer> coercer = Optional.of(TypeCoercions.asTypeCoercer());
+                Object bean = Reflections.invokeMethodFromArgs(type, factoryMethodName, factoryMethodArgs, false, coercer).get();
                 BeanUtils.populate(bean, fields);
 
                 if (config.size() > 0) {
