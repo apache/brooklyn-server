@@ -81,7 +81,7 @@ public class JavaCatalogToSpecTransformer implements PlanToSpecTransformer {
                 // java types were deprecated before we added osgi support so this isn't necessary,
                 // but it doesn't hurt (and if we re-instate a class+bundle approach for RegisteredType 
                 // we will want to do this)
-                type = CatalogUtils.newClassLoadingContext(mgmt, item).loadClass(javaType);
+                type = CatalogUtils.newClassLoadingContextForCatalogItems(mgmt, item.getCatalogItemHierarchy()).loadClass(javaType);
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 throw new IllegalStateException("Unable to load old-style java catalog item type " + javaType + " for item " + item, e);
