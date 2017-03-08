@@ -29,6 +29,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.test.framework.TestFrameworkAssertions.AssertionOptions;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.http.HttpTool;
@@ -39,7 +40,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
 /**
@@ -65,6 +65,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
             final String body = config().get(TARGET_BODY);
             final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
             final Duration timeout = getConfig(TIMEOUT);
+            final Integer maxAttempts = getConfig(MAX_ATTEMPTS);
             final Duration backoffToPeriod = getConfig(BACKOFF_TO_PERIOD);
             final HttpAssertionTarget target = getRequiredConfig(ASSERTION_TARGET);
             final boolean trustAll = getRequiredConfig(TRUST_ALL);
@@ -72,7 +73,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
                 throw new RuntimeException(String.format("The entity [%s] cannot have child entities", getClass().getName()));
             }
             
-            doRequestAndCheckAssertions(ImmutableMap.of("timeout", timeout, "backoffToPeriod", backoffToPeriod), 
+            doRequestAndCheckAssertions(MutableMap.of("timeout", timeout, "backoffToPeriod", backoffToPeriod, "maxAttempts", maxAttempts), 
                     assertions, target, method, url, headers, trustAll, body);
             setUpAndRunState(true, Lifecycle.RUNNING);
 
@@ -87,7 +88,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
         }
     }
 
-    private void doRequestAndCheckAssertions(Map<String, Duration> flags, List<Map<String, Object>> assertions,
+    private void doRequestAndCheckAssertions(Map<String, ?> flags, List<Map<String, Object>> assertions,
                                              HttpAssertionTarget target, final HttpMethod method, final String url, final Map<String, String> headers, final boolean trustAll, final String body) {
         switch (target) {
             case body:

@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.test.framework;
 
+import static org.testng.Assert.assertTrue;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,8 +30,10 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.http.TestHttpRequestHandler;
 import org.apache.brooklyn.test.http.TestHttpServer;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.http.HttpException;
@@ -41,6 +45,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -170,6 +175,27 @@ public class TestHttpCallTest extends BrooklynAppUnitTestSupport {
                 .configure(TestHttpCall.ASSERTION_TARGET, TestHttpCall.HttpAssertionTarget.status)
                 .configure(TestSensor.ASSERTIONS, newAssertion("isEqualTo", HttpStatus.SC_METHOD_NOT_ALLOWED)));
         app.start(ImmutableList.of(loc));
+    }
+
+    @Test(groups = "Integration")
+    public void testMaxAttempts() {
+        app.addChild(EntitySpec.create(TestHttpCall.class)
+                .configure(TestHttpCall.TARGET_URL, server.getUrl() + "/201")
+                .configure(TestHttpCall.TIMEOUT, Duration.minutes(1))
+                .configure(TestHttpCall.MAX_ATTEMPTS, 1)
+                .configure(TestSensor.ASSERTIONS, newAssertion("isEqualTo", "Wrong")));
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        try {
+            app.start(ImmutableList.of(loc));
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            AssertionError ae = Exceptions.getFirstThrowableOfType(e, AssertionError.class);
+            if (ae == null || !ae.toString().contains("body expected isEqualTo Wrong")) {
+                throw e;
+            }
+        }
+        Duration duration = Duration.of(stopwatch);
+        assertTrue(duration.isShorterThan(Asserts.DEFAULT_LONG_TIMEOUT), "duration="+duration);
     }
 
     private List<Map<String, Object>> newAssertion(final String assertionKey, final Object assertionValue) {
