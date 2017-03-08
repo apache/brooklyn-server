@@ -173,7 +173,8 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         return result;
     }
     
-    @Nullable protected ClassLoader getCustomClassLoaderForBrooklynObject(LookupContext lookupContext, BrooklynObjectType type, String objectId) {
+    @Nullable protected ClassLoader getCustomClassLoaderForBrooklynObject(LookupContext lookupContext,
+                                                                          BrooklynObjectType type, String objectId) {
         BrooklynObject item = lookupContext.peek(type, objectId);
         String catalogItemId = (item == null) ? null : item.getCatalogItemId();
         // TODO enrichers etc aren't yet known -- would need to backtrack to the entity to get them from bundles
@@ -185,10 +186,13 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         RegisteredType catalogItem = lookupContext.lookupManagementContext().getTypeRegistry().get(catalogItemId);
         if (catalogItem == null) {
             // TODO do we need to only log once, rather than risk log.warn too often? I think this only happens on rebind, so ok.
-            LOG.warn("Unable to load catalog item "+catalogItemId+" for custom class loader of "+type+" "+objectId+"; will use default class loader");
+            LOG.warn("Unable to load catalog item "+catalogItemId
+                +" for custom class loader of " + type + " " + objectId + "; will use default class loader");
             return null;
         } else {
-            return ClassLoaderFromBrooklynClassLoadingContext.of(CatalogUtils.newClassLoadingContext(lookupContext.lookupManagementContext(), catalogItem));
+            return ClassLoaderFromBrooklynClassLoadingContext.of(
+                CatalogUtils.newClassLoadingContextForCatalogItems(lookupContext.lookupManagementContext(),
+                    item.getCatalogItemHierarchy()));
         }
     }
     
