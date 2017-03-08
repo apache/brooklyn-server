@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.entity;
 
+import static org.apache.brooklyn.core.entity.EntityPredicates.applicationIdEqualTo;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -26,14 +27,12 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityAndAttribute;
-import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.time.Duration;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -130,5 +129,20 @@ public class EntitiesTest extends BrooklynAppUnitTestSupport {
         entity.tags().removeTag(2);
         Assert.assertEquals(entity.tags().getTags(), MutableSet.of(app));
     }
-    
+
+    @Test
+    public void testWaitFor() throws Exception {
+        entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        Duration timeout = Duration.ONE_MILLISECOND;
+
+        Entities.waitFor(entity, applicationIdEqualTo(app.getApplicationId()), timeout);
+
+        try {
+            Entities.waitFor(entity, applicationIdEqualTo(app.getApplicationId() + "-wrong"), timeout);
+            Asserts.shouldHaveFailedPreviously("Entities.waitFor() should have timed out");
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "Timeout waiting for ");
+        }
+    }
+
 }

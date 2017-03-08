@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.core.entity;
 
+import static org.apache.brooklyn.core.entity.EntityPredicates.attributeEqualTo;
+import static org.apache.brooklyn.util.guava.Functionals.isSatisfied;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -32,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
@@ -1139,24 +1141,32 @@ public class Entities {
             log.warn("Ignoring "+key+" set on "+entity+" ("+entity.getConfig(key)+")");
     }
 
-    /** Waits until {@link Startable#SERVICE_UP} returns true. */
-    public static void waitForServiceUp(final Entity entity, Duration timeout) {
-        String description = "Waiting for SERVICE_UP on "+entity;
-        Tasks.setBlockingDetails(description);
+    /** Waits until the passed entity satisfies the supplied predicate. */
+    public static void waitFor(Entity entity, Predicate<Entity> condition, Duration timeout) {
         try {
-            if (!Repeater.create(description).limitTimeTo(timeout)
-                    .rethrowException().backoffTo(Duration.ONE_SECOND)
-                    .until(new Callable<Boolean>() {
-                        public Boolean call() {
-                            return Boolean.TRUE.equals(entity.getAttribute(Startable.SERVICE_UP));
-                        }})
-                    .run()) {
-                throw new IllegalStateException("Timeout waiting for SERVICE_UP from "+entity);
+            String description = "Waiting for " + condition + " on " + entity;
+            Tasks.setBlockingDetails(description);
+
+            Repeater repeater = Repeater.create(description)
+                .until(isSatisfied(entity, condition))
+                .limitTimeTo(timeout)
+                .backoffTo(Duration.ONE_SECOND)
+                .rethrowException();
+
+            if (!repeater.run()) {
+                throw new IllegalStateException("Timeout waiting for " + condition + " on " + entity);
             }
+
         } finally {
             Tasks.resetBlockingDetails();
         }
-        log.debug("Detected SERVICE_UP for software {}", entity);
+
+        log.debug("Detected {} for {}", condition, entity);
+    }
+
+    /** Waits until {@link Startable#SERVICE_UP} returns true. */
+    public static void waitForServiceUp(final Entity entity, Duration timeout) {
+        waitFor(entity, attributeEqualTo(Startable.SERVICE_UP, true), timeout);
     }
     public static void waitForServiceUp(final Entity entity, long duration, TimeUnit units) {
         waitForServiceUp(entity, Duration.of(duration, units));
