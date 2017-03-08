@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.core.entity;
 
-import static org.apache.brooklyn.core.entity.EntityPredicates.attributeEqualTo;
 import static org.apache.brooklyn.util.guava.Functionals.isSatisfied;
 
 import java.io.Closeable;
@@ -1257,9 +1256,9 @@ public class Entities {
         log.debug("Detected {} for {}", condition, entity);
     }
 
-    /** Waits until {@link Startable#SERVICE_UP} returns true. */
+    /** Waits until {@link Startable#SERVICE_UP} is true. */
     public static void waitForServiceUp(final Entity entity, Duration timeout) {
-        waitFor(entity, attributeEqualTo(Startable.SERVICE_UP, true), timeout);
+        waitFor(entity, EntityPredicates.isServiceUp(), timeout);
     }
     public static void waitForServiceUp(final Entity entity, long duration, TimeUnit units) {
         waitForServiceUp(entity, Duration.of(duration, units));

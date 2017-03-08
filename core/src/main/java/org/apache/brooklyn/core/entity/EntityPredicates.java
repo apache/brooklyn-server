@@ -30,6 +30,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.guava.SerializablePredicate;
@@ -501,5 +502,21 @@ public class EntityPredicates {
             }
         };
     }
+
+    public static Predicate<Entity> isServiceUp() {
+        return new IsServiceUp();
+    }
+
+    /** Common test, provide short friendly toString(). */
+    protected static class IsServiceUp implements SerializablePredicate<Entity> {
+        @Override
+        public boolean apply(Entity input) {
+            return Boolean.TRUE.equals(input.sensors().get(Startable.SERVICE_UP));
+        }
+        @Override
+        public String toString() {
+            return "SERVICE_UP";
+        }
+    };
 
 }
