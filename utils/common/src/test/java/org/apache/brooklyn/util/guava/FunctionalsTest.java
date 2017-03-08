@@ -18,11 +18,11 @@
  */
 package org.apache.brooklyn.util.guava;
 
-import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.math.MathFunctions;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Suppliers;
 
@@ -53,6 +53,17 @@ public class FunctionalsTest {
     @Test
     public void testIfNotEqual() {
         IfFunctionsTest.checkTF(Functionals.ifNotEquals(false).value("T").defaultValue("F").build(), "T");
+    }
+
+    @Test
+    public void testIsSatisfied() throws Exception {
+        Predicate<Integer> isEven = new Predicate<Integer>() {
+            @Override public boolean apply(Integer input) {
+                return (input % 2 == 0);
+            }
+        };
+        Assert.assertFalse(Functionals.isSatisfied(11, isEven).call());
+        Assert.assertTrue(Functionals.isSatisfied(22, isEven).call());
     }
 
 }
