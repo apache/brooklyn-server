@@ -28,9 +28,11 @@ import java.net.URI;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -165,6 +167,17 @@ public class TypeCoercionsTest {
     public void testCoerceStringToBigNumber() {
     	assertEquals(coerce("0.5", BigDecimal.class), BigDecimal.valueOf(0.5));
     	assertEquals(coerce("1", BigInteger.class), BigInteger.valueOf(1));
+    }
+
+    @Test
+    public void testCoerceStringToTimeZone() {
+        assertEquals(coerce("UTC", TimeZone.class).getID(), TimeZone.getTimeZone("UTC").getID());
+    }
+
+    @Test
+    public void testCoerceNumberToDate() {
+        assertEquals(coerce(1000L, Date.class), new Date(1000));
+        assertEquals(coerce(1000, Date.class), new Date(1000));
     }
 
     @Test
