@@ -76,23 +76,20 @@ public interface CatalogApi {
                     name = "item",
                     value = "Item to install, as JAR/ZIP or Catalog YAML (autodetected)",
                     required = true)
-            byte[] item,
-            @ApiParam(name="name", value="Symbolic name to use for bundle", required=false, defaultValue="") String bundleName, 
-            @ApiParam(name="version", value="Version to set for bundle", required=false, defaultValue="") String bundleVersion);
+            byte[] item);
     
     @POST
     @Beta
     @Consumes({"application/x-zip", "application/x-jar"})
-    @ApiOperation(value = "Add a catalog item (e.g. new type of entity, policy or location) by uploading OSGi bundle JAR, or ZIP if bundle name and optionally version are supplied. "
+    @ApiOperation(value = "Add a catalog item (e.g. new type of entity, policy or location) by uploading OSGi bundle JAR, or ZIP which will be turned into bundle JAR, "
+            + "containing catalog.bom containing bundle name and version. "
             + "Return value is 201 CREATED if bundle could be added.", response = String.class)
     public Response createFromArchive(
             @ApiParam(
                     name = "archive",
-                    value = "Bundle to install, in JAR format, or ZIP if bundle name and optionally version are supplied, optionally with catalog.bom contained within",
+                    value = "Bundle to install, in ZIP or JAR format, requiring catalog.bom containing bundle name and version",
                     required = true)
-            byte[] archive,
-            @ApiParam(name="name", value="Symbolic name to use for bundle", required=false, defaultValue="") String bundleName, 
-            @ApiParam(name="version", value="Version to set for bundle", required=false, defaultValue="") String bundleVersion);
+            byte[] archive);
     
     @POST
     @Consumes(MediaType.APPLICATION_XML)

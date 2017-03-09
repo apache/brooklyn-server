@@ -499,16 +499,17 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     @Test
     public void testOsgiBundleWithBom() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
-        String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
+        final String symbolicName = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FULL;
+        final String version = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_VERSION;
+        final String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
         BundleMaker bm = new BundleMaker(manager);
         File f = Os.newTempFile("osgi", "jar");
         Files.copyFile(ResourceUtils.create(this).getResourceFromUrl(bundleUrl), f);
         
-        String symbolicName = "my.catalog.entity.id.testOsgiBundleWithBom";
         String bom = Joiner.on("\n").join(
                 "brooklyn.catalog:",
                 "  id: " + symbolicName,
-                "  version: " + TEST_VERSION,
+                "  version: " + version,
                 "  itemType: entity",
                 "  name: My Catalog App",
                 "  description: My description",
@@ -525,18 +526,18 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         
         assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
 
-        CatalogEntitySummary entityItem = client().path("/catalog/entities/"+symbolicName + "/" + TEST_VERSION)
+        CatalogEntitySummary entityItem = client().path("/catalog/entities/"+symbolicName + "/" + version)
                 .get(CatalogEntitySummary.class);
 
         Assert.assertNotNull(entityItem.getPlanYaml());
         Assert.assertTrue(entityItem.getPlanYaml().contains("org.apache.brooklyn.core.test.entity.TestEntity"));
 
-        assertEquals(entityItem.getId(), ver(symbolicName));
+        assertEquals(entityItem.getId(), CatalogUtils.getVersionedId(symbolicName, version));
         assertEquals(entityItem.getSymbolicName(), symbolicName);
-        assertEquals(entityItem.getVersion(), TEST_VERSION);
+        assertEquals(entityItem.getVersion(), version);
 
         // and internally let's check we have libraries
-        RegisteredType item = getManagementContext().getTypeRegistry().get(symbolicName, TEST_VERSION);
+        RegisteredType item = getManagementContext().getTypeRegistry().get(symbolicName, version);
         Assert.assertNotNull(item);
         Collection<OsgiBundleWithUrl> libs = item.getLibraries();
         assertEquals(libs.size(), 1);
@@ -544,7 +545,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         Assert.assertNull(lib.getUrl());
 
         assertEquals(lib.getSymbolicName(), "org.apache.brooklyn.test.resources.osgi.brooklyn-test-osgi-entities");
-        assertEquals(lib.getVersion(), "0.1.0");
+        assertEquals(lib.getVersion(), version);
 
         // now let's check other things on the item
         URI expectedIconUrl = URI.create(getEndpointAddress() + "/catalog/icon/" + symbolicName + "/" + entityItem.getVersion()).normalize();
@@ -564,7 +565,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
             assertTrue(actualInterfaces.contains(expectedInterface.getName()));
         }
 
-        byte[] iconData = client().path("/catalog/icon/" + symbolicName + "/" + TEST_VERSION).get(byte[].class);
+        byte[] iconData = client().path("/catalog/icon/" + symbolicName + "/" + version).get(byte[].class);
         assertEquals(iconData.length, 43);
     }
 

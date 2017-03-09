@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.jar.Attributes;
-import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
 import javax.annotation.Nullable;
@@ -78,9 +77,13 @@ import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.Constants;
 import org.slf4j.Logger;
@@ -112,10 +115,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     static Set<String> missingIcons = MutableSet.of();
 
     @Override
-    public Response createPoly(
-            byte[] item,
-            String bundleName, 
-            String bundleVersion) {
+    public Response createPoly(byte[] item) {
         Throwable yamlException = null;
         try {
             MutableList.copyOf( Yamls.parseAll(new InputStreamReader(new ByteArrayInputStream(item))) );
@@ -125,15 +125,12 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
         
         if (yamlException==null) {
-            // treat as yaml
-            if (Strings.isNonBlank(bundleName) || Strings.isNonBlank(bundleVersion)) {
-                throw new IllegalArgumentException("Bundle name/version not permitted when installing catalog YAML");
-            }
+            // treat as yaml if it parsed
             return createFromYaml(new String(item));
         }
         
         try {
-            return createFromArchive(item, bundleName, bundleVersion);
+            return createFromArchive(item);
         } catch (Exception e) {
             throw Exceptions.propagate("Unable to handle input: not YAML or compatible ZIP. Specify Content-Type to clarify.", e);
         }
@@ -180,54 +177,85 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
-    public Response createFromArchive(byte[] zipInput, String bundleName, String bundleVersion) {
+    public Response createFromArchive(byte[] zipInput) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ROOT, null)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item",
                 Entitlements.getEntitlementContext().user());
         }
 
         BundleMaker bm = new BundleMaker(mgmt());
-        File f = Os.newTempFile("brooklyn-posted-archive", "zip");
+        File f=null, f2=null;
         try {
-            Files.write(zipInput, f);
-        } catch (IOException e) {
-            Exceptions.propagate(e);
-        }
-        Manifest mf = bm.getManifest(f);
-        if (mf==null) {
-            mf = new Manifest();
-        }
-        String bundleNameInMF = mf.getMainAttributes().getValue(Constants.BUNDLE_SYMBOLICNAME);
-        if (Strings.isBlank(bundleName) && Strings.isBlank(bundleNameInMF)) {
-            throw new IllegalStateException("Require either "+Constants.BUNDLE_SYMBOLICNAME+" in "+JarFile.MANIFEST_NAME+" or name supplied in REST API");
-        }
-        if (!Strings.isBlank(bundleName)) {
-            mf.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, bundleName);
-        }
-        if (!Strings.isBlank(bundleVersion) || Strings.isBlank(mf.getMainAttributes().getValue(Constants.BUNDLE_VERSION))) {
-            if (Strings.isBlank(bundleVersion)) {
-                bundleVersion = "0.0.0.SNAPSHOT";
+            f = Os.newTempFile("brooklyn-posted-archive", "zip");
+            try {
+                Files.write(zipInput, f);
+            } catch (IOException e) {
+                Exceptions.propagate(e);
             }
-            mf.getMainAttributes().putValue(Constants.BUNDLE_VERSION, bundleVersion);
+            
+            ZipFile zf;
+            try {
+                zf = new ZipFile(f);
+            } catch (IOException e) {
+                throw WebResourceUtils.badRequest("Invalid ZIP/JAR archive: "+e);
+            }
+            ZipArchiveEntry bom = zf.getEntry("catalog.bom");
+            if (bom==null) {
+                bom = zf.getEntry("/catalog.bom");
+            }
+            if (bom==null) {
+                throw WebResourceUtils.badRequest("Archive must contain a catalog.bom file in the root");
+            }
+            String bomS;
+            try {
+                bomS = Streams.readFullyString(zf.getInputStream(bom));
+            } catch (IOException e) {
+                throw WebResourceUtils.badRequest("Error reading catalog.bom from ZIP/JAR archive: "+e);
+            }
+            VersionedName vn = BasicBrooklynCatalog.getVersionedName( BasicBrooklynCatalog.getCatalogMetadata(bomS) );
+            
+            Manifest mf = bm.getManifest(f);
+            if (mf==null) {
+                mf = new Manifest();
+            }
+            String bundleNameInMF = mf.getMainAttributes().getValue(Constants.BUNDLE_SYMBOLICNAME);
+            if (Strings.isNonBlank(bundleNameInMF)) {
+                if (!bundleNameInMF.equals(vn.getSymbolicName())) {
+                    throw new IllegalStateException("JAR MANIFEST symbolic-name '"+bundleNameInMF+"' does not match '"+vn.getSymbolicName()+"' defined in BOM");
+                }
+            } else {
+                mf.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, vn.getSymbolicName());
+            }
+            
+            String bundleVersionInMF = mf.getMainAttributes().getValue(Constants.BUNDLE_VERSION);
+            if (Strings.isNonBlank(bundleVersionInMF)) {
+                if (!bundleVersionInMF.equals(vn.getVersion().toString())) {
+                    throw new IllegalStateException("JAR MANIFEST version '"+bundleVersionInMF+"' does not match '"+vn.getVersion()+"' defined in BOM");
+                }
+            } else {
+                mf.getMainAttributes().putValue(Constants.BUNDLE_VERSION, vn.getVersion().toString());
+            }
+            if (mf.getMainAttributes().getValue(Attributes.Name.MANIFEST_VERSION)==null) {
+                mf.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), "1.0");
+            }
+            
+            f2 = bm.copyAddingManifest(f, mf);
+            
+            Bundle bundle = bm.installBundle(f2, true);
+            
+            if (!BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM)) {
+                // if the above feature is not enabled, let's do it manually (as a contract of this method)
+                new CatalogBomScanner().new CatalogPopulator(
+                        ((LocalManagementContext) mgmt()).getOsgiManager().get().getFramework().getBundleContext(),
+                        mgmt()).addingBundle(bundle, null);
+            }
+            
+            return Response.status(Status.CREATED).build();
+            
+        } finally {
+            if (f!=null) f.delete();
+            if (f2!=null) f2.delete();
         }
-        if (mf.getMainAttributes().getValue(Attributes.Name.MANIFEST_VERSION)==null) {
-            mf.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), "1.0");
-        }
-        
-        File f2 = bm.copyAddingManifest(f, mf);
-        f.delete();
-        
-        Bundle bundle = bm.installBundle(f2, true);
-        f2.delete();
-        
-        if (!BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM)) {
-            // if the above feature is not enabled, let's do it manually (as a contract of this method)
-            new CatalogBomScanner().new CatalogPopulator(
-                    ((LocalManagementContext) mgmt()).getOsgiManager().get().getFramework().getBundleContext(),
-                    mgmt()).addingBundle(bundle, null);
-        }
-        
-        return Response.status(Status.CREATED).build();
     }
     
     @SuppressWarnings("deprecation")
