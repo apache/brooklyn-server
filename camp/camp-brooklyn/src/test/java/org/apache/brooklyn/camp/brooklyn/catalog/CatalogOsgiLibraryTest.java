@@ -28,17 +28,23 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.config.external.AbstractExternalConfigSupplier;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.internal.ExternalConfigSupplierRegistry;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.http.TestHttpRecordingRequestInterceptor;
 import org.apache.brooklyn.test.http.TestHttpRequestHandler;
 import org.apache.brooklyn.test.http.TestHttpServer;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.stream.Streams;
@@ -46,6 +52,7 @@ import org.apache.http.Header;
 import org.apache.http.HttpRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -218,6 +225,118 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
 
         CatalogItem<?, ?> item = mgmt().getCatalog().getCatalogItem("simple-osgi-library", "1.0");
         assertCatalogLibraryUrl(item, classpathUrl);
+    }
+
+    @Test
+    public void testLibraryIsUsedByAppDeclaredInCatalog() throws Exception {
+        // simplest case, an app in the bundle, can resolve files in the same bundle
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  id: item-from-library",
+            "  version: \"1.0\"",
+            "  itemType: template",
+            "  libraries:",
+            "  - " + classpathUrl,
+            "  item:",
+            "    services:",
+            "    - type: org.apache.brooklyn.test.osgi.entities.SimpleApplication");
+        Entity app = createAndStartApplication("services: [ { type: item-from-library } ]");
+        assertCanFindMessages( app );
+    }
+    
+    @Test
+    public void testLibraryIsUsedByStockEntityDeclaredInCatalog() throws Exception {
+        // slightly trickier case, an entity NOT in the bundle, declared as an item, can resolve files in its library bundles
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  id: item-from-library",
+            "  version: \"1.0\"",
+            "  itemType: template",
+            "  libraries:",
+            "  - " + classpathUrl,
+            "  item:",
+            "    services:",
+            "    - type: "+TestEntity.class.getName());
+        Entity app = createAndStartApplication("services: [ { type: item-from-library } ]");
+        assertCanFindMessages( app.getChildren().iterator().next() );
+    }
+
+    protected void assertCanFindMessages(Entity entity) {
+        ResourceUtils ru = ResourceUtils.create(entity);
+        Iterable<URL> files = ru.getResources("org/apache/brooklyn/test/osgi/resources/message.txt");
+        if (!files.iterator().hasNext()) {
+            Entities.dumpInfo(entity);
+            Assert.fail("Expected to find 'messages.txt'");
+        }
+    }
+    
+    @Test
+    public void testLibraryIsUsedByChildInCatalogItem() throws Exception {
+        // even trickier, something added as a child can resolve bundles
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  id: item-from-library",
+            "  version: \"1.0\"",
+            "  itemType: template",
+            "  libraries:",
+            "  - " + classpathUrl,
+            "  item:",
+            "    services:",
+            "    - type: "+TestEntity.class.getName(),
+            "      name: parent",
+            "      brooklyn.children:",
+            "      - type: "+TestEntity.class.getName(),
+            "        name: child");
+        
+        RegisteredType item = mgmt().getTypeRegistry().get("item-from-library", "1.0");
+        Assert.assertNotNull(item, "Should have had item-from-library in catalog");
+        AbstractBrooklynObjectSpec<?, ?> spec = mgmt().getTypeRegistry().createSpec(item, null, null);
+        Assert.assertNotNull(spec, "Should have had spec");
+        // the spec has no catalog item ID except at the root Application
+        
+        Entity app = createAndStartApplication("services: [ { type: item-from-library } ]");
+        Entity entity = app.getChildren().iterator().next();
+        entity = entity.getChildren().iterator().next();
+        Entities.dumpInfo(entity);
+        
+        // TODO re-enable when we've converted to a search path;
+        // currently this test method passes because of CatalogUtils.setCatalogItemIdOnAddition
+        // but we don't want to be doing that, we only want the search path
+        //Assert.assertNull(entity.getCatalogItemId(), "Entity had a catalog item ID, even though it was stockj");
+        
+        assertCanFindMessages( entity );
+    }
+    
+    @Test
+    public void testLibraryIsUsedByChildInCatalogItemIfItIsFromCatalogItem() throws Exception {
+        // even trickier, something added as a child can resolve bundles
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  version: \"1.0\"",
+            "  itemType: template",
+            "  libraries:",
+            "  - " + classpathUrl,
+            "  items:",
+            "  - id: child-from-library",
+            "    item:",
+            "      services:",
+            "      - type: "+TestEntity.class.getName(),
+            "  - id: parent-with-child-from-library",
+            "    item:",
+            "      services:",
+            "      - type: "+TestEntity.class.getName(),
+            "        brooklyn.children:",
+            "        - type: child-from-library");
+        
+        Entity app = createAndStartApplication("services: [ { type: parent-with-child-from-library } ]");
+        Entity entity = app.getChildren().iterator().next();
+        entity = entity.getChildren().iterator().next();
+        
+        assertCanFindMessages( entity );
     }
 
     @Test(groups="Broken")

@@ -22,14 +22,6 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-
 import org.apache.brooklyn.api.internal.ApiObjectsFactory;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.AbstractEntity;
@@ -40,6 +32,13 @@ import org.apache.brooklyn.core.relations.ByObjectBasicRelationSupport;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.text.Identifiers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
 
@@ -80,6 +79,10 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
             _legacyConstruction = true;
         }
 
+        // TODO this will be overridden if the spec has a catalog item ID
+        // correct behaviour should be to inherit context's search path, perhaps, though maybe that's better done as spec?
+        // in any case, should not define it as _the_ catalog item ID; also see assignment based on parent
+        // in CatalogUtils.setCatalogItemIdOnAddition
         catalogItemId = ApiObjectsFactory.get().getCatalogItemIdFromContext();
 
         // rely on sub-class to call configure(properties), because otherwise its fields will not have been initialised

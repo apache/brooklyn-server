@@ -39,6 +39,7 @@ import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.OsgiUtils;
+import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
@@ -48,7 +49,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 
@@ -220,7 +221,27 @@ public class ClassLoaderUtils {
             // Very explicit; do as we're told!
             return tryLoadFromBundle(dispatcher, symbolicName, version, className);
         }
+        
+        if (symbolicName != null) {
+            cls = tryLoadFromBundle(dispatcher, symbolicName, version, className);
+            if (cls.isPresent()) {
+                return cls;
+            }
+            Maybe<T> result = loadClass(name, dispatcher, className);
+            
+            String notFoundWithSymbolicNameMessage = "No class '"+className+"' in bundle '"+symbolicName+"' (using spec '"+name+"')";
+            if (result.isPresent()) {
+                log.warn(notFoundWithSymbolicNameMessage+"; found using deprecated no-bundle syntax, but this behaviour is deprecated and likely to be unsupported in future. Change so invalid bundle is not supplied.");
+            } else {
+                return Maybe.absent(notFoundWithSymbolicNameMessage);
+            }
+        }
 
+        return loadClass(name, dispatcher, className);
+    }
+    
+    private <T> Maybe<T> loadClass(String name, LoaderDispatcher<T> dispatcher, String className) {
+        Maybe<T> cls;
         if (entity != null && mgmt != null) {
             String catalogItemId = entity.getCatalogItemId();
             if (catalogItemId != null) {
@@ -254,13 +275,6 @@ public class ClassLoaderUtils {
             }
         }
 
-        if (symbolicName != null) {
-            cls = tryLoadFromBundle(dispatcher, symbolicName, version, className);
-            if (cls.isPresent()) {
-                return cls;
-            }
-        }
-
         return Maybe.absentNull();
     }
 
@@ -276,6 +290,7 @@ public class ClassLoaderUtils {
             }
             return dispatcher.tryLoadFrom(bundle.get(), name);
         } else {
+            log.warn("Request for bundle '"+symbolicName+"' "+(Strings.isNonBlank(version) ? "("+version+") " : "")+"will be ignored, loading '"+name+"' as no framework available");
             return dispatcher.tryLoadFrom(classLoader, name);
         }
     }
@@ -389,7 +404,7 @@ public class ClassLoaderUtils {
     
     @Override
     public String toString() {
-        return getClass().getSimpleName() + "[" + Objects.toStringHelper(this)
+        return getClass().getSimpleName() + "[" + MoreObjects.toStringHelper(this)
             .add("claddLoader", classLoader)
             .add("entity", entity)
             .add("mgmt", mgmt) + "]";

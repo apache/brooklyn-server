@@ -95,6 +95,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -325,6 +326,9 @@ public class Entities {
         out.append(currentIndentation+e.toString()+" "+e.getId()+"\n");
 
         out.append(currentIndentation+tab+tab+"displayName = "+e.getDisplayName()+"\n");
+        if (Strings.isNonBlank(e.getCatalogItemId())) {
+            out.append(currentIndentation+tab+tab+"catalogItemId = "+e.getCatalogItemId()+"\n");
+        }
 
         out.append(currentIndentation+tab+tab+"locations = "+e.getLocations()+"\n");
 
