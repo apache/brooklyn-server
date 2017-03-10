@@ -60,17 +60,30 @@ public class TestFrameworkAssertionsTest {
                 {"some-sensor-value", Arrays.asList(ImmutableMap.of("equals", "some-sensor-value"))},
                 {"some-sensor-value", Arrays.asList(ImmutableMap.of("notEqual", "other-sensor-value"))},
                 {10, Arrays.asList(ImmutableMap.of("notEqual", 20))},
-                {"some-regex-value-to-match", Arrays.asList(ImmutableMap.of("matches", "some.*match", "isEqualTo", "some-regex-value-to-match"))},
+                
                 {null, Arrays.asList(ImmutableMap.of("isNull", Boolean.TRUE))},
                 {"some-non-null-value", Arrays.asList(ImmutableMap.of("isNull", Boolean.FALSE))},
                 {null, Arrays.asList(ImmutableMap.of("notNull", Boolean.FALSE))},
                 {"some-non-null-value", Arrays.asList(ImmutableMap.of("notNull", Boolean.TRUE))},
+                
                 {"<html><body><h1>Im a H1 tag!</h1></body></html>", Arrays.asList(ImmutableMap.of("contains", "Im a H1 tag!"))},
                 {"{\"a\":\"b\",\"c\":\"d\",\"e\":123,\"g\":false}", Arrays.asList(ImmutableMap.of("contains", "false"))},
+                
+                {"some-regex-value-to-match", Arrays.asList(ImmutableMap.of("matches", "some.*match", "isEqualTo", "some-regex-value-to-match"))},
+                {"line1\nline2\nline3\n", Arrays.asList(ImmutableMap.of("matches", "(?s).*line2.*"))},
+                {"line1\nline2\nline3\n", Arrays.asList(ImmutableMap.of("matches", "(?m)line1\n^line2$\nline3\n"))},
+                {"line1\nline2\nline3\n", Arrays.asList(ImmutableMap.of("matches", "(?m)(?s).*^line2$.*"))},
+                {"line1\nline2\nline3\n", Arrays.asList(ImmutableMap.of("matches", "^line1\nline2\nline3\n$"))},
+                
+                {"line1\nline2\nline3\n", Arrays.asList(ImmutableMap.of("containsMatch", "line1"))},
+                {"line1\nline2\nline3\n", Arrays.asList(ImmutableMap.of("containsMatch", "lin.*1"))},
+                {"line1\nline2\nline3\n", Arrays.asList(ImmutableMap.of("containsMatch", "lin.1\nlin.2"))},
+                
                 {"", Arrays.asList(ImmutableMap.of("isEmpty", Boolean.TRUE))},
                 {"some-non-null-value", Arrays.asList(ImmutableMap.of("isEmpty", Boolean.FALSE))},
                 {null, Arrays.asList(ImmutableMap.of("notEmpty", Boolean.FALSE))},
                 {"some-non-null-value", Arrays.asList(ImmutableMap.of("notEmpty", Boolean.TRUE))},
+                
                 {"true", Arrays.asList(ImmutableMap.of("hasTruthValue", Boolean.TRUE))},
                 {"false", Arrays.asList(ImmutableMap.of("hasTruthValue", Boolean.FALSE))},
 
@@ -144,6 +157,14 @@ public class TestFrameworkAssertionsTest {
 
                 {"<html><body><h1>Im a H1 tag!</h1></body></html>", "contains", "quack", Arrays.asList(ImmutableMap.of("contains", "quack"))},
                 {"{\"a\":\"b\",\"c\":\"d\",\"e\":123,\"g\":false}", "contains", "moo", Arrays.asList(ImmutableMap.of("contains", "moo"))},
+
+                {"line1\nline2\nline3\n", "matches", "notthere", Arrays.asList(ImmutableMap.of("matches", "notthere"))},
+                {"line1\nline2\nline3\n", "matches", ".*line2.*", Arrays.asList(ImmutableMap.of("matches", ".*line2.*"))}, // default is not DOTALL
+                {"line1\nline2\nline3\n", "matches", "line1\n^line2$\nline3\n", Arrays.asList(ImmutableMap.of("matches", "line1\n^line2$\nline3\n"))}, // default is not MULTILINE
+
+                {"line1", "containsMatch", "quack", Arrays.asList(ImmutableMap.of("containsMatch", "quack"))},
+                {"line1\nline2\nline3\n", "containsMatch", ".*line1.*line2", Arrays.asList(ImmutableMap.of("containsMatch", ".*line1.*line2"))}, // default is not DOTALL
+                {"line1\nline2\nline3\n", "containsMatch", "^line2$", Arrays.asList(ImmutableMap.of("containsMatch", "^line2$"))}, // default is not MULTILINE
 
                 {25, "lessThan", 24, Collections.singletonList(ImmutableMap.of("lessThan", 24))},
                 {"b", "lessThan", "a", Collections.singletonList(ImmutableMap.of("lessThan", "a"))},

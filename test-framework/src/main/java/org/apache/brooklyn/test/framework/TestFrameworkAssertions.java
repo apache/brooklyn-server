@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.regex.Pattern;
+
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -62,6 +64,7 @@ public class TestFrameworkAssertions {
     public static final String EQUALS = "equals";
     public static final String NOT_EQUAL = "notEqual";
     public static final String MATCHES = "matches";
+    public static final String CONTAINS_MATCH = "containsMatch";
     public static final String CONTAINS = "contains";
     public static final String IS_EMPTY = "isEmpty";
     public static final String NOT_EMPTY = "notEmpty";
@@ -333,7 +336,11 @@ public class TestFrameworkAssertions {
         case NOT_EMPTY:
             return isTrue(expected) == ((null != actual && Strings.isNonEmpty(actual.toString())));
         case MATCHES:
-            return null != actual && actual.toString().matches(expected.toString());
+            Pattern matchesPattern = Pattern.compile(expected.toString());
+            return null != actual && matchesPattern.matcher(actual.toString()).matches();
+        case CONTAINS_MATCH:
+            Pattern containsMatchPattern = Pattern.compile(expected.toString());
+            return null != actual && containsMatchPattern.matcher(actual.toString()).find();
         case HAS_TRUTH_VALUE:
             return isTrue(expected) == isTrue(actual);
         case GREATER_THAN:
@@ -349,7 +356,7 @@ public class TestFrameworkAssertions {
         // Everything but UNKNOWN_CONDITION. The conditions should really be an enum!
         Set<String> allConditions = ImmutableSet.of(
                 IS_NULL, NOT_NULL, IS_EQUAL_TO, EQUAL_TO, EQUALS, NOT_EQUAL,
-                MATCHES, CONTAINS, IS_EMPTY, NOT_EMPTY, HAS_TRUTH_VALUE,
+                MATCHES, CONTAINS_MATCH, CONTAINS, IS_EMPTY, NOT_EMPTY, HAS_TRUTH_VALUE,
                 GREATER_THAN, LESS_THAN);
         return allConditions.contains(condition);
     }
@@ -362,7 +369,7 @@ public class TestFrameworkAssertions {
                 && actual.getClass().equals(expected.getClass());
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({ "unchecked", "rawtypes" })
     private static int compare(@Nullable Object actual, @Nullable Object expected) {
         if (!canCompare(actual, expected)) {
             throw new IllegalArgumentException("Arguments are not comparable: " + actual + ", " + expected);
