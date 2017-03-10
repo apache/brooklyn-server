@@ -142,12 +142,12 @@ public class CatalogUtils {
     }
 
     public static BrooklynClassLoadingContext newClassLoadingContextForCatalogItems(
-        ManagementContext managementContext, List<String> catalogItemIds) {
+        ManagementContext managementContext, String catalogItemId, List<String> searchPath) {
 
-        BrooklynClassLoadingContextSequential seqLoader =
-            new BrooklynClassLoadingContextSequential(managementContext);
-        for (String catalogItemId : catalogItemIds) {
-            addCatalogItemContext(managementContext, seqLoader, catalogItemId);
+        BrooklynClassLoadingContextSequential seqLoader = new BrooklynClassLoadingContextSequential(managementContext);
+        addCatalogItemContext(managementContext, seqLoader, catalogItemId);
+        for (String searchId : searchPath) {
+            addCatalogItemContext(managementContext, seqLoader, searchId);
         }
         return seqLoader;
     }
@@ -195,7 +195,9 @@ public class CatalogUtils {
                 if (log.isDebugEnabled())
                     BrooklynLogging.log(log, BrooklynLogging.levelDebugOrTraceIfReadOnly(entity),
                         "Catalog item addition: "+entity+" from "+entity.getCatalogItemId()+" applying its catalog item ID to "+itemBeingAdded);
-                ((BrooklynObjectInternal)itemBeingAdded).setCatalogItemIdHierarchy(entity.getCatalogItemHierarchy());
+                final BrooklynObjectInternal addInternal = (BrooklynObjectInternal) itemBeingAdded;
+                addInternal.setCatalogItemId(entity.getCatalogItemId());
+                addInternal.setCatalogItemIdSearchPath(entity.getCatalogItemIdSearchPath());
             } else {
                 if (!itemBeingAdded.getCatalogItemId().equals(entity.getCatalogItemId())) {
                     // not a problem, but something to watch out for

@@ -132,18 +132,18 @@ public class CatalogItemDo<T,SpecT> implements CatalogItem<T,SpecT>, BrooklynObj
     }
 
     @Override
-    public void setCatalogItemIdHierarchy(List<String> ids) {
-        itemDto.setCatalogItemIdHierarchy(ids);
+    public void setCatalogItemIdSearchPath(List<String> ids) {
+        itemDto.setCatalogItemIdSearchPath(ids);
     }
 
     @Override
-    public List<String> getCatalogItemHierarchy() {
-        return itemDto.getCatalogItemHierarchy();
+    public List<String> getCatalogItemIdSearchPath() {
+        return itemDto.getCatalogItemIdSearchPath();
     }
 
     @Override
-    public void nestCatalogItemId(String id) {
-        itemDto.nestCatalogItemId(id);
+    public void stackCatalogItemId(String id) {
+        itemDto.stackCatalogItemId(id);
     }
 
     @Override

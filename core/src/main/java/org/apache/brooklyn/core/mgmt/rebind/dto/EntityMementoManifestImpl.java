@@ -19,7 +19,7 @@
 package org.apache.brooklyn.core.mgmt.rebind.dto;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoManifest.EntityMementoManifest;
 
 import java.util.List;
@@ -28,13 +28,15 @@ public class EntityMementoManifestImpl implements EntityMementoManifest {
     private String id;
     private String type;
     private String parentId;
-    private List<String> catalogItemIds;
+    private String catalogItemId;
+    private List<String> searchPath;
 
-    public EntityMementoManifestImpl(String id, String type, String parentId, List<String> catalogItemIds) {
+    public EntityMementoManifestImpl(String id, String type, String parentId, String catalogItemId, List<String> searchPath) {
         this.id = id;
         this.type = type;
         this.parentId = parentId;
-        this.catalogItemIds = ImmutableList.copyOf(catalogItemIds);
+        this.catalogItemId = catalogItemId;
+        this.searchPath = ImmutableList.copyOf(searchPath);
     }
 
     @Override
@@ -52,18 +54,14 @@ public class EntityMementoManifestImpl implements EntityMementoManifest {
         return parentId;
     }
 
-    /**
-     * @deprecated since 0.11.0, use {@link #getCatalogItemHierarchy()} instead
-     */
-    @Deprecated
     @Override
     public String getCatalogItemId() {
-        return Iterables.getFirst(catalogItemIds, null);
+        return catalogItemId;
     }
 
     @Override
-    public List<String> getCatalogItemHierarchy() {
-        return catalogItemIds;
+    public List<String> getCatalogItemIdSearchPath() {
+        return searchPath;
     }
 
 }

@@ -60,16 +60,19 @@ public interface BrooklynObject extends Identifiable, Configurable {
     String getCatalogItemId();
 
     /**
-     * An immutable list of ids of this object's catalog item and its defining catalog items.
-     * e.g. if the catalog item is defined as
+     * An immutable list of ids of catalog items that define this item.
+     * e.g. if the catalog item is defined as a Z where
      * <pre>
      *     items:
      *     - id: X
+     *     - id: Y
+     *       item: X
+     *     - id: Z
      *       item: Y
      * </pre>
      * then the list will contain X, Y.
      */
-    List<String> getCatalogItemHierarchy();
+    List<String> getCatalogItemIdSearchPath();
     
     /** 
      * Tags are arbitrary objects which can be attached to an entity for subsequent reference.

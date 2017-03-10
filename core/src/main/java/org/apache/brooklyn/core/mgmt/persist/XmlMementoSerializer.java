@@ -455,7 +455,7 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         public void marshal(Object source, HierarchicalStreamWriter writer, MarshallingContext context) {
             if (source == null) return;
             AbstractBrooklynObjectSpec<?, ?> spec = (AbstractBrooklynObjectSpec<?, ?>) source;
-            String catalogItemId = spec.getOuterCatalogItemId();
+            String catalogItemId = spec.getCatalogItemId();
             if (Strings.isNonBlank(catalogItemId)) {
                 // write this field first, so we can peek at it when we read
                 writer.startNode("catalogItemId");

@@ -27,7 +27,6 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -257,7 +256,8 @@ public class ClassLoaderUtils {
                 CatalogItem<?, ?> item = CatalogUtils.getCatalogItemOptionalVersion(mgmt, catalogItemId);
                 if (item != null) {
                     BrooklynClassLoadingContextSequential loader = new BrooklynClassLoadingContextSequential(mgmt);
-                    loader.add(newClassLoadingContextForCatalogItems(mgmt, item.getCatalogItemHierarchy()));
+                    loader.add(newClassLoadingContextForCatalogItems(mgmt, item.getCatalogItemId(),
+                        item.getCatalogItemIdSearchPath()));
                     cls = dispatcher.tryLoadFrom(loader, className);
                     if (cls.isPresent()) {
                         return cls;

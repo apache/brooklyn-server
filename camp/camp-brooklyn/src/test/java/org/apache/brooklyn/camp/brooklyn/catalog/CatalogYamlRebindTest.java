@@ -170,13 +170,13 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
         testRebindWithCatalogAndAppUsingOptions(mode, osgiMode, RebindOptions.create());
     }
 
-    // Re-run the same tests as testRebindWithCatalogAndApp but with the XML updated to mimic state
-    // persisted before <catalogItemId> was replaced with <catalogItemHierarchy>.
+    // Re-run all the same tests as testRebindWithCatalogAndApp, but with the XML updated to mimic state
+    // persisted before <catalogItemIdSearchPath> was introduced.
     @Test(dataProvider = "dataProvider")
     public void testRebindWithCatalogAndAppRebindCatalogItemIds(RebindWithCatalogTestMode mode, OsgiMode osgiMode) throws Exception {
         final RebindOptions rebindOptions = RebindOptions.create();
         applyCompoundStateTransformer(rebindOptions, CompoundTransformer.builder()
-            .xmlReplaceItem("//catalogItemHierarchy", "<catalogItemId><xsl:value-of select=\"string\"/></catalogItemId>")
+            .xmlDeleteItem("//catalogItemIdSearchPath")
             .build());
         testRebindWithCatalogAndAppUsingOptions(mode, osgiMode, rebindOptions);
     }

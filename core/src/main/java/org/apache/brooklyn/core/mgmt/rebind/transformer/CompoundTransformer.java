@@ -102,7 +102,8 @@ public class CompoundTransformer {
             return xsltTransformer(xslt);
         }
 
-        /** Discards and replaces the item at the given XPath.
+        /**
+         * Discards and replaces the item at the given XPath.
          * <p>
          * For example to replace all occurrences 
          * of text "foo" inside a tag "Tag1", you can use <code>TagName/text()[.='foo']</code>;
@@ -119,7 +120,15 @@ public class CompoundTransformer {
                     + newValue
                 + "</xsl:template>");
         }
-        
+
+        /**
+         * Discards the item at the given XPath.
+         */
+        public Builder xmlDeleteItem(String xpathToMatch) {
+            return xsltTransformerRecursiveCopyWithExtraRules(
+                "<xsl:template match=\"" + xpathToMatch + "\"></xsl:template>");
+        }
+
         /** 
          * Replaces a tag, but while continuing to recurse.
          */
@@ -182,12 +191,12 @@ public class CompoundTransformer {
          * old text matches oldSymbolicName and optionally oldVersion
          * to have newSymbolicName and newVersion.
          * <p>
-         * Also changes contents of elements within a list of 'catalogItemHierarchy' e.g.
+         * Also changes contents of elements within a list of 'catalogItemIdSearchPath' e.g.
          * <pre>
-         *     &lt;catalogItemHierarchy>
+         *     &lt;catalogItemIdSearchPath>
          *        &lt;string>one&lt;/string>
          *        &lt;string>two&lt;/string>
-         *     &lt;/catalogItemHierarchy>
+         *     &lt;/catalogItemIdSearchPath>
          * </pre>
          * </p>
          * This provides a programmatic way to change the catalogItemID. */
@@ -196,13 +205,13 @@ public class CompoundTransformer {
             if (oldVersion==null)
                 return changeCatalogItemId(oldSymbolicName, newSymbolicName, newVersion);
             // warnings use underscore notation because that's what CompoundTransformerLoader uses
-            return xmlReplaceItem("*[self::catalogItemId|parent::catalogItemHierarchy]/text()[.='"+
+            return xmlReplaceItem("*[self::catalogItemId|parent::catalogItemIdSearchPath]/text()[.='"+
                 Preconditions.checkNotNull(oldSymbolicName, "old_symbolic_name")+":"+Preconditions.checkNotNull(oldVersion, "old_version")+"']", 
                 Preconditions.checkNotNull(newSymbolicName, "new_symbolic_name")+":"+Preconditions.checkNotNull(newVersion, "new_version"));
         }
         /** As {@link #changeCatalogItemId(String, String, String, String)} matching any old version. */
         public Builder changeCatalogItemId(String oldSymbolicName, String newSymbolicName, String newVersion) {
-            return xmlReplaceItem("*[self::catalogItemId|parent::catalogItemHierarchy]/text()[starts-with(.,'"+Preconditions.checkNotNull(oldSymbolicName, "old_symbolic_name")+":')]",
+            return xmlReplaceItem("*[self::catalogItemId|parent::catalogItemIdSearchPath]/text()[starts-with(.,'"+Preconditions.checkNotNull(oldSymbolicName, "old_symbolic_name")+":')]",
                 Preconditions.checkNotNull(newSymbolicName, "new_symbolic_name")+":"+Preconditions.checkNotNull(newVersion, "new_version"));
         }
 
