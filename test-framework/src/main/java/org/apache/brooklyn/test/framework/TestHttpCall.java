@@ -24,6 +24,7 @@ import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.time.Duration;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
@@ -62,6 +63,11 @@ public interface TestHttpCall extends BaseTest {
 
     ConfigKey<HttpAssertionTarget> ASSERTION_TARGET = ConfigKeys.newConfigKey(HttpAssertionTarget.class, "applyAssertionTo",
         "The HTTP field to apply the assertion to [body,status]", HttpAssertionTarget.body);
+
+    /**
+     * The duration to wait for an assertion to succeed or fail before throwing an exception.
+     */
+    ConfigKey<Integer> MAX_ATTEMPTS = ConfigKeys.newIntegerConfigKey("maxAttempts", "Maximum number of attempts");
 
     enum HttpMethod {
         GET(HttpGet.class),

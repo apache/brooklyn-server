@@ -254,4 +254,18 @@ public class TypeCoercions {
         }
         
     }
+
+    public static TypeCoercer asTypeCoercer() {
+        return new TypeCoercer() {
+            @Override public <T> T coerce(Object input, Class<T> type) {
+                return TypeCoercions.coerce(input, type);
+            }
+            @Override public <T> Maybe<T> tryCoerce(Object input, Class<T> type) {
+                return TypeCoercions.tryCoerce(input, type);
+            }
+            @Override public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
+                return TypeCoercions.tryCoerce(input, type);
+            }
+        };
+    }
 }

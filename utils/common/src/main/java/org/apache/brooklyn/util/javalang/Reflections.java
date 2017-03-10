@@ -48,6 +48,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -840,19 +841,33 @@ public class Reflections {
     public static Maybe<Object> invokeMethodFromArgs(Object clazzOrInstance, String method, List<?> args) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
         return invokeMethodFromArgs(clazzOrInstance, method, args, false);
     }
+    
     /** as {@link #invokeMethodFromArgs(Object, String, List)} but giving control over whether to set it accessible */
     public static Maybe<Object> invokeMethodFromArgs(Object clazzOrInstance, String method, List<?> args, boolean setAccessible) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
+        return invokeMethodFromArgs(clazzOrInstance, method, args, setAccessible, Optional.<TypeCoercer>absent());
+    }
+    
+    /** as {@link #invokeMethodFromArgs(Object, String, List)} but giving control over whether to set it accessible */
+    public static Maybe<Object> invokeMethodFromArgs(Object clazzOrInstance, String method, List<?> args, boolean setAccessible, Optional<? extends TypeCoercer> coercer) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
         Maybe<Method> maybeMethod = getMethodFromArgs(clazzOrInstance, method, args);
+        if (coercer.isPresent() && maybeMethod.isAbsent()) {
+            maybeMethod = getMethodFromArgs(clazzOrInstance, method, args, coercer);
+        }
         if (maybeMethod.isAbsent()) {
             return Maybe.absent(Maybe.getException(maybeMethod));
         }
         Method m = maybeMethod.get();
 
-        return Maybe.of(invokeMethodFromArgs(clazzOrInstance, m, args, setAccessible));
+        return Maybe.of(invokeMethodFromArgs(clazzOrInstance, m, args, setAccessible, coercer));
     }
 
     /** searches for the given method on the given clazz or instance, doing reasonably good matching on args etc */
     public static Maybe<Method> getMethodFromArgs(Object clazzOrInstance, String method, List<?> args) {
+        return getMethodFromArgs(clazzOrInstance, method, args, Optional.<TypeCoercer>absent());
+    }
+    
+    /** searches for the given method on the given clazz or instance, doing reasonably good matching on args etc */
+    public static Maybe<Method> getMethodFromArgs(Object clazzOrInstance, String method, List<?> args, Optional<? extends TypeCoercer> coercer) {
         Preconditions.checkNotNull(clazzOrInstance, "clazz or instance");
         Preconditions.checkNotNull(method, "method");
         Preconditions.checkNotNull(args, "args to "+method);
@@ -870,12 +885,11 @@ public class Reflections {
             if (method.equals(m.getName())) {
                 Class<?>[] parameterTypes = m.getParameterTypes();
                 if (m.isVarArgs()) {
-                    if (typesMatchUpTo(argsArray, parameterTypes, parameterTypes.length-1)) {
+                    if (typesMatchUpTo(argsArray, parameterTypes, parameterTypes.length-1, coercer)) {
                         Class<?> varargType = parameterTypes[parameterTypes.length-1].getComponentType();
                         boolean varargsMatch = true;
                         for (int i=parameterTypes.length-1; i<argsArray.length; i++) {
-                            if (!Boxing.boxedType(varargType).isInstance(argsArray[i]) ||
-                                    (varargType.isPrimitive() && argsArray[i]==null)) {
+                            if (!typeMatches(argsArray[i], varargType, coercer)) {
                                 varargsMatch = false;
                                 break;
                             }
@@ -885,7 +899,7 @@ public class Reflections {
                         }
                     }
                 }
-                if (typesMatch(argsArray, parameterTypes)) {
+                if (typesMatch(argsArray, parameterTypes, coercer)) {
                     return Maybe.of(m);
                 }
             }
@@ -910,6 +924,12 @@ public class Reflections {
     /** as {@link #invokeMethodFromArgs(Object, Method, List)} but giving control over whether to set it accessible */
     public static Object invokeMethodFromArgs(Object clazzOrInstance, Method m, List<?> args, boolean setAccessible)
             throws IllegalAccessException, InvocationTargetException {
+        return invokeMethodFromArgs(clazzOrInstance, m, args, setAccessible, Optional.<TypeCoercer>absent());
+    }
+
+    /** as {@link #invokeMethodFromArgs(Object, Method, List)} but giving control over whether to set it accessible */
+    public static Object invokeMethodFromArgs(Object clazzOrInstance, Method m, List<?> args, boolean setAccessible, Optional<? extends TypeCoercer> coercer)
+            throws IllegalAccessException, InvocationTargetException {
         Preconditions.checkNotNull(clazzOrInstance, "clazz or instance");
         Preconditions.checkNotNull(m, "method");
         Preconditions.checkNotNull(args, "args to "+m);
@@ -928,36 +948,67 @@ public class Reflections {
             Class<?> varargType = parameterTypes[parameterTypes.length-1].getComponentType();
             Object varargs = Array.newInstance(varargType, argsArray.length+1 - parameterTypes.length);
             for (int i=parameterTypes.length-1; i<argsArray.length; i++) {
-                Boxing.setInArray(varargs, i+1-parameterTypes.length, argsArray[i], varargType);
+                Object arg = coercer.isPresent() ? coercer.get().coerce(argsArray[i], varargType) : argsArray[i];
+                Boxing.setInArray(varargs, i+1-parameterTypes.length, arg, varargType);
             }
             Object[] newArgsArray = new Object[parameterTypes.length];
-            System.arraycopy(argsArray, 0, newArgsArray, 0, parameterTypes.length-1);
+            for (int i = 0; i < parameterTypes.length - 1; i++) {
+                Object arg = coercer.isPresent() ? coercer.get().coerce(argsArray[i], parameterTypes[i]) : argsArray[i];
+                newArgsArray[i] = arg;
+            }
             newArgsArray[parameterTypes.length-1] = varargs;
             if (setAccessible) m.setAccessible(true);
             return m.invoke(instance, newArgsArray);
         } else {
+            Object[] newArgsArray;
+            if (coercer.isPresent()) {
+                newArgsArray = new Object[parameterTypes.length];
+                for (int i = 0; i < parameterTypes.length; i++) {
+                    Object arg = coercer.get().coerce(argsArray[i], parameterTypes[i]);
+                    newArgsArray[i] = arg;
+                }
+            } else {
+                newArgsArray = argsArray;
+            }
             if (setAccessible) m.setAccessible(true);
-            return m.invoke(instance, argsArray);
+            return m.invoke(instance, newArgsArray);
         }
     }
 
     /** true iff all args match the corresponding types */
     public static boolean typesMatch(Object[] argsArray, Class<?>[] parameterTypes) {
+        return typesMatch(argsArray, parameterTypes, Optional.<TypeCoercer>absent());
+    }
+    
+    /** true iff all args match the corresponding types */
+    public static boolean typesMatch(Object[] argsArray, Class<?>[] parameterTypes, Optional<? extends TypeCoercer> coercer) {
         if (argsArray.length != parameterTypes.length)
             return false;
-        return typesMatchUpTo(argsArray, parameterTypes, argsArray.length);
+        return typesMatchUpTo(argsArray, parameterTypes, argsArray.length, coercer);
+    }
+
+    /** true iff the initial N args match the corresponding types */
+    public static boolean typesMatchUpTo(Object[] argsArray, Class<?>[] parameterTypes, int lengthRequired) {
+        return typesMatchUpTo(argsArray, parameterTypes, lengthRequired, Optional.<TypeCoercer>absent());
     }
     
     /** true iff the initial N args match the corresponding types */
-    public static boolean typesMatchUpTo(Object[] argsArray, Class<?>[] parameterTypes, int lengthRequired) {
+    public static boolean typesMatchUpTo(Object[] argsArray, Class<?>[] parameterTypes, int lengthRequired, Optional<? extends TypeCoercer> coercer) {
         if (argsArray.length < lengthRequired || parameterTypes.length < lengthRequired)
             return false;
         for (int i=0; i<lengthRequired; i++) {
-            if (argsArray[i]==null) continue;
-            if (Boxing.boxedType(parameterTypes[i]).isInstance(argsArray[i])) continue;
-            return false;
+            if (!typeMatches(argsArray[i], parameterTypes[i], coercer)) return false;
         }
         return true;
+    }
+
+    /** true iff the initial N args match the corresponding types */
+    public static boolean typeMatches(Object arg, Class<?> parameterType, Optional<? extends TypeCoercer> coercer) {
+        if (parameterType.isPrimitive() && arg == null) return false;
+        if (arg == null) return true;
+        if (Boxing.boxedType(parameterType).isInstance(arg)) return true;
+        if (coercer.isPresent() && coercer.get().tryCoerce(arg, parameterType).isPresent()) return true;
+        return false;
     }
 
     /**
