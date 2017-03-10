@@ -50,8 +50,8 @@ public class BrooklynMementoManifestImpl implements BrooklynMementoManifest, Ser
         public Builder brooklynVersion(String val) {
             brooklynVersion = val; return this;
         }
-        public Builder entity(String id, String type, String parent, List<String> catalogItemIds) {
-            entityIdToManifest.put(id, new EntityMementoManifestImpl(id, type, parent, catalogItemIds));
+        public Builder entity(String id, String type, String parent, String catalogItemId, List<String> searchPath) {
+            entityIdToManifest.put(id, new EntityMementoManifestImpl(id, type, parent, catalogItemId, searchPath));
             return this;
         }
         public Builder location(String id, String type) {

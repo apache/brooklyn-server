@@ -243,17 +243,19 @@ public class InternalEntityFactory extends InternalFactory {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected <T extends Entity> T loadUnitializedEntity(final T entity, final EntitySpec<T> spec) {
         try {
+            final AbstractEntity theEntity = (AbstractEntity) entity;
             if (spec.getDisplayName()!=null)
-                ((AbstractEntity)entity).setDisplayName(spec.getDisplayName());
+                theEntity.setDisplayName(spec.getDisplayName());
             
-            if (spec.getOuterCatalogItemId()!=null) {
-                ((AbstractEntity)entity).setCatalogItemIdHierarchy(spec.getCatalogItemIdHierarchy());
+            if (spec.getCatalogItemId()!=null) {
+                theEntity.setCatalogItemId(spec.getCatalogItemId());
+                theEntity.setCatalogItemIdSearchPath(spec.getCatalogItemIdSearchPath());
             }
             
             entity.tags().addTags(spec.getTags());
-            addSpecParameters(spec, ((AbstractEntity)entity).getMutableEntityType());
+            addSpecParameters(spec, theEntity.getMutableEntityType());
             
-            ((AbstractEntity)entity).configure(MutableMap.copyOf(spec.getFlags()));
+            theEntity.configure(MutableMap.copyOf(spec.getFlags()));
             for (Map.Entry<ConfigKey<?>, Object> entry : spec.getConfig().entrySet()) {
                 entity.config().set((ConfigKey)entry.getKey(), entry.getValue());
             }
@@ -280,7 +282,7 @@ public class InternalEntityFactory extends InternalFactory {
         // except what is being added programmatically.
         // (this logic could get confused if catalog item ID referred to some runtime-inherited context,
         // but those semantics should no longer be used -- https://issues.apache.org/jira/browse/BROOKLYN-445)
-        if (Strings.isNonBlank(spec.getOuterCatalogItemId())) {
+        if (Strings.isNonBlank(spec.getCatalogItemId())) {
             edType.clearConfigKeys();
         }
         for (SpecParameter<?> param : spec.getParameters()) {

@@ -388,8 +388,8 @@ public class PortForwardManagerClient implements PortForwardManager {
     }
 
     @Override
-    public List<String> getCatalogItemHierarchy() {
-        return getDelegate().getCatalogItemHierarchy();
+    public List<String> getCatalogItemIdSearchPath() {
+        return getDelegate().getCatalogItemIdSearchPath();
     }
 
     @Override

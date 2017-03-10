@@ -643,9 +643,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
 
         Entity entity = app.getChildren().iterator().next();
         assertEquals(entity.getCatalogItemId(), ver(symbolicNameOuter));
-        assertEquals(entity.getCatalogItemHierarchy().size(), 2);
-        assertEquals(entity.getCatalogItemHierarchy().get(0), ver(symbolicNameOuter));
-        assertEquals(entity.getCatalogItemHierarchy().get(1), ver(symbolicNameInner));
+        assertEquals(entity.getCatalogItemIdSearchPath().size(), 1, "should have exactly one item in search path");
+        assertEquals(entity.getCatalogItemIdSearchPath().get(0), ver(symbolicNameInner),
+            "should have " + symbolicNameInner + " in search path");
 
         deleteCatalogEntity(symbolicNameInner);
         deleteCatalogEntity(symbolicNameOuter);

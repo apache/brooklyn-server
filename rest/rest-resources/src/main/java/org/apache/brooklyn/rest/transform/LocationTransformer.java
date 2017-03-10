@@ -83,7 +83,7 @@ public class LocationTransformer {
             }
         }
 
-        String id = Strings.isNonBlank(optionalExplicitId) ? optionalExplicitId : spec!=null && Strings.isNonBlank(spec.getOuterCatalogItemId()) ? spec.getOuterCatalogItemId() : null;
+        String id = Strings.isNonBlank(optionalExplicitId) ? optionalExplicitId : spec!=null && Strings.isNonBlank(spec.getCatalogItemId()) ? spec.getCatalogItemId() : null;
         URI selfUri = serviceUriBuilder(ub, LocationApi.class, "get").build(id);
         
         CatalogLocationSummary catalogSummary = null;
@@ -100,7 +100,7 @@ public class LocationTransformer {
         return new LocationSummary(
                 id,
                 Strings.isNonBlank(name) ? name : spec!=null ? spec.getDisplayName() : null,
-                Strings.isNonBlank(specString) ? specString : spec!=null ? spec.getOuterCatalogItemId() : null,
+                Strings.isNonBlank(specString) ? specString : spec!=null ? spec.getCatalogItemId() : null,
                 null,
                 copyConfig(config, level),
                 catalogSummary,

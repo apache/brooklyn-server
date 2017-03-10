@@ -38,9 +38,13 @@ import com.google.common.annotations.Beta;
 public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
     
     void setCatalogItemId(String id);
-    void setCatalogItemIdHierarchy(List<String> id);
+    void setCatalogItemIdSearchPath(List<String> id);
 
-    void nestCatalogItemId(String id);
+    /**
+     * Moves the current catalog item id onto the start of the search path,
+     * then sets the catalog item id to the supplied value.
+     */
+    void stackCatalogItemId(String id);
     
     // subclasses typically apply stronger typing
     @Override

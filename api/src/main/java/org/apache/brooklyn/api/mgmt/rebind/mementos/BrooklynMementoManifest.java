@@ -36,14 +36,8 @@ public interface BrooklynMementoManifest extends Serializable {
         String getId();
         String getType();
         String getParent();
-
-        /**
-         * deprecated since 0.11.0, use {@link #getCatalogItemHierarchy()} instead
-         * @return
-         */
-        @Deprecated String getCatalogItemId();
-
-        List<String> getCatalogItemHierarchy();
+        String getCatalogItemId();
+        List<String> getCatalogItemIdSearchPath();
     }
 
     Map<String, EntityMementoManifest> getEntityIdToManifest();

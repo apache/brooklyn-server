@@ -103,19 +103,21 @@ public class InternalPolicyFactory extends InternalFactory {
 
             T pol = construct(clazz, spec, null);
 
+            final AbstractPolicy policy = (AbstractPolicy) pol;
             if (spec.getDisplayName()!=null) {
-                ((AbstractPolicy)pol).setDisplayName(spec.getDisplayName());
+                policy.setDisplayName(spec.getDisplayName());
             }
-            if (spec.getOuterCatalogItemId()!=null) {
-                ((AbstractPolicy)pol).setCatalogItemIdHierarchy(spec.getCatalogItemIdHierarchy());
+            if (spec.getCatalogItemId()!=null) {
+                policy.setCatalogItemId(spec.getCatalogItemId());
+                policy.setCatalogItemIdSearchPath(spec.getCatalogItemIdSearchPath());
             }
             
             pol.tags().addTags(spec.getTags());
             
             if (isNewStyle(clazz)) {
-                ((AbstractPolicy)pol).setManagementContext(managementContext);
+                policy.setManagementContext(managementContext);
                 Map<String, Object> config = ConfigBag.newInstance().putAll(spec.getFlags()).putAll(spec.getConfig()).getAllConfig();
-                ((AbstractPolicy)pol).configure(MutableMap.copyOf(config)); // TODO AbstractPolicy.configure modifies the map
+                policy.configure(MutableMap.copyOf(config)); // TODO AbstractPolicy.configure modifies the map
             }
             
             // TODO Can we avoid this for "new-style policies"? Should we just trust the configure() method, 
@@ -124,7 +126,7 @@ public class InternalPolicyFactory extends InternalFactory {
             for (Map.Entry<ConfigKey<?>, Object> entry : spec.getConfig().entrySet()) {
                 pol.config().set((ConfigKey)entry.getKey(), entry.getValue());
             }
-            ((AbstractPolicy)pol).init();
+            policy.init();
             
             return pol;
             
@@ -143,20 +145,22 @@ public class InternalPolicyFactory extends InternalFactory {
             Class<? extends T> clazz = spec.getType();
             
             T enricher = construct(clazz, spec, null);
-            
+
+            final AbstractEnricher theEnricher = (AbstractEnricher) enricher;
             if (spec.getDisplayName()!=null)
-                ((AbstractEnricher)enricher).setDisplayName(spec.getDisplayName());
+                theEnricher.setDisplayName(spec.getDisplayName());
             
-            if (spec.getOuterCatalogItemId()!=null) {
-                ((AbstractEnricher)enricher).setCatalogItemIdHierarchy(spec.getCatalogItemIdHierarchy());
+            if (spec.getCatalogItemId()!=null) {
+                theEnricher.setCatalogItemId(spec.getCatalogItemId());
+                theEnricher.setCatalogItemIdSearchPath(spec.getCatalogItemIdSearchPath());
             }
             
             enricher.tags().addTags(spec.getTags());
             
             if (isNewStyle(clazz)) {
-                ((AbstractEnricher)enricher).setManagementContext(managementContext);
+                theEnricher.setManagementContext(managementContext);
                 Map<String, Object> config = ConfigBag.newInstance().putAll(spec.getFlags()).putAll(spec.getConfig()).getAllConfig();
-                ((AbstractEnricher)enricher).configure(MutableMap.copyOf(config)); // TODO AbstractEnricher.configure modifies the map
+                theEnricher.configure(MutableMap.copyOf(config)); // TODO AbstractEnricher.configure modifies the map
             }
             
             // TODO Can we avoid this for "new-style policies"? Should we just trust the configure() method, 
@@ -165,7 +169,7 @@ public class InternalPolicyFactory extends InternalFactory {
             for (Map.Entry<ConfigKey<?>, Object> entry : spec.getConfig().entrySet()) {
                 enricher.config().set((ConfigKey)entry.getKey(), entry.getValue());
             }
-            ((AbstractEnricher)enricher).init();
+            theEnricher.init();
             
             return enricher;
             

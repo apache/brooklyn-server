@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.google.common.collect.ImmutableList;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,7 +63,8 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
     @SetFromFlag("id")
     private String id = Identifiers.makeRandomLowercaseId(10);
 
-    private Deque<String> catalogItemIdStack = new ArrayDeque<>();
+    private String catalogItemId;
+    private Deque<String> searchPath = new ArrayDeque<>();
 
     /** callers (only in TagSupport) should synchronize on this for all access */
     @SetFromFlag("tags")
@@ -98,6 +100,13 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
         setCatalogItemId(ApiObjectsFactory.get().getCatalogItemIdFromContext());
 
         // rely on sub-class to call configure(properties), because otherwise its fields will not have been initialised
+    }
+
+    protected Object readResolve() {
+        if (searchPath == null) {
+            searchPath = new ArrayDeque<>();
+        }
+        return this;
     }
 
     /**
@@ -202,33 +211,32 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
 
     @Override
     public void setCatalogItemId(String id) {
-        catalogItemIdStack.clear();
-        nestCatalogItemId(id);
+        catalogItemId = id;
     }
 
     @Override
-    public void setCatalogItemIdHierarchy(List<String> ids) {
-        catalogItemIdStack.clear();
-        catalogItemIdStack.addAll(ids);
+    public void setCatalogItemIdSearchPath(List<String> ids) {
+        searchPath.clear();
+        searchPath.addAll(ids);
     }
 
-        @Override
-    public void nestCatalogItemId(String id) {
+    @Override
+    public void stackCatalogItemId(String id) {
         if (null != id) {
-            catalogItemIdStack.addFirst(id);
+            if (null != catalogItemId && !catalogItemId.equals(id)) {
+                searchPath.addFirst(catalogItemId);
+            }
+            setCatalogItemId(id);
         }
     }
 
-    public List<String> getCatalogItemHierarchy() {
-        return ImmutableList.copyOf(catalogItemIdStack);
+    public List<String> getCatalogItemIdSearchPath() {
+        return ImmutableList.copyOf(searchPath);
     }
 
     @Override
     public String getCatalogItemId() {
-        if (catalogItemIdStack.size() != 0) {
-            return catalogItemIdStack.getFirst();
-        }
-        return null;
+        return catalogItemId;
     }
 
     protected void onTagsChanged() {

@@ -26,7 +26,6 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -84,7 +83,8 @@ public class JavaCatalogToSpecTransformer implements PlanToSpecTransformer {
                 // but it doesn't hurt (and if we re-instate a class+bundle approach for RegisteredType 
                 // we will want to do this)
                 final BrooklynClassLoadingContextSequential ctx = new BrooklynClassLoadingContextSequential(mgmt);
-                ctx.add(CatalogUtils.newClassLoadingContextForCatalogItems(mgmt, item.getCatalogItemHierarchy()));
+                ctx.add(CatalogUtils.newClassLoadingContextForCatalogItems(mgmt, item.getCatalogItemId(),
+                    item.getCatalogItemIdSearchPath()));
                 type = ctx.loadClass(javaType);
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);

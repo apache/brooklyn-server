@@ -48,15 +48,13 @@ public interface Memento extends Serializable {
 
     /**
      * The principal catalog item id.
-     * @deprecated since 0.11.0 - use {@link #getCatalogItemHierarchy()} instead
      */
-    @Deprecated
     String getCatalogItemId();
 
     /**
-     * Catalog Item Ids of all defining catalog items.
+     * Item Ids of all catalog items used to define this item.
      */
-    List<String> getCatalogItemHierarchy();
+    List<String> getCatalogItemIdSearchPath();
 
     String getDisplayName();
     

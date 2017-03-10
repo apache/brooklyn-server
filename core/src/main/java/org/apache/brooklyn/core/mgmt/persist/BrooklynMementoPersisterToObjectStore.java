@@ -37,8 +37,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.annotation.Nullable;
 import javax.xml.xpath.XPathConstants;
 
-import com.google.common.collect.ImmutableList;
-
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.rebind.PersistenceExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
@@ -193,8 +191,8 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             return null;
         } else {
             final BrooklynClassLoadingContextSequential ctx = new BrooklynClassLoadingContextSequential(managementContext);
-            ctx.add(
-                CatalogUtils.newClassLoadingContextForCatalogItems(managementContext, item.getCatalogItemHierarchy()));
+            ctx.add(CatalogUtils.newClassLoadingContextForCatalogItems(managementContext,
+                    item.getCatalogItemId(), item.getCatalogItemIdSearchPath()));
             return ClassLoaderFromBrooklynClassLoadingContext.of(ctx);
         }
     }
@@ -357,20 +355,6 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         }
     }
 
-    // We must be able to cope with XML serialized with either a single "catalogItemId"
-    // or a list "catalogItemHierarchy" of catalog item ids. Only one should be encountered
-    // but in any case prefer the list of ids.
-    private ImmutableList<String> getCatalogItemIds(XPathHelper x) {
-        final MutableList<String> list = MutableList.of();
-        final List<String> catalogItemHierarchy = x.getStringList("catalogItemHierarchy");
-        final String catalogItemId = Strings.emptyToNull(x.get("catalogItemId"));
-        if (!catalogItemHierarchy.isEmpty()) {
-            list.addAll(catalogItemHierarchy);
-        } else if (catalogItemId != null) {
-            list.add(catalogItemId);
-        }
-        return ImmutableList.copyOf(list);
-    }
 
     @Override
     public BrooklynMementoManifest loadMementoManifest(BrooklynMementoRawData mementoData,
@@ -386,7 +370,9 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                 XPathHelper x = new XPathHelper(contents, "/"+type.toCamelCase()+"/");
                 switch (type) {
                     case ENTITY:
-                        builder.entity(x.get("id"), x.get("type"), Strings.emptyToNull(x.get("parent")), getCatalogItemIds(x));
+                        builder.entity(x.get("id"), x.get("type"), Strings.emptyToNull(x.get("parent")),
+                            Strings.emptyToNull(x.get("catalogItemId")),
+                            x.getStringList("searchPath"));
                         break;
                     case LOCATION:
                     case POLICY:

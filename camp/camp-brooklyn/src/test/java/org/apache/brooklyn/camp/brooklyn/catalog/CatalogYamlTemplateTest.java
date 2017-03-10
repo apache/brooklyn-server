@@ -208,7 +208,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
         
         EntitySpec<?> child = Iterables.getOnlyElement( spec.getChildren() );
         Assert.assertEquals(child.getType().getName(), TestEntity.class.getName());
-        Assert.assertEquals(child.getOuterCatalogItemId(), "t1:"+TEST_VERSION);
+        Assert.assertEquals(child.getCatalogItemId(), "t1:"+TEST_VERSION);
     }
     
     @Test
@@ -247,7 +247,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
         Assert.assertEquals(spec.getChildren().size(), 0);
         Assert.assertEquals(spec.getType(), BasicApplication.class);
         Assert.assertEquals(ConfigBag.newInstance(spec.getConfig()).getStringKey("foo"), "boo");
-        Assert.assertEquals(spec.getOuterCatalogItemId(), "app1r:1");
+        Assert.assertEquals(spec.getCatalogItemId(), "app1r:1");
     }
     
     private RegisteredType addCatalogItem(String symbolicName, String templateType) {

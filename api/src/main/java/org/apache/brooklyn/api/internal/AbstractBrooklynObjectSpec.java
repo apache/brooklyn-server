@@ -68,7 +68,9 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
 
     private final Class<? extends T> type;
     private String displayName;
-    private Deque<String> catalogItemIdStack;
+    private String catalogItemId;
+    private Deque<String> catalogItemIdSearchPath = new ArrayDeque<>();
+
     private Set<Object> tags = MutableSet.of();
     private List<SpecParameter<?>> parameters = ImmutableList.of();
 
@@ -108,13 +110,16 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
      * (or TODO we add a separate field to record other catalog item IDs that could be applied for searching, see below)
      */
     public SpecT catalogItemId(String val) {
-        getCatalogItemIdStack().clear();
-        return stackCatalogItemId(val);
+        catalogItemId = val;
+        return self();
     }
 
-    protected SpecT catalogItemIdStack(Collection<String> catalogItemIdStack) {
-        this.catalogItemIdStack = null;
-        getCatalogItemIdStack().addAll(catalogItemIdStack);
+    public synchronized SpecT catalogItemIdAndSearchPath(String catalogItemId, Collection<String> searchPath) {
+        if (catalogItemId != null) {
+            catalogItemId(catalogItemId);
+            catalogItemIdSearchPath.clear();
+            catalogItemIdSearchPath.addAll(searchPath);
+        }
         return self();
     }
 
@@ -125,30 +130,37 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
     @Beta
     public SpecT catalogItemIdIfNotNull(String val) {
         if (val!=null) {
-            stackCatalogItemId(val);
+            catalogItemId(val);
         }
         return self();
     }
 
-    private Deque<String> getCatalogItemIdStack() {
-        if (catalogItemIdStack == null) {
-            catalogItemIdStack = new ArrayDeque<>();
+    protected Object readResolve() {
+        if (catalogItemIdSearchPath == null) {
+            catalogItemIdSearchPath = new ArrayDeque<>();
         }
-        return catalogItemIdStack;
+        return this;
     }
 
     /**
      * Adds (stacks) the catalog item id of a wrapping specification.
      * Does nothing if the value is null.
+     * If the value is not null, and is not the same as the current
+     * catalogItemId, then the *current* catalogItemId will
+     * be moved to the start of the search path, and the value supplied
+     * as the parameter here will be set as the new catalogItemId.
      * <p>
-     * Used when we want to collect nested item ID's so that *all* can be searched.
+     * Used when we want to collect IDs of items that extend other items, so that *all* can be searched.
      * e.g. if R3 extends R2 which extends R1 any one of these might supply config keys
      * referencing resources or types in their local bundles.
      */
     @Beta
     public SpecT stackCatalogItemId(String val) {
-        if (null != val && (getCatalogItemIdStack().isEmpty() || !getCatalogItemIdStack().element().equals(val))) {
-            getCatalogItemIdStack().addFirst(val);
+        if (null != val) {
+            if (null != catalogItemId && !catalogItemId.equals(val)) {
+                catalogItemIdSearchPath.addFirst(catalogItemId);
+            }
+            catalogItemId(val);
         }
         return self();
     }
@@ -239,35 +251,26 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
         return displayName;
     }
 
-    /**
-     * @deprecated since 0.11.0, use getOuterCatalogItemId or getInnerCatalogItemIds as appropriate
-     */
-    @Deprecated
     public final String getCatalogItemId() {
-        return getOuterCatalogItemId();
+        return catalogItemId;
     }
 
-    public final String getOuterCatalogItemId() {
-        if (getCatalogItemIdStack().size() != 0) {
-            return getCatalogItemIdStack().getFirst();
-        }
-        return null;
-    }
-
-
-        /**
-         * An immutable list of ids of this object's catalog item and its defining catalog items.
-         * Wrapping items are first in the list (i.e. wrapping items precede wrapped items),
-         * for example, if the catalog item is defined as
-         * <pre>
-         *     items:
-         *     - id: X
-         *       item: Y
-         * </pre>
-         * then the list will contain X, Y.
-         */
-    public final List<String> getCatalogItemIdHierarchy() {
-        return ImmutableList.copyOf(catalogItemIdStack);
+    /**
+     * An immutable list of ids of catalog items that define this item.
+     * Wrapping items are first in the list (i.e. wrapping items precede wrapped items),
+     * for example, for a spec of an item of type Z, where the catalog is:
+     * <pre>
+     *     items:
+     *     - id: X
+     *     - id: Y
+     *       item: X
+     *     - id: Z
+     *       item: Y
+     * </pre>
+     * then the spec will have getCatalogId() of Z and getCatalogItemIdSearchPath()  of Y, X.
+     */
+    public final List<String> getCatalogItemIdSearchPath() {
+        return ImmutableList.copyOf(catalogItemIdSearchPath);
     }
 
     public final Set<Object> getTags() {
@@ -317,7 +320,7 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
             .configure(otherSpec.getConfig())
             .configure(otherSpec.getFlags())
             .tags(otherSpec.getTags())
-            .catalogItemIdStack(otherSpec.getCatalogItemIdHierarchy())
+            .catalogItemIdAndSearchPath(otherSpec.getCatalogItemId(), otherSpec.getCatalogItemIdSearchPath())
             .parameters(otherSpec.getParameters());
     }
 
@@ -327,7 +330,8 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
         if (!obj.getClass().equals(getClass())) return false;
         AbstractBrooklynObjectSpec<?, ?> other = (AbstractBrooklynObjectSpec<?, ?>) obj;
         if (!Objects.equal(getDisplayName(), other.getDisplayName())) return false;
-        if (!Objects.equal(getCatalogItemIdHierarchy(), other.getCatalogItemIdHierarchy())) return false;
+        if (!Objects.equal(getCatalogItemId(), other.getCatalogItemId())) return false;
+        if (!Objects.equal(getCatalogItemIdSearchPath(), other.getCatalogItemIdSearchPath())) return false;
         if (!Objects.equal(getType(), other.getType())) return false;
         if (!Objects.equal(getTags(), other.getTags())) return false;
         if (!Objects.equal(getConfig(), other.getConfig())) return false;
@@ -338,7 +342,7 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(getCatalogItemIdHierarchy(), getDisplayName(), getType(), getTags());
+        return Objects.hashCode(getCatalogItemIdSearchPath(), getDisplayName(), getType(), getTags());
     }
 
     /**
