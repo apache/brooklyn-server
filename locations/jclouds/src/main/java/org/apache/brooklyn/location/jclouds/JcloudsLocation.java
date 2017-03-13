@@ -1707,6 +1707,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 // can cause the VM to reboot shortly after it was ssh'able.
                 Map<String,Object> execProps = Maps.newLinkedHashMap();
                 execProps.put(ShellTool.PROP_RUN_AS_ROOT.getName(), true);
+                execProps.put(SshTool.PROP_ALLOCATE_PTY.getName(), true);
                 execProps.put(SshTool.PROP_SSH_TRIES.getName(), 50);
                 execProps.put(SshTool.PROP_SSH_TRIES_TIMEOUT.getName(), 10*60*1000);
 
