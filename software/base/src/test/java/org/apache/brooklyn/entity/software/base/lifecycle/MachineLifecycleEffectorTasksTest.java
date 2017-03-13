@@ -44,6 +44,7 @@ import org.apache.brooklyn.location.jclouds.BailOutJcloudsLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.task.TaskInternal;
 import org.apache.brooklyn.util.core.task.ValueResolver;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.testng.annotations.DataProvider;
@@ -107,9 +108,13 @@ public class MachineLifecycleEffectorTasksTest {
         try {
             triggerEntity.sensors().set(ready, true);
             task.get(Duration.THIRTY_SECONDS);
-            Asserts.shouldHaveFailedPreviously("BailOutJcloudsLocation should have thrown");
-        } catch (BailOutJcloudsLocation.BailOutException t) {
-            // expected
+        } catch (Throwable t) {
+            Exceptions.propagateIfFatal(t);
+            if ((t.toString().contains(BailOutJcloudsLocation.ERROR_MESSAGE))) {
+                // expected - BailOut location throws - just swallow
+            } else {
+                Exceptions.propagate(t);
+            }
         } finally {
             Entities.destroyAll(app.getManagementContext());
         }
