@@ -18,8 +18,8 @@
  */
 package org.apache.brooklyn.cli;
 
-import io.airlift.command.Command;
-import io.airlift.command.Option;
+import io.airlift.airline.Command;
+import io.airlift.airline.Option;
 
 import java.io.File;
 import java.io.IOException;

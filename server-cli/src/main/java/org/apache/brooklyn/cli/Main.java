@@ -96,10 +96,10 @@ import com.google.common.collect.Iterables;
 
 import groovy.lang.GroovyClassLoader;
 import groovy.lang.GroovyShell;
-import io.airlift.command.Cli;
-import io.airlift.command.Cli.CliBuilder;
-import io.airlift.command.Command;
-import io.airlift.command.Option;
+import io.airlift.airline.Cli;
+import io.airlift.airline.Cli.CliBuilder;
+import io.airlift.airline.Command;
+import io.airlift.airline.Option;
 
 /**
  * This class is the primary CLI for brooklyn.

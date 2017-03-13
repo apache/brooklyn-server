@@ -28,9 +28,9 @@ import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.ListIma
 import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.ListInstances;
 import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.ListHardwareProfiles;
 import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.TerminateInstances;
-import io.airlift.command.Command;
-import io.airlift.command.Option;
-import io.airlift.command.ParseException;
+import io.airlift.airline.Command;
+import io.airlift.airline.Option;
+import io.airlift.airline.ParseException;
 
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 

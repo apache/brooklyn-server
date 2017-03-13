@@ -18,14 +18,14 @@
  */
 package org.apache.brooklyn.cli;
 
-import io.airlift.command.Arguments;
-import io.airlift.command.Cli;
-import io.airlift.command.Cli.CliBuilder;
-import io.airlift.command.Command;
-import io.airlift.command.Help;
-import io.airlift.command.Option;
-import io.airlift.command.OptionType;
-import io.airlift.command.ParseException;
+import io.airlift.airline.Arguments;
+import io.airlift.airline.Cli;
+import io.airlift.airline.Cli.CliBuilder;
+import io.airlift.airline.Command;
+import io.airlift.airline.Help;
+import io.airlift.airline.Option;
+import io.airlift.airline.OptionType;
+import io.airlift.airline.ParseException;
 
 import java.io.InputStream;
 import java.io.PrintStream;
