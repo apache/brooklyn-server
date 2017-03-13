@@ -52,7 +52,7 @@ public class CloudExplorer {
 
         @Option(name = { "-y", "--yes" }, title = "auto-confirm",
                 description = CloudExplorerSupport.AUTOCONFIRM_DESC)
-        public boolean autoConfirm = false;
+        public boolean autoConfirm;
 
 
         protected abstract CloudExplorerSupport getExplorer(LocalManagementContext mgmt, boolean allLocations,

@@ -101,10 +101,10 @@ public abstract class AbstractMain {
     public static abstract class BrooklynCommand implements Callable<Void> {
 
         @Option(type = OptionType.GLOBAL, name = { "-v", "--verbose" }, description = "Verbose mode")
-        public boolean verbose = false;
+        public boolean verbose;
 
         @Option(type = OptionType.GLOBAL, name = { "-q", "--quiet" }, description = "Quiet mode")
-        public boolean quiet = false;
+        public boolean quiet;
 
         @VisibleForTesting
         protected PrintStream stdout = System.out;

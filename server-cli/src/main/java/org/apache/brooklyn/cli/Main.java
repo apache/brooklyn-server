@@ -203,7 +203,7 @@ public class Main extends AbstractMain {
 
         @Option(name = { "--noGlobalBrooklynProperties" }, title = "do not use any global brooklyn.properties file found",
             description = "Do not use the default global brooklyn.properties file found")
-        public boolean noGlobalBrooklynProperties = false;
+        public boolean noGlobalBrooklynProperties;
 
         @Option(name = { "-a", "--app" }, title = "application class or file",
                 description = "The Application to start. " +
@@ -250,11 +250,11 @@ public class Main extends AbstractMain {
 
         @Option(name = { "--https" },
             description = "Launch the web console on https")
-        public boolean useHttps = false;
+        public boolean useHttps;
         
         @Option(name = { "-nc", "--noConsole" },
                 description = "Do not start the web console or REST API")
-        public boolean noConsole = false;
+        public boolean noConsole;
 
         @Option(name = { "-b", "--bindAddress" },
                 description = "Specifies the IP address of the NIC to bind the Brooklyn Management Console to")
@@ -266,39 +266,39 @@ public class Main extends AbstractMain {
 
         @Option(name = { "--noConsoleSecurity" },
                 description = "Whether to disable authentication and security filters for the web console (for use when debugging on a secure network or bound to localhost)")
-        public Boolean noConsoleSecurity = false;
+        public boolean noConsoleSecurity;
 
         @Option(name = { "--startupContinueOnWebErrors" },
             description = "Continue on web subsystem failures during startup "
                 + "(default is to abort if the web API fails to start, as management access is not normally possible)")
-        public boolean startupContinueOnWebErrors = false;
+        public boolean startupContinueOnWebErrors;
 
         @Option(name = { "--startupFailOnPersistenceErrors" },
             description = "Fail on persistence/HA subsystem failures during startup "
                 + "(default is to continue, so errors can be viewed via the API)")
-        public boolean startupFailOnPersistenceErrors = false;
+        public boolean startupFailOnPersistenceErrors;
 
         @Option(name = { "--startupFailOnCatalogErrors" },
             description = "Fail on catalog subsystem failures during startup "
                 + "(default is to continue, so errors can be viewed via the API)")
-        public boolean startupFailOnCatalogErrors = false;
+        public boolean startupFailOnCatalogErrors;
 
         @Option(name = { "--startupFailOnManagedAppsErrors" },
             description = "Fail startup on errors deploying of managed apps specified via the command line "
                 + "(default is to continue, so errors can be viewed via the API)")
-        public boolean startupFailOnManagedAppsErrors = false;
+        public boolean startupFailOnManagedAppsErrors;
 
         @Beta
         @Option(name = { "--startBrooklynNode" },
                 description = "Start a BrooklynNode entity representing this Brooklyn instance")
-        public boolean startBrooklynNode = false;
+        public boolean startBrooklynNode;
 
         // Note in some cases, you can get java.util.concurrent.RejectedExecutionException
         // if shutdown is not co-ordinated, looks like: {@linktourl https://gist.github.com/47066f72d6f6f79b953e}
         @Beta
         @Option(name = { "-sk", "--stopOnKeyPress" },
                 description = "Shutdown immediately on user text entry after startup (useful for debugging and demos)")
-        public boolean stopOnKeyPress = false;
+        public boolean stopOnKeyPress;
 
         final static String STOP_WHICH_APPS_ON_SHUTDOWN = "--stopOnShutdown";
         protected final static String STOP_ALL = "all";
@@ -321,7 +321,7 @@ public class Main extends AbstractMain {
         @Option(name = { "--exitAndLeaveAppsRunningAfterStarting" },
                 description = "Once the application to start (from --app) is running exit the process, leaving any entities running. "
                     + "Can be used in combination with --persist auto --persistenceDir <custom folder location> to attach to the running app at a later time.")
-        public boolean exitAndLeaveAppsRunningAfterStarting = false;
+        public boolean exitAndLeaveAppsRunningAfterStarting;
 
         final static String PERSIST_OPTION = "--persist";
         protected final static String PERSIST_OPTION_DISABLED = "disabled";

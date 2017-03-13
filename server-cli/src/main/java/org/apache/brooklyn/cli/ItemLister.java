@@ -99,14 +99,16 @@ public class ItemLister {
         @Option(name = { "--type-regex" }, title = "Regex to restrict the Java types loaded")
         public String typeRegex;
 
-        @Option(name = { "--catalog-only" }, title = "When scanning JAR files, whether to include only items annotated with @Catalog (default true)")
-        public boolean catalogOnly = true;
+        @Option(name = {"--all-classes"}, description =
+                "When scanning JAR files, whether to include all items rather than only those annotated with @Catalog")
+        protected boolean allClasses;
 
-        @Option(name = { "--ignore-impls" }, title = "Ignore Entity class implementation where there is an Entity interface with @ImplementedBy (default true)")
-        public boolean ignoreImpls = true;
+        @Option(name = { "--include-impls" }, description =
+                "Include Entity class implementation where there is an Entity interface with @ImplementedBy")
+        public boolean includeImpls;
 
-        @Option(name = { "--headings-only" }, title = "Whether to only show name/type, and not config keys etc")
-        public boolean headingsOnly = false;
+        @Option(name = { "--headings-only" }, description = "Whether to only show name/type, and not config keys etc")
+        public boolean headingsOnly;
         
         @Option(name = { "--output-folder" }, title = "If supplied, generate HTML pages in the given folder; otherwise only generates JSON")
         public String outputFolder;
@@ -114,7 +116,7 @@ public class ItemLister {
         @SuppressWarnings("unchecked")
         @Override
         public Void call() throws Exception {
-            Map<String, Object> result = MutableMap.of();
+            Map<String, Object> result;
 
             result = populateDescriptors();
             String json = toJson(result);
@@ -334,12 +336,12 @@ public class ItemLister {
             if (typeRegex != null) {
                 fluent = fluent.filter(ClassFinder.withClassNameMatching(typeRegex));
             }
-            if (catalogOnlyOverride == null ? catalogOnly : catalogOnlyOverride) {
+            if (catalogOnlyOverride == null ? !allClasses : catalogOnlyOverride) {
                 fluent = fluent.filter(ClassFinder.withAnnotation(Catalog.class));
             }
             List<Class<? extends T>> filtered = fluent.toList();
             Collection<Class<? extends T>> result;
-            if (ignoreImpls) {
+            if (!includeImpls) {
                 result = MutableSet.copyOf(filtered);
                 for (Class<? extends T> clazz : filtered) {
                     ImplementedBy implementedBy = clazz.getAnnotation(ImplementedBy.class);
