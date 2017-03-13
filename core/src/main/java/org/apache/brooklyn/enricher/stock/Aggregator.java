@@ -52,20 +52,29 @@ public class Aggregator<T,U> extends AbstractAggregator<T,U> implements SensorEv
 
     private static final Logger LOG = LoggerFactory.getLogger(Aggregator.class);
 
-    public static final ConfigKey<Sensor<?>> SOURCE_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.sourceSensor");
+    public static final ConfigKey<Sensor<?>> SOURCE_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {},
+            "enricher.sourceSensor");
     
     @SetFromFlag("transformation")
-    public static final ConfigKey<Object> TRANSFORMATION_UNTYPED = ConfigKeys.newConfigKey(Object.class, "enricher.transformation.untyped",
-        "Specifies a transformation, as a function from a collection to the value, or as a string matching a pre-defined named transformation, "
-        + "such as 'average' (for numbers), 'sum' (for numbers), or 'list' (the default, putting any collection of items into a list)");
-    public static final ConfigKey<Function<? super Collection<?>, ?>> TRANSFORMATION = ConfigKeys.newConfigKey(new TypeToken<Function<? super Collection<?>, ?>>() {}, "enricher.transformation");
+    public static final ConfigKey<Object> TRANSFORMATION_UNTYPED = ConfigKeys.newConfigKey(Object.class,
+            "enricher.transformation.untyped",
+            "Specifies a transformation, as a function from a collection to the value, or as a string " +
+                    "matching a pre-defined named transformation, such as 'average' (for numbers), " +
+                    "'sum' (for numbers), 'isQuorate' (to compute a quorum), " +
+                    "or 'list' (the default, putting any collection of items into a list)");
+
+    public static final ConfigKey<Function<? super Collection<?>, ?>> TRANSFORMATION = ConfigKeys.newConfigKey(new TypeToken<Function<? super Collection<?>, ?>>() {},
+            "enricher.transformation");
     
     /**
      * @see QuorumChecks
      */
-    public static final ConfigKey<String> QUORUM_CHECK_TYPE = ConfigKeys.newStringConfigKey("quorum.check.type", "The requirement to be considered quorate -- possible values: 'all', 'allAndAtLeastOne', 'atLeastOne', 'atLeastOneUnlessEmpty', 'alwaysHealthy'", "allAndAtLeastOne");
+    public static final ConfigKey<String> QUORUM_CHECK_TYPE = ConfigKeys.newStringConfigKey(
+            "quorum.check.type", "The requirement to be considered quorate -- possible values: " +
+                    "'all', 'allAndAtLeastOne', 'atLeastOne', 'atLeastOneUnlessEmpty', 'alwaysHealthy'", "allAndAtLeastOne");
 
-    public static final ConfigKey<Integer> QUORUM_TOTAL_SIZE = ConfigKeys.newIntegerConfigKey("quorum.total.size", "The total size to consider when determining if quorate", 1);
+    public static final ConfigKey<Integer> QUORUM_TOTAL_SIZE = ConfigKeys.newIntegerConfigKey(
+            "quorum.total.size", "The total size to consider when determining if quorate", 1);
 
     protected Sensor<T> sourceSensor;
     protected Function<? super Collection<T>, ? extends U> transformation;
@@ -119,7 +128,6 @@ public class Aggregator<T,U> extends AbstractAggregator<T,U> implements SensorEv
             if (input==null) return null;
             return MutableList.copyOf(input).asUnmodifiable();
         }
-        
     }
     
     @Override

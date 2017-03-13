@@ -39,9 +39,12 @@ public class Transformer<T,U> extends AbstractTransformer<T,U> {
     private static final Logger LOG = LoggerFactory.getLogger(Transformer.class);
 
     // exactly one of these should be supplied to set a value
-    public static final ConfigKey<Object> TARGET_VALUE = ConfigKeys.newConfigKey(Object.class, "enricher.targetValue");
-    public static final ConfigKey<Function<?, ?>> TRANSFORMATION_FROM_VALUE = ConfigKeys.newConfigKey(new TypeToken<Function<?, ?>>() {}, "enricher.transformation");
-    public static final ConfigKey<Function<?, ?>> TRANSFORMATION_FROM_EVENT = ConfigKeys.newConfigKey(new TypeToken<Function<?, ?>>() {}, "enricher.transformation.fromevent");
+    public static final ConfigKey<Object> TARGET_VALUE = ConfigKeys.newConfigKey(Object.class,
+            "enricher.targetValue");
+    public static final ConfigKey<Function<?, ?>> TRANSFORMATION_FROM_VALUE = ConfigKeys.newConfigKey(new TypeToken<Function<?, ?>>() {},
+            "enricher.transformation");
+    public static final ConfigKey<Function<?, ?>> TRANSFORMATION_FROM_EVENT = ConfigKeys.newConfigKey(new TypeToken<Function<?, ?>>() {},
+            "enricher.transformation.fromevent");
 
     public Transformer() { }
     

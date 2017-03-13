@@ -52,15 +52,21 @@ public class Reducer extends AbstractEnricher implements SensorEventListener<Obj
     private static final Logger LOG = LoggerFactory.getLogger(Reducer.class);
 
     @SetFromFlag("producer")
-    public static ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class, "enricher.producer");
-    public static ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.targetSensor");
-    public static ConfigKey<List<? extends AttributeSensor<?>>> SOURCE_SENSORS = ConfigKeys.newConfigKey(new TypeToken<List<? extends AttributeSensor<?>>>() {}, "enricher.sourceSensors");
-    public static ConfigKey<Function<List<?>,?>> REDUCER_FUNCTION = ConfigKeys.newConfigKey(new TypeToken<Function<List<?>, ?>>() {}, "enricher.reducerFunction");
+    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class,
+            "enricher.producer");
+    public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {},
+            "enricher.targetSensor");
+    public static final ConfigKey<List<? extends AttributeSensor<?>>> SOURCE_SENSORS = ConfigKeys.newConfigKey(new TypeToken<List<? extends AttributeSensor<?>>>() {},
+            "enricher.sourceSensors");
+    public static final ConfigKey<Function<List<?>,?>> REDUCER_FUNCTION = ConfigKeys.newConfigKey(new TypeToken<Function<List<?>, ?>>() {},
+            "enricher.reducerFunction");
     @SetFromFlag("transformation")
-    public static final ConfigKey<String> REDUCER_FUNCTION_TRANSFORMATION = ConfigKeys.newStringConfigKey("enricher.reducerFunction.transformation",
-        "A string matching a pre-defined named reducer function, such as joiner");
-    public static final ConfigKey<Map<String, Object>> PARAMETERS = ConfigKeys.newConfigKey(new TypeToken<Map<String, Object>>() {}, "enricher.reducerFunction.parameters", 
-        "A map of parameters to pass into the reducer function");
+    public static final ConfigKey<String> REDUCER_FUNCTION_TRANSFORMATION = ConfigKeys.newStringConfigKey(
+            "enricher.reducerFunction.transformation",
+            "A string matching a pre-defined named reducer function, such as joiner");
+    public static final ConfigKey<Map<String, Object>> PARAMETERS = ConfigKeys.newConfigKey(new TypeToken<Map<String, Object>>() {},
+            "enricher.reducerFunction.parameters",
+            "A map of parameters to pass into the reducer function");
    
     protected Entity producer;
     protected List<AttributeSensor<?>> subscribedSensors;
