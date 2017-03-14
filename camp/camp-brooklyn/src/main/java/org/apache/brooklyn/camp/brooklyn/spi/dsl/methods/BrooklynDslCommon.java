@@ -60,6 +60,7 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.xstream.ObjectWithDefaultStringImplConverter;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
@@ -75,6 +76,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.thoughtworks.xstream.annotations.XStreamConverter;
 
 /**
  * static import functions which can be used in `$brooklyn:xxx` contexts
@@ -154,6 +156,7 @@ public class BrooklynDslCommon {
 
         // Keep in mind this object gets serialized so is the following reference
         private BrooklynObjectInternal obj;
+        @XStreamConverter(ObjectWithDefaultStringImplConverter.class)
         private Object keyName;
 
         public DslBrooklynObjectConfigSupplier(BrooklynObjectInternal obj, Object keyName) {
