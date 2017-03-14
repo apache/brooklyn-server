@@ -42,8 +42,17 @@ public class XmlSerializerTest {
         assertSerializeAndDeserialize(1);
         assertSerializeAndDeserialize(true);
         assertSerializeAndDeserialize(new StringHolder("abc"));
+        assertSerializeAndDeserialize(new ObjectHolder("abc"));
     }
 
+    @Test
+    public void testObjectFieldDeserializingWhenNoClassSpecified() throws Exception {
+        String tag = "org.apache.brooklyn.util.core.xstream.XmlSerializerTest_-ObjectHolder";
+        String xml = "<"+tag+"><val>myval</val></"+tag+">";
+        Object result = serializer.fromString(xml);
+        assertEquals(((ObjectHolder)result).val, "myval");
+    }
+    
     /**
      * See https://issues.apache.org/jira/browse/BROOKLYN-305 and http://x-stream.github.io/faq.html#XML_control_char
      */
@@ -76,6 +85,22 @@ public class XmlSerializerTest {
         @Override
         public int hashCode() {
             return val.hashCode();
+        }
+    }
+    
+    public static class ObjectHolder {
+        public Object val;
+        
+        ObjectHolder(Object val) {
+            this.val = val;
+        }
+        @Override
+        public boolean equals(Object obj) {
+            return (obj instanceof ObjectHolder) && val.equals(((ObjectHolder)obj).val);
+        }
+        @Override
+        public int hashCode() {
+            return (val == null) ? 259238 : val.hashCode();
         }
     }
 }
