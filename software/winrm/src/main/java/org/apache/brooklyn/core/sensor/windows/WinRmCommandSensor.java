@@ -151,12 +151,6 @@ public final class WinRmCommandSensor<T> extends AddSensor<T> {
             if (Strings.isBlank(execDir)) {
                 execDir = "%USERPROFILE%";
             }
-        } else if (!Os.isAbsolutish(execDir)) {
-            // relative paths taken wrt run dir
-            String runDir = entity.getAttribute(BrooklynConfigKeys.RUN_DIR);
-            if (!Strings.isBlank(runDir)) {
-                execDir = Os.mergePaths(runDir, execDir);
-            }
         }
         if (!"~".equals(execDir)) {
             finalCommand = "(if exist \"" + execDir + "\" (rundll32) else (mkdir \""+execDir+"\")) && cd \""+execDir+"\" && "+finalCommand;
