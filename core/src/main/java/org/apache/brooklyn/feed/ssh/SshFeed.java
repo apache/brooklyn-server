@@ -18,8 +18,10 @@
  */
 package org.apache.brooklyn.feed.ssh;
 
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import org.apache.brooklyn.feed.AbstractCommandFeed;
 import org.apache.brooklyn.feed.CommandPollConfig;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -102,6 +104,16 @@ public class SshFeed extends org.apache.brooklyn.feed.AbstractCommandFeed {
      * For rebind; do not call directly; use builder
      */
     public SshFeed() {
+    }
+
+    /**
+     * @deprecated please refer to {@link AbstractCommandFeed.CommandPollIdentifier}
+     */
+    @Deprecated
+    private static class SshPollIdentifier extends AbstractCommandFeed.CommandPollIdentifier {
+        private SshPollIdentifier(Supplier<String> command, Supplier<Map<String, String>> env) {
+            super(command, env);
+        }
     }
 
     public SshFeed(final Builder builder) {

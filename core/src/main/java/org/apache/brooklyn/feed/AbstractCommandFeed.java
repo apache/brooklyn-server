@@ -168,11 +168,11 @@ public abstract class AbstractCommandFeed extends AbstractFeed {
         }
     }
     
-    private static class CommandPollIdentifier {
+    protected static class CommandPollIdentifier {
         final Supplier<String> command;
         final Supplier<Map<String, String>> env;
 
-        private CommandPollIdentifier(Supplier<String> command, Supplier<Map<String, String>> env) {
+        protected CommandPollIdentifier(Supplier<String> command, Supplier<Map<String, String>> env) {
             this.command = checkNotNull(command, "command");
             this.env = checkNotNull(env, "env");
         }
