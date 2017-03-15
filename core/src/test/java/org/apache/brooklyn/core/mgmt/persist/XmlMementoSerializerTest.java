@@ -445,7 +445,104 @@ public class XmlMementoSerializerTest {
             }
         }
     }
-    
+
+    // A sanity-check, to confirm that normal loading works (before we look at success/failure of rename tests)
+    @Test
+    public void testNoRenameOsgiClass() throws Exception {
+        String bundlePath = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH;
+        String bundleUrl = "classpath:" + bundlePath;
+        String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_OBJECT;
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
+        
+        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        Bundle bundle = installBundle(mgmt, bundleUrl);
+
+        String bundlePrefix = bundle.getSymbolicName();
+        Class<?> osgiObjectClazz = bundle.loadClass(classname);
+        Object obj = Reflections.invokeConstructorFromArgs(osgiObjectClazz, "myval").get();
+
+        serializer = new XmlMementoSerializer<Object>(mgmt.getCatalogClassLoader(),
+                ImmutableMap.<String,String>of());
+        
+        serializer.setLookupContext(new LookupContextImpl(mgmt,
+                ImmutableList.<Entity>of(), ImmutableList.<Location>of(), ImmutableList.<Policy>of(),
+                ImmutableList.<Enricher>of(), ImmutableList.<Feed>of(), ImmutableList.<CatalogItem<?,?>>of(), true));
+
+        // i.e. prepended with bundle name
+        String serializedForm = Joiner.on("\n").join(
+                "<"+bundlePrefix+":"+classname+">",
+                "  <val>myval</val>",
+                "</"+bundlePrefix+":"+classname+">");
+
+        runRenamed(serializedForm, obj, ImmutableMap.<String, String>of());
+    }
+
+    @Test
+    public void testRenamedOsgiClassMovedBundle() throws Exception {
+        String bundlePath = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH;
+        String bundleUrl = "classpath:" + bundlePath;
+        String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_OBJECT;
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
+        
+        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        Bundle bundle = installBundle(mgmt, bundleUrl);
+        
+        String oldBundlePrefix = "com.old.symbolicname";
+        
+        String bundlePrefix = bundle.getSymbolicName();
+        Class<?> osgiObjectClazz = bundle.loadClass(classname);
+        Object obj = Reflections.invokeConstructorFromArgs(osgiObjectClazz, "myval").get();
+
+        serializer = new XmlMementoSerializer<Object>(mgmt.getCatalogClassLoader(),
+                ImmutableMap.of(oldBundlePrefix + ":" + classname, bundlePrefix + ":" + classname));
+        
+        serializer.setLookupContext(new LookupContextImpl(mgmt,
+                ImmutableList.<Entity>of(), ImmutableList.<Location>of(), ImmutableList.<Policy>of(),
+                ImmutableList.<Enricher>of(), ImmutableList.<Feed>of(), ImmutableList.<CatalogItem<?,?>>of(), true));
+
+        // i.e. prepended with bundle name
+        String serializedForm = Joiner.on("\n").join(
+                "<"+bundlePrefix+":"+classname+">",
+                "  <val>myval</val>",
+                "</"+bundlePrefix+":"+classname+">");
+
+        runRenamed(serializedForm, obj, ImmutableMap.<String, String>of(
+                bundlePrefix + ":" + classname, oldBundlePrefix + ":" + classname));
+    }
+
+    @Test
+    public void testRenamedOsgiClassWithoutBundlePrefixInRename() throws Exception {
+        String bundlePath = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH;
+        String bundleUrl = "classpath:" + bundlePath;
+        String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_OBJECT;
+        String oldClassname = "com.old.package.name.OldClassName";
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
+        
+        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        Bundle bundle = installBundle(mgmt, bundleUrl);
+        
+        String bundlePrefix = bundle.getSymbolicName();
+        
+        Class<?> osgiObjectClazz = bundle.loadClass(classname);
+        Object obj = Reflections.invokeConstructorFromArgs(osgiObjectClazz, "myval").get();
+
+        serializer = new XmlMementoSerializer<Object>(mgmt.getCatalogClassLoader(),
+                ImmutableMap.of(oldClassname, classname));
+        
+        serializer.setLookupContext(new LookupContextImpl(mgmt,
+                ImmutableList.<Entity>of(), ImmutableList.<Location>of(), ImmutableList.<Policy>of(),
+                ImmutableList.<Enricher>of(), ImmutableList.<Feed>of(), ImmutableList.<CatalogItem<?,?>>of(), true));
+
+        // i.e. prepended with bundle name
+        String serializedForm = Joiner.on("\n").join(
+                "<"+bundlePrefix+":"+classname+">",
+                "  <val>myval</val>",
+                "</"+bundlePrefix+":"+classname+">");
+
+        runRenamed(serializedForm, obj, ImmutableMap.<String, String>of(
+                bundlePrefix + ":" + classname, bundlePrefix + ":" + oldClassname));
+    }
+
     // TODO This doesn't get the bundleName - should we expect it to? Is this because of 
     // how we're using Felix? Would it also be true in Karaf?
     @Test(groups="Broken")
