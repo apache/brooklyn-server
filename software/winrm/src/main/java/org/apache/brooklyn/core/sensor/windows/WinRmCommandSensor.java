@@ -144,15 +144,7 @@ public final class WinRmCommandSensor<T> extends AddSensor<T> {
     public static String makeCommandExecutingInDirectory(String command, String executionDir, Entity entity) {
         String finalCommand = command;
         String execDir = executionDir;
-        if (Strings.isBlank(execDir)) {
-            // default to run dir
-            execDir = entity.getAttribute(BrooklynConfigKeys.RUN_DIR);
-            // if no run dir, default to home
-            if (Strings.isBlank(execDir)) {
-                execDir = "%USERPROFILE%";
-            }
-        }
-        if (!"~".equals(execDir)) {
+        if (Strings.isNonBlank(execDir) && !"~".equals(execDir)) {
             finalCommand = "(if exist \"" + execDir + "\" (rundll32) else (mkdir \""+execDir+"\")) && cd \""+execDir+"\" && "+finalCommand;
         }
         return finalCommand;
