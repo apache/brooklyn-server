@@ -37,8 +37,8 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
-import io.airlift.command.Cli;
-import io.airlift.command.ParseException;
+import io.airlift.airline.Cli;
+import io.airlift.airline.ParseException;
 
 public class CloudExplorerLiveTest {
 

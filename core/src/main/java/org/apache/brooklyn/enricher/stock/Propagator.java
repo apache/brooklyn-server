@@ -63,21 +63,27 @@ public class Propagator extends AbstractEnricher implements SensorEventListener<
         Attributes.SERVICE_STATE_ACTUAL, Attributes.SERVICE_STATE_EXPECTED, Attributes.SERVICE_PROBLEMS);
 
     @SetFromFlag("producer")
-    public static ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class, "enricher.producer");
+    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class,
+            "enricher.producer");
 
     @SetFromFlag("propagatingAllBut")
-    public static ConfigKey<Collection<? extends Sensor<?>>> PROPAGATING_ALL_BUT = ConfigKeys.newConfigKey(
+    public static final ConfigKey<Collection<? extends Sensor<?>>> PROPAGATING_ALL_BUT = ConfigKeys.newConfigKey(
             new TypeToken<Collection<? extends Sensor<?>>>() {}, 
             "enricher.propagating.propagatingAllBut");
 
     @SetFromFlag("propagatingAll")
-    public static ConfigKey<Boolean> PROPAGATING_ALL = ConfigKeys.newBooleanConfigKey("enricher.propagating.propagatingAll");
+    public static final ConfigKey<Boolean> PROPAGATING_ALL = ConfigKeys.newBooleanConfigKey(
+            "enricher.propagating.propagatingAll");
 
     @SetFromFlag("propagating")
-    public static ConfigKey<Collection<? extends Sensor<?>>> PROPAGATING = ConfigKeys.newConfigKey(new TypeToken<Collection<? extends Sensor<?>>>() {}, "enricher.propagating.inclusions");
+    public static final ConfigKey<Collection<? extends Sensor<?>>> PROPAGATING = ConfigKeys.newConfigKey(
+            new TypeToken<Collection<? extends Sensor<?>>>() {},
+            "enricher.propagating.inclusions");
 
     @SetFromFlag("sensorMapping")
-    public static ConfigKey<Map<? extends Sensor<?>, ? extends Sensor<?>>> SENSOR_MAPPING = ConfigKeys.newConfigKey(new TypeToken<Map<? extends Sensor<?>, ? extends Sensor<?>>>() {}, "enricher.propagating.sensorMapping");
+    public static final ConfigKey<Map<? extends Sensor<?>, ? extends Sensor<?>>> SENSOR_MAPPING = ConfigKeys.newConfigKey(
+            new TypeToken<Map<? extends Sensor<?>, ? extends Sensor<?>>>() {},
+            "enricher.propagating.sensorMapping");
 
     protected Entity producer;
     protected Map<Sensor<?>, Sensor<?>> sensorMapping;

@@ -45,8 +45,9 @@ import com.google.common.collect.Maps;
 */
 public abstract class AbstractEnricher extends AbstractEntityAdjunct implements Enricher {
 
-    public static final ConfigKey<Boolean> SUPPRESS_DUPLICATES = ConfigKeys.newBooleanConfigKey("enricher.suppressDuplicates",
-        "Whether duplicate values published by this enricher should be suppressed");
+    public static final ConfigKey<Boolean> SUPPRESS_DUPLICATES = ConfigKeys.newBooleanConfigKey(
+            "enricher.suppressDuplicates",
+            "Whether duplicate values published by this enricher should be suppressed");
 
     private final EnricherDynamicType enricherType;
     protected Boolean suppressDuplicates;

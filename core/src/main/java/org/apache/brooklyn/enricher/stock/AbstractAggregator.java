@@ -50,25 +50,37 @@ public abstract class AbstractAggregator<T,U> extends AbstractEnricher implement
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractAggregator.class);
 
-    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class, "enricher.producer", "The entity whose children/members will be aggregated");
+    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class,
+            "enricher.producer", "The entity whose children/members will be aggregated");
 
-    public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.targetSensor");
+    public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {},
+            "enricher.targetSensor");
 
     // FIXME this is not just for "members" i think -Alex
-    public static final ConfigKey<?> DEFAULT_MEMBER_VALUE = ConfigKeys.newConfigKey(Object.class, "enricher.defaultMemberValue");
+    public static final ConfigKey<?> DEFAULT_MEMBER_VALUE = ConfigKeys.newConfigKey(Object.class,
+            "enricher.defaultMemberValue");
 
-    public static final ConfigKey<Set<? extends Entity>> FROM_HARDCODED_PRODUCERS = ConfigKeys.newConfigKey(new TypeToken<Set<? extends Entity>>() {}, "enricher.aggregating.fromHardcodedProducers");
+    public static final ConfigKey<Set<? extends Entity>> FROM_HARDCODED_PRODUCERS = ConfigKeys.newConfigKey(new TypeToken<Set<? extends Entity>>() {},
+            "enricher.aggregating.fromHardcodedProducers");
 
-    public static final ConfigKey<Boolean> FROM_MEMBERS = ConfigKeys.newBooleanConfigKey("enricher.aggregating.fromMembers",
-        "Whether this enricher looks at members; only supported if a Group producer is supplier; defaults to true for Group entities");
+    public static final ConfigKey<Boolean> FROM_MEMBERS = ConfigKeys.newBooleanConfigKey(
+            "enricher.aggregating.fromMembers",
+            "Whether this enricher looks at members; only supported if a Group producer is supplier; " +
+                    "defaults to true for Group entities");
 
-    public static final ConfigKey<Boolean> FROM_CHILDREN = ConfigKeys.newBooleanConfigKey("enricher.aggregating.fromChildren",
-        "Whether this enricher looks at children; this is the default for non-Group producers");
+    public static final ConfigKey<Boolean> FROM_CHILDREN = ConfigKeys.newBooleanConfigKey(
+            "enricher.aggregating.fromChildren",
+            "Whether this enricher looks at children; this is the default for non-Group producers");
 
-    public static final ConfigKey<Predicate<? super Entity>> ENTITY_FILTER = ConfigKeys.newConfigKey(new TypeToken<Predicate<? super Entity>>() {}, "enricher.aggregating.entityFilter");
+    public static final ConfigKey<Predicate<? super Entity>> ENTITY_FILTER = ConfigKeys.newConfigKey(new TypeToken<Predicate<? super Entity>>() {},
+            "enricher.aggregating.entityFilter");
 
-    public static final ConfigKey<Predicate<?>> VALUE_FILTER = ConfigKeys.newConfigKey(new TypeToken<Predicate<?>>() {}, "enricher.aggregating.valueFilter");
-    public static final ConfigKey<Boolean> EXCLUDE_BLANK = ConfigKeys.newBooleanConfigKey("enricher.aggregator.excludeBlank", "Whether explicit nulls or blank strings should be excluded (default false); may only apply if no value filter set", false);
+    public static final ConfigKey<Predicate<?>> VALUE_FILTER = ConfigKeys.newConfigKey(new TypeToken<Predicate<?>>() {},
+            "enricher.aggregating.valueFilter");
+    public static final ConfigKey<Boolean> EXCLUDE_BLANK = ConfigKeys.newBooleanConfigKey(
+            "enricher.aggregator.excludeBlank",
+            "Whether explicit nulls or blank strings should be excluded (default false); " +
+                    "may only apply if no value filter set", false);
 
     protected Entity producer;
     protected Sensor<U> targetSensor;
