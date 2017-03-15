@@ -41,7 +41,7 @@ import com.google.common.base.Optional;
 @Beta
 public class OsgiClassPrefixer {
 
-    private static final String DELIMITER = ":";
+    public static final String DELIMITER = ":";
     
     private final ClassLoaderUtils whiteListRetriever;
     private final Function<Class<?>, Optional<Bundle>> bundleRetriever;
