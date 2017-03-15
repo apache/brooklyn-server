@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.mgmt.internal;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import groovy.util.ObservableList;
 
 import java.lang.reflect.Proxy;
 import java.util.Collection;
@@ -37,7 +36,9 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.EntityTypeRegistry;
 import org.apache.brooklyn.api.entity.Group;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.AccessController;
+import org.apache.brooklyn.api.mgmt.LocationManager;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
@@ -76,6 +77,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+
+import groovy.util.ObservableList;
 
 public class LocalEntityManager implements EntityManagerInternal {
 
@@ -419,6 +422,7 @@ public class LocalEntityManager implements EntityManagerInternal {
                 // migrating away or in-place active partial rebind:
                 ((EntityInternal)e).getManagementSupport().onManagementStopping(info);
                 stopTasks(e);
+                pruneOrphanedLocations(e);
                 ((EntityInternal)e).getManagementSupport().onManagementStopped(info);
             }
             // do not remove from maps below, bail out now
@@ -429,6 +433,7 @@ public class LocalEntityManager implements EntityManagerInternal {
             ((EntityInternal)e).getManagementSupport().onManagementStopping(info);
             unmanageNonRecursive(e);
             stopTasks(e);
+            pruneOrphanedLocations(e);
             ((EntityInternal)e).getManagementSupport().onManagementStopped(info);
             managementContext.getRebindManager().getChangeListener().onUnmanaged(e);
             if (managementContext.getGarbageCollector() != null) managementContext.getGarbageCollector().onUnmanaged(e);
@@ -458,6 +463,9 @@ public class LocalEntityManager implements EntityManagerInternal {
                 unmanageNonRecursive(it);
                 stopTasks(it);
             }
+            
+            pruneOrphanedLocations(e);
+            
             for (EntityInternal it : allEntities) {
                 it.getManagementSupport().onManagementStopped(info);
                 managementContext.getRebindManager().getChangeListener().onUnmanaged(it);
@@ -473,6 +481,19 @@ public class LocalEntityManager implements EntityManagerInternal {
         entityProxiesById.remove(e.getId());
         entitiesById.remove(e.getId());
         entityModesById.remove(e.getId());
+    }
+    
+    private void pruneOrphanedLocations(Entity unmanagedEntity) {
+        Set<Location> orphanLocations = MutableSet.copyOf(unmanagedEntity.getLocations());
+        for (Entity e : getEntities()) {
+            if (e == unmanagedEntity)
+                continue;
+            orphanLocations.removeAll(e.getLocations());
+        }
+        LocationManager lm = managementContext.getLocationManager();
+        for (Location l : orphanLocations) {
+            lm.unmanage(l);
+        }
     }
     
     private void stopTasks(Entity entity) {
