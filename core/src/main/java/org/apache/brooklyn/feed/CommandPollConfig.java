@@ -41,14 +41,26 @@ import org.apache.brooklyn.util.collections.MutableMap;
 public class CommandPollConfig<T> extends PollConfig<SshPollValue, T, CommandPollConfig<T>> {
 
     private Supplier<String> commandSupplier;
-    private List<Supplier<Map<String,String>>> dynamicEnvironmentSupplier = MutableList.of();
+    protected List<Supplier<Map<String,String>>> dynamicEnvironmentSupplier = MutableList.of();
 
-    public static final Predicate<SshPollValue> DEFAULT_SUCCESS = new Predicate<SshPollValue>() {
+    // TODO Kept in case it's persisted; new code will not use this.
+    // Can't just use deserializingClassRenames.properties, because persistence format
+    // for a static versus anonymous (non-static) inner class is different.
+    private static final Predicate<SshPollValue> unused_DEFAULT_SUCCESS = new Predicate<SshPollValue>() {
         @Override
         public boolean apply(@Nullable SshPollValue input) {
             return input != null && input.getExitStatus() == 0;
         }};
 
+    public static final Predicate<SshPollValue> DEFAULT_SUCCESS = new DefaultSuccessPredicate();
+
+    private static class DefaultSuccessPredicate implements Predicate<SshPollValue> {
+        @Override
+        public boolean apply(@Nullable SshPollValue input) {
+            return input != null && input.getExitStatus() == 0;
+        }
+    }
+    
     public static <T> CommandPollConfig<T> forSensor(AttributeSensor<T> sensor) {
         return new CommandPollConfig<T>(sensor);
     }
