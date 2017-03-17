@@ -47,7 +47,7 @@ import static org.testng.Assert.assertTrue;
 
 public abstract class BrooklynRestApiLauncherTestFixture {
 
-    protected Server server = null;
+    Server server = null;
     
     @AfterMethod(alwaysRun=true)
     public void stopServer() throws Exception {
