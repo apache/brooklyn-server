@@ -90,9 +90,9 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this).omitNullValues()
-            .add("type", type)
-            .add("displayName", displayName)
-            .toString();
+                .add("type", type)
+                .add("displayName", displayName)
+                .toString();
     }
 
     protected abstract void checkValidType(Class<? extends T> type);
@@ -223,9 +223,9 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
         current.removeAll(params);
 
         return parametersReplace(ImmutableList.<SpecParameter<?>>builder()
-            .addAll(params)
-            .addAll(current)
-            .build());
+                .addAll(params)
+                .addAll(current)
+                .build());
     }
 
     /**
@@ -328,7 +328,7 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
     public boolean equals(Object obj) {
         if (obj == null) return false;
         if (!obj.getClass().equals(getClass())) return false;
-        AbstractBrooklynObjectSpec<?, ?> other = (AbstractBrooklynObjectSpec<?, ?>) obj;
+        AbstractBrooklynObjectSpec<?,?> other = (AbstractBrooklynObjectSpec<?,?>) obj;
         if (!Objects.equal(getDisplayName(), other.getDisplayName())) return false;
         if (!Objects.equal(getCatalogItemId(), other.getCatalogItemId())) return false;
         if (!Objects.equal(getCatalogItemIdSearchPath(), other.getCatalogItemIdSearchPath())) return false;

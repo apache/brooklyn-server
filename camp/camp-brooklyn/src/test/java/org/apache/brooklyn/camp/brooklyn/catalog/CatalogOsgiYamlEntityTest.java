@@ -46,6 +46,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
@@ -745,81 +746,77 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
         deleteCatalogEntity(symbolicNameOuter);
     }
 
+    @Test
+    public void testCatalogItemIdInReferencedItems() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
 
-   @Test
-   public void testDeepCatalogItemCanLoadResources() throws Exception {
-      TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
-      TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_MORE_ENTITIES_0_1_0_PATH);
+        String symbolicNameInner = "my.catalog.app.id.inner";
+        String symbolicNameOuter = "my.catalog.app.id.outer";
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  version: " + TEST_VERSION,
+            "  items:",
+            "  - id: " + symbolicNameInner,
+            "    name: My Catalog App",
+            "    description: My description",
+            "    icon_url: classpath://path/to/myicon.jpg",
+            "    brooklyn.libraries:",
+            "    - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
+            "    item: " + SIMPLE_ENTITY_TYPE,
+            "  - id: " + symbolicNameOuter,
+            "    item: " + symbolicNameInner);
 
-      String symbolicNameInner = "my.catalog.app.id.inner";
-      String symbolicNameFiller = "my.catalog.app.id.filler";
-      String symbolicNameOuter = "my.catalog.app.id.outer";
-      addCatalogItems(
-         "brooklyn.catalog:",
-         "  version: " + TEST_VERSION,
-         "  items:",
-         "  - id: " + symbolicNameInner,
-         "    name: My Catalog App",
-         "    brooklyn.libraries:",
-         "    - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
-         "    item: " + SIMPLE_ENTITY_TYPE,
-         "  - id: " + symbolicNameFiller,
-         "    name: Filler App",
-         "    brooklyn.libraries:",
-         "    - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_MORE_ENTITIES_0_1_0_URL,
-         "    item: " + symbolicNameInner,
-         "  - id: " + symbolicNameOuter,
-         "    item: " + symbolicNameFiller);
+        String yaml = "name: " + symbolicNameOuter + "\n" +
+            "services: \n" +
+            "  - serviceType: " + ver(symbolicNameOuter);
 
-      String yaml = "name: " + symbolicNameOuter + "\n" +
-         "services: \n" +
-         "  - serviceType: "+ver(symbolicNameOuter);
-      Entity app = createAndStartApplication(yaml);
-      Entity entity = app.getChildren().iterator().next();
+        Entity app = createAndStartApplication(yaml);
+        Entity entity = app.getChildren().iterator().next();
+        assertEquals(entity.getCatalogItemId(), ver(symbolicNameOuter));
+        assertEquals(entity.getCatalogItemIdSearchPath(), ImmutableList.of(ver(symbolicNameInner)),
+            "should have just " + symbolicNameInner + " in search path");
 
-      final String catalogBom = ResourceUtils.create(entity).getResourceAsString("classpath://" + MORE_ENTITIES_POM_PROPERTIES_PATH);
-      assertTrue(catalogBom.contains("artifactId=brooklyn-test-osgi-more-entities"));
+        deleteCatalogEntity(symbolicNameInner);
+        deleteCatalogEntity(symbolicNameOuter);
+    }
+    @Test
+    public void testDeepCatalogItemCanLoadResources() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_MORE_ENTITIES_0_1_0_PATH);
 
-      deleteCatalogEntity(symbolicNameOuter);
-      deleteCatalogEntity(symbolicNameFiller);
-      deleteCatalogEntity(symbolicNameInner);
-   }
+        String symbolicNameInner = "my.catalog.app.id.inner";
+        String symbolicNameFiller = "my.catalog.app.id.filler";
+        String symbolicNameOuter = "my.catalog.app.id.outer";
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  version: " + TEST_VERSION,
+            "  items:",
+            "  - id: " + symbolicNameInner,
+            "    name: My Catalog App",
+            "    brooklyn.libraries:",
+            "    - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
+            "    item: " + SIMPLE_ENTITY_TYPE,
+            "  - id: " + symbolicNameFiller,
+            "    name: Filler App",
+            "    brooklyn.libraries:",
+            "    - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_MORE_ENTITIES_0_1_0_URL,
+            "    item: " + symbolicNameInner,
+            "  - id: " + symbolicNameOuter,
+            "    item: " + symbolicNameFiller);
 
-   @Test
-   public void testCatalogItemIdInReferencedItems() throws Exception {
-      TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+        String yaml = "name: " + symbolicNameOuter + "\n" +
+            "services: \n" +
+            "  - serviceType: "+ver(symbolicNameOuter);
+        Entity app = createAndStartApplication(yaml);
+        Entity entity = app.getChildren().iterator().next();
 
-      String symbolicNameInner = "my.catalog.app.id.inner";
-      String symbolicNameOuter = "my.catalog.app.id.outer";
-      addCatalogItems(
-         "brooklyn.catalog:",
-         "  version: " + TEST_VERSION,
-         "  items:",
-         "  - id: " + symbolicNameInner,
-         "    name: My Catalog App",
-         "    description: My description",
-         "    icon_url: classpath://path/to/myicon.jpg",
-         "    brooklyn.libraries:",
-         "    - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
-         "    item: " + SIMPLE_ENTITY_TYPE,
-         "  - id: " + symbolicNameOuter,
-         "    item: " + symbolicNameInner);
+        final String catalogBom = ResourceUtils.create(entity).getResourceAsString("classpath://" + MORE_ENTITIES_POM_PROPERTIES_PATH);
+        assertTrue(catalogBom.contains("artifactId=brooklyn-test-osgi-more-entities"));
 
-      String yaml = "name: " + symbolicNameOuter + "\n" +
-         "services: \n" +
-         "  - serviceType: "+ver(symbolicNameOuter);
-
-      Entity app = createAndStartApplication(yaml);
-
-      Entity entity = app.getChildren().iterator().next();
-      assertEquals(entity.getCatalogItemId(), ver(symbolicNameOuter));
-      assertEquals(entity.getCatalogItemIdSearchPath().size(), 1, "should have exactly one item in search path");
-      assertEquals(entity.getCatalogItemIdSearchPath().get(0), ver(symbolicNameInner),
-          "should have " + symbolicNameInner + " in search path");
-
-      deleteCatalogEntity(symbolicNameInner);
-      deleteCatalogEntity(symbolicNameOuter);
-   }
+        deleteCatalogEntity(symbolicNameOuter);
+        deleteCatalogEntity(symbolicNameFiller);
+        deleteCatalogEntity(symbolicNameInner);
+    }
 
     private void registerAndLaunchAndAssertSimpleEntity(String symbolicName, String serviceType) throws Exception {
         addCatalogOSGiEntity(symbolicName, serviceType);

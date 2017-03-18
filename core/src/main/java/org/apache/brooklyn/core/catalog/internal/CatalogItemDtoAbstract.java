@@ -191,7 +191,8 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(symbolicName, planYaml, javaType, nullIfEmpty(libraries), version, getCatalogItemId());
+        return Objects.hashCode(symbolicName, planYaml, javaType, nullIfEmpty(libraries), version, getCatalogItemId(),
+            getCatalogItemIdSearchPath());
     }
 
     @Override
@@ -205,6 +206,7 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
         if (!Objects.equal(javaType, other.javaType)) return false;
         if (!Objects.equal(nullIfEmpty(libraries), nullIfEmpty(other.libraries))) return false;
         if (!Objects.equal(getCatalogItemId(), other.getCatalogItemId())) return false;
+        if (!Objects.equal(getCatalogItemIdSearchPath(), other.getCatalogItemIdSearchPath())) return false;
         if (!Objects.equal(version, other.version)) return false;
         if (!Objects.equal(deprecated, other.deprecated)) return false;
         if (!Objects.equal(description, other.description)) return false;

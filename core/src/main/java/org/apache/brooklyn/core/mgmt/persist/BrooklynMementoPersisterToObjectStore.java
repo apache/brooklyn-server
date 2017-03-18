@@ -350,7 +350,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         private List<String> getStringList(String innerPath) {
             List<String> result = MutableList.of();
             final NodeList nodeList =
-                (NodeList) XmlUtil.xpathHandlingIllegalChars(contents, prefix + innerPath + "/string", XPathConstants.NODESET);
+                (NodeList) XmlUtil.xpathHandlingIllegalChars(contents, prefix + innerPath + "//string", XPathConstants.NODESET);
             for(int c = 0 ; c < nodeList.getLength() ; c++) {
                 result.add(nodeList.item(c).getFirstChild().getNodeValue());
             }
