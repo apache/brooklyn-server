@@ -176,7 +176,8 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
     public void testRebindWithCatalogAndAppRebindCatalogItemIds(RebindWithCatalogTestMode mode, OsgiMode osgiMode) throws Exception {
         final RebindOptions rebindOptions = RebindOptions.create();
         applyCompoundStateTransformer(rebindOptions, CompoundTransformer.builder()
-            .xmlDeleteItem("//catalogItemIdSearchPath")
+            .xmlDeleteItem("//searchPath") // delete searchPath element
+            .xmlDeleteItem("//@*[contains(., 'searchPath')]") // delete any attributes that reference searchPath
             .build());
         testRebindWithCatalogAndAppUsingOptions(mode, osgiMode, rebindOptions);
     }
