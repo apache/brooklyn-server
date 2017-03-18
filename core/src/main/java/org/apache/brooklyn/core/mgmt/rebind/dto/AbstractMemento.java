@@ -94,7 +94,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
     private String id;
     private String displayName;
     protected String catalogItemId;
-    private List<String> searchPath;
+    private List<String> searchPath = Lists.newArrayList();
     private List<Object> tags;
     private Map<String,Set<String>> relations;
     
@@ -107,7 +107,14 @@ public abstract class AbstractMemento implements Memento, Serializable {
     protected AbstractMemento() {
     }
 
-    // Trusts the builder to not mess around with mutability after calling build()
+    protected AbstractMemento readResolve() {
+        if (searchPath == null) {
+            searchPath = Lists.newArrayList();
+        }
+        return this;
+    }
+
+        // Trusts the builder to not mess around with mutability after calling build()
     protected AbstractMemento(Builder<?> builder) {
         brooklynVersion = builder.brooklynVersion;
         id = builder.id;
