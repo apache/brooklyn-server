@@ -45,6 +45,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 
@@ -643,9 +644,8 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
 
         Entity entity = app.getChildren().iterator().next();
         assertEquals(entity.getCatalogItemId(), ver(symbolicNameOuter));
-        assertEquals(entity.getCatalogItemIdSearchPath().size(), 1, "should have exactly one item in search path");
-        assertEquals(entity.getCatalogItemIdSearchPath().get(0), ver(symbolicNameInner),
-            "should have " + symbolicNameInner + " in search path");
+        assertEquals(entity.getCatalogItemIdSearchPath(), ImmutableList.of(ver(symbolicNameInner)),
+            "should have just " + symbolicNameInner + " in search path");
 
         deleteCatalogEntity(symbolicNameInner);
         deleteCatalogEntity(symbolicNameOuter);
