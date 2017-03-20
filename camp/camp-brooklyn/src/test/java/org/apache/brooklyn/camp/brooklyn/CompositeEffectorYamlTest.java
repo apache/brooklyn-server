@@ -37,7 +37,7 @@ import com.google.common.collect.Iterables;
 public class CompositeEffectorYamlTest extends AbstractYamlTest {
     private static final Logger log = LoggerFactory.getLogger(CompositeEffectorYamlTest.class);
 
-    @Test
+    @Test(groups="Integration")
     public void testCompositeEffector() throws Exception {
         Entity app = createAndStartApplication(
             "location: localhost",

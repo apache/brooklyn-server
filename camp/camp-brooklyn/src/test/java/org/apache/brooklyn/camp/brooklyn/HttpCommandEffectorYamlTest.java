@@ -34,7 +34,7 @@ import com.google.common.collect.Iterables;
 public class HttpCommandEffectorYamlTest extends AbstractYamlTest {
     private static final Logger log = LoggerFactory.getLogger(HttpCommandEffectorYamlTest.class);
 
-    @Test
+    @Test(groups="Integration")
     public void testHttpCommandEffectorWithParameters() throws Exception {
         Entity app = createAndStartApplication(
             "location: localhost",
