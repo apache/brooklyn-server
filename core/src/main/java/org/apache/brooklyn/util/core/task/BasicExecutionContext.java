@@ -140,7 +140,14 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             if (!(callableOrSupplier instanceof ImmediateSupplier)) {
                 callableOrSupplier = InterruptingImmediateSupplier.of(callableOrSupplier);
             }
-            return ((ImmediateSupplier<T>)callableOrSupplier).getImmediately();
+            boolean wasAlreadyInterrupted = Thread.interrupted();
+            try {
+                return ((ImmediateSupplier<T>)callableOrSupplier).getImmediately();
+            } finally {
+                if (wasAlreadyInterrupted) {
+                    Thread.currentThread().interrupt();
+                }
+            }
  
         } finally {
             BasicExecutionManager.getPerThreadCurrentTask().set(previousTask);

@@ -365,6 +365,15 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
             
             return Maybe.absent(transform.apply((AnyExceptionSupplier<?>)supplier));
         }
+        /** Like {@link #cast(Maybe)} but allows any casting because that is valid for absents.
+         * Enforces that the argument really is absent. */
+        @SuppressWarnings("unchecked")
+        public static <T> Maybe<T> castAbsent(Maybe<?> absent) {
+            if (absent!=null && absent.isPresent()) {
+                throw new IllegalArgumentException("Expected an absent, but instead got: "+absent);
+            }
+            return (Maybe<T>)absent;
+        }
     }
 
     public static class AbsentNull<T> extends Absent<T> {

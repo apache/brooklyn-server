@@ -28,6 +28,8 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.config.ConfigMap.ConfigMapWithInheritance;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier.ImmediateUnsupportedException;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.annotations.Beta;
@@ -113,13 +115,20 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
 
         /**
          * Attempts to coerce the value for this config key, if available,
-         * taking a default and {@link Maybe#absent absent} if the uncoerced
-         * cannot be resolved within a short timeframe.
+         * including returning a default if the config key is unset,
+         * returning a {@link Maybe#absent absent} if the uncoerced
+         * does not support immediate resolution.
          * <p>
          * Note: if no value for the key is available, not even as a default,
          * this returns a {@link Maybe#isPresent()} containing <code>null</code>
          * (following the semantics of {@link #get(ConfigKey)} 
          * rather than {@link #getRaw(ConfigKey)}).
+         * Thus a {@link Maybe#absent()} definitively indicates that
+         * the absence is due to the request to evaluate immediately.
+         * <p>
+         * This will include catching {@link ImmediateUnsupportedException} 
+         * and returning it as an absence, thus making the semantics here slightly
+         * "safer" than that of {@link ImmediateSupplier#getImmediately()}.
          */
         @Beta
         <T> Maybe<T> getNonBlocking(ConfigKey<T> key);

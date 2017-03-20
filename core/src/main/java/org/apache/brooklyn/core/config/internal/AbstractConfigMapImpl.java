@@ -313,6 +313,9 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
                     // wasteful to make a copy to look up; maybe try once opportunistically?
                     ownCopy = MutableMap.copyOf(oc);
                 }
+                // would be cleaner here to have an extractValueMaybe but semantics can get confusing whether absent
+                // means no value can be extracted (getRaw semantics) and immediate mode is on but blocking is needed (ImmediateSupplier semantics);
+                // simpler not to support maybe, in which case here null means the former, and the latter throws something (which the caller catches)
                 Maybe<Object> result = Maybe.of((Object) ((ConfigKeySelfExtracting<?>) key).extractValue(ownCopy, getExecutionContext(container)) );
                 postLocalEvaluate(key, bo, value, result);
                 return result;

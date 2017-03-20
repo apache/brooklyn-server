@@ -45,9 +45,48 @@ public interface ImmediateSupplier<T> extends Supplier<T> {
     }
     
     /**
-     * Gets the value promptly, or returns {@link Maybe#absent()} if the value is not yet available.
+     * Indicates that an attempt was made to forcibly get a requested immediate value 
+     * where blocking is required. See {@link ImmediateSupplier#getImmediately()}, which if
+     * it returns an absent result, that absent will throw this.
+     * <p>
+     * This is useful for passing between contexts that support immediate evaluation,
+     * through contexts that do not, to outer contexts which do, as the outer context
+     * will be able to use this exception to return a {@link Maybe#absent()} rather than throwing.  
+     */
+    public static class ImmediateValueNotAvailableException extends RuntimeException {
+        private static final long serialVersionUID = -5860437285154375232L;
+        
+        public ImmediateValueNotAvailableException() { }
+        public ImmediateValueNotAvailableException(String message) {
+            super(message);
+        }
+        public ImmediateValueNotAvailableException(String message, Throwable cause) {
+            super(message, cause);
+        }
+        public static <T> Maybe<T> newAbsentWithExceptionSupplier() {
+            return Maybe.Absent.changeExceptionSupplier(Maybe.<T>absent(), ImmediateValueNotAvailableException.class);
+        }
+        public static <T> Maybe<T> newAbsentWrapping(String message, Maybe<?> inner) {
+            return Maybe.absent(new ImmediateValueNotAvailableException(message, Maybe.getException(inner)));
+        }
+    }
+    
+    /**
+     * Gets the value promptly, or returns {@link Maybe#absent()} if the value requires blocking,
+     * or throws {@link ImmediateUnsupportedException} if it cannot be determined whether the value requires blocking or not.
+     * <p>
+     * The {@link Maybe#absent()} returned here indicates that a value definitively <i>is</i> pending, just it is not yet available,
+     * and an attempt to {@link Maybe#get()} it should throw an {@link ImmediateValueNotAvailableException};
+     * it can be created with {@link ImmediateValueNotAvailableException#newAbsentWithExceptionSupplier()} to
+     * avoid creating traces (or simply with <code>Maybe.absent(new ImmediateValueNotAvailableException(...))</code>). 
+     * This is in contrast with this method throwing a {@link ImmediateUnsupportedException} which should be done
+     * if the presence of an eventual value cannot even be determined in a non-blocking way.
+     * <p>
+     * Implementations of this method should typically catch the former exception if encountered and return a
+     * {@link Maybe#absent()} wrapping it, whereas {@link ImmediateUnsupportedException} instances should be propagated.
      * 
-     * @throws ImmediateUnsupportedException if cannot determine whether a value is immediately available
+     * @throws ImmediateUnsupportedException as above, if cannot be determined whether a value is or might eventually be available
      */
     Maybe<T> getImmediately();
+
 }

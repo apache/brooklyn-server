@@ -596,18 +596,11 @@ public class BrooklynDslCommon {
             final Class<?> clazz = getOrLoadType();
             final ExecutionContext executionContext = entity().getExecutionContext();
 
-            // Marker exception that one of our component-parts cannot yet be resolved - 
-            // throwing and catching this allows us to abort fast.
-            // A bit messy to use exceptions in normal control flow, but this allows the Maps util methods to be used.
-            @SuppressWarnings("serial")
-            class UnavailableException extends RuntimeException {
-            }
-            
             final Function<Object, Object> resolver = new Function<Object, Object>() {
                 @Override public Object apply(Object value) {
                     Maybe<Object> result = Tasks.resolving(value, Object.class).context(executionContext).deep(true).immediately(true).getMaybe();
                     if (result.isAbsent()) {
-                        throw new UnavailableException();
+                        throw new ImmediateValueNotAvailableException();
                     } else {
                         return result.get();
                     }
@@ -627,8 +620,8 @@ public class BrooklynDslCommon {
                     result = create(clazz, factoryMethodName, resolvedFactoryMethodArgs, resolvedFields, resolvedConfig);
                 }
                 return Maybe.of(result);
-            } catch (UnavailableException e) {
-                return Maybe.absent();
+            } catch (ImmediateValueNotAvailableException e) {
+                return ImmediateValueNotAvailableException.newAbsentWithExceptionSupplier();
             }
         }
         
@@ -881,7 +874,7 @@ public class BrooklynDslCommon {
             public Maybe<Entity> getImmediately() {
                 EntityInternal entity = entity();
                 if (entity == null) {
-                    return Maybe.absent();
+                    return Maybe.absent("No entity available");
                 }
                 Entity targetEntity = entity.getManagementContext().getEntityManager().getEntity(entityId);
                 return Maybe.of(targetEntity);
