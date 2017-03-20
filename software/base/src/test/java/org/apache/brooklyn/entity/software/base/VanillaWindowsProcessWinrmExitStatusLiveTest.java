@@ -217,12 +217,14 @@ public class VanillaWindowsProcessWinrmExitStatusLiveTest {
         runExecPsNonZeroExitCode("launch-command");
     }
 
-    @Test(groups = "Live")
+    // Failed stop command doesn't fail the effector if machine is destroyed successfully.
+    @Test(groups = {"Live","WIP"})
     public void testPsCheckRunningNonZeroExitCode() {
         runExecPsNonZeroExitCode("is-running-command");
     }
 
-    @Test(groups = "Live")
+    // Failed stop command doesn't fail the effector if machine is destroyed successfully.
+    @Test(groups = {"Live","WIP"})
     public void testPsStopNonZeroExitCode() {
         runExecPsNonZeroExitCode("stop-command");
     }

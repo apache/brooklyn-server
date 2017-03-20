@@ -1,0 +1,268 @@
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+<feed>
+  <brooklynVersion>0.11.0-20170126.1332</brooklynVersion>
+  <type>org.apache.brooklyn.feed.ssh.SshFeed</type>
+  <id>zv7t8bim62</id>
+  <displayName>org.apache.brooklyn.feed.ssh.SshFeed</displayName>
+  <tags>
+    <string>SshFeed[ssh[cat /proc/uptime-&gt;machine.uptime], ssh[free | grep Mem:-&gt;machine.../52e0b96f</string>
+  </tags>
+  <uniqueTag>SshFeed[ssh[cat /proc/uptime-&gt;machine.uptime], ssh[free | grep Mem:-&gt;machine.../52e0b96f</uniqueTag>
+  <config>
+    <feed.onlyIfServiceUp type="boolean">false</feed.onlyIfServiceUp>
+    <machine>
+      <null/>
+    </machine>
+    <execAsCommand type="boolean">false</execAsCommand>
+    <polls>
+      <com.google.guava:com.google.common.collect.HashMultimap serialization="custom">
+        <unserializable-parents/>
+        <com.google.guava:com.google.common.collect.HashMultimap>
+          <default/>
+          <int>2</int>
+          <int>4</int>
+          <org.apache.brooklyn.feed.ssh.SshFeed_-SshPollIdentifier>
+            <command class="com.google.guava:com.google.common.base.Suppliers$SupplierOfInstance">
+              <instance class="string">uptime</instance>
+            </command>
+            <env class="org.apache.brooklyn.feed.ssh.SshPollConfig$CombiningEnvSupplier">
+              <dynamicEnvironmentSupplier class="MutableList" serialization="custom">
+                <unserializable-parents/>
+                <list>
+                  <default>
+                    <size>0</size>
+                  </default>
+                  <int>0</int>
+                </list>
+              </dynamicEnvironmentSupplier>
+            </env>
+          </org.apache.brooklyn.feed.ssh.SshFeed_-SshPollIdentifier>
+          <int>1</int>
+          <org.apache.brooklyn.feed.ssh.SshPollConfig>
+            <sensor class="attributeSensor">
+              <type>java.lang.Double</type>
+              <name>machine.loadAverage</name>
+              <description>Current load average</description>
+              <persistence>REQUIRED</persistence>
+            </sensor>
+            <onsuccess class="com.google.guava:com.google.common.base.Functions$ConstantFunction"/>
+            <onfailure class="com.google.guava:com.google.common.base.Functions$ConstantFunction"/>
+            <onexception class="com.google.guava:com.google.common.base.Functions$ConstantFunction" reference="../onfailure"/>
+            <checkSuccess class="org.apache.brooklyn.feed.ssh.SshPollConfig$1"/>
+            <suppressDuplicates>false</suppressDuplicates>
+            <enabled>true</enabled>
+            <period>30000</period>
+            <commandSupplier class="com.google.guava:com.google.common.base.Suppliers$SupplierOfInstance" reference="../../org.apache.brooklyn.feed.ssh.SshFeed_-SshPollIdentifier/command"/>
+            <dynamicEnvironmentSupplier class="MutableList" serialization="custom">
+              <unserializable-parents/>
+              <list>
+                <default>
+                  <size>0</size>
+                </default>
+                <int>0</int>
+              </list>
+            </dynamicEnvironmentSupplier>
+          </org.apache.brooklyn.feed.ssh.SshPollConfig>
+          <org.apache.brooklyn.feed.ssh.SshFeed_-SshPollIdentifier>
+            <command class="com.google.guava:com.google.common.base.Suppliers$SupplierOfInstance">
+              <instance class="string">ps -A -o pcpu</instance>
+            </command>
+            <env class="org.apache.brooklyn.feed.ssh.SshPollConfig$CombiningEnvSupplier">
+              <dynamicEnvironmentSupplier class="MutableList" serialization="custom">
+                <unserializable-parents/>
+                <list>
+                  <default>
+                    <size>0</size>
+                  </default>
+                  <int>0</int>
+                </list>
+              </dynamicEnvironmentSupplier>
+            </env>
+          </org.apache.brooklyn.feed.ssh.SshFeed_-SshPollIdentifier>
+          <int>1</int>
+          <org.apache.brooklyn.feed.ssh.SshPollConfig>
+            <sensor class="attributeSensor">
+              <type>java.lang.Double</type>
+              <name>machine.cpu</name>
+              <description>Current CPU usage</description>
+              <persistence>REQUIRED</persistence>
+            </sensor>
+            <onsuccess class="com.google.guava:com.google.common.base.Functions$ConstantFunction"/>
+            <onfailure class="com.google.guava:com.google.common.base.Functions$ConstantFunction"/>
+            <onexception class="com.google.guava:com.google.common.base.Functions$ConstantFunction" reference="../onfailure"/>
+            <checkSuccess class="org.apache.brooklyn.feed.ssh.SshPollConfig$1" reference="../../org.apache.brooklyn.feed.ssh.SshPollConfig/checkSuccess"/>
+            <suppressDuplicates>false</suppressDuplicates>
+            <enabled>true</enabled>
+            <period>30000</period>
+            <commandSupplier class="com.google.guava:com.google.common.base.Suppliers$SupplierOfInstance" reference="../../org.apache.brooklyn.feed.ssh.SshFeed_-SshPollIdentifier[2]/command"/>
+            <dynamicEnvironmentSupplier class="MutableList" serialization="custom">
+              <unserializable-parents/>
+              <list>
+                <default>
+                  <size>0</size>
+                </default>
+                <int>0</int>
+              </list>
+            </dynamicEnvironmentSupplier>
+          </org.apache.brooklyn.feed.ssh.SshPollConfig>
+          <org.apache.brooklyn.feed.ssh.SshFeed_-SshPollIdentifier>
+            <command class="com.google.guava:com.google.common.base.Suppliers$SupplierOfInstance">
+              <instance class="string">free | grep Mem:</instance>
+            </command>
+            <env class="org.apache.brooklyn.feed.ssh.SshPollConfig$CombiningEnvSupplier">
+              <dynamicEnvironmentSupplier class="MutableList" serialization="custom">
+                <unserializable-parents/>
+                <list>
+                  <default>
+                    <size>0</size>
+                  </default>
+                  <int>0</int>
+                </list>
+              </dynamicEnvironmentSupplier>
+            </env>
+          </org.apache.brooklyn.feed.ssh.SshFeed_-SshPollIdentifier>
+          <int>3</int>
+          <org.apache.brooklyn.feed.ssh.SshPollConfig>
+            <sensor class="attributeSensor">
+              <type>java.lang.Long</type>
+              <name>machine.memory.used</name>
+              <description>Current memory usage</description>
+              <persistence>REQUIRED</persistence>
+            </sensor>
+            <onsuccess class="com.google.guava:com.google.common.base.Functions$ConstantFunction"/>
+            <onfailure class="com.google.guava:com.google.common.base.Functions$ConstantFunction"/>
+            <onexception class="com.google.guava:com.google.common.base.Functions$ConstantFunction" reference="../onfailure"/>
+            <checkSuccess class="org.apache.brooklyn.feed.ssh.SshPollConfig$1" reference="../../org.apache.brooklyn.feed.ssh.SshPollConfig/checkSuccess"/>
+            <suppressDuplicates>false</suppressDuplicates>
+            <enabled>true</enabled>
+            <period>30000</period>
+            <commandSupplier class="com.google.guava:com.google.common.base.Suppliers$SupplierOfInstance" reference="../../org.apache.brooklyn.feed.ssh.SshFeed_-SshPollIdentifier[3]/command"/>
+            <dynamicEnvironmentSupplier class="MutableList" serialization="custom">
+              <unserializable-parents/>
+              <list>
+                <default>
+                  <size>0</size>
+                </default>
+                <int>0</int>
+              </list>
+            </dynamicEnvironmentSupplier>
+          </org.apache.brooklyn.feed.ssh.SshPollConfig>
+          <org.apache.brooklyn.feed.ssh.SshPollConfig>
+            <sensor class="attributeSensor">
+              <type>java.lang.Long</type>
+              <name>machine.memory.free</name>
+              <description>Current free memory</description>
+              <persistence>REQUIRED</persistence>
+            </sensor>
+            <onsuccess class="com.google.guava:com.google.common.base.Functions$ConstantFunction"/>
+            <onfailure class="com.google.guava:com.google.common.base.Functions$ConstantFunction"/>
+            <onexception class="com.google.guava:com.google.common.base.Functions$ConstantFunction" reference="../onfailure"/>
+            <checkSuccess class="org.apache.brooklyn.feed.ssh.SshPollConfig$1" reference="../../org.apache.brooklyn.feed.ssh.SshPollConfig/checkSuccess"/>
+            <suppressDuplicates>false</suppressDuplicates>
+            <enabled>true</enabled>
+            <period>30000</period>
+            <commandSupplier class="com.google.guava:com.google.common.base.Suppliers$SupplierOfInstance">
+              <instance class="string">free | grep Mem:</instance>
+            </commandSupplier>
+            <dynamicEnvironmentSupplier class="MutableList" serialization="custom">
+              <unserializable-parents/>
+              <list>
+                <default>
+                  <size>0</size>
+                </default>
+                <int>0</int>
+              </list>
+            </dynamicEnvironmentSupplier>
+          </org.apache.brooklyn.feed.ssh.SshPollConfig>
+          <org.apache.brooklyn.feed.ssh.SshPollConfig>
+            <sensor class="attributeSensor">
+              <type>java.lang.Long</type>
+              <name>machine.memory.total</name>
+              <description>Total memory</description>
+              <persistence>REQUIRED</persistence>
+            </sensor>
+            <onsuccess class="com.google.guava:com.google.common.base.Functions$ConstantFunction"/>
+            <onfailure class="com.google.guava:com.google.common.base.Functions$ConstantFunction"/>
+            <onexception class="com.google.guava:com.google.common.base.Functions$ConstantFunction" reference="../onfailure"/>
+            <checkSuccess class="org.apache.brooklyn.feed.ssh.SshPollConfig$1" reference="../../org.apache.brooklyn.feed.ssh.SshPollConfig/checkSuccess"/>
+            <suppressDuplicates>false</suppressDuplicates>
+            <enabled>true</enabled>
+            <period>30000</period>
+            <commandSupplier class="com.google.guava:com.google.common.base.Suppliers$SupplierOfInstance">
+              <instance class="string">free | grep Mem:</instance>
+            </commandSupplier>
+            <dynamicEnvironmentSupplier class="MutableList" serialization="custom">
+              <unserializable-parents/>
+              <list>
+                <default>
+                  <size>0</size>
+                </default>
+                <int>0</int>
+              </list>
+            </dynamicEnvironmentSupplier>
+          </org.apache.brooklyn.feed.ssh.SshPollConfig>
+          <org.apache.brooklyn.feed.ssh.SshFeed_-SshPollIdentifier>
+            <command class="com.google.guava:com.google.common.base.Suppliers$SupplierOfInstance">
+              <instance class="string">cat /proc/uptime</instance>
+            </command>
+            <env class="org.apache.brooklyn.feed.ssh.SshPollConfig$CombiningEnvSupplier">
+              <dynamicEnvironmentSupplier class="MutableList" serialization="custom">
+                <unserializable-parents/>
+                <list>
+                  <default>
+                    <size>0</size>
+                  </default>
+                  <int>0</int>
+                </list>
+              </dynamicEnvironmentSupplier>
+            </env>
+          </org.apache.brooklyn.feed.ssh.SshFeed_-SshPollIdentifier>
+          <int>1</int>
+          <org.apache.brooklyn.feed.ssh.SshPollConfig>
+            <sensor class="attributeSensor">
+              <type>org.apache.brooklyn.util.time.Duration</type>
+              <name>machine.uptime</name>
+              <description>Current uptime</description>
+              <persistence>REQUIRED</persistence>
+            </sensor>
+            <onsuccess class="com.google.guava:com.google.common.base.Functions$ConstantFunction"/>
+            <onfailure class="com.google.guava:com.google.common.base.Functions$ConstantFunction"/>
+            <onexception class="com.google.guava:com.google.common.base.Functions$ConstantFunction" reference="../onfailure"/>
+            <checkSuccess class="org.apache.brooklyn.feed.ssh.SshPollConfig$1" reference="../../org.apache.brooklyn.feed.ssh.SshPollConfig/checkSuccess"/>
+            <suppressDuplicates>false</suppressDuplicates>
+            <enabled>true</enabled>
+            <period>30000</period>
+            <commandSupplier class="com.google.guava:com.google.common.base.Suppliers$SupplierOfInstance" reference="../../org.apache.brooklyn.feed.ssh.SshFeed_-SshPollIdentifier[4]/command"/>
+            <dynamicEnvironmentSupplier class="MutableList" serialization="custom">
+              <unserializable-parents/>
+              <list>
+                <default>
+                  <size>0</size>
+                </default>
+                <int>0</int>
+              </list>
+            </dynamicEnvironmentSupplier>
+          </org.apache.brooklyn.feed.ssh.SshPollConfig>
+        </com.google.guava:com.google.common.collect.HashMultimap>
+      </com.google.guava:com.google.common.collect.HashMultimap>
+    </polls>
+  </config>
+</feed>

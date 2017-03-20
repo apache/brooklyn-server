@@ -26,12 +26,17 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.Sanitizer;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.javalang.Threads;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -46,13 +51,16 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
+import io.cloudsoft.winrm4j.client.WinRmClientContext;
 import io.cloudsoft.winrm4j.winrm.WinRmTool;
 import io.cloudsoft.winrm4j.winrm.WinRmToolResponse;
 
 @Beta
-public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm.WinRmTool {
+public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm.WinRmTool, ManagementContextInjectable {
 
     private static final Logger LOG = LoggerFactory.getLogger(Winrm4jTool.class);
+    
+    private static final ConfigKey<WinRmClientContext> CONTEXT = ConfigKeys.newConfigKey(WinRmClientContext.class, "winrm.context");
 
     // TODO Should we move this up to the interface?
     @Beta
@@ -76,6 +84,8 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
     private final Integer retriesOfNetworkFailures;
     private final Map<String, String> environment;
 
+    private ManagementContext mgmt;
+
     public Winrm4jTool(Map<String,?> config) {
         this(ConfigBag.newInstance(config));
     }
@@ -96,7 +106,12 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
         retriesOfNetworkFailures = config.get(RETRIES_OF_NETWORK_FAILURES);
         environment = config.get(ENVIRONMENT);
     }
-    
+
+    @Override
+    public void setManagementContext(ManagementContext managementContext) {
+        this.mgmt = managementContext;
+    }
+
     @Override
     public org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse executeCommand(final List<String> commands) {
         return exec(new Function<io.cloudsoft.winrm4j.winrm.WinRmTool, io.cloudsoft.winrm4j.winrm.WinRmToolResponse>() {
@@ -200,10 +215,12 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
     }
 
     private io.cloudsoft.winrm4j.winrm.WinRmTool connect() {
-        WinRmTool.Builder builder = WinRmTool.Builder.builder(host, computerName, user, password);
-        builder.setAuthenticationScheme(authenticationScheme);
-        builder.useHttps(useSecureWinrm);
-        builder.port(port);
+        WinRmClientContext context = createWinrmContext(mgmt);
+        WinRmTool.Builder builder = WinRmTool.Builder.builder(host, computerName, user, password)
+                .context(context)
+                .setAuthenticationScheme(authenticationScheme)
+                .useHttps(useSecureWinrm)
+                .port(port);
         if (environment != null) {
             builder.environment(environment);
         }
@@ -215,7 +232,25 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
         }
         return builder.build();
     }
-    
+
+    private static synchronized WinRmClientContext createWinrmContext(ManagementContext mgmt) {
+        // TODO Use getScratchpad()
+        BrooklynProperties props = ((ManagementContextInternal)mgmt).getBrooklynProperties();
+        WinRmClientContext instance = props.getConfig(CONTEXT);
+        if (instance == null) {
+            final WinRmClientContext newContext = WinRmClientContext.newInstance();
+            instance = newContext;
+            props.put(CONTEXT, instance);
+            Threads.addShutdownHook(new Runnable() {
+                @Override
+                public void run() {
+                    newContext.shutdown();
+                }
+            });
+        }
+        return instance;
+    }
+
     private <T> T getRequiredConfig(ConfigBag bag, ConfigKey<T> key) {
         T result = bag.get(key);
         if (result == null) {
@@ -241,4 +276,5 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
         Exceptions.propagateIfFatal(e);
         throw new WinRmException("(" + toString() + ") " + message + ": " + e.getMessage(), e);
     }
+
 }

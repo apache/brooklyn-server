@@ -56,12 +56,15 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.xstream.ObjectWithDefaultStringImplConverter;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.commons.beanutils.BeanUtils;
 import org.slf4j.Logger;
@@ -69,9 +72,11 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.thoughtworks.xstream.annotations.XStreamConverter;
 
 /**
  * static import functions which can be used in `$brooklyn:xxx` contexts
@@ -151,6 +156,7 @@ public class BrooklynDslCommon {
 
         // Keep in mind this object gets serialized so is the following reference
         private BrooklynObjectInternal obj;
+        @XStreamConverter(ObjectWithDefaultStringImplConverter.class)
         private Object keyName;
 
         public DslBrooklynObjectConfigSupplier(BrooklynObjectInternal obj, Object keyName) {
@@ -292,6 +298,7 @@ public class BrooklynDslCommon {
         List<Object> factoryMethodArgs = (List<Object>) config.getStringKeyMaybe("factoryMethod.args").or(ImmutableList.of());
         Map<String,Object> objectFields = (Map<String, Object>) config.getStringKeyMaybe("object.fields").or(MutableMap.of());
         Map<String,Object> brooklynConfig = (Map<String, Object>) config.getStringKeyMaybe(BrooklynCampReservedKeys.BROOKLYN_CONFIG).or(MutableMap.of());
+        boolean deferred = TypeCoercions.coerce(config.getStringKeyMaybe("deferred").or(Boolean.FALSE), Boolean.class);
 
         String mappedTypeName = DeserializingClassRenamesProvider.INSTANCE.findMappedName(typeName);
         Class<?> type;
@@ -302,7 +309,7 @@ public class BrooklynDslCommon {
             return new DslObject(mappedTypeName, constructorArgs, objectFields, brooklynConfig);
         }
 
-        if (resolved(constructorArgs) && resolved(factoryMethodArgs) && resolved(objectFields.values()) && resolved(brooklynConfig.values())) {
+        if (!deferred && resolved(constructorArgs) && resolved(factoryMethodArgs) && resolved(objectFields.values()) && resolved(brooklynConfig.values())) {
             if (factoryMethodName == null) {
                 return DslObject.create(type, constructorArgs, objectFields, brooklynConfig);
             } else {
@@ -688,7 +695,8 @@ public class BrooklynDslCommon {
 
         public static Object create(Class<?> type, String factoryMethodName, List<?> factoryMethodArgs, Map<String,?> fields, Map<String,?> config) {
             try {
-                Object bean = Reflections.invokeMethodFromArgs(type, factoryMethodName, factoryMethodArgs).get();
+                Optional<TypeCoercer> coercer = Optional.of(TypeCoercions.asTypeCoercer());
+                Object bean = Reflections.invokeMethodFromArgs(type, factoryMethodName, factoryMethodArgs, false, coercer).get();
                 BeanUtils.populate(bean, fields);
 
                 if (config.size() > 0) {

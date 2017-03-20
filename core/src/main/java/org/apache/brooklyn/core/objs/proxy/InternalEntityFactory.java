@@ -271,8 +271,14 @@ public class InternalEntityFactory extends InternalFactory {
     }
 
     private void addSpecParameters(EntitySpec<?> spec, EntityDynamicType edType) {
-        // if coming from a catalog item, the spec list of parameters is canonical, 
-        // ie it has just the right ones from the class, so clear the parameters on the type
+        // if coming from a catalog item, parsed by CAMP, then the spec list of parameters is canonical,
+        // the parent item has had its config keys set as parameters here with those non-inheritable
+        // via type definition removed, so wipe those on the EDT to make sure non-inheritable ones are removed; 
+        // OTOH if item is blank, it was set as a java type, not inheriting it,
+        // and the config keys on the dynamic type are the correct ones to use, and usually there is nothing in spec.parameters,
+        // except what is being added programmatically.
+        // (this logic could get confused if catalog item ID referred to some runtime-inherited context,
+        // but those semantics should no longer be used -- https://issues.apache.org/jira/browse/BROOKLYN-445)
         if (Strings.isNonBlank(spec.getCatalogItemId())) {
             edType.clearConfigKeys();
         }

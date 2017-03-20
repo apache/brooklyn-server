@@ -31,6 +31,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.thoughtworks.xstream.XStream;
@@ -80,6 +81,11 @@ public class XmlSerializer<T> {
 
         xstream.registerConverter(new EnumCaseForgivingConverter());
         xstream.registerConverter(new Inet4AddressConverter());
+        
+        // See ObjectWithDefaultStringImplConverter (and its usage) for why we want to auto-detect 
+        // annotations (usages of this is in the camp project, so we can't just list it statically
+        // here unfortunately).
+        xstream.autodetectAnnotations(true);
     }
 
     /**
@@ -104,7 +110,12 @@ public class XmlSerializer<T> {
      * See {@link #newCustomJavaClassConverter()}. */
     protected MapperWrapper wrapMapperForAllLowLevelMentions(Mapper next) {
         MapperWrapper result = new CompilerIndependentOuterClassFieldMapper(next);
-        return new ClassRenamingMapper(result, deserializingClassRenames);
+        Supplier<ClassLoader> classLoaderSupplier = new Supplier<ClassLoader>() {
+            @Override public ClassLoader get() {
+                return xstream.getClassLoaderReference().getReference();
+            }
+        };
+        return new ClassRenamingMapper(result, deserializingClassRenames, classLoaderSupplier);
     }
     /** Extension point where sub-classes can add mappers wanted when instances of a class are serialized, 
      * including {@link #wrapMapperForAllLowLevelMentions(Mapper)}, plus any usual domain mappings. */

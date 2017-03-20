@@ -88,6 +88,10 @@ public class WindowsYamlLiveTest extends AbstractYamlTest {
     protected WinRmMachineLocation machine;
     protected Entity app;
     
+    protected boolean useDefaultProperties() {
+        return true;
+    }
+    
     @BeforeClass(alwaysRun = true)
     public void setUpClass() throws Exception {
         super.setUp();
@@ -102,7 +106,7 @@ public class WindowsYamlLiveTest extends AbstractYamlTest {
                 "  byon:",
                 "    hosts:",
                 "    - winrm: "+ip+":5985",
-                "      password: "+password,
+                "      password: \""+password.replace("\"", "\\\"") + "\"",
                 "      user: Administrator",
                 "      osFamily: windows");
     }
@@ -319,7 +323,7 @@ public class WindowsYamlLiveTest extends AbstractYamlTest {
                 app = createAndStartApplication(Joiner.on("\n").join(yaml));
                 fail("start should have failed for app="+app);
             } catch (Exception e) {
-                if (e.toString().contains("invalid result") && e.toString().contains("for "+cmdFailed)) throw e;
+                if (!e.toString().contains("invalid result") || !e.toString().contains("for "+cmdFailed)) throw e;
             }
         }
     }
@@ -391,9 +395,7 @@ public class WindowsYamlLiveTest extends AbstractYamlTest {
         for (Task<?> task : tasks) {
             if (matcher.apply(task)) return Optional.<Task<?>>of(task);
 
-            if (!(task instanceof HasTaskChildren)) {
-                return Optional.absent();
-            } else {
+            if (task instanceof HasTaskChildren) {
                 Optional<Task<?>> subResult = findTaskOrSubTask(((HasTaskChildren) task).getChildren(), matcher);
                 if (subResult.isPresent()) return subResult;
             }

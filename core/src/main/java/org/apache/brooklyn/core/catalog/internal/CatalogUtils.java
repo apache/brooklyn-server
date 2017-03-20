@@ -175,6 +175,7 @@ public class CatalogUtils {
         }
     }
 
+    // TODO should be addToCatalogSearchPathOnAddition
     public static void setCatalogItemIdOnAddition(Entity entity, BrooklynObject itemBeingAdded) {
         if (entity.getCatalogItemId()!=null) {
             if (itemBeingAdded.getCatalogItemId()==null) {

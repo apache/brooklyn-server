@@ -86,9 +86,9 @@ import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 
 import groovy.lang.GroovyClassLoader;
-import io.airlift.command.Cli;
-import io.airlift.command.Command;
-import io.airlift.command.ParseException;
+import io.airlift.airline.Cli;
+import io.airlift.airline.Command;
+import io.airlift.airline.ParseException;
 
 public class CliTest {
 

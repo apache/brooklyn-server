@@ -117,8 +117,11 @@
         <kxml2.servicemix.version>2.3.0_3</kxml2.servicemix.version>
         <!-- double-check downstream projects before changing jackson version -->
         <fasterxml.jackson.version>2.7.5</fasterxml.jackson.version>
-        <cxf.version>3.1.4</cxf.version>
-        <httpclient.version>4.4.1</httpclient.version>
+        <cxf.version>3.1.10</cxf.version>
+        <httpcomponents.httpclient.version>4.5.2</httpcomponents.httpclient.version>
+        <httpcomponents.httpcore.version>4.4.4</httpcomponents.httpcore.version>
+        <!-- @deprecated since 0.11 -->
+        <httpclient.version>4.5.2</httpclient.version> <!-- kept for compatibility in 0.11.0-SNAPSHOT, remove after -->
         <commons-lang3.version>3.3.2</commons-lang3.version>
         <groovy.version>2.3.7</groovy.version> <!-- Version supported by https://github.com/groovy/groovy-eclipse/wiki/Groovy-Eclipse-2.9.1-Release-Notes -->
         <jsr305.version>2.0.1</jsr305.version>
@@ -135,7 +138,7 @@
         <reflections.version>0.9.9-RC1</reflections.version>
         <jetty.version>9.2.13.v20150730</jetty.version>
         <jetty-schemas.version>3.1.M0</jetty-schemas.version>
-        <airline.version>0.6</airline.version>
+        <airline.version>0.7</airline.version>
         <mockwebserver.version>20121111</mockwebserver.version>
         <freemarker.version>2.3.25-incubating</freemarker.version>
         <commons-io.version>2.4</commons-io.version>
@@ -166,7 +169,7 @@
         <jax-rs-api.version>2.0.1</jax-rs-api.version>
         <maxmind.version>2.8.0-rc1</maxmind.version>
         <maxmind-db.version>1.2.1</maxmind-db.version>
-        <winrm4j.version>0.4.0</winrm4j.version>
+        <winrm4j.version>0.5.0</winrm4j.version>
         <karaf.version>4.0.8</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
         <felix-osgi-compendium.version>1.4.0</felix-osgi-compendium.version>
@@ -185,12 +188,8 @@
         <commons-collections.version>3.2.1</commons-collections.version>
         <javax.mail.version>1.4.4</javax.mail.version>
         <cxf.javax.annotation-api.version>1.2</cxf.javax.annotation-api.version>
-
-        <!-- Testing Dependency Versions -->
-        <!-- testng 6.9.13 has this problem https://github.com/cbeust/testng/issues/1168, to be fixed in the release following 6.9.13.8. -->
-        <!-- Recent versions of testng are not pushed to maven central, they are publishing to jcentral. -->
-        <testng.version>6.9.10</testng.version>
-        <mockito.version>1.10.8</mockito.version>
+        <testng.version>6.10</testng.version>
+        <mockito.version>2.7.12</mockito.version>
         <assertj.version>2.2.0</assertj.version> <!-- v 2.2.0 is being used as v 3.20 introduces Java8 dependencies-->
         <cobertura.plugin.version>2.7</cobertura.plugin.version>
         <surefire.version>2.19.1</surefire.version>

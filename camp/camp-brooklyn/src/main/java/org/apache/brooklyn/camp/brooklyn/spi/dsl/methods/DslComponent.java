@@ -50,6 +50,7 @@ import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.xstream.ObjectWithDefaultStringImplConverter;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -64,6 +65,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Callables;
+import com.thoughtworks.xstream.annotations.XStreamConverter;
 
 public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements DslFunctionSource {
 
@@ -454,6 +456,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     protected static class AttributeWhenReady extends BrooklynDslDeferredSupplier<Object> {
         private static final long serialVersionUID = 1740899524088902383L;
         private final DslComponent component;
+        @XStreamConverter(ObjectWithDefaultStringImplConverter.class)
         private final Object sensorName;
 
         public AttributeWhenReady(DslComponent component, Object sensorName) {
@@ -526,6 +529,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     }
     protected final static class DslConfigSupplier extends BrooklynDslDeferredSupplier<Object> {
         private final DslComponent component;
+        @XStreamConverter(ObjectWithDefaultStringImplConverter.class)
         private final Object keyName;
         private static final long serialVersionUID = -4735177561947722511L;
 
@@ -642,6 +646,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     }
     protected final static class DslSensorSupplier extends BrooklynDslDeferredSupplier<Sensor<?>> {
         private final DslComponent component;
+        @XStreamConverter(ObjectWithDefaultStringImplConverter.class)
         private final Object sensorName;
         private static final long serialVersionUID = -4735177561947722511L;
 
