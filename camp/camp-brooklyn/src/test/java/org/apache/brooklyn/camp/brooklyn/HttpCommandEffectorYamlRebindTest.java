@@ -54,12 +54,12 @@ public class HttpCommandEffectorYamlRebindTest extends AbstractYamlRebindTest {
            "        brooklyn.config:",
            "          name: myEffector",
            "          description: myDescription",
-           "          uri: https://httpbin.org/get?id=myId",
+           "          uri: http://httpbin.org/get?id=myId",
            "          httpVerb: GET",
            "          jsonPath: $.args.id",
            "          publishSensor: results");
 
-   @Test
+   @Test(groups="Integration")
    public void testRebindWhenHealthy() throws Exception {
       runRebindWhenIsUp(catalogYamlSimple, appVersionedId);
    }

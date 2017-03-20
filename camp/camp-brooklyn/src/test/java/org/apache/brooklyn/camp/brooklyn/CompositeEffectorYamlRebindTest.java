@@ -57,7 +57,7 @@ public class CompositeEffectorYamlRebindTest extends AbstractYamlRebindTest {
            "      brooklyn.config:",
            "        name: myEffector",
            "        description: myDescription",
-           "        uri: https://httpbin.org/get?id=myId",
+           "        uri: http://httpbin.org/get?id=myId",
            "        httpVerb: GET",
            "        jsonPath: $.args.id",
            "        publishSensor: results",
@@ -69,7 +69,7 @@ public class CompositeEffectorYamlRebindTest extends AbstractYamlRebindTest {
            "        - myEffector"
    );
 
-   @Test
+    @Test(groups="Integration")
    public void testRebindWhenHealthy() throws Exception {
       runRebindWhenIsUp(catalogYamlSimple, appVersionedId);
    }
