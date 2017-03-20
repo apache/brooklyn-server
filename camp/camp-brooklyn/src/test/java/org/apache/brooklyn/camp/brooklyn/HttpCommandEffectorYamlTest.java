@@ -48,7 +48,7 @@ public class HttpCommandEffectorYamlTest extends AbstractYamlTest {
             "    brooklyn.config:",
             "      name: myEffector",
             "      description: myDescription",
-            "      uri: https://httpbin.org/get?id=myId",
+            "      uri: http://httpbin.org/get?id=myId",
             "      httpVerb: GET",
             "      jsonPath: $.args.id",
             "      publishSensor: results"
@@ -60,7 +60,7 @@ public class HttpCommandEffectorYamlTest extends AbstractYamlTest {
 
         // Invoke with parameters
         {
-            Object result = entity.invoke(effector, ImmutableMap.of("uri", "https://httpbin.org/get?pwd=passwd", "jsonPath", "$.args.pwd")).get();
+            Object result = entity.invoke(effector, ImmutableMap.of("uri", "http://httpbin.org/get?pwd=passwd", "jsonPath", "$.args.pwd")).get();
             assertEquals(((String)result).trim(), "passwd");
 
         }
