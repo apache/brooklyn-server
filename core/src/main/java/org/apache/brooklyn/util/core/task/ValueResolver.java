@@ -392,6 +392,13 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                 // (the latter could be tried here, with bailOut false, but in most cases it will just throw so we still need to
                 // have the timings as in SHORT_WAIT etc as a fallack)
                 
+                // TODO svet suggested at https://github.com/apache/brooklyn-server/pull/565#pullrequestreview-27124074
+                // that we might flip the immediately bit if interrupted -- or maybe instead (alex's idea)
+                // enter this block
+                // if (allowImmediateExecution && (isEvaluatingImmediately() || Thread.isInterrupted())
+                // -- feels right, and would help with some recursive immediate values but no compelling 
+                // use case yet and needs some deep thought which we're deferring for now
+                
                 Maybe<T> result = null;
                 try {
                     result = exec.getImmediately(v);

@@ -138,6 +138,9 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
                 .context(getContext())
                 .getMaybe();
         if (resolved.isAbsent()) return Maybe.Absent.<T>castAbsent(resolved);
+        
+        // likely we don't need this coercion if we set  as(key.getType())  above, 
+        // but that needs confirmation and quite a lot of testing 
         return TypeCoercions.tryCoerce(resolved.get(), key.getTypeToken());
     }
 
