@@ -37,7 +37,7 @@ import com.google.common.collect.Iterables;
 public class CompositeEffectorYamlTest extends AbstractYamlTest {
     private static final Logger log = LoggerFactory.getLogger(CompositeEffectorYamlTest.class);
 
-    @Test
+    @Test(groups="Integration")
     public void testCompositeEffector() throws Exception {
         Entity app = createAndStartApplication(
             "location: localhost",
@@ -51,7 +51,7 @@ public class CompositeEffectorYamlTest extends AbstractYamlTest {
             "    brooklyn.config:",
             "      name: myEffector",
             "      description: myDescription",
-            "      uri: https://httpbin.org/get?id=myId",
+            "      uri: http://httpbin.org/get?id=myId",
             "      httpVerb: GET",
             "      jsonPath: $.args.id",
             "      publishSensor: results",

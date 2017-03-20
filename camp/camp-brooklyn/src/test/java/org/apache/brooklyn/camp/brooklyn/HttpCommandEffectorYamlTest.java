@@ -34,7 +34,7 @@ import com.google.common.collect.Iterables;
 public class HttpCommandEffectorYamlTest extends AbstractYamlTest {
     private static final Logger log = LoggerFactory.getLogger(HttpCommandEffectorYamlTest.class);
 
-    @Test
+    @Test(groups="Integration")
     public void testHttpCommandEffectorWithParameters() throws Exception {
         Entity app = createAndStartApplication(
             "location: localhost",
@@ -48,7 +48,7 @@ public class HttpCommandEffectorYamlTest extends AbstractYamlTest {
             "    brooklyn.config:",
             "      name: myEffector",
             "      description: myDescription",
-            "      uri: https://httpbin.org/get?id=myId",
+            "      uri: http://httpbin.org/get?id=myId",
             "      httpVerb: GET",
             "      jsonPath: $.args.id",
             "      publishSensor: results"
@@ -60,7 +60,7 @@ public class HttpCommandEffectorYamlTest extends AbstractYamlTest {
 
         // Invoke with parameters
         {
-            Object result = entity.invoke(effector, ImmutableMap.of("uri", "https://httpbin.org/get?pwd=passwd", "jsonPath", "$.args.pwd")).get();
+            Object result = entity.invoke(effector, ImmutableMap.of("uri", "http://httpbin.org/get?pwd=passwd", "jsonPath", "$.args.pwd")).get();
             assertEquals(((String)result).trim(), "passwd");
 
         }
