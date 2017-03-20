@@ -49,7 +49,6 @@ import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
-import org.apache.brooklyn.core.catalog.internal.CatalogDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemComparator;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
@@ -58,14 +57,12 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.rest.api.CatalogApi;
-import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.domain.CatalogEntitySummary;
 import org.apache.brooklyn.rest.domain.CatalogItemSummary;
 import org.apache.brooklyn.rest.domain.CatalogLocationSummary;
 import org.apache.brooklyn.rest.domain.CatalogPolicySummary;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.CatalogTransformer;
-import org.apache.brooklyn.rest.util.DefaultExceptionMapper;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -270,19 +267,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
         return Response.status(Status.CREATED).entity(result).build();
     }
-    
-    @SuppressWarnings("deprecation")
-    @Override
-    public Response resetXml(String xml, boolean ignoreErrors) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, null) ||
-            !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_CATALOG_ITEM, null)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
-                Entitlements.getEntitlementContext().user());
-        }
-
-        ((BasicBrooklynCatalog)mgmt().getCatalog()).reset(CatalogDto.newDtoFromXmlContents(xml, "REST reset"), !ignoreErrors);
-        return Response.ok().build();
-    }
 
     @Override
     public void deleteApplication(String symbolicName, String version) throws Exception {
@@ -459,9 +443,9 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         List filters = new ArrayList();
         filters.add(type);
         if (Strings.isNonEmpty(regex))
-            filters.add(CatalogPredicates.xml(StringPredicates.containsRegex(regex)));
+            filters.add(CatalogPredicates.stringRepresentationMatches(StringPredicates.containsRegex(regex)));
         if (Strings.isNonEmpty(fragment))
-            filters.add(CatalogPredicates.xml(StringPredicates.containsLiteralIgnoreCase(fragment)));
+            filters.add(CatalogPredicates.stringRepresentationMatches(StringPredicates.containsLiteralIgnoreCase(fragment)));
         if (!allVersions)
             filters.add(CatalogPredicates.isBestVersion(mgmt()));
         

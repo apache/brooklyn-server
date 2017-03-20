@@ -30,7 +30,6 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.AggregateClassLoader;
-import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -110,7 +109,6 @@ public class CatalogDo {
             log.warn("Catalog "+this+" being initialised with different mgmt "+mgmt+" when already managed by "+this.mgmt, new Throwable("source of reparented "+this));
         this.parent = parent;
         this.mgmt = mgmt;
-        dto.populate();
         loadCatalogClasspath();
         loadCatalogItems(failOnLoadError);
         isLoaded = true;
@@ -310,18 +308,6 @@ public class CatalogDo {
     public String toString() {
         String size = cacheById == null ? "not yet loaded" : "size " + cacheById.size();
         return "Loaded:" + dto + "(" + size + ")";
-    }
-
-    /** is "local" if it and all ancestors are not based on any remote urls */ 
-    public boolean isLocal() {
-        if (dto.url != null) {
-            String proto = Urls.getProtocol(dto.url);
-            if (proto != null) {
-                // 'file' is the only protocol accepted as "local"
-                if (!"file".equals(proto)) return false;
-            }
-        }
-        return parent == null || parent.isLocal();
     }
 
     /** classloader for only the entries in this catalog's classpath */ 

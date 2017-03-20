@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.mgmt.rebind;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -33,8 +34,8 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
+import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
-import org.apache.brooklyn.core.catalog.internal.CatalogDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogEntityItemDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
 import org.apache.brooklyn.core.catalog.internal.CatalogLocationItemDto;
@@ -54,11 +55,20 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
+import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
 
 public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
 
+    // FIXME Can we delete all of this?
+    // Is testing now sufficiently covered by brooklyn-camp module, such as o.a.b.camp.brooklyn.catalog.CatalogYamlRebindTest?
+    //
+    // This tests at a slightly different level (calling `mgmt.getCatalog().addItem(item)` directly, and
+    // asserting `mgmt.getCatalog().getCatalogItems()` is the same before and after rebind. Therefore
+    // keeping it for now.
+    
     private static final String TEST_VERSION = "0.0.1";
 
     private static final Logger LOG = LoggerFactory.getLogger(RebindCatalogItemTest.class);
@@ -84,7 +94,6 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
     @Override
     protected LocalManagementContext createOrigManagementContext() {
         BrooklynProperties properties = BrooklynProperties.Factory.newDefault();
-        properties.put(BrooklynServerConfig.BROOKLYN_CATALOG_URL, "classpath://brooklyn/entity/rebind/rebind-catalog-item-test-catalog.xml");
         properties.put(BrooklynServerConfig.CATALOG_LOAD_MODE, org.apache.brooklyn.core.catalog.CatalogLoadMode.LOAD_BROOKLYN_CATALOG_URL);
         return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
                 .properties(properties)
@@ -96,19 +105,12 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
     @Override
     protected LocalManagementContext createNewManagementContext(File mementoDir, HighAvailabilityMode haMode, Map<?, ?> additionalProperties) {
         BrooklynProperties properties = BrooklynProperties.Factory.newDefault();
-        properties.put(BrooklynServerConfig.BROOKLYN_CATALOG_URL, "classpath://brooklyn/entity/rebind/rebind-catalog-item-test-catalog.xml");
         return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
                 .properties(properties)
                 .forLive(useLiveManagementContext())
                 .haMode(haMode)
                 .emptyCatalog(useEmptyCatalog())
                 .buildUnstarted();
-    }
-
-    @Test
-    public void testPersistsEntityFromCatalogXml() {
-        assertEquals(Iterables.size(origManagementContext.getCatalog().getCatalogItems()), 1);
-        rebindAndAssertCatalogsAreEqual();
     }
 
     @Test
@@ -237,31 +239,71 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
 
     @Test(invocationCount = 3)
     public void testDeletedCatalogItemIsNotPersisted() {
-        assertEquals(Iterables.size(origManagementContext.getCatalog().getCatalogItems()), 1);
-        CatalogItem<Object, Object> toRemove = Iterables.getOnlyElement(origManagementContext.getCatalog().getCatalogItems());
+        String symbolicName = "rebind-yaml-catalog-item-test";
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  items:",
+                "  - id: " + symbolicName,
+                "    version: " + TEST_VERSION,
+                "    itemType: entity",
+                "    item:",
+                "      type: io.camp.mock:AppServer");
+        CatalogEntityItemDto item =
+            CatalogItemBuilder.newEntity(symbolicName, TEST_VERSION)
+                .displayName(symbolicName)
+                .plan(yaml)
+                .build();
+        origManagementContext.getCatalog().addItem(item);
+        LOG.info("Added item to catalog: {}, id={}", item, item.getId());
+
         // Must make sure that the original catalogue item is not managed and unmanaged in the same
         // persistence window. Because BrooklynMementoPersisterToObjectStore applies writes/deletes
         // asynchronously the winner is down to a race and the test might pass or fail.
         origManagementContext.getRebindManager().forcePersistNow(false, null);
-        origManagementContext.getCatalog().deleteCatalogItem(toRemove.getSymbolicName(), toRemove.getVersion());
-        assertEquals(Iterables.size(origManagementContext.getCatalog().getCatalogItems()), 0);
+        
+        origManagementContext.getCatalog().deleteCatalogItem(symbolicName, TEST_VERSION);
+        
+        Iterable<CatalogItem<Object, Object>> items = origManagementContext.getCatalog().getCatalogItems();
+        Optional<CatalogItem<Object, Object>> itemPostDelete = Iterables.tryFind(items, CatalogPredicates.symbolicName(Predicates.equalTo(symbolicName)));
+        assertFalse(itemPostDelete.isPresent(), "item="+itemPostDelete);
+        
         rebindAndAssertCatalogsAreEqual();
-        assertEquals(Iterables.size(newManagementContext.getCatalog().getCatalogItems()), 0);
+        
+        Iterable<CatalogItem<Object, Object>> newItems = newManagementContext.getCatalog().getCatalogItems();
+        Optional<CatalogItem<Object, Object>> itemPostRebind = Iterables.tryFind(newItems, CatalogPredicates.symbolicName(Predicates.equalTo(symbolicName)));
+        assertFalse(itemPostRebind.isPresent(), "item="+itemPostRebind);
     }
 
     @Test(invocationCount = 3)
     public void testCanTagCatalogItemAfterRebind() {
+        String symbolicName = "rebind-yaml-catalog-item-test";
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  items:",
+                "  - id: " + symbolicName,
+                "    version: " + TEST_VERSION,
+                "    itemType: entity",
+                "    item:",
+                "      type: io.camp.mock:AppServer");
+        CatalogEntityItemDto item =
+            CatalogItemBuilder.newEntity(symbolicName, TEST_VERSION)
+                .displayName(symbolicName)
+                .plan(yaml)
+                .build();
+        origManagementContext.getCatalog().addItem(item);
+        LOG.info("Added item to catalog: {}, id={}", item, item.getId());
+
         assertEquals(Iterables.size(origManagementContext.getCatalog().getCatalogItems()), 1);
-        CatalogItem<Object, Object> toTag = Iterables.getOnlyElement(origManagementContext.getCatalog().getCatalogItems());
+        CatalogItem<?,?> origItem = origManagementContext.getCatalog().getCatalogItem(symbolicName, TEST_VERSION);
         final String tag = "tag1";
-        toTag.tags().addTag(tag);
-        assertTrue(toTag.tags().containsTag(tag));
+        origItem.tags().addTag(tag);
+        assertTrue(origItem.tags().containsTag(tag));
 
         rebindAndAssertCatalogsAreEqual();
 
-        toTag = Iterables.getOnlyElement(newManagementContext.getCatalog().getCatalogItems());
-        assertTrue(toTag.tags().containsTag(tag));
-        toTag.tags().removeTag(tag);
+        CatalogItem<?, ?> newItem = newManagementContext.getCatalog().getCatalogItem(symbolicName, TEST_VERSION);
+        assertTrue(newItem.tags().containsTag(tag));
+        newItem.tags().removeTag(tag);
     }
 
     @Test
@@ -285,8 +327,6 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
                     .plan(yaml)
                     .build();
         catalog.addItem(item);
-        String catalogXml = catalog.toXmlString();
-        catalog.reset(CatalogDto.newDtoFromXmlContents(catalogXml, "Test reset"));
         rebindAndAssertCatalogsAreEqual();
     }
 

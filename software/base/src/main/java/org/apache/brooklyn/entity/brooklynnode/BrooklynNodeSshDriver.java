@@ -191,10 +191,6 @@ public class BrooklynNodeSshDriver extends JavaSoftwareProcessSshDriver implemen
         String brooklynLocalPropertiesContents = entity.getConfig(BrooklynNode.BROOKLYN_LOCAL_PROPERTIES_CONTENTS);
         String brooklynLocalPropertiesUri = entity.getConfig(BrooklynNode.BROOKLYN_LOCAL_PROPERTIES_URI);
 
-        String brooklynCatalogRemotePath = entity.getConfig(BrooklynNode.BROOKLYN_CATALOG_REMOTE_PATH);
-        String brooklynCatalogContents = entity.getConfig(BrooklynNode.BROOKLYN_CATALOG_CONTENTS);
-        String brooklynCatalogUri = entity.getConfig(BrooklynNode.BROOKLYN_CATALOG_URI);
-
         String brooklynCatalogInitialBomRemotePath = processTemplateContents(entity.getConfig(BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_REMOTE_PATH));
         String brooklynCatalogInitialBomUri = entity.getConfig(BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_URI);
         String brooklynCatalogInitialBomContents = entity.getConfig(BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_CONTENTS);
@@ -234,16 +230,6 @@ public class BrooklynNodeSshDriver extends JavaSoftwareProcessSshDriver implemen
         // Upload a local-catalog.bom if required
         if (brooklynCatalogInitialBomContents != null || brooklynCatalogInitialBomUri != null) {
             uploadFileContents(brooklynCatalogInitialBomContents, brooklynCatalogInitialBomUri, brooklynCatalogInitialBomRemotePath);
-        }
-
-        // Override the ~/.brooklyn/catalog.xml if required
-        if (brooklynCatalogContents != null || brooklynCatalogUri != null) {
-            log.warn("Deprecated (since 0.7.0) use of config"
-                    + (brooklynCatalogContents != null ? " [" + BrooklynNode.BROOKLYN_CATALOG_CONTENTS.getName() + "]" : "")
-                    + (brooklynCatalogUri != null ? " [" + BrooklynNode.BROOKLYN_CATALOG_URI.getName() + "]" : "")
-                    + "; instead use "+BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_URI.getName()
-                    + " or "+BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_CONTENTS.getName());
-            uploadFileContents(brooklynCatalogContents, brooklynCatalogUri, brooklynCatalogRemotePath);
         }
 
         // Copy additional resources to the server

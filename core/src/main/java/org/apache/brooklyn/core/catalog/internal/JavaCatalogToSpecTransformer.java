@@ -42,8 +42,7 @@ import org.slf4j.LoggerFactory;
  * defines the java class name and OSGi bundles to use.
  * <p>
  * This is used where a {@link RegisteredType} is defined simply with the name of a java class
- * (no YAML etc); and for legacy old-style (c0.7.0) catalog items (defined in catalog.xml only)
- * with structure, only a single type.
+ * (no YAML etc).
  */
 public class JavaCatalogToSpecTransformer implements PlanToSpecTransformer {
     private static final Logger log = LoggerFactory.getLogger(JavaCatalogToSpecTransformer.class);
@@ -76,7 +75,11 @@ public class JavaCatalogToSpecTransformer implements PlanToSpecTransformer {
         @SuppressWarnings("deprecation")
         String javaType = item.getJavaType();
         if (javaType != null) {
-            log.warn("Deprecated functionality (since 0.9.0). Using old-style xml catalog items with java type attribute for " + item);
+            // TODO This log.warn previously said "Using old-style xml catalog items with java type attribute".
+            // However, nothing in this code is specific to catalog.xml. Perhaps that is the only way this code
+            // can be reached? We should investigate further when we have time - if we can confirm it was only
+            // used for catalog.xml, then this can be deleted.
+            log.warn("Deprecated functionality (since 0.9.0). Using old-style java type attribute for " + item);
             Class<?> type;
             try {
                 // java types were deprecated before we added osgi support so this isn't necessary,
