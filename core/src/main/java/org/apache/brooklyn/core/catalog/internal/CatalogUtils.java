@@ -195,8 +195,7 @@ public class CatalogUtils {
                     BrooklynLogging.log(log, BrooklynLogging.levelDebugOrTraceIfReadOnly(entity),
                         "Catalog item addition: "+entity+" from "+entity.getCatalogItemId()+" applying its catalog item ID to "+itemBeingAdded);
                 final BrooklynObjectInternal addInternal = (BrooklynObjectInternal) itemBeingAdded;
-                addInternal.setCatalogItemId(entity.getCatalogItemId());
-                addInternal.setCatalogItemIdSearchPath(entity.getCatalogItemIdSearchPath());
+                addInternal.setCatalogItemIdAndSearchPath(entity.getCatalogItemId(), entity.getCatalogItemIdSearchPath());
             } else {
                 if (!itemBeingAdded.getCatalogItemId().equals(entity.getCatalogItemId())) {
                     // not a problem, but something to watch out for

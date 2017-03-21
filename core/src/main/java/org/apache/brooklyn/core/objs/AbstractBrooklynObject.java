@@ -45,13 +45,6 @@ import org.apache.brooklyn.core.relations.ByObjectBasicRelationSupport;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.text.Identifiers;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 
 public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
 
@@ -215,7 +208,8 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
     }
 
     @Override
-    public void setCatalogItemIdSearchPath(List<String> ids) {
+    public void setCatalogItemIdAndSearchPath(String catalogItemId, List<String> ids) {
+        setCatalogItemId(catalogItemId);
         searchPath.clear();
         searchPath.addAll(ids);
     }

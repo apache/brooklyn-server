@@ -326,8 +326,7 @@ public class ClassLoaderUtilsTest {
                 .build();
         mgmt.getCatalog().addItem(item);
         final EntityInternal entityInternal = (EntityInternal) entity;
-        entityInternal.setCatalogItemId(item.getCatalogItemId());
-        entityInternal.setCatalogItemIdSearchPath(item.getCatalogItemIdSearchPath());
+        entityInternal.setCatalogItemIdAndSearchPath(item.getCatalogItemId(), item.getCatalogItemIdSearchPath());
         return entity;
     }
 

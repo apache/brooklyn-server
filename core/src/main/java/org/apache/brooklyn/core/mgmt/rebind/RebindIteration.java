@@ -956,8 +956,7 @@ public abstract class RebindIteration {
 
         protected void setCatalogItemIds(BrooklynObject object, String catalogItemId, List<String> searchPath) {
             final BrooklynObjectInternal internal = (BrooklynObjectInternal) object;
-            internal.setCatalogItemId(catalogItemId);
-            internal.setCatalogItemIdSearchPath(searchPath);
+            internal.setCatalogItemIdAndSearchPath(catalogItemId, searchPath);
         }
 
 
