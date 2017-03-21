@@ -27,6 +27,8 @@ import java.util.Set;
 
 import com.google.common.collect.ImmutableList;
 
+import org.apache.brooklyn.api.catalog.CatalogItemIdAndSearchPath;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,10 +89,19 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
         }
 
         // TODO this will be overridden if the spec has a catalog item ID
-        // correct behaviour should be to inherit context's search path, perhaps, though maybe that's better done as spec?
-        // in any case, should not define it as _the_ catalog item ID; also see assignment based on parent
-        // in CatalogUtils.setCatalogItemIdOnAddition
-        setCatalogItemId(ApiObjectsFactory.get().getCatalogItemIdFromContext());
+        // current behaviour is to inherit context's id and search path as this item's search path,
+        // though maybe that's better done as spec?
+        // also see assignment based on parent in CatalogUtils.setCatalogItemIdOnAddition
+        final CatalogItemIdAndSearchPath idAndPath = ApiObjectsFactory.get().getCatalogItemIdAndSearchPathFromContext();
+        if (idAndPath != null) {
+            final MutableList<String> searchPath = MutableList.of();
+            final String contextItemId = idAndPath.getCatalogItemId();
+            if (null != contextItemId) {
+                searchPath.add(contextItemId);
+            }
+            searchPath.appendAll(idAndPath.getSearchPath());
+            setCatalogItemIdAndSearchPath(null, searchPath.asImmutableCopy());
+        }
 
         // rely on sub-class to call configure(properties), because otherwise its fields will not have been initialised
     }

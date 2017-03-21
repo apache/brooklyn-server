@@ -90,6 +90,7 @@ import org.apache.brooklyn.core.mgmt.persist.PersistenceActivityMetrics;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl.RebindTracker;
 import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
+import org.apache.brooklyn.api.catalog.CatalogItemIdAndSearchPath;
 import org.apache.brooklyn.core.objs.proxy.InternalEntityFactory;
 import org.apache.brooklyn.core.objs.proxy.InternalFactory;
 import org.apache.brooklyn.core.objs.proxy.InternalLocationFactory;
@@ -785,17 +786,6 @@ public abstract class RebindIteration {
         }
     }
 
-    protected class CatalogItemIdAndSearchPath {
-        private String catalogItemId;
-        private List<String> searchPath;
-
-        public CatalogItemIdAndSearchPath(String catalogItemId, List<String> searchPath) {
-            this.catalogItemId = catalogItemId;
-            this.searchPath = searchPath;
-        }
-        public String getCatalogItemId() { return catalogItemId; }
-        public List<String> getSearchPath() { return searchPath; }
-    }
 
     protected CatalogItemIdAndSearchPath findCatalogItemIds(ClassLoader cl, Map<String,
         EntityMementoManifest> entityIdToManifest, EntityMementoManifest entityManifest) {

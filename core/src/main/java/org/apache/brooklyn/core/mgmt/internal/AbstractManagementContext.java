@@ -131,25 +131,38 @@ public abstract class AbstractManagementContext implements ManagementContextInte
             public BrooklynClassLoadingContext apply(@Nullable Object input) {
                 if (input instanceof EntityInternal) {
                     EntityInternal internal = (EntityInternal)input;
-                    String inputCatalogItemId = internal.getCatalogItemId();
-                    if(inputCatalogItemId != null) {
-                        RegisteredType item = internal.getManagementContext().getTypeRegistry().get(internal.getCatalogItemId());
+                    String entityCatalogItemId = internal.getCatalogItemId();
+                    final List<String> searchPath = internal.getCatalogItemIdSearchPath();
+                    if(entityCatalogItemId != null || !searchPath.isEmpty()) {
 
-                        if (item != null) {
-                            final List<String> searchPath = internal.getCatalogItemIdSearchPath();
-                            final ManagementContext managementContext = internal.getManagementContext();
-                            BrooklynClassLoadingContextSequential seqLoader =
-                                new BrooklynClassLoadingContextSequential(managementContext);
-                            seqLoader.add(newClassLoadingContextForCatalogItems(managementContext, inputCatalogItemId, searchPath));
-                            JavaBrooklynClassLoadingContext entityLoader =
-                                JavaBrooklynClassLoadingContext.create(input.getClass().getClassLoader());
-                            seqLoader.add(entityLoader);
-                            return seqLoader;
-                        } else {
-                            log.error("Can't find catalog item " + internal.getCatalogItemId() +
-                                    " used for instantiating entity " + internal +
-                                    ". Falling back to application classpath.");
+                        final ManagementContext managementContext = internal.getManagementContext();
+                        BrooklynClassLoadingContextSequential seqLoader =
+                            new BrooklynClassLoadingContextSequential(managementContext);
+
+                        // check the items are in the registry; 'newClassLoadingContextForCatalogItems' will
+                        // handle this but here we have better context for log messages
+                        if (entityCatalogItemId != null) {
+                            RegisteredType item = internal.getManagementContext().getTypeRegistry().get(entityCatalogItemId);
+                            if (item == null) {
+                                log.warn("Can't find catalog item " + entityCatalogItemId +
+                                    " declared as catalog item type for entity " + internal);
+                            }
                         }
+                        for (String searchPathId : searchPath) {
+                            RegisteredType item = internal.getManagementContext().getTypeRegistry().get(searchPathId);
+                            if (item == null) {
+                                log.warn("Can't find catalog item " + searchPathId +
+                                    " found on search path for entity" + internal);
+                            }
+                        }
+
+                        seqLoader.add(newClassLoadingContextForCatalogItems(managementContext, entityCatalogItemId, searchPath));
+
+                        JavaBrooklynClassLoadingContext entityLoader =
+                            JavaBrooklynClassLoadingContext.create(input.getClass().getClassLoader());
+                        seqLoader.add(entityLoader);
+
+                        return seqLoader;
                     }
                     return apply(internal.getManagementSupport());
                 }

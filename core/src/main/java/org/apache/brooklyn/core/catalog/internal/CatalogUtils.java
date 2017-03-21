@@ -33,7 +33,6 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog.BrooklynLoaderTracker;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
@@ -46,6 +45,7 @@ import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Time;
@@ -144,9 +144,23 @@ public class CatalogUtils {
         ManagementContext managementContext, String catalogItemId, List<String> searchPath) {
 
         BrooklynClassLoadingContextSequential seqLoader = new BrooklynClassLoadingContextSequential(managementContext);
-        addCatalogItemContext(managementContext, seqLoader, catalogItemId);
+        if (catalogItemId != null) {
+            RegisteredType item = managementContext.getTypeRegistry().get(catalogItemId);
+            if (item != null) {
+                BrooklynClassLoadingContext itemLoader = newClassLoadingContext(managementContext, item);
+                seqLoader.add(itemLoader);
+            } else {
+                log.warn("Can't find catalog item " + catalogItemId + " in registry to construct classloading context");
+            }
+        }
         for (String searchId : searchPath) {
-            addCatalogItemContext(managementContext, seqLoader, searchId);
+            RegisteredType item = managementContext.getTypeRegistry().get(searchId);
+            if (item != null) {
+                BrooklynClassLoadingContext itemLoader = newClassLoadingContext(managementContext, item);
+                seqLoader.add(itemLoader);
+            } else {
+                log.warn("Can't find catalog item " + searchId + " from search path for catalogItemId " + catalogItemId);
+            }
         }
         return seqLoader;
     }
@@ -187,26 +201,23 @@ public class CatalogUtils {
         }
     }
 
-    // TODO should be addToCatalogSearchPathOnAddition
+    /**
+     * @deprecated since 0.11.0, prefer addToCatalogSearchPathOnAddition
+     */
     public static void setCatalogItemIdOnAddition(Entity entity, BrooklynObject itemBeingAdded) {
-        if (entity.getCatalogItemId()!=null) {
-            if (itemBeingAdded.getCatalogItemId()==null) {
-                if (log.isDebugEnabled())
-                    BrooklynLogging.log(log, BrooklynLogging.levelDebugOrTraceIfReadOnly(entity),
-                        "Catalog item addition: "+entity+" from "+entity.getCatalogItemId()+" applying its catalog item ID to "+itemBeingAdded);
-                final BrooklynObjectInternal addInternal = (BrooklynObjectInternal) itemBeingAdded;
-                addInternal.setCatalogItemIdAndSearchPath(entity.getCatalogItemId(), entity.getCatalogItemIdSearchPath());
-            } else {
-                if (!itemBeingAdded.getCatalogItemId().equals(entity.getCatalogItemId())) {
-                    // not a problem, but something to watch out for
-                    log.debug("Cross-catalog item detected: "+entity+" from "+entity.getCatalogItemId()+" has "+itemBeingAdded+" from "+itemBeingAdded.getCatalogItemId());
-                }
-            }
-        } else if (itemBeingAdded.getCatalogItemId()!=null) {
-            if (log.isDebugEnabled())
-                BrooklynLogging.log(log, BrooklynLogging.levelDebugOrTraceIfReadOnly(entity),
-                    "Catalog item addition: "+entity+" without catalog item ID has "+itemBeingAdded+" from "+itemBeingAdded.getCatalogItemId());
+        addToCatalogSearchPathOnAddition(entity, itemBeingAdded);
+    }
+
+    public static void addToCatalogSearchPathOnAddition(Entity entity, BrooklynObject itemBeingAdded) {
+        final MutableList<String> additionSearchPath = MutableList.of();
+        additionSearchPath.appendAll(itemBeingAdded.getCatalogItemIdSearchPath());
+        final String entityItemId = entity.getCatalogItemId();
+        if (entityItemId != null && !additionSearchPath.contains(entityItemId)) {
+            additionSearchPath.append(entityItemId);
         }
+        additionSearchPath.appendAll(entity.getCatalogItemIdSearchPath());
+        final BrooklynObjectInternal addInternal = (BrooklynObjectInternal) itemBeingAdded;
+        addInternal.setCatalogItemIdAndSearchPath(itemBeingAdded.getCatalogItemId(), additionSearchPath.asImmutableCopy());
     }
 
     @Beta
@@ -336,15 +347,4 @@ public class CatalogUtils {
         mgmt.getCatalog().persist(item);
     }
 
-    private static void addCatalogItemContext(ManagementContext managementContext, BrooklynClassLoadingContextSequential loader, String catalogItemId) {
-        RegisteredType item = managementContext.getTypeRegistry().get(catalogItemId);
-
-        if (item != null) {
-            BrooklynClassLoadingContext itemLoader = newClassLoadingContext(managementContext, item);
-            loader.add(itemLoader);
-        } else {
-            // TODO review what to do here
-            log.warn("Can't find catalog item " + catalogItemId);
-        }
-    }
 }

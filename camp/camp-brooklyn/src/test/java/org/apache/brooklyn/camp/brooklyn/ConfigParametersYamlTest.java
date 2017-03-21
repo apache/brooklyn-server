@@ -843,10 +843,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         Assert.assertEquals(entity2.getEntityType().getConfigKeys(), entity1.getEntityType().getConfigKeys());
         Assert.assertEquals(entity1.getCatalogItemId(), "test-entity:0.0.0.SNAPSHOT");
         
-        // TODO currently the child has item ID set from CatalogUtils.setCatalogItemIdOnAddition
-        // that should set a search path instead of setting the actual item
-        // (ideally we'd assert null here)
-        Assert.assertEquals(entity2.getCatalogItemId(), "test-entity:0.0.0.SNAPSHOT");
+        Assert.assertNull(entity2.getCatalogItemId(), "child added with no catalogItemId should not have had it set");
     }
     
 
@@ -885,7 +882,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         // TODO currently the child has item ID set from context in constructor of AbstractBrooklynObject;
         // that should set a search path instead of setting the actual item
         // (ideally we'd assert null here)
-        Assert.assertEquals(entity2.getCatalogItemId(), "test-entity:0.0.0.SNAPSHOT");
+        Assert.assertNull(entity2.getCatalogItemId(), "Child 'entity2' added in task should have no catalogItemId");
     }
     
     @Test

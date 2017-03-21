@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.internal;
 
+import org.apache.brooklyn.api.catalog.CatalogItemIdAndSearchPath;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.internal.ApiObjectsFactoryInterface;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -26,16 +27,30 @@ import org.apache.brooklyn.util.core.task.Tasks;
 
 public class ApiObjectsFactoryImpl implements ApiObjectsFactoryInterface {
 
-    @Override
-    public String getCatalogItemIdFromContext() {
+    private Entity getContextEntity() {
         Task<?> currentTask = Tasks.current();
         if (currentTask != null) {
-            Entity contextEntity = BrooklynTaskTags.getContextEntity(currentTask);
-            if (contextEntity != null) {
-                return contextEntity.getCatalogItemId();
-            }
+            return BrooklynTaskTags.getContextEntity(currentTask);
         }
         return null;
     }
 
+    @Override
+    public String getCatalogItemIdFromContext() {
+        final Entity contextEntity = getContextEntity();
+        if (contextEntity != null) {
+            return contextEntity.getCatalogItemId();
+        }
+        return null;
+    }
+
+    @Override
+    public CatalogItemIdAndSearchPath getCatalogItemIdAndSearchPathFromContext() {
+        final Entity contextEntity = getContextEntity();
+        if (contextEntity != null) {
+            return new CatalogItemIdAndSearchPath(contextEntity.getCatalogItemId(),
+                contextEntity.getCatalogItemIdSearchPath());
+        }
+        return null;
+    }
 }
