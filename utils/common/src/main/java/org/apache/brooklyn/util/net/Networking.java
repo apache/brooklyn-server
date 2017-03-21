@@ -406,7 +406,7 @@ public class Networking {
     
     /**
      * Gets an InetAddress using the given hostname or IP. If it is an IPv4 address, then this is equivalent
-     * to {@link getInetAddressWithFixedName(byte[])}. If it is a hostname, then this hostname will be used
+     * to {@link #getInetAddressWithFixedName(byte[])}. If it is a hostname, then this hostname will be used
      * in the returned InetAddress.
      */
     public static InetAddress getInetAddressWithFixedName(String hostnameOrIp) {
