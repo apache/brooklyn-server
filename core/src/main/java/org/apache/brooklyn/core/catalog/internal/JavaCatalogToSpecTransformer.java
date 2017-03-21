@@ -103,7 +103,7 @@ public class JavaCatalogToSpecTransformer implements PlanToSpecTransformer {
             } else {
                 throw new IllegalStateException("Catalog item " + item + " java type " + javaType + " is not a Brooklyn supported object.");
             }
-            spec.catalogItemId(item.getCatalogItemId());
+            spec.catalogItemIdAndSearchPath(item.getCatalogItemId(), item.getCatalogItemIdSearchPath());
             @SuppressWarnings("unchecked")
             SpecT untypedSpc = (SpecT) spec;
             return untypedSpc;
