@@ -103,17 +103,19 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
     }
 
     /**
-     * Set the catalog item ID that defined this object, also used for searching for type and resources referenced
+     * Set the catalog item ID that defined this object;
      * since https://issues.apache.org/jira/browse/BROOKLYN-445 this must no longer be used to indicate
      * a caller-context catalog item that should be used for search purposes;
-     * if that behaviour is desired, the child should be refactored to be its own item in the catalog BOM
-     * (or TODO we add a separate field to record other catalog item IDs that could be applied for searching, see below)
+     * instead use {@link #catalogItemIdAndSearchPath}.
      */
     public SpecT catalogItemId(String val) {
         catalogItemId = val;
         return self();
     }
 
+    /**
+     * Set the immediate catalog item ID of this object, and the search path of other catalog items used to define it.
+     */
     public synchronized SpecT catalogItemIdAndSearchPath(String catalogItemId, Collection<String> searchPath) {
         if (catalogItemId != null) {
             catalogItemId(catalogItemId);
