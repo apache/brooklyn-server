@@ -314,21 +314,21 @@ public class WinRmMachineLocation extends AbstractLocation implements MachineLoc
         try {
             ConfigBag args = new ConfigBag();
 
-            for (Map.Entry<String,Object> entry: config().getBag().getAllConfig().entrySet()) {
+            for (Map.Entry<ConfigKey<?>, ?> entry: config().getBag().getAllConfigAsConfigKeyMap().entrySet()) {
     
                 boolean include = false;
-                String key = entry.getKey();
-                if (key.startsWith(WinRmTool.BROOKLYN_CONFIG_KEY_PREFIX)) {
-                    key = Strings.removeFromStart(key, WinRmTool.BROOKLYN_CONFIG_KEY_PREFIX);
+                String keyName = entry.getKey().getName();
+                if (keyName.startsWith(WinRmTool.BROOKLYN_CONFIG_KEY_PREFIX)) {
+                    keyName = Strings.removeFromStart(keyName, WinRmTool.BROOKLYN_CONFIG_KEY_PREFIX);
                     include = true;
                 }
                 
-                if (key.startsWith(WINRM_TOOL_CLASS_PROPERTIES_PREFIX)) {
-                    key = Strings.removeFromStart(key, WINRM_TOOL_CLASS_PROPERTIES_PREFIX);
+                if (keyName.startsWith(WINRM_TOOL_CLASS_PROPERTIES_PREFIX)) {
+                    keyName = Strings.removeFromStart(keyName, WINRM_TOOL_CLASS_PROPERTIES_PREFIX);
                     include = true;
                 }
                 
-                if (ALL_WINRM_CONFIG_KEY_NAMES.contains(entry.getKey())) {
+                if (ALL_WINRM_CONFIG_KEY_NAMES.contains(keyName)) {
                     // key should be included, and does not need to be changed
     
                     // TODO make this config-setting mechanism more universal
@@ -338,10 +338,9 @@ public class WinRmMachineLocation extends AbstractLocation implements MachineLoc
                     // (require use of BROOKLYN_CONFIG_KEY_PREFIX)
                     include = true;
                 }
-                
-    
+
                 if (include) {
-                    args.putStringKey(key, entry.getValue());
+                    args.putStringKey(keyName, config().get(entry.getKey()));
                 }
             }
             
