@@ -54,31 +54,31 @@ import com.google.common.base.Preconditions;
  * are only those supplied by a user at runtime; in order to merge with default
  * values, use {@link #getMergedParams(Effector, ConfigBag)}.
  *  
- * @since 0.7.0 */
-@Beta
+ * @since 0.7.0
+ */
 public class AddEffector implements EntityInitializer {
-    
+
     public static final ConfigKey<String> EFFECTOR_NAME = ConfigKeys.newStringConfigKey("name");
     public static final ConfigKey<String> EFFECTOR_DESCRIPTION = ConfigKeys.newStringConfigKey("description");
-    
+
     public static final ConfigKey<Map<String,Object>> EFFECTOR_PARAMETER_DEFS = new MapConfigKey<Object>(Object.class, "parameters");
 
-    final Effector<?> effector;
-    
+    protected final Effector<?> effector;
+
     public AddEffector(Effector<?> effector) {
         this.effector = Preconditions.checkNotNull(effector, "effector");
     }
-    
+
     @Override
     public void apply(EntityLocal entity) {
         ((EntityInternal)entity).getMutableEntityType().addEffector(effector);
     }
-    
+
     public static <T> EffectorBuilder<T> newEffectorBuilder(Class<T> type, ConfigBag params) {
         String name = Preconditions.checkNotNull(params.get(EFFECTOR_NAME), "name must be supplied when defining an effector: %s", params);
         EffectorBuilder<T> eff = Effectors.effector(type, name);
         eff.description(params.get(EFFECTOR_DESCRIPTION));
-        
+
         Map<String, Object> paramDefs = params.get(EFFECTOR_PARAMETER_DEFS);
         if (paramDefs!=null) {
             for (Map.Entry<String, Object> paramDef: paramDefs.entrySet()){
@@ -97,7 +97,7 @@ public class AddEffector implements EntityInitializer {
                 }
             }
         }
-        
+
         return eff;
     }
 
