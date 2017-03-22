@@ -115,6 +115,7 @@ public abstract class AbstractJcloudsStubYamlTest extends AbstractJcloudsStubbed
                 "    brooklyn.config:",
                 "      identity: myidentity",
                 "      credential: mycredential",
+                "      lookupAwsHostname: false",
                 "      jclouds.computeServiceRegistry:",
                 "        $brooklyn:object:",
                 "          type: " + ByonComputeServiceStaticRef.class.getName(),
