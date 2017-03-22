@@ -19,6 +19,7 @@
 
 package org.apache.brooklyn.core.mgmt.internal;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import java.util.List;
@@ -79,6 +80,30 @@ public class LocalUsageManagerTest extends BrooklynAppUnitTestSupport {
         assertUsageListenerCalledWhenApplicationStarted();
     }
 
+    @Test
+    public void testAddMultipleUsageListenersViaProperties() throws Exception {
+        BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
+        brooklynProperties.put(UsageManager.USAGE_LISTENERS, RecordingStaticUsageListener.class.getName() + "," + RecordingStaticUsageListener.class.getName());
+        replaceManagementContext(LocalManagementContextForTests.newInstance(brooklynProperties));
+        
+        final List<RecordingStaticUsageListener> listeners = RecordingStaticUsageListener.getInstances();
+        assertEquals(listeners.size(), 2);
+        assertTrue(listeners.get(0) instanceof RecordingStaticUsageListener, "listeners="+listeners);
+        assertTrue(listeners.get(1) instanceof RecordingStaticUsageListener, "listeners="+listeners);
+        
+        app = TestApplication.Factory.newManagedInstanceForTests(mgmt);
+
+        Asserts.succeedsEventually(new Runnable() {
+            @Override public void run() {
+                assertHasAppEvents(listeners.get(0));
+                assertHasAppEvents(listeners.get(1));
+            }
+            private void assertHasAppEvents(RecordingStaticUsageListener listener) {
+                List<List<?>> events = listener.getApplicationEvents();
+                assertTrue(listeners.get(0).getApplicationEvents().size() > 0, "events="+events); // expect some events
+            }});
+    }
+
     @Test(expectedExceptions = ClassCastException.class)
     public void testErrorWhenConfiguredClassIsNotAUsageListener() {
         BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
@@ -102,6 +127,14 @@ public class LocalUsageManagerTest extends BrooklynAppUnitTestSupport {
 
         public static RecordingStaticUsageListener getInstance() {
             return Iterables.getOnlyElement(STATIC_INSTANCES);
+        }
+
+        public static RecordingStaticUsageListener getLastInstance() {
+            return Iterables.getLast(STATIC_INSTANCES);
+        }
+        
+        public static List<RecordingStaticUsageListener> getInstances() {
+            return ImmutableList.copyOf(STATIC_INSTANCES);
         }
 
         public static void clearInstances() {
