@@ -136,6 +136,14 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
         ServiceStateLogic.ServiceNotUpLogic.updateNotUpIndicator(this, Attributes.SERVICE_STATE_ACTUAL, "Application created but not yet started, at "+Time.makeDateString());
     }
 
+    @Override
+    public void onManagementStarted() {
+        super.onManagementStarted();
+        if (!isRebinding()) {
+            recordApplicationEvent(Lifecycle.CREATED);
+        }
+    }
+
     /**
      * Default start will start all Startable children (child.start(Collection<? extends Location>)),
      * calling preStart(locations) first and postStart(locations) afterwards.
