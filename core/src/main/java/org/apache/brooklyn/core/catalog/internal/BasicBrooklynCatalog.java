@@ -57,11 +57,13 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.AggregateClassLoader;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.LoadedClassLoader;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.brooklyn.util.yaml.Yamls.YamlExtract;
+import org.osgi.framework.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
@@ -407,7 +409,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
     
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    private Maybe<Map<?,?>> getFirstAsMap(Map<?,?> map, String firstKey, String ...otherKeys) {
+    private static Maybe<Map<?,?>> getFirstAsMap(Map<?,?> map, String firstKey, String ...otherKeys) {
         return (Maybe) getFirstAs(map, Map.class, firstKey, otherKeys);
     }
 
@@ -415,6 +417,53 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         List<CatalogItemDtoAbstract<?, ?>> result = MutableList.of();
         collectCatalogItems(yaml, result, ImmutableMap.of());
         return result;
+    }
+
+    public static Map<?,?> getCatalogMetadata(String yaml) {
+        Map<?,?> itemDef = Yamls.getAs(Yamls.parseAll(yaml), Map.class);
+        return getFirstAsMap(itemDef, "brooklyn.catalog").orNull();        
+    }
+    
+    public static VersionedName getVersionedName(Map<?,?> catalogMetadata) {
+        String id = getFirstAs(catalogMetadata, String.class, "id").orNull();
+        String version = getFirstAs(catalogMetadata, String.class, "version").orNull();
+        String symbolicName = getFirstAs(catalogMetadata, String.class, "symbolicName").orNull();
+        symbolicName = findAssertingConsistentIfSet("symbolicName", symbolicName, getFirstAs(catalogMetadata, String.class, "symbolic-name").orNull());
+        // prefer symbolic name and version, if supplied
+        // else use id as symbolic name : version or just symbolic name
+        // (must match if both supplied)
+        if (Strings.isNonBlank(id)) {
+            if (CatalogUtils.looksLikeVersionedId(id)) {
+                symbolicName = findAssertingConsistentIfSet("symbolicName", symbolicName, CatalogUtils.getSymbolicNameFromVersionedId(id));
+                version = findAssertingConsistentIfSet("version", version, CatalogUtils.getVersionFromVersionedId(id));
+            } else {
+                symbolicName = findAssertingConsistentIfSet("symbolicName", symbolicName, id);
+            }
+        }
+        if (Strings.isBlank(symbolicName) && Strings.isBlank(version)) {
+            throw new IllegalStateException("Catalog BOM must define symbolicName and version");
+        }
+        if (Strings.isBlank(symbolicName)) {
+            throw new IllegalStateException("Catalog BOM must define symbolicName");
+        }
+        if (Strings.isBlank(version)) {
+            throw new IllegalStateException("Catalog BOM must define version");
+        }
+        return new VersionedName(symbolicName, Version.valueOf(version));
+    }
+    
+    private static String findAssertingConsistentIfSet(String context, String ...values) {
+        String v = null;
+        for (String vi: values) {
+            if (Strings.isNonBlank(vi)) {
+                if (Strings.isNonBlank(v)) {
+                    if (!v.equals(vi)) throw new IllegalStateException("Mismatch in "+context+": '"+v+"' or '"+vi+"' supplied");
+                } else {
+                    v = vi;
+                }
+            }
+        }
+        return v;
     }
 
     private void collectCatalogItems(String yaml, List<CatalogItemDtoAbstract<?, ?>> result, Map<?, ?> parentMeta) {

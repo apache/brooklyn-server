@@ -111,9 +111,6 @@ public interface ApplicationApi {
                     required = true)
             String yaml);
 
-    // TODO archives
-//    @Consumes({"application/x-tar", "application/x-tgz", "application/x-zip"})
-
     @POST
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})
     @ApiOperation(
