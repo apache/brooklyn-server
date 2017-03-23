@@ -71,13 +71,13 @@ public interface CatalogApi {
     @ApiOperation(value = "Add items to the catalog, either YAML or JAR/ZIP, format autodetected. "
             + "Specify a content-type header to skip auto-detection and invoke one of the more specific methods. "
             + "Return value is 201 CREATED if bundle could be added.", response = String.class)
-    public Response createPoly(
+    public Response createFromUpload(
             @ApiParam(
                     name = "item",
                     value = "Item to install, as JAR/ZIP or Catalog YAML (autodetected)",
                     required = true)
             byte[] item);
-    
+
     @POST
     @Beta
     @Consumes({"application/x-zip", "application/x-jar"})
