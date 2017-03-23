@@ -27,6 +27,8 @@ import java.awt.Toolkit;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -34,15 +36,23 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.Configurable;
+import org.apache.brooklyn.api.objs.Identifiable;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
+import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy;
@@ -57,9 +67,12 @@ import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.entity.ContentType;
+import org.apache.http.util.EntityUtils;
 import org.eclipse.jetty.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,6 +81,8 @@ import org.testng.annotations.Test;
 import org.testng.reporters.Files;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 @Test( // by using a different suite name we disallow interleaving other tests between the methods of this test class, which wrecks the test fixtures
@@ -495,7 +510,152 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         //equivalent to HTTP response 404 text/html
         addAddCatalogItemWithInvalidBundleUrl("classpath://missing-jar-file.txt");
     }
-    
+
+    @Test
+    public void testInvalidArchive() throws Exception {
+        File f = Os.newTempFile("osgi", "zip");
+
+        Response response = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .post(Streams.readFully(new FileInputStream(f)));
+
+        assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
+        assertTrue(response.readEntity(String.class).contains("Invalid ZIP/JAR archive"));
+    }
+
+    @Test
+    public void testArchiveWithoutBom() throws Exception {
+        File f = createZip(ImmutableMap.<String, String>of());
+
+        Response response = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .post(Streams.readFully(new FileInputStream(f)));
+
+        assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
+        assertTrue(response.readEntity(String.class).contains("Archive must contain a catalog.bom file in the root"));
+    }
+
+    @Test
+    public void testArchiveWithoutBundleAndVersion() throws Exception {
+        File f = createZip(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  name: My Catalog App",
+                "  description: My description",
+                "  icon_url: classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif",
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity")));
+
+        Response response = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .post(Streams.readFully(new FileInputStream(f)));
+
+        assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
+        assertTrue(response.readEntity(String.class).contains("Catalog BOM must define bundle and version"));
+    }
+
+    @Test
+    public void testArchiveWithoutBundle() throws Exception {
+        File f = createZip(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  version: 0.1.0",
+                "  itemType: entity",
+                "  name: My Catalog App",
+                "  description: My description",
+                "  icon_url: classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif",
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity")));
+
+        Response response = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .post(Streams.readFully(new FileInputStream(f)));
+
+        assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
+        assertTrue(response.readEntity(String.class).contains("Catalog BOM must define bundle"));
+    }
+
+    @Test
+    public void testArchiveWithoutVersion() throws Exception {
+        File f = createZip(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  bundle: org.apache.brooklyn.test",
+                "  itemType: entity",
+                "  name: My Catalog App",
+                "  description: My description",
+                "  icon_url: classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif",
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity")));
+
+        Response response = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .post(Streams.readFully(new FileInputStream(f)));
+
+        assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
+        assertTrue(response.readEntity(String.class).contains("Catalog BOM must define version"));
+    }
+
+    @Test
+    public void testJarWithoutMatchingBundle() throws Exception {
+        String name = "My Catalog App";
+        String bundle = "org.apache.brooklyn.test";
+        String version = "0.1.0";
+        File f = createJar(ImmutableMap.<String, String>of(
+                "catalog.bom", Joiner.on("\n").join(
+                        "brooklyn.catalog:",
+                        "  bundle: " + bundle,
+                        "  version: " + version,
+                        "  itemType: entity",
+                        "  name: " + name,
+                        "  description: My description",
+                        "  icon_url: classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif",
+                        "  item:",
+                        "    type: org.apache.brooklyn.core.test.entity.TestEntity"),
+                "META-INF/MANIFEST.MF", Joiner.on("\n").join(
+                        "Manifest-Version: 1.0",
+                        "Bundle-Name: " + name,
+                        "Bundle-SymbolicName: org.apache.brooklyn.test2",
+                        "Bundle-Version: " + version,
+                        "Bundle-ManifestVersion: " + version)));
+
+        Response response = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
+                .post(Streams.readFully(new FileInputStream(f)));
+
+        assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
+        assertTrue(response.readEntity(String.class).contains("JAR MANIFEST symbolic-name 'org.apache.brooklyn.test2' does not match '"+bundle+"' defined in BOM"));
+    }
+
+    @Test
+    public void testJarWithoutMatchingVersion() throws Exception {
+        String name = "My Catalog App";
+        String bundle = "org.apache.brooklyn.test";
+        String version = "0.1.0";
+        File f = createJar(ImmutableMap.<String, String>of(
+                "catalog.bom", Joiner.on("\n").join(
+                        "brooklyn.catalog:",
+                        "  bundle: " + bundle,
+                        "  version: " + version,
+                        "  itemType: entity",
+                        "  name: " + name,
+                        "  description: My description",
+                        "  icon_url: classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif",
+                        "  item:",
+                        "    type: org.apache.brooklyn.core.test.entity.TestEntity"),
+                "META-INF/MANIFEST.MF", Joiner.on("\n").join(
+                        "Manifest-Version: 1.0",
+                        "Bundle-Name: " + name,
+                        "Bundle-SymbolicName: " + bundle,
+                        "Bundle-Version: 0.3.0",
+                        "Bundle-ManifestVersion: 0.3.0")));
+
+        Response response = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
+                .post(Streams.readFully(new FileInputStream(f)));
+
+        assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
+        assertTrue(response.readEntity(String.class).contains("JAR MANIFEST version '0.3.0' does not match '"+version+"' defined in BOM"));
+    }
+
     @Test
     public void testOsgiBundleWithBom() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
@@ -508,8 +668,9 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         
         String bom = Joiner.on("\n").join(
                 "brooklyn.catalog:",
-                "  id: " + symbolicName,
+                "  bundle: " + symbolicName,
                 "  version: " + version,
+                "  id: " + symbolicName,
                 "  itemType: entity",
                 "  name: My Catalog App",
                 "  description: My description",
@@ -520,7 +681,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         f = bm.copyAdding(f, MutableMap.of(new ZipEntry("catalog.bom"), (InputStream) new ByteArrayInputStream(bom.getBytes())));
 
         Response response = client().path("/catalog")
-                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
                 .post(Streams.readFully(new FileInputStream(f)));
 
         
@@ -569,6 +730,94 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         assertEquals(iconData.length, 43);
     }
 
+    @Test
+    public void testOsgiBundleWithBomNotInBrooklynNamespace() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH);
+        final String symbolicName = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_SYMBOLIC_NAME_FULL;
+        final String version = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_VERSION;
+        final String bundleUrl = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_URL;
+        final String entityType = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ENTITY;
+        final String iconPath = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ICON_PATH;
+        BundleMaker bm = new BundleMaker(manager);
+        File f = Os.newTempFile("osgi", "jar");
+        Files.copyFile(ResourceUtils.create(this).getResourceFromUrl(bundleUrl), f);
+
+        String bom = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  bundle: " + symbolicName,
+                "  version: " + version,
+                "  id: " + symbolicName,
+                "  itemType: entity",
+                "  name: My Catalog App",
+                "  description: My description",
+                "  icon_url: classpath:" + iconPath,
+                "  item:",
+                "    type: " + entityType);
+
+        f = bm.copyAdding(f, MutableMap.of(new ZipEntry("catalog.bom"), (InputStream) new ByteArrayInputStream(bom.getBytes())));
+
+        Response response = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .post(Streams.readFully(new FileInputStream(f)));
+
+
+        assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
+
+        CatalogEntitySummary entityItem = client().path("/catalog/entities/"+symbolicName + "/" + version)
+                .get(CatalogEntitySummary.class);
+
+        Assert.assertNotNull(entityItem.getPlanYaml());
+        Assert.assertTrue(entityItem.getPlanYaml().contains(entityType));
+
+        assertEquals(entityItem.getId(), CatalogUtils.getVersionedId(symbolicName, version));
+        assertEquals(entityItem.getSymbolicName(), symbolicName);
+        assertEquals(entityItem.getVersion(), version);
+
+        // and internally let's check we have libraries
+        RegisteredType item = getManagementContext().getTypeRegistry().get(symbolicName, version);
+        Assert.assertNotNull(item);
+        Collection<OsgiBundleWithUrl> libs = item.getLibraries();
+        assertEquals(libs.size(), 1);
+        OsgiBundleWithUrl lib = Iterables.getOnlyElement(libs);
+        Assert.assertNull(lib.getUrl());
+
+        assertEquals(lib.getSymbolicName(), symbolicName);
+        assertEquals(lib.getVersion(), version);
+
+        // now let's check other things on the item
+        URI expectedIconUrl = URI.create(getEndpointAddress() + "/catalog/icon/" + symbolicName + "/" + entityItem.getVersion()).normalize();
+        assertEquals(entityItem.getName(), "My Catalog App");
+        assertEquals(entityItem.getDescription(), "My description");
+        assertEquals(entityItem.getIconUrl(), expectedIconUrl.getPath());
+        assertEquals(item.getIconUrl(), "classpath:" + iconPath);
+
+        // an InterfacesTag should be created for every catalog item
+        assertEquals(entityItem.getTags().size(), 1);
+        Object tag = entityItem.getTags().iterator().next();
+        @SuppressWarnings("unchecked")
+        List<String> actualInterfaces = ((Map<String, List<String>>) tag).get("traits");
+        List<String> expectedInterfaces = ImmutableList.of(Entity.class.getName(), BrooklynObject.class.getName(), Identifiable.class.getName(), Configurable.class.getName());
+        assertTrue(actualInterfaces.containsAll(expectedInterfaces), "actual="+actualInterfaces);
+
+        byte[] iconData = client().path("/catalog/icon/" + symbolicName + "/" + version).get(byte[].class);
+        assertEquals(iconData.length, 43);
+
+        // Check that the catalog item is useable (i.e. can deploy the entity)
+        String appYaml = Joiner.on("\n").join(
+                "services:",
+                "- type: " + symbolicName + ":" + version,
+                "  name: myEntityName");
+
+        Response appResponse = client().path("/applications")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-yaml")
+                .post(appYaml);
+
+        assertEquals(appResponse.getStatus(), Response.Status.CREATED.getStatusCode());
+
+        Entity entity = Iterables.tryFind(getManagementContext().getEntityManager().getEntities(), EntityPredicates.displayNameEqualTo("myEntityName")).get();
+        assertEquals(entity.getEntityType().getName(), entityType);
+    }
+
     private void addAddCatalogItemWithInvalidBundleUrl(String bundleUrl) {
         String symbolicName = "my.catalog.entity.id";
         String yaml = Joiner.on("\n").join(
@@ -592,5 +841,41 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
 
     private static String ver(String id) {
         return CatalogUtils.getVersionedId(id, TEST_VERSION);
+    }
+
+    private static File createZip(Map<String, String> files) throws Exception {
+        File f = Os.newTempFile("osgi", "zip");
+
+        ZipOutputStream zip = new ZipOutputStream(new FileOutputStream(f));
+
+        for (Map.Entry<String, String> entry : files.entrySet()) {
+            ZipEntry ze = new ZipEntry(entry.getKey());
+            zip.putNextEntry(ze);
+            zip.write(entry.getValue().getBytes());
+        }
+
+        zip.closeEntry();
+        zip.flush();
+        zip.close();
+
+        return f;
+    }
+
+    private static File createJar(Map<String, String> files) throws Exception {
+        File f = Os.newTempFile("osgi", "jar");
+
+        JarOutputStream zip = new JarOutputStream(new FileOutputStream(f));
+
+        for (Map.Entry<String, String> entry : files.entrySet()) {
+            JarEntry ze = new JarEntry(entry.getKey());
+            zip.putNextEntry(ze);
+            zip.write(entry.getValue().getBytes());
+        }
+
+        zip.closeEntry();
+        zip.flush();
+        zip.close();
+
+        return f;
     }
 }
