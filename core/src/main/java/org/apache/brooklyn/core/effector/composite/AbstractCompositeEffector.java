@@ -23,10 +23,8 @@ import java.util.Set;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.core.effector.AddEffector;
 import org.apache.brooklyn.core.effector.EffectorBody;
-import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
@@ -43,16 +41,6 @@ public abstract class AbstractCompositeEffector extends AddEffector {
 
     public AbstractCompositeEffector(Effector<?> effector) {
         super(effector);
-    }
-
-    @Override
-    public void apply(EntityLocal entity) {
-        Maybe<Effector<?>> effectorMaybe = entity.getEntityType().getEffectorByName(effector.getName());
-        if (!effectorMaybe.isAbsentOrNull()) {
-//            Effector<?> original = Effectors.effector(effectorMaybe.get()).name(ORIGINAL_PREFIX + effector.getName()).build();
-//            ((EntityInternal) entity).getMutableEntityType().addEffector(original);
-        }
-        super.apply(entity);
     }
 
     protected static abstract class Body<T> extends EffectorBody<T> {
