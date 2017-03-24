@@ -23,9 +23,13 @@ import static org.testng.Assert.assertEquals;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.effector.http.HttpCommandEffector;
+import org.apache.brooklyn.core.effector.http.HttpCommandEffectorHttpBinTest;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
+import org.apache.brooklyn.test.http.TestHttpServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableMap;
@@ -34,7 +38,26 @@ import com.google.common.collect.Iterables;
 public class HttpCommandEffectorYamlTest extends AbstractYamlTest {
     private static final Logger log = LoggerFactory.getLogger(HttpCommandEffectorYamlTest.class);
 
-    @Test(groups="Integration")
+    private TestHttpServer server;
+    private String serverUrl;
+
+    @Override
+    @BeforeMethod(alwaysRun = true)
+    public void setUp() throws Exception {
+        super.setUp();
+        server = HttpCommandEffectorHttpBinTest.createHttpBinServer();
+        serverUrl = server.getUrl();
+    }
+
+    @Override
+    @AfterMethod(alwaysRun = true)
+    public void tearDown() throws Exception {
+        super.tearDown();
+        server.stop();
+    }
+
+
+    @Test
     public void testHttpCommandEffectorWithParameters() throws Exception {
         Entity app = createAndStartApplication(
             "location: localhost",
@@ -48,7 +71,7 @@ public class HttpCommandEffectorYamlTest extends AbstractYamlTest {
             "    brooklyn.config:",
             "      name: myEffector",
             "      description: myDescription",
-            "      uri: http://httpbin.org/get?id=myId",
+            "      uri: " + serverUrl + "/get?id=myId",
             "      httpVerb: GET",
             "      jsonPath: $.args.id",
             "      publishSensor: results"
@@ -60,7 +83,7 @@ public class HttpCommandEffectorYamlTest extends AbstractYamlTest {
 
         // Invoke with parameters
         {
-            Object result = entity.invoke(effector, ImmutableMap.of("uri", "http://httpbin.org/get?pwd=passwd", "jsonPath", "$.args.pwd")).get();
+            Object result = entity.invoke(effector, ImmutableMap.of("uri", serverUrl + "/get?pwd=passwd", "jsonPath", "$.args.pwd")).get();
             assertEquals(((String)result).trim(), "passwd");
 
         }
