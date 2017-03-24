@@ -194,6 +194,26 @@ public class CollectionFunctionals {
         }
     }
 
+    public static final class IterableTransformerFunction<T, U> implements Function<Iterable<T>, Iterable<U>> {
+        private final Function<T, U> function;
+
+        private IterableTransformerFunction(Function<T, U> function) {
+            this.function = function;
+        }
+
+        @Override
+        public Iterable<U> apply(Iterable<T> input) {
+            if (input==null) return null;
+            return Iterables.transform(input, function);
+        }
+
+        @Override public String toString() { return "iterableTransformer"; }
+    }
+
+    public static <T,U> Function<Iterable<T>, Iterable<U>> iterableTransformer(Function<T, U> function) {
+        return new IterableTransformerFunction(function);
+    }
+
     // ---------
     public static <I,T extends Collection<I>> Predicate<T> contains(I item) {
         return new CollectionContains<I,T>(item);
