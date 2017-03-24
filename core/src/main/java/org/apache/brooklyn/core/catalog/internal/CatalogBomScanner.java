@@ -20,15 +20,19 @@ package org.apache.brooklyn.core.catalog.internal;
 
 import java.util.List;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 
 /** Scans bundles being added, filtered by a whitelist and blacklist, and adds catalog.bom files to the catalog.
@@ -45,16 +49,22 @@ public class CatalogBomScanner {
 
     private CatalogBundleTracker catalogBundleTracker;
 
-    public void bind(ServiceReference<ManagementContext> managementContext) throws Exception {
+    public void bind(ServiceReference<ManagementContext> mgmtContextReference) throws Exception {
         if (isEnabled()) {
             LOG.debug("Binding management context with whiteList [{}] and blacklist [{}]",
                 Strings.join(getWhiteList(), "; "),
                 Strings.join(getBlackList(), "; "));
-            catalogBundleTracker = new CatalogBundleTracker(this, managementContext);
+
+            final BundleContext bundleContext = mgmtContextReference.getBundle().getBundleContext();
+            ManagementContext mgmt = bundleContext.getService(mgmtContextReference);
+            CatalogBundleLoader bundleLoader = new CatalogBundleLoader(new SymbolicNameAccessControl(), mgmt);
+
+            catalogBundleTracker = new CatalogBundleTracker(bundleContext, bundleLoader);
+            catalogBundleTracker.open();
         }
     }
 
-    public void unbind(ServiceReference<ManagementContext> managementContext) throws Exception {
+    public void unbind(ServiceReference<ManagementContext> mgmtContextReference) throws Exception {
         if (isEnabled()) {
             LOG.debug("Unbinding management context");
             if (null != catalogBundleTracker) {
@@ -62,17 +72,12 @@ public class CatalogBomScanner {
                 catalogBundleTracker = null;
                 temp.close();
             }
+            mgmtContextReference.getBundle().getBundleContext().ungetService(mgmtContextReference);
         }
     }
 
     private boolean isEnabled() {
         return BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM);
-    }
-
-    public String[] bundleIds(Bundle bundle) {
-        return new String[] {
-            String.valueOf(bundle.getBundleId()), bundle.getSymbolicName(), bundle.getVersion().toString()
-        };
     }
 
     public List<String> getWhiteList() {
@@ -99,6 +104,27 @@ public class CatalogBomScanner {
     public void setBlackList(String blackListText) {
         LOG.debug("Setting blackList to ", blackListText);
         this.blackList = Strings.parseCsv(blackListText);
+    }
+
+    public class SymbolicNameAccessControl implements Predicate<Bundle> {
+        @Override
+        public boolean apply(@Nullable Bundle input) {
+            return passesWhiteAndBlacklists(input);
+        }
+    }
+
+    private boolean passesWhiteAndBlacklists(Bundle bundle) {
+        return on(bundle, getWhiteList()) && !on(bundle, getBlackList());
+    }
+
+    private boolean on(Bundle bundle, List<String> list) {
+        for (String candidate : list) {
+            final String symbolicName = bundle.getSymbolicName();
+            if (symbolicName.matches(candidate.trim())) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }

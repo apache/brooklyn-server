@@ -247,7 +247,10 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             if (!BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM)) {
                 // if the above feature is not enabled, let's do it manually (as a contract of this method)
                 try {
-                    new CatalogBundleLoader(new CatalogBomScanner(), mgmt()).scanForCatalog(bundle);
+                    // TODO improve on this - it ignores the configuration of whitelists, see CatalogBomScanner.
+                    final Predicate<Bundle> applicationsPermitted = Predicates.<Bundle>alwaysTrue();
+
+                    new CatalogBundleLoader(applicationsPermitted, mgmt()).scanForCatalog(bundle);
                 } catch (RuntimeException ex) {
                     try {
                         bundle.uninstall();
