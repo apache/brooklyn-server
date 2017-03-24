@@ -15,10 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-http://jsonip.com/
+# Uses Let's Encrypt certificate, not supported by current JRE (1.8.0_121-b13)
+# https://jsonip.com/
 http://myip.dnsomatic.com/
 http://checkip.dyndns.org/
-# Uses Let's Encrypt certificate supported only in Java 8u101+
+# Uses Let's Encrypt certificate, not supported by current JRE (1.8.0_121-b13)
 # https://wtfismyip.com/text
 http://whatismyip.akamai.com/
 http://myip.wampdeveloper.com/
