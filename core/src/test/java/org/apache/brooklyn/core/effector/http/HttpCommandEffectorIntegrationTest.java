@@ -61,7 +61,7 @@ public class HttpCommandEffectorIntegrationTest {
     public void testHttpEffector() throws Exception {
         new HttpCommandEffector(ConfigBag.newInstance()
                 .configure(HttpCommandEffector.EFFECTOR_NAME, "Httpbin")
-                .configure(HttpCommandEffector.EFFECTOR_URI, "https://httpbin.org/get?login=myLogin")
+                .configure(HttpCommandEffector.EFFECTOR_URI, "http://httpbin.org/get?login=myLogin")
                 .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "GET")
         ).apply(entity);
 
@@ -73,7 +73,7 @@ public class HttpCommandEffectorIntegrationTest {
     public void testHttpEffectorWithPayload() throws Exception {
         new HttpCommandEffector(ConfigBag.newInstance()
                 .configure(HttpCommandEffector.EFFECTOR_NAME, "HttpbinPost")
-                .configure(HttpCommandEffector.EFFECTOR_URI, "https://httpbin.org/post")
+                .configure(HttpCommandEffector.EFFECTOR_URI, "http://httpbin.org/post")
                 .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "POST")
                 .configure(HttpCommandEffector.EFFECTOR_HTTP_PAYLOAD, ImmutableMap.<String, Object>of(
                         "description", "Created via API", 
@@ -92,7 +92,7 @@ public class HttpCommandEffectorIntegrationTest {
     public void testHttpEffectorWithJsonPath() throws Exception {
         new HttpCommandEffector(ConfigBag.newInstance()
                 .configure(HttpCommandEffector.EFFECTOR_NAME, "Httpbin")
-                .configure(HttpCommandEffector.EFFECTOR_URI, "https://httpbin.org/get?id=myId")
+                .configure(HttpCommandEffector.EFFECTOR_URI, "http://httpbin.org/get?id=myId")
                 .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "GET")
                 .configure(HttpCommandEffector.JSON_PATH, "$.args.id")
                 .configure(HttpCommandEffector.PUBLISH_SENSOR, "result")
@@ -107,19 +107,19 @@ public class HttpCommandEffectorIntegrationTest {
     public void testHttpEffectorWithParameters() throws Exception {
         new HttpCommandEffector(ConfigBag.newInstance()
                 .configure(HttpCommandEffector.EFFECTOR_NAME, "Httpbin")
-                .configure(HttpCommandEffector.EFFECTOR_URI, "https://httpbin.org/get")                
+                .configure(HttpCommandEffector.EFFECTOR_URI, "http://httpbin.org/get")
                 .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "GET")
                 .configure(HttpCommandEffector.EFFECTOR_PARAMETER_DEFS,
-                        MutableMap.<String,Object>of("uri", MutableMap.of("defaultValue", "https://httpbin.org/get"))))
+                        MutableMap.<String,Object>of("uri", MutableMap.of("defaultValue", "http://httpbin.org/get"))))
                 .apply(entity);
 
         String val;
         // explicit value
-        val = entity.invoke(EFFECTOR_HTTPBIN, MutableMap.of("uri", "https://httpbin.org/ip")).get();
+        val = entity.invoke(EFFECTOR_HTTPBIN, MutableMap.of("uri", "http://httpbin.org/ip")).get();
         Assert.assertNotNull(JsonPath.parse(val).read("$.origin", String.class));
 
         // default value
         val = entity.invoke(EFFECTOR_HTTPBIN, MutableMap.<String,String>of()).get();
-        Assert.assertEquals(JsonPath.parse(val).read("$.url", String.class), "https://httpbin.org/get");
+        Assert.assertEquals(JsonPath.parse(val).read("$.url", String.class), "http://httpbin.org/get");
     }
 }
