@@ -194,6 +194,10 @@ public class Repeater implements Callable<Boolean> {
         return delayOnIteration(Functions.constant(duration));
     }
 
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted (instead use {@link #every(Duration)}).
+     */
+    @Deprecated
     public Repeater every(groovy.time.Duration duration) {
         return every(Duration.of(duration));
     }

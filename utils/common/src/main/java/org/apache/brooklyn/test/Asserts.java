@@ -1062,6 +1062,10 @@ public class Asserts {
         assertFailsWith(c, Predicates.alwaysTrue());
     }
     
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static void assertFailsWith(Callable<?> c, final Closure<Boolean> exceptionChecker) {
         assertFailsWith(c, new Predicate<Throwable>() {
             @Override

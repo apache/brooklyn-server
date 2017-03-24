@@ -476,6 +476,11 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     public void waitForServiceUp(Duration duration) {
         Entities.waitForServiceUp(this, duration);
     }
+    
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public void waitForServiceUp(TimeDuration duration) {
         waitForServiceUp(duration.toMilliseconds(), TimeUnit.MILLISECONDS);
     }

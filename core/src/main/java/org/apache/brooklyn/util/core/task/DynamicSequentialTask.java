@@ -126,7 +126,8 @@ public class DynamicSequentialTask<T> extends BasicTask<T> implements HasTaskChi
     /**
      * Constructs a new compound task containing the specified units of work.
      * 
-     * @param jobs  A potentially heterogeneous mixture of {@link Runnable}, {@link Callable}, {@link Closure} and {@link Task} can be provided. 
+     * @param jobs  A potentially heterogeneous mixture of {@link Runnable}, {@link Callable} and {@link Task} can be provided
+     *              (support for {@link Closure} is deprecated).
      * @throws IllegalArgumentException if any of the passed child jobs is not one of the above types 
      */
     public DynamicSequentialTask() {

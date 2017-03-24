@@ -25,14 +25,22 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-import org.apache.brooklyn.core.policy.AbstractPolicy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import groovy.lang.Closure;
 
 @SuppressWarnings({"rawtypes","unchecked"})
 public class Policies {
 
+    private static final Logger LOG = LoggerFactory.getLogger(Policies.class);
+
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static SensorEventListener listenerFromValueClosure(final Closure code) {
+        LOG.warn("Use of groovy.lang.Closure is deprecated in Policies.listenerFromValueClosure()");
         return new SensorEventListener() {
             @Override
             public void onEvent(SensorEvent event) {
@@ -41,7 +49,12 @@ public class Policies {
         };
     }
     
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static <T> Policy newSingleSensorValuePolicy(final Sensor<T> sensor, final Closure code) {
+        LOG.warn("Use of groovy.lang.Closure is deprecated in Policies.newSingleSensorValuePolicy()");
         return new AbstractPolicy() {
             @Override
             public void setEntity(EntityLocal entity) {
@@ -51,8 +64,13 @@ public class Policies {
         };
     }
     
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static <S,T> Policy newSingleSensorValuePolicy(final Entity remoteEntity, final Sensor<T> remoteSensor, 
             final Closure code) {
+        LOG.warn("Use of groovy.lang.Closure is deprecated in Policies.newSingleSensorValuePolicy()");
         return new AbstractPolicy() {
             @Override
             public void setEntity(EntityLocal entity) {

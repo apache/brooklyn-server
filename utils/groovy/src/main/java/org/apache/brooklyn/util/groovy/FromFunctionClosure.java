@@ -22,6 +22,10 @@ import groovy.lang.Closure;
 
 import com.google.common.base.Function;
 
+/**
+ * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+ */
+@Deprecated
 public class FromFunctionClosure<T> extends Closure<T> {
     private static final long serialVersionUID = 1L;
     private Function<Object, T> job;

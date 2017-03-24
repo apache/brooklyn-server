@@ -25,7 +25,6 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
-import groovy.lang.Closure;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -50,6 +49,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.time.Time;
 
 import com.google.common.base.Function;
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Suppliers;
@@ -262,7 +262,7 @@ public class LocalEntitiesTest extends BrooklynAppUnitTestSupport {
         HelloEntity dad = app.createAndManageChild(EntitySpec.create(HelloEntity.class));
         // the unnecessary (HelloEntity) cast is required as a work-around to an IntelliJ issue that prevents Brooklyn from launching from the IDE
         HelloEntity son = (HelloEntity) dad.addChild(EntitySpec.create(HelloEntity.class)
-                .configure(HelloEntity.MY_NAME, transform(attributeWhenReady(dad, HelloEntity.FAVOURITE_NAME, (Closure)null), new Function<String,String>() {
+                .configure(HelloEntity.MY_NAME, transform(attributeWhenReady(dad, HelloEntity.FAVOURITE_NAME, (Predicate<String>)null), new Function<String,String>() {
                     @Override
                     public String apply(String input) {
                         return input+input.charAt(input.length()-1)+"y";

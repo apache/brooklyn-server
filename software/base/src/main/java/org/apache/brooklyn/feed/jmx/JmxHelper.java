@@ -556,6 +556,11 @@ public class JmxHelper {
     public Set<ObjectInstance> doesMBeanExistsEventually(final ObjectName objectName, Duration timeout) {
         return doesMBeanExistsEventually(objectName, timeout.toMilliseconds(), TimeUnit.MILLISECONDS);
     }
+    
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public Set<ObjectInstance> doesMBeanExistsEventually(final ObjectName objectName, TimeDuration timeout) {
         return doesMBeanExistsEventually(objectName, timeout.toMilliseconds(), TimeUnit.MILLISECONDS);
     }
@@ -567,6 +572,11 @@ public class JmxHelper {
     public Set<ObjectInstance> doesMBeanExistsEventually(String objectName, Duration timeout) {
         return doesMBeanExistsEventually(createObjectName(objectName), timeout);
     }
+    
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public Set<ObjectInstance> doesMBeanExistsEventually(String objectName, TimeDuration timeout) {
         return doesMBeanExistsEventually(createObjectName(objectName), timeout);
     }
@@ -601,6 +611,11 @@ public class JmxHelper {
     public void assertMBeanExistsEventually(ObjectName objectName, Duration timeout) {
         assertMBeanExistsEventually(objectName, timeout.toMilliseconds(), TimeUnit.MILLISECONDS);
     }
+    
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public void assertMBeanExistsEventually(ObjectName objectName, TimeDuration timeout) {
         assertMBeanExistsEventually(objectName, timeout.toMilliseconds(), TimeUnit.MILLISECONDS);
     }

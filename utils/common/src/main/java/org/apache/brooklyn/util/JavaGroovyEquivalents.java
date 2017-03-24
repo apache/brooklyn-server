@@ -171,6 +171,10 @@ public class JavaGroovyEquivalents {
         }
     }
 
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static <T> Predicate<T> toPredicate(final Closure<Boolean> c) {
         return new Predicate<T>() {
             @Override public boolean apply(T input) {

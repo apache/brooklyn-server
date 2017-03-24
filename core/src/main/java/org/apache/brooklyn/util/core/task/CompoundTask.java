@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A {@link Task} that is comprised of other units of work: possibly a heterogeneous mix of {@link Task},
- * {@link Runnable}, {@link Callable} and {@link Closure} instances.
+ * {@link Runnable} and {@link Callable} instances (support for {@link Closure} is deprecated).
  * 
  * This class holds the collection of child tasks, but subclasses have the responsibility of executing them in a
  * sensible manner by implementing the abstract {@link #runJobs} method.
@@ -56,7 +56,8 @@ public abstract class CompoundTask<T> extends BasicTask<List<T>> implements HasT
     /**
      * Constructs a new compound task containing the specified units of work.
      * 
-     * @param jobs  A potentially heterogeneous mixture of {@link Runnable}, {@link Callable}, {@link Closure} and {@link Task} can be provided. 
+     * @param jobs  A potentially heterogeneous mixture of {@link Runnable}, {@link Callable}, and {@link Task} can be provided
+     *              (support for {@link Closure} is deprecated).
      * @throws IllegalArgumentException if any of the passed child jobs is not one of the above types 
      */
     public CompoundTask(Object... jobs) {
@@ -66,7 +67,8 @@ public abstract class CompoundTask<T> extends BasicTask<List<T>> implements HasT
     /**
      * Constructs a new compound task containing the specified units of work.
      * 
-     * @param jobs  A potentially heterogeneous mixture of {@link Runnable}, {@link Callable}, {@link Closure} and {@link Task} can be provided. 
+     * @param jobs  A potentially heterogeneous mixture of {@link Runnable}, {@link Callable} and {@link Task} can be provided
+     *              (support for {@link Closure}  is deprecated).
      * @throws IllegalArgumentException if any of the passed child jobs is not one of the above types 
      */
     public CompoundTask(Collection<?> jobs) {
@@ -87,12 +89,15 @@ public abstract class CompoundTask<T> extends BasicTask<List<T>> implements HasT
         for (Object job : jobs) {
             Task subtask;
             if (job instanceof TaskAdaptable) { subtask = ((TaskAdaptable)job).asTask(); }
-            else if (job instanceof Closure)  { subtask = new BasicTask<T>((Closure) job); }
+            else if (job instanceof Closure)  {
+                log.warn("Use of groovy.lang.Closure is deprecated, in CompoundTask jobs");
+                subtask = new BasicTask<T>((Closure) job);
+            }
             else if (job instanceof Callable) { subtask = new BasicTask<T>((Callable) job); }
             else if (job instanceof Runnable) { subtask = new BasicTask<T>((Runnable) job); }
             
             else throw new IllegalArgumentException("Invalid child "+(job == null ? null : job.getClass() + " ("+job+")")+
-                " passed to compound task; must be Runnable, Callable, Closure or Task");
+                " passed to compound task; must be Runnable, Callable or Task (Closure support is deprecated)");
             
             BrooklynTaskTags.addTagDynamically(subtask, ManagementContextInternal.SUB_TASK_TAG);
             children.add(subtask);

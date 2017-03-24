@@ -34,6 +34,10 @@ import com.google.common.collect.ImmutableList;
 import groovy.lang.Closure;
 import groovy.lang.GString;
 
+/**
+ * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+ */
+@Deprecated
 public class GroovJavaMethodsTest {
 
     private String gstringVal = "exampleGString";

@@ -792,7 +792,13 @@ public class BasicExecutionManager implements ExecutionManager {
     // not ideal, such loose typing on the callback -- should prefer Function<Task,Object>
     // but at least it's package-private
     static Object invokeCallback(Object callable, Task<?> task) {
-        if (callable instanceof Closure) return ((Closure<?>)callable).call(task);
+        if (callable instanceof Closure) {
+            if (!loggedClosureDeprecatedInInvokeCallback) {
+                log.warn("Use of groovy.lang.Closure is deprecated, in ExecutionManager.invokeCallback");
+                loggedClosureDeprecatedInInvokeCallback = true;
+            }
+            return ((Closure<?>)callable).call(task);
+        }
         if (callable instanceof Callable) {
             try {
                 return ((Callable<?>)callable).call();
@@ -805,6 +811,7 @@ public class BasicExecutionManager implements ExecutionManager {
         if (callable==null) return null;
         throw new IllegalArgumentException("Cannot invoke unexpected callback object "+callable+" of type "+callable.getClass()+" on "+task);
     }
+    private static boolean loggedClosureDeprecatedInInvokeCallback;
     
     /** normally (if not interrupted) called once for each call to {@link #beforeSubmitScheduledTaskAllIterations(Map, Task)} */
     protected void afterEndScheduledTaskAllIterations(Map<?,?> flags, Task<?> task) {
