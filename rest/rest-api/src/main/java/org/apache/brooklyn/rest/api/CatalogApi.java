@@ -55,41 +55,66 @@ public interface CatalogApi {
     @Deprecated /** @deprecated since 0.11.0 use {@link #createFromYaml(String)} instead */
     public Response create(String yaml);
 
+    @POST
     @Consumes({MediaType.APPLICATION_JSON, "application/x-yaml",
         // see http://stackoverflow.com/questions/332129/yaml-mime-type
         "text/yaml", "text/x-yaml", "application/yaml"})
-    @POST
-    @ApiOperation(value = "Add a catalog item (e.g. new type of entity, policy or location) by uploading YAML descriptor. "
-        + "Return value is map of ID to CatalogItemSummary, with code 201 CREATED.", response = String.class)
+    @ApiOperation(
+            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading YAML descriptor.",
+            notes = "Return value is map of ID to CatalogItemSummary.",
+            response = String.class,
+            hidden = true
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 400, message = "Error processing the given YAML"),
+            @ApiResponse(code = 201, message = "Catalog items added successfully")
+    })
     public Response createFromYaml(
             @ApiParam(name = "yaml", value = "YAML descriptor of catalog item", required = true)
             @Valid String yaml);
 
-    @POST
     @Beta
-    @Consumes  // anything (if doesn't match other methods with specific content types
-    @ApiOperation(value = "Add items to the catalog, either YAML or JAR/ZIP, format autodetected. "
-            + "Specify a content-type header to skip auto-detection and invoke one of the more specific methods. "
-            + "Return value is 201 CREATED if bundle could be added.", response = String.class)
-    public Response createFromUpload(
-            @ApiParam(
-                    name = "item",
-                    value = "Item to install, as JAR/ZIP or Catalog YAML (autodetected)",
-                    required = true)
-            byte[] item);
-
     @POST
-    @Beta
     @Consumes({"application/x-zip", "application/x-jar"})
-    @ApiOperation(value = "Add a catalog item (e.g. new type of entity, policy or location) by uploading OSGi bundle JAR, or ZIP which will be turned into bundle JAR, "
-            + "containing catalog.bom containing bundle name and version. "
-            + "Return value is 201 CREATED if bundle could be added.", response = String.class)
+    @ApiOperation(
+            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading a ZIP/JAR archive.",
+            notes = "Accepts either an OSGi bundle JAR, or ZIP which will be turned into bundle JAR. Bother format must "
+                    + "contain a catalog.bom at the root of the archive, which must contain the bundle and version key."
+                    + "Return value is map of ID to CatalogItemSummary.",
+            response = String.class,
+            hidden = true)
+    @ApiResponses(value = {
+            @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
+            @ApiResponse(code = 201, message = "Catalog items added successfully")
+    })
     public Response createFromArchive(
             @ApiParam(
                     name = "archive",
                     value = "Bundle to install, in ZIP or JAR format, requiring catalog.bom containing bundle name and version",
                     required = true)
             byte[] archive);
+
+    @Beta
+    @POST
+    @Consumes // anything (if doesn't match other methods with specific content types
+    @ApiOperation(
+            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading either YAML or ZIP/JAR archive (format autodetected)",
+            notes = "Specify a content-type header to skip auto-detection and invoke one of the more specific methods. "
+                    + "Accepts either an OSGi bundle JAR, or ZIP which will be turned into bundle JAR. Bother format must "
+                    + "contain a catalog.bom at the root of the archive, which must contain the bundle and version key."
+                    + "Return value is map of ID to CatalogItemSummary.",
+            response = String.class
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
+            @ApiResponse(code = 201, message = "Catalog items added successfully")
+    })
+    public Response createFromUpload(
+            @ApiParam(
+                    name = "item",
+                    value = "Item to install, as JAR/ZIP or Catalog YAML (autodetected)",
+                    required = true)
+                    byte[] item);
     
     @POST
     @Consumes(MediaType.APPLICATION_XML)
