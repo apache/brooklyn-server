@@ -207,14 +207,14 @@ public class Main extends AbstractMain {
 
         @Option(name = { "-a", "--app" }, title = "application class or file",
                 description = "The Application to start. " +
-                        "For example, my.AppName, file://my/app.yaml, or classpath://my/AppName.groovy -- "
-                        + "note that a BROOKLYN_CLASSPATH environment variable may be required to "
-                        + "load classes from other locations")
+                        "For example, my.AppName, file://my/app.yaml, or classpath://my/AppName.groovy " 
+                        + "(but passing groovy scripts is deprecated) -- note that a BROOKLYN_CLASSPATH "
+                        + "environment variable may be required to load classes from other locations")
         public String app;
 
         @Beta
         @Option(name = { "-s", "--script" }, title = "script URI",
-                description = "EXPERIMENTAL. URI for a Groovy script to parse and load." +
+                description = "DEPRECATED. URI for a Groovy script to parse and load." +
                         " This script will run before starting the app.")
         public String script = null;
 
@@ -414,6 +414,7 @@ public class Main extends AbstractMain {
     
                 // First, run a setup script if the user has provided one
                 if (script != null) {
+                    log.warn("Use of --script for groovy-script execution is deprecated");
                     execGroovyScript(utils, loader, script);
                 }
     
@@ -747,6 +748,7 @@ public class Main extends AbstractMain {
                 log.debug("Loading \"{}\" as class on classpath failed, now trying as .groovy source file", app);
                 String content = utils.getResourceAsString(app);
                 tempclazz = loader.parseClass(content);
+                log.warn("Use of --app with a groovy source file is deprecated");
             }
             final Class<?> clazz = tempclazz;
             
