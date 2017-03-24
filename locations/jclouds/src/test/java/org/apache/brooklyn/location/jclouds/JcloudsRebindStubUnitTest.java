@@ -20,6 +20,7 @@ package org.apache.brooklyn.location.jclouds;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -169,7 +170,8 @@ public class JcloudsRebindStubUnitTest extends RebindTestFixtureWithApp {
         
         assertEquals(newHostname, origHostname);
         assertEquals(origNode.getId(), newNodeId);
-        assertFalse(newNode.isPresent(), "newNode="+newNode);
+        assertTrue(newNode.isPresent(), "newNode="+newNode);
+        assertEquals(newNode.get(), origNode);
         assertFalse(newTemplate.isPresent(), "newTemplate="+newTemplate);
         
         assertEquals(newJcloudsLoc.getProvider(), origJcloudsLoc.getProvider());
@@ -194,6 +196,7 @@ public class JcloudsRebindStubUnitTest extends RebindTestFixtureWithApp {
                         .put(SshMachineLocation.SSH_TOOL_CLASS, RecordingSshTool.class.getName())
                         .put(WinRmMachineLocation.WINRM_TOOL_CLASS, RecordingWinRmTool.class.getName())
                         .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE, Predicates.alwaysTrue())
+                        .put(JcloudsLocationConfig.LOOKUP_AWS_HOSTNAME, Boolean.FALSE)
                         .putAll(jcloudsLocationConfig)
                         .build());
     }

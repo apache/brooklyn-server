@@ -30,6 +30,8 @@ import org.jclouds.compute.domain.NodeMetadata.Status;
 import org.jclouds.compute.domain.NodeMetadataBuilder;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.options.TemplateOptions;
+import org.jclouds.domain.LocationBuilder;
+import org.jclouds.domain.LocationScope;
 import org.jclouds.domain.LoginCredentials;
 
 import com.google.common.base.Predicate;
@@ -44,6 +46,7 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
         public Set<? extends NodeMetadata> createNodesInGroup(String group, int count, Template template) throws RunNodesException;
         public void destroyNode(String id);
         public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<? super NodeMetadata> filter);
+        public NodeMetadata getCreatedNode(String nodeId);
     }
 
     public static abstract class AbstractNodeCreator implements NodeCreator {
@@ -69,6 +72,14 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
             return ImmutableSet.of();
         }
         protected abstract NodeMetadata newNode(String group, Template template);
+        public NodeMetadata getCreatedNode(String nodeId) {
+            for (NodeMetadata node : created) {
+                if (node.getId().equals(nodeId)) {
+                    return node;
+                }
+            }
+            return null;
+        }
     }
 
     public static class SingleNodeCreator extends AbstractNodeCreator {
@@ -88,6 +99,16 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
         @Override
         protected NodeMetadata newNode(String group, Template template) {
             int suffix = counter.getAndIncrement();
+            org.jclouds.domain.Location region = new LocationBuilder()
+                    .scope(LocationScope.REGION)
+                    .id("us-east-1")
+                    .description("us-east-1")
+                    .parent(new LocationBuilder()
+                            .scope(LocationScope.PROVIDER)
+                            .id("aws-ec2")
+                            .description("aws-ec2")
+                            .build())
+                    .build();
             NodeMetadata result = new NodeMetadataBuilder()
                     .id("mynodeid"+suffix)
                     .credentials(LoginCredentials.builder().identity("myuser").credential("mypassword").build())
@@ -95,6 +116,7 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
                     .status(Status.RUNNING)
                     .publicAddresses(ImmutableList.of("173.194.32."+suffix))
                     .privateAddresses(ImmutableList.of("172.168.10."+suffix))
+                    .location(region)
                     .build();
             return result;
         }
@@ -158,6 +180,10 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
         @Override
         public Set<? extends NodeMetadata> createNodesInGroup(String group, int count, TemplateOptions templateOptions) {
             throw new UnsupportedOperationException();
+        }
+        @Override
+        public NodeMetadata getNodeMetadata(String id) {
+            return nodeCreator.getCreatedNode(id);
         }
     }
     
