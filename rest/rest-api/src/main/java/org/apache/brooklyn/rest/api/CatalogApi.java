@@ -52,7 +52,19 @@ import io.swagger.annotations.ApiResponses;
 @Produces(MediaType.APPLICATION_JSON)
 public interface CatalogApi {
 
-    @Deprecated /** @deprecated since 0.11.0 use {@link #createFromYaml(String)} instead */
+    /** @deprecated since 0.11.0 use {@link #createFromYaml(String)} instead */
+    @Deprecated
+    @POST
+    @ApiOperation(
+            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading YAML descriptor.",
+            notes = "Return value is map of ID to CatalogItemSummary.",
+            response = String.class,
+            hidden = true
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 400, message = "Error processing the given YAML"),
+            @ApiResponse(code = 201, message = "Catalog items added successfully")
+    })
     public Response create(String yaml);
 
     @POST
