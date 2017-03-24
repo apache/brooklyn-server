@@ -18,37 +18,18 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
-import static org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType.TEMPLATE;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
 import java.util.List;
-import java.util.Map;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
-import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.yaml.Yamls;
 import org.osgi.framework.Bundle;
-import org.osgi.framework.BundleContext;
-import org.osgi.framework.BundleEvent;
 import org.osgi.framework.ServiceReference;
-import org.osgi.util.tracker.BundleTracker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.yaml.snakeyaml.DumperOptions;
-import org.yaml.snakeyaml.Yaml;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 
 /** Scans bundles being added, filtered by a whitelist and blacklist, and adds catalog.bom files to the catalog.
  * See karaf blueprint.xml for configuration, and tests in dist project. */
@@ -58,30 +39,27 @@ public class CatalogBomScanner {
     private final String ACCEPT_ALL_BY_DEFAULT = ".*";
 
     private static final Logger LOG = LoggerFactory.getLogger(CatalogBomScanner.class);
-    private static final String CATALOG_BOM_URL = "catalog.bom";
-    private static final String BROOKLYN_CATALOG = "brooklyn.catalog";
-    private static final String BROOKLYN_LIBRARIES = "brooklyn.libraries";
 
     private List<String> whiteList = ImmutableList.of(ACCEPT_ALL_BY_DEFAULT);
     private List<String> blackList = ImmutableList.of();
 
-    private CatalogPopulator catalogTracker;
+    private CatalogBundleTracker catalogBundleTracker;
 
     public void bind(ServiceReference<ManagementContext> managementContext) throws Exception {
         if (isEnabled()) {
             LOG.debug("Binding management context with whiteList [{}] and blacklist [{}]",
                 Strings.join(getWhiteList(), "; "),
                 Strings.join(getBlackList(), "; "));
-            catalogTracker = new CatalogPopulator(managementContext);
+            catalogBundleTracker = new CatalogBundleTracker(this, managementContext);
         }
     }
 
     public void unbind(ServiceReference<ManagementContext> managementContext) throws Exception {
         if (isEnabled()) {
             LOG.debug("Unbinding management context");
-            if (null != catalogTracker) {
-                CatalogPopulator temp = catalogTracker;
-                catalogTracker = null;
+            if (null != catalogBundleTracker) {
+                CatalogBundleTracker temp = catalogBundleTracker;
+                catalogBundleTracker = null;
                 temp.close();
             }
         }
@@ -91,7 +69,7 @@ public class CatalogBomScanner {
         return BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM);
     }
 
-    private String[] bundleIds(Bundle bundle) {
+    public String[] bundleIds(Bundle bundle) {
         return new String[] {
             String.valueOf(bundle.getBundleId()), bundle.getSymbolicName(), bundle.getVersion().toString()
         };
@@ -121,233 +99,6 @@ public class CatalogBomScanner {
     public void setBlackList(String blackListText) {
         LOG.debug("Setting blackList to ", blackListText);
         this.blackList = Strings.parseCsv(blackListText);
-    }
-
-    public class CatalogPopulator extends BundleTracker<Iterable<? extends CatalogItem<?, ?>>> {
-
-        private ServiceReference<ManagementContext> mgmtContextReference;
-        private BundleContext bundleContext;
-        private ManagementContext managementContext;
-        private CatalogBundleLoader catalogBundleLoader;
-
-        public CatalogPopulator(ServiceReference<ManagementContext> serviceReference) {
-            super(serviceReference.getBundle().getBundleContext(), Bundle.ACTIVE, null);
-            this.mgmtContextReference = serviceReference;
-            open();
-        }
-        
-        public CatalogPopulator(BundleContext bundleContext, ManagementContext managementContext) {
-            super(Preconditions.checkNotNull(bundleContext, "bundleContext required; is OSGi running?"), Bundle.ACTIVE, null);
-            this.bundleContext = bundleContext;
-            this.managementContext = managementContext;
-            open();
-        }
-
-        @Override
-        public void open() {
-            if (mgmtContextReference != null) {
-                bundleContext = getBundleContext();
-                managementContext = getManagementContext();
-                catalogBundleLoader = new CatalogBundleLoader(managementContext);
-            }
-            super.open();
-        }
-
-        @Override
-        public void close() {
-            super.close();
-            if (mgmtContextReference != null) {
-                managementContext = null;
-                getBundleContext().ungetService(mgmtContextReference);
-                bundleContext = null;
-                catalogBundleLoader = null;
-            }
-        }
-
-        public BundleContext getBundleContext() {
-            if (bundleContext != null) return bundleContext;
-            if (mgmtContextReference != null) return mgmtContextReference.getBundle().getBundleContext();
-            throw new IllegalStateException("Bundle context or management context reference must be supplied");
-        }
-        
-        public ManagementContext getManagementContext() {
-            if (managementContext != null) return managementContext;
-            if (mgmtContextReference != null) return getBundleContext().getService(mgmtContextReference);
-            throw new IllegalStateException("Bundle context or management context reference must be supplied");
-        }
-
-        /**
-         * Scans the bundle being added for a catalog.bom file and adds any entries in it to the catalog.
-         *
-         * @param bundle The bundle being added to the bundle context.
-         * @param bundleEvent The event of the addition.
-         *
-         * @return The items added to the catalog; these will be tracked by the {@link BundleTracker} mechanism
-         *         and supplied to the {@link #removedBundle(Bundle, BundleEvent, Iterable)} method.
-         *
-         * @throws RuntimeException if the catalog items failed to be added to the catalog
-         */
-        @Override
-        public Iterable<? extends CatalogItem<?, ?>> addingBundle(Bundle bundle, BundleEvent bundleEvent) {
-            return catalogBundleLoader.scanForCatalog(bundle);
-        }
-
-        /**
-         * Remove the given entries from the catalog, related to the given bundle.
-         *
-         * @param bundle The bundle being removed to the bundle context.
-         * @param bundleEvent The event of the removal.
-         * @param items The items being removed
-         *
-         * @throws RuntimeException if the catalog items failed to be added to the catalog
-         */
-        @Override
-        public void removedBundle(Bundle bundle, BundleEvent bundleEvent, Iterable<? extends CatalogItem<?, ?>> items) {
-            if (!items.iterator().hasNext()) {
-                return;
-            }
-            LOG.debug("Unloading catalog BOM entries from {} {} {}", bundleIds(bundle));
-            for (CatalogItem<?, ?> item : items) {
-                LOG.debug("Unloading {} {} from catalog", item.getSymbolicName(), item.getVersion());
-
-                catalogBundleLoader.removeFromCatalog(item);
-            }
-        }
-    }
-
-    @Beta
-    public class CatalogBundleLoader {
-
-        private ManagementContext managementContext;
-
-        public CatalogBundleLoader(ManagementContext managementContext) {
-            this.managementContext = managementContext;
-        }
-
-        /**
-         * Scan the given bundle for a catalog.bom and adds it to the catalog.
-         *
-         * @param bundle The bundle to add
-         * @return A list of items added to the catalog
-         *
-         * @throws RuntimeException if the catalog items failed to be added to the catalog
-         */
-        public Iterable<? extends CatalogItem<?, ?>> scanForCatalog(Bundle bundle) {
-
-            Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
-
-            final URL bom = bundle.getResource(CATALOG_BOM_URL);
-            if (null != bom) {
-                LOG.debug("Found catalog BOM in {} {} {}", bundleIds(bundle));
-                String bomText = readBom(bom);
-                String bomWithLibraryPath = addLibraryDetails(bundle, bomText);
-                catalogItems = this.managementContext.getCatalog().addItems(bomWithLibraryPath);
-                for (CatalogItem<?, ?> item : catalogItems) {
-                    LOG.debug("Added to catalog: {}, {}", item.getSymbolicName(), item.getVersion());
-                }
-            } else {
-                LOG.debug("No BOM found in {} {} {}", bundleIds(bundle));
-            }
-
-            if (!passesWhiteAndBlacklists(bundle)) {
-                catalogItems = removeAnyApplications(catalogItems);
-            }
-
-            return catalogItems;
-        }
-
-        private String readBom(URL bom) {
-            try (final InputStream ins = bom.openStream()) {
-                return Streams.readFullyString(ins);
-            } catch (IOException e) {
-                throw Exceptions.propagate("Error loading Catalog BOM from " + bom, e);
-            }
-        }
-
-        private String addLibraryDetails(Bundle bundle, String bomText) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> bom = (Map<String, Object>)Iterables.getOnlyElement(Yamls.parseAll(bomText));
-            final Object catalog = bom.get(BROOKLYN_CATALOG);
-            if (null != catalog) {
-                if (catalog instanceof Map<?, ?>) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> catalogMap = (Map<String, Object>) catalog;
-                    addLibraryDetails(bundle, catalogMap);
-                } else {
-                    LOG.warn("Unexpected syntax for {} (expected Map, but got {}), ignoring", BROOKLYN_CATALOG, catalog.getClass().getName());
-                }
-            }
-            final String updatedBom = backToYaml(bom);
-            LOG.trace("Updated catalog bom:\n{}", updatedBom);
-            return updatedBom;
-        }
-
-        private void addLibraryDetails(Bundle bundle, Map<String, Object> catalog) {
-            if (!catalog.containsKey(BROOKLYN_LIBRARIES)) {
-                catalog.put(BROOKLYN_LIBRARIES, MutableList.of());
-            }
-            final Object librarySpec = catalog.get(BROOKLYN_LIBRARIES);
-            if (!(librarySpec instanceof List)) {
-                throw new RuntimeException("expected " + BROOKLYN_LIBRARIES + " to be a list, but got "
-                        + (librarySpec == null ? "null" : librarySpec.getClass().getName()));
-            }
-            @SuppressWarnings("unchecked")
-            List<Map<String,String>> libraries = (List<Map<String,String>>)librarySpec;
-            if (bundle.getSymbolicName() == null || bundle.getVersion() == null) {
-                throw new IllegalStateException("Cannot scan "+bundle+" for catalog files: name or version is null");
-            }
-            libraries.add(ImmutableMap.of(
-                    "name", bundle.getSymbolicName(),
-                    "version", bundle.getVersion().toString()));
-            LOG.debug("library spec is {}", librarySpec);
-        }
-
-        private String backToYaml(Map<String, Object> bom) {
-            final DumperOptions options = new DumperOptions();
-            options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-            options.setPrettyFlow(true);
-            return new Yaml(options).dump(bom);
-        }
-
-        private Iterable<? extends CatalogItem<?, ?>> removeAnyApplications(
-                Iterable<? extends CatalogItem<?, ?>> catalogItems) {
-
-            List<CatalogItem<?, ?>> result = MutableList.of();
-
-            for (CatalogItem<?, ?> item: catalogItems) {
-                if (TEMPLATE.equals(item.getCatalogItemType())) {
-                    removeFromCatalog(item);
-                } else {
-                    result.add(item);
-                }
-            }
-            return result;
-        }
-
-        private boolean passesWhiteAndBlacklists(Bundle bundle) {
-            return on(bundle, getWhiteList()) && !on(bundle, getBlackList());
-        }
-
-        private boolean on(Bundle bundle, List<String> list) {
-            for (String candidate : list) {
-                final String symbolicName = bundle.getSymbolicName();
-                if (symbolicName.matches(candidate.trim())) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private void removeFromCatalog(CatalogItem<?, ?> item) {
-            try {
-                this.managementContext.getCatalog().deleteCatalogItem(item.getSymbolicName(), item.getVersion());
-            } catch (Exception e) {
-                Exceptions.propagateIfFatal(e);
-                LOG.warn(Strings.join(new String[] {
-                        "Failed to remove", item.getSymbolicName(), item.getVersion(), "from catalog"
-                }, " "), e);
-            }
-        }
     }
 
 }

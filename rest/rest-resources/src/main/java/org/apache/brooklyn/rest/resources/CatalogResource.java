@@ -51,12 +51,12 @@ import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogBomScanner;
+import org.apache.brooklyn.core.catalog.internal.CatalogBundleLoader;
 import org.apache.brooklyn.core.catalog.internal.CatalogDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemComparator;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
@@ -247,7 +247,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             if (!BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM)) {
                 // if the above feature is not enabled, let's do it manually (as a contract of this method)
                 try {
-                    new CatalogBomScanner().new CatalogBundleLoader(mgmt()).scanForCatalog(bundle);
+                    new CatalogBundleLoader(new CatalogBomScanner(), mgmt()).scanForCatalog(bundle);
                 } catch (RuntimeException ex) {
                     try {
                         bundle.uninstall();
