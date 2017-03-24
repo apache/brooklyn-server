@@ -45,11 +45,11 @@ public abstract class AbstractCompositeEffector extends AddEffector {
 
     protected static abstract class Body<T> extends EffectorBody<T> {
         protected final Effector<?> effector;
-        protected final ConfigBag params;
+        protected final ConfigBag config;
 
-        public Body(Effector<?> eff, ConfigBag params) {
+        public Body(Effector<?> eff, ConfigBag config) {
             this.effector = eff;
-            this.params = params;
+            this.config = config;
         }
 
         @Override

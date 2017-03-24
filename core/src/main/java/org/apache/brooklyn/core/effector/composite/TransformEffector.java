@@ -69,14 +69,13 @@ public class TransformEffector extends AbstractCompositeEffector {
 
     protected static class Body extends AbstractCompositeEffector.Body<Object> {
 
-        public Body(Effector<?> eff, ConfigBag params) {
-            super(eff, params);
-            Preconditions.checkNotNull(params.getAllConfigRaw().get(FUNCTION.getName()), "Function must be supplied when defining this effector");
+        public Body(Effector<?> eff, ConfigBag config) {
+            super(eff, config);
+            Preconditions.checkNotNull(config.getAllConfigRaw().get(FUNCTION.getName()), "Function must be supplied when defining this effector");
         }
 
         @Override
         public Object call(final ConfigBag params) {
-            ConfigBag config = ConfigBag.newInstanceCopying(this.params).putAll(params);
             Function<Object,Object> function = EntityInitializers.resolve(config, FUNCTION);
 
             String input = config.get(INPUT);

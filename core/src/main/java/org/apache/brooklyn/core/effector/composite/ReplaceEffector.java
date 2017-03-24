@@ -97,14 +97,13 @@ public final class ReplaceEffector extends AbstractCompositeEffector {
 
     protected static class Body extends AbstractCompositeEffector.Body<Object> {
 
-        public Body(Effector<?> eff, ConfigBag params) {
-            super(eff, params);
-            Preconditions.checkNotNull(params.getAllConfigRaw().get(REPLACE.getName()), "Effector details must be supplied when defining this effector");
+        public Body(Effector<?> eff, ConfigBag config) {
+            super(eff, config);
+            Preconditions.checkNotNull(config.getAllConfigRaw().get(REPLACE.getName()), "Effector details must be supplied when defining this effector");
         }
 
         @Override
         public Object call(final ConfigBag params) {
-            ConfigBag config = ConfigBag.newInstanceCopying(this.params).putAll(params);
             ReplaceAction action = config.get(ACTION);
             Object effectorDetails = EntityInitializers.resolve(config, REPLACE);
 
@@ -114,7 +113,7 @@ public final class ReplaceEffector extends AbstractCompositeEffector {
 
             if (inputArgument != null) {
                 Object input = config.getStringKey(inputArgument);
-                config.putStringKey(inputArgument, input);
+                params.putStringKey(inputArgument, input);
             }
 
             if (action == ReplaceAction.POST) {

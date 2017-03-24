@@ -66,14 +66,13 @@ public class ComposeEffector extends AbstractCompositeEffector {
 
     protected static class Body extends AbstractCompositeEffector.Body<Object> {
 
-        public Body(Effector<?> eff, ConfigBag params) {
-            super(eff, params);
-            Preconditions.checkNotNull(params.getAllConfigRaw().get(COMPOSE.getName()), "Effector names must be supplied when defining this effector");
+        public Body(Effector<?> eff, ConfigBag config) {
+            super(eff, config);
+            Preconditions.checkNotNull(config.getAllConfigRaw().get(COMPOSE.getName()), "Effector names must be supplied when defining this effector");
         }
 
         @Override
         public Object call(final ConfigBag params) {
-            ConfigBag config = ConfigBag.newInstanceCopying(this.params).putAll(params);
             List<Object> effectors = EntityInitializers.resolve(config, COMPOSE);
 
             Object result = null;
@@ -90,16 +89,16 @@ public class ComposeEffector extends AbstractCompositeEffector {
                 if (inputParameter == null) {
                     if (result == null) {
                         Object input = config.getStringKey(inputArgument);
-                        config.putStringKey(inputArgument, input);
+                        params.putStringKey(inputArgument, input);
                     } else {
-                        config.putStringKey(inputArgument, result);
+                        params.putStringKey(inputArgument, result);
                     }
                 } else {
                     Object input = config.getStringKey(inputParameter);
-                    config.putStringKey(inputArgument, input);
+                    params.putStringKey(inputArgument, input);
                 }
 
-                result = invokeEffectorNamed(targetEntity, effectorName, config);
+                result = invokeEffectorNamed(targetEntity, effectorName, params);
             }
 
             return result;

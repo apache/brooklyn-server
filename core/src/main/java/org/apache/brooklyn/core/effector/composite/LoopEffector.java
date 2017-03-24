@@ -69,14 +69,13 @@ public class LoopEffector extends AbstractCompositeEffector {
 
     protected static class Body extends AbstractCompositeEffector.Body<List> {
 
-        public Body(Effector<?> eff, ConfigBag params) {
-            super(eff, params);
-            Preconditions.checkNotNull(params.getAllConfigRaw().get(LOOP.getName()), "Effector names must be supplied when defining this effector");
+        public Body(Effector<?> eff, ConfigBag config) {
+            super(eff, config);
+            Preconditions.checkNotNull(config.getAllConfigRaw().get(LOOP.getName()), "Effector names must be supplied when defining this effector");
         }
 
         @Override
         public List call(final ConfigBag params) {
-            ConfigBag config = ConfigBag.newInstanceCopying(this.params).putAll(params);
             Object effectorDetails = EntityInitializers.resolve(config, LOOP);
             String input = config.get(INPUT);
             Object inputObject = config.getStringKey(input);
@@ -96,9 +95,9 @@ public class LoopEffector extends AbstractCompositeEffector {
             }
 
             for (Object inputEach : inputCollection) {
-                config.putStringKey(inputArgument, inputEach);
+                params.putStringKey(inputArgument, inputEach);
 
-                result.add(invokeEffectorNamed(targetEntity, effectorName, config));
+                result.add(invokeEffectorNamed(targetEntity, effectorName, params));
             }
 
             return result;
