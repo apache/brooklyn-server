@@ -481,7 +481,10 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
                     assertTrue(loc.isBlocked());
                 }
             });
-    
+
+            assertEquals(ServiceStateLogic.getExpectedState(entity), Lifecycle.STOPPING);
+            EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPING);
+
             // Subsequent stops will end quickly - no location to release,
             // while the first one is still releasing the machine.
             final Task<Void> secondStop = entity.invoke(Startable.STOP, ImmutableMap.<String, Object>of());;
@@ -492,7 +495,10 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
                 }
             });
     
-            // Entity state is STOPPED even though first location is still releasing
+            // Entity state is supposed to be STOPPED even though first location is still releasing. This is because the second
+            // release completed successfully. It's debatable whether this is the right behaviour - we could be calling the STOP
+            // effector exactly because the first call is blocked. The test is asserting the current behaviour.
+            assertEquals(ServiceStateLogic.getExpectedState(entity), Lifecycle.STOPPED);
             EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
             Asserts.succeedsContinually(new Runnable() {
                 @Override

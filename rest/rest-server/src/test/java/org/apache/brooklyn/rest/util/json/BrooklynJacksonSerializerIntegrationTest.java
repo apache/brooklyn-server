@@ -25,8 +25,8 @@ import java.util.Map;
 import javax.ws.rs.core.MediaType;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.rest.BrooklynRestApiLauncher;
@@ -103,7 +103,7 @@ public class BrooklynJacksonSerializerIntegrationTest extends BrooklynAppUnitTes
     public void testWithMgmt() throws Exception {
         setConfig(mgmt);
         Map<?, ?> values = getConfigValueAsJson();
-        Assert.assertEquals(values, ImmutableMap.of("type", LocalManagementContextForTests.class.getCanonicalName()), "values="+values);
+        Assert.assertEquals(values, ImmutableMap.of("type", ManagementContext.class.getCanonicalName()), "values="+values);
 
         // assert normal API returns the same, containing links
         values = getRestValueAsJson(entityUrl);

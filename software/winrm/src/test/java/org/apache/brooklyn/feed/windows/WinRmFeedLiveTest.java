@@ -18,11 +18,9 @@
  */
 package org.apache.brooklyn.feed.windows;
 
-import com.google.common.base.Function;
-import com.google.common.base.Predicates;
-import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -50,17 +48,20 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
+import com.google.common.base.Function;
+import com.google.common.base.Predicates;
+import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Test is almost identical to {@link org.apache.brooklyn.feed.ssh.SshFeedIntegrationTest}.
  * To launch the test I put in ~/.brooklyn/brooklyn.properties
  *   brooklyn.location.named.WindowsLiveTest=byon:(hosts=192.168.1.2,osFamily=windows,user=winUser,password=p0ssw0rd)
  */
-public class WinRmFeedIntegrationTest extends BrooklynAppLiveTestSupport {
+public class WinRmFeedLiveTest extends BrooklynAppLiveTestSupport {
 
-    private static final Logger log = LoggerFactory.getLogger(WinRmFeedIntegrationTest.class);
+    private static final Logger log = LoggerFactory.getLogger(WinRmFeedLiveTest.class);
 
     private static final String LOCATION_SPEC = "named:WindowsLiveTest";
     
@@ -91,7 +92,7 @@ public class WinRmFeedIntegrationTest extends BrooklynAppLiveTestSupport {
     }
     
     /** this is one of the most common pattern */
-    @Test(groups="Integration")
+    @Test(groups="Live")
     public void testReturnsStdoutAndInfersMachine() throws Exception {
         final TestEntity entity2 = app.createAndManageChild(EntitySpec.create(TestEntity.class)
             // inject the machine location, because the app was started with a provisioning location
@@ -111,7 +112,7 @@ public class WinRmFeedIntegrationTest extends BrooklynAppLiveTestSupport {
         Assert.assertEquals(val.trim(), "hello");
     }
 
-    @Test(groups="Integration")
+    @Test(groups="Live")
     public void testFeedDeDupe() throws Exception {
         testReturnsStdoutAndInfersMachine();
         entity.addFeed(feed);
@@ -125,7 +126,7 @@ public class WinRmFeedIntegrationTest extends BrooklynAppLiveTestSupport {
         Assert.assertEquals(feeds.getFeeds().size(), 1, "Wrong feed count: "+feeds.getFeeds());
     }
     
-    @Test(groups="Integration")
+    @Test(groups="Live")
     public void testReturnsSshExitStatus() throws Exception {
         feed = CmdFeed.builder()
                 .entity(entity)
@@ -139,7 +140,7 @@ public class WinRmFeedIntegrationTest extends BrooklynAppLiveTestSupport {
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, 123);
     }
     
-    @Test(groups="Integration")
+    @Test(groups="Live")
     public void testReturnsStdout() throws Exception {
         feed = CmdFeed.builder()
                 .entity(entity)
@@ -153,7 +154,7 @@ public class WinRmFeedIntegrationTest extends BrooklynAppLiveTestSupport {
             Predicates.compose(Predicates.equalTo("hello"), StringFunctions.trim()));
     }
 
-    @Test(groups="Integration")
+    @Test(groups="Live")
     public void testReturnsStderr() throws Exception {
         final String cmd = "thiscommanddoesnotexist";
         
@@ -168,7 +169,7 @@ public class WinRmFeedIntegrationTest extends BrooklynAppLiveTestSupport {
         EntityAsserts.assertAttributeEventually(entity, SENSOR_STRING, StringPredicates.containsLiteral(cmd));
     }
     
-    @Test(groups="Integration")
+    @Test(groups="Live")
     public void testFailsOnNonZero() throws Exception {
         feed = CmdFeed.builder()
                 .entity(entity)
@@ -185,7 +186,7 @@ public class WinRmFeedIntegrationTest extends BrooklynAppLiveTestSupport {
         EntityAsserts.assertAttributeEventually(entity, SENSOR_STRING, StringPredicates.containsLiteral("Exit status 123"));
     }
     
-    @Test(groups="Integration")
+    @Test(groups="Live")
     public void testAddedEarly() throws Exception {
         final TestEntity entity2 = app.addChild(EntitySpec.create(TestEntity.class)
             .location(machine)
@@ -210,7 +211,7 @@ public class WinRmFeedIntegrationTest extends BrooklynAppLiveTestSupport {
     }
 
     
-    @Test(groups="Integration")
+    @Test(groups="Live")
     public void testDynamicEnvAndCommandSupplier() throws Exception {
         final TestEntity entity2 = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(machine));
         

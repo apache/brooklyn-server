@@ -27,10 +27,14 @@ import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.effector.CompositeEffector;
 import org.apache.brooklyn.core.effector.http.HttpCommandEffector;
+import org.apache.brooklyn.core.effector.http.HttpCommandEffectorHttpBinTest;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.test.http.TestHttpServer;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
@@ -57,7 +61,7 @@ public class CompositeEffectorYamlRebindTest extends AbstractYamlRebindTest {
            "      brooklyn.config:",
            "        name: myEffector",
            "        description: myDescription",
-           "        uri: http://httpbin.org/get?id=myId",
+           "        uri: ${serverUrl}/get?id=myId",
            "        httpVerb: GET",
            "        jsonPath: $.args.id",
            "        publishSensor: results",
@@ -69,9 +73,28 @@ public class CompositeEffectorYamlRebindTest extends AbstractYamlRebindTest {
            "        - myEffector"
    );
 
-    @Test(groups="Integration")
+   private TestHttpServer server;
+   private String serverUrl;
+
+   @Override
+   @BeforeMethod(alwaysRun = true)
+   public void setUp() throws Exception {
+       super.setUp();
+       server = HttpCommandEffectorHttpBinTest.createHttpBinServer();
+       serverUrl = server.getUrl();
+   }
+
+   @Override
+   @AfterMethod(alwaysRun = true)
+   public void tearDown() throws Exception {
+       super.tearDown();
+       server.stop();
+   }
+
+
+   @Test
    public void testRebindWhenHealthy() throws Exception {
-      runRebindWhenIsUp(catalogYamlSimple, appVersionedId);
+      runRebindWhenIsUp(catalogYamlSimple.replace("${serverUrl}", serverUrl), appVersionedId);
    }
 
    protected void runRebindWhenIsUp(String catalogYaml, String appId) throws Exception {
