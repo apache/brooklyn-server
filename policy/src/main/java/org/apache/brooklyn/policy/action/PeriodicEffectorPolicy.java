@@ -19,19 +19,20 @@
 
 package org.apache.brooklyn.policy.action;
 
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.SensorEvent;
+import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,49 +47,58 @@ import com.google.common.base.Predicates;
  *       effector: repaveCluster
  *       args:
  *         k: $brooklyn:config("repave.size")
- *       time: 12:00 01 January 2018
+ *       period: 1 day
  * }</pre>
  */
 @Beta
-public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
+public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ScheduledEffectorPolicy.class);
+    private static final Logger LOG = LoggerFactory.getLogger(PeriodicEffectorPolicy.class);
 
-    public static final ConfigKey<String> TIME = ConfigKeys.builder(String.class)
-            .name("time")
-            .description("The time when this policy should be executed")
+    public static final ConfigKey<Duration> PERIOD = ConfigKeys.builder(Duration.class)
+            .name("period")
+            .description("The duration between executions of this policy")
             .constraint(Predicates.notNull())
+            .defaultValue(Duration.hours(1))
             .build();
 
-    protected Date when;
+    public static final AttributeSensor<Void> INVOKE_IMMEDIATELY = Sensors.newSensor(Void.TYPE, "scheduler.invoke");
+    public static final AttributeSensor<Boolean> START_SCHEDULER = Sensors.newBooleanSensor("scheduler.start");
+
+    protected long delay;
 
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
-    public ScheduledEffectorPolicy() {
+    public PeriodicEffectorPolicy() {
         this(MutableMap.<String,Object>of());
     }
 
-    public ScheduledEffectorPolicy(Map<String,?> props) {
+    public PeriodicEffectorPolicy(Map<String,?> props) {
         super(props);
-        String time = config().get(TIME);
-        DateFormat format = DateFormat.getDateTimeInstance();
-        try {
-            when = format.parse(time);
-        } catch (ParseException e) {
-            Exceptions.propagate(e);
-        }
-        Date now = new Date();
-        if (when.before(now)) {
-            throw new IllegalStateException("The time provided must be in the future");
-        }
+        Duration period = config().get(PERIOD);
+        delay = period.toMilliseconds();
     }
 
     @Override
     public void setEntity(final EntityLocal entity) {
         super.setEntity(entity);
-        Date now = new Date();
-        long difference = Math.max(0, when.getTime() - now.getTime());
-        executor.schedule(this, difference, TimeUnit.MILLISECONDS);
+        subscriptions().subscribe(entity, INVOKE_IMMEDIATELY, handler);
+        subscriptions().subscribe(entity, START_SCHEDULER, handler);
     }
+
+    private final SensorEventListener<Object> handler = new SensorEventListener<Object>() {
+        @Override
+        public void onEvent(SensorEvent<Object> event) {
+            if (event.getSensor().equals(START_SCHEDULER)) {
+                if (Boolean.TRUE.equals(event.getValue())) {
+                    executor.scheduleWithFixedDelay(PeriodicEffectorPolicy.this, delay, delay, TimeUnit.MILLISECONDS);
+                } else {
+                    executor.shutdown();
+                }
+            } else if (event.getSensor().equals(INVOKE_IMMEDIATELY)) {
+                executor.submit(PeriodicEffectorPolicy.this);
+            }
+        }
+    };
 
 }
