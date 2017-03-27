@@ -73,6 +73,7 @@ public class ComposeEffector extends AbstractCompositeEffector {
 
         @Override
         public Object call(final ConfigBag params) {
+            LOG.info("{} called with config {}", new Object[] { this, config });
             List<Object> effectors = EntityInitializers.resolve(config, COMPOSE);
 
             Object result = null;
@@ -82,6 +83,7 @@ public class ComposeEffector extends AbstractCompositeEffector {
                 String inputArgument = getInputArgument(effectorDetails);
                 String inputParameter = getInputParameter(effectorDetails);
                 Entity targetEntity = getTargetEntity(effectorDetails);
+                LOG.info("{} executing {}({}:{}) on {}", new Object[] { this, effectorName, inputArgument, inputParameter, targetEntity });
 
                 if (inputArgument == null) {
                     throw new IllegalArgumentException("Input is not set for this effector: " + effectorDetails);

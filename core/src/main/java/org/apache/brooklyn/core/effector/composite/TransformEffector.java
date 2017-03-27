@@ -76,6 +76,7 @@ public class TransformEffector extends AbstractCompositeEffector {
 
         @Override
         public Object call(final ConfigBag params) {
+            LOG.info("{} called with config {}", new Object[] { this, config });
             Function<Object,Object> function = EntityInitializers.resolve(config, FUNCTION);
 
             String input = config.get(INPUT);

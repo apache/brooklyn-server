@@ -158,8 +158,7 @@ public abstract class AbstractCompositeEffector extends AddEffector {
         }
 
         protected Object invokeEffectorNamed(Entity target, String effectorName, ConfigBag params) {
-            LOG.info("{} invoking effector on {}, effector={}, parameters={}",
-                    new Object[]{this, target, effectorName, params});
+            LOG.info("{} invoking {} with params {}", new Object[] { this, effectorName, params });
             Maybe<Effector<?>> effector = target.getEntityType().getEffectorByName(effectorName);
             if (effector.isAbsent()) {
                 throw new IllegalStateException("Cannot find effector " + effectorName);

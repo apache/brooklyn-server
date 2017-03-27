@@ -36,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 
 /**
@@ -70,7 +71,7 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
 
     public ScheduledEffectorPolicy(Map<String,?> props) {
         super(props);
-        String time = config().get(TIME);
+        String time = Preconditions.checkNotNull(config().get(TIME), "The time must be configured for this policy");
         DateFormat format = DateFormat.getDateTimeInstance();
         try {
             when = format.parse(time);

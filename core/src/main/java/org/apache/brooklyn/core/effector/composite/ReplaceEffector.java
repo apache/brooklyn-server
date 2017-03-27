@@ -104,12 +104,14 @@ public final class ReplaceEffector extends AbstractCompositeEffector {
 
         @Override
         public Object call(final ConfigBag params) {
+            LOG.info("{} called with config {}", new Object[] { this, config });
             ReplaceAction action = config.get(ACTION);
             Object effectorDetails = EntityInitializers.resolve(config, REPLACE);
 
             String effectorName = getEffectorName(effectorDetails);
             String inputArgument = getInputArgument(effectorDetails);
             Entity targetEntity = getTargetEntity(effectorDetails);
+            LOG.info("{} executing {}({}) on {}", new Object[] { this, effectorName, inputArgument, targetEntity });
 
             if (inputArgument != null) {
                 Object input = config.getStringKey(inputArgument);
