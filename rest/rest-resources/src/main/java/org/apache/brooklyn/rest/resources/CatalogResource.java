@@ -246,8 +246,12 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 }
             }
 
-            // TODO improve on this - If the FEATURE_LOAD_BUNDLE_CATALOG_BOM is enabled, the REST API won't return the
-            // added items which breaks the contract on the API endpoint.
+            // TODO improve on this - Currently, the added items are returned ONLY if the FEATURE_LOAD_BUNDLE_CATALOG_BOM
+            // is disabled. When enabled, the above code is not executed and the catalog items addition is delegated
+            // to the CatalogBomScanner. The REST API will therefore not know what are the added catalog items and won't
+            // return them.
+            // One way to improved this would be couple agoin the CatalogBomScanner with the CatalogBundleLoader to
+            // retrieve the list of added catalog items per bundle.
             return buildCreateResponse(catalogItems);
         } catch (RuntimeException ex) {
             throw WebResourceUtils.badRequest(ex);
@@ -264,7 +268,9 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
 
         for (CatalogItem<?,?> catalogItem: catalogItems) {
             try {
-                result.put(catalogItem.getId(), CatalogTransformer.catalogItemSummary(brooklyn(), catalogItem, ui.getBaseUriBuilder()));
+                result.put(
+                        catalogItem.getId(),
+                        CatalogTransformer.catalogItemSummary(brooklyn(), catalogItem, ui.getBaseUriBuilder()));
             } catch (Throwable t) {
                 log.warn("Error loading catalog item '"+catalogItem+"' (rethrowing): "+t);
                 // unfortunately items are already added to the catalog and hard to remove,
