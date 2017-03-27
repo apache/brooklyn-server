@@ -41,6 +41,7 @@ import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
@@ -52,11 +53,11 @@ public class CatalogBundleLoader {
     private static final String BROOKLYN_CATALOG = "brooklyn.catalog";
     private static final String BROOKLYN_LIBRARIES = "brooklyn.libraries";
 
-    private CatalogBomScanner catalogBomScanner;
+    private Predicate<Bundle> applicationsPermitted;
     private ManagementContext managementContext;
 
-    public CatalogBundleLoader(CatalogBomScanner catalogBomScanner, ManagementContext managementContext) {
-        this.catalogBomScanner = catalogBomScanner;
+    public CatalogBundleLoader(Predicate<Bundle> applicationsPermitted, ManagementContext managementContext) {
+        this.applicationsPermitted = applicationsPermitted;
         this.managementContext = managementContext;
     }
 
@@ -73,7 +74,7 @@ public class CatalogBundleLoader {
 
         final URL bom = bundle.getResource(CatalogBundleLoader.CATALOG_BOM_URL);
         if (null != bom) {
-            LOG.debug("Found catalog BOM in {} {} {}", catalogBomScanner.bundleIds(bundle));
+            LOG.debug("Found catalog BOM in {} {} {}", CatalogUtils.bundleIds(bundle));
             String bomText = readBom(bom);
             String bomWithLibraryPath = addLibraryDetails(bundle, bomText);
             catalogItems = this.managementContext.getCatalog().addItems(bomWithLibraryPath);
@@ -81,10 +82,10 @@ public class CatalogBundleLoader {
                 LOG.debug("Added to catalog: {}, {}", item.getSymbolicName(), item.getVersion());
             }
         } else {
-            LOG.debug("No BOM found in {} {} {}", catalogBomScanner.bundleIds(bundle));
+            LOG.debug("No BOM found in {} {} {}", CatalogUtils.bundleIds(bundle));
         }
 
-        if (!passesWhiteAndBlacklists(bundle)) {
+        if (!applicationsPermitted.apply(bundle)) {
             catalogItems = removeAnyApplications(catalogItems);
         }
 
@@ -125,7 +126,8 @@ public class CatalogBundleLoader {
                 Map<String, Object> catalogMap = (Map<String, Object>) catalog;
                 addLibraryDetails(bundle, catalogMap);
             } else {
-                LOG.warn("Unexpected syntax for {} (expected Map, but got {}), ignoring", CatalogBundleLoader.BROOKLYN_CATALOG, catalog.getClass().getName());
+                LOG.warn("Unexpected syntax for {} (expected Map, but got {}), ignoring",
+                    CatalogBundleLoader.BROOKLYN_CATALOG, catalog.getClass().getName());
             }
         }
         final String updatedBom = backToYaml(bom);
@@ -175,17 +177,4 @@ public class CatalogBundleLoader {
         return result;
     }
 
-    private boolean passesWhiteAndBlacklists(Bundle bundle) {
-        return on(bundle, catalogBomScanner.getWhiteList()) && !on(bundle, catalogBomScanner.getBlackList());
-    }
-
-    private boolean on(Bundle bundle, List<String> list) {
-        for (String candidate : list) {
-            final String symbolicName = bundle.getSymbolicName();
-            if (symbolicName.matches(candidate.trim())) {
-                return true;
-            }
-        }
-        return false;
-    }
 }

@@ -20,10 +20,9 @@
 package org.apache.brooklyn.core.catalog.internal;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleEvent;
-import org.osgi.framework.ServiceReference;
 import org.osgi.util.tracker.BundleTracker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,36 +34,11 @@ public class CatalogBundleTracker extends BundleTracker<Iterable<? extends Catal
 
     private static final Logger LOG = LoggerFactory.getLogger(CatalogBundleTracker.class);
 
-    private ServiceReference<ManagementContext> mgmtContextReference;
-    private ManagementContext managementContext;
-
-    private CatalogBomScanner catalogBomScanner;
     private CatalogBundleLoader catalogBundleLoader;
 
-    public CatalogBundleTracker(CatalogBomScanner catalogBomScanner, ServiceReference<ManagementContext> serviceReference) {
-        super(serviceReference.getBundle().getBundleContext(), Bundle.ACTIVE, null);
-        this.mgmtContextReference = serviceReference;
-        this.catalogBomScanner = catalogBomScanner;
-        open();
-    }
-
-    @Override
-    public void open() {
-        managementContext = mgmtContextReference.getBundle().getBundleContext().getService(mgmtContextReference);
-        catalogBundleLoader = new CatalogBundleLoader(catalogBomScanner, managementContext);
-        super.open();
-    }
-
-    @Override
-    public void close() {
-        super.close();
-        managementContext = null;
-        mgmtContextReference.getBundle().getBundleContext().ungetService(mgmtContextReference);
-        catalogBundleLoader = null;
-    }
-
-    public ManagementContext getManagementContext() {
-        return managementContext;
+    public CatalogBundleTracker(BundleContext bundleContext, CatalogBundleLoader catalogBundleLoader) {
+        super(bundleContext, Bundle.ACTIVE, null);
+        this.catalogBundleLoader = catalogBundleLoader;
     }
 
     /**
@@ -94,7 +68,7 @@ public class CatalogBundleTracker extends BundleTracker<Iterable<? extends Catal
         if (!items.iterator().hasNext()) {
             return;
         }
-        LOG.debug("Unloading catalog BOM entries from {} {} {}", catalogBomScanner.bundleIds(bundle));
+        LOG.debug("Unloading catalog BOM entries from {} {} {}", CatalogUtils.bundleIds(bundle));
         for (CatalogItem<?, ?> item : items) {
             LOG.debug("Unloading {} {} from catalog", item.getSymbolicName(), item.getVersion());
 

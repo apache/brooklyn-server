@@ -48,6 +48,7 @@ import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Time;
+import org.osgi.framework.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -323,4 +324,10 @@ public class CatalogUtils {
         mgmt.getCatalog().persist(item);
     }
 
+
+    public static String[] bundleIds(Bundle bundle) {
+        return new String[] {
+            String.valueOf(bundle.getBundleId()), bundle.getSymbolicName(), bundle.getVersion().toString()
+        };
+    }
 }
