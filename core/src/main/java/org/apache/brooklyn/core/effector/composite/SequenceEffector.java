@@ -74,7 +74,7 @@ public class SequenceEffector extends AbstractCompositeEffector {
 
         @Override
         public Object call(final ConfigBag params) {
-            LOG.info("{} called with config {}, params {}", new Object[] { this, config, params });
+            LOG.debug("{} called with config {}, params {}", new Object[] { this, config, params });
             List<Object> effectors = EntityInitializers.resolve(config, SEQUENCE);
 
             Object result = null;
@@ -83,7 +83,7 @@ public class SequenceEffector extends AbstractCompositeEffector {
                 String effectorName = getEffectorName(effectorDetails);
                 String inputArgument = getInputArgument(effectorDetails);
                 Entity targetEntity = getTargetEntity(effectorDetails);
-                LOG.info("{} executing {}({}) on {}", new Object[] { this, effectorName, inputArgument, targetEntity });
+                LOG.debug("{} executing {}({}) on {}", new Object[] { this, effectorName, inputArgument, targetEntity });
 
                 if (inputArgument == null) {
                     throw new IllegalArgumentException("Input is not set for this effector: " + effectorDetails);

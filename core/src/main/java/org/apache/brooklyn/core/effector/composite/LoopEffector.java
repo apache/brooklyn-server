@@ -76,7 +76,7 @@ public class LoopEffector extends AbstractCompositeEffector {
 
         @Override
         public List call(final ConfigBag params) {
-            LOG.info("{} called with config {}, params {}", new Object[] { this, config, params });
+            LOG.debug("{} called with config {}, params {}", new Object[] { this, config, params });
             Object effectorDetails = EntityInitializers.resolve(config, LOOP);
             String input = config.get(INPUT);
             Object inputObject = params.getStringKey(input);
@@ -90,7 +90,7 @@ public class LoopEffector extends AbstractCompositeEffector {
             String effectorName = getEffectorName(effectorDetails);
             String inputArgument = getInputArgument(effectorDetails);
             Entity targetEntity = getTargetEntity(effectorDetails);
-            LOG.info("{} executing {}({}) on {}", new Object[] { this, effectorName, inputArgument, targetEntity });
+            LOG.debug("{} executing {}({}) on {}", new Object[] { this, effectorName, inputArgument, targetEntity });
 
             if (inputArgument == null) {
                 throw new IllegalArgumentException("Input is not set for this effector: " + effectorDetails);
