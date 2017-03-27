@@ -113,13 +113,18 @@
             <plugin>
                 <groupId>com.github.kongchen</groupId>
                 <artifactId>swagger-maven-plugin</artifactId>
-                <version>3.1.0</version>
+                <version>3.1.4</version>
                 <configuration>
                     <apiSources>
                         <apiSource>
                             <springmvc>false</springmvc>
-                            <locations>org.apache.brooklyn.rest.api</locations>
-                            <schemes>http,https</schemes>
+                            <locations>
+                                <location>org.apache.brooklyn.rest.api</location>
+                            </locations>
+                            <schemes>
+                                <scheme>http</scheme>
+                                <scheme>https</scheme>
+                            </schemes>
                             <info>
                                 <title>Swagger API Specification for Brooklyn REST server</title>
                                 <version>v1</version>

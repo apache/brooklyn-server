@@ -50,13 +50,12 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
-import org.apache.brooklyn.core.catalog.internal.CatalogBomScanner;
+import org.apache.brooklyn.core.catalog.internal.CatalogBundleLoader;
 import org.apache.brooklyn.core.catalog.internal.CatalogDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemComparator;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
@@ -85,10 +84,12 @@ import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleException;
 import org.osgi.framework.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -115,7 +116,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     static Set<String> missingIcons = MutableSet.of();
 
     @Override
-    public Response createPoly(byte[] item) {
+    @Beta
+    public Response createFromUpload(byte[] item) {
         Throwable yamlException = null;
         try {
             MutableList.copyOf( Yamls.parseAll(new InputStreamReader(new ByteArrayInputStream(item))) );
@@ -129,14 +131,11 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             return createFromYaml(new String(item));
         }
         
-        try {
-            return createFromArchive(item);
-        } catch (Exception e) {
-            throw Exceptions.propagate("Unable to handle input: not YAML or compatible ZIP. Specify Content-Type to clarify.", e);
-        }
+        return createFromArchive(item);
     }
     
-    @Override @Deprecated
+    @Override
+    @Deprecated
     public Response create(String yaml) {
         return createFromYaml(yaml);
     }
@@ -177,13 +176,14 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
+    @Beta
     public Response createFromArchive(byte[] zipInput) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ROOT, null)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item",
                 Entitlements.getEntitlementContext().user());
         }
 
-        BundleMaker bm = new BundleMaker(mgmt());
+        BundleMaker bm = new BundleMaker(mgmtInternal());
         File f=null, f2=null;
         try {
             f = Os.newTempFile("brooklyn-posted-archive", "zip");
@@ -197,20 +197,20 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             try {
                 zf = new ZipFile(f);
             } catch (IOException e) {
-                throw WebResourceUtils.badRequest("Invalid ZIP/JAR archive: "+e);
+                throw new IllegalArgumentException("Invalid ZIP/JAR archive: "+e);
             }
             ZipArchiveEntry bom = zf.getEntry("catalog.bom");
             if (bom==null) {
                 bom = zf.getEntry("/catalog.bom");
             }
             if (bom==null) {
-                throw WebResourceUtils.badRequest("Archive must contain a catalog.bom file in the root");
+                throw new IllegalArgumentException("Archive must contain a catalog.bom file in the root");
             }
             String bomS;
             try {
                 bomS = Streams.readFullyString(zf.getInputStream(bom));
             } catch (IOException e) {
-                throw WebResourceUtils.badRequest("Error reading catalog.bom from ZIP/JAR archive: "+e);
+                throw new IllegalArgumentException("Error reading catalog.bom from ZIP/JAR archive: "+e);
             }
             VersionedName vn = BasicBrooklynCatalog.getVersionedName( BasicBrooklynCatalog.getCatalogMetadata(bomS) );
             
@@ -221,7 +221,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             String bundleNameInMF = mf.getMainAttributes().getValue(Constants.BUNDLE_SYMBOLICNAME);
             if (Strings.isNonBlank(bundleNameInMF)) {
                 if (!bundleNameInMF.equals(vn.getSymbolicName())) {
-                    throw new IllegalStateException("JAR MANIFEST symbolic-name '"+bundleNameInMF+"' does not match '"+vn.getSymbolicName()+"' defined in BOM");
+                    throw new IllegalArgumentException("JAR MANIFEST symbolic-name '"+bundleNameInMF+"' does not match '"+vn.getSymbolicName()+"' defined in BOM");
                 }
             } else {
                 mf.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, vn.getSymbolicName());
@@ -230,7 +230,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             String bundleVersionInMF = mf.getMainAttributes().getValue(Constants.BUNDLE_VERSION);
             if (Strings.isNonBlank(bundleVersionInMF)) {
                 if (!bundleVersionInMF.equals(vn.getVersion().toString())) {
-                    throw new IllegalStateException("JAR MANIFEST version '"+bundleVersionInMF+"' does not match '"+vn.getVersion()+"' defined in BOM");
+                    throw new IllegalArgumentException("JAR MANIFEST version '"+bundleVersionInMF+"' does not match '"+vn.getVersion()+"' defined in BOM");
                 }
             } else {
                 mf.getMainAttributes().putValue(Constants.BUNDLE_VERSION, vn.getVersion().toString());
@@ -245,13 +245,26 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             
             if (!BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM)) {
                 // if the above feature is not enabled, let's do it manually (as a contract of this method)
-                new CatalogBomScanner().new CatalogPopulator(
-                        ((LocalManagementContext) mgmt()).getOsgiManager().get().getFramework().getBundleContext(),
-                        mgmt()).addingBundle(bundle, null);
+                try {
+                    // TODO improve on this - it ignores the configuration of whitelists, see CatalogBomScanner.
+                    // One way would be to add the CatalogBomScanner to the new Scratchpad area, then retrieving the singleton
+                    // here to get back the predicate from it.
+                    final Predicate<Bundle> applicationsPermitted = Predicates.<Bundle>alwaysTrue();
+
+                    new CatalogBundleLoader(applicationsPermitted, mgmt()).scanForCatalog(bundle);
+                } catch (RuntimeException ex) {
+                    try {
+                        bundle.uninstall();
+                    } catch (BundleException e) {
+                        log.error("Cannot uninstall bundle " + bundle.getSymbolicName() + ":" + bundle.getVersion(), e);
+                    }
+                    throw new IllegalArgumentException("Error installing catalog items", ex);
+                }
             }
             
             return Response.status(Status.CREATED).build();
-            
+        } catch (RuntimeException ex) {
+            throw WebResourceUtils.badRequest(ex);
         } finally {
             if (f!=null) f.delete();
             if (f2!=null) f2.delete();

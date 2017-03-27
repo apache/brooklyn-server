@@ -62,6 +62,9 @@ public class OsgiTestResources {
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_SYMBOLIC_NAME_FULL =
         "com.example.brooklyn.test.resources.osgi."+BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_SYMBOLIC_NAME_FINAL_PART;
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH = "/brooklyn/osgi/brooklyn-test-osgi-com-example-entities.jar";
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_URL = "classpath:"+BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH;
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_VERSION = "0.1.0";
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ICON_PATH = "/com/example/brooklyn/test/osgi/entities/icon.gif";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_APPLICATION = "com.example.brooklyn.test.osgi.entities.SimpleApplication";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ENTITY = "com.example.brooklyn.test.osgi.entities.SimpleEntity";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_POLICY = "com.example.brooklyn.test.osgi.entities.SimplePolicy";

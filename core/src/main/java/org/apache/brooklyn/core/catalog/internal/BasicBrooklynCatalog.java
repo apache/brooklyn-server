@@ -425,45 +425,18 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
     
     public static VersionedName getVersionedName(Map<?,?> catalogMetadata) {
-        String id = getFirstAs(catalogMetadata, String.class, "id").orNull();
         String version = getFirstAs(catalogMetadata, String.class, "version").orNull();
-        String symbolicName = getFirstAs(catalogMetadata, String.class, "symbolicName").orNull();
-        symbolicName = findAssertingConsistentIfSet("symbolicName", symbolicName, getFirstAs(catalogMetadata, String.class, "symbolic-name").orNull());
-        // prefer symbolic name and version, if supplied
-        // else use id as symbolic name : version or just symbolic name
-        // (must match if both supplied)
-        if (Strings.isNonBlank(id)) {
-            if (CatalogUtils.looksLikeVersionedId(id)) {
-                symbolicName = findAssertingConsistentIfSet("symbolicName", symbolicName, CatalogUtils.getSymbolicNameFromVersionedId(id));
-                version = findAssertingConsistentIfSet("version", version, CatalogUtils.getVersionFromVersionedId(id));
-            } else {
-                symbolicName = findAssertingConsistentIfSet("symbolicName", symbolicName, id);
-            }
+        String bundle = getFirstAs(catalogMetadata, String.class, "bundle").orNull();
+        if (Strings.isBlank(bundle) && Strings.isBlank(version)) {
+            throw new IllegalStateException("Catalog BOM must define bundle and version");
         }
-        if (Strings.isBlank(symbolicName) && Strings.isBlank(version)) {
-            throw new IllegalStateException("Catalog BOM must define symbolicName and version");
-        }
-        if (Strings.isBlank(symbolicName)) {
-            throw new IllegalStateException("Catalog BOM must define symbolicName");
+        if (Strings.isBlank(bundle)) {
+            throw new IllegalStateException("Catalog BOM must define bundle");
         }
         if (Strings.isBlank(version)) {
             throw new IllegalStateException("Catalog BOM must define version");
         }
-        return new VersionedName(symbolicName, Version.valueOf(version));
-    }
-    
-    private static String findAssertingConsistentIfSet(String context, String ...values) {
-        String v = null;
-        for (String vi: values) {
-            if (Strings.isNonBlank(vi)) {
-                if (Strings.isNonBlank(v)) {
-                    if (!v.equals(vi)) throw new IllegalStateException("Mismatch in "+context+": '"+v+"' or '"+vi+"' supplied");
-                } else {
-                    v = vi;
-                }
-            }
-        }
-        return v;
+        return new VersionedName(bundle, Version.valueOf(version));
     }
 
     private void collectCatalogItems(String yaml, List<CatalogItemDtoAbstract<?, ?>> result, Map<?, ?> parentMeta) {
