@@ -50,7 +50,6 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
-import org.apache.brooklyn.core.catalog.internal.CatalogBomScanner;
 import org.apache.brooklyn.core.catalog.internal.CatalogBundleLoader;
 import org.apache.brooklyn.core.catalog.internal.CatalogDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemComparator;
@@ -184,7 +183,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 Entitlements.getEntitlementContext().user());
         }
 
-        BundleMaker bm = new BundleMaker(mgmt());
+        BundleMaker bm = new BundleMaker(mgmtInternal());
         File f=null, f2=null;
         try {
             f = Os.newTempFile("brooklyn-posted-archive", "zip");
@@ -248,6 +247,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 // if the above feature is not enabled, let's do it manually (as a contract of this method)
                 try {
                     // TODO improve on this - it ignores the configuration of whitelists, see CatalogBomScanner.
+                    // One way would be to add the CatalogBomScanner to the new Scratchpad area, then retrieving the singleton
+                    // here to get back the predicate from it.
                     final Predicate<Bundle> applicationsPermitted = Predicates.<Bundle>alwaysTrue();
 
                     new CatalogBundleLoader(applicationsPermitted, mgmt()).scanForCatalog(bundle);

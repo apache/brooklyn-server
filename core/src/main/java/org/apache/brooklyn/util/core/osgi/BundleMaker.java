@@ -36,7 +36,7 @@ import java.util.zip.ZipOutputStream;
 import javax.annotation.Nonnull;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -73,7 +73,7 @@ public class BundleMaker {
     }
     
     public BundleMaker(@Nonnull ManagementContext mgmt) {
-        this( ((LocalManagementContext)mgmt).getOsgiManager().get().getFramework(), ResourceUtils.create() );
+        this(((ManagementContextInternal) mgmt).getOsgiManager().get().getFramework(), ResourceUtils.create());
     }
 
     /** if set, this will be used to resolve relative classpath fragments;
