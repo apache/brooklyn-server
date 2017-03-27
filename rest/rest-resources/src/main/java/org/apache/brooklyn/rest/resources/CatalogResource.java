@@ -146,33 +146,15 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item",
                 Entitlements.getEntitlementContext().user());
         }
-        
-        Iterable<? extends CatalogItem<?, ?>> items; 
+
         try {
-            items = brooklyn().getCatalog().addItems(yaml);
+            final Iterable<? extends CatalogItem<?, ?>> items = brooklyn().getCatalog().addItems(yaml);
+            return buildCreateResponse(items);
         } catch (Exception e) {
             e.printStackTrace();
             Exceptions.propagateIfFatal(e);
             return ApiError.of(e).asBadRequestResponseJson();
         }
-
-        log.info("REST created catalog items: "+items);
-
-        Map<String,Object> result = MutableMap.of();
-        
-        for (CatalogItem<?,?> item: items) {
-            try {
-                result.put(item.getId(), CatalogTransformer.catalogItemSummary(brooklyn(), item, ui.getBaseUriBuilder()));
-            } catch (Throwable t) {
-                log.warn("Error loading catalog item '"+item+"' (rethrowing): "+t);
-                // unfortunately items are already added to the catalog and hard to remove,
-                // but at least let the user know;
-                // happens eg if a class refers to a missing class, like 
-                // loading nosql items including mongo without the mongo bson class on the classpath 
-                throw Exceptions.propagateAnnotated("At least one unusable item was added ("+item.getId()+")", t);
-            }
-        }
-        return Response.status(Status.CREATED).entity(result).build();
     }
 
     @Override
@@ -242,6 +224,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             f2 = bm.copyAddingManifest(f, mf);
             
             Bundle bundle = bm.installBundle(f2, true);
+
+            Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
             
             if (!BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM)) {
                 // if the above feature is not enabled, let's do it manually (as a contract of this method)
@@ -251,7 +235,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                     // here to get back the predicate from it.
                     final Predicate<Bundle> applicationsPermitted = Predicates.<Bundle>alwaysTrue();
 
-                    new CatalogBundleLoader(applicationsPermitted, mgmt()).scanForCatalog(bundle);
+                    catalogItems = new CatalogBundleLoader(applicationsPermitted, mgmt()).scanForCatalog(bundle);
                 } catch (RuntimeException ex) {
                     try {
                         bundle.uninstall();
@@ -261,14 +245,42 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                     throw new IllegalArgumentException("Error installing catalog items", ex);
                 }
             }
-            
-            return Response.status(Status.CREATED).build();
+
+            // TODO improve on this - Currently, the added items are returned ONLY if the FEATURE_LOAD_BUNDLE_CATALOG_BOM
+            // is disabled. When enabled, the above code is not executed and the catalog items addition is delegated
+            // to the CatalogBomScanner. The REST API will therefore not know what are the added catalog items and won't
+            // return them.
+            // One way to improved this would be couple agoin the CatalogBomScanner with the CatalogBundleLoader to
+            // retrieve the list of added catalog items per bundle.
+            return buildCreateResponse(catalogItems);
         } catch (RuntimeException ex) {
             throw WebResourceUtils.badRequest(ex);
         } finally {
             if (f!=null) f.delete();
             if (f2!=null) f2.delete();
         }
+    }
+
+    private Response buildCreateResponse(Iterable<? extends CatalogItem<?, ?>> catalogItems) {
+        log.info("REST created catalog items: "+catalogItems);
+
+        Map<String,Object> result = MutableMap.of();
+
+        for (CatalogItem<?,?> catalogItem: catalogItems) {
+            try {
+                result.put(
+                        catalogItem.getId(),
+                        CatalogTransformer.catalogItemSummary(brooklyn(), catalogItem, ui.getBaseUriBuilder()));
+            } catch (Throwable t) {
+                log.warn("Error loading catalog item '"+catalogItem+"' (rethrowing): "+t);
+                // unfortunately items are already added to the catalog and hard to remove,
+                // but at least let the user know;
+                // happens eg if a class refers to a missing class, like
+                // loading nosql items including mongo without the mongo bson class on the classpath
+                throw Exceptions.propagateAnnotated("At least one unusable item was added ("+catalogItem.getId()+")", t);
+            }
+        }
+        return Response.status(Status.CREATED).entity(result).build();
     }
     
     @SuppressWarnings("deprecation")

@@ -81,7 +81,7 @@ public class VanillaSoftwareProcessTest extends BrooklynRestApiLauncherTestFixtu
         // Add catalogue item.
         HttpToolResponse response = node.http().post(
                 "/catalog",
-                ImmutableMap.<String, String>of(),
+                ImmutableMap.<String, String>of("Content-type", "application/yaml"),
                 catalogYaml.getBytes());
         HttpAsserts.assertHealthyStatusCode(response.getResponseCode());
 
