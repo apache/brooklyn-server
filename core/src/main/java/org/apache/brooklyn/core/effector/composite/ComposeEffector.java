@@ -73,7 +73,7 @@ public class ComposeEffector extends AbstractCompositeEffector {
 
         @Override
         public Object call(final ConfigBag params) {
-            LOG.info("{} called with config {}", new Object[] { this, config });
+            LOG.info("{} called with config {}, params {}", new Object[] { this, config, params });
             List<Object> effectors = EntityInitializers.resolve(config, COMPOSE);
 
             Object result = null;
@@ -90,13 +90,13 @@ public class ComposeEffector extends AbstractCompositeEffector {
                 }
                 if (inputParameter == null) {
                     if (result == null) {
-                        Object input = config.getStringKey(inputArgument);
+                        Object input = params.getStringKey(inputArgument);
                         params.putStringKey(inputArgument, input);
                     } else {
                         params.putStringKey(inputArgument, result);
                     }
                 } else {
-                    Object input = config.getStringKey(inputParameter);
+                    Object input = params.getStringKey(inputParameter);
                     params.putStringKey(inputArgument, input);
                 }
 

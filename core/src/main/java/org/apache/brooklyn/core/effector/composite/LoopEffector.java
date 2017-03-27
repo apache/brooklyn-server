@@ -76,10 +76,10 @@ public class LoopEffector extends AbstractCompositeEffector {
 
         @Override
         public List call(final ConfigBag params) {
-            LOG.info("{} called with config {}", new Object[] { this, config });
+            LOG.info("{} called with config {}, params {}", new Object[] { this, config, params });
             Object effectorDetails = EntityInitializers.resolve(config, LOOP);
             String input = config.get(INPUT);
-            Object inputObject = config.getStringKey(input);
+            Object inputObject = params.getStringKey(input);
             if (!(inputObject instanceof Collection)) {
                 throw new IllegalArgumentException("Input to loop is not a collection: " + inputObject);
             }
