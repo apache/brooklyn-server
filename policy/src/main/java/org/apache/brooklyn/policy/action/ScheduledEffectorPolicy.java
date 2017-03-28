@@ -21,10 +21,9 @@ package org.apache.brooklyn.policy.action;
 
 import java.text.DateFormat;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -47,13 +46,15 @@ import com.google.common.base.Predicates;
  *       effector: repaveCluster
  *       args:
  *         k: $brooklyn:config("repave.size")
- *       time: 12:00 01 January 2018
+ *       time: 2017-12-11 12:00:00
  * }</pre>
  */
 @Beta
 public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
 
     private static final Logger LOG = LoggerFactory.getLogger(ScheduledEffectorPolicy.class);
+
+    public static final String TIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
 
     public static final ConfigKey<String> TIME = ConfigKeys.builder(String.class)
             .name("time")
@@ -63,8 +64,6 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
 
     protected Date when;
 
-    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-
     public ScheduledEffectorPolicy() {
         this(MutableMap.<String,Object>of());
     }
@@ -72,10 +71,11 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
     public ScheduledEffectorPolicy(Map<String,?> props) {
         super(props);
         String time = Preconditions.checkNotNull(config().get(TIME), "The time must be configured for this policy");
-        DateFormat format = DateFormat.getDateTimeInstance();
+        DateFormat format = new SimpleDateFormat(TIME_FORMAT);
         try {
             when = format.parse(time);
         } catch (ParseException e) {
+            LOG.warn("The time must be formatted as " + TIME_FORMAT + " for this policy", e);
             Exceptions.propagate(e);
         }
         Date now = new Date();

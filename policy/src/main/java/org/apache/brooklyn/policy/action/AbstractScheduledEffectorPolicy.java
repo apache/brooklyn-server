@@ -56,7 +56,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
             .defaultValue(ImmutableMap.<String, Object>of())
             .build();
 
-    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    protected final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
     public AbstractScheduledEffectorPolicy() {
         this(MutableMap.<String,Object>of());
@@ -82,7 +82,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
             throw new IllegalStateException("Cannot find effector " + effectorName);
         }
 
-        LOG.info("{} invoking effector on {}, effector={}, args={}", new Object[] { this, entity, effectorName, args });
+        LOG.debug("{} invoking effector on {}, effector={}, args={}", new Object[] { this, entity, effectorName, args });
         entity.invoke(effector.get(), args).getUnchecked();
     }
 }

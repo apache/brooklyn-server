@@ -20,8 +20,6 @@
 package org.apache.brooklyn.policy.action;
 
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -63,12 +61,10 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
             .defaultValue(Duration.hours(1))
             .build();
 
-    public static final AttributeSensor<Void> INVOKE_IMMEDIATELY = Sensors.newSensor(Void.TYPE, "scheduler.invoke");
-    public static final AttributeSensor<Boolean> START_SCHEDULER = Sensors.newBooleanSensor("scheduler.start");
+    public static final AttributeSensor<Boolean> INVOKE_IMMEDIATELY = Sensors.newBooleanSensor("scheduler.invoke", "Invoke the configured effector immediately when this becomes true");
+    public static final AttributeSensor<Boolean> START_SCHEDULER = Sensors.newBooleanSensor("scheduler.start", "Start the periodic effector execution after this becomes true");
 
     protected long delay;
-
-    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
     public PeriodicEffectorPolicy() {
         this(MutableMap.<String,Object>of());
@@ -90,14 +86,15 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
     private final SensorEventListener<Object> handler = new SensorEventListener<Object>() {
         @Override
         public void onEvent(SensorEvent<Object> event) {
+            LOG.debug("{} got event {}", PeriodicEffectorPolicy.this, event);
             if (event.getSensor().equals(START_SCHEDULER)) {
                 if (Boolean.TRUE.equals(event.getValue())) {
                     executor.scheduleWithFixedDelay(PeriodicEffectorPolicy.this, delay, delay, TimeUnit.MILLISECONDS);
-                } else {
-                    executor.shutdown();
                 }
             } else if (event.getSensor().equals(INVOKE_IMMEDIATELY)) {
-                executor.submit(PeriodicEffectorPolicy.this);
+                if (Boolean.TRUE.equals(event.getValue())) {
+                    executor.submit(PeriodicEffectorPolicy.this);
+                }
             }
         }
     };
