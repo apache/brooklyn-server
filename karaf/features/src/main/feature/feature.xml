@@ -332,4 +332,16 @@
         <bundle start-level="90">mvn:org.apache.brooklyn/brooklyn-karaf-init/${project.version}</bundle>
     </feature>
 
+    <feature name="brooklyn-server-config" version="${project.version}" description="Brooklyn server configuration files">
+        <configfile finalname="${karaf.etc}/${groupId}.classrename.cfg" override="false">
+            mvn:${project.groupId}/brooklyn-server-config/${project.version}/cfg/classrename
+        </configfile>
+        <configfile finalname="${karaf.etc}/${groupId}.core.catalog.bomscanner.cfg" override="false">
+            mvn:${project.groupId}/brooklyn-server-config/${project.version}/cfg/core.catalog.bomscanner
+        </configfile>
+        <configfile finalname="${karaf.etc}/${groupId}.osgilauncher.cfg" override="false">
+            mvn:${project.groupId}/brooklyn-server-config/${project.version}/cfg/osgilauncher
+        </configfile>
+    </feature>
+
 </features>
