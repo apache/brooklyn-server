@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.brooklyn.policy.action;
 
 import java.util.Map;
@@ -61,7 +60,6 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
             .defaultValue(Duration.hours(1))
             .build();
 
-    public static final AttributeSensor<Boolean> INVOKE_IMMEDIATELY = Sensors.newBooleanSensor("scheduler.invoke", "Invoke the configured effector immediately when this becomes true");
     public static final AttributeSensor<Boolean> START_SCHEDULER = Sensors.newBooleanSensor("scheduler.start", "Start the periodic effector execution after this becomes true");
 
     protected long delay;
@@ -79,7 +77,7 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
     @Override
     public void setEntity(final EntityLocal entity) {
         super.setEntity(entity);
-        subscriptions().subscribe(entity, INVOKE_IMMEDIATELY, handler);
+
         subscriptions().subscribe(entity, START_SCHEDULER, handler);
     }
 
@@ -90,10 +88,6 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
             if (event.getSensor().equals(START_SCHEDULER)) {
                 if (Boolean.TRUE.equals(event.getValue())) {
                     executor.scheduleWithFixedDelay(PeriodicEffectorPolicy.this, delay, delay, TimeUnit.MILLISECONDS);
-                }
-            } else if (event.getSensor().equals(INVOKE_IMMEDIATELY)) {
-                if (Boolean.TRUE.equals(event.getValue())) {
-                    executor.submit(PeriodicEffectorPolicy.this);
                 }
             }
         }

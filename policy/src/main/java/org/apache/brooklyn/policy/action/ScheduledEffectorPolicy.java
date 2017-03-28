@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.brooklyn.policy.action;
 
 import java.text.DateFormat;
@@ -27,16 +26,19 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.SensorEvent;
+import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 
 /**
  * <pre>{@code
@@ -56,13 +58,15 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
 
     public static final String TIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
 
+    protected static final DateFormat FORMATTER = new SimpleDateFormat(TIME_FORMAT);
+
     public static final ConfigKey<String> TIME = ConfigKeys.builder(String.class)
             .name("time")
-            .description("The time when this policy should be executed")
-            .constraint(Predicates.notNull())
+            .description("An optional time when this policy should be first executed")
             .build();
 
-    protected Date when;
+    public static final AttributeSensor<Boolean> INVOKE_IMMEDIATELY = Sensors.newBooleanSensor("scheduler.invoke.now", "Invoke the configured effector immediately when this becomes true");
+    public static final AttributeSensor<String> INVOKE_AT = Sensors.newStringSensor("scheduler.invoke.at", "Invoke the configured effector at this time");
 
     public ScheduledEffectorPolicy() {
         this(MutableMap.<String,Object>of());
@@ -70,26 +74,50 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
 
     public ScheduledEffectorPolicy(Map<String,?> props) {
         super(props);
-        String time = Preconditions.checkNotNull(config().get(TIME), "The time must be configured for this policy");
-        DateFormat format = new SimpleDateFormat(TIME_FORMAT);
-        try {
-            when = format.parse(time);
-        } catch (ParseException e) {
-            LOG.warn("The time must be formatted as " + TIME_FORMAT + " for this policy", e);
-            Exceptions.propagate(e);
-        }
-        Date now = new Date();
-        if (when.before(now)) {
-            throw new IllegalStateException("The time provided must be in the future");
+        String time = config().get(TIME);
+        if (Strings.isNonBlank(time)) {
+            scheduleAt(time);
         }
     }
 
     @Override
     public void setEntity(final EntityLocal entity) {
         super.setEntity(entity);
-        Date now = new Date();
-        long difference = Math.max(0, when.getTime() - now.getTime());
-        executor.schedule(this, difference, TimeUnit.MILLISECONDS);
+
+        subscriptions().subscribe(entity, INVOKE_IMMEDIATELY, handler);
+        subscriptions().subscribe(entity, INVOKE_AT, handler);
     }
+
+    protected void scheduleAt(String time) {
+        try {
+            Date when = FORMATTER.parse(time);
+            Date now = new Date();
+            if (when.before(now)) {
+                throw new IllegalStateException("The time provided must be in the future: " + FORMATTER.format(time));
+            }
+            long difference = Math.max(0, when.getTime() - now.getTime());
+            executor.schedule(this, difference, TimeUnit.MILLISECONDS);
+        } catch (ParseException e) {
+            LOG.warn("The time must be formatted as " + TIME_FORMAT + " for this policy", e);
+            Exceptions.propagate(e);
+        }
+    }
+
+    private final SensorEventListener<Object> handler = new SensorEventListener<Object>() {
+        @Override
+        public void onEvent(SensorEvent<Object> event) {
+            LOG.debug("{} got event {}", ScheduledEffectorPolicy.this, event);
+            if (event.getSensor().equals(INVOKE_AT)) {
+                String time = (String) event.getValue();
+                if (Strings.isNonBlank(time)) {
+                    scheduleAt(time);
+                }
+            } else if (event.getSensor().equals(INVOKE_IMMEDIATELY)) {
+                if (Boolean.TRUE.equals(event.getValue())) {
+                    executor.submit(ScheduledEffectorPolicy.this);
+                }
+            }
+        }
+    };
 
 }
