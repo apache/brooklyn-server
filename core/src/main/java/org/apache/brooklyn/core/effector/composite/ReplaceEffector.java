@@ -52,11 +52,6 @@ public final class ReplaceEffector extends AbstractCompositeEffector {
 
     public static final String ORIGINAL = "original-";
 
-    public static final ConfigKey<String> PREFIX = ConfigKeys.newStringConfigKey(
-            "prefix",
-            "Prefix for replaced original effector",
-            ORIGINAL);
-
     public static final ConfigKey<ReplaceAction> ACTION = ConfigKeys.newConfigKey(
             ReplaceAction.class,
             "action",
@@ -87,9 +82,7 @@ public final class ReplaceEffector extends AbstractCompositeEffector {
     public void apply(EntityLocal entity) {
         Maybe<Effector<?>> effectorMaybe = entity.getEntityType().getEffectorByName(effector.getName());
         if (effectorMaybe.isPresentAndNonNull()) {
-            // String prefix = config.get(PREFIX);
-            String prefix = ORIGINAL;
-            Effector<?> original = Effectors.effector(effectorMaybe.get()).name(prefix + effector.getName()).build();
+            Effector<?> original = Effectors.effector(effectorMaybe.get()).name(ORIGINAL + effector.getName()).build();
             ((EntityInternal) entity).getMutableEntityType().addEffector(original);
         }
         super.apply(entity);

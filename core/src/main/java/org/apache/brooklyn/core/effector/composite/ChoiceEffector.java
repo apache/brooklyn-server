@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.core.effector.composite;
 
-import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.effector.Effector;
@@ -37,7 +35,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 
 @Beta
 public class ChoiceEffector extends AbstractCompositeEffector {
