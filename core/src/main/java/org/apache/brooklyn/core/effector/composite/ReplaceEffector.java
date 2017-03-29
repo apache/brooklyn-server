@@ -112,11 +112,11 @@ public final class ReplaceEffector extends AbstractCompositeEffector {
             }
 
             if (action == ReplaceAction.POST) {
-                invokeEffectorNamed(targetEntity, ORIGINAL + effectorName, params);
+                invokeEffectorNamed(targetEntity, ORIGINAL + effector.getName(), params);
             }
             Object result = invokeEffectorNamed(targetEntity, effectorName, params);
             if (action == ReplaceAction.PRE) {
-                invokeEffectorNamed(targetEntity, ORIGINAL + effectorName, params);
+                invokeEffectorNamed(targetEntity, ORIGINAL + effector.getName(), params);
             }
 
             return result;
