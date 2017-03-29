@@ -163,7 +163,7 @@ public class RepeaterTest {
      * Check that the {@link Repeater} will stop after a time limit.
      *
      * The repeater is configured to run every 100ms and never stop until the limit is reached.
-     * This is given as {@link Repeater#limitTimeTo(groovy.time.Duration)} and the execution time
+     * This is given as {@link Repeater#limitTimeTo(org.apache.brooklyn.util.time.Duration)} and the execution time
      * is then checked to ensure it is between 100% and 400% of the specified value. Due to scheduling
      * delays and other factors in a non RTOS system it is expected that the repeater will take much
      * longer to exit occasionally.

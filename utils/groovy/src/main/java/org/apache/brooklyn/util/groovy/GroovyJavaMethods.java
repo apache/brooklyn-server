@@ -34,8 +34,13 @@ import com.google.common.base.Predicate;
 import groovy.lang.Closure;
 import groovy.lang.GString;
 
-/** handy methods available in groovy packaged so they can be consumed from java,
- *  and other conversion/conveniences; but see JavaGroovyEquivalents for faster alternatives */
+/**
+ * Handy methods available in groovy packaged so they can be consumed from java,
+ * and other conversion/conveniences; but see JavaGroovyEquivalents for faster alternatives.
+ * 
+ * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+ */
+@Deprecated
 public class GroovyJavaMethods {
     private static final CallSiteArray CALL_SITE_ARRAY = new CallSiteArray(GroovyJavaMethods.class, new String[] {"metaClass", "invokeMethod"});
 

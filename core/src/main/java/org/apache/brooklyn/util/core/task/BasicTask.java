@@ -67,8 +67,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 /**
  * The basic concrete implementation of a {@link Task} to be executed.
  *
- * A {@link Task} is a wrapper for an executable unit, such as a {@link Closure} or a {@link Runnable} or
- * {@link Callable} and will run in its own {@link Thread}.
+ * A {@link Task} is a wrapper for an executable unit, such as a {@link Runnable} or
+ * {@link Callable} ({@link Closure} support is deprecated), and will run in its own {@link Thread}.
  * <p>
  * The task can be given an optional displayName and description in its constructor (as named
  * arguments in the first {@link Map} parameter). It is guaranteed to have {@link Object#notify()} called
@@ -102,8 +102,12 @@ public class BasicTask<T> implements TaskInternal<T> {
      * Constructor needed to prevent confusion in groovy stubs when looking for default constructor,
      *
      * The generics on {@link Closure} break it if that is first constructor.
+     * 
+     * @deprecated since 0.11.0; present only as a workaround for Groovy.
      */
+    @Deprecated
     protected BasicTask() { this(Collections.emptyMap()); }
+    
     protected BasicTask(Map<?,?> flags) { this(flags, (Callable<T>) null); }
 
     public BasicTask(Callable<T> job) { this(Collections.emptyMap(), job); }
@@ -128,7 +132,17 @@ public class BasicTask<T> implements TaskInternal<T> {
 
     public BasicTask(Runnable job) { this(GroovyJavaMethods.<T>callableFromRunnable(job)); }
     public BasicTask(Map<?,?> flags, Runnable job) { this(flags, GroovyJavaMethods.<T>callableFromRunnable(job)); }
+    
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public BasicTask(Closure<T> job) { this(GroovyJavaMethods.callableFromClosure(job)); }
+    
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public BasicTask(Map<?,?> flags, Closure<T> job) { this(flags, GroovyJavaMethods.callableFromClosure(job)); }
 
     @Override

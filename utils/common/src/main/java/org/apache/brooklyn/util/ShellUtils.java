@@ -33,6 +33,7 @@ import org.apache.brooklyn.util.stream.StreamGobbler;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
@@ -43,6 +44,8 @@ import com.google.common.io.Closer;
  */
 @Deprecated
 public class ShellUtils {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ShellUtils.class);
 
     public static long TIMEOUT = 60*1000;
 
@@ -84,6 +87,7 @@ public class ShellUtils {
         if (tf instanceof Number) {
             timeout = ((Number) tf).longValue();
         } else if (tf instanceof TimeDuration) {
+            LOG.warn("Use of groovy.time.TimeuDuration is deprecated in ShellUtils, for configuring timeout");
             timeout = ((TimeDuration) tf).toMilliseconds();
         }
 

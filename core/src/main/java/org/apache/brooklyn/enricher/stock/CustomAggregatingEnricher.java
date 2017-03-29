@@ -54,7 +54,7 @@ public class CustomAggregatingEnricher<S,T> extends AbstractAggregatingEnricher<
      * - producers: a collection of entities to be aggregated
      * - allMembers: indicates that should track members of the entity that the aggregator is associated with,
      *               to aggregate across all those members.
-     * - filter:     a Predicate or Closure, indicating which entities to include
+     * - filter:     a Predicate indicating which entities to include (support for {@link groovy.lang.Closure} is deprecated)
      * 
      * @param flags
      * @param source
@@ -92,21 +92,36 @@ public class CustomAggregatingEnricher<S,T> extends AbstractAggregatingEnricher<
      * @param defaultValueForUnreportedSensors
      * 
      * @see #CustomAggregatingEnricher(Map, AttributeSensor, AttributeSensor, Function, Object)
+     * 
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
      */
+     @Deprecated
     @SuppressWarnings("unchecked")
     public CustomAggregatingEnricher(Map<String,?> flags, AttributeSensor<? extends S> source, AttributeSensor<T> target,
             Closure<?> aggregator, S defaultValueForUnreportedSensors) {
         this(flags, source, target, GroovyJavaMethods.<Collection<S>, T>functionFromClosure((Closure<T>)aggregator), defaultValueForUnreportedSensors);
     }
 
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+     @Deprecated
     public CustomAggregatingEnricher(Map<String,?> flags, AttributeSensor<? extends S> source, AttributeSensor<T> target, Closure<?> aggregator) {
         this(flags, source, target, aggregator, null);
     }
 
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public CustomAggregatingEnricher(AttributeSensor<S> source, AttributeSensor<T> target, Closure<?> aggregator, S defaultValueForUnreportedSensors) {
         this(Collections.<String,Object>emptyMap(), source, target, aggregator, defaultValueForUnreportedSensors);
     }
 
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public CustomAggregatingEnricher(AttributeSensor<S> source, AttributeSensor<T> target, Closure<?> aggregator) {
         this(Collections.<String,Object>emptyMap(), source, target, aggregator, null);
     }
@@ -152,14 +167,26 @@ public class CustomAggregatingEnricher<S,T> extends AbstractAggregatingEnricher<
             Map<String,?> flags, AttributeSensor<S> source, AttributeSensor<T> target, Closure<?> aggregator, S defaultVal) {
         return new CustomAggregatingEnricher<S,T>(flags, source, target, aggregator, defaultVal);
     }
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static <S,T> CustomAggregatingEnricher<S,T> newEnricher(
             Map<String,?> flags, AttributeSensor<S> source, AttributeSensor<T> target, Closure<?> aggregator) {
         return newEnricher(flags, source, target, aggregator, null);
     }
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static <S,T> CustomAggregatingEnricher<S,T> newEnricher(
             AttributeSensor<S> source, AttributeSensor<T> target, Closure<?> aggregator, S defaultVal) {
         return newEnricher(Collections.<String,Object>emptyMap(), source, target, aggregator, defaultVal);
     }
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static <S,T> CustomAggregatingEnricher<S,T> newEnricher(
             AttributeSensor<S> source, AttributeSensor<T> target, Closure<?> aggregator) {
         return newEnricher(Collections.<String,Object>emptyMap(), source, target, aggregator, null);

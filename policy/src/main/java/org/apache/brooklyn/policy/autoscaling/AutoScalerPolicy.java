@@ -228,6 +228,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
         TypeCoercions.registerAdapter(Closure.class, ResizeOperator.class, new Function<Closure,ResizeOperator>() {
             @Override
             public ResizeOperator apply(final Closure closure) {
+                LOG.warn("Use of groovy.lang.Closure is deprecated in AutoScalerPolicy type-coercion Closure -> ResizeOperator");
                 return new ResizeOperator() {
                     @Override public Integer resize(Entity entity, Integer input) {
                         return (Integer) closure.call(entity, input);

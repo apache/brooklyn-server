@@ -119,6 +119,10 @@ public class DependentConfiguration {
         return attributeWhenReady(source, sensor, GroovyJavaMethods.truthPredicate());
     }
     
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static <T> Task<T> attributeWhenReady(Entity source, AttributeSensor<T> sensor, Closure<Boolean> ready) {
         Predicate<Object> readyPredicate = (ready != null) ? GroovyJavaMethods.<Object>predicateFromClosure(ready) : GroovyJavaMethods.truthPredicate();
         return attributeWhenReady(source, sensor, readyPredicate);
@@ -134,12 +138,20 @@ public class DependentConfiguration {
 
     }
 
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static <T,V> Task<V> attributePostProcessedWhenReady(Entity source, AttributeSensor<T> sensor, Closure<Boolean> ready, Closure<V> postProcess) {
         Predicate<? super T> readyPredicate = (ready != null) ? GroovyJavaMethods.predicateFromClosure(ready) : GroovyJavaMethods.truthPredicate();
         Function<? super T, V> postProcessFunction = GroovyJavaMethods.<T,V>functionFromClosure(postProcess);
         return attributePostProcessedWhenReady(source, sensor, readyPredicate, postProcessFunction);
     }
 
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static <T,V> Task<V> attributePostProcessedWhenReady(Entity source, AttributeSensor<T> sensor, Closure<V> postProcess) {
         return attributePostProcessedWhenReady(source, sensor, GroovyJavaMethods.truthPredicate(), GroovyJavaMethods.<T,V>functionFromClosure(postProcess));
     }
@@ -152,10 +164,18 @@ public class DependentConfiguration {
         return attributePostProcessedWhenReady(source, sensor, GroovyJavaMethods.truthPredicate(), valueProvider);
     }
     
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static <T,V> Task<V> valueWhenAttributeReady(Entity source, AttributeSensor<T> sensor, Closure<V> valueProvider) {
         return attributePostProcessedWhenReady(source, sensor, GroovyJavaMethods.truthPredicate(), valueProvider);
     }
     
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static <T,V> Task<V> attributePostProcessedWhenReady(final Entity source, final AttributeSensor<T> sensor, final Predicate<? super T> ready, final Closure<V> postProcess) {
         return attributePostProcessedWhenReady(source, sensor, ready, GroovyJavaMethods.<T,V>functionFromClosure(postProcess));
     }
@@ -395,13 +415,20 @@ public class DependentConfiguration {
         return transform(MutableMap.of("displayName", "transforming "+task), task, transformer);
     }
  
-    /** @see #transform(Task, Function) */
+    /** 
+     * @see #transform(Task, Function)
+     * 
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public static <U,T> Task<T> transform(Task<U> task, Closure transformer) {
         return transform(task, GroovyJavaMethods.functionFromClosure(transformer));
     }
     
-    /** @see #transform(Task, Function) */
+    /**
+     * @see #transform(Task, Function)
+     */
     @SuppressWarnings({ "rawtypes" })
     public static <U,T> Task<T> transform(final Map flags, final TaskAdaptable<U> task, final Function<U,T> transformer) {
         return new BasicTask<T>(flags, new Callable<T>() {
@@ -421,13 +448,23 @@ public class DependentConfiguration {
         return transformMultiple(MutableMap.of("displayName", "transforming multiple"), transformer, tasks);
     }
 
-    /** @see #transformMultiple(Function, TaskAdaptable...) */
+    /**
+     * @see #transformMultiple(Function, TaskAdaptable...)
+     * 
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public static <U,T> Task<T> transformMultiple(Closure transformer, TaskAdaptable<U> ...tasks) {
         return transformMultiple(GroovyJavaMethods.functionFromClosure(transformer), tasks);
     }
 
-    /** @see #transformMultiple(Function, TaskAdaptable...) */
+    /**
+     * @see #transformMultiple(Function, TaskAdaptable...)
+     * 
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public static <U,T> Task<T> transformMultiple(Map flags, Closure transformer, TaskAdaptable<U> ...tasks) {
         return transformMultiple(flags, GroovyJavaMethods.functionFromClosure(transformer), tasks);
@@ -736,7 +773,11 @@ public class DependentConfiguration {
     public static <T> Task<List<T>> listAttributesWhenReady(AttributeSensor<T> sensor, Iterable<Entity> entities) {
         return listAttributesWhenReady(sensor, entities, GroovyJavaMethods.truthPredicate());
     }
-    
+
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static <T> Task<List<T>> listAttributesWhenReady(AttributeSensor<T> sensor, Iterable<Entity> entities, Closure<Boolean> readiness) {
         Predicate<Object> readinessPredicate = (readiness != null) ? GroovyJavaMethods.<Object>predicateFromClosure(readiness) : GroovyJavaMethods.truthPredicate();
         return listAttributesWhenReady(sensor, entities, readinessPredicate);
@@ -850,6 +891,10 @@ public class DependentConfiguration {
             abortIfOnFire();
             return (Builder<T2, T2>) this;
         }
+        /**
+         * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+         */
+        @Deprecated
         public Builder<T,V> readiness(Closure<Boolean> val) {
             this.readiness = GroovyJavaMethods.predicateFromClosure(checkNotNull(val, "val"));
             return this;
@@ -858,6 +903,10 @@ public class DependentConfiguration {
             this.readiness = checkNotNull(val, "ready");
             return this;
         }
+        /**
+         * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+         */
+        @Deprecated
         @SuppressWarnings({ "unchecked", "rawtypes" })
         public <V2> Builder<T,V2> postProcess(Closure<V2> val) {
             this.postProcess = (Function) GroovyJavaMethods.<T,V2>functionFromClosure(checkNotNull(val, "postProcess"));
@@ -1008,6 +1057,10 @@ public class DependentConfiguration {
             return postProcessFromMultiple(Functions.forPredicate(val));
         }
         
+        /**
+         * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+         */
+        @Deprecated
         public <V1> MultiBuilder<T, V1, V2> postProcess(Closure<V1> val) {
             builder.postProcess(val);
             return (MultiBuilder<T, V1, V2>) this;

@@ -22,6 +22,10 @@ import java.util.concurrent.Callable;
 
 import groovy.lang.Closure;
 
+/**
+ * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+ */
+@Deprecated
 public class FromCallableClosure<T> extends Closure<T> {
     private static final long serialVersionUID = 1L;
     private Callable<T> job;

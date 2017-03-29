@@ -286,7 +286,11 @@ public class FlagUtils {
     }
 
     /** returns all fields on the given class, superclasses, and interfaces thereof, in that order of preference,
-     * (excluding fields on Object) */
+     * (excluding fields on Object)
+     * 
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static List<Field> getAllFields(Class<?> base, Closure<Boolean> filter) {
         return getAllFields(base, GroovyJavaMethods.<Field>predicateFromClosure(filter));
     }
@@ -300,6 +304,10 @@ public class FlagUtils {
     public static List<Field> getLocalFields(List<Class<?>> classes) {
         return getLocalFields(classes, Predicates.<Field>alwaysTrue());
     }
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static List<Field> getLocalFields(List<Class<?>> classes, Closure<Boolean> filter) {
         return getLocalFields(classes, GroovyJavaMethods.<Field>predicateFromClosure(filter));
     }
@@ -321,6 +329,10 @@ public class FlagUtils {
             }
         });
     }
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public static List<Class<?>> getAllAssignableTypes(Class<?> base, Closure<Boolean> filter) {
         return getAllAssignableTypes(base, GroovyJavaMethods.<Class<?>>predicateFromClosure(filter));
     }

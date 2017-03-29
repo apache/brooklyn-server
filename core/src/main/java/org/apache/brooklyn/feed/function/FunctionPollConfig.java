@@ -97,6 +97,10 @@ public class FunctionPollConfig<S, T> extends PollConfig<S, T, FunctionPollConfi
         return (FunctionPollConfig<newS, T>) this;
     }
 
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public FunctionPollConfig<S, T> closure(Closure<?> val) {
         this.callable = GroovyJavaMethods.callableFromClosure(checkNotNull(val, "closure"));
         return this;

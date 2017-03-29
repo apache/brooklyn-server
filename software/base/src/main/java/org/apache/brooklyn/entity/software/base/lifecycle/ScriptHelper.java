@@ -87,7 +87,10 @@ public class ScriptHelper {
     /**
      * Takes a closure which accepts this ScriptHelper and returns true or false
      * as to whether the script needs to run (or can throw error if desired)
+     * 
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
      */
+    @Deprecated
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public ScriptHelper executeIf(Closure c) {
         Predicate<ScriptHelper> predicate = GroovyJavaMethods.predicateFromClosure(c);
@@ -176,7 +179,10 @@ public class ScriptHelper {
      * and returns false if it is invalid. Default is that this resultCodeCheck
      * closure always returns true (and the exit code is made available to the
      * caller if they care)
+     * 
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
      */
+    @Deprecated
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public ScriptHelper requireResultCode(Closure integerFilter) {
         Predicate<Integer> objectPredicate = GroovyJavaMethods.predicateFromClosure(integerFilter);

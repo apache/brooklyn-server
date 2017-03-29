@@ -385,8 +385,10 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
         }
         if (flags.get("failIfNone")!=null && !Boolean.FALSE.equals(flags.get("failIfNone"))) {
             Object f = flags.get("failIfNone");
-            if (f instanceof Closure)
+            if (f instanceof Closure) {
+                LOG.warn("Use of groovy.lang.Closure is deprecated as value for 'failIfNone', in BrooklynProperties.getFirst()");
                 ((Closure)f).call((Object[])keys);
+            }
             if (Boolean.TRUE.equals(f))
                 throw new NoSuchElementException("Brooklyn unable to find mandatory property "+keys[0]+
                         (keys.length>1 ? " (or "+(keys.length-1)+" other possible names, full list is "+Arrays.asList(keys)+")" : "") );

@@ -133,6 +133,10 @@ public class MethodEffector<T> extends AbstractEffector<T> {
         this(new AnnotationsOnMethod(method.getDeclaringClass(), method), null);
     }
 
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public MethodEffector(MethodClosure mc) {
         this(new AnnotationsOnMethod((Class<?>)mc.getDelegate(), mc.getMethod()), null);
     }
