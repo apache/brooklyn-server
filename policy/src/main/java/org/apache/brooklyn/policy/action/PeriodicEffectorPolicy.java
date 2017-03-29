@@ -29,6 +29,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,7 +71,7 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
 
     public PeriodicEffectorPolicy(Map<String,?> props) {
         super(props);
-        Duration period = Preconditions.checkNotNull(config().get(PERIOD), "The period must be copnfigured for this policy");
+        Duration period = Preconditions.checkNotNull(config().get(PERIOD), "The period must be configured for this policy");
         delay = period.toMilliseconds();
     }
 
@@ -86,7 +87,8 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
         public void onEvent(SensorEvent<Object> event) {
             LOG.debug("{} got event {}", PeriodicEffectorPolicy.this, event);
             if (event.getSensor().equals(START_SCHEDULER)) {
-                if (Boolean.TRUE.equals(event.getValue())) {
+                Boolean start = Boolean.parseBoolean(Strings.toString(event.getValue()));
+                if (start) {
                     executor.scheduleWithFixedDelay(PeriodicEffectorPolicy.this, delay, delay, TimeUnit.MILLISECONDS);
                 }
             }

@@ -113,7 +113,8 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
                     scheduleAt(time);
                 }
             } else if (event.getSensor().equals(INVOKE_IMMEDIATELY)) {
-                if (Boolean.TRUE.equals(event.getValue())) {
+                Boolean invoke = Boolean.parseBoolean(Strings.toString(event.getValue()));
+                if (invoke) {
                     executor.submit(ScheduledEffectorPolicy.this);
                 }
             }
