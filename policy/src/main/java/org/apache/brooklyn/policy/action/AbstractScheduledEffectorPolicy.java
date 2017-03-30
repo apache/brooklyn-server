@@ -55,6 +55,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
             .defaultValue(ImmutableMap.<String, Object>of())
             .build();
 
+    protected final Effector<?> effector;
     protected final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
     public AbstractScheduledEffectorPolicy() {
@@ -63,6 +64,8 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     public AbstractScheduledEffectorPolicy(Map<String,?> props) {
         super(props);
+
+        effector = getEffector();
     }
 
     @Override
@@ -71,17 +74,20 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
         executor.shutdownNow();
     }
 
-    @Override
-    public void run() {
+    protected Effector<?> getEffector() {
         String effectorName = config().get(EFFECTOR);
-        Map<String, Object> args = EntityInitializers.resolve(config().getBag(), EFFECTOR_ARGUMENTS);
-
         Maybe<Effector<?>> effector = entity.getEntityType().getEffectorByName(effectorName);
         if (effector.isAbsent()) {
             throw new IllegalStateException("Cannot find effector " + effectorName);
         }
+        return effector.get();
+    }
 
-        LOG.debug("{} invoking effector on {}, effector={}, args={}", new Object[] { this, entity, effectorName, args });
-        entity.invoke(effector.get(), args).getUnchecked();
+    @Override
+    public void run() {
+        Map<String, Object> args = EntityInitializers.resolve(config().getBag(), EFFECTOR_ARGUMENTS);
+
+        LOG.debug("{} invoking effector on {}, effector={}, args={}", new Object[] { this, entity, effector.getName(), args });
+        entity.invoke(effector, args).getUnchecked();
     }
 }

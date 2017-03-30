@@ -20,6 +20,7 @@ package org.apache.brooklyn.policy.action;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -31,12 +32,12 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.DurationPredicates;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 
 /**
  * <pre>{@code
@@ -57,13 +58,14 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
     public static final ConfigKey<Duration> PERIOD = ConfigKeys.builder(Duration.class)
             .name("period")
             .description("The duration between executions of this policy")
-            .constraint(Predicates.notNull())
+            .constraint(DurationPredicates.positive())
             .defaultValue(Duration.hours(1))
             .build();
 
     public static final AttributeSensor<Boolean> START_SCHEDULER = Sensors.newBooleanSensor("scheduler.start", "Start the periodic effector execution after this becomes true");
 
     protected long delay;
+    protected AtomicBoolean running = new AtomicBoolean(false);
 
     public PeriodicEffectorPolicy() {
         this(MutableMap.<String,Object>of());
@@ -71,6 +73,7 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
 
     public PeriodicEffectorPolicy(Map<String,?> props) {
         super(props);
+
         Duration period = Preconditions.checkNotNull(config().get(PERIOD), "The period must be configured for this policy");
         delay = period.toMilliseconds();
     }
@@ -88,7 +91,8 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
             LOG.debug("{} got event {}", PeriodicEffectorPolicy.this, event);
             if (event.getSensor().equals(START_SCHEDULER)) {
                 Boolean start = Boolean.parseBoolean(Strings.toString(event.getValue()));
-                if (start) {
+                if (start && running.compareAndSet(false, true)) {
+                    LOG.debug("{} scheduling {} in {}ms", new Object[] { PeriodicEffectorPolicy.this, effector.getName(), delay });
                     executor.scheduleWithFixedDelay(PeriodicEffectorPolicy.this, delay, delay, TimeUnit.MILLISECONDS);
                 }
             }

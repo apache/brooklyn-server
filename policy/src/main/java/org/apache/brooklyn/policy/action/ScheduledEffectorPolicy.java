@@ -74,6 +74,7 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
 
     public ScheduledEffectorPolicy(Map<String,?> props) {
         super(props);
+
         String time = config().get(TIME);
         if (Strings.isNonBlank(time)) {
             scheduleAt(time);
@@ -96,6 +97,7 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
                 throw new IllegalStateException("The time provided must be in the future: " + FORMATTER.format(time));
             }
             long difference = Math.max(0, when.getTime() - now.getTime());
+            LOG.debug("{} scheduling {} at {} (in {}ms)", new Object[] { this, effector.getName(), time, difference });
             executor.schedule(this, difference, TimeUnit.MILLISECONDS);
         } catch (ParseException e) {
             LOG.warn("The time must be formatted as " + TIME_FORMAT + " for this policy", e);
