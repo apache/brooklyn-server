@@ -99,16 +99,19 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
     private final SensorEventListener<Object> handler = new SensorEventListener<Object>() {
         @Override
         public void onEvent(SensorEvent<Object> event) {
-            LOG.debug("{} got event {}", ScheduledEffectorPolicy.this, event);
-            if (event.getSensor().equals(INVOKE_AT)) {
-                String time = (String) event.getValue();
-                if (Strings.isNonBlank(time)) {
-                    scheduleAt(time);
+            synchronized (mutex) {
+                LOG.debug("{} got event {}", ScheduledEffectorPolicy.this, event);
+                if (event.getSensor().getName().equals(INVOKE_AT.getName())) {
+                    String time = (String) event.getValue();
+                    if (Strings.isNonBlank(time)) {
+                        scheduleAt(time);
+                    }
                 }
-            } else if (event.getSensor().equals(INVOKE_IMMEDIATELY)) {
-                Boolean invoke = Boolean.parseBoolean(Strings.toString(event.getValue()));
-                if (invoke) {
-                    executor.submit(ScheduledEffectorPolicy.this);
+                if (event.getSensor().getName().equals(INVOKE_IMMEDIATELY.getName())) {
+                    Boolean invoke = Boolean.parseBoolean(Strings.toString(event.getValue()));
+                    if (invoke) {
+                        executor.submit(ScheduledEffectorPolicy.this);
+                    }
                 }
             }
         }

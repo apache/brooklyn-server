@@ -70,6 +70,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     protected Effector<?> effector;
     protected ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    protected Object mutex = new Object[0];
 
     public AbstractScheduledEffectorPolicy() {
         this(MutableMap.<String,Object>of());

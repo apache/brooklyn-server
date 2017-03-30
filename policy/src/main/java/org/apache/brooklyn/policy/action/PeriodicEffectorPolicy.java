@@ -91,27 +91,29 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
     private final SensorEventListener<Object> handler = new SensorEventListener<Object>() {
         @Override
         public void onEvent(SensorEvent<Object> event) {
-            LOG.debug("{} got event {}", PeriodicEffectorPolicy.this, event);
-            if (event.getSensor().equals(START_SCHEDULER)) {
-                Boolean start = Boolean.parseBoolean(Strings.toString(event.getValue()));
-                if (start && running.compareAndSet(false, true)) {
-                    long wait = delay;
-                    String time = config().get(TIME);
-                    if (Strings.isNonBlank(time)) {
-                        try {
-                            Date when = FORMATTER.parse(time);
-                            Date now = new Date();
-                            if (when.before(now)) {
-                                throw new IllegalStateException("The time provided must be in the future: " + FORMATTER.format(time));
+            synchronized (mutex) {
+                LOG.debug("{} got event {}", PeriodicEffectorPolicy.this, event);
+                if (event.getSensor().getName().equals(START_SCHEDULER.getName())) {
+                    Boolean start = Boolean.parseBoolean(Strings.toString(event.getValue()));
+                    if (start && running.compareAndSet(false, true)) {
+                        long wait = delay;
+                        String time = config().get(TIME);
+                        if (Strings.isNonBlank(time)) {
+                            try {
+                                Date when = FORMATTER.parse(time);
+                                Date now = new Date();
+                                if (when.before(now)) {
+                                    throw new IllegalStateException("The time provided must be in the future: " + FORMATTER.format(time));
+                                }
+                                wait = Math.max(0, when.getTime() - now.getTime());
+                            } catch (ParseException e) {
+                                LOG.warn("The time must be formatted as " + TIME_FORMAT + " for this policy", e);
+                                Exceptions.propagate(e);
                             }
-                            wait = Math.max(0, when.getTime() - now.getTime());
-                        } catch (ParseException e) {
-                            LOG.warn("The time must be formatted as " + TIME_FORMAT + " for this policy", e);
-                            Exceptions.propagate(e);
                         }
+                        LOG.debug("{} scheduling {} in {}ms", new Object[] { PeriodicEffectorPolicy.this, effector.getName(), delay });
+                        executor.scheduleWithFixedDelay(PeriodicEffectorPolicy.this, wait, delay, TimeUnit.MILLISECONDS);
                     }
-                    LOG.debug("{} scheduling {} in {}ms", new Object[] { PeriodicEffectorPolicy.this, effector.getName(), delay });
-                    executor.scheduleWithFixedDelay(PeriodicEffectorPolicy.this, wait, delay, TimeUnit.MILLISECONDS);
                 }
             }
         }
