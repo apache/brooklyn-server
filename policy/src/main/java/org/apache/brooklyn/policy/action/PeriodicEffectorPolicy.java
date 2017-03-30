@@ -36,6 +36,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.DurationPredicates;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -111,7 +112,9 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
                                 Exceptions.propagate(e);
                             }
                         }
-                        LOG.debug("{} scheduling {} in {}ms", new Object[] { PeriodicEffectorPolicy.this, effector.getName(), delay });
+
+                        LOG.debug("{} scheduling {} every {} in {}", new Object[] { PeriodicEffectorPolicy.this, effector.getName(),
+                                Time.fromLongToTimeStringExact().apply(delay), Time.fromLongToTimeStringExact().apply(wait) });
                         executor.scheduleWithFixedDelay(PeriodicEffectorPolicy.this, wait, delay, TimeUnit.MILLISECONDS);
                     }
                 }
