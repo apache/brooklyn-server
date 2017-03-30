@@ -29,16 +29,13 @@ import java.util.Set;
 
 import org.apache.brooklyn.util.collections.Jsonya;
 
-import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-@JsonIdentityInfo(generator=ObjectIdGenerators.IntSequenceGenerator.class, property="@id")
 public class TaskSummary implements HasId, Serializable {
 
     private static final long serialVersionUID = 4637850742127078158L;

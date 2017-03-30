@@ -18,7 +18,11 @@
  */
 package org.apache.brooklyn.rest.domain;
 
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
+
 /** Marker interface for summary objects with an id field */
+@JsonIdentityInfo(generator=ObjectIdGenerators.IntSequenceGenerator.class, property="@id")
 public interface HasId {
 
     public String getId();
