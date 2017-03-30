@@ -41,9 +41,13 @@ public class ManagementPlaneSyncRecordImpl implements ManagementPlaneSyncRecord,
     }
     
     public static class Builder {
+        protected String planeId;
         protected String masterNodeId;
         protected final Map<String,ManagementNodeSyncRecord> nodes = MutableMap.of();
         
+        public Builder planeId(String val) {
+            planeId = val; return this;
+        }
         public Builder masterNodeId(String val) {
             masterNodeId = val; return this;
         }
@@ -62,16 +66,23 @@ public class ManagementPlaneSyncRecordImpl implements ManagementPlaneSyncRecord,
         }
     }
 
+    private String planeId;
     private String masterNodeId;
     private Map<String, ManagementNodeSyncRecord> managementNodes;
     
     private ManagementPlaneSyncRecordImpl(Builder builder) {
+        planeId = builder.planeId;
         masterNodeId = builder.masterNodeId;
         managementNodes = Maps.newLinkedHashMap();
         for (ManagementNodeSyncRecord node : builder.nodes.values()) {
             checkState(!managementNodes.containsKey(node.getNodeId()), "duplicate nodeId %s", node.getNodeId());
             managementNodes.put(node.getNodeId(), node);
         }
+    }
+
+    @Override
+    public String getPlaneId() {
+        return planeId;
     }
 
     @Override

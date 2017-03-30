@@ -88,6 +88,8 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
     // TODO Should stop() take a timeout, and shutdown the executor gracefully?
     
     private static final Logger LOG = LoggerFactory.getLogger(BrooklynMementoPersisterToObjectStore.class);
+    public static final String PLANE_ID_FILE_NAME = "planeId";
+
 
     public static final ConfigKey<Integer> PERSISTER_MAX_THREAD_POOL_SIZE = ConfigKeys.newIntegerConfigKey(
             "persister.threadpool.maxSize",
@@ -306,6 +308,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
 
         Stopwatch stopwatch = Stopwatch.createStarted();
 
+        builder.planeId(Strings.emptyToNull(read(PLANE_ID_FILE_NAME)));
         visitMemento("loading raw", subPathData, loaderVisitor, exceptionHandler);
         
         BrooklynMementoRawData result = builder.build();
@@ -327,6 +330,8 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             mementoData = loadMementoRawData(exceptionHandler);
         
         final BrooklynMementoManifestImpl.Builder builder = BrooklynMementoManifestImpl.builder();
+
+        builder.planeId(mementoData.getPlaneId());
 
         Visitor visitor = new Visitor() {
             @Override
@@ -395,7 +400,9 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         Stopwatch stopwatch = Stopwatch.createStarted();
 
         final BrooklynMementoImpl.Builder builder = BrooklynMementoImpl.builder();
-        
+
+        builder.planeId(mementoData.getPlaneId());
+
         Visitor visitor = new Visitor() {
             @Override
             public void visit(BrooklynObjectType type, String objectId, String contents) throws Exception {
@@ -518,6 +525,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             Stopwatch stopwatch = Stopwatch.createStarted();
             List<ListenableFuture<?>> futures = Lists.newArrayList();
             
+            futures.add(asyncUpdatePlaneId(newMemento.getPlaneId(), exceptionHandler));
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                 for (Map.Entry<String, String> entry : newMemento.getObjectsOfType(type).entrySet()) {
                     futures.add(asyncPersist(type.getSubPathName(), type, entry.getKey(), entry.getValue(), exceptionHandler));
@@ -590,6 +598,9 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                 deletedIds.addAll(delta.getRemovedIdsOfType(type));
             }
             
+            if (delta.planeId() != null) {
+                futures.add(asyncUpdatePlaneId(delta.planeId(), exceptionHandler));
+            }
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                 for (Memento item : delta.getObjectsOfType(type)) {
                     if (!deletedIds.contains(item.getId())) {
@@ -674,6 +685,23 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         }
     }
 
+    private void updatePlaneId(String planeId, PersistenceExceptionHandler exceptionHandler) {
+        try {
+            if (planeId==null) {
+                LOG.warn("Null content for planeId");
+            }
+
+            String persistedPlaneId = read(PLANE_ID_FILE_NAME);
+            if (persistedPlaneId == null) {
+                getWriter(PLANE_ID_FILE_NAME).put(planeId);
+            } else if(!persistedPlaneId.equals(planeId)) {
+                throw new IllegalStateException("Persisted planeId found (" + persistedPlaneId + ") but instance planeId is different (" + planeId + ")");
+            }
+        } catch (Exception e) {
+            exceptionHandler.onUpdatePlaneIdFailed(planeId, e);
+        }
+    }
+
     private ListenableFuture<?> asyncPersist(final String subPath, final Memento memento, final PersistenceExceptionHandler exceptionHandler) {
         return executor.submit(new Runnable() {
             @Override
@@ -698,6 +726,14 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             }});
     }
     
+    private ListenableFuture<?> asyncUpdatePlaneId(final String planeId, final PersistenceExceptionHandler exceptionHandler) {
+        return executor.submit(new Runnable() {
+            @Override
+            public void run() {
+                updatePlaneId(planeId, exceptionHandler);
+            }});
+    }
+
     private String getPath(String subPath, String id) {
         return subPath+"/"+Strings.makeValidFilename(id);
     }

@@ -38,6 +38,7 @@ public class BrooklynMementoManifestImpl implements BrooklynMementoManifest, Ser
     }
     
     public static class Builder {
+        protected String planeId;
         protected String brooklynVersion;
         protected final Map<String, EntityMementoManifest> entityIdToManifest = Maps.newConcurrentMap();
         protected final Map<String, String> locationIdToType = Maps.newConcurrentMap();
@@ -45,7 +46,12 @@ public class BrooklynMementoManifestImpl implements BrooklynMementoManifest, Ser
         protected final Map<String, String> enricherIdToType = Maps.newConcurrentMap();
         protected final Map<String, String> feedIdToType = Maps.newConcurrentMap();
         protected final Map<String, CatalogItemMemento> catalogItems = Maps.newConcurrentMap();
-        
+
+        public Builder planeId(String planeId) {
+            this.planeId = planeId; return this;
+        }
+        /** @deprecated since 0.11.0; value is not used */
+        @Deprecated
         public Builder brooklynVersion(String val) {
             brooklynVersion = val; return this;
         }
@@ -103,6 +109,7 @@ public class BrooklynMementoManifestImpl implements BrooklynMementoManifest, Ser
         }
     }
 
+    private final String planeId;
     private final Map<String, EntityMementoManifest> entityIdToManifest;
     private final Map<String, String> locationIdToType;
     private final Map<String, String> policyIdToType;
@@ -111,12 +118,18 @@ public class BrooklynMementoManifestImpl implements BrooklynMementoManifest, Ser
     private Map<String, CatalogItemMemento> catalogItems;
     
     private BrooklynMementoManifestImpl(Builder builder) {
+        planeId = builder.planeId;
         entityIdToManifest = builder.entityIdToManifest;
         locationIdToType = builder.locationIdToType;
         policyIdToType = builder.policyIdToType;
         enricherIdToType = builder.enricherIdToType;
         feedIdToType = builder.feedIdToType;
         catalogItems = builder.catalogItems;
+    }
+
+    @Override
+    public String getPlaneId() {
+        return planeId;
     }
 
     @Override

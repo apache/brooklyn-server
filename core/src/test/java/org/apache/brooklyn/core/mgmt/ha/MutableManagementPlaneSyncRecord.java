@@ -26,8 +26,14 @@ import org.apache.brooklyn.api.mgmt.ha.ManagementPlaneSyncRecord;
 import com.google.common.collect.Maps;
 
 public class MutableManagementPlaneSyncRecord implements ManagementPlaneSyncRecord {
+    private String planeId;
     private String masterNodeId;
     private Map<String, ManagementNodeSyncRecord> managementNodes = Maps.newConcurrentMap();
+    
+    @Override
+    public String getPlaneId() {
+        return planeId;
+    }
 
     @Override
     public String getMasterNodeId() {
@@ -45,7 +51,11 @@ public class MutableManagementPlaneSyncRecord implements ManagementPlaneSyncReco
     }
 
     public ImmutableManagementPlaneSyncRecord snapshot() {
-        return new ImmutableManagementPlaneSyncRecord(masterNodeId, managementNodes);
+        return new ImmutableManagementPlaneSyncRecord(planeId, masterNodeId, managementNodes);
+    }
+    
+    public void setPlaneId(String planeId) {
+        this.planeId = planeId;
     }
     
     public void setMasterNodeId(String masterNodeId) {

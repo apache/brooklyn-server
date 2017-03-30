@@ -55,6 +55,7 @@ import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.javalang.Serializers;
 import org.apache.brooklyn.util.javalang.Serializers.ObjectReplacer;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -226,6 +227,7 @@ public class RebindTestUtils {
             }
             if (forLive) {
                 unstarted = new LocalManagementContext(properties);
+                unstarted.generateManagementPlaneId();
             } else {
                 unstarted = LocalManagementContextForTests.builder(true).useProperties(properties).disableOsgi(!enableOsgi).build();
             }

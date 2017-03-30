@@ -353,6 +353,7 @@ public class CompoundTransformer {
         }
         
         return BrooklynMementoRawData.builder()
+                .planeId(rawData.getPlaneId())
                 .entities(entities)
                 .locations(locations)
                 .policies(policies)

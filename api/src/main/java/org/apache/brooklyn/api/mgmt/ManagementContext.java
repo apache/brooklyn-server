@@ -39,6 +39,7 @@ import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Optional;
 
 /**
  * This is the entry point for accessing and interacting with a realm of applications and their entities in Brooklyn.
@@ -66,9 +67,20 @@ public interface ManagementContext {
      * In other words the value of {@link Application#getManagementContext()#getManagementPlaneId()} 
      * will generally be constant (in contrast to {@link #getManagementNodeId()}).
      * <p>
-     * This value should not be null unless the management context is a non-functional
-     * (non-deployment) instance. */
+     * Throws an {@link NullPointerException} if the value hasn't been initialized yet. The value is set:
+     * <ul>
+     *   <li>no persistence - during launch
+     *   <li>persistence enabled, HA disabled - on rebind (during launch)
+     *   <li>persistence enabled, HA enabled - on the first HA state check (async to launch)
+     * </ul>
+     */
     String getManagementPlaneId();
+
+    /**
+     * Same as {@link #getManagementPlaneId()}, but will return {@link Optional#absent()} if the
+     * {@code managementPlaneId} hasn't been initialized yet.
+     */
+    Optional<String> getOptionalManagementPlaneId();
     
     /** 
      * UID for this {@link ManagementContext} node (as part of a single management plane).

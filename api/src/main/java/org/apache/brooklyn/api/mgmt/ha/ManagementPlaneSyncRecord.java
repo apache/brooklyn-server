@@ -40,7 +40,7 @@ import com.google.common.annotations.Beta;
 @Beta
 public interface ManagementPlaneSyncRecord {
 
-    // TODO Add getPlaneId(); but first need to set it sensibly on each management node
+    String getPlaneId();
     
     String getMasterNodeId();
     

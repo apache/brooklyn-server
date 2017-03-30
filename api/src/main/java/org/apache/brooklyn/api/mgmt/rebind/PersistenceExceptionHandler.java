@@ -41,4 +41,7 @@ public interface PersistenceExceptionHandler {
     void onPersistRawMementoFailed(BrooklynObjectType type, String id, Exception e);
 
     void onDeleteMementoFailed(String id, Exception e);
+    
+    void onUpdatePlaneIdFailed(String planeId, Exception e);
+
 }
