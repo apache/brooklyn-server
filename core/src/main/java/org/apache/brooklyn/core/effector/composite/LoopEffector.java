@@ -102,6 +102,7 @@ public class LoopEffector extends AbstractCompositeEffector {
                 result.add(invokeEffectorNamed(targetEntity, effectorName, params));
             }
 
+            LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), result });
             return result;
         }
     }

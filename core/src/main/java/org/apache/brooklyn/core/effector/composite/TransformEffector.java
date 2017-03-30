@@ -83,6 +83,7 @@ public class TransformEffector extends AbstractCompositeEffector {
             Object value = params.getStringKey(input);
             Object result = function.apply(value);
 
+            LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), result });
             return result;
         }
     }

@@ -119,6 +119,7 @@ public final class ReplaceEffector extends AbstractCompositeEffector {
                 invokeEffectorNamed(targetEntity, ORIGINAL + effector.getName(), params);
             }
 
+            LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), result });
             return result;
         }
     }

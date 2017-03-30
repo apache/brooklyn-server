@@ -103,6 +103,7 @@ public class ComposeEffector extends AbstractCompositeEffector {
                 result = invokeEffectorNamed(targetEntity, effectorName, params);
             }
 
+            LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), result });
             return result;
         }
     }

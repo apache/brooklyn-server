@@ -101,38 +101,27 @@ public class ChoiceEffector extends AbstractCompositeEffector {
             params.putStringKey(choiceInputArgument, inputObject);
 
             Object output = invokeEffectorNamed(choiceTargetEntity, choiceEffectorName, params);
-            Boolean result = Boolean.parseBoolean(Strings.toString(output));
+            Boolean success = Boolean.parseBoolean(Strings.toString(output));
 
-            if (result) {
-                Object successDetails = EntityInitializers.resolve(config, SUCCESS);
-                String successEffectorName = getEffectorName(successDetails);
-                String successInputArgument = getInputArgument(successDetails);
-                Entity successTargetEntity = getTargetEntity(successDetails);
-                LOG.debug("{} executing {}({}) on {}", new Object[] { this, successEffectorName, successInputArgument, successTargetEntity });
+            Object effectorDetails = EntityInitializers.resolve(config, success ? SUCCESS : FAILURE);
 
-                if (successInputArgument == null) {
-                    throw new IllegalArgumentException("Input is not set for success effector: " + successDetails);
-                }
-                params.putStringKey(successInputArgument, inputObject);
-
-                return invokeEffectorNamed(successTargetEntity, successEffectorName, params);
-            } else {
-                Object failureDetails = EntityInitializers.resolve(config, FAILURE);
-                if (failureDetails == null) {
-                    return null;
-                }
-                String failureEffectorName = getEffectorName(failureDetails);
-                String failureInputArgument = getInputArgument(failureDetails);
-                Entity failureTargetEntity = getTargetEntity(failureDetails);
-                LOG.debug("{} executing {}({}) on {}", new Object[] { this, failureEffectorName, failureInputArgument, failureTargetEntity });
-
-                if (failureInputArgument == null) {
-                    throw new IllegalArgumentException("Input is not set for success effector: " + failureDetails);
-                }
-                params.putStringKey(failureInputArgument, inputObject);
-
-                return invokeEffectorNamed(failureTargetEntity, failureEffectorName, params);
+            if (!success && effectorDetails == null) {
+                return null;
             }
+
+            String effectorName = getEffectorName(effectorDetails);
+            String inputArgument = getInputArgument(effectorDetails);
+            Entity targetEntity = getTargetEntity(effectorDetails);
+            LOG.debug("{} executing {}({}) on {}", new Object[] { this, effectorName, inputArgument, targetEntity });
+
+            if (inputArgument == null) {
+                throw new IllegalArgumentException("Input is not set for effector: " + effectorDetails);
+            }
+            params.putStringKey(inputArgument, inputObject);
+            Object result = invokeEffectorNamed(targetEntity, effectorName, params);
+
+            LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), result });
+            return result;
         }
     }
 
