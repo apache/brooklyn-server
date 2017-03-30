@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.policy.action;
 
+import java.text.ParseException;
+import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -30,6 +32,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.DurationPredicates;
@@ -92,8 +95,23 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
             if (event.getSensor().equals(START_SCHEDULER)) {
                 Boolean start = Boolean.parseBoolean(Strings.toString(event.getValue()));
                 if (start && running.compareAndSet(false, true)) {
+                    long wait = delay;
+                    String time = config().get(TIME);
+                    if (Strings.isNonBlank(time)) {
+                        try {
+                            Date when = FORMATTER.parse(time);
+                            Date now = new Date();
+                            if (when.before(now)) {
+                                throw new IllegalStateException("The time provided must be in the future: " + FORMATTER.format(time));
+                            }
+                            wait = Math.max(0, when.getTime() - now.getTime());
+                        } catch (ParseException e) {
+                            LOG.warn("The time must be formatted as " + TIME_FORMAT + " for this policy", e);
+                            Exceptions.propagate(e);
+                        }
+                    }
                     LOG.debug("{} scheduling {} in {}ms", new Object[] { PeriodicEffectorPolicy.this, effector.getName(), delay });
-                    executor.scheduleWithFixedDelay(PeriodicEffectorPolicy.this, delay, delay, TimeUnit.MILLISECONDS);
+                    executor.scheduleWithFixedDelay(PeriodicEffectorPolicy.this, wait, delay, TimeUnit.MILLISECONDS);
                 }
             }
         }

@@ -56,15 +56,6 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
 
     private static final Logger LOG = LoggerFactory.getLogger(ScheduledEffectorPolicy.class);
 
-    public static final String TIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
-
-    protected static final DateFormat FORMATTER = new SimpleDateFormat(TIME_FORMAT);
-
-    public static final ConfigKey<String> TIME = ConfigKeys.builder(String.class)
-            .name("time")
-            .description("An optional time when this policy should be first executed")
-            .build();
-
     public static final AttributeSensor<Boolean> INVOKE_IMMEDIATELY = Sensors.newBooleanSensor("scheduler.invoke.now", "Invoke the configured effector immediately when this becomes true");
     public static final AttributeSensor<String> INVOKE_AT = Sensors.newStringSensor("scheduler.invoke.at", "Invoke the configured effector at this time");
 

@@ -18,14 +18,18 @@
  */
 package org.apache.brooklyn.policy.action;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
 import org.apache.brooklyn.api.effector.Effector;
+import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInitializers;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -42,6 +46,10 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractScheduledEffectorPolicy.class);
 
+    public static final String TIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
+
+    protected static DateFormat FORMATTER = new SimpleDateFormat(TIME_FORMAT);
+
     public static final ConfigKey<String> EFFECTOR = ConfigKeys.builder(String.class)
             .name("effector")
             .description("The effector to be executed by this policy")
@@ -55,8 +63,13 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
             .defaultValue(ImmutableMap.<String, Object>of())
             .build();
 
-    protected final Effector<?> effector;
-    protected final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    public static final ConfigKey<String> TIME = ConfigKeys.builder(String.class)
+            .name("time")
+            .description("An optional time when this policy should be first executed")
+            .build();
+
+    protected Effector<?> effector;
+    protected ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
     public AbstractScheduledEffectorPolicy() {
         this(MutableMap.<String,Object>of());
@@ -64,7 +77,10 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     public AbstractScheduledEffectorPolicy(Map<String,?> props) {
         super(props);
+    }
 
+    public void setEntity(EntityLocal entity) {
+        super.setEntity(entity);
         effector = getEffector();
     }
 
