@@ -65,11 +65,6 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
 
     public ScheduledEffectorPolicy(Map<String,?> props) {
         super(props);
-
-        String time = config().get(TIME);
-        if (Strings.isNonBlank(time)) {
-            scheduleAt(time);
-        }
     }
 
     @Override
@@ -78,6 +73,11 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
 
         subscriptions().subscribe(entity, INVOKE_IMMEDIATELY, handler);
         subscriptions().subscribe(entity, INVOKE_AT, handler);
+
+        String time = config().get(TIME);
+        if (Strings.isNonBlank(time)) {
+            scheduleAt(time);
+        }
     }
 
     protected void scheduleAt(String time) {

@@ -32,6 +32,8 @@ import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +41,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 
 @Beta
@@ -102,9 +105,15 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     @Override
     public void run() {
-        Map<String, Object> args = EntityInitializers.resolve(config().getBag(), EFFECTOR_ARGUMENTS);
+        ConfigBag bag = ResolvingConfigBag.newInstanceExtending(((EntityInternal) entity).getManagementContext(), config().getBag());
+        Map<String, Object> args = EntityInitializers.resolve(bag, EFFECTOR_ARGUMENTS);
+        bag.putAll(args);
+        Map<String, Object> resolved = Maps.newLinkedHashMap();
+        for (String key : args.keySet()) {
+            resolved.put(key, bag.getStringKey(key));
+        }
 
-        LOG.debug("{} invoking effector on {}, effector={}, args={}", new Object[] { this, entity, effector.getName(), args });
+        LOG.debug("{} invoking effector on {}, effector={}, args={}", new Object[] { this, entity, effector.getName(), resolved });
         entity.invoke(effector, args).getUnchecked();
     }
 }

@@ -68,7 +68,6 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
 
     public static final AttributeSensor<Boolean> START_SCHEDULER = Sensors.newBooleanSensor("scheduler.start", "Start the periodic effector execution after this becomes true");
 
-    protected long delay;
     protected AtomicBoolean running = new AtomicBoolean(false);
 
     public PeriodicEffectorPolicy() {
@@ -77,9 +76,6 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
 
     public PeriodicEffectorPolicy(Map<String,?> props) {
         super(props);
-
-        Duration period = Preconditions.checkNotNull(config().get(PERIOD), "The period must be configured for this policy");
-        delay = period.toMilliseconds();
     }
 
     @Override
@@ -97,6 +93,8 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
                 if (event.getSensor().getName().equals(START_SCHEDULER.getName())) {
                     Boolean start = Boolean.parseBoolean(Strings.toString(event.getValue()));
                     if (start && running.compareAndSet(false, true)) {
+                        Duration period = Preconditions.checkNotNull(config().get(PERIOD), "The period must be configured for this policy");
+                        long delay = period.toMilliseconds();
                         long wait = delay;
                         String time = config().get(TIME);
                         if (Strings.isNonBlank(time)) {
