@@ -22,10 +22,11 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Objects;
 
+import org.apache.brooklyn.config.ConfigKey;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableMap;
-import org.apache.brooklyn.config.ConfigKey;
 
 public class PolicyConfigSummary extends ConfigSummary {
 
