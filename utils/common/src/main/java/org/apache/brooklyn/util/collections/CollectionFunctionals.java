@@ -184,17 +184,11 @@ public class CollectionFunctionals {
         @Override
         public List<T> apply(I input) {
             if (input==null) return null;
-            MutableList<T> result = MutableList.of();
-            for (T i: input) {
-                result.add(i);
-                if (result.size()>=max)
-                    return result;
-            }
-            return result;
+            return MutableList.copyOf(Iterables.limit(input, max));
         }
     }
 
-    public static final class IterableTransformerFunction<T, U> implements Function<Iterable<T>, Iterable<U>> {
+    public static final class IterableTransformerFunction<T, U, I extends Iterable<T>> implements Function<I, List<U>> {
         private final Function<T, U> function;
 
         private IterableTransformerFunction(Function<T, U> function) {
@@ -202,15 +196,15 @@ public class CollectionFunctionals {
         }
 
         @Override
-        public Iterable<U> apply(Iterable<T> input) {
+        public List<U> apply(I input) {
             if (input==null) return null;
-            return Iterables.transform(input, function);
+            return MutableList.copyOf(Iterables.transform(input, function));
         }
 
         @Override public String toString() { return "iterableTransformer"; }
     }
 
-    public static <T,U> Function<Iterable<T>, Iterable<U>> iterableTransformer(Function<T, U> function) {
+    public static <T,U,I extends Iterable<T>> Function<I, List<U>> iterableTransformer(Function<T, U> function) {
         return new IterableTransformerFunction(function);
     }
 
