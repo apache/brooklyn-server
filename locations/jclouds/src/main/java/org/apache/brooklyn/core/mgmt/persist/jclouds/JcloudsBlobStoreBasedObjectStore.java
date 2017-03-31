@@ -93,7 +93,7 @@ public class JcloudsBlobStoreBasedObjectStore implements PersistenceObjectStore 
                 location = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged(locationSpec);
             }
             
-            context = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(location.config().getBag());
+            context = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(location);
      
             // TODO do we need to get location from region? can't see the jclouds API.
             // doesn't matter in some places because it's already in the endpoint

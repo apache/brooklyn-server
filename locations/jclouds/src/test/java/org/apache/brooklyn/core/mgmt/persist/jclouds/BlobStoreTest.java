@@ -68,7 +68,7 @@ public class BlobStoreTest {
         testContainerName = CONTAINER_PREFIX+"-"+Identifiers.makeRandomId(8);
         mgmt = new LocalManagementContextForTests(BrooklynProperties.Factory.newDefault());
         location = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged(locationSpec);
-        context = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(location.config().getBag());
+        context = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(location);
     }
     
     @AfterMethod(alwaysRun=true)

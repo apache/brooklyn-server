@@ -261,30 +261,6 @@ public class JcloudsUtil {
     }
 
     /**
-     *  Temporary constructor to address https://issues.apache.org/jira/browse/JCLOUDS-615.
-     *  <p>
-     *  See https://issues.apache.org/jira/browse/BROOKLYN-6 .
-     *  When https://issues.apache.org/jira/browse/JCLOUDS-615 is fixed in the jclouds we use,
-     *  we can remove the useSoftlayerFix argument.
-     *  <p>
-     *  (Marked Beta as that argument will likely be removed.)
-     *
-     *  @since 0.7.0
-     *  @deprecated since 0.11.0; instead use BlobStoreContextFactoryImpl.INSTANCE
-     */
-    @Beta
-    @Deprecated
-    public static BlobStoreContext newBlobstoreContext(String provider, @Nullable String endpoint, String identity, String credential) {
-        ConfigBag conf = ConfigBag.newInstance();
-        conf.put(LocationConfigKeys.CLOUD_PROVIDER, provider);
-        conf.put(LocationConfigKeys.ACCESS_IDENTITY, identity);
-        conf.put(LocationConfigKeys.ACCESS_CREDENTIAL, credential);
-        conf.put(CloudLocationConfig.CLOUD_ENDPOINT, endpoint);
-
-        return BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(conf);
-    }
-
-    /**
      * @deprecated since 0.7
      */
     @Deprecated
