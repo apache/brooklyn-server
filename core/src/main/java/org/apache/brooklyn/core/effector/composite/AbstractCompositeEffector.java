@@ -47,6 +47,8 @@ public abstract class AbstractCompositeEffector extends AddEffector {
         protected final Effector<?> effector;
         protected final ConfigBag config;
 
+        protected Object mutex = new Object[0];
+
         public Body(Effector<?> eff, ConfigBag config) {
             this.effector = eff;
             this.config = config;

@@ -73,39 +73,40 @@ public class ComposeEffector extends AbstractCompositeEffector {
 
         @Override
         public Object call(final ConfigBag params) {
-            LOG.debug("{} called with config {}, params {}", new Object[] { this, config, params });
-            List<Object> effectors = EntityInitializers.resolve(config, COMPOSE);
+            synchronized (mutex) {
+                LOG.debug("{} called with config {}, params {}", new Object[] { this, config, params });
+                List<Object> effectors = EntityInitializers.resolve(config, COMPOSE);
 
-            Object result = null;
+                Object result = null;
 
-            for (Object effectorDetails : effectors) {
-                String effectorName = getEffectorName(effectorDetails);
-                String inputArgument = getInputArgument(effectorDetails);
-                String inputParameter = getInputParameter(effectorDetails);
-                Entity targetEntity = getTargetEntity(effectorDetails);
-                LOG.debug("{} executing {}({}:{}) on {}", new Object[] { this, effectorName, inputArgument, inputParameter, targetEntity });
+                for (Object effectorDetails : effectors) {
+                    String effectorName = getEffectorName(effectorDetails);
+                    String inputArgument = getInputArgument(effectorDetails);
+                    String inputParameter = getInputParameter(effectorDetails);
+                    Entity targetEntity = getTargetEntity(effectorDetails);
+                    LOG.debug("{} executing {}({}:{}) on {}", new Object[] { this, effectorName, inputArgument, inputParameter, targetEntity });
 
-                if (inputArgument == null) {
-                    throw new IllegalArgumentException("Input is not set for this effector: " + effectorDetails);
-                }
-                if (inputParameter == null) {
-                    if (result == null) {
-                        Object input = params.getStringKey(inputArgument);
-                        params.putStringKey(inputArgument, input);
-                    } else {
-                        params.putStringKey(inputArgument, result);
+                    if (inputArgument == null) {
+                        throw new IllegalArgumentException("Input is not set for this effector: " + effectorDetails);
                     }
-                } else {
-                    Object input = params.getStringKey(inputParameter);
-                    params.putStringKey(inputArgument, input);
+                    if (inputParameter == null) {
+                        if (result == null) {
+                            Object input = params.getStringKey(inputArgument);
+                            params.putStringKey(inputArgument, input);
+                        } else {
+                            params.putStringKey(inputArgument, result);
+                        }
+                    } else {
+                        Object input = params.getStringKey(inputParameter);
+                        params.putStringKey(inputArgument, input);
+                    }
+
+                    result = invokeEffectorNamed(targetEntity, effectorName, params);
                 }
 
-                result = invokeEffectorNamed(targetEntity, effectorName, params);
+                LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), result });
+                return result;
             }
-
-            LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), result });
-            return result;
         }
     }
-
 }

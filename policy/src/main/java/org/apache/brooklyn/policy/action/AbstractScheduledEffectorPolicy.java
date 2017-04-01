@@ -29,11 +29,13 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInitializers;
-import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
+import org.apache.brooklyn.util.core.task.TaskTags;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +43,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 
@@ -105,8 +108,10 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     @Override
     public void run() {
-        ConfigBag bag = ResolvingConfigBag.newInstanceExtending(((EntityInternal) entity).getManagementContext(), config().getBag());
+        LOG.warn("{}: run task tags: {}", this, Iterables.toString(Tasks.current().getTags()));
+        ConfigBag bag = ResolvingConfigBag.newInstanceExtending(getManagementContext(), config().getBag());
         Map<String, Object> args = EntityInitializers.resolve(bag, EFFECTOR_ARGUMENTS);
+        TaskTags.addTagDynamically(Tasks.current(), BrooklynTaskTags.tagForContextEntity(entity)); // WHY?
         bag.putAll(args);
         Map<String, Object> resolved = Maps.newLinkedHashMap();
         for (String key : args.keySet()) {

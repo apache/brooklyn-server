@@ -73,29 +73,30 @@ public class SequenceEffector extends AbstractCompositeEffector {
 
         @Override
         public Object call(final ConfigBag params) {
-            LOG.debug("{} called with config {}, params {}", new Object[] { this, config, params });
-            List<Object> effectors = EntityInitializers.resolve(config, SEQUENCE);
+            synchronized (mutex) {
+                LOG.debug("{} called with config {}, params {}", new Object[] { this, config, params });
+                List<Object> effectors = EntityInitializers.resolve(config, SEQUENCE);
 
-            Object result = null;
+                Object result = null;
 
-            for (Object effectorDetails : effectors) {
-                String effectorName = getEffectorName(effectorDetails);
-                String inputArgument = getInputArgument(effectorDetails);
-                Entity targetEntity = getTargetEntity(effectorDetails);
-                LOG.debug("{} executing {}({}) on {}", new Object[] { this, effectorName, inputArgument, targetEntity });
+                for (Object effectorDetails : effectors) {
+                    String effectorName = getEffectorName(effectorDetails);
+                    String inputArgument = getInputArgument(effectorDetails);
+                    Entity targetEntity = getTargetEntity(effectorDetails);
+                    LOG.debug("{} executing {}({}) on {}", new Object[] { this, effectorName, inputArgument, targetEntity });
 
-                if (inputArgument == null) {
-                    throw new IllegalArgumentException("Input is not set for this effector: " + effectorDetails);
+                    if (inputArgument == null) {
+                        throw new IllegalArgumentException("Input is not set for this effector: " + effectorDetails);
+                    }
+                    Object input = params.getStringKey(inputArgument);
+                    params.putStringKey(inputArgument, input);
+
+                    result = invokeEffectorNamed(targetEntity, effectorName, params);
                 }
-                Object input = params.getStringKey(inputArgument);
-                params.putStringKey(inputArgument, input);
 
-                result = invokeEffectorNamed(targetEntity, effectorName, params);
+                LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), result });
+                return result;
             }
-
-            LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), result });
-            return result;
         }
     }
-
 }

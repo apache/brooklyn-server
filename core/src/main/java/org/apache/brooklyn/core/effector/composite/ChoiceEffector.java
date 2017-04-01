@@ -85,44 +85,45 @@ public class ChoiceEffector extends AbstractCompositeEffector {
 
         @Override
         public Object call(final ConfigBag params) {
-            LOG.debug("{} called with config {}, params {}", new Object[] { this, config, params });
-            String input = config.get(INPUT);
-            Object inputObject = params.getStringKey(input);
+            synchronized (mutex) {
+                LOG.debug("{} called with config {}, params {}", new Object[] { this, config, params });
+                String input = config.get(INPUT);
+                Object inputObject = params.getStringKey(input);
 
-            Object choiceDetails = EntityInitializers.resolve(config, CHOICE);
-            String choiceEffectorName = getEffectorName(choiceDetails);
-            String choiceInputArgument = getInputArgument(choiceDetails);
-            Entity choiceTargetEntity = getTargetEntity(choiceDetails);
-            LOG.debug("{} executing {}({}) on {}", new Object[] { this, choiceEffectorName, choiceInputArgument, choiceTargetEntity });
+                Object choiceDetails = EntityInitializers.resolve(config, CHOICE);
+                String choiceEffectorName = getEffectorName(choiceDetails);
+                String choiceInputArgument = getInputArgument(choiceDetails);
+                Entity choiceTargetEntity = getTargetEntity(choiceDetails);
+                LOG.debug("{} executing {}({}) on {}", new Object[] { this, choiceEffectorName, choiceInputArgument, choiceTargetEntity });
 
-            if (choiceInputArgument == null) {
-                throw new IllegalArgumentException("Input is not set for choice effector: " + choiceDetails);
+                if (choiceInputArgument == null) {
+                    throw new IllegalArgumentException("Input is not set for choice effector: " + choiceDetails);
+                }
+                params.putStringKey(choiceInputArgument, inputObject);
+
+                Object output = invokeEffectorNamed(choiceTargetEntity, choiceEffectorName, params);
+                Boolean success = Boolean.parseBoolean(Strings.toString(output));
+
+                Object effectorDetails = EntityInitializers.resolve(config, success ? SUCCESS : FAILURE);
+
+                if (!success && effectorDetails == null) {
+                    return null;
+                }
+
+                String effectorName = getEffectorName(effectorDetails);
+                String inputArgument = getInputArgument(effectorDetails);
+                Entity targetEntity = getTargetEntity(effectorDetails);
+                LOG.debug("{} executing {}({}) on {}", new Object[] { this, effectorName, inputArgument, targetEntity });
+
+                if (inputArgument == null) {
+                    throw new IllegalArgumentException("Input is not set for effector: " + effectorDetails);
+                }
+                params.putStringKey(inputArgument, inputObject);
+                Object result = invokeEffectorNamed(targetEntity, effectorName, params);
+
+                LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), result });
+                return result;
             }
-            params.putStringKey(choiceInputArgument, inputObject);
-
-            Object output = invokeEffectorNamed(choiceTargetEntity, choiceEffectorName, params);
-            Boolean success = Boolean.parseBoolean(Strings.toString(output));
-
-            Object effectorDetails = EntityInitializers.resolve(config, success ? SUCCESS : FAILURE);
-
-            if (!success && effectorDetails == null) {
-                return null;
-            }
-
-            String effectorName = getEffectorName(effectorDetails);
-            String inputArgument = getInputArgument(effectorDetails);
-            Entity targetEntity = getTargetEntity(effectorDetails);
-            LOG.debug("{} executing {}({}) on {}", new Object[] { this, effectorName, inputArgument, targetEntity });
-
-            if (inputArgument == null) {
-                throw new IllegalArgumentException("Input is not set for effector: " + effectorDetails);
-            }
-            params.putStringKey(inputArgument, inputObject);
-            Object result = invokeEffectorNamed(targetEntity, effectorName, params);
-
-            LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), result });
-            return result;
         }
     }
-
 }

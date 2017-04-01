@@ -76,16 +76,17 @@ public class TransformEffector extends AbstractCompositeEffector {
 
         @Override
         public Object call(final ConfigBag params) {
-            LOG.debug("{} called with config {}, params {}", new Object[] { this, config, params });
-            Function<Object,Object> function = EntityInitializers.resolve(config, FUNCTION);
+            synchronized (mutex) {
+                LOG.debug("{} called with config {}, params {}", new Object[] { this, config, params });
+                Function<Object,Object> function = EntityInitializers.resolve(config, FUNCTION);
 
-            String input = config.get(INPUT);
-            Object value = params.getStringKey(input);
-            Object result = function.apply(value);
+                String input = config.get(INPUT);
+                Object value = params.getStringKey(input);
+                Object result = function.apply(value);
 
-            LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), result });
-            return result;
+                LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), result });
+                return result;
+            }
         }
     }
-
 }

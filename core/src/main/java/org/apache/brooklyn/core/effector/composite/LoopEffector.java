@@ -76,35 +76,36 @@ public class LoopEffector extends AbstractCompositeEffector {
 
         @Override
         public List call(final ConfigBag params) {
-            LOG.debug("{} called with config {}, params {}", new Object[] { this, config, params });
-            Object effectorDetails = EntityInitializers.resolve(config, LOOP);
-            String input = config.get(INPUT);
-            Object inputObject = params.getStringKey(input);
-            if (!(inputObject instanceof Collection)) {
-                throw new IllegalArgumentException("Input to loop is not a collection: " + inputObject);
+            synchronized (mutex) {
+                LOG.debug("{} called with config {}, params {}", new Object[] { this, config, params });
+                Object effectorDetails = EntityInitializers.resolve(config, LOOP);
+                String input = config.get(INPUT);
+                Object inputObject = params.getStringKey(input);
+                if (!(inputObject instanceof Collection)) {
+                    throw new IllegalArgumentException("Input to loop is not a collection: " + inputObject);
+                }
+                Collection<?> inputCollection = (Collection) inputObject;
+
+                List<Object> result = Lists.newArrayList();
+
+                String effectorName = getEffectorName(effectorDetails);
+                String inputArgument = getInputArgument(effectorDetails);
+                Entity targetEntity = getTargetEntity(effectorDetails);
+                LOG.debug("{} executing {}({}) on {}", new Object[] { this, effectorName, inputArgument, targetEntity });
+
+                if (inputArgument == null) {
+                    throw new IllegalArgumentException("Input is not set for this effector: " + effectorDetails);
+                }
+
+                for (Object inputEach : inputCollection) {
+                    params.putStringKey(inputArgument, inputEach);
+
+                    result.add(invokeEffectorNamed(targetEntity, effectorName, params));
+                }
+
+                LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), result });
+                return result;
             }
-            Collection<?> inputCollection = (Collection) inputObject;
-
-            List<Object> result = Lists.newArrayList();
-
-            String effectorName = getEffectorName(effectorDetails);
-            String inputArgument = getInputArgument(effectorDetails);
-            Entity targetEntity = getTargetEntity(effectorDetails);
-            LOG.debug("{} executing {}({}) on {}", new Object[] { this, effectorName, inputArgument, targetEntity });
-
-            if (inputArgument == null) {
-                throw new IllegalArgumentException("Input is not set for this effector: " + effectorDetails);
-            }
-
-            for (Object inputEach : inputCollection) {
-                params.putStringKey(inputArgument, inputEach);
-
-                result.add(invokeEffectorNamed(targetEntity, effectorName, params));
-            }
-
-            LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), result });
-            return result;
         }
     }
-
 }
