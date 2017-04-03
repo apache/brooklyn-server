@@ -284,7 +284,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         boolean weAreRecognisedAsMaster = existingMaster!=null && ownNodeId.equals(existingMaster.getNodeId());
         boolean weAreMasterLocally = getInternalNodeState()==ManagementNodeState.MASTER;
         
-        updatePlaneId(planeRec);
+        updateLocalPlaneId(planeRec);
         
         // catch error in some tests where mgmt context has a different HA manager
         if (managementContext.getHighAvailabilityManager()!=this)
@@ -460,7 +460,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
             registerPollTask();
     }
 
-    protected void updatePlaneId(ManagementPlaneSyncRecord existingMaster) {
+    protected void updateLocalPlaneId(ManagementPlaneSyncRecord existingMaster) {
         if (existingMaster.getPlaneId() != null) {
             ((LocalManagementContext)managementContext).setManagementPlaneId(existingMaster.getPlaneId());
         }
@@ -722,7 +722,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
             return;
         }
         
-        updatePlaneId(memento);
+        updateLocalPlaneId(memento);
         
         String currMasterNodeId = memento.getMasterNodeId();
         ManagementNodeSyncRecord currMasterNodeRecord = memento.getManagementNodes().get(currMasterNodeId);

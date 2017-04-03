@@ -401,6 +401,11 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
             if (!alreadyHasMutex) persistingMutex.acquire();
             if (!isActive() && state != ListenerState.STOPPING) return;
             
+            // Writes to the datastore are lossy. We'll just log failures and move on.
+            // (Most) entities will get updated multiple times in their lifecycle
+            // so not a huge deal. planeId does not get updated so if the first
+            // write fails it's not available to the HA cluster at all. That's why it
+            // gets periodically written to the datastore. 
             updatePlaneIdIfTimedOut();
 
             // Atomically switch the delta, so subsequent modifications will be done in the
