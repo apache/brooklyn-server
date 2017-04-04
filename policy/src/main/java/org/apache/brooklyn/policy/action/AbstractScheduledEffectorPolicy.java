@@ -37,6 +37,8 @@ import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.DurationPredicates;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,6 +76,12 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
             .description("An optional time when this policy should be first executed")
             .build();
 
+    public static final ConfigKey<Duration> WAIT = ConfigKeys.builder(Duration.class)
+            .name("wait")
+            .description("An optional duration after which this policy should be first executed. The time config takes precedence if prese")
+            .constraint(Predicates.or(Predicates.isNull(), DurationPredicates.positive()))
+            .build();
+
     protected Effector<?> effector;
     protected ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
     protected Object mutex = new Object[0];
@@ -108,10 +116,11 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     @Override
     public void run() {
-        LOG.warn("{}: run task tags: {}", this, Iterables.toString(Tasks.current().getTags()));
+        LOG.debug("{}: task tags before: {}", this, Iterables.toString(Tasks.current().getTags()));
         ConfigBag bag = ResolvingConfigBag.newInstanceExtending(getManagementContext(), config().getBag());
         Map<String, Object> args = EntityInitializers.resolve(bag, EFFECTOR_ARGUMENTS);
         TaskTags.addTagDynamically(Tasks.current(), BrooklynTaskTags.tagForContextEntity(entity)); // WHY?
+        LOG.debug("{}: task tags after: {}", this, Iterables.toString(Tasks.current().getTags()));
         bag.putAll(args);
         Map<String, Object> resolved = Maps.newLinkedHashMap();
         for (String key : args.keySet()) {

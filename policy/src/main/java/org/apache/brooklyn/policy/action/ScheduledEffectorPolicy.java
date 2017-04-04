@@ -18,9 +18,7 @@
  */
 package org.apache.brooklyn.policy.action;
 
-import java.text.DateFormat;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -29,12 +27,11 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,8 +72,11 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
         subscriptions().subscribe(entity, INVOKE_AT, handler);
 
         String time = config().get(TIME);
+        Duration wait = config().get(WAIT);
         if (Strings.isNonBlank(time)) {
             scheduleAt(time);
+        } else if (wait != null) {
+            executor.schedule(this, wait.toMilliseconds(), TimeUnit.MILLISECONDS);
         }
     }
 

@@ -94,9 +94,8 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
                     Boolean start = Boolean.parseBoolean(Strings.toString(event.getValue()));
                     if (start && running.compareAndSet(false, true)) {
                         Duration period = Preconditions.checkNotNull(config().get(PERIOD), "The period must be configured for this policy");
-                        long delay = period.toMilliseconds();
-                        long wait = delay;
                         String time = config().get(TIME);
+                        Duration wait = config().get(WAIT);
                         if (Strings.isNonBlank(time)) {
                             try {
                                 Date when = FORMATTER.parse(time);
@@ -104,16 +103,20 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
                                 if (when.before(now)) {
                                     throw new IllegalStateException("The time provided must be in the future: " + FORMATTER.format(time));
                                 }
-                                wait = Math.max(0, when.getTime() - now.getTime());
+                                wait = Duration.millis(Math.max(0, when.getTime() - now.getTime()));
                             } catch (ParseException e) {
                                 LOG.warn("The time must be formatted as " + TIME_FORMAT + " for this policy", e);
                                 Exceptions.propagate(e);
                             }
                         }
+                        if (wait == null) {
+                            wait = period;
+                        }
 
                         LOG.debug("{} scheduling {} every {} in {}", new Object[] { PeriodicEffectorPolicy.this, effector.getName(),
-                                Time.fromLongToTimeStringExact().apply(delay), Time.fromLongToTimeStringExact().apply(wait) });
-                        executor.scheduleWithFixedDelay(PeriodicEffectorPolicy.this, wait, delay, TimeUnit.MILLISECONDS);
+                                Time.fromDurationToTimeStringRounded().apply(period), Time.fromDurationToTimeStringRounded().apply(wait) });
+                        executor.scheduleWithFixedDelay(PeriodicEffectorPolicy.this, wait.toMilliseconds(), period.toMilliseconds(), TimeUnit.MILLISECONDS);
+                        LOG.debug("{} scheduled", PeriodicEffectorPolicy.this);
                     }
                 }
             }
