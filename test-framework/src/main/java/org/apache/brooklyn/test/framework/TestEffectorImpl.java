@@ -88,8 +88,8 @@ public class TestEffectorImpl extends TargetableTestComponentImpl implements Tes
             if(assertions != null && !assertions.isEmpty()){
                 Supplier<?> supplier = Suppliers.ofInstance(effectorResult);
                 TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(effectorName, supplier)
+                        .maxAttempts(1)
                         .timeout(timeout)
-                        .backoffToPeriod(backoffToPeriod)
                         .assertions(assertions));
             }
 
