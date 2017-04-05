@@ -21,20 +21,20 @@ package org.apache.brooklyn.policy.action;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInitializers;
-import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
-import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
@@ -45,7 +45,6 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 
@@ -116,18 +115,22 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     @Override
     public void run() {
-        LOG.debug("{}: task tags before: {}", this, Iterables.toString(Tasks.current().getTags()));
-        ConfigBag bag = ResolvingConfigBag.newInstanceExtending(getManagementContext(), config().getBag());
-        Map<String, Object> args = EntityInitializers.resolve(bag, EFFECTOR_ARGUMENTS);
-        TaskTags.addTagDynamically(Tasks.current(), BrooklynTaskTags.tagForContextEntity(entity)); // WHY?
-        LOG.debug("{}: task tags after: {}", this, Iterables.toString(Tasks.current().getTags()));
+        final ConfigBag bag = ResolvingConfigBag.newInstanceExtending(getManagementContext(), config().getBag());
+        final Map<String, Object> args = EntityInitializers.resolve(bag, EFFECTOR_ARGUMENTS);
         bag.putAll(args);
-        Map<String, Object> resolved = Maps.newLinkedHashMap();
-        for (String key : args.keySet()) {
-            resolved.put(key, bag.getStringKey(key));
-        }
-
-        LOG.debug("{} invoking effector on {}, effector={}, args={}", new Object[] { this, entity, effector.getName(), resolved });
-        entity.invoke(effector, args).getUnchecked();
+        Task<Map<String, Object>> resolve = Tasks.create("resolveArguments", new Callable<Map<String, Object>>() {
+            @Override
+            public Map<String, Object> call() {
+                Map<String, Object> resolved = Maps.newLinkedHashMap();
+                for (String key : args.keySet()) {
+                    resolved.put(key, bag.getStringKey(key));
+                }
+                return resolved;
+            }
+        });
+        getManagementContext().getExecutionContext(entity).submit(resolve);
+        Map<String, Object> resolved = resolve.getUnchecked();
+        LOG.debug("{}: invoking effector on {}, {}({})", new Object[] { this, entity, effector.getName(), resolved });
+        entity.invoke(effector, resolved);
     }
 }
