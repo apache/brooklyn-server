@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.policy.action;
 
-import java.text.ParseException;
-import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -29,9 +27,9 @@ import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +43,7 @@ import com.google.common.annotations.Beta;
  *       effector: repaveCluster
  *       args:
  *         k: $brooklyn:config("repave.size")
- *       time: 2017-12-11 12:00:00
+ *       time: 12:00:00
  * }</pre>
  */
 @Beta
@@ -81,26 +79,16 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
     }
 
     protected void scheduleAt(String time) {
-        try {
-            Date when = FORMATTER.parse(time);
-            Date now = new Date();
-            if (when.before(now)) {
-                throw new IllegalStateException("The time provided must be in the future: " + FORMATTER.format(time));
-            }
-            long difference = Math.max(0, when.getTime() - now.getTime());
-            LOG.debug("{} scheduling {} at {} (in {}ms)", new Object[] { this, effector.getName(), time, difference });
-            executor.schedule(this, difference, TimeUnit.MILLISECONDS);
-        } catch (ParseException e) {
-            LOG.warn("The time must be formatted as " + TIME_FORMAT + " for this policy", e);
-            Exceptions.propagate(e);
-        }
+        Duration wait = getWaitUntil(time);
+        LOG.debug("{}: Scheduling {} at {} (in {})", new Object[] { this, effector.getName(), time, Time.fromDurationToTimeStringRounded().apply(wait) });
+        executor.schedule(this, wait.toMilliseconds(), TimeUnit.MILLISECONDS);
     }
 
     private final SensorEventListener<Object> handler = new SensorEventListener<Object>() {
         @Override
         public void onEvent(SensorEvent<Object> event) {
             synchronized (mutex) {
-                LOG.debug("{} got event {}", ScheduledEffectorPolicy.this, event);
+                LOG.debug("{}: Got event {}", ScheduledEffectorPolicy.this, event);
                 if (event.getSensor().getName().equals(INVOKE_AT.getName())) {
                     String time = (String) event.getValue();
                     if (Strings.isNonBlank(time)) {

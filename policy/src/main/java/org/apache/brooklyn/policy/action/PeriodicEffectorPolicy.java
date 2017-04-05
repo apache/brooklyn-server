@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.policy.action;
 
-import java.text.ParseException;
-import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -32,7 +30,6 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.DurationPredicates;
@@ -52,6 +49,7 @@ import com.google.common.base.Preconditions;
  *       args:
  *         k: $brooklyn:config("repave.size")
  *       period: 1 day
+ *       time: 17:00:00
  * }</pre>
  */
 @Beta
@@ -89,7 +87,7 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
         @Override
         public void onEvent(SensorEvent<Object> event) {
             synchronized (mutex) {
-                LOG.debug("{} got event {}", PeriodicEffectorPolicy.this, event);
+                LOG.debug("{}: Got event {}", PeriodicEffectorPolicy.this, event);
                 if (event.getSensor().getName().equals(START_SCHEDULER.getName())) {
                     Boolean start = Boolean.parseBoolean(Strings.toString(event.getValue()));
                     if (start && running.compareAndSet(false, true)) {
@@ -97,26 +95,15 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
                         String time = config().get(TIME);
                         Duration wait = config().get(WAIT);
                         if (Strings.isNonBlank(time)) {
-                            try {
-                                Date when = FORMATTER.parse(time);
-                                Date now = new Date();
-                                if (when.before(now)) {
-                                    throw new IllegalStateException("The time provided must be in the future: " + FORMATTER.format(time));
-                                }
-                                wait = Duration.millis(Math.max(0, when.getTime() - now.getTime()));
-                            } catch (ParseException e) {
-                                LOG.warn("The time must be formatted as " + TIME_FORMAT + " for this policy", e);
-                                Exceptions.propagate(e);
-                            }
-                        }
-                        if (wait == null) {
+                            wait = getWaitUntil(time);
+                        } else if (wait == null) {
                             wait = period;
                         }
 
-                        LOG.debug("{} scheduling {} every {} in {}", new Object[] { PeriodicEffectorPolicy.this, effector.getName(),
+                        LOG.debug("{}: Scheduling {} every {} in {}", new Object[] { PeriodicEffectorPolicy.this, effector.getName(),
                                 Time.fromDurationToTimeStringRounded().apply(period), Time.fromDurationToTimeStringRounded().apply(wait) });
-                        executor.scheduleWithFixedDelay(PeriodicEffectorPolicy.this, wait.toMilliseconds(), period.toMilliseconds(), TimeUnit.MILLISECONDS);
-                        LOG.debug("{} scheduled", PeriodicEffectorPolicy.this);
+                        executor.scheduleAtFixedRate(PeriodicEffectorPolicy.this, wait.toMilliseconds(), period.toMilliseconds(), TimeUnit.MILLISECONDS);
+                        LOG.debug("{}: Scheduled", PeriodicEffectorPolicy.this);
                     }
                 }
             }

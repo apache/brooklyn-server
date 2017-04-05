@@ -19,7 +19,10 @@
 package org.apache.brooklyn.policy.action;
 
 import java.text.DateFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
@@ -36,6 +39,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.DurationPredicates;
@@ -45,6 +49,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 
@@ -53,8 +58,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractScheduledEffectorPolicy.class);
 
-    public static final String TIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
-
+    protected static final String TIME_FORMAT = "HH:mm:ss";
     protected static DateFormat FORMATTER = new SimpleDateFormat(TIME_FORMAT);
 
     public static final ConfigKey<String> EFFECTOR = ConfigKeys.builder(String.class)
@@ -77,7 +81,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     public static final ConfigKey<Duration> WAIT = ConfigKeys.builder(Duration.class)
             .name("wait")
-            .description("An optional duration after which this policy should be first executed. The time config takes precedence if prese")
+            .description("An optional duration after which this policy should be first executed. The time config takes precedence if present")
             .constraint(Predicates.or(Predicates.isNull(), DurationPredicates.positive()))
             .build();
 
@@ -113,24 +117,51 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
         return effector.get();
     }
 
+    // TODO move to java.time classes in JDK 8
+    protected Duration getWaitUntil(String time) {
+        try {
+            Calendar now = Calendar.getInstance();
+            Calendar when = Calendar.getInstance();
+            Date parsed = FORMATTER.parse(time);
+            when.setTime(parsed);
+            when.set(now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DATE));
+            if (when.before(now)) {
+                when.add(Calendar.DATE, 1);
+            }
+            return Duration.millis(Math.max(0, when.getTimeInMillis() - now.getTimeInMillis()));
+        } catch (ParseException e) {
+            LOG.warn("The time must be formatted as " + TIME_FORMAT + " for this policy", e);
+            throw Exceptions.propagate(e);
+        }
+    }
+
     @Override
     public void run() {
-        final ConfigBag bag = ResolvingConfigBag.newInstanceExtending(getManagementContext(), config().getBag());
-        final Map<String, Object> args = EntityInitializers.resolve(bag, EFFECTOR_ARGUMENTS);
-        bag.putAll(args);
-        Task<Map<String, Object>> resolve = Tasks.create("resolveArguments", new Callable<Map<String, Object>>() {
-            @Override
-            public Map<String, Object> call() {
-                Map<String, Object> resolved = Maps.newLinkedHashMap();
-                for (String key : args.keySet()) {
-                    resolved.put(key, bag.getStringKey(key));
-                }
-                return resolved;
+        synchronized (mutex) {
+            try {
+                final ConfigBag bag = ResolvingConfigBag.newInstanceExtending(getManagementContext(), config().getBag());
+                final Map<String, Object> args = EntityInitializers.resolve(bag, EFFECTOR_ARGUMENTS);
+                LOG.debug("{}: Resolving arguments for {}: {}", new Object[] { this, effector.getName(), Iterables.toString(args.keySet()) });
+                bag.putAll(args);
+                Task<Map<String, Object>> resolve = Tasks.create("resolveArguments", new Callable<Map<String, Object>>() {
+                    @Override
+                    public Map<String, Object> call() {
+                        Map<String, Object> resolved = Maps.newLinkedHashMap();
+                        for (String key : args.keySet()) {
+                            resolved.put(key, bag.getStringKey(key));
+                        }
+                        return resolved;
+                    }
+                });
+                getManagementContext().getExecutionContext(entity).submit(resolve);
+                Map<String, Object> resolved = resolve.getUnchecked();
+                LOG.debug("{}: Invoking effector on {}, {}({})", new Object[] { this, entity, effector.getName(), resolved });
+                Object result = entity.invoke(effector, resolved).getUnchecked();
+                LOG.debug("{}: Effector {} returned {}", new Object[] { this, effector.getName(), result });
+            } catch (Throwable t) {
+                LOG.warn("{}: Exception running {}: {}", new Object[] { this, effector.getName(), t.getMessage() });
+                Exceptions.propagate(t);
             }
-        });
-        getManagementContext().getExecutionContext(entity).submit(resolve);
-        Map<String, Object> resolved = resolve.getUnchecked();
-        LOG.debug("{}: invoking effector on {}, {}({})", new Object[] { this, entity, effector.getName(), resolved });
-        entity.invoke(effector, resolved);
+        }
     }
 }
