@@ -22,7 +22,6 @@ import static org.testng.Assert.assertEquals;
 
 import java.util.Map;
 
-import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.testng.annotations.Test;
@@ -63,5 +62,12 @@ public class SanitizerTest {
         MutableMap<?, ?> map = MutableMap.of(null, null);
         Map<?, ?> sanitized = Sanitizer.sanitize(map);
         assertEquals(sanitized, map);
+    }
+    
+    @Test
+    public void testSanitizeWithNull() throws Exception {
+        assertEquals(Sanitizer.sanitize((ConfigBag)null), null);
+        assertEquals(Sanitizer.sanitize((Map<?,?>)null), null);
+        assertEquals(Sanitizer.newInstance().apply((Map<?,?>)null), null);
     }
 }
