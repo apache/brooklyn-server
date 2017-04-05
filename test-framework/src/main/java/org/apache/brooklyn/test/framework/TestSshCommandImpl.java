@@ -125,6 +125,7 @@ public class TestSshCommandImpl extends TargetableTestComponentImpl implements T
             final SshMachineLocation machineLocation =
                     Machines.findUniqueMachineLocation(resolveTarget().getLocations(), SshMachineLocation.class).get();
             final Duration timeout = getRequiredConfig(TIMEOUT);
+            final Integer maxAttempts = getConfig(MAX_ATTEMPTS);
             final Duration backoffToPeriod = getRequiredConfig(BACKOFF_TO_PERIOD);
 
             // TODO use TestFrameworkAssertions (or use Repeater in the same way as that does)?
@@ -132,6 +133,7 @@ public class TestSshCommandImpl extends TargetableTestComponentImpl implements T
             // for limitTimeTo, backoffTo, etc?
             ReferenceWithError<Boolean> result = Repeater.create("Running ssh-command tests")
                     .limitTimeTo(timeout)
+                    .limitIterationsTo((maxAttempts != null) ? maxAttempts : Integer.MAX_VALUE)
                     .backoffTo((backoffToPeriod != null) ? backoffToPeriod : Duration.millis(500))
                     .until(new Callable<Boolean>() {
                         @Override

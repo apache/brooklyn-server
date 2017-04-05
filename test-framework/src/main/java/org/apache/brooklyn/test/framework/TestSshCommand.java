@@ -106,4 +106,8 @@ public interface TestSshCommand extends BaseTest {
     ConfigKey<Object> ASSERT_ERR = ConfigKeys.newConfigKey(Object.class, "assert.err", "Assertions on command standard error",
         ImmutableList.<Map<String, Object>>of());
 
+    /**
+     * The maximum number of times to execute the ssh command, before throwing an exception.
+     */
+    ConfigKey<Integer> MAX_ATTEMPTS = ConfigKeys.newIntegerConfigKey("maxAttempts", "Maximum number of attempts");
 }
