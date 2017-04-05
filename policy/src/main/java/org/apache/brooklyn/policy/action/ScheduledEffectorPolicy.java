@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.policy.action;
 
+import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -27,7 +28,6 @@ import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
@@ -52,7 +52,7 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
     private static final Logger LOG = LoggerFactory.getLogger(ScheduledEffectorPolicy.class);
 
     public static final AttributeSensor<Boolean> INVOKE_IMMEDIATELY = Sensors.newBooleanSensor("scheduler.invoke.now", "Invoke the configured effector immediately when this becomes true");
-    public static final AttributeSensor<String> INVOKE_AT = Sensors.newStringSensor("scheduler.invoke.at", "Invoke the configured effector at this time");
+    public static final AttributeSensor<Date> INVOKE_AT = Sensors.newSensor(Date.class, "scheduler.invoke.at", "Invoke the configured effector at this time");
 
     public ScheduledEffectorPolicy() {
         this(MutableMap.<String,Object>of());
@@ -69,16 +69,16 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
         subscriptions().subscribe(entity, INVOKE_IMMEDIATELY, handler);
         subscriptions().subscribe(entity, INVOKE_AT, handler);
 
-        String time = config().get(TIME);
+        Date time = config().get(TIME);
         Duration wait = config().get(WAIT);
-        if (Strings.isNonBlank(time)) {
+        if (time != null) {
             scheduleAt(time);
         } else if (wait != null) {
             executor.schedule(this, wait.toMilliseconds(), TimeUnit.MILLISECONDS);
         }
     }
 
-    protected void scheduleAt(String time) {
+    protected void scheduleAt(Date time) {
         Duration wait = getWaitUntil(time);
         LOG.debug("{}: Scheduling {} at {} (in {})", new Object[] { this, effector.getName(), time, Time.fromDurationToTimeStringRounded().apply(wait) });
         executor.schedule(this, wait.toMilliseconds(), TimeUnit.MILLISECONDS);
@@ -90,13 +90,13 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
             synchronized (mutex) {
                 LOG.debug("{}: Got event {}", ScheduledEffectorPolicy.this, event);
                 if (event.getSensor().getName().equals(INVOKE_AT.getName())) {
-                    String time = (String) event.getValue();
-                    if (Strings.isNonBlank(time)) {
+                    Date time = (Date) event.getValue();
+                    if (time != null) {
                         scheduleAt(time);
                     }
                 }
                 if (event.getSensor().getName().equals(INVOKE_IMMEDIATELY.getName())) {
-                    Boolean invoke = Boolean.parseBoolean(Strings.toString(event.getValue()));
+                    Boolean invoke = (Boolean) event.getValue();
                     if (invoke) {
                         executor.submit(ScheduledEffectorPolicy.this);
                     }

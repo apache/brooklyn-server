@@ -18,9 +18,7 @@
  */
 package org.apache.brooklyn.policy.action;
 
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.LocalTime;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Map;
@@ -58,9 +56,6 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractScheduledEffectorPolicy.class);
 
-    protected static final String TIME_FORMAT = "HH:mm:ss";
-    protected static DateFormat FORMATTER = new SimpleDateFormat(TIME_FORMAT);
-
     public static final ConfigKey<String> EFFECTOR = ConfigKeys.builder(String.class)
             .name("effector")
             .description("The effector to be executed by this policy")
@@ -74,7 +69,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
             .defaultValue(ImmutableMap.<String, Object>of())
             .build();
 
-    public static final ConfigKey<String> TIME = ConfigKeys.builder(String.class)
+    public static final ConfigKey<Date> TIME = ConfigKeys.builder(Date.class)
             .name("time")
             .description("An optional time when this policy should be first executed")
             .build();
@@ -85,9 +80,10 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
             .constraint(Predicates.or(Predicates.isNull(), DurationPredicates.positive()))
             .build();
 
+    protected final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    protected final Object mutex = new Object[0];
+
     protected Effector<?> effector;
-    protected ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-    protected Object mutex = new Object[0];
 
     public AbstractScheduledEffectorPolicy() {
         this(MutableMap.<String,Object>of());
@@ -117,22 +113,15 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
         return effector.get();
     }
 
-    // TODO move to java.time classes in JDK 8
-    protected Duration getWaitUntil(String time) {
-        try {
-            Calendar now = Calendar.getInstance();
-            Calendar when = Calendar.getInstance();
-            Date parsed = FORMATTER.parse(time);
-            when.setTime(parsed);
-            when.set(now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DATE));
-            if (when.before(now)) {
-                when.add(Calendar.DATE, 1);
-            }
-            return Duration.millis(Math.max(0, when.getTimeInMillis() - now.getTimeInMillis()));
-        } catch (ParseException e) {
-            LOG.warn("The time must be formatted as " + TIME_FORMAT + " for this policy", e);
-            throw Exceptions.propagate(e);
+    protected Duration getWaitUntil(Date time) {
+        Calendar now = Calendar.getInstance();
+        Calendar when = Calendar.getInstance();
+        when.setTime(time);
+        when.set(now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DATE));
+        if (when.before(now)) {
+            when.add(Calendar.DATE, 1);
         }
+        return Duration.millis(Math.max(0, when.getTimeInMillis() - now.getTimeInMillis()));
     }
 
     @Override

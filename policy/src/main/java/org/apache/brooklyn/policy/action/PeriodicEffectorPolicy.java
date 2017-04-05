@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.policy.action;
 
+import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -30,7 +31,6 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.DurationPredicates;
 import org.apache.brooklyn.util.time.Time;
@@ -89,12 +89,12 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
             synchronized (mutex) {
                 LOG.debug("{}: Got event {}", PeriodicEffectorPolicy.this, event);
                 if (event.getSensor().getName().equals(START_SCHEDULER.getName())) {
-                    Boolean start = Boolean.parseBoolean(Strings.toString(event.getValue()));
+                    Boolean start = (Boolean) event.getValue();
                     if (start && running.compareAndSet(false, true)) {
                         Duration period = Preconditions.checkNotNull(config().get(PERIOD), "The period must be configured for this policy");
-                        String time = config().get(TIME);
+                        Date time = config().get(TIME);
                         Duration wait = config().get(WAIT);
-                        if (Strings.isNonBlank(time)) {
+                        if (time != null) {
                             wait = getWaitUntil(time);
                         } else if (wait == null) {
                             wait = period;
