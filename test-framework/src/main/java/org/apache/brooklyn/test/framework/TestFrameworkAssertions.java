@@ -23,7 +23,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Callable;
+import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.config.ConfigKey;
@@ -44,6 +46,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.reflect.TypeToken;
 
 
@@ -287,140 +290,63 @@ public class TestFrameworkAssertions {
     protected static <T> void checkActualAgainstAssertions(Map<String, ?> assertions,
             String target, T actual) {
         for (Map.Entry<String, ?> assertion : assertions.entrySet()) {
-            String condition = assertion.getKey().toString();
+            String condition = assertion.getKey();
             Object expected = assertion.getValue();
-            switch (condition) {
-
-                case IS_EQUAL_TO :
-                case EQUAL_TO :
-                case EQUALS :
-                    if (null == actual || !actual.equals(expected)) {
-                        failAssertion(target, condition, expected, actual);
-                    }
-                    break;
-
-                case NOT_EQUAL :
-                    if (Objects.equals(actual, expected)) {
-                        failAssertion(target, condition, expected, actual);
-                    }
-                    break;
-                    
-                case IS_NULL :
-                    if (isTrue(expected) != (null == actual)) {
-                        failAssertion(target, condition, expected, actual);
-                    }
-                    break;
-
-                case NOT_NULL :
-                    if (isTrue(expected) != (null != actual)) {
-                        failAssertion(target, condition, expected, actual);
-                    }
-                    break;
-
-                case CONTAINS :
-                    if (null == actual || !actual.toString().contains(expected.toString())) {
-                        failAssertion(target, condition, expected, actual);
-                    }
-                    break;
-
-                case IS_EMPTY :
-                    if (isTrue(expected) != (null == actual || Strings.isEmpty(actual.toString()))) {
-                        failAssertion(target, condition, expected, actual);
-                    }
-                    break;
-
-                case NOT_EMPTY :
-                    if (isTrue(expected) != ((null != actual && Strings.isNonEmpty(actual.toString())))) {
-                        failAssertion(target, condition, expected, actual);
-                    }
-                    break;
-
-                case MATCHES :
-                    if (null == actual || !actual.toString().matches(expected.toString())) {
-                        failAssertion(target, condition, expected, actual);
-                    }
-                    break;
-
-                case HAS_TRUTH_VALUE :
-                    if (isTrue(expected) != isTrue(actual)) {
-                        failAssertion(target, condition, expected, actual);
-                    }
-                    break;
-
-                default:
-                    failAssertion(target, UNKNOWN_CONDITION, condition, actual);
+            if (!knownCondition(condition)) {
+                failAssertion(target, UNKNOWN_CONDITION, expected, actual);
+            } else if (!conditionHolds(condition, actual, expected)) {
+                failAssertion(target, condition, expected, actual);
             }
         }
     }
 
     protected static <T> void checkActualAgainstAbortConditions(Map<String, ?> assertions, String target, T actual) {
         for (Map.Entry<String, ?> assertion : assertions.entrySet()) {
-            String condition = assertion.getKey().toString();
+            String condition = assertion.getKey();
             Object expected = assertion.getValue();
-            switch (condition) {
-
-                case IS_EQUAL_TO :
-                case EQUAL_TO :
-                case EQUALS :
-                    if (null != actual && actual.equals(expected)) {
-                        abort(target, condition, expected, actual);
-                    }
-                    break;
-
-                case NOT_EQUAL :
-                    if (!Objects.equals(actual, expected)) {
-                        abort(target, condition, expected, actual);
-                    }
-                    break;
-                    
-                case IS_NULL :
-                    if (isTrue(expected) == (null == actual)) {
-                        abort(target, condition, expected, actual);
-                    }
-                    break;
-
-                case NOT_NULL :
-                    if (isTrue(expected) == (null != actual)) {
-                        abort(target, condition, expected, actual);
-                    }
-                    break;
-
-                case CONTAINS :
-                    if (null != actual && actual.toString().contains(expected.toString())) {
-                        abort(target, condition, expected, actual);
-                    }
-                    break;
-
-                case IS_EMPTY :
-                    if (isTrue(expected) == (null == actual || Strings.isEmpty(actual.toString()))) {
-                        abort(target, condition, expected, actual);
-                    }
-                    break;
-
-                case NOT_EMPTY :
-                    if (isTrue(expected) == ((null != actual && Strings.isNonEmpty(actual.toString())))) {
-                        abort(target, condition, expected, actual);
-                    }
-                    break;
-
-                case MATCHES :
-                    if (null != actual && actual.toString().matches(expected.toString())) {
-                        abort(target, condition, expected, actual);
-                    }
-                    break;
-
-                case HAS_TRUTH_VALUE :
-                    if (isTrue(expected) == isTrue(actual)) {
-                        abort(target, condition, expected, actual);
-                    }
-                    break;
-
-                default:
-                    abort(target, condition, expected, actual);
+            if (!knownCondition(condition)) {
+                abort(target, UNKNOWN_CONDITION, expected, actual);
+            } else if (conditionHolds(condition, actual, expected)) {
+                abort(target, condition, expected, actual);
             }
         }
     }
-    
+
+    private static boolean conditionHolds(String condition, Object actual, Object expected) {
+        switch (condition) {
+        case IS_EQUAL_TO:
+        case EQUAL_TO:
+        case EQUALS:
+            return null != actual && actual.equals(expected);
+        case NOT_EQUAL:
+            return !Objects.equals(actual, expected);
+        case IS_NULL:
+            return isTrue(expected) == (null == actual);
+        case NOT_NULL:
+            return isTrue(expected) == (null != actual);
+        case CONTAINS:
+            return null != actual && actual.toString().contains(expected.toString());
+        case IS_EMPTY:
+            return isTrue(expected) == (null == actual || Strings.isEmpty(actual.toString()));
+        case NOT_EMPTY:
+            return isTrue(expected) == ((null != actual && Strings.isNonEmpty(actual.toString())));
+        case MATCHES:
+            return null != actual && actual.toString().matches(expected.toString());
+        case HAS_TRUTH_VALUE:
+            return isTrue(expected) == isTrue(actual);
+        default:
+            return false;
+        }
+    }
+
+    private static boolean knownCondition(String condition) {
+        // Everything but UNKNOWN_CONDITION. The conditions should really be an enum!
+        Set<String> allConditions = ImmutableSet.of(
+                IS_NULL, NOT_NULL, IS_EQUAL_TO, EQUAL_TO, EQUALS, NOT_EQUAL,
+                MATCHES, CONTAINS, IS_EMPTY, NOT_EMPTY, HAS_TRUTH_VALUE);
+        return allConditions.contains(condition);
+    }
+
     static void failAssertion(String target, String assertion, Object expected, Object actual) {
         throw new AssertionError(Joiner.on(' ').join(
             Objects.toString(target),
