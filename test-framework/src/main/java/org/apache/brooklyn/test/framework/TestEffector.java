@@ -45,5 +45,10 @@ public interface TestEffector extends BaseTest {
             "The parameters to pass to the effector", 
             ImmutableMap.<String, Object>of());
 
+    /**
+     * The maximum number of times to execute the http call, before throwing an exception.
+     */
+    ConfigKey<Integer> MAX_ATTEMPTS = ConfigKeys.newIntegerConfigKey("maxAttempts", "Maximum number of attempts");
+
     AttributeSensorAndConfigKey<Object, Object> EFFECTOR_RESULT = ConfigKeys.newSensorAndConfigKey(Object.class, "result", "The result of invoking the effector");
 }

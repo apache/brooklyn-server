@@ -231,6 +231,23 @@ public class TestEffectorTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
+    public void testEffectorFailureRetriedUpToMaxAttempts() throws Exception {
+        testCase.addChild(EntitySpec.create(TestEffector.class)
+                .configure(TestEffector.MAX_ATTEMPTS, 2)
+                .configure(TestEffector.TIMEOUT, Duration.minutes(1))
+                .configure(TestEffector.TARGET_ENTITY, testEntity)
+                .configure(TestEffector.EFFECTOR_NAME, "effectorFails"));
+        Stopwatch stopwatch = Stopwatch.createStarted();
+
+        assertStartFails(app, TestEntity.EffectorFailureException.class, Asserts.DEFAULT_LONG_TIMEOUT);
+
+        Duration duration = Duration.of(stopwatch);
+        assertTrue(duration.isShorterThan(Asserts.DEFAULT_LONG_TIMEOUT), "duration="+duration);
+        
+        assertEquals(testEntity.sensors().get(TestEntity.FAILING_EFFECTOR_INVOCATION_COUNT), Integer.valueOf(2));
+    }
+
+    @Test
     public void testFailFastIfNoTargetEntity() throws Exception {
         testCase.addChild(EntitySpec.create(TestEffector.class)
                 .configure(TestEffector.EFFECTOR_NAME, "simpleEffector"));
