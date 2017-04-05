@@ -151,7 +151,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             final Iterable<? extends CatalogItem<?, ?>> items = brooklyn().getCatalog().addItems(yaml);
             return buildCreateResponse(items);
         } catch (Exception e) {
-            e.printStackTrace();
             Exceptions.propagateIfFatal(e);
             return ApiError.of(e).asBadRequestResponseJson();
         }
