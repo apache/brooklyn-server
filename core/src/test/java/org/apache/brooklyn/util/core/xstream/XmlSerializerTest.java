@@ -102,7 +102,6 @@ public class XmlSerializerTest {
     protected void assertSerializeAndDeserialize(Object val) throws Exception {
         String xml = serializer.toString(val);
         Object result = serializer.fromString(xml);
-        System.out.println("val="+val+"'; xml="+xml+"; result="+result);
         LOG.debug("val="+val+"'; xml="+xml+"; result="+result);
         assertEquals(result, val);
     }
