@@ -66,6 +66,8 @@ public class TestFrameworkAssertions {
     public static final String IS_EMPTY = "isEmpty";
     public static final String NOT_EMPTY = "notEmpty";
     public static final String HAS_TRUTH_VALUE = "hasTruthValue";
+    public static final String GREATER_THAN = "greaterThan";
+    public static final String LESS_THAN = "lessThan";
     public static final String UNKNOWN_CONDITION = "unknown condition";
 
     public static class AssertionOptions {
@@ -334,6 +336,10 @@ public class TestFrameworkAssertions {
             return null != actual && actual.toString().matches(expected.toString());
         case HAS_TRUTH_VALUE:
             return isTrue(expected) == isTrue(actual);
+        case GREATER_THAN:
+            return canCompare(actual, expected) && compare(actual, expected) > 0;
+        case LESS_THAN:
+            return canCompare(actual, expected) && compare(actual, expected) < 0;
         default:
             return false;
         }
@@ -343,8 +349,27 @@ public class TestFrameworkAssertions {
         // Everything but UNKNOWN_CONDITION. The conditions should really be an enum!
         Set<String> allConditions = ImmutableSet.of(
                 IS_NULL, NOT_NULL, IS_EQUAL_TO, EQUAL_TO, EQUALS, NOT_EQUAL,
-                MATCHES, CONTAINS, IS_EMPTY, NOT_EMPTY, HAS_TRUTH_VALUE);
+                MATCHES, CONTAINS, IS_EMPTY, NOT_EMPTY, HAS_TRUTH_VALUE,
+                GREATER_THAN, LESS_THAN);
         return allConditions.contains(condition);
+    }
+
+    /** @return True if actual and expected are both non-null instances of {@code Comparable<T>}. */
+    private static boolean canCompare(@Nullable Object actual, @Nullable Object expected) {
+        return actual != null
+                && expected != null
+                && actual instanceof Comparable
+                && actual.getClass().equals(expected.getClass());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static int compare(@Nullable Object actual, @Nullable Object expected) {
+        if (!canCompare(actual, expected)) {
+            throw new IllegalArgumentException("Arguments are not comparable: " + actual + ", " + expected);
+        }
+        Comparable a = (Comparable) actual;
+        Comparable e = (Comparable) expected;
+        return a.compareTo(e);
     }
 
     static void failAssertion(String target, String assertion, Object expected, Object actual) {

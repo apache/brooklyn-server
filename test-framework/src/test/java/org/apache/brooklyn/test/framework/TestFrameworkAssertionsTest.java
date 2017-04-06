@@ -21,6 +21,7 @@ package org.apache.brooklyn.test.framework;
 import static org.testng.Assert.assertTrue;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,7 @@ import java.util.Objects;
 
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.framework.TestFrameworkAssertions.AssertionOptions;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -71,6 +73,12 @@ public class TestFrameworkAssertionsTest {
                 {"some-non-null-value", Arrays.asList(ImmutableMap.of("notEmpty", Boolean.TRUE))},
                 {"true", Arrays.asList(ImmutableMap.of("hasTruthValue", Boolean.TRUE))},
                 {"false", Arrays.asList(ImmutableMap.of("hasTruthValue", Boolean.FALSE))},
+
+                {25, Collections.singletonList(ImmutableMap.of("greaterThan", 24))},
+                {"b", Collections.singletonList(ImmutableMap.of("greaterThan", "a"))},
+                {24, Collections.singletonList(ImmutableMap.of("lessThan", 25))},
+                {"a", Collections.singletonList(ImmutableMap.of("lessThan", "b"))},
+
                 {"some-non-null-value", Arrays.asList(ImmutableMap.of("hasTruthValue", Boolean.FALSE))},
         };
     }
@@ -137,6 +145,18 @@ public class TestFrameworkAssertionsTest {
                 {"<html><body><h1>Im a H1 tag!</h1></body></html>", "contains", "quack", Arrays.asList(ImmutableMap.of("contains", "quack"))},
                 {"{\"a\":\"b\",\"c\":\"d\",\"e\":123,\"g\":false}", "contains", "moo", Arrays.asList(ImmutableMap.of("contains", "moo"))},
 
+                {25, "lessThan", 24, Collections.singletonList(ImmutableMap.of("lessThan", 24))},
+                {"b", "lessThan", "a", Collections.singletonList(ImmutableMap.of("lessThan", "a"))},
+                {null, "lessThan", "a", Collections.singletonList(ImmutableMap.of("lessThan", "a"))},
+                {"a", "lessThan", null, Collections.singletonList(MutableMap.of("lessThan", null))},
+                {5, "lessThan", 5, Collections.singletonList(ImmutableMap.of("lessThan", 5))},
+
+                {24, "greaterThan", 25, Collections.singletonList(ImmutableMap.of("greaterThan", 25))},
+                {"a", "greaterThan", "b", Collections.singletonList(ImmutableMap.of("greaterThan", "b"))},
+                {null, "greaterThan", "a", Collections.singletonList(ImmutableMap.of("greaterThan", "a"))},
+                {"a", "greaterThan", null, Collections.singletonList(MutableMap.of("greaterThan", null))},
+                {5, "greaterThan", 5, Collections.singletonList(ImmutableMap.of("greaterThan", 5))},
+
                 {"true", "hasTruthValue", Boolean.FALSE, Arrays.asList(ImmutableMap.of("hasTruthValue", Boolean.FALSE))},
                 {"false", "hasTruthValue", Boolean.TRUE, Arrays.asList(ImmutableMap.of("hasTruthValue", Boolean.TRUE))},
                 {"some-not-null-value", "hasTruthValue", Boolean.TRUE, Arrays.asList(ImmutableMap.of("hasTruthValue", Boolean.TRUE))}
@@ -161,7 +181,7 @@ public class TestFrameworkAssertionsTest {
                     .timeout(timeout).assertions(assertions));
             Asserts.shouldHaveFailedPreviously();
         } catch (AssertionError e) {
-            Asserts.expectedFailureContains(e, Objects.toString(data), condition, expected.toString());
+            Asserts.expectedFailureContains(e, Objects.toString(data), condition, expected != null ? expected.toString() : "null");
         }
     }
 
@@ -187,7 +207,7 @@ public class TestFrameworkAssertionsTest {
                     .assertions(assertions));
             Asserts.shouldHaveFailedPreviously();
         } catch (AssertionError e) {
-            Asserts.expectedFailureContains(e, Objects.toString(data), condition, expected.toString());
+            Asserts.expectedFailureContains(e, Objects.toString(data), condition, expected != null ? expected.toString() : "null");
         }
     }
 
