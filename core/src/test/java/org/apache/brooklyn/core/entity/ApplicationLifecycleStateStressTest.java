@@ -87,4 +87,22 @@ public class ApplicationLifecycleStateStressTest extends ApplicationLifecycleSta
     public void testStartsThenChildFailsButWithQuorumCausesAppToStayHealthy() throws Exception {
         super.testStartsThenChildFailsButWithQuorumCausesAppToStayHealthy();
     }
+
+    @Test(groups="Broken")
+    @Override
+    public void testSettingSensorFromThreads() {
+        super.testSettingSensorFromThreads();
+    }
+
+    @Test(groups="Broken")
+    @Override
+    public void testWrongSensorInitValue() {
+        super.testWrongSensorInitValue();
+    }
+
+    @Test(groups="Broken")
+    @Override
+    public void testAbstractEnricherDeduplicationBroken() {
+        super.testAbstractEnricherDeduplicationBroken();
+    }
 }
