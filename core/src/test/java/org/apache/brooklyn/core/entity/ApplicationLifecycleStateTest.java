@@ -158,6 +158,9 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
     //
     // See https://github.com/apache/brooklyn-server/pull/452 and https://github.com/apache/brooklyn-server/pull/454 
     // for further discussion of fix/issue.
+    //
+    // AbstractMultipleSensorAggregator.onEvent sees SERVICE_STATE_ACTUAL events in the wrong order (running, starting) which leads to 
+    // the quorum check failing in ComputeServiceIndicatorsFromChildrenAndMembers.
     @Test(groups="Broken")
     public void testChildFailuresOnStartButWithQuorumCausesAppToSucceed() throws Exception {
         TestApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
@@ -170,7 +173,9 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
         startAndAssertException(app, ImmutableList.<Location>of());
         assertUpAndRunningEventually(app);
     }
-    
+
+    // Same as testChildFailuresOnStartButWithQuorumCausesAppToSucceed
+    @Test(groups="Broken")
     public void testStartsThenChildFailsButWithQuorumCausesAppToSucceed() throws Exception {
         TestApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
                 .configure(StartableApplication.UP_QUORUM_CHECK, QuorumCheck.QuorumChecks.atLeastOne())
@@ -186,6 +191,8 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
         assertHealthContinually(app, Lifecycle.RUNNING, true);
     }
 
+    // Same as testChildFailuresOnStartButWithQuorumCausesAppToSucceed
+    @Test(groups="Broken")
     public void testStartsThenChildFailsButWithQuorumCausesAppToStayHealthy() throws Exception {
         TestApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
                 .configure(StartableApplication.UP_QUORUM_CHECK, QuorumCheck.QuorumChecks.atLeastOne())

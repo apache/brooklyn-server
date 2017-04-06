@@ -238,7 +238,6 @@ public class RebindTestUtils {
                     classLoader);
             ((RebindManagerImpl) unstarted.getRebindManager()).setPeriodicPersistPeriod(persistPeriod);
             unstarted.getRebindManager().setPersister(newPersister, PersistenceExceptionHandlerImpl.builder().build());
-            unstarted.getHighAvailabilityManager().disabled();
             // set the HA persister, in case any children want to use HA
             unstarted.getHighAvailabilityManager().setPersister(new ManagementPlaneSyncRecordPersisterToObjectStore(unstarted, objectStore, classLoader));
             return unstarted;
