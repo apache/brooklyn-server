@@ -29,6 +29,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
@@ -38,6 +39,7 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.test.Asserts;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Optional;
@@ -54,17 +56,28 @@ public class TestCaseTest extends BrooklynAppUnitTestSupport {
         super.setUp();
     }
 
-    @Test
-    public void testSucceedsWhenEmpty() throws Exception {
-        TestCase testCase = app.createAndManageChild(EntitySpec.create(TestCase.class));
+    @DataProvider(name = "continueOnFailurePermutations")
+    public Object[][] continueOnFailurePermutations() {
+        return new Object[][] {
+                { (Boolean)null },
+                { Boolean.FALSE },
+                { Boolean.TRUE }
+        };
+    }
+    
+    @Test(dataProvider = "continueOnFailurePermutations")
+    public void testSucceedsWhenEmpty(Boolean continueOnFailure) throws Exception {
+        TestCase testCase = app.createAndManageChild(EntitySpec.create(TestCase.class)
+                .configure(TestCase.CONTINUE_ON_FAILURE, continueOnFailure));
         app.start(locs);
 
         assertTestCaseSucceeds(testCase);
     }
     
-    @Test
-    public void testCallsChildrenSequentially() throws Exception {
+    @Test(dataProvider = "continueOnFailurePermutations")
+    public void testCallsChildrenSequentially(Boolean continueOnFailure) throws Exception {
         TestCase testCase = app.createAndManageChild(EntitySpec.create(TestCase.class)
+                .configure(TestCase.CONTINUE_ON_FAILURE, continueOnFailure)
                 .child(EntitySpec.create(TestEntity.class).impl(TestEntityConcurrencyTrackerImpl.class))
                 .child(EntitySpec.create(TestEntity.class).impl(TestEntityConcurrencyTrackerImpl.class)));
         TestEntity child1 = (TestEntity) Iterables.get(testCase.getChildren(), 0);
@@ -77,9 +90,10 @@ public class TestCaseTest extends BrooklynAppUnitTestSupport {
         assertEquals(TestEntityConcurrencyTrackerImpl.getMaxConcurrent(), 1);
     }
     
-    @Test
-    public void testDoesNotCallsOnErrorEntityIfSuccessful() throws Exception {
+    @Test(dataProvider = "continueOnFailurePermutations")
+    public void testDoesNotCallOnErrorEntityIfSuccessful(Boolean continueOnFailure) throws Exception {
         TestCase testCase = app.createAndManageChild(EntitySpec.create(TestCase.class)
+                .configure(TestCase.CONTINUE_ON_FAILURE, continueOnFailure)
                 .configure(TestCase.ON_ERROR_SPEC, EntitySpec.create(TestEntity.class).displayName("onerr"))
                 .child(EntitySpec.create(TestEntity.class)));
         app.start(locs);
@@ -90,9 +104,10 @@ public class TestCaseTest extends BrooklynAppUnitTestSupport {
         assertTestCaseSucceeds(testCase);
     }
     
-    @Test
-    public void testCallsOnErrorEntity() throws Exception {
+    @Test(dataProvider = "continueOnFailurePermutations")
+    public void testCallsOnErrorEntity(Boolean continueOnFailure) throws Exception {
         TestCase testCase = app.createAndManageChild(EntitySpec.create(TestCase.class)
+                .configure(TestCase.CONTINUE_ON_FAILURE, continueOnFailure)
                 .configure(TestCase.ON_ERROR_SPEC, EntitySpec.create(TestEntity.class).displayName("onerr"))
                 .child(EntitySpec.create(FailingEntity.class)
                         .configure(FailingEntity.FAIL_ON_START, true)));
@@ -129,6 +144,65 @@ public class TestCaseTest extends BrooklynAppUnitTestSupport {
         
         Optional<Entity> innerOnErrEntity = Iterables.tryFind(innerTestCase.getChildren(), EntityPredicates.displayNameEqualTo("onerr"));
         assertFalse(innerOnErrEntity.isPresent(), "innerOnErrEntity="+innerOnErrEntity);
+    }
+   
+    @Test
+    public void testAbortsOnFailure() throws Exception {
+        // continueOnFailure defaults to false
+        TestCase testCase = app.createAndManageChild(EntitySpec.create(TestCase.class)
+                .child(EntitySpec.create(FailingEntity.class)
+                        .configure(FailingEntity.FAIL_ON_START, true))
+                .child(EntitySpec.create(TestEntity.class).displayName("child2")));
+        
+        try {
+            app.start(locs);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Throwable t) {
+            Asserts.expectedFailureContains(t, "Simulating entity start failure for test");
+        }
+
+        TestEntity child2 = (TestEntity) Iterables.tryFind(testCase.getChildren(), EntityPredicates.displayNameEqualTo("child2")).get();
+        assertEquals(child2.getCallHistory(), ImmutableList.of());
+    }
+    
+
+    @Test
+    public void testContinuesOnFailure() throws Exception {
+        TestCase testCase = app.createAndManageChild(EntitySpec.create(TestCase.class)
+                .configure(TestCase.CONTINUE_ON_FAILURE, true)
+                .child(EntitySpec.create(FailingEntity.class)
+                        .configure(FailingEntity.FAIL_ON_START, true))
+                .child(EntitySpec.create(TestEntity.class).displayName("child2")));
+        
+        try {
+            app.start(locs);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Throwable t) {
+            Asserts.expectedFailureContains(t, "Simulating entity start failure for test");
+        }
+
+        TestEntity child2 = (TestEntity) Iterables.tryFind(testCase.getChildren(), EntityPredicates.displayNameEqualTo("child2")).get();
+        assertEquals(child2.getCallHistory(), ImmutableList.of("start"));
+    }
+    
+    @Test
+    public void testContinueOnFailureNotInherited() throws Exception {
+        app.createAndManageChild(EntitySpec.create(TestCase.class)
+                .configure(TestCase.CONTINUE_ON_FAILURE, true)
+                .child(EntitySpec.create(TestCase.class)
+                        .child(EntitySpec.create(FailingEntity.class)
+                                .configure(FailingEntity.FAIL_ON_START, true))
+                        .child(EntitySpec.create(TestEntity.class).displayName("grandchild2"))));
+        
+        try {
+            app.start(locs);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Throwable t) {
+            Asserts.expectedFailureContains(t, "Simulating entity start failure for test");
+        }
+
+        TestEntity grandchild2 = (TestEntity) Iterables.tryFind(Entities.descendantsAndSelf(app), EntityPredicates.displayNameEqualTo("grandchild2")).get();
+        assertEquals(grandchild2.getCallHistory(), ImmutableList.of());
     }
     
     protected void assertTestCaseSucceeds(TestCase entity) {
