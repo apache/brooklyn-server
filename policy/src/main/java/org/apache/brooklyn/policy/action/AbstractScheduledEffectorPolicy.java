@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.policy.action;
 
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.LocalTime;
 import java.util.Calendar;
 import java.util.Date;
@@ -56,6 +59,9 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractScheduledEffectorPolicy.class);
 
+    private static final String TIME_FORMAT = "HH:mm:ss";
+    private static final DateFormat FORMATTER = SimpleDateFormat.getTimeInstance();
+
     public static final ConfigKey<String> EFFECTOR = ConfigKeys.builder(String.class)
             .name("effector")
             .description("The effector to be executed by this policy")
@@ -69,9 +75,9 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
             .defaultValue(ImmutableMap.<String, Object>of())
             .build();
 
-    public static final ConfigKey<Date> TIME = ConfigKeys.builder(Date.class)
+    public static final ConfigKey<String> TIME = ConfigKeys.builder(String.class)
             .name("time")
-            .description("An optional time when this policy should be first executed")
+            .description("An optional time when this policy should be first executed, formatted as HH:mm:ss")
             .build();
 
     public static final ConfigKey<Duration> WAIT = ConfigKeys.builder(Duration.class)
@@ -113,15 +119,22 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
         return effector.get();
     }
 
-    protected Duration getWaitUntil(Date time) {
-        Calendar now = Calendar.getInstance();
-        Calendar when = Calendar.getInstance();
-        when.setTime(time);
-        when.set(now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DATE));
-        if (when.before(now)) {
-            when.add(Calendar.DATE, 1);
+    protected Duration getWaitUntil(String time) {
+        try {
+            Calendar now = Calendar.getInstance();
+            Calendar when = Calendar.getInstance();
+            boolean formatted = time.contains(":"); // FIXME deprecated TimeDuration coercion
+            Date parsed = formatted ? FORMATTER.parse(time) : new Date(Long.parseLong(time) * 1000);
+            when.setTime(parsed);
+            when.set(now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DATE));
+            if (when.before(now)) {
+                when.add(Calendar.DATE, 1);
+            }
+            return Duration.millis(Math.max(0, when.getTimeInMillis() - now.getTimeInMillis()));
+        } catch (ParseException | NumberFormatException e) {
+            LOG.warn("{}: Time should be formatted as {}: {}", new Object[] { this, TIME_FORMAT, e.getMessage() });
+            throw Exceptions.propagate(e);
         }
-        return Duration.millis(Math.max(0, when.getTimeInMillis() - now.getTimeInMillis()));
     }
 
     @Override

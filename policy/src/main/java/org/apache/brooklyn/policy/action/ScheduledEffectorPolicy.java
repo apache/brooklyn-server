@@ -69,7 +69,7 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
         subscriptions().subscribe(entity, INVOKE_IMMEDIATELY, handler);
         subscriptions().subscribe(entity, INVOKE_AT, handler);
 
-        Date time = config().get(TIME);
+        String time = config().get(TIME);
         Duration wait = config().get(WAIT);
         if (time != null) {
             scheduleAt(time);
@@ -78,7 +78,7 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
         }
     }
 
-    protected void scheduleAt(Date time) {
+    protected void scheduleAt(String time) {
         Duration wait = getWaitUntil(time);
         LOG.debug("{}: Scheduling {} at {} (in {})", new Object[] { this, effector.getName(), time, Time.fromDurationToTimeStringRounded().apply(wait) });
         executor.schedule(this, wait.toMilliseconds(), TimeUnit.MILLISECONDS);
@@ -90,7 +90,7 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
             synchronized (mutex) {
                 LOG.debug("{}: Got event {}", ScheduledEffectorPolicy.this, event);
                 if (event.getSensor().getName().equals(INVOKE_AT.getName())) {
-                    Date time = (Date) event.getValue();
+                    String time = (String) event.getValue();
                     if (time != null) {
                         scheduleAt(time);
                     }

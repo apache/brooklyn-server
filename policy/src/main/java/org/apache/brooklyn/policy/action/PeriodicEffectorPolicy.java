@@ -92,7 +92,7 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
                     Boolean start = (Boolean) event.getValue();
                     if (start && running.compareAndSet(false, true)) {
                         Duration period = Preconditions.checkNotNull(config().get(PERIOD), "The period must be configured for this policy");
-                        Date time = config().get(TIME);
+                        String time = config().get(TIME);
                         Duration wait = config().get(WAIT);
                         if (time != null) {
                             wait = getWaitUntil(time);
@@ -103,7 +103,6 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
                         LOG.debug("{}: Scheduling {} every {} in {}", new Object[] { PeriodicEffectorPolicy.this, effector.getName(),
                                 Time.fromDurationToTimeStringRounded().apply(period), Time.fromDurationToTimeStringRounded().apply(wait) });
                         executor.scheduleAtFixedRate(PeriodicEffectorPolicy.this, wait.toMilliseconds(), period.toMilliseconds(), TimeUnit.MILLISECONDS);
-                        LOG.debug("{}: Scheduled", PeriodicEffectorPolicy.this);
                     }
                 }
             }
