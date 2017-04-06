@@ -19,6 +19,7 @@
 package org.apache.brooklyn.test.framework;
 
 import java.util.Collection;
+import java.util.List;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -47,14 +48,32 @@ public class TestCaseImpl extends TargetableTestComponentImpl implements TestCas
     public void start(Collection<? extends Location> locations) {
         ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
         try {
-            for (final Entity childEntity : getChildren()) {
-                Boolean serviceUp = childEntity.sensors().get(Attributes.SERVICE_UP);
-                if (childEntity instanceof Startable && !Boolean.TRUE.equals(serviceUp)){
-                    ((Startable) childEntity).start(locations);
+            boolean continueOnFailure = Boolean.TRUE.equals(config().get(CONTINUE_ON_FAILURE));
+            List<Throwable> childErrors = Lists.newArrayList();
+            for (Entity child : getChildren()) {
+                Boolean serviceUp = child.sensors().get(Attributes.SERVICE_UP);
+                if (child instanceof Startable && !Boolean.TRUE.equals(serviceUp)){
+                    try {
+                        ((Startable) child).start(locations);
+                    } catch (Throwable t) {
+                        Exceptions.propagateIfFatal(t);
+                        if (continueOnFailure) {
+                            LOG.warn("Problem starting child "+child+" (continuing, and will throw at end)", t);
+                            childErrors.add(t);
+                        } else {
+                            throw t;
+                        }
+                    }
                 }
             }
+            
+            if (childErrors.size() > 0) {
+                throw Exceptions.propagate(childErrors);
+            }
+            
             sensors().set(Attributes.SERVICE_UP, true);
             ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
+            
         } catch (Throwable t) {
             Exceptions.propagateIfInterrupt(t);
             try {
@@ -77,10 +96,28 @@ public class TestCaseImpl extends TargetableTestComponentImpl implements TestCas
         ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPING);
         sensors().set(Attributes.SERVICE_UP, false);
         try {
+            boolean continueOnFailure = Boolean.TRUE.equals(config().get(CONTINUE_ON_FAILURE));
+            List<Throwable> childErrors = Lists.newArrayList();
             for (Entity child : getChildren()) {
-                if (child instanceof Startable) ((Startable) child).stop();
+                try {
+                    if (child instanceof Startable) ((Startable) child).stop();
+                } catch (Throwable t) {
+                    Exceptions.propagateIfFatal(t);
+                    if (continueOnFailure) {
+                        LOG.warn("Problem stopping child "+child+" (continuing, and will throw at end)", t);
+                        childErrors.add(t);
+                    } else {
+                        throw t;
+                    }
+                }
             }
+            
+            if (childErrors.size() > 0) {
+                throw Exceptions.propagate(childErrors);
+            }
+
             ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
+            
         } catch (Exception e) {
             ServiceStateLogic.setExpectedState(this, Lifecycle.ON_FIRE);
             throw Exceptions.propagate(e);
