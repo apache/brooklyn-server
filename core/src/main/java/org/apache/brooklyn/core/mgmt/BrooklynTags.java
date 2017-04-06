@@ -38,7 +38,7 @@ public class BrooklynTags {
     public static final String YAML_SPEC_KIND = "yaml_spec";
     public static final String NOTES_KIND = "notes";
     public static final String OWNER_ENTITY_ID = "owner_entity_id";
-    
+
     public static class NamedStringTag implements Serializable {
         private static final long serialVersionUID = 7932098757009051348L;
         @JsonProperty
@@ -58,6 +58,20 @@ public class BrooklynTags {
         }
         public String getContents() {
             return contents;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (!(other instanceof NamedStringTag)) {
+                return false;
+            }
+            NamedStringTag o = (NamedStringTag) other;
+            return Objects.equal(kind, o.kind) && Objects.equal(contents, o.contents);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(kind, contents);
         }
     }
 
@@ -123,7 +137,7 @@ public class BrooklynTags {
     public static TraitsTag newTraitsTag(List<Class<?>> interfaces) {
         return new TraitsTag(interfaces);
     }
-    
+
     public static NamedStringTag findFirst(String kind, Iterable<Object> tags) {
         for (Object object: tags) {
             if (object instanceof NamedStringTag && kind.equals(((NamedStringTag)object).kind))

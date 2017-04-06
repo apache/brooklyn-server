@@ -129,6 +129,7 @@ public class BrooklynEntityMatcher implements PdpMatcher {
         addCustomListAttributeIfNonNull(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_CHILDREN);
         addCustomListAttributeIfNonNull(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_PARAMETERS);
         addCustomMapAttributeIfNonNull(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_CATALOG);
+        addCustomListAttributeIfNonNull(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_TAGS);
 
         brooklynFlags.putAll(attrs);
         if (!brooklynFlags.isEmpty()) {

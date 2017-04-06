@@ -257,6 +257,7 @@ public class BrooklynComponentTemplateResolver {
         new BrooklynEntityDecorationResolver.EnricherSpecResolver(yamlLoader).decorate(spec, attrs, encounteredRegisteredTypeIds);
         new BrooklynEntityDecorationResolver.InitializerResolver(yamlLoader).decorate(spec, attrs, encounteredRegisteredTypeIds);
         new BrooklynEntityDecorationResolver.SpecParameterResolver(yamlLoader).decorate(spec, attrs, encounteredRegisteredTypeIds);
+        new BrooklynEntityDecorationResolver.TagsResolver(yamlLoader).decorate(spec, attrs, encounteredRegisteredTypeIds);
 
         configureEntityConfig(spec, encounteredRegisteredTypeIds);
     }
