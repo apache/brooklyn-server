@@ -129,9 +129,13 @@ public final class AttributeMap {
     }
 
     public <T> T update(AttributeSensor<T> attribute, T newValue) {
-        T oldValue = updateWithoutPublishing(attribute, newValue);
-        entity.emitInternal(attribute, newValue);
-        return oldValue;
+        // guarantees the order in which the attribute is set is
+        // the order in which the events are sent (and received)
+        synchronized (values) {
+            T oldValue = updateWithoutPublishing(attribute, newValue);
+            entity.emitInternal(attribute, newValue);
+            return oldValue;
+        }
     }
     
     public <T> T updateWithoutPublishing(AttributeSensor<T> attribute, T newValue) {
