@@ -244,8 +244,9 @@ public class BundleMaker {
             Enumeration<? extends ZipEntry> zfe = zf.entries();
             while (zfe.hasMoreElements()) {
                 ZipEntry ze = zfe.nextElement();
+                ZipEntry newZipEntry = new ZipEntry(ze.getName());
                 if (filter.apply(ze.getName())) {
-                    zout.putNextEntry(ze);
+                    zout.putNextEntry(newZipEntry);
                     InputStream zin = zf.getInputStream(ze);
                     Streams.copy(zin, zout);
                     Streams.closeQuietly(zin);
