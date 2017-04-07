@@ -211,14 +211,9 @@ public class LocalManagementContext extends AbstractManagementContext {
     }
 
     @Override
+    @Deprecated
     public String getManagementPlaneId() {
-        if (managementPlaneId != null) {
-            return managementPlaneId;
-        } else {
-            throw new NullPointerException("managementPlaneId not initialized yet. " +
-                    "Either it's too early in the process lifecycle or " +
-                    "ManagementContext hasn't been initialized properly");
-        }
+        return managementPlaneId;
     }
     
     @Override

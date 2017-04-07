@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.mgmt.rebind;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 
 import java.io.File;
@@ -75,12 +76,7 @@ public class ManagementPlaneIdTest {
     @Test
     public void testUninitializedThrows() {
         ManagementContext mgmt = new LocalManagementContext(BrooklynProperties.Factory.newEmpty());
-        try {
-            mgmt.getManagementPlaneId();
-            Asserts.shouldHaveFailedPreviously("managementPlaneId not initialized");
-        } catch (NullPointerException e) {
-            Asserts.expectedFailureContains(e, "not initialized");
-        }
+        assertFalse(mgmt.getOptionalManagementPlaneId().isPresent(), "expected managementPlaneId to be absent");
     }
     
     @Test
@@ -113,7 +109,7 @@ public class ManagementPlaneIdTest {
 
         LocalManagementContext rebindMgmt = createManagementContext(PersistMode.AUTO, HighAvailabilityMode.DISABLED);
 
-        assertEquals(origMgmt.getManagementPlaneId(), rebindMgmt.getManagementPlaneId());
+        assertEquals(origMgmt.getOptionalManagementPlaneId(), rebindMgmt.getOptionalManagementPlaneId());
     }
 
 
@@ -135,7 +131,7 @@ public class ManagementPlaneIdTest {
         Asserts.succeedsEventually(new Runnable() {
             @Override
             public void run() {
-                assertEquals(origMgmt.getManagementPlaneId(), rebindMgmt.getManagementPlaneId());
+                assertEquals(origMgmt.getOptionalManagementPlaneId(), rebindMgmt.getOptionalManagementPlaneId());
             }
         });
     }
@@ -148,7 +144,7 @@ public class ManagementPlaneIdTest {
         Asserts.succeedsEventually(new Runnable() {
             @Override
             public void run() {
-                assertEquals(origMgmt.getManagementPlaneId(), rebindMgmt.getManagementPlaneId());
+                assertEquals(origMgmt.getOptionalManagementPlaneId(), rebindMgmt.getOptionalManagementPlaneId());
             }
         });
 
@@ -164,7 +160,7 @@ public class ManagementPlaneIdTest {
             }
         });
 
-        assertEquals(origMgmt.getManagementPlaneId(), rebindMgmt.getManagementPlaneId());
+        assertEquals(origMgmt.getOptionalManagementPlaneId(), rebindMgmt.getOptionalManagementPlaneId());
     }
     
     @Test
@@ -175,7 +171,7 @@ public class ManagementPlaneIdTest {
 
         LocalManagementContext rebindMgmt = createManagementContextWithBackups(PersistMode.AUTO, HighAvailabilityMode.AUTO);
 
-        assertEquals(origMgmt.getManagementPlaneId(), rebindMgmt.getManagementPlaneId());
+        assertEquals(origMgmt.getOptionalManagementPlaneId(), rebindMgmt.getOptionalManagementPlaneId());
 
         String backupContainer = BrooklynServerPaths.newBackupPersistencePathResolver(rebindMgmt).resolve();
         
@@ -190,7 +186,7 @@ public class ManagementPlaneIdTest {
         
         File planeIdFile = new File(promotionFolders[0], BrooklynMementoPersisterToObjectStore.PLANE_ID_FILE_NAME);
         String planeId = readFile(planeIdFile);
-        assertEquals(origMgmt.getManagementPlaneId(), planeId);
+        assertEquals(origMgmt.getOptionalManagementPlaneId().get(), planeId);
     }
     
     @Test
@@ -239,7 +235,7 @@ public class ManagementPlaneIdTest {
             @Override
             public Void call() throws Exception {
                 String planeId = readFile(planeIdFile);
-                assertEquals(mgmt.getManagementPlaneId(), planeId);
+                assertEquals(mgmt.getOptionalManagementPlaneId().get(), planeId);
                 return null;
             }
         });

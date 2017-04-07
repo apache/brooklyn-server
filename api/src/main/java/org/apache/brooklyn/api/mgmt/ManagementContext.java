@@ -67,18 +67,33 @@ public interface ManagementContext {
      * In other words the value of {@link Application#getManagementContext()#getManagementPlaneId()} 
      * will generally be constant (in contrast to {@link #getManagementNodeId()}).
      * <p>
-     * Throws an {@link NullPointerException} if the value hasn't been initialized yet. The value is set:
+     * This value should not be null unless the management context is still initialising. The value is set:
      * <ul>
      *   <li>no persistence - during launch
      *   <li>persistence enabled, HA disabled - on rebind (during launch)
      *   <li>persistence enabled, HA enabled - on the first HA state check (async to launch)
      * </ul>
+     * 
+     * @deprecated since 0.11.0, use {@link #getOptionalManagementPlaneId()} instead.
      */
+    @Deprecated
     String getManagementPlaneId();
 
     /**
-     * Same as {@link #getManagementPlaneId()}, but will return {@link Optional#absent()} if the
-     * {@code managementPlaneId} hasn't been initialized yet.
+     * UID for the Brooklyn management plane which this {@link ManagementContext} node is a part of.
+     * <p>
+     * Each Brooklyn entity is actively managed by a unique management plane 
+     * whose ID which should not normally change for the duration of that entity, 
+     * even though the nodes in that plane might, and the plane may go down and come back up. 
+     * In other words the value of {@link Application#getManagementContext()#getManagementPlaneId()} 
+     * will generally be constant (in contrast to {@link #getManagementNodeId()}).
+     * <p>
+     * Returns absent while the management context is still initialising. The value is set:
+     * <ul>
+     *   <li>no persistence - during launch
+     *   <li>persistence enabled, HA disabled - on rebind (during launch)
+     *   <li>persistence enabled, HA enabled - on the first HA state check (async to launch)
+     * </ul>
      */
     Optional<String> getOptionalManagementPlaneId();
     
@@ -87,7 +102,7 @@ public interface ManagementContext {
      * <p>
      * No two instances of {@link ManagementContext} should ever have the same node UID. 
      * The value of {@link Application#getManagementContext()#getManagementNodeId()} may
-     * change many times (in contrast to {@link #getManagementPlaneId()}). 
+     * change many times (in contrast to {@link #getOptionalManagementPlaneId()}). 
      * <p>
      * This value should not be null unless the management context is a non-functional
      * (non-deployment) instance. */

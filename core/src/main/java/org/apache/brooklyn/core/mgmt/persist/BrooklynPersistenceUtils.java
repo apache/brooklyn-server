@@ -163,7 +163,7 @@ public class BrooklynPersistenceUtils {
         MementoSerializer<Object> rawSerializer = new XmlMementoSerializer<Object>(mgmt.getClass().getClassLoader());
         RetryingMementoSerializer<Object> serializer = new RetryingMementoSerializer<Object>(rawSerializer, 1);
         
-        result.planeId(mgmt.getManagementPlaneId());
+        result.planeId(mgmt.getOptionalManagementPlaneId().orNull());
         for (Location instance: mgmt.getLocationManager().getLocations())
             result.location(instance.getId(), serializer.toString(newObjectMemento(instance)));
         for (Entity instance: mgmt.getEntityManager().getEntities()) {
