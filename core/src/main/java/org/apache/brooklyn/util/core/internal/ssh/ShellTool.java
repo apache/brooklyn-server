@@ -43,7 +43,9 @@ public interface ShellTool {
     // config which applies to calls:
     
     public static final ConfigKey<Boolean> PROP_RUN_AS_ROOT = newConfigKey("runAsRoot", "When running a script, whether to run as root", Boolean.FALSE);
-    
+    public static final ConfigKey<Boolean> PROP_AUTH_SUDO = newConfigKey("authSudo", "When to run `sudo` commands with password authentication", Boolean.FALSE);
+    public static final ConfigKey<String> PROP_PASSWORD = newStringConfigKey("password", "Password to use (e.g. for authSudo, or for ssh to connect)", null);
+
     public static final ConfigKey<OutputStream> PROP_OUT_STREAM = newConfigKey(OutputStream.class, "out", "Stream to which to capture stdout");
     public static final ConfigKey<OutputStream> PROP_ERR_STREAM = newConfigKey(OutputStream.class, "err", "Stream to which to capture stderr");
     
