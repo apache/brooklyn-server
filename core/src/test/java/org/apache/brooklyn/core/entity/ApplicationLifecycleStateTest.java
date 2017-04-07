@@ -365,12 +365,11 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
     }
 
     /**
-     * The deduplication logic in AbstractEnricher does not work for parallel invocations.
-
-     * Indeterministic, fails a couple of times per 100 invocations when run with "mvn test" in the
-     * brooklyn-itest docker container.
+     * The deduplication logic in AbstractEnricher previously did not work for parallel invocations.
+     * It used to do a get and then a compare, so another thread could change the value between
+     * those two operations.
      */
-    @Test(groups="Broken")
+    @Test
     public void testAbstractEnricherDeduplicationBroken() {
         final TestApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
                 .enricher(EnricherSpec.create(EmittingEnricher.class)));

@@ -100,7 +100,6 @@ public class ApplicationLifecycleStateStressTest extends ApplicationLifecycleSta
         super.testWrongSensorInitValue();
     }
 
-    @Test(groups="Broken")
     @Override
     public void testAbstractEnricherDeduplicationBroken() {
         super.testAbstractEnricherDeduplicationBroken();

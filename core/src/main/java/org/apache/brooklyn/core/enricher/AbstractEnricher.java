@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import java.util.Map;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EnricherMemento;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -36,7 +35,9 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.rebind.BasicEnricherRebindSupport;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.guava.Maybe;
 
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.Maps;
 
@@ -48,6 +49,27 @@ public abstract class AbstractEnricher extends AbstractEntityAdjunct implements 
     public static final ConfigKey<Boolean> SUPPRESS_DUPLICATES = ConfigKeys.newBooleanConfigKey(
             "enricher.suppressDuplicates",
             "Whether duplicate values published by this enricher should be suppressed");
+
+    private static class DeduplicatingAttributeModifier<T> implements Function<T, Maybe<T>> {
+        public static <T> Function<T, Maybe<T>> create(T newVal) {
+            return new DeduplicatingAttributeModifier<T>(newVal);
+        }
+
+        private DeduplicatingAttributeModifier(T newVal) {
+            this.newValue = newVal;
+        }
+
+        private T newValue;
+
+        @Override
+        public Maybe<T> apply(T oldValue) {
+            if (Objects.equal(oldValue, newValue)) {
+                return Maybe.absent("Skipping update, values equal");
+            } else {
+                return Maybe.of(newValue);
+            }
+        }
+    }
 
     private final EnricherDynamicType enricherType;
     protected Boolean suppressDuplicates;
@@ -83,7 +105,7 @@ public abstract class AbstractEnricher extends AbstractEntityAdjunct implements 
     }
 
     @Override
-    public void setEntity(EntityLocal entity) {
+    public void setEntity(@SuppressWarnings("deprecation") org.apache.brooklyn.api.entity.EntityLocal entity) {
         super.setEntity(entity);
         Boolean suppressDuplicates = getConfig(SUPPRESS_DUPLICATES);
         if (suppressDuplicates!=null) 
@@ -102,18 +124,18 @@ public abstract class AbstractEnricher extends AbstractEntityAdjunct implements 
             return;
         }
         if (val == Entities.REMOVE) {
-            ((EntityInternal)entity).removeAttribute((AttributeSensor<T>) sensor);
+            ((EntityInternal)entity).sensors().remove((AttributeSensor<T>) sensor);
             return;
         }
         
         T newVal = TypeCoercions.coerce(val, sensor.getTypeToken());
         if (sensor instanceof AttributeSensor) {
+            AttributeSensor<T> attribute = (AttributeSensor<T>)sensor;
             if (Boolean.TRUE.equals(suppressDuplicates)) {
-                T oldValue = entity.getAttribute((AttributeSensor<T>)sensor);
-                if (Objects.equal(oldValue, newVal))
-                    return;
+                entity.sensors().modify(attribute, DeduplicatingAttributeModifier.create(newVal));
+            } else {
+                entity.sensors().set(attribute, newVal);
             }
-            entity.sensors().set((AttributeSensor<T>)sensor, newVal);
         } else { 
             entity.sensors().emit(sensor, newVal);
         }
