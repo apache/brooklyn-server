@@ -42,6 +42,8 @@ import com.google.common.reflect.TypeToken;
  *       name: setStatus
  *       sensor: $brooklyn:sensor("myentity.status")
  * }</pre>
+ *
+ * @since 0.11.0
  */
 @Beta
 public class SetSensorEffector extends AddEffector {

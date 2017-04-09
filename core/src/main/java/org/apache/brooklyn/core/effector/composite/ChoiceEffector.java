@@ -36,6 +36,12 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 
+/**
+ * Execute an effector, and depending on the result, execute either
+ * the success or failure effector.
+ *
+ * @since 0.11.0
+ */
 @Beta
 public class ChoiceEffector extends AbstractCompositeEffector {
 

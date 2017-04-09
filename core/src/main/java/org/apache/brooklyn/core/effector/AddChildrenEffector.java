@@ -35,17 +35,17 @@ import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.Beta;
 import com.google.common.collect.Iterables;
 
-/** Entity initializer which defines an effector which adds a child blueprint to an entity.
+/**
+ * Entity initializer which defines an effector which adds a child blueprint to an entity.
  * <p>
  * One of the config keys {@link #BLUEPRINT_YAML} (containing a YAML blueprint (map or string)) 
  * or {@link #BLUEPRINT_TYPE} (containing a string referring to a catalog type) should be supplied, but not both.
  * Parameters defined here are supplied as config during the entity creation.
  * 
- * @since 0.7.0 */
-@Beta
+ * @since 0.7.0
+ */
 public class AddChildrenEffector extends AddEffector {
     
     private static final Logger log = LoggerFactory.getLogger(AddChildrenEffector.class);

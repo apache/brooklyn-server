@@ -38,6 +38,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 
+/**
+ * Execute a sequence of effectors with the same input.
+ *
+ * @since 0.11.0
+ */
 @Beta
 public class SequenceEffector extends AbstractCompositeEffector {
 
@@ -68,7 +73,7 @@ public class SequenceEffector extends AbstractCompositeEffector {
 
         public Body(Effector<?> eff, ConfigBag config) {
             super(eff, config);
-            Preconditions.checkNotNull(config.getAllConfigRaw().get(SEQUENCE.getName()), "Effector names must be supplied when defining this effector");
+            Preconditions.checkNotNull(config.getAllConfigRaw().get(SEQUENCE.getName()), "Sequence effector details must be supplied when defining this effector");
         }
 
         @Override

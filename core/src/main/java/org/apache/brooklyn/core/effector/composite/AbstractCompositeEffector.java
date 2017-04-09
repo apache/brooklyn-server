@@ -34,6 +34,9 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.collect.Iterables;
 
+/**
+ * @since 0.11.0
+ */
 @Beta
 public abstract class AbstractCompositeEffector extends AddEffector {
 

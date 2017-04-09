@@ -38,6 +38,12 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 
+/**
+ * Execute an effector repeatedly against each element of an
+ * input collection.
+ *
+ * @since 0.11.0
+ */
 @Beta
 public class LoopEffector extends AbstractCompositeEffector {
 
@@ -71,7 +77,7 @@ public class LoopEffector extends AbstractCompositeEffector {
 
         public Body(Effector<?> eff, ConfigBag config) {
             super(eff, config);
-            Preconditions.checkNotNull(config.getAllConfigRaw().get(LOOP.getName()), "Effector names must be supplied when defining this effector");
+            Preconditions.checkNotNull(config.getAllConfigRaw().get(LOOP.getName()), "Loop effector names must be supplied when defining this effector");
         }
 
         @Override

@@ -38,6 +38,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 
+/**
+ * Execute a series of effectors using the output from one as
+ * the input for the next.
+ *
+ * @since 0.11.0
+ */
 @Beta
 public class ComposeEffector extends AbstractCompositeEffector {
 
@@ -68,7 +74,7 @@ public class ComposeEffector extends AbstractCompositeEffector {
 
         public Body(Effector<?> eff, ConfigBag config) {
             super(eff, config);
-            Preconditions.checkNotNull(config.getAllConfigRaw().get(COMPOSE.getName()), "Effector names must be supplied when defining this effector");
+            Preconditions.checkNotNull(config.getAllConfigRaw().get(COMPOSE.getName()), "Compose effector names must be supplied when defining this effector");
         }
 
         @Override

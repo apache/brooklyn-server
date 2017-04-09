@@ -25,8 +25,8 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
-import org.apache.brooklyn.core.effector.AddSensor;
 import org.apache.brooklyn.core.entity.EntityInitializers;
+import org.apache.brooklyn.core.sensor.AddSensor;
 import org.apache.brooklyn.core.sensor.ssh.SshCommandSensor;
 import org.apache.brooklyn.feed.http.HttpFeed;
 import org.apache.brooklyn.feed.http.HttpPollConfig;
@@ -35,7 +35,6 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.Beta;
 import com.google.common.base.Functions;
 import com.google.common.base.Supplier;
 
@@ -47,7 +46,6 @@ import net.minidev.json.JSONObject;
  *
  * @see SshCommandSensor
  */
-@Beta
 public final class HttpRequestSensor<T> extends AddSensor<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(HttpRequestSensor.class);

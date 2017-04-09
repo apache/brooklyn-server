@@ -58,7 +58,6 @@ import org.apache.brooklyn.util.ssh.BashCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.collect.Maps;
 
@@ -72,7 +71,6 @@ import com.google.common.collect.Maps;
  * @see SshTasks
  * @since 0.6.0
  */
-@Beta
 public class SshEffectorTasks {
 
     private static final Logger log = LoggerFactory.getLogger(SshEffectorTasks.class);
@@ -291,13 +289,14 @@ public class SshEffectorTasks {
                 });
     }
 
-    /** extracts the values for the main brooklyn.ssh.config.* config keys (i.e. those declared in ConfigKeys) 
+    /**
+     * Extracts the values for the main brooklyn.ssh.config.* config keys (i.e. those declared in ConfigKeys) 
      * as declared on the entity, and inserts them in a map using the unprefixed state, for ssh.
      * <p>
      * currently this is computed for each call, which may be wasteful, but it is reliable in the face of config changes.
      * we could cache the Map.  note that we do _not_ cache (or even own) the SshTool; 
-     * the SshTool is created or re-used by the SshMachineLocation making use of these properties */
-    @Beta
+     * the SshTool is created or re-used by the SshMachineLocation making use of these properties
+     */
     public static Map<String, Object> getSshFlags(Entity entity, Location optionalLocation) {
         Set<ConfigKey<?>> sshConfig = MutableSet.of();
         

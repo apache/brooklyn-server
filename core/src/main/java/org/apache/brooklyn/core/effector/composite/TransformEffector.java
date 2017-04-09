@@ -37,6 +37,11 @@ import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 
+/**
+ * Execute a {@link Function} as an effector body.
+ *
+ * @since 0.11.0
+ */
 @Beta
 public class TransformEffector extends AbstractCompositeEffector {
 
@@ -71,7 +76,7 @@ public class TransformEffector extends AbstractCompositeEffector {
 
         public Body(Effector<?> eff, ConfigBag config) {
             super(eff, config);
-            Preconditions.checkNotNull(config.getAllConfigRaw().get(FUNCTION.getName()), "Function must be supplied when defining this effector");
+            Preconditions.checkNotNull(config.getAllConfigRaw().get(FUNCTION.getName()), "Transform function must be supplied when defining this effector");
         }
 
         @Override

@@ -39,10 +39,17 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 
+/**
+ * Replace an effector with another, optionally executing the originsl
+ * {@link ReplaceAction#POST before} or {@link ReplaceAction#PRE after}
+ * the replacement.
+ *
+ * @since 0.11.0
+ */
 @Beta
 public final class ReplaceEffector extends AbstractCompositeEffector {
 
-    private static final Logger LOG = LoggerFactory.getLogger(TransformEffector.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ReplaceEffector.class);
 
     public enum ReplaceAction {
         PRE,
@@ -92,7 +99,7 @@ public final class ReplaceEffector extends AbstractCompositeEffector {
 
         public Body(Effector<?> eff, ConfigBag config) {
             super(eff, config);
-            Preconditions.checkNotNull(config.getAllConfigRaw().get(REPLACE.getName()), "Effector details must be supplied when defining this effector");
+            Preconditions.checkNotNull(config.getAllConfigRaw().get(REPLACE.getName()), "Replace effector details must be supplied when defining this effector");
         }
 
         @Override
