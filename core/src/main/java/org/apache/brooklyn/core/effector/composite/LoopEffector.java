@@ -24,6 +24,7 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddEffector;
@@ -36,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 /**
@@ -92,8 +94,6 @@ public class LoopEffector extends AbstractCompositeEffector {
                 }
                 Collection<?> inputCollection = (Collection) inputObject;
 
-                List<Object> result = Lists.newArrayList();
-
                 String effectorName = getEffectorName(effectorDetails);
                 String inputArgument = getInputArgument(effectorDetails);
                 Entity targetEntity = getTargetEntity(effectorDetails);
@@ -103,13 +103,18 @@ public class LoopEffector extends AbstractCompositeEffector {
                     throw new IllegalArgumentException("Input is not set for this effector: " + effectorDetails);
                 }
 
-                for (Object inputEach : inputCollection) {
-                    params.putStringKey(inputArgument, inputEach);
-
-                    result.add(invokeEffectorNamed(targetEntity, effectorName, params));
+                List<Task<?>> tasks = Lists.newArrayList();
+                for (Object each : inputCollection) {
+                    params.putStringKey(inputArgument, each);
+                    tasks.add(submitEffectorNamed(targetEntity, effectorName, params));
                 }
 
-                LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), result });
+                List<Object> result = Lists.newArrayList();
+                for (Task<?> each : tasks) {
+                    result.add(each.getUnchecked());
+                }
+
+                LOG.debug("{} effector {} returned {}", new Object[] { this, effector.getName(), Iterables.toString(result) });
                 return result;
             }
         }

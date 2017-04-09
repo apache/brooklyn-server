@@ -23,6 +23,7 @@ import java.util.Set;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.effector.AddEffector;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -162,15 +163,17 @@ public abstract class AbstractCompositeEffector extends AddEffector {
             return inputParameter;
         }
 
-        protected Object invokeEffectorNamed(Entity target, String effectorName, ConfigBag params) {
+        protected Task<?> submitEffectorNamed(Entity target, String effectorName, ConfigBag params) {
             LOG.debug("{} invoking {} with params {}", new Object[] { this, effectorName, params });
             Maybe<Effector<?>> effector = target.getEntityType().getEffectorByName(effectorName);
             if (effector.isAbsent()) {
                 throw new IllegalStateException("Cannot find effector " + effectorName);
             }
-            return target.invoke(effector.get(), params.getAllConfig()).getUnchecked();
+            return target.invoke(effector.get(), params.getAllConfig());
         }
 
+        protected Object invokeEffectorNamed(Entity target, String effectorName, ConfigBag params) {
+            return submitEffectorNamed(target, effectorName, params).getUnchecked();
+        }
     }
-
 }
