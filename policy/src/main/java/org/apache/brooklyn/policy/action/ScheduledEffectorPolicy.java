@@ -74,13 +74,16 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
         if (time != null) {
             scheduleAt(time);
         } else if (wait != null) {
+            LOG.debug("{}: Scheduling {} in {} ({} ms)",
+                    new Object[] { this, effector.getName(), Time.fromDurationToTimeStringRounded().apply(wait), wait.toMilliseconds() });
             executor.schedule(this, wait.toMilliseconds(), TimeUnit.MILLISECONDS);
         }
     }
 
     protected void scheduleAt(String time) {
         Duration wait = getWaitUntil(time);
-        LOG.debug("{}: Scheduling {} at {} (in {})", new Object[] { this, effector.getName(), time, Time.fromDurationToTimeStringRounded().apply(wait) });
+        LOG.debug("{}: Scheduling {} at {} (in {})",
+                new Object[] { this, effector.getName(), time, Time.fromDurationToTimeStringRounded().apply(wait) });
         executor.schedule(this, wait.toMilliseconds(), TimeUnit.MILLISECONDS);
     }
 

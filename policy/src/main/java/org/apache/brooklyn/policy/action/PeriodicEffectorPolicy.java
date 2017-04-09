@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.policy.action;
 
-import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;

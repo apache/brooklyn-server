@@ -21,7 +21,6 @@ package org.apache.brooklyn.policy.action;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.LocalTime;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Map;
@@ -59,7 +58,10 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractScheduledEffectorPolicy.class);
 
-    private static final String TIME_FORMAT = "HH:mm:ss";
+    public static final String TIME_FORMAT = "HH:mm:ss";
+    public static final String NOW = "now";
+    public static final String IMMEDIATELY = "immediately";
+
     private static final DateFormat FORMATTER = SimpleDateFormat.getTimeInstance();
 
     public static final ConfigKey<String> EFFECTOR = ConfigKeys.builder(String.class)
@@ -113,13 +115,16 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
     protected Effector<?> getEffector() {
         String effectorName = config().get(EFFECTOR);
         Maybe<Effector<?>> effector = entity.getEntityType().getEffectorByName(effectorName);
-        if (effector.isAbsent()) {
+        if (effector.isAbsentOrNull()) {
             throw new IllegalStateException("Cannot find effector " + effectorName);
         }
         return effector.get();
     }
 
     protected Duration getWaitUntil(String time) {
+        if (time.equalsIgnoreCase(NOW) || time.equalsIgnoreCase(IMMEDIATELY)) {
+            return Duration.ZERO;
+        }
         try {
             Calendar now = Calendar.getInstance();
             Calendar when = Calendar.getInstance();
