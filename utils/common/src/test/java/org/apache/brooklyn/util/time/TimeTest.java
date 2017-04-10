@@ -18,7 +18,10 @@
  */
 package org.apache.brooklyn.util.time;
 
+import static org.testng.Assert.assertTrue;
+
 import java.util.Date;
+import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -28,10 +31,27 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Ticker;
+import com.google.common.collect.ImmutableList;
 
 @Test
 public class TimeTest {
 
+    public void testTimeRemaining() {
+        long gracePeriod = 5000;
+        long maxTime = 30000;
+        long now = System.currentTimeMillis();
+        long remaining = Time.timeRemaining(now, maxTime);
+        assertOrdered(ImmutableList.<Long>of(maxTime-gracePeriod, remaining, maxTime), "");
+    }
+    
+    public void testTimeRemainingMaxLong() {
+        long gracePeriod = 5000;
+        long maxTime = Long.MAX_VALUE;
+        long now = System.currentTimeMillis();
+        long remaining = Time.timeRemaining(now, maxTime);
+        assertOrdered(ImmutableList.<Long>of(maxTime-gracePeriod, remaining, maxTime), "");
+    }
+    
     public void testMakeStringExact_secondsAndMillis() {
         check(1, "1ms");
         check(1000, "1s");
@@ -369,5 +389,15 @@ public class TimeTest {
 
     private void assertDatesParseToEqual(String input, String expected) {
         Assert.assertEquals(Time.parseDate(input).toString(), Time.parseDate(expected).toString(), "for: "+input+" ("+expected+")");
+    }
+    
+    private <T extends Comparable<T>> void assertOrdered(List<? extends T> vals, String errMsg) {
+        T prev = null;
+        for (T val : vals) {
+            if (prev != null) {
+                assertTrue(prev.compareTo(val) <= 0, errMsg);
+            }
+            prev = val;
+        }
     }
 }

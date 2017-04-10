@@ -65,7 +65,7 @@ public interface TestHttpCall extends BaseTest {
         "The HTTP field to apply the assertion to [body,status]", HttpAssertionTarget.body);
 
     /**
-     * The duration to wait for an assertion to succeed or fail before throwing an exception.
+     * The maximum number of times to execute the http call, before throwing an exception.
      */
     ConfigKey<Integer> MAX_ATTEMPTS = ConfigKeys.newIntegerConfigKey("maxAttempts", "Maximum number of attempts");
 

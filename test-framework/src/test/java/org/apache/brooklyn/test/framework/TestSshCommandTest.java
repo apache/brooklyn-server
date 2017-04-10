@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.test.framework;
 
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertEntityFailed;
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertEntityHealthy;
 import static org.apache.brooklyn.test.framework.BaseTest.TIMEOUT;
 import static org.apache.brooklyn.test.framework.TargetableTestComponent.TARGET_ENTITY;
 import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.CONTAINS;
@@ -25,18 +27,21 @@ import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.EQUALS;
 import static org.apache.brooklyn.test.framework.TestSshCommand.ASSERT_ERR;
 import static org.apache.brooklyn.test.framework.TestSshCommand.ASSERT_OUT;
 import static org.apache.brooklyn.test.framework.TestSshCommand.ASSERT_STATUS;
+import static org.apache.brooklyn.test.framework.TestSshCommand.BACKOFF_TO_PERIOD;
 import static org.apache.brooklyn.test.framework.TestSshCommand.COMMAND;
 import static org.apache.brooklyn.test.framework.TestSshCommand.DOWNLOAD_URL;
+import static org.apache.brooklyn.test.framework.TestSshCommand.MAX_ATTEMPTS;
 import static org.apache.brooklyn.test.framework.TestSshCommand.SHELL_ENVIRONMENT;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.apache.brooklyn.core.entity.EntityAsserts.assertEntityFailed;
-import static org.apache.brooklyn.core.entity.EntityAsserts.assertEntityHealthy;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
@@ -46,7 +51,10 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponse;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmdPredicates;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecParams;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
@@ -58,6 +66,7 @@ import org.testng.annotations.Test;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 
 public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
 
@@ -140,6 +149,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
         RecordingSshTool.setCustomResponse(cmd, new RecordingSshTool.CustomResponse(1, null, null));
         
         TestSshCommand test = app.createAndManageChild(EntitySpec.create(TestSshCommand.class)
+            .configure(MAX_ATTEMPTS, 1)
             .configure(TARGET_ENTITY, testEntity)
             .configure(COMMAND, cmd));
 
@@ -176,6 +186,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
         RecordingSshTool.setCustomResponse(cmd, new RecordingSshTool.CustomResponse(0, "wrongstdout", null));
         
         TestSshCommand test = app.createAndManageChild(EntitySpec.create(TestSshCommand.class)
+            .configure(MAX_ATTEMPTS, 1)
             .configure(TARGET_ENTITY, testEntity)
             .configure(COMMAND, cmd)
             .configure(ASSERT_OUT, makeAssertions(ImmutableMap.of(CONTAINS, "mystdout"))));
@@ -196,6 +207,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
         RecordingSshTool.setCustomResponse(cmd, new RecordingSshTool.CustomResponse(0, null, "wrongstderr"));
         
         TestSshCommand test = app.createAndManageChild(EntitySpec.create(TestSshCommand.class)
+            .configure(MAX_ATTEMPTS, 1)
             .configure(TARGET_ENTITY, testEntity)
             .configure(COMMAND, cmd)
             .configure(ASSERT_ERR, makeAssertions(ImmutableMap.of(CONTAINS, "mystderr"))));
@@ -211,12 +223,13 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void shouldNotBeUpIfAssertionsFail() {
+    public void shouldFailOnUnmatchedExitCode() {
         Map<String, ?> equalsOne = ImmutableMap.of(EQUALS, 1);
 
         Map<String, ?> equals255 = ImmutableMap.of(EQUALS, 255);
 
         TestSshCommand test = app.createAndManageChild(EntitySpec.create(TestSshCommand.class)
+            .configure(MAX_ATTEMPTS, 1)
             .configure(TARGET_ENTITY, testEntity)
             .configure(COMMAND, "uptime")
             .configure(ASSERT_STATUS, makeAssertions(equalsOne, equals255)));
@@ -313,6 +326,65 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
         ExecCmd cmdExecuted = RecordingSshTool.getLastExecCmd();
         assertThat(cmdExecuted.commands).isEqualTo(ImmutableList.of("mycmd"));
         assertThat(cmdExecuted.env).isEqualTo(env);
+    }
+
+    @Test
+    public void testRetries() {
+        String cmd = "commandExpectedToFail-" + Identifiers.randomLong();
+        RecordingSshTool.setCustomResponse(cmd, new RecordingSshTool.CustomResponseGenerator() {
+            final AtomicInteger counter = new AtomicInteger();
+            @Override public CustomResponse generate(ExecParams execParams) throws Exception {
+                // First call fails; subsequent calls succeed
+                int code = (counter.incrementAndGet() > 1) ? 0 : 1;
+                return new RecordingSshTool.CustomResponse(code, null, null);
+            }
+        });
+        
+        TestSshCommand test = app.createAndManageChild(EntitySpec.create(TestSshCommand.class)
+                .configure(BACKOFF_TO_PERIOD, Duration.millis(1))
+                .configure(TIMEOUT, Duration.minutes(1))
+                .configure(TARGET_ENTITY, testEntity)
+                .configure(COMMAND, cmd));
+        
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        
+        app.start(ImmutableList.<Location>of());
+        assertEntityHealthy(test);
+
+        Iterable<ExecCmd> calls = Iterables.filter(RecordingSshTool.getExecCmds(), ExecCmdPredicates.containsCmd(cmd));
+        assertEquals(Iterables.size(calls), 2, "matchingCalls="+calls);
+        
+        Duration duration = Duration.of(stopwatch);
+        assertTrue(duration.isShorterThan(Asserts.DEFAULT_LONG_TIMEOUT), "duration="+duration);
+    }
+
+    @Test
+    public void testMaxAttempts() {
+        String cmd = "commandExpectedToFail-" + Identifiers.randomLong();
+        RecordingSshTool.setCustomResponse(cmd, new RecordingSshTool.CustomResponse(1, null, null));
+        
+        TestSshCommand test = app.createAndManageChild(EntitySpec.create(TestSshCommand.class)
+                .configure(MAX_ATTEMPTS, 2)
+                .configure(BACKOFF_TO_PERIOD, Duration.millis(1))
+                .configure(TIMEOUT, Duration.minutes(1))
+                .configure(TARGET_ENTITY, testEntity)
+                .configure(COMMAND, cmd));
+        
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        try {
+            app.start(ImmutableList.<Location>of());
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Throwable t) {
+            Asserts.expectedFailureContains(t, "exit code expected equals 0 but found 1");
+        }
+
+        assertEntityFailed(test);
+
+        Iterable<ExecCmd> calls = Iterables.filter(RecordingSshTool.getExecCmds(), ExecCmdPredicates.containsCmd(cmd));
+        assertEquals(Iterables.size(calls), 2, "matchingCalls="+calls);
+        
+        Duration duration = Duration.of(stopwatch);
+        assertTrue(duration.isShorterThan(Asserts.DEFAULT_LONG_TIMEOUT), "duration="+duration);
     }
 
     private Path createTempScript(String filename, String contents) {

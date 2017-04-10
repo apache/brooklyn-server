@@ -21,20 +21,21 @@ package org.apache.brooklyn.test.framework.entity;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.ImplementedBy;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.annotation.Effector;
 import org.apache.brooklyn.core.annotation.EffectorParam;
-import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.trait.Startable;
-import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
+import org.apache.brooklyn.core.sensor.Sensors;
 
 @ImplementedBy(TestEntityImpl.class)
 public interface TestEntity extends Entity, Startable {
 
-    AttributeSensorAndConfigKey<Boolean, Boolean> SIMPLE_EFFECTOR_INVOKED = ConfigKeys.newSensorAndConfigKey(Boolean.class, "simple-effector-invoked", "");
-    AttributeSensorAndConfigKey<Boolean, Boolean> COMPLEX_EFFECTOR_INVOKED = ConfigKeys.newSensorAndConfigKey(Boolean.class, "complex-effector-invoked", "");
-    AttributeSensorAndConfigKey<String, String> COMPLEX_EFFECTOR_STRING = ConfigKeys.newSensorAndConfigKey(String.class, "complex-effector-string", "");
-    AttributeSensorAndConfigKey<Boolean, Boolean> COMPLEX_EFFECTOR_BOOLEAN = ConfigKeys.newSensorAndConfigKey(Boolean.class, "complex-effector-boolean", "");
-    AttributeSensorAndConfigKey<Long, Long> COMPLEX_EFFECTOR_LONG = ConfigKeys.newSensorAndConfigKey(Long.class, "complex-effector-long", "");
+    AttributeSensor<Boolean> SIMPLE_EFFECTOR_INVOKED = Sensors.newBooleanSensor("simple-effector-invoked");
+    AttributeSensor<Boolean> COMPLEX_EFFECTOR_INVOKED = Sensors.newBooleanSensor("complex-effector-invoked");
+    AttributeSensor<String> COMPLEX_EFFECTOR_STRING = Sensors.newStringSensor("complex-effector-string");
+    AttributeSensor<Boolean> COMPLEX_EFFECTOR_BOOLEAN = Sensors.newBooleanSensor("complex-effector-boolean");
+    AttributeSensor<Long> COMPLEX_EFFECTOR_LONG = Sensors.newLongSensor("complex-effector-long");
+    AttributeSensor<Integer> FAILING_EFFECTOR_INVOCATION_COUNT = Sensors.newIntegerSensor("failing-effector-count");
 
     @Effector
     void simpleEffector();
@@ -53,6 +54,20 @@ public interface TestEntity extends Entity, Startable {
     @Effector
     void effectorHangs();
 
+    @Effector
+    void effectorFails() throws EffectorFailureException;
+    
+    class EffectorFailureException extends Exception {
+        private static final long serialVersionUID = -8996475930661355402L;
+        
+        public EffectorFailureException(String msg) {
+            super(msg);
+        }
+        public EffectorFailureException(String msg, Throwable cause) {
+            super(msg, cause);
+        }
+    }
+    
     class TestPojo {
         private final String stringValue;
         private final Boolean booleanValue;

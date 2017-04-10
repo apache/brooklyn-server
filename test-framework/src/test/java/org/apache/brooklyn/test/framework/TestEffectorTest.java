@@ -21,6 +21,8 @@ package org.apache.brooklyn.test.framework;
 
 import static org.apache.brooklyn.core.entity.trait.Startable.SERVICE_UP;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -44,6 +46,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicates;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -188,6 +191,60 @@ public class TestEffectorTest extends BrooklynAppUnitTestSupport {
                 .configure(TestEffector.EFFECTOR_NAME, "effectorHangs"));
 
         assertStartFails(app, AssertionError.class, Asserts.DEFAULT_LONG_TIMEOUT);
+    }
+
+    @Test
+    public void testEffectorTimeoutAppliesOnlyToCallAndNotToAssertionCheck() throws Exception {
+        String stringToReturn = "Goodbye World!";
+
+        Map<String, String> effectorParams = ImmutableMap.of("stringToReturn", stringToReturn);
+
+        List<Map<String, Object>> assertions = ImmutableList.<Map<String, Object>>of(
+                ImmutableMap.<String, Object>of(TestFrameworkAssertions.EQUAL_TO, "Not the string I expected")
+        );
+
+        testCase.addChild(EntitySpec.create(TestEffector.class)
+                .configure(TestEffector.TIMEOUT, Duration.minutes(1))
+                .configure(TestEffector.TARGET_ENTITY, testEntity)
+                .configure(TestEffector.EFFECTOR_NAME, "effectorReturnsString")
+                .configure(TestEffector.EFFECTOR_PARAMS, effectorParams)
+                .configure(TestEffector.ASSERTIONS, assertions));
+
+        Stopwatch stopwatch = Stopwatch.createStarted();
+
+        assertStartFails(app, AssertionError.class, Asserts.DEFAULT_LONG_TIMEOUT);
+        
+        Duration duration = Duration.of(stopwatch);
+        assertTrue(duration.isShorterThan(Asserts.DEFAULT_LONG_TIMEOUT), "duration="+duration);
+    }
+
+    @Test
+    public void testEffectorFailureNotRetried() throws Exception {
+        testCase.addChild(EntitySpec.create(TestEffector.class)
+                .configure(TestEffector.TIMEOUT, Duration.minutes(1))
+                .configure(TestEffector.TARGET_ENTITY, testEntity)
+                .configure(TestEffector.EFFECTOR_NAME, "effectorFails"));
+
+        assertStartFails(app, TestEntity.EffectorFailureException.class, Asserts.DEFAULT_LONG_TIMEOUT);
+        
+        assertEquals(testEntity.sensors().get(TestEntity.FAILING_EFFECTOR_INVOCATION_COUNT), Integer.valueOf(1));
+    }
+
+    @Test
+    public void testEffectorFailureRetriedUpToMaxAttempts() throws Exception {
+        testCase.addChild(EntitySpec.create(TestEffector.class)
+                .configure(TestEffector.MAX_ATTEMPTS, 2)
+                .configure(TestEffector.TIMEOUT, Duration.minutes(1))
+                .configure(TestEffector.TARGET_ENTITY, testEntity)
+                .configure(TestEffector.EFFECTOR_NAME, "effectorFails"));
+        Stopwatch stopwatch = Stopwatch.createStarted();
+
+        assertStartFails(app, TestEntity.EffectorFailureException.class, Asserts.DEFAULT_LONG_TIMEOUT);
+
+        Duration duration = Duration.of(stopwatch);
+        assertTrue(duration.isShorterThan(Asserts.DEFAULT_LONG_TIMEOUT), "duration="+duration);
+        
+        assertEquals(testEntity.sensors().get(TestEntity.FAILING_EFFECTOR_INVOCATION_COUNT), Integer.valueOf(2));
     }
 
     @Test

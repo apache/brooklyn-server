@@ -68,4 +68,11 @@ public class TestEntityImpl extends AbstractEntity implements TestEntity {
     public void effectorHangs() {
         Time.sleep(Duration.minutes(5));
     }
+    
+    @Override
+    public void effectorFails() throws EffectorFailureException {
+        Integer count = sensors().get(FAILING_EFFECTOR_INVOCATION_COUNT);
+        sensors().set(FAILING_EFFECTOR_INVOCATION_COUNT, (count == null ? 0 : count) + 1);
+        throw new EffectorFailureException("Simulating effector failure");
+    }
 }

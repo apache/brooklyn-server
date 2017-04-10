@@ -92,6 +92,10 @@ public class TestFrameworkAssertions {
             this.flags.put("timeout", val);
             return this;
         }
+        public AssertionOptions maxAttempts(Integer val) {
+            this.flags.put("maxAttempts", val);
+            return this;
+        }
         public AssertionOptions backoffToPeriod(Duration val) {
             this.flags.put("backoffToPeriod", val);
             return this;
