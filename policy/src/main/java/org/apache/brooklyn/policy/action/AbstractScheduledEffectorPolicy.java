@@ -24,13 +24,11 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.EntityLocal;
-import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInitializers;
@@ -50,7 +48,6 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 
 @Beta
@@ -146,22 +143,14 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
     public void run() {
         synchronized (mutex) {
             try {
-                final ConfigBag bag = ResolvingConfigBag.newInstanceExtending(getManagementContext(), config().getBag());
-                final Map<String, Object> args = EntityInitializers.resolve(bag, EFFECTOR_ARGUMENTS);
+                ConfigBag bag = ResolvingConfigBag.newInstanceExtending(getManagementContext(), config().getBag());
+                Map<String, Object> args = EntityInitializers.resolve(bag, EFFECTOR_ARGUMENTS);
                 LOG.debug("{}: Resolving arguments for {}: {}", new Object[] { this, effector.getName(), Iterables.toString(args.keySet()) });
-                bag.putAll(args);
-                Task<Map<String, Object>> resolve = Tasks.create("resolveArguments", new Callable<Map<String, Object>>() {
-                    @Override
-                    public Map<String, Object> call() {
-                        Map<String, Object> resolved = Maps.newLinkedHashMap();
-                        for (String key : args.keySet()) {
-                            resolved.put(key, bag.getStringKey(key));
-                        }
-                        return resolved;
-                    }
-                });
-                getManagementContext().getExecutionContext(entity).submit(resolve);
-                Map<String, Object> resolved = resolve.getUnchecked();
+                Map<String, Object> resolved = (Map) Tasks.resolving(args, Object.class)
+                        .deep(true)
+                        .context(entity)
+                        .get();
+
                 LOG.debug("{}: Invoking effector on {}, {}({})", new Object[] { this, entity, effector.getName(), resolved });
                 Object result = entity.invoke(effector, resolved).getUnchecked();
                 LOG.debug("{}: Effector {} returned {}", new Object[] { this, effector.getName(), result });
