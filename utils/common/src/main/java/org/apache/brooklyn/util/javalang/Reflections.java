@@ -101,6 +101,7 @@ public class Reflections {
         return this;
     }
 
+    /** @deprecated since 0.11.0, use {@link org.apache.brooklyn.util.core.ClassLoaderUtils} in a combination with {@link #invokeConstructorFromArgs(Class, Object...)} instead */
     public Object loadInstance(String classname, Object...argValues) throws ReflectionNotFoundException, ReflectionAccessException {
         Class<?> clazz = loadClass(classname);
         Maybe<?> v = null;
@@ -112,12 +113,14 @@ public class Reflections {
         }
         throw new IllegalStateException("No suitable constructor for "+clazz+Arrays.toString(argValues));
     }
+    /** @deprecated since 0.11.0, use {@link org.apache.brooklyn.util.core.ClassLoaderUtils} in a combination with {@link #invokeConstructorFromArgs(Class, Object...)} instead */
     public Object loadInstance(String classname, Class<?>[] argTypes, Object[] argValues) throws ReflectionNotFoundException, ReflectionAccessException {
         Class<?> clazz = loadClass(classname);
         Constructor<?> constructor = loadConstructor(clazz, argTypes);
         return loadInstance(constructor, argValues);
     }
 
+    /** @deprecated since 0.11.0, use {@link org.apache.brooklyn.util.core.ClassLoaderUtils} in a combination with {@link #invokeConstructorFromArgs(Class, Object...)} instead */
     public Object loadInstance(String classname) throws ReflectionNotFoundException, ReflectionAccessException {
         Class<?> clazz = loadClass(classname);
         try {
@@ -130,6 +133,7 @@ public class Reflections {
     }
 
     /** instantiates the given class from its binary name */
+    /** @deprecated since 0.11.0, use {@link org.apache.brooklyn.util.core.ClassLoaderUtils} in a combination with {@link #invokeConstructorFromArgs(Class, Object...)} instead */
     public Class<?> loadClass(String classname) throws ReflectionNotFoundException {
         try {
             classname = findMappedNameAndLog(classRenameMap, classname);
@@ -142,7 +146,8 @@ public class Reflections {
             throw new ReflectionNotFoundException("Failed to load class '" + classname + "' using class loader " + classLoader + ": " + Exceptions.collapseText(e), e);
         }
     }
-    
+
+    /** @deprecated since 0.11.0, use {@link org.apache.brooklyn.util.core.ClassLoaderUtils} in a combination with {@link #invokeConstructorFromArgs(Class, Object...)} instead */
     @SuppressWarnings("unchecked")
     public <T> Class<? extends T> loadClass(String classname, Class<T> superType) throws ReflectionNotFoundException {
         return (Class<? extends T>) loadClass(classname);
@@ -204,6 +209,7 @@ public class Reflections {
     }
 
     /** does not look through ancestors of outer class */
+    /** @deprecated since 0.11.0, use {@link org.apache.brooklyn.util.core.ClassLoaderUtils} in a combination with {@link #invokeConstructorFromArgs(Class, Object...)} instead */
     public Class<?> loadInnerClassNotInheritted(String outerClassname, String innerClassname) throws ReflectionNotFoundException {
         return loadClass(outerClassname + "$" + innerClassname);
     }
@@ -253,11 +259,13 @@ public class Reflections {
     }
 
     /** As {@link #invokeConstructorFromArgs(Class, Object...)} but allowing more configurable input */
+    /** @deprecated since 0.11.0, use {@link org.apache.brooklyn.util.core.ClassLoaderUtils} in a combination with {@link #invokeConstructorFromArgs(Class, Object...)} instead */
     public static Maybe<Object> invokeConstructorFromArgs(ClassLoader classLoader, String className, Object...argsArray) {
         return invokeConstructorFromArgs(classLoader, null, className, argsArray);
     }
     
     /** As {@link #invokeConstructorFromArgs(Class, Object...)} but allowing more configurable input */
+    /** @deprecated since 0.11.0, use {@link org.apache.brooklyn.util.core.ClassLoaderUtils} in a combination with {@link #invokeConstructorFromArgs(Class, Object...)} instead */
     @SuppressWarnings("unchecked")
     public static <T> Maybe<T> invokeConstructorFromArgs(ClassLoader classLoader, Class<T> optionalSupertype, String className, Object...argsArray) {
         Reflections reflections = new Reflections(classLoader);
@@ -269,6 +277,7 @@ public class Reflections {
     }
 
     /** As {@link #invokeConstructorFromArgs(Class, Object...)} but allowing more configurable input */
+    /** @deprecated since 0.11.0, use {@link org.apache.brooklyn.util.core.ClassLoaderUtils} in a combination with {@link #invokeConstructorFromArgs(Class, Object...)} instead */
     public static <T> Maybe<T> invokeConstructorFromArgsUntyped(ClassLoader classLoader, String className, Object...argsArray) {
         Reflections reflections = new Reflections(classLoader);
         @SuppressWarnings("unchecked")
