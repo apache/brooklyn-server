@@ -219,11 +219,13 @@ public abstract class ShellAbstractTool implements ShellTool {
         protected final OutputStream out;
         protected final OutputStream err;
         protected final String scriptDir;
-        protected final Boolean runAsRoot;
-        protected final Boolean noExtraOutput;
-        protected final Boolean noDeleteAfterExec;
+        protected final boolean runAsRoot;
+        protected final boolean authSudo;
+        protected final boolean noExtraOutput;
+        protected final boolean noDeleteAfterExec;
         protected final String scriptNameWithoutExtension;
         protected final String scriptPath;
+        protected final String password;
         protected final Duration execTimeout;
 
         public ToolAbstractExecScript(Map<String,?> props) {
@@ -233,9 +235,11 @@ public abstract class ShellAbstractTool implements ShellTool {
             this.err = getOptionalVal(props, PROP_ERR_STREAM);
             
             this.scriptDir = getOptionalVal(props, PROP_SCRIPT_DIR);
-            this.runAsRoot = getOptionalVal(props, PROP_RUN_AS_ROOT);
-            this.noExtraOutput = getOptionalVal(props, PROP_NO_EXTRA_OUTPUT);
-            this.noDeleteAfterExec = getOptionalVal(props, PROP_NO_DELETE_SCRIPT);
+            this.runAsRoot = Boolean.TRUE.equals(getOptionalVal(props, PROP_RUN_AS_ROOT));
+            this.authSudo = Boolean.TRUE.equals(getOptionalVal(props, PROP_AUTH_SUDO));
+            this.noExtraOutput = Boolean.TRUE.equals(getOptionalVal(props, PROP_NO_EXTRA_OUTPUT));
+            this.noDeleteAfterExec = Boolean.TRUE.equals(getOptionalVal(props, PROP_NO_DELETE_SCRIPT));
+            this.password = getOptionalVal(props, PROP_PASSWORD);
             this.execTimeout = getOptionalVal(props, PROP_EXEC_TIMEOUT);
             
             String summary = getOptionalVal(props, PROP_SUMMARY);
@@ -253,12 +257,23 @@ public abstract class ShellAbstractTool implements ShellTool {
         /** builds the command to run the given script;
          * note that some modes require \$RESULT passed in order to access a variable, whereas most just need $ */
         protected List<String> buildRunScriptCommand() {
+            String scriptInvocationCmd;
+            if (runAsRoot) {
+                if (authSudo) {
+                    scriptInvocationCmd = BashCommands.authSudo(scriptPath, password);
+                } else {
+                    scriptInvocationCmd = BashCommands.sudo(scriptPath) + " < /dev/null";
+                }
+            } else {
+                scriptInvocationCmd = scriptPath + " < /dev/null";
+            }
+            
             MutableList.Builder<String> cmds = MutableList.<String>builder()
-                    .add((runAsRoot ? BashCommands.sudo(scriptPath) : scriptPath) + " < /dev/null")
+                    .add(scriptInvocationCmd)
                     .add("RESULT=$?");
-            if (noExtraOutput==null || !noExtraOutput)
+            if (!noExtraOutput)
                 cmds.add("echo Executed "+scriptPath+", result $RESULT"); 
-            if (noDeleteAfterExec!=Boolean.TRUE) {
+            if (!noDeleteAfterExec) {
                 // use "-f" because some systems have "rm" aliased to "rm -i"
                 // use "< /dev/null" to guarantee doesn't hang
                 cmds.add("rm -f "+scriptPath+" < /dev/null");
@@ -304,7 +319,7 @@ public abstract class ShellAbstractTool implements ShellTool {
                     .add(runAsRoot ? BashCommands.sudo(cmd) : cmd)
                     .add("echo $! > "+pidPath)
                     .add("RESULT=$?");
-            if (noExtraOutput==null || !noExtraOutput) {
+            if (!noExtraOutput) {
                 cmds.add("echo Executing async "+scriptPath);
             }
             cmds.add("exit $RESULT");
@@ -416,7 +431,7 @@ public abstract class ShellAbstractTool implements ShellTool {
         protected List<String> deleteTemporaryFilesCommand() {
             ImmutableList.Builder<String> cmdParts = ImmutableList.builder();
             
-            if (!Boolean.TRUE.equals(noDeleteAfterExec)) {
+            if (!noDeleteAfterExec) {
                 // use "-f" because some systems have "rm" aliased to "rm -i"
                 // use "< /dev/null" to guarantee doesn't hang
                 cmdParts.add(

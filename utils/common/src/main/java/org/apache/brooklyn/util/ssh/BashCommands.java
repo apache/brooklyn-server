@@ -91,10 +91,21 @@ public class BashCommands {
      * If null is supplied, it is returned (sometimes used to indicate no command desired).
      */
     public static String sudo(String command) {
+        if (command==null) return null;
         if (command.startsWith("( ") || command.endsWith(" &"))
             return sudoNew(command);
         else
             return sudoOld(command);
+    }
+
+    public static String authSudo(String command, String password) {
+        checkNotNull(password, "password must not be null");
+        if (command==null) return null;
+        if (command.startsWith("( ") || command.endsWith(" &")) {
+            throw new UnsupportedOperationException("authSudo supports only simple commands, not those wrapped in parentheses or backgrounded: cmd="+command);
+        }
+        // some OS's (which?) fail if you try running sudo when you're already root (dumb but true)
+        return format("( if test \"$UID\" -eq 0; then ( %s ); else echo -e '%s\\n' | sudo -E -S -- %s; fi )", command, password, command);
     }
 
     // TODO would like to move away from sudoOld -- but needs extensive testing!
