@@ -142,7 +142,7 @@ public class BlobStoreExpiryTest {
         identity = checkNotNull(location.getConfig(LocationConfigKeys.ACCESS_IDENTITY), "identity must not be null");
         credential = checkNotNull(location.getConfig(LocationConfigKeys.ACCESS_CREDENTIAL), "credential must not be null");
         endpoint = location.getConfig(CloudLocationConfig.CLOUD_ENDPOINT);
-        context = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(location.config().getBag());
+        context = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(location);
     }
     
     @AfterMethod(alwaysRun=true)
@@ -207,7 +207,7 @@ public class BlobStoreExpiryTest {
     }
     
     private Set<Service> getServices(Credentials creds) throws Exception {
-        BlobStoreContext tmpContext = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(location.config().getBag());
+        BlobStoreContext tmpContext = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(location);
         try {
             tmpContext.getBlobStore().list();
             LoadingCache<Credentials, Access> authCache = getAuthCache(tmpContext);

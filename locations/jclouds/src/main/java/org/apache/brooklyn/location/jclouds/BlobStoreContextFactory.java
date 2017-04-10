@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.jclouds.blobstore.BlobStoreContext;
 
@@ -33,5 +34,5 @@ public interface BlobStoreContextFactory {
     //
     // However, for now we have just kept the separation of interface and implementation.
     
-    public BlobStoreContext newBlobStoreContext(ConfigBag conf);
+    BlobStoreContext newBlobStoreContext(Location location);
 }
