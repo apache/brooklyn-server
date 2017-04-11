@@ -76,7 +76,7 @@ public class FeatureInstallationTest extends TestBase {
                 editConfigurationFileExtend(
                     "etc/org.ops4j.pax.url.mvn.cfg",
                     "org.ops4j.pax.url.mvn.repositories",
-                    "file:"+System.getProperty("features.repo")+"@id=local@snapshots@releases"),
+                    "file:"+System.getProperty("features.repo")+"@id=local@snapshots"),
                 logLevel(LogLevelOption.LogLevel.INFO),
         };
     }
