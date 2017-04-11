@@ -32,8 +32,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.primitives.Chars;
 
 public class Identifiers {
-    
-    private static Random random = new Random();
 
     public static final String UPPER_CASE_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     public static final String LOWER_CASE_ALPHA = "abcdefghijklmnopqrstuvwxyz";
@@ -67,6 +65,17 @@ public class Identifiers {
 
     // We only create a secure random when it is first used
     private static Random secureRandom = null;
+
+    private static Random random = null;
+
+    static {
+        Long seed = Long.getLong("brooklyn.experimental.feature.random_seed");
+        if (seed != null) {
+            random = new Random(seed);
+        } else {
+            random = new Random();
+        }
+    }
 
     /** makes a random id string (letters and numbers) of the given length;
      * starts with letter (upper or lower) so can be used as java-id;
