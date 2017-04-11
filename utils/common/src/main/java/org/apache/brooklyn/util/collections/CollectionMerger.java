@@ -199,7 +199,7 @@ public class CollectionMerger {
                 if (!(o instanceof Ref)) {
                     return false;
                 }
-                return ((Ref)o).obj == ((Ref)o).obj;
+                return obj == ((Ref)o).obj;
             }
             
             @Override
