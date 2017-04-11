@@ -28,7 +28,6 @@ package org.apache.brooklyn.util.osgi;
  */
 public class OsgiTestResources {
 
-
     /**
      * brooklyn-osgi-test-a_0.1.0 -
      * defines TestA which has a "times" method and a static multiplier field;
@@ -41,6 +40,7 @@ public class OsgiTestResources {
      * defines an entity and an application, to confirm it can be read and used by brooklyn
      */
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FINAL_PART = "brooklyn-test-osgi-entities";
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_VERSION = "0.1.0";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FULL =
         "org.apache.brooklyn.test.resources.osgi."+BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FINAL_PART;
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_PATH = "/brooklyn/osgi/brooklyn-test-osgi-entities.jar";
@@ -51,6 +51,7 @@ public class OsgiTestResources {
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_OBJECT = "org.apache.brooklyn.test.osgi.entities.SimpleObject";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY_CONFIG_NAME = "simple.config";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY_SENSOR_NAME = "simple.sensor";
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_UNPREFIXED_DUMMY_EXTERNAL_CONFIG_SUPPLIER = "com.example.brooklyn.test.osgi.UnprefixedDummyExternalConfigSupplier";
 
     /**
      * brooklyn-test-com-example-osgi-entities (v 0.1.0) -
@@ -73,6 +74,7 @@ public class OsgiTestResources {
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_OBJECT = "com.example.brooklyn.test.osgi.entities.SimpleObject";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ENTITY_CONFIG_NAME = "simple.config";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ENTITY_SENSOR_NAME = "simple.sensor";
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_PREFIXED_DUMMY_EXTERNAL_CONFIG_SUPPLIER = "com.example.brooklyn.test.osgi.PrefixedDummyExternalConfigSupplier";
 
     /**
      * brooklyn-test-osgi-more-entities_0.1.0 -
