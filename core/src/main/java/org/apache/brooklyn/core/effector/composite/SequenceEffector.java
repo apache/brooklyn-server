@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 
@@ -48,11 +49,12 @@ public class SequenceEffector extends AbstractCompositeEffector {
 
     private static final Logger LOG = LoggerFactory.getLogger(SequenceEffector.class);
 
-    public static final ConfigKey<List<Object>> SEQUENCE = ConfigKeys.newConfigKey(
-            new TypeToken<List<Object>>() { },
-            "sequence",
-            "Effector details list for the sequence effector",
-            ImmutableList.<Object>of());
+    public static final ConfigKey<List<Object>> SEQUENCE = ConfigKeys.builder(new TypeToken<List<Object>>() { })
+            .name("sequence")
+            .description("Effector details list for the sequence effector")
+            .constraint(Predicates.notNull())
+            .defaultValue(ImmutableList.<Object>of())
+            .build();
 
     public SequenceEffector(ConfigBag params) {
         super(newEffectorBuilder(params).build());

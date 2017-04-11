@@ -35,6 +35,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.reflect.TypeToken;
 
 /**
@@ -47,15 +48,17 @@ public class TransformEffector extends AbstractCompositeEffector {
 
     private static final Logger LOG = LoggerFactory.getLogger(TransformEffector.class);
 
-    public static final ConfigKey<String> INPUT = ConfigKeys.newStringConfigKey(
-            "input",
-            "Transformer input parameter");
+    public static final ConfigKey<String> INPUT = ConfigKeys.builder(String.class)
+            .name("input")
+            .description("Transformer input parameter")
+            .build();
 
-    public static final ConfigKey<Function<Object,Object>> FUNCTION = ConfigKeys.newConfigKey(
-            new TypeToken<Function<Object,Object>>() { },
-            "function",
-            "Transformer function to apply",
-            Functions.identity());
+    public static final ConfigKey<Function<Object,Object>> FUNCTION = ConfigKeys.builder(new TypeToken<Function<Object,Object>>() { })
+            .name("function")
+            .description("Transformer function to apply")
+            .constraint(Predicates.notNull())
+            .defaultValue(Functions.identity())
+            .build();
 
     public TransformEffector(ConfigBag params) {
         super(newEffectorBuilder(params).build());

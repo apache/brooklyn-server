@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 
 /**
  * Replace an effector with another, optionally executing the originsl
@@ -59,16 +60,17 @@ public final class ReplaceEffector extends AbstractCompositeEffector {
 
     public static final String ORIGINAL = "original-";
 
-    public static final ConfigKey<ReplaceAction> ACTION = ConfigKeys.newConfigKey(
-            ReplaceAction.class,
-            "action",
-            "Action to take with the replaced effector",
-            ReplaceAction.OVERRIDE);
+    public static final ConfigKey<ReplaceAction> ACTION = ConfigKeys.builder(ReplaceAction.class)
+            .name("action")
+            .description("Action to take with the replaced effector")
+            .defaultValue(ReplaceAction.OVERRIDE)
+            .build();
 
-    public static final ConfigKey<Object> REPLACE = ConfigKeys.newConfigKey(
-            Object.class,
-            "replace",
-            "Effector details for the replace effector");
+    public static final ConfigKey<Object> REPLACE = ConfigKeys.builder(Object.class)
+            .name("replace")
+            .description("Effector details for the replace effector")
+            .constraint(Predicates.notNull())
+            .build();
 
     public ReplaceEffector(ConfigBag params) {
         super(newEffectorBuilder(params).build());

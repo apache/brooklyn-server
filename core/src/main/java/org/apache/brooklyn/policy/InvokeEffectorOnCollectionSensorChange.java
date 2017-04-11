@@ -159,14 +159,14 @@ public class InvokeEffectorOnCollectionSensorChange extends AbstractInvokeEffect
     }
 
     private void onAdded(Object newElement) {
-        onEvent(getOnAddedEffector(), newElement);
+        invokeEffector(getOnAddedEffector(), newElement);
     }
 
     private void onRemoved(Object newElement) {
-        onEvent(getOnRemovedEffector(), newElement);
+        invokeEffector(getOnRemovedEffector(), newElement);
     }
 
-    private void onEvent(String effectorName, Object parameter) {
+    private void invokeEffector(String effectorName, Object parameter) {
         Maybe<Effector<?>> effector = getEffector(effectorName);
         if (effector.isPresentAndNonNull()) {
             final Map<String, Object> parameters;

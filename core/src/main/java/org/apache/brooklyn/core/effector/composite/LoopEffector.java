@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -51,14 +52,16 @@ public class LoopEffector extends AbstractCompositeEffector {
 
     private static final Logger LOG = LoggerFactory.getLogger(LoopEffector.class);
 
-    public static final ConfigKey<String> INPUT = ConfigKeys.newStringConfigKey(
-            "input",
-            "Loop input parameter");
+    public static final ConfigKey<String> INPUT = ConfigKeys.builder(String.class)
+            .name("input")
+            .description("Loop input parameter")
+            .build();
 
-    public static final ConfigKey<Object> LOOP = ConfigKeys.newConfigKey(
-            Object.class,
-            "loop",
-            "Effector details for the loop effector");
+    public static final ConfigKey<Object> LOOP = ConfigKeys.builder(Object.class)
+            .name("loop")
+            .description("Effector details for the loop effector")
+            .constraint(Predicates.notNull())
+            .build();
 
     public LoopEffector(ConfigBag params) {
         super(newEffectorBuilder(params).build());

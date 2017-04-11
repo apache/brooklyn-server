@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 
 /**
  * Execute an effector, and depending on the result, execute either
@@ -47,24 +48,27 @@ public class ChoiceEffector extends AbstractCompositeEffector {
 
     private static final Logger LOG = LoggerFactory.getLogger(ChoiceEffector.class);
 
-    public static final ConfigKey<String> INPUT = ConfigKeys.newStringConfigKey(
-            "input",
-            "Choice input parameter");
+    public static final ConfigKey<String> INPUT = ConfigKeys.builder(String.class)
+            .name("input")
+            .description("Choice input parameter")
+            .build();
 
-    public static final ConfigKey<Object> CHOICE = ConfigKeys.newConfigKey(
-            Object.class,
-            "choice",
-            "Effector details for the choice effector");
+    public static final ConfigKey<Object> CHOICE = ConfigKeys.builder(Object.class)
+            .name("choice")
+            .description("Effector details for the choice effector")
+            .constraint(Predicates.notNull())
+            .build();
 
-    public static final ConfigKey<Object> SUCCESS = ConfigKeys.newConfigKey(
-            Object.class,
-            "success",
-            "Effector details for the success effector");
+    public static final ConfigKey<Object> SUCCESS = ConfigKeys.builder(Object.class)
+            .name("success")
+            .description("Effector details for the success effector")
+            .constraint(Predicates.notNull())
+            .build();
 
-    public static final ConfigKey<Object> FAILURE = ConfigKeys.newConfigKey(
-            Object.class,
-            "failure",
-            "Effector details for the failure effector");
+    public static final ConfigKey<Object> FAILURE = ConfigKeys.builder(Object.class)
+            .name("failure")
+            .description("Effector details for the failure effector")
+            .build();
 
     public ChoiceEffector(ConfigBag params) {
         super(newEffectorBuilder(params).build());
@@ -109,6 +113,7 @@ public class ChoiceEffector extends AbstractCompositeEffector {
 
                 Object output = invokeEffectorNamed(choiceTargetEntity, choiceEffectorName, params);
                 Boolean success = Boolean.parseBoolean(Strings.toString(output));
+                LOG.debug("{} result of {} was {}/{}", new Object[] { this, choiceEffectorName, Strings.toString(output), success });
 
                 Object effectorDetails = EntityInitializers.resolve(config, success ? SUCCESS : FAILURE);
 

@@ -30,11 +30,13 @@ import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.Effectors.EffectorBuilder;
 import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.math.MathPredicates;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -48,15 +50,18 @@ public class RepeatEffector extends AbstractCompositeEffector {
 
     private static final Logger LOG = LoggerFactory.getLogger(RepeatEffector.class);
 
-    public static final ConfigKey<Object> REPEAT = ConfigKeys.newConfigKey(
-            Object.class,
-            "repeat",
-            "Effector details list for the repeat effector");
+    public static final ConfigKey<Object> REPEAT = ConfigKeys.builder(Object.class)
+            .name("repeat")
+            .description("Effector details list for the repeat effector")
+            .constraint(Predicates.notNull())
+            .build();
 
-    public static final ConfigKey<Integer> COUNT = ConfigKeys.newIntegerConfigKey(
-            "count",
-            "Number of times to rpeat the effector",
-            1);
+    public static final ConfigKey<Integer> COUNT = ConfigKeys.builder(Integer.class)
+            .name("count")
+            .description("Number of times to repeat the effector")
+            .constraint(MathPredicates.greaterThan(0d))
+            .defaultValue(1)
+            .build();
 
     public RepeatEffector(ConfigBag params) {
         super(newEffectorBuilder(params).build());
@@ -85,7 +90,7 @@ public class RepeatEffector extends AbstractCompositeEffector {
             synchronized (mutex) {
                 LOG.debug("{} called with config {}, params {}", new Object[] { this, config, params });
                 Object effectorDetails = EntityInitializers.resolve(config, REPEAT);
-                int count = EntityInitializers.resolve(config, COUNT);
+                Integer count = EntityInitializers.resolve(config, COUNT);
 
                 String effectorName = getEffectorName(effectorDetails);
                 String inputArgument = getInputArgument(effectorDetails);
