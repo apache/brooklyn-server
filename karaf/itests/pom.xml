@@ -148,6 +148,7 @@
                         <configuration>
                             <features>
                                 <feature>brooklyn-core</feature>
+                                <feature>brooklyn-locations-jclouds</feature>
                             </features>
                             <descriptors>
                                 <descriptor>file:${project.build.directory}/features.xml</descriptor>
