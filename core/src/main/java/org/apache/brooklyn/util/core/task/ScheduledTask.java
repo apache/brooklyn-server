@@ -80,10 +80,24 @@ public class ScheduledTask extends BasicTask<Object> {
         this(MutableMap.of(), taskFactory);
     }
 
+    /**
+     * @deprecated since 0.11.0; instead use {@link #ScheduledTask(Callable)}.
+     * @see {@link #ScheduledTask(Map, Task)}
+     */
+    @Deprecated
     public ScheduledTask(final Task<?> task) {
         this(MutableMap.of(), task);
     }
 
+    /**
+     * @deprecated since 0.11.0; instead use {@link #ScheduledTask(Map, Callable)}. If using this method,
+     *             the task will be executed only once (ignoring any additional config such as "period").
+     *             This is because the task object is reused for the second execution, but it is
+     *             already "done" so does not re-execute.
+     * 
+     * @see {@link https://issues.apache.org/jira/browse/BROOKLYN-446}
+     */
+    @Deprecated
     public ScheduledTask(Map<?,?> flags, final Task<?> task){
         this(flags, new Callable<Task<?>>(){
             @Override
