@@ -50,6 +50,7 @@ import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
+import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.enricher.stock.AbstractMultipleSensorAggregator;
 import org.apache.brooklyn.enricher.stock.Enrichers;
 import org.apache.brooklyn.enricher.stock.UpdatingMap;
@@ -58,6 +59,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.collections.QuorumCheck;
+import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -77,15 +79,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.reflect.TypeToken;
 
-/** Logic, sensors and enrichers, and conveniences, for computing service status */ 
+/** Logic, sensors and enrichers, and conveniences, for computing service status */
 public class ServiceStateLogic {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceStateLogic.class);
-    
+
     public static final AttributeSensor<Boolean> SERVICE_UP = Attributes.SERVICE_UP;
     public static final AttributeSensor<Map<String,Object>> SERVICE_NOT_UP_INDICATORS = Attributes.SERVICE_NOT_UP_INDICATORS;
     public static final AttributeSensor<Map<String,Object>> SERVICE_NOT_UP_DIAGNOSTICS = Attributes.SERVICE_NOT_UP_DIAGNOSTICS;
-    
+
     public static final AttributeSensor<Lifecycle> SERVICE_STATE_ACTUAL = Attributes.SERVICE_STATE_ACTUAL;
     public static final AttributeSensor<Lifecycle.Transition> SERVICE_STATE_EXPECTED = Attributes.SERVICE_STATE_EXPECTED;
     public static final AttributeSensor<Map<String,Object>> SERVICE_PROBLEMS = Attributes.SERVICE_PROBLEMS;
@@ -98,7 +100,7 @@ public class ServiceStateLogic {
         if (map==null) return null;
         return map.get(key);
     }
-    
+
     @SuppressWarnings("unchecked")
     public static <TKey,TVal> void clearMapSensorEntry(Entity entity, AttributeSensor<Map<TKey,TVal>> sensor, TKey key) {
         updateMapSensorEntry(entity, sensor, key, (TVal)Entities.REMOVE);
@@ -109,9 +111,9 @@ public class ServiceStateLogic {
         /*
          * Important to *not* modify the existing attribute value; must make a copy, modify that, and publish.
          * This is because a Propagator enricher will set this same value on another entity. There was very
-         * strange behaviour when this was done for a SERVICE_UP_INDICATORS sensor - the updates done here 
+         * strange behaviour when this was done for a SERVICE_UP_INDICATORS sensor - the updates done here
          * applied to the attribute of both entities!
-         * 
+         *
          * Need to do this update atomically (i.e. sequentially) because there is no threading control for
          * what is calling updateMapSensorEntity. It is called directly on start, on initialising enrichers,
          * and in event listeners. These calls could be concurrent.
@@ -120,7 +122,7 @@ public class ServiceStateLogic {
             @Override public Maybe<Map<TKey, TVal>> apply(Map<TKey, TVal> map) {
                 boolean created = (map==null);
                 if (created) map = MutableMap.of();
-                
+
                 boolean changed;
                 if (v == Entities.REMOVE) {
                     changed = map.containsKey(key);
@@ -147,22 +149,22 @@ public class ServiceStateLogic {
                 }
             }
         };
-        
-        if (!Entities.isNoLongerManaged(entity)) { 
+
+        if (!Entities.isNoLongerManaged(entity)) {
             entity.sensors().modify(sensor, modifier);
         }
     }
-    
+
     public static void setExpectedState(Entity entity, Lifecycle state) {
         waitBrieflyForServiceUpIfStateIsRunning(entity, state);
         ((EntityInternal)entity).sensors().set(Attributes.SERVICE_STATE_EXPECTED, new Lifecycle.Transition(state, new Date()));
-        
+
         Maybe<Enricher> enricher = EntityAdjuncts.tryFindWithUniqueTag(entity.enrichers(), ComputeServiceState.DEFAULT_ENRICHER_UNIQUE_TAG);
         if (enricher.isPresent() && enricher.get() instanceof ComputeServiceState) {
             ((ComputeServiceState)enricher.get()).onEvent(null);
         }
     }
-    
+
     public static Lifecycle getExpectedState(Entity entity) {
         Transition expected = entity.getAttribute(Attributes.SERVICE_STATE_EXPECTED);
         if (expected==null) return null;
@@ -197,13 +199,13 @@ public class ServiceStateLogic {
     public static boolean isExpectedState(Entity entity, Lifecycle state) {
         return getExpectedState(entity)==state;
     }
-    
+
     public static class ServiceNotUpLogic {
         public static final String DEFAULT_ENRICHER_UNIQUE_TAG = "service.isUp if no service.notUp.indicators";
-        
+
         /** static only; not for instantiation */
         private ServiceNotUpLogic() {}
-        
+
         public static final EnricherSpec<?> newEnricherForServiceUpIfNotUpIndicatorsEmpty() {
             // The function means: if the serviceNotUpIndicators is not null, then serviceNotUpIndicators.size()==0;
             // otherwise return the default value.
@@ -217,8 +219,8 @@ public class ServiceStateLogic {
                 .uniqueTag(DEFAULT_ENRICHER_UNIQUE_TAG)
                 .build();
         }
-        
-        /** puts the given value into the {@link Attributes#SERVICE_NOT_UP_INDICATORS} map as if the 
+
+        /** puts the given value into the {@link Attributes#SERVICE_NOT_UP_INDICATORS} map as if the
          * {@link UpdatingMap} enricher for the given key */
         public static void updateNotUpIndicator(Entity entity, String key, Object value) {
             updateMapSensorEntry(entity, Attributes.SERVICE_NOT_UP_INDICATORS, key, value);
@@ -246,17 +248,17 @@ public class ServiceStateLogic {
             if (nodes==null || nodes.isEmpty()) ServiceNotUpLogic.updateNotUpIndicator(entity, mapSensor, "Should have at least one entry");
             else ServiceNotUpLogic.clearNotUpIndicator(entity, mapSensor);
         }
-        
+
     }
-    
-    /** Enricher which sets {@link Attributes#SERVICE_STATE_ACTUAL} on changes to 
+
+    /** Enricher which sets {@link Attributes#SERVICE_STATE_ACTUAL} on changes to
      * {@link Attributes#SERVICE_STATE_EXPECTED}, {@link Attributes#SERVICE_PROBLEMS}, and {@link Attributes#SERVICE_UP}
      * <p>
      * The default implementation uses {@link #computeActualStateWhenExpectedRunning(Map, Boolean)} if the last expected transition
-     * was to {@link Lifecycle#RUNNING} and 
+     * was to {@link Lifecycle#RUNNING} and
      * {@link #computeActualStateWhenNotExpectedRunning(Map, Boolean, org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition)} otherwise.
      * If these methods return null, the {@link Attributes#SERVICE_STATE_ACTUAL} sensor will be cleared (removed).
-     * Either of these methods can be overridden for custom logic, and that custom enricher can be created using 
+     * Either of these methods can be overridden for custom logic, and that custom enricher can be created using
      * {@link ServiceStateLogic#newEnricherForServiceState(Class)} and added to an entity.
      */
     public static class ComputeServiceState extends AbstractEnricher implements SensorEventListener<Object> {
@@ -267,13 +269,13 @@ public class ServiceStateLogic {
 
         public ComputeServiceState() {}
         public ComputeServiceState(Map<?,?> flags) { super(flags); }
-            
+
         @Override
         public void init() {
             super.init();
             if (uniqueTag==null) uniqueTag = DEFAULT_ENRICHER_UNIQUE_TAG;
         }
-        
+
         @Override
         public void setEntity(EntityLocal entity) {
             super.setEntity(entity);
@@ -281,7 +283,7 @@ public class ServiceStateLogic {
                 // only publish on changes, unless it is configured otherwise
                 suppressDuplicates = true;
             }
-            
+
             Map<String, ?> notifyOfInitialValue = ImmutableMap.of("notifyOfInitialValue", Boolean.TRUE);
             subscriptions().subscribe(notifyOfInitialValue, entity, SERVICE_PROBLEMS, this);
             subscriptions().subscribe(notifyOfInitialValue, entity, SERVICE_UP, this);
@@ -291,11 +293,11 @@ public class ServiceStateLogic {
         @Override
         public void onEvent(@Nullable SensorEvent<Object> event) {
             Preconditions.checkNotNull(entity, "Cannot handle subscriptions or compute state until associated with an entity");
-            
+
             Map<String, Object> serviceProblems = entity.getAttribute(SERVICE_PROBLEMS);
             Boolean serviceUp = entity.getAttribute(SERVICE_UP);
             Lifecycle.Transition serviceExpected = entity.getAttribute(SERVICE_STATE_EXPECTED);
-            
+
             if (serviceExpected!=null && serviceExpected.getState()==Lifecycle.RUNNING) {
                 setActualState( computeActualStateWhenExpectedRunning(serviceProblems, serviceUp) );
             } else {
@@ -315,12 +317,12 @@ public class ServiceStateLogic {
                 return Maybe.of(Lifecycle.ON_FIRE);
             }
         }
-        
+
         protected Maybe<Lifecycle> computeActualStateWhenNotExpectedRunning(Map<String, Object> problems, Boolean up, Lifecycle.Transition stateTransition) {
             if (stateTransition!=null) {
                 // if expected state is present but not running, just echo the expected state (ignore problems and up-ness)
                 return Maybe.of(stateTransition.getState());
-                
+
             } else if (problems!=null && !problems.isEmpty()) {
                 // if there is no expected state, then if service is not up, say stopped, else say on fire (whether service up is true or not present)
                 if (Boolean.FALSE.equals(up)) {
@@ -335,7 +337,7 @@ public class ServiceStateLogic {
                 // if the problems map is non-null, then infer from service up;
                 // if there is no problems map, then leave unchanged (user may have set it explicitly)
                 if (problems!=null)
-                    return Maybe.of(up==null ? null /* remove if up is not set */ : 
+                    return Maybe.of(up==null ? null /* remove if up is not set */ :
                         (up ? Lifecycle.RUNNING : Lifecycle.STOPPED));
                 else
                     return Maybe.absent();
@@ -355,19 +357,57 @@ public class ServiceStateLogic {
         }
 
     }
-    
+
     public static final EnricherSpec<?> newEnricherForServiceStateFromProblemsAndUp() {
         return newEnricherForServiceState(ComputeServiceState.class);
     }
     public static final EnricherSpec<?> newEnricherForServiceState(Class<? extends Enricher> type) {
+        newEnricherForServiceUpFromChildren();
         return EnricherSpec.create(type);
     }
-    
+
+    /**
+     * An enricher that sets {@link Startable#SERVICE_UP servive.isUp} on an entity only when all children are
+     * also reporting as healthy.
+     * <p>
+     * Equivalent to the following YAML configuration.
+     * <pre>
+     * brooklyn.enrichers:
+     *   - type: org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic$ComputeServiceIndicatorsFromChildrenAndMembers
+     *     brooklyn.config:
+     *       enricher.aggregating.fromChildren: true
+     *       enricher.aggregating.fromMembers: false
+     *       enricher.suppressDuplicates: true
+     *       enricher.service_state.children_and_members.quorum.up: all
+     *       enricher.service_state.children_and_members.ignore_entities.service_state_values: [ "STOPPING", "STOPPED", "DESTROYED" ]
+     * </pre>
+     */
+    public static final EnricherSpec<?> newEnricherForServiceUpFromChildren() {
+        return newEnricherForServiceUp(Boolean.TRUE, Boolean.FALSE);
+    }
+    public static final EnricherSpec<?> newEnricherForServiceUpFromMembers() {
+        return newEnricherForServiceUp(Boolean.FALSE, Boolean.TRUE);
+    }
+    public static final EnricherSpec<?> newEnricherForServiceUpFromChildrenWithQuorumCheck(QuorumCheck quorumCheck) {
+        EnricherSpec<?> serviceUp = newEnricherForServiceUpFromChildren()
+                .configure(ComputeServiceIndicatorsFromChildrenAndMembers.RUNNING_QUORUM_CHECK, quorumCheck);
+        return serviceUp;
+    }
+    public static final EnricherSpec<?> newEnricherForServiceUp(Boolean fromChildren, Boolean fromMembers) {
+        EnricherSpec<?> serviceUp = EnricherSpec.create(ComputeServiceIndicatorsFromChildrenAndMembers.class)
+                .configure(ComputeServiceIndicatorsFromChildrenAndMembers.FROM_CHILDREN, fromChildren)
+                .configure(ComputeServiceIndicatorsFromChildrenAndMembers.FROM_MEMBERS, fromMembers)
+                .configure(ComputeServiceIndicatorsFromChildrenAndMembers.SUPPRESS_DUPLICATES, Boolean.TRUE)
+                .configure(ComputeServiceIndicatorsFromChildrenAndMembers.RUNNING_QUORUM_CHECK, QuorumChecks.all())
+                .configure(ComputeServiceIndicatorsFromChildrenAndMembers.IGNORE_ENTITIES_WITH_THESE_SERVICE_STATES, ImmutableSet.of(Lifecycle.STOPPING, Lifecycle.STOPPED, Lifecycle.DESTROYED));
+        return serviceUp;
+    }
+
     public static class ServiceProblemsLogic {
         /** static only; not for instantiation */
         private ServiceProblemsLogic() {}
-        
-        /** puts the given value into the {@link Attributes#SERVICE_PROBLEMS} map as if the 
+
+        /** puts the given value into the {@link Attributes#SERVICE_PROBLEMS} map as if the
          * {@link UpdatingMap} enricher for the given sensor reported this value */
         public static void updateProblemsIndicator(Entity entity, Sensor<?> sensor, Object value) {
             updateMapSensorEntry(entity, Attributes.SERVICE_PROBLEMS, sensor.getName(), value);
@@ -393,11 +433,11 @@ public class ServiceStateLogic {
             clearMapSensorEntry(entity, Attributes.SERVICE_PROBLEMS, key);
         }
     }
-    
+
     public static class ComputeServiceIndicatorsFromChildrenAndMembers extends AbstractMultipleSensorAggregator<Void> implements SensorEventListener<Object> {
         /** standard unique tag identifying instances of this enricher at runtime, also used for the map sensor if no unique tag specified */
         public final static String DEFAULT_UNIQUE_TAG = "service-lifecycle-indicators-from-children-and-members";
-        
+
         /** as {@link #DEFAULT_UNIQUE_TAG}, but when a second distinct instance is responsible for computing service up */
         public final static String DEFAULT_UNIQUE_TAG_UP = "service-not-up-indicators-from-children-and-members";
 
@@ -406,7 +446,7 @@ public class ServiceStateLogic {
             .defaultValue(QuorumCheck.QuorumChecks.atLeastOneUnlessEmpty())
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
             .build();
-        public static final ConfigKey<QuorumCheck> RUNNING_QUORUM_CHECK = ConfigKeys.builder(QuorumCheck.class, "enricher.service_state.children_and_members.quorum.running") 
+        public static final ConfigKey<QuorumCheck> RUNNING_QUORUM_CHECK = ConfigKeys.builder(QuorumCheck.class, "enricher.service_state.children_and_members.quorum.running")
             .description("Logic for checking whether this service is healthy, based on children and/or members running, defaulting to requiring none to be ON-FIRE")
             .defaultValue(QuorumCheck.QuorumChecks.all())
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
@@ -417,8 +457,8 @@ public class ServiceStateLogic {
         public static final ConfigKey<Boolean> IGNORE_ENTITIES_WITH_SERVICE_UP_NULL = ConfigKeys.newBooleanConfigKey("enricher.service_state.children_and_members.ignore_entities.service_up_null", "Whether to ignore children reporting null values for service up", true);
         @SuppressWarnings("serial")
         public static final ConfigKey<Set<Lifecycle>> IGNORE_ENTITIES_WITH_THESE_SERVICE_STATES = ConfigKeys.newConfigKey(new TypeToken<Set<Lifecycle>>() {},
-            "enricher.service_state.children_and_members.ignore_entities.service_state_values", 
-            "Service states (including null) which indicate an entity should be ignored when looking at children service states; anything apart from RUNNING not in this list will be treated as not healthy (by default just ON_FIRE will mean not healthy)", 
+            "enricher.service_state.children_and_members.ignore_entities.service_state_values",
+            "Service states (including null) which indicate an entity should be ignored when looking at children service states; anything apart from RUNNING not in this list will be treated as not healthy (by default just ON_FIRE will mean not healthy)",
             MutableSet.<Lifecycle>builder().addAll(Lifecycle.values()).add(null).remove(Lifecycle.RUNNING).remove(Lifecycle.ON_FIRE).build().asUnmodifiable());
 
         protected String getKeyForMapSensor() {
@@ -455,9 +495,9 @@ public class ServiceStateLogic {
 
         final static Set<ConfigKey<?>> RECONFIGURABLE_KEYS = ImmutableSet.<ConfigKey<?>>of(
             UP_QUORUM_CHECK, RUNNING_QUORUM_CHECK,
-            DERIVE_SERVICE_NOT_UP, DERIVE_SERVICE_NOT_UP, 
+            DERIVE_SERVICE_NOT_UP, DERIVE_SERVICE_NOT_UP,
             IGNORE_ENTITIES_WITH_SERVICE_UP_NULL, IGNORE_ENTITIES_WITH_THESE_SERVICE_STATES);
-        
+
         @Override
         protected <T> void doReconfigureConfig(ConfigKey<T> key, T val) {
             if (RECONFIGURABLE_KEYS.contains(key)) {
@@ -466,14 +506,14 @@ public class ServiceStateLogic {
                 super.doReconfigureConfig(key, val);
             }
         }
-        
+
         @Override
         protected void onChanged() {
             super.onChanged();
             if (entity != null && isRunning())
                 onUpdated();
         }
-        
+
         private final List<Sensor<?>> SOURCE_SENSORS = ImmutableList.<Sensor<?>>of(SERVICE_UP, SERVICE_STATE_ACTUAL);
         @Override
         protected Collection<Sensor<?>> getSourceSensors() {
@@ -511,7 +551,7 @@ public class ServiceStateLogic {
                     continue;
                 entries++;
                 Lifecycle entityState = state.getKey().getAttribute(SERVICE_STATE_ACTUAL);
-                
+
                 if (Boolean.TRUE.equals(state.getValue())) numUp++;
                 else if (!ignoreStates.contains(entityState)) {
                     violators.add(state.getKey());
@@ -544,7 +584,7 @@ public class ServiceStateLogic {
             Set<Lifecycle> ignoreStates = getConfig(IGNORE_ENTITIES_WITH_THESE_SERVICE_STATES);
             for (Map.Entry<Entity,Lifecycle> state: values.entrySet()) {
                 if (state.getValue()==Lifecycle.RUNNING) numRunning++;
-                else if (!ignoreStates.contains(state.getValue())) 
+                else if (!ignoreStates.contains(state.getValue()))
                     onesNotHealthy.add(state.getKey());
             }
 
@@ -582,14 +622,14 @@ public class ServiceStateLogic {
             return null;
         }
     }
-    
+
     public static class ComputeServiceIndicatorsFromChildrenAndMembersSpec extends ExtensibleEnricherSpec<ComputeServiceIndicatorsFromChildrenAndMembers,ComputeServiceIndicatorsFromChildrenAndMembersSpec> {
         private static final long serialVersionUID = -607444925297963712L;
-        
+
         protected ComputeServiceIndicatorsFromChildrenAndMembersSpec() {
             this(ComputeServiceIndicatorsFromChildrenAndMembers.class);
         }
-        
+
         protected ComputeServiceIndicatorsFromChildrenAndMembersSpec(Class<? extends ComputeServiceIndicatorsFromChildrenAndMembers> clazz) {
             super(clazz);
         }
@@ -626,14 +666,14 @@ public class ServiceStateLogic {
             configure(ComputeServiceIndicatorsFromChildrenAndMembers.RUNNING_QUORUM_CHECK, check);
             return self();
         }
-        
+
         public ComputeServiceIndicatorsFromChildrenAndMembersSpec entityFilter(Predicate<? super Entity> val) {
             configure(ComputeServiceIndicatorsFromChildrenAndMembers.ENTITY_FILTER, val);
             return self();
         }
     }
 
-    /** provides the default {@link ComputeServiceIndicatorsFromChildrenAndMembers} enricher, 
+    /** provides the default {@link ComputeServiceIndicatorsFromChildrenAndMembers} enricher,
      * using the default unique tag ({@link ComputeServiceIndicatorsFromChildrenAndMembers#DEFAULT_UNIQUE_TAG}),
      * configured here to require none on fire, and either no children or at least one up child,
      * the spec can be further configured as appropriate */
@@ -642,10 +682,10 @@ public class ServiceStateLogic {
             .uniqueTag(ComputeServiceIndicatorsFromChildrenAndMembers.DEFAULT_UNIQUE_TAG);
     }
 
-    /** as {@link #newEnricherFromChildren()} but only publishing service not-up indicators, 
+    /** as {@link #newEnricherFromChildren()} but only publishing service not-up indicators,
      * using a different unique tag ({@link ComputeServiceIndicatorsFromChildrenAndMembers#DEFAULT_UNIQUE_TAG_UP}),
      * listening to children only, ignoring lifecycle/service-state,
-     * and using the same logic 
+     * and using the same logic
      * (viz looking only at children (not members) and requiring either no children or at least one child up) by default */
     public static ComputeServiceIndicatorsFromChildrenAndMembersSpec newEnricherFromChildrenUp() {
         return newEnricherFromChildren()
@@ -653,14 +693,14 @@ public class ServiceStateLogic {
             .checkChildrenOnly()
             .configure(ComputeServiceIndicatorsFromChildrenAndMembers.DERIVE_SERVICE_PROBLEMS, false);
     }
-    
+
     /** as {@link #newEnricherFromChildren()} but only publishing service problems,
      * listening to children and members, ignoring service up,
-     * and using the same logic 
+     * and using the same logic
      * (viz looking at children and members and requiring none are on fire) by default */
     public static ComputeServiceIndicatorsFromChildrenAndMembersSpec newEnricherFromChildrenState() {
         return newEnricherFromChildren()
             .configure(ComputeServiceIndicatorsFromChildrenAndMembers.DERIVE_SERVICE_NOT_UP, false);
     }
-    
+
 }
