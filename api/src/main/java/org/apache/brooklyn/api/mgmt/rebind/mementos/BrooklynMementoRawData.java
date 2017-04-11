@@ -195,7 +195,7 @@ public class BrooklynMementoRawData {
     }
     
     public boolean isEmpty() {
-        return entities.isEmpty() && locations.isEmpty() && policies.isEmpty() && enrichers.isEmpty() && feeds.isEmpty() && catalogItems.isEmpty();
+        return planeId == null && entities.isEmpty() && locations.isEmpty() && policies.isEmpty() && enrichers.isEmpty() && feeds.isEmpty() && catalogItems.isEmpty();
     }
     
     public Map<String, String> getObjectsOfType(BrooklynObjectType type) {

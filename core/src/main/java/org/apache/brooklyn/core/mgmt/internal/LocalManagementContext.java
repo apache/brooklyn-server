@@ -224,6 +224,7 @@ public class LocalManagementContext extends AbstractManagementContext {
     public void setManagementPlaneId(String newPlaneId) {
         if (managementPlaneId != null && !managementPlaneId.equals(newPlaneId)) {
             log.warn("Management plane ID changed from {} to {}", managementPlaneId, newPlaneId);
+            log.debug("Management plane ID changed from {} to {}", new Object[] {managementPlaneId, newPlaneId, new RuntimeException("Stack trace for setManagementPlaneId")});
         }
         this.managementPlaneId = newPlaneId;
     }

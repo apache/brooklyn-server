@@ -472,6 +472,10 @@ public abstract class RebindIteration {
     protected void initPlaneId() {
         String persistedPlaneId = mementoRawData.getPlaneId();
         if (persistedPlaneId == null) {
+            if (!mementoRawData.isEmpty()) {
+                LOG.warn("Rebinding against existing persisted state, but no planeId found. Will generate a new one. " +
+                        "Expected if this is the first rebind after upgrading to Brooklyn 0.12.0+");
+            }
             ((LocalManagementContext)managementContext).generateManagementPlaneId();
         } else {
             ((LocalManagementContext)managementContext).setManagementPlaneId(persistedPlaneId);
