@@ -17,6 +17,7 @@
 package org.apache.brooklyn.karaf.itests;
 
 import static org.ops4j.pax.exam.CoreOptions.maven;
+import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.configureConsole;
 import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.configureSecurity;
 import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.editConfigurationFileExtend;
 import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.editConfigurationFilePut;
@@ -71,6 +72,7 @@ public class FeatureInstallationTest extends TestBase {
         return new Option[]{
                 karafDistributionConfiguration().frameworkUrl(karafUrl).name("Apache Karaf").unpackDirectory(new File("target/exam")),
                 configureSecurity().disableKarafMBeanServerBuilder(),
+                configureConsole().ignoreLocalConsole(),
                 keepRuntimeFolder(),
                 editConfigurationFilePut("etc/system.properties", "features.xml", System.getProperty("features.xml")),
                 editConfigurationFileExtend(
