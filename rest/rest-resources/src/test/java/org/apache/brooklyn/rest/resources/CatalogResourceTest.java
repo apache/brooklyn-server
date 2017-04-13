@@ -22,12 +22,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-import java.awt.Image;
-import java.awt.Toolkit;
+import java.awt.*;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -69,10 +67,8 @@ import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.stream.Streams;
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.entity.ContentType;
-import org.apache.http.util.EntityUtils;
 import org.eclipse.jetty.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,6 +88,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     private static final Logger log = LoggerFactory.getLogger(CatalogResourceTest.class);
     
     private static String TEST_VERSION = "0.1.2";
+    private static String TEST_LASTEST_VERSION = "0.1.3";
 
     @Override
     protected boolean useLocalScannedCatalog() {
@@ -877,5 +874,133 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         zip.close();
 
         return f;
+    }
+
+    @Test
+    public void testGetOnlyLatestApplication() {
+        String symbolicName = "latest.catalog.application.id";
+        String itemType = "template";
+        String serviceType = "org.apache.brooklyn.core.test.entity.TestEntity";
+
+        addTestCatalogItem(symbolicName, itemType, TEST_VERSION, serviceType);
+        addTestCatalogItem(symbolicName, itemType, TEST_LASTEST_VERSION, serviceType);
+
+        CatalogItemSummary application = client().path("/catalog/applications/" + symbolicName + "/latest")
+                .get(CatalogItemSummary.class);
+        assertEquals(application.getVersion(), TEST_LASTEST_VERSION);
+    }
+
+    @Test
+    public void testGetOnlyLatestEntity() {
+        String symbolicName = "latest.catalog.entity.id";
+        String itemType = "entity";
+        String serviceType = "org.apache.brooklyn.core.test.entity.TestEntity";
+
+        addTestCatalogItem(symbolicName, itemType, TEST_VERSION, serviceType);
+        addTestCatalogItem(symbolicName, itemType, TEST_LASTEST_VERSION, serviceType);
+
+        CatalogItemSummary application = client().path("/catalog/entities/" + symbolicName + "/latest")
+                .get(CatalogItemSummary.class);
+        assertEquals(application.getVersion(), TEST_LASTEST_VERSION);
+    }
+
+    @Test
+    public void testGetOnlyLatestPolicy() {
+        String symbolicName = "latest.catalog.policy.id";
+        String itemType = "policy";
+        String serviceType = "org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy";
+
+        addTestCatalogItem(symbolicName, itemType, TEST_VERSION, serviceType);
+        addTestCatalogItem(symbolicName, itemType, TEST_LASTEST_VERSION, serviceType);
+
+        CatalogItemSummary application = client().path("/catalog/policies/" + symbolicName + "/latest")
+                .get(CatalogItemSummary.class);
+        assertEquals(application.getVersion(), TEST_LASTEST_VERSION);
+    }
+
+    @Test
+    public void testGetOnlyLatestLocation() {
+        String symbolicName = "latest.catalog.location.id";
+        String itemType = "location";
+        String serviceType = "localhost";
+
+        addTestCatalogItem(symbolicName, itemType, TEST_VERSION, serviceType);
+        addTestCatalogItem(symbolicName, itemType, TEST_LASTEST_VERSION, serviceType);
+
+        CatalogItemSummary application = client().path("/catalog/policies/" + symbolicName + "/latest")
+                .get(CatalogItemSummary.class);
+        assertEquals(application.getVersion(), TEST_LASTEST_VERSION);
+    }
+
+    @Test
+    public void testDeleteOnlyLatestApplication() throws IOException {
+        String symbolicName = "latest.catalog.application.delete.id";
+        String itemType = "template";
+        String serviceType = "org.apache.brooklyn.core.test.entity.TestEntity";
+
+        addTestCatalogItem(symbolicName, itemType, TEST_VERSION, serviceType);
+        addTestCatalogItem(symbolicName, itemType, TEST_LASTEST_VERSION, serviceType);
+
+        Response deleteResponse = client().path("/catalog/applications/" + symbolicName + "/latest").delete();
+        assertEquals(deleteResponse.getStatus(), HttpStatus.NO_CONTENT_204);
+
+        List<CatalogItemSummary> applications = client().path("/catalog/applications").query("fragment", symbolicName)
+                .get(new GenericType<List<CatalogItemSummary>>() {});
+        assertEquals(applications.size(), 1);
+        assertEquals(applications.get(0).getVersion(), TEST_VERSION);
+    }
+
+    @Test
+    public void testDeleteOnlyLatestEntity() throws IOException {
+        String symbolicName = "latest.catalog.entity.delete.id";
+        String itemType = "entity";
+        String serviceType = "org.apache.brooklyn.core.test.entity.TestEntity";
+
+        addTestCatalogItem(symbolicName, itemType, TEST_VERSION, serviceType);
+        addTestCatalogItem(symbolicName, itemType, TEST_LASTEST_VERSION, serviceType);
+
+        Response deleteResponse = client().path("/catalog/entities/" + symbolicName + "/latest").delete();
+        assertEquals(deleteResponse.getStatus(), HttpStatus.NO_CONTENT_204);
+
+        List<CatalogItemSummary> applications = client().path("/catalog/entities").query("fragment", symbolicName)
+                .get(new GenericType<List<CatalogItemSummary>>() {});
+        assertEquals(applications.size(), 1);
+        assertEquals(applications.get(0).getVersion(), TEST_VERSION);
+    }
+
+    @Test
+    public void testDeleteOnlyLatestPolicy() throws IOException {
+        String symbolicName = "latest.catalog.policy.delete.id";
+        String itemType = "policy";
+        String serviceType = "org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy";
+
+        addTestCatalogItem(symbolicName, itemType, TEST_VERSION, serviceType);
+        addTestCatalogItem(symbolicName, itemType, TEST_LASTEST_VERSION, serviceType);
+
+        Response deleteResponse = client().path("/catalog/policies/" + symbolicName + "/latest").delete();
+        assertEquals(deleteResponse.getStatus(), HttpStatus.NO_CONTENT_204);
+
+        List<CatalogItemSummary> applications = client().path("/catalog/policies").query("fragment", symbolicName)
+                .get(new GenericType<List<CatalogItemSummary>>() {});
+        assertEquals(applications.size(), 1);
+        assertEquals(applications.get(0).getVersion(), TEST_VERSION);
+    }
+
+    @Test
+    public void testDeleteOnlyLatestLocation() throws IOException {
+        String symbolicName = "latest.catalog.location.delete.id";
+        String itemType = "location";
+        String serviceType = "localhost";
+
+        addTestCatalogItem(symbolicName, itemType, TEST_VERSION, serviceType);
+        addTestCatalogItem(symbolicName, itemType, TEST_LASTEST_VERSION, serviceType);
+
+        Response deleteResponse = client().path("/catalog/locations/" + symbolicName + "/latest").delete();
+        assertEquals(deleteResponse.getStatus(), HttpStatus.NO_CONTENT_204);
+
+        List<CatalogItemSummary> applications = client().path("/catalog/locations").query("fragment", symbolicName)
+                .get(new GenericType<List<CatalogItemSummary>>() {});
+        assertEquals(applications.size(), 1);
+        assertEquals(applications.get(0).getVersion(), TEST_VERSION);
     }
 }
