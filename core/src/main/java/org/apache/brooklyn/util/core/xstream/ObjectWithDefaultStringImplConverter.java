@@ -25,6 +25,7 @@ import com.thoughtworks.xstream.converters.Converter;
 import com.thoughtworks.xstream.converters.ConverterLookup;
 import com.thoughtworks.xstream.converters.MarshallingContext;
 import com.thoughtworks.xstream.converters.UnmarshallingContext;
+import com.thoughtworks.xstream.core.ClassLoaderReference;
 import com.thoughtworks.xstream.io.HierarchicalStreamReader;
 import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
 
@@ -43,10 +44,10 @@ import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
  */
 public class ObjectWithDefaultStringImplConverter implements Converter {
     private final ConverterLookup lookup;
-    private final ClassLoader loader;
+    private final ClassLoaderReference loader;
     private final Class<?> defaultImpl = String.class;
 
-    public ObjectWithDefaultStringImplConverter(ConverterLookup lookup, ClassLoader loader) {
+    public ObjectWithDefaultStringImplConverter(ConverterLookup lookup, ClassLoaderReference loader) {
         this.lookup = lookup;
         this.loader = loader;
     }
@@ -78,7 +79,7 @@ public class ObjectWithDefaultStringImplConverter implements Converter {
             clazz = Boxing.getPrimitiveType(clazzName).get();
         } else {
             try {
-                clazz = loader.loadClass(clazzName);
+                clazz = loader.getReference().loadClass(clazzName);
             } catch (ClassNotFoundException e) {
                 throw Exceptions.propagate(e);
             }
