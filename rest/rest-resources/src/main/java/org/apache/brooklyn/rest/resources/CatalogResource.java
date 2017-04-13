@@ -102,6 +102,7 @@ import com.google.common.io.Files;
 public class CatalogResource extends AbstractBrooklynRestResource implements CatalogApi {
 
     private static final Logger log = LoggerFactory.getLogger(CatalogResource.class);
+    private static final String LATEST = "latest";
     
     @SuppressWarnings("rawtypes")
     private Function<CatalogItem, CatalogItemSummary> toCatalogItemSummary(final UriInfo ui) {
@@ -331,6 +332,10 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
                 Entitlements.getEntitlementContext().user());
         }
+
+        if (LATEST.equals(version)) {
+            version = null;
+        }
         
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, version);
         if (item == null) {
@@ -348,6 +353,10 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
                 Entitlements.getEntitlementContext().user());
         }
+
+        if (LATEST.equals(version)) {
+            version = null;
+        }
         
         RegisteredType item = mgmt().getTypeRegistry().get(policyId, version);
         if (item == null) {
@@ -364,6 +373,10 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, StringAndArgument.of(locationId+(Strings.isBlank(version) ? "" : ":"+version), "delete"))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
                 Entitlements.getEntitlementContext().user());
+        }
+
+        if (LATEST.equals(version)) {
+            version = null;
         }
         
         RegisteredType item = mgmt().getTypeRegistry().get(locationId, version);
@@ -420,6 +433,10 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, symbolicName+(Strings.isBlank(version)?"":":"+version))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
+        }
+
+        if (LATEST.equals(version)) {
+            version = null;
         }
 
         //TODO These casts are not pretty, we could just provide separate get methods for the different types?
@@ -481,6 +498,10 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 Entitlements.getEntitlementContext().user());
         }
 
+        if (LATEST.equals(version)) {
+            version = null;
+        }
+
         @SuppressWarnings("unchecked")
         CatalogItem<? extends Policy, PolicySpec<?>> result =
                 (CatalogItem<? extends Policy, PolicySpec<?>>)brooklyn().getCatalog().getCatalogItem(policyId, version);
@@ -525,6 +546,10 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, locationId+(Strings.isBlank(version)?"":":"+version))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
+        }
+
+        if (LATEST.equals(version)) {
+            version = null;
         }
 
         @SuppressWarnings("unchecked")
@@ -574,6 +599,10 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, itemId+(Strings.isBlank(version)?"":":"+version))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
+        }
+
+        if (LATEST.equals(version)) {
+            version = null;
         }
         
         return getCatalogItemIcon(mgmt().getTypeRegistry().get(itemId, version));

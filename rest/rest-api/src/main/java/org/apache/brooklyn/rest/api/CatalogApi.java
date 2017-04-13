@@ -153,7 +153,11 @@ public interface CatalogApi {
 
     @DELETE
     @Path("/applications/{symbolicName}/{version}")
-    @ApiOperation(value = "Deletes a specific version of an application's definition from the catalog")
+    @ApiOperation(
+            value = "Deletes a specific version of an application's definition from the catalog",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'symbolicName'"
+    )
     @ApiResponses(value = {
         @ApiResponse(code = 404, message = "Entity not found")
     })
@@ -166,7 +170,11 @@ public interface CatalogApi {
 
     @DELETE
     @Path("/entities/{symbolicName}/{version}")
-    @ApiOperation(value = "Deletes a specific version of an entity's definition from the catalog")
+    @ApiOperation(
+            value = "Deletes a specific version of an entity's definition from the catalog",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'symbolicName'"
+    )
     @ApiResponses(value = {
         @ApiResponse(code = 404, message = "Entity not found")
     })
@@ -179,7 +187,10 @@ public interface CatalogApi {
 
     @DELETE
     @Path("/policies/{policyId}/{version}")
-    @ApiOperation(value = "Deletes a specific version of an policy's definition from the catalog")
+    @ApiOperation(
+            value = "Deletes a specific version of an policy's definition from the catalog",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'policyId'")
     @ApiResponses(value = {
         @ApiResponse(code = 404, message = "Policy not found")
     })
@@ -192,7 +203,11 @@ public interface CatalogApi {
 
     @DELETE
     @Path("/locations/{locationId}/{version}")
-    @ApiOperation(value = "Deletes a specific version of an location's definition from the catalog")
+    @ApiOperation(
+            value = "Deletes a specific version of an location's definition from the catalog",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'locationId'"
+    )
     @ApiResponses(value = {
         @ApiResponse(code = 404, message = "Location not found")
     })
@@ -245,7 +260,10 @@ public interface CatalogApi {
 
     @GET
     @Path("/entities/{symbolicName}/{version}")
-    @ApiOperation(value = "Fetch a specific version of an entity's definition from the catalog", 
+    @ApiOperation(
+            value = "Fetch a specific version of an entity's definition from the catalog",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'symbolicName'",
             response = CatalogEntitySummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
@@ -274,7 +292,10 @@ public interface CatalogApi {
 
     @GET
     @Path("/applications/{symbolicName}/{version}")
-    @ApiOperation(value = "Fetch a specific version of an application's definition from the catalog", 
+    @ApiOperation(
+            value = "Fetch a specific version of an application's definition from the catalog",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'symbolicName'",
             response = CatalogEntitySummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
@@ -316,7 +337,10 @@ public interface CatalogApi {
 
     @GET
     @Path("/policies/{policyId}/{version}")
-    @ApiOperation(value = "Fetch a policy's definition from the catalog", 
+    @ApiOperation(
+            value = "Fetch a policy's definition from the catalog",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'policyId'",
             response = CatalogItemSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
@@ -357,7 +381,10 @@ public interface CatalogApi {
 
     @GET
     @Path("/locations/{locationId}/{version}")
-    @ApiOperation(value = "Fetch a location's definition from the catalog", 
+    @ApiOperation(
+            value = "Fetch a location's definition from the catalog",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'locationId'",
             response = CatalogItemSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
@@ -384,7 +411,11 @@ public interface CatalogApi {
 
     @GET
     @Path("/icon/{itemId}/{version}")
-    @ApiOperation(value = "Return the icon for a given catalog entry (application/image or HTTP redirect)")
+    @ApiOperation(
+            value = "Return the icon for a given catalog entry (application/image or HTTP redirect)",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'itemId'"
+    )
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Item not found")
         })
