@@ -90,6 +90,20 @@ public class EntityManagerTest extends BrooklynAppUnitTestSupport {
     }
     
     @Test
+    public void testCreateEntityUsingPrivateConstructorFails() {
+        try {
+            TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class).impl(TestEntityPrivateConstructorImpl.class));
+            Asserts.shouldHaveFailedPreviously("entity="+entity);
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "must have a no-argument constructor");
+        }
+    }
+    private static class TestEntityPrivateConstructorImpl extends TestEntityImpl {
+        private TestEntityPrivateConstructorImpl() {
+        }
+    }
+
+    @Test
     public void testGetEntities() {
         TestApplication app2 = ApplicationBuilder.newManagedApp(TestApplication.class, mgmt);
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));

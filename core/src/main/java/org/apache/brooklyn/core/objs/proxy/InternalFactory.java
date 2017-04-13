@@ -20,7 +20,9 @@ package org.apache.brooklyn.core.objs.proxy;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
 import java.util.Map;
 
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
@@ -30,11 +32,15 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  */
 public class InternalFactory {
 
+    private static final Logger LOG = LoggerFactory.getLogger(InternalFactory.class);
+    
     protected final ManagementContextInternal managementContext;
 
     /**
@@ -68,7 +74,7 @@ public class InternalFactory {
      */
     public static boolean isNewStyle(Class<?> clazz) {
         try {
-            clazz.getConstructor(new Class[0]);
+            clazz.getDeclaredConstructor(new Class[0]);
             return true;
         } catch (NoSuchMethodException e) {
             return false;
@@ -130,7 +136,17 @@ public class InternalFactory {
         try {
             FactoryConstructionTracker.setConstructing();
             try {
-                return clazz.newInstance();
+                Constructor<T> constructor = clazz.getDeclaredConstructor(new Class[0]);
+                if (!(Modifier.isPublic(clazz.getModifiers()) && Modifier.isPublic(constructor.getModifiers()))
+                        && !constructor.isAccessible()) {
+                    try {
+                        constructor.setAccessible(true);
+                        LOG.warn("Set no-arg constructor accessible for "+clazz+" (deprecated; should have public no-arg constructor)");
+                    } catch (SecurityException e) {
+                        LOG.warn("Unable to set no-arg constructor accessible for "+clazz+" (continuing, but may subsequently fail): " + e);
+                    }
+                }
+                return constructor.newInstance(new Object[0]);
             } finally {
                 FactoryConstructionTracker.reset();
             }
