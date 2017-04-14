@@ -75,7 +75,7 @@ public class ErrorResponseTest extends BrooklynRestResourceTest {
                 + RestMockSimplePolicy.INTEGER_CONFIG.getName();
 
         Response response = client().path(resource)
-                .post(toJsonEntity(ImmutableMap.of("value", "notanumber")));
+                .post(toJsonEntity("notanumber"));
 
         assertEquals(response.getStatus(), Status.BAD_REQUEST.getStatusCode());
         assertEquals(response.getHeaders().getFirst("Content-Type"), MediaType.APPLICATION_JSON);

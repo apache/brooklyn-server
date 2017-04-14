@@ -84,7 +84,6 @@ limitations under the License.
     <bean id="sensorResourceBean" class="org.apache.brooklyn.rest.resources.SensorResource"/>
     <bean id="serverResourceBean" class="org.apache.brooklyn.rest.resources.ServerResource"/>
     <bean id="usageResourceBean" class="org.apache.brooklyn.rest.resources.UsageResource"/>
-    <bean id="versionResourceBean" class="org.apache.brooklyn.rest.resources.VersionResource"/>
     <bean id="logoutResourceBean" class="org.apache.brooklyn.rest.resources.LogoutResource"/>
 
     <jaxrs:server id="brooklynRestApiV1" address="/">
@@ -104,7 +103,6 @@ limitations under the License.
             <ref component-id="sensorResourceBean"/>
             <ref component-id="serverResourceBean"/>
             <ref component-id="usageResourceBean"/>
-            <ref component-id="versionResourceBean"/>
             <ref component-id="logoutResourceBean"/>
         </jaxrs:serviceBeans>
 

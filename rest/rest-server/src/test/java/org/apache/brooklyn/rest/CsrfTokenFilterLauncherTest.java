@@ -52,12 +52,12 @@ public class CsrfTokenFilterLauncherTest extends BrooklynRestApiLauncherTestFixt
         HttpClient client = client();
         
         HttpToolResponse response = HttpTool.httpGet(
-            client, URI.create(getBaseUriRest() + "server/status"),
+            client, URI.create(getBaseUriRest() + "server/ha/state"),
             ImmutableMap.<String,String>of(
                 CsrfTokenFilter.CSRF_TOKEN_REQUIRED_HEADER, CsrfTokenFilter.CsrfTokenRequiredForRequests.WRITE.toString()));
         
         // comes back okay
-        assertOkayResponse(response, "MASTER");
+        assertOkayResponse(response, "\"MASTER\"");
         
         Map<String, List<String>> cookies = response.getCookieKeyValues();
         String token = Iterables.getOnlyElement(cookies.get(CsrfTokenFilter.CSRF_TOKEN_VALUE_COOKIE));
@@ -84,19 +84,19 @@ public class CsrfTokenFilterLauncherTest extends BrooklynRestApiLauncherTestFixt
 
         // can get without token
         response = HttpTool.httpGet(
-            client, URI.create(getBaseUriRest() + "server/status"),
+            client, URI.create(getBaseUriRest() + "server/ha/state"),
             ImmutableMap.<String,String>of());
-        assertOkayResponse(response, "MASTER");
+        assertOkayResponse(response, "\"MASTER\"");
         
         // but if we set required ALL then need a token to get
         response = HttpTool.httpGet(
-            client, URI.create(getBaseUriRest() + "server/status"),
+            client, URI.create(getBaseUriRest() + "server/ha/state"),
             ImmutableMap.<String,String>of(
                 CsrfTokenFilter.CSRF_TOKEN_REQUIRED_HEADER, CsrfTokenFilter.CsrfTokenRequiredForRequests.ALL.toString().toLowerCase()
                 ));
-        assertOkayResponse(response, "MASTER");
+        assertOkayResponse(response, "\"MASTER\"");
         response = HttpTool.httpGet(
-            client, URI.create(getBaseUriRest() + "server/status"),
+            client, URI.create(getBaseUriRest() + "server/ha/state"),
             ImmutableMap.<String,String>of());
         assertEquals(response.getResponseCode(), HttpStatus.SC_UNAUTHORIZED);
         

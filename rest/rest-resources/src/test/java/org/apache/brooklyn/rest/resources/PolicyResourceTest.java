@@ -121,8 +121,7 @@ public class PolicyResourceTest extends BrooklynRestResourceTest {
         String configName = RestMockSimplePolicy.SAMPLE_CONFIG.getName();
         
         Response response = client().path(ENDPOINT + policyId + "/config/" + configName)
-                .header("Content-type", "plain/text")
-                .post("newval");
+                .post(toJsonEntity("newval"));
 
         assertEquals(response.getStatus(), Response.Status.OK.getStatusCode());
     }

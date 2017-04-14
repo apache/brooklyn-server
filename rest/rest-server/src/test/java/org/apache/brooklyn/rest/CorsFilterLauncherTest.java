@@ -57,30 +57,30 @@ public class CorsFilterLauncherTest extends BrooklynRestApiLauncherTestFixture {
     
         HttpClient client = client();
         // preflight request
-        HttpToolResponse response = HttpTool.execAndConsume(client, httpOptionsRequest("server/status", "GET", shouldAllowOrigin));
+        HttpToolResponse response = HttpTool.execAndConsume(client, httpOptionsRequest("server/ha/state", "GET", shouldAllowOrigin));
         assertAcAllowOrigin(response, shouldAllowOrigin, "GET");
         assertOkayResponse(response, "");
     
-        HttpUriRequest httpRequest = RequestBuilder.get(getBaseUriRest() + "server/status")
+        HttpUriRequest httpRequest = RequestBuilder.get(getBaseUriRest() + "server/ha/state")
                 .addHeader("Origin", shouldAllowOrigin)
                 .addHeader(HEADER_AC_REQUEST_METHOD, "GET")
                 .build();
         response = HttpTool.execAndConsume(client, httpRequest);
         assertAcAllowOrigin(response, shouldAllowOrigin, "GET", false);
-        assertOkayResponse(response, "MASTER");
+        assertOkayResponse(response, "\"MASTER\"");
     
         // preflight request
-        response = HttpTool.execAndConsume(client, httpOptionsRequest("server/status", "GET", thirdPartyOrigin));
+        response = HttpTool.execAndConsume(client, httpOptionsRequest("server/ha/state", "GET", thirdPartyOrigin));
         assertAcNotAllowOrigin(response);
         assertOkayResponse(response, "");
 
-        httpRequest = RequestBuilder.get(getBaseUriRest() + "server/status")
+        httpRequest = RequestBuilder.get(getBaseUriRest() + "server/ha/state")
                 .addHeader("Origin", thirdPartyOrigin)
                 .addHeader(HEADER_AC_REQUEST_METHOD, "GET")
                 .build();
         response = HttpTool.execAndConsume(client, httpRequest);
         assertAcNotAllowOrigin(response);
-        assertOkayResponse(response, "MASTER");
+        assertOkayResponse(response, "\"MASTER\"");
     }
     
     @Test
@@ -124,7 +124,7 @@ public class CorsFilterLauncherTest extends BrooklynRestApiLauncherTestFixture {
         setCorsFilterFeature(true, ImmutableList.<String>of());
         HttpClient client = client();
         // preflight request
-        HttpToolResponse response = HttpTool.execAndConsume(client, httpOptionsRequest("server/status", "GET", shouldAllowOrigin));
+        HttpToolResponse response = HttpTool.execAndConsume(client, httpOptionsRequest("server/ha/state", "GET", shouldAllowOrigin));
         List<String> accessControlAllowOrigin = response.getHeaderLists().get(HEADER_AC_ALLOW_ORIGIN);
         assertEquals(accessControlAllowOrigin.size(), 1);
         assertEquals(accessControlAllowOrigin.get(0), "*", "Should allow GET requests made from " + shouldAllowOrigin);
@@ -133,7 +133,7 @@ public class CorsFilterLauncherTest extends BrooklynRestApiLauncherTestFixture {
         assertEquals(response.getHeaderLists().get(HEADER_AC_ALLOW_HEADERS).get(0), "x-csrf-token", "Should have asked and allowed x-csrf-token header from " + shouldAllowOrigin);
         assertOkayResponse(response, "");
 
-        HttpUriRequest httpRequest = RequestBuilder.get(getBaseUriRest() + "server/status")
+        HttpUriRequest httpRequest = RequestBuilder.get(getBaseUriRest() + "server/ha/state")
                 .addHeader("Origin", shouldAllowOrigin)
                 .addHeader(HEADER_AC_REQUEST_METHOD, "GET")
                 .build();
@@ -141,7 +141,7 @@ public class CorsFilterLauncherTest extends BrooklynRestApiLauncherTestFixture {
         accessControlAllowOrigin = response.getHeaderLists().get(HEADER_AC_ALLOW_ORIGIN);
         assertEquals(accessControlAllowOrigin.size(), 1);
         assertEquals(accessControlAllowOrigin.get(0), "*", "Should allow GET requests made from " + shouldAllowOrigin);
-        assertOkayResponse(response, "MASTER");
+        assertOkayResponse(response, "\"MASTER\"");
     }
     
     @Test
@@ -185,7 +185,7 @@ public class CorsFilterLauncherTest extends BrooklynRestApiLauncherTestFixture {
         setCorsFilterFeature(false, null);
     
         HttpClient client = client();
-        HttpToolResponse response = HttpTool.execAndConsume(client, httpOptionsRequest("server/status", "GET", shouldAllowOrigin));
+        HttpToolResponse response = HttpTool.execAndConsume(client, httpOptionsRequest("server/ha/state", "GET", shouldAllowOrigin));
         assertAcNotAllowOrigin(response);
         assertOkayResponse(response, "");
     
