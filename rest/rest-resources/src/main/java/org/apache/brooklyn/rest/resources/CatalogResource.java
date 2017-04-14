@@ -102,6 +102,7 @@ import com.google.common.io.Files;
 public class CatalogResource extends AbstractBrooklynRestResource implements CatalogApi {
 
     private static final Logger log = LoggerFactory.getLogger(CatalogResource.class);
+    private static final String LATEST = "latest";
     
     @SuppressWarnings("rawtypes")
     private Function<CatalogItem, CatalogItemSummary> toCatalogItemSummary(final UriInfo ui) {
@@ -112,6 +113,13 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             }
         };
     };
+
+    private String processVersion(String version) {
+        if (version != null && LATEST.equals(version.toLowerCase())) {
+            version = null;
+        }
+        return version;
+    }
 
     static Set<String> missingIcons = MutableSet.of();
 
@@ -331,6 +339,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
                 Entitlements.getEntitlementContext().user());
         }
+
+        version = processVersion(version);
         
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, version);
         if (item == null) {
@@ -348,6 +358,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
                 Entitlements.getEntitlementContext().user());
         }
+
+        version = processVersion(version);
         
         RegisteredType item = mgmt().getTypeRegistry().get(policyId, version);
         if (item == null) {
@@ -365,6 +377,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
                 Entitlements.getEntitlementContext().user());
         }
+
+        version = processVersion(version);
         
         RegisteredType item = mgmt().getTypeRegistry().get(locationId, version);
         if (item == null) {
@@ -421,6 +435,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
         }
+
+        version = processVersion(version);
 
         //TODO These casts are not pretty, we could just provide separate get methods for the different types?
         //Or we could provide asEntity/asPolicy cast methods on the CataloItem doing a safety check internally
@@ -481,6 +497,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 Entitlements.getEntitlementContext().user());
         }
 
+        version = processVersion(version);
+
         @SuppressWarnings("unchecked")
         CatalogItem<? extends Policy, PolicySpec<?>> result =
                 (CatalogItem<? extends Policy, PolicySpec<?>>)brooklyn().getCatalog().getCatalogItem(policyId, version);
@@ -526,6 +544,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
         }
+
+        version = processVersion(version);
 
         @SuppressWarnings("unchecked")
         CatalogItem<? extends Location, LocationSpec<?>> result =
@@ -575,6 +595,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
         }
+
+        version = processVersion(version);
         
         return getCatalogItemIcon(mgmt().getTypeRegistry().get(itemId, version));
     }
