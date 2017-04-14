@@ -621,6 +621,7 @@ public class BashCommands {
     public static String installJava(int version) {
         Preconditions.checkArgument(version == 6 || version == 7 || version == 8, "Supported Java versions are 6, 7, or 8");
         List<String> commands = new LinkedList<String>();
+        commands.add(ok(addOpenJDKPPK()));
         commands.add(installPackageOr(MutableMap.of("apt", "openjdk-" + version + "-jdk","yum", "java-1." + version + ".0-openjdk-devel"), null,
                 ifExecutableElse1("zypper", chainGroup(
                         ok(sudo("zypper --non-interactive addrepo http://download.opensuse.org/repositories/Java:/openjdk6:/Factory/SLE_11_SP3 java_sles_11")),
@@ -668,6 +669,15 @@ public class BashCommands {
 
     public static String installJavaLatestOrWarn() {
         return alternatives(installJava8(), installJava7(), installJava6(), warn("java latest install failed, entity may subsequently fail"));
+    }
+
+    /**
+     * Adds the PPA for OpenJDK for older JDK versions (7 and lower) required by some software (e.g. JBoss)
+     */
+    public static String addOpenJDKPPK(){
+        return chainGroup(
+                sudo("sudo add-apt-repository -y ppa:openjdk-r/ppa"),
+                sudo("sudo apt-get update"));
     }
 
     /**
