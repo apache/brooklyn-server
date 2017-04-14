@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -59,15 +60,15 @@ public class ServerResourceTest extends BrooklynRestResourceTest {
 
     @Test
     public void testGetStatus() throws Exception {
-        String status = client().path("/server/status").get(String.class);
-        assertEquals(status, "MASTER");
+        ManagementNodeState nodeState = client().path("/server/ha/state").get(ManagementNodeState.class);
+        assertEquals(nodeState.name(), "MASTER");
     }
 
     @Test
     public void testGetHighAvailability() throws Exception {
         // Note by default management context from super is started without HA enabled.
         // Therefore can only assert a minimal amount of stuff.
-        HighAvailabilitySummary summary = client().path("/server/highAvailability").get(HighAvailabilitySummary.class);
+        HighAvailabilitySummary summary = client().path("/server/ha/states").get(HighAvailabilitySummary.class);
         log.info("HA summary is: "+summary);
         
         String ownNodeId = getManagementContext().getManagementNodeId();

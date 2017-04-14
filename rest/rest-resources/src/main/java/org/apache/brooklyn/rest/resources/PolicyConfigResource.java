@@ -80,12 +80,6 @@ public class PolicyConfigResource extends AbstractBrooklynRestResource implement
         return getStringValueForDisplay(brooklyn(), policy, policy.getConfig(ck));
     }
 
-    @Override
-    @Deprecated
-    public Response set(String application, String entityToken, String policyToken, String configKeyName, String value) {
-        return set(application, entityToken, policyToken, configKeyName, (Object) value);
-    }
-
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     public Response set(String application, String entityToken, String policyToken, String configKeyName, Object value) {

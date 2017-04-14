@@ -81,27 +81,9 @@ public interface PolicyConfigApi {
             @ApiParam(value = "Config key ID", required = true)
             @PathParam("config") String configKeyName);
 
-    /** @deprecated since 0.7.0 use set with object*/ @Deprecated
-    @POST
-    @Path("/{config}/set")
-    @ApiOperation(value = "Sets the given config on this policy")
-    @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity, policy or config key")
-    })
-    public Response set(
-            @ApiParam(value = "Application ID or name", required = true)
-            @PathParam("application") String application,
-            @ApiParam(value = "Entity ID or name", required = true)
-            @PathParam("entity") String entityToken,
-            @ApiParam(value = "Policy ID or name", required = true)
-            @PathParam("policy") String policyToken,
-            @ApiParam(value = "Config key ID", required = true)
-            @PathParam("config") String configKeyName,
-            @ApiParam(name = "value", value = "New value for the configuration", required = true)
-            @QueryParam("value") String value);
-
     @POST
     @Path("/{config}")
+    @Consumes(value = {"*/*"})
     @ApiOperation(value = "Sets the given config on this policy")
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Could not find application, entity, policy or config key")

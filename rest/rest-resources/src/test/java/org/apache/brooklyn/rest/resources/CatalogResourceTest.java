@@ -232,33 +232,6 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     }
 
     @Test
-    @Deprecated
-    // If we move to using a yaml catalog item, the details will be of the wrapping app,
-    // not of the entity itself, so the test won't make sense any more.
-    public void testGetCatalogEntityDetails() {
-        CatalogEntitySummary details = client()
-                .path(URI.create("/catalog/entities/org.apache.brooklyn.rest.resources.DummyIconEntity"))
-                .get(CatalogEntitySummary.class);
-        assertTrue(details.toString().contains("dummy.config"), "expected more config, only got: "+details);
-        // No icons in brooklyn-server entities
-        String iconUrl = "/catalog/icon/" + details.getSymbolicName();
-        assertTrue(details.getIconUrl().contains(iconUrl), "expected brooklyn URL for icon image, but got: " + details.getIconUrl());
-    }
-
-    @Test
-    @Deprecated
-    // If we move to using a yaml catalog item, the details will be of the wrapping app,
-    // not of the entity itself, so the test won't make sense any more.
-    public void testGetCatalogEntityPlusVersionDetails() {
-        CatalogEntitySummary details = client()
-                .path(URI.create("/catalog/entities/org.apache.brooklyn.rest.resources.DummyIconEntity:0.0.0.SNAPSHOT"))
-                .get(CatalogEntitySummary.class);
-        assertTrue(details.toString().contains("dummy.config"), "expected more config, only got: "+details);
-        URI expectedIconUrl = URI.create(getEndpointAddress() + "/catalog/icon/" + details.getSymbolicName() + "/" + details.getVersion()).normalize();
-        assertEquals(details.getIconUrl(), expectedIconUrl.getPath(), "expected brooklyn URL for icon image ("+expectedIconUrl+"), but got: "+details.getIconUrl());
-    }
-
-    @Test
     public void testGetCatalogEntityIconDetails() throws IOException {
         String catalogItemId = "testGetCatalogEntityIconDetails";
         addTestCatalogItemAsEntity(catalogItemId);
@@ -412,13 +385,6 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     @Test
     public void testSetDeprecated() {
         runSetDeprecated(DeprecateStyle.NEW_STYLE);
-    }
-    
-    // Uses old-style "/catalog/{itemId}/deprecated/true", rather than the "true" in the request body.
-    @Test
-    @Deprecated
-    public void testSetDeprecatedLegacy() {
-        runSetDeprecated(DeprecateStyle.LEGACY_STYLE);
     }
 
     protected void runSetDeprecated(DeprecateStyle style) {

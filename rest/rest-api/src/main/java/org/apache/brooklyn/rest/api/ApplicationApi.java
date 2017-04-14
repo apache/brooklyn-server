@@ -161,22 +161,6 @@ public interface ApplicationApi {
                     required = true)
             @PathParam("application") String application);
 
-    /** @deprecated since 0.7.0 the {@link ApplicationSpec} is being retired in favour of CAMP YAML/ZIP
-     * (however in 0.7.0 you can still pass this object as JSON and it will be autodetected) */
-    @POST
-    @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})
-    @ApiOperation(
-            value = "Create and start a new application from miscellaneous types, including JSON either new CAMP format or legacy AppSpec format",
-            response = org.apache.brooklyn.rest.domain.TaskSummary.class
-    )
-    @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Undefined entity or location"),
-            @ApiResponse(code = 412, message = "Application already registered")
-    })
-    @Path("/createLegacy")
-    @Deprecated
-    public Response create(ApplicationSpec applicationSpec);
-
     @GET
     @Path("/{application}/descendants")
     @ApiOperation(value = "Fetch entity info for all (or filtered) descendants",
