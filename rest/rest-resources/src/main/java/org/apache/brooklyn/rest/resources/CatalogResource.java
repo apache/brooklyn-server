@@ -114,6 +114,13 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         };
     };
 
+    private String processVersion(String version) {
+        if (version != null && LATEST.equals(version.toLowerCase())) {
+            version = null;
+        }
+        return version;
+    }
+
     static Set<String> missingIcons = MutableSet.of();
 
     @Override
@@ -333,9 +340,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 Entitlements.getEntitlementContext().user());
         }
 
-        if (LATEST.equals(version)) {
-            version = null;
-        }
+        version = processVersion(version);
         
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, version);
         if (item == null) {
@@ -354,9 +359,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 Entitlements.getEntitlementContext().user());
         }
 
-        if (LATEST.equals(version)) {
-            version = null;
-        }
+        version = processVersion(version);
         
         RegisteredType item = mgmt().getTypeRegistry().get(policyId, version);
         if (item == null) {
@@ -375,9 +378,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 Entitlements.getEntitlementContext().user());
         }
 
-        if (LATEST.equals(version)) {
-            version = null;
-        }
+        version = processVersion(version);
         
         RegisteredType item = mgmt().getTypeRegistry().get(locationId, version);
         if (item == null) {
@@ -435,9 +436,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 Entitlements.getEntitlementContext().user());
         }
 
-        if (LATEST.equals(version)) {
-            version = null;
-        }
+        version = processVersion(version);
 
         //TODO These casts are not pretty, we could just provide separate get methods for the different types?
         //Or we could provide asEntity/asPolicy cast methods on the CataloItem doing a safety check internally
@@ -498,9 +497,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 Entitlements.getEntitlementContext().user());
         }
 
-        if (LATEST.equals(version)) {
-            version = null;
-        }
+        version = processVersion(version);
 
         @SuppressWarnings("unchecked")
         CatalogItem<? extends Policy, PolicySpec<?>> result =
@@ -548,9 +545,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 Entitlements.getEntitlementContext().user());
         }
 
-        if (LATEST.equals(version)) {
-            version = null;
-        }
+        version = processVersion(version);
 
         @SuppressWarnings("unchecked")
         CatalogItem<? extends Location, LocationSpec<?>> result =
@@ -601,9 +596,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 Entitlements.getEntitlementContext().user());
         }
 
-        if (LATEST.equals(version)) {
-            version = null;
-        }
+        version = processVersion(version);
         
         return getCatalogItemIcon(mgmt().getTypeRegistry().get(itemId, version));
     }

@@ -890,6 +890,19 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         assertEquals(application.getVersion(), TEST_LASTEST_VERSION);
     }
 
+    @Test(dependsOnMethods = {"testGetOnlyLatestApplication"})
+    public void testGetOnlyLatestDifferentCases() {
+        String symbolicName = "latest.catalog.application.id";
+
+        CatalogItemSummary application = client().path("/catalog/applications/" + symbolicName + "/LaTeSt")
+                .get(CatalogItemSummary.class);
+        assertEquals(application.getVersion(), TEST_LASTEST_VERSION);
+
+        application = client().path("/catalog/applications/" + symbolicName + "/LATEST")
+                .get(CatalogItemSummary.class);
+        assertEquals(application.getVersion(), TEST_LASTEST_VERSION);
+    }
+
     @Test
     public void testGetOnlyLatestEntity() {
         String symbolicName = "latest.catalog.entity.id";
@@ -932,14 +945,9 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         assertEquals(application.getVersion(), TEST_LASTEST_VERSION);
     }
 
-    @Test
+    @Test(dependsOnMethods = {"testGetOnlyLatestApplication", "testGetOnlyLatestDifferentCases"})
     public void testDeleteOnlyLatestApplication() throws IOException {
-        String symbolicName = "latest.catalog.application.delete.id";
-        String itemType = "template";
-        String serviceType = "org.apache.brooklyn.core.test.entity.TestEntity";
-
-        addTestCatalogItem(symbolicName, itemType, TEST_VERSION, serviceType);
-        addTestCatalogItem(symbolicName, itemType, TEST_LASTEST_VERSION, serviceType);
+        String symbolicName = "latest.catalog.application.id";
 
         Response deleteResponse = client().path("/catalog/applications/" + symbolicName + "/latest").delete();
         assertEquals(deleteResponse.getStatus(), HttpStatus.NO_CONTENT_204);
@@ -950,14 +958,9 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         assertEquals(applications.get(0).getVersion(), TEST_VERSION);
     }
 
-    @Test
+    @Test(dependsOnMethods = {"testGetOnlyLatestEntity"})
     public void testDeleteOnlyLatestEntity() throws IOException {
-        String symbolicName = "latest.catalog.entity.delete.id";
-        String itemType = "entity";
-        String serviceType = "org.apache.brooklyn.core.test.entity.TestEntity";
-
-        addTestCatalogItem(symbolicName, itemType, TEST_VERSION, serviceType);
-        addTestCatalogItem(symbolicName, itemType, TEST_LASTEST_VERSION, serviceType);
+        String symbolicName = "latest.catalog.entity.id";
 
         Response deleteResponse = client().path("/catalog/entities/" + symbolicName + "/latest").delete();
         assertEquals(deleteResponse.getStatus(), HttpStatus.NO_CONTENT_204);
@@ -968,14 +971,9 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         assertEquals(applications.get(0).getVersion(), TEST_VERSION);
     }
 
-    @Test
+    @Test(dependsOnMethods = {"testGetOnlyLatestPolicy"})
     public void testDeleteOnlyLatestPolicy() throws IOException {
-        String symbolicName = "latest.catalog.policy.delete.id";
-        String itemType = "policy";
-        String serviceType = "org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy";
-
-        addTestCatalogItem(symbolicName, itemType, TEST_VERSION, serviceType);
-        addTestCatalogItem(symbolicName, itemType, TEST_LASTEST_VERSION, serviceType);
+        String symbolicName = "latest.catalog.policy.id";
 
         Response deleteResponse = client().path("/catalog/policies/" + symbolicName + "/latest").delete();
         assertEquals(deleteResponse.getStatus(), HttpStatus.NO_CONTENT_204);
@@ -986,14 +984,9 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         assertEquals(applications.get(0).getVersion(), TEST_VERSION);
     }
 
-    @Test
+    @Test(dependsOnMethods = {"testGetOnlyLatestLocation"})
     public void testDeleteOnlyLatestLocation() throws IOException {
-        String symbolicName = "latest.catalog.location.delete.id";
-        String itemType = "location";
-        String serviceType = "localhost";
-
-        addTestCatalogItem(symbolicName, itemType, TEST_VERSION, serviceType);
-        addTestCatalogItem(symbolicName, itemType, TEST_LASTEST_VERSION, serviceType);
+        String symbolicName = "latest.catalog.location.id";
 
         Response deleteResponse = client().path("/catalog/locations/" + symbolicName + "/latest").delete();
         assertEquals(deleteResponse.getStatus(), HttpStatus.NO_CONTENT_204);
