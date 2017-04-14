@@ -81,6 +81,9 @@ public class RegisteredTypePredicatesTest extends BrooklynMgmtUnitTestSupport {
 
         assertTrue(RegisteredTypePredicates.IS_ENTITY.apply(item));
         assertFalse(RegisteredTypePredicates.IS_LOCATION.apply(item));
+        assertFalse(RegisteredTypePredicates.IS_APPLICATION.apply(item));
+        assertFalse(RegisteredTypePredicates.IS_ENRICHER.apply(item));
+        assertFalse(RegisteredTypePredicates.IS_POLICY.apply(item));
     }
     
     @Test

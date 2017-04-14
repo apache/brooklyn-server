@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.enricher.stock;
 
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,6 +44,7 @@ import org.apache.brooklyn.util.math.MathFunctions;
  * The Enricher subscribes to events from these sensors, and will emit the ratio
  * of current to total as a target sensor.
  */
+@Catalog(name = "Percentage Transformer", description = "Computes and advertises the percentage based on a current and total values")
 public class PercentageEnricher extends AbstractEnricher implements SensorEventListener<Number> {
 
     private static final Logger LOG = LoggerFactory.getLogger(PercentageEnricher.class);

@@ -20,6 +20,7 @@ package org.apache.brooklyn.enricher.stock;
 
 import java.util.Map;
 
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
@@ -59,6 +60,7 @@ import com.google.common.reflect.TypeToken;
  * @param <TVal> value type in target sensor map
  */
 @SuppressWarnings("serial")
+@Catalog(name = "Map Updater", description = "Updates an entry in a sensor Map")
 public class UpdatingMap<S,TKey,TVal> extends AbstractEnricher implements SensorEventListener<S> {
 
     private static final Logger LOG = LoggerFactory.getLogger(UpdatingMap.class);

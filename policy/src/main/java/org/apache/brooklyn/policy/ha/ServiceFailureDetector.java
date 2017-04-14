@@ -23,6 +23,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
@@ -55,7 +56,7 @@ import org.apache.brooklyn.util.time.Time;
  * (or until another process manually sets {@link Attributes#SERVICE_STATE_ACTUAL} to {@value Lifecycle#ON_FIRE},
  * which this enricher will not clear until all problems have gone away)
  */
-//@Catalog(name="Service Failure Detector", description="HA policy for deteting failure of a service")
+@Catalog(name="Service Failure Detector", description="Emits a new sensor if the current entity fails")
 public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceState {
 
     // TODO Remove duplication between this and MemberFailureDetectionPolicy.

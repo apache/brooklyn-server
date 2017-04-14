@@ -106,6 +106,90 @@ brooklyn.catalog:
         name: Auto-scaler
         description: Policy that is attached to a Resizable entity and dynamically 
 
+  # org.apache.brooklyn.enrichers
+  - itemType: enricher
+    items:
+    - id: org.apache.brooklyn.core.network.OnPublicNetworkEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.core.network.OnPublicNetworkEnricher
+    - id: org.apache.brooklyn.core.network.OnSubnetNetworkEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.core.network.OnSubnetNetworkEnricher
+    - id: org.apache.brooklyn.enricher.stock.Aggregator
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.Aggregator
+    - id: org.apache.brooklyn.enricher.stock.Combiner
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.Combiner
+    - id: org.apache.brooklyn.enricher.stock.Joiner
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.Joiner
+    - id: org.apache.brooklyn.enricher.stock.MapAggregator
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.MapAggregator
+    - id: org.apache.brooklyn.enricher.stock.PercentageEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.PercentageEnricher
+    - id: org.apache.brooklyn.enricher.stock.Propagator
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.Propagator
+    - id: org.apache.brooklyn.enricher.stock.Transformer
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.Transformer
+    - id: org.apache.brooklyn.enricher.stock.UpdatingMap
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.UpdatingMap
+    - id: org.apache.brooklyn.enricher.stock.YamlRollingTimeWindowMeanEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.YamlRollingTimeWindowMeanEnricher
+    - id: org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher
+    - id: org.apache.brooklyn.enricher.stock.reducer.Reducer
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.reducer.Reducer
+    - id: org.apache.brooklyn.policy.enricher.DeltaEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.policy.enricher.DeltaEnricher
+    - id: org.apache.brooklyn.policy.enricher.HttpLatencyDetector
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.policy.enricher.HttpLatencyDetector
+    - id: org.apache.brooklyn.policy.enricher.RollingMeanEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.policy.enricher.RollingMeanEnricher
+    - id: org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher
+    - id: org.apache.brooklyn.policy.enricher.TimeFractionDeltaEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.policy.enricher.TimeFractionDeltaEnricher
+    - id: org.apache.brooklyn.policy.enricher.TimeWeightedDeltaEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.policy.enricher.TimeWeightedDeltaEnricher
+    - id: org.apache.brooklyn.policy.ha.ServiceFailureDetector
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.policy.ha.ServiceFailureDetector
+
     # org.apache.brooklyn.software-base
   - itemType: entity
     items:

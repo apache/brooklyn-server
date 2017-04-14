@@ -60,3 +60,33 @@ brooklyn.catalog:
         type: org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy
         name: Auto-scaler
         description: Policy that is attached to a Resizable entity and dynamically 
+
+    # Enrichers
+    - id: org.apache.brooklyn.policy.enricher.DeltaEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.policy.enricher.DeltaEnricher
+    - id: org.apache.brooklyn.policy.enricher.HttpLatencyDetector
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.policy.enricher.HttpLatencyDetector
+    - id: org.apache.brooklyn.policy.enricher.RollingMeanEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.policy.enricher.RollingMeanEnricher
+    - id: org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher
+    - id: org.apache.brooklyn.policy.enricher.TimeFractionDeltaEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.policy.enricher.TimeFractionDeltaEnricher
+    - id: org.apache.brooklyn.policy.enricher.TimeWeightedDeltaEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.policy.enricher.TimeWeightedDeltaEnricher
+    - id: org.apache.brooklyn.policy.ha.ServiceFailureDetector
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.policy.ha.ServiceFailureDetector

@@ -16,8 +16,9 @@
 # under the License.
 
 brooklyn.catalog:
-    version: "0.12.0-SNAPSHOT" # BROOKLYN_VERSION
-    itemType: entity
+  version: "0.12.0-SNAPSHOT" # BROOKLYN_VERSION
+  items:
+  - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.group.QuarantineGroup
       item:
@@ -58,3 +59,58 @@ brooklyn.catalog:
     - id: org.apache.brooklyn.entity.group.DynamicFabric
       item:
         type: org.apache.brooklyn.entity.group.DynamicFabric
+
+  - itemType: enricher
+    items:
+    - id: org.apache.brooklyn.core.network.OnPublicNetworkEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.core.network.OnPublicNetworkEnricher
+    - id: org.apache.brooklyn.core.network.OnSubnetNetworkEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.core.network.OnSubnetNetworkEnricher
+    - id: org.apache.brooklyn.enricher.stock.Aggregator
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.Aggregator
+    - id: org.apache.brooklyn.enricher.stock.Combiner
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.Combiner
+    - id: org.apache.brooklyn.enricher.stock.Joiner
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.Joiner
+    - id: org.apache.brooklyn.enricher.stock.MapAggregator
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.MapAggregator
+    - id: org.apache.brooklyn.enricher.stock.PercentageEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.PercentageEnricher
+    - id: org.apache.brooklyn.enricher.stock.Propagator
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.Propagator
+    - id: org.apache.brooklyn.enricher.stock.Transformer
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.Transformer
+    - id: org.apache.brooklyn.enricher.stock.UpdatingMap
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.UpdatingMap
+    - id: org.apache.brooklyn.enricher.stock.YamlRollingTimeWindowMeanEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.YamlRollingTimeWindowMeanEnricher
+    - id: org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher
+    - id: org.apache.brooklyn.enricher.stock.reducer.Reducer
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.reducer.Reducer

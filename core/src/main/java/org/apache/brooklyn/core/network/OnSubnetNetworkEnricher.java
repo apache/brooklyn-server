@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.network;
 
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.config.ConfigKey;
@@ -51,6 +52,7 @@ import com.google.common.net.HostAndPort;
  * </pre>
  */
 @Beta
+@Catalog(name = "Subnet Network Advertiser", description = "Advertises entity's subnet mapped ports. This can be used with sensors of type URI, HostAndPort or plain integer port values")
 public class OnSubnetNetworkEnricher extends AbstractOnNetworkEnricher {
 
     // TODO This is a temporary measure while we discuss and implement 

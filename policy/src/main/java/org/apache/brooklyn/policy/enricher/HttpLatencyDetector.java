@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -65,7 +66,7 @@ import com.google.common.reflect.TypeToken;
  * optionally returned from sensors.  It does not currently support POST 
  * and has limited support for https.
  */
-//@Catalog(name="HTTP Latency Detector", description="An Enricher which computes latency in accessing a URL, normally by periodically polling that URL")
+@Catalog(name="HTTP Latency Detector", description="Computes latency in accessing a URL, normally by periodically polling that URL")
 public class HttpLatencyDetector extends AbstractEnricher implements Enricher {
 
     private static final Logger log = LoggerFactory.getLogger(HttpLatencyDetector.class);

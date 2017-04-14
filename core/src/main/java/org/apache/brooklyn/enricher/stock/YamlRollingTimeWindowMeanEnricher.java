@@ -20,6 +20,8 @@ package org.apache.brooklyn.enricher.stock;
 
 import java.util.Iterator;
 import java.util.LinkedList;
+
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
@@ -52,6 +54,7 @@ import com.google.common.base.Function;
  * <p>
  * The default average when no data has been received is 0, with a confidence of 0
  */
+@Catalog(name = "YAML Rolling Average", description = "Transforms sensor data into a rolling average based on a time window.")
 public class YamlRollingTimeWindowMeanEnricher<T extends Number> extends AbstractTransformer<T,Double> {
     
     public static ConfigKey<Duration> WINDOW_DURATION = ConfigKeys.newConfigKey(Duration.class, "enricher.window.duration",
