@@ -23,6 +23,26 @@ Here is an example catalog item to add a Kubernetes endpoint to your catalog loc
           image: "cloudsoft/centos:7"
           loginUser.password: "p4ssw0rd"
 
+There are a lot of ways to authenticate with kubernetes.  AMP configuration for these are documented in the [reference](kubernetes-location-configuration).  For example to use client
+certificates use the following example yaml:
+
+    brooklyn.catalog:
+      id: my-kubernetes-cluster
+      name: "My Kubernetes Cluster"
+      itemType: location
+      item:
+        type: kubernetes
+        brooklyn.config:
+          endpoint: << endpoint >>
+          caCertData: |
+            << Generated Ca Cert (see below) >>
+          clientCertData: |
+            << Generated Cert (see below) >>
+          clientKeyData: |
+            << Generated client key (see below) >>
+          image: "cloudsoft/centos:7"
+          loginUser.password: "p4ssw0rd"
+
 AMP Deploys to a Kubernetes cluster by modelling a `KubernetesPod` entity which is made up of multiple heterogeneous `DockerContainer` entities.
 
 #### Plain-AMP blueprints
