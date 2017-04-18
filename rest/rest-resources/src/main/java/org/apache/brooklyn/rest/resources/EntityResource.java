@@ -105,12 +105,6 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     }
 
     @Override
-    public List<EntitySummary> getChildrenOld(String application, String entity) {
-        log.warn("Using deprecated call to /entities when /children should be used");
-        return getChildren(application, entity);
-    }
-
-    @Override
     public Response addChildren(String applicationToken, String entityToken, Boolean start, String timeoutS, String yaml) {
         final Entity parent = brooklyn().getEntity(applicationToken, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, parent)) {

@@ -376,13 +376,6 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             "healthy", isHealthy(),
             "ha", getHighAvailabilityPlaneStates());
     }
-    
-    
-    @Deprecated
-    @Override
-    public String getStatus() {
-        return getHighAvailabilityNodeState().toString();
-    }
 
     @Override
     public String getConfig(String configKey) {
@@ -391,12 +384,6 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         }
         ConfigKey<String> config = ConfigKeys.newStringConfigKey(configKey);
         return mgmt().getConfig().getConfig(config);
-    }
-
-    @Deprecated
-    @Override
-    public HighAvailabilitySummary getHighAvailability() {
-        return getHighAvailabilityPlaneStates();
     }
 
     @Override

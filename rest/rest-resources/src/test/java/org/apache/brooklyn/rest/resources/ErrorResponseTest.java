@@ -70,13 +70,12 @@ public class ErrorResponseTest extends BrooklynRestResourceTest {
     }
 
     @Test
-    public void testResponseToBadRequest() {
+    public void testResponseToBadRequest() throws IOException {
         String resource = "/applications/simple-app/entities/simple-ent/policies/"+policyId+"/config/"
-                + RestMockSimplePolicy.INTEGER_CONFIG.getName() + "/set";
+                + RestMockSimplePolicy.INTEGER_CONFIG.getName();
 
         Response response = client().path(resource)
-                .query("value", "notanumber")
-                .post(null);
+                .post(toJsonEntity("notanumber"));
 
         assertEquals(response.getStatus(), Status.BAD_REQUEST.getStatusCode());
         assertEquals(response.getHeaders().getFirst("Content-Type"), MediaType.APPLICATION_JSON);
@@ -85,21 +84,5 @@ public class ErrorResponseTest extends BrooklynRestResourceTest {
         assertTrue(error.getMessage().toLowerCase().contains("cannot coerce"));
         assertNotNull(error.getError());
         assertEquals(error.getError(), response.getStatus(), Status.BAD_REQUEST.getStatusCode());
-    }
-
-    @Test
-    public void testResponseToWrongMethod() throws IOException {
-        String resource = "/applications/simple-app/entities/simple-ent/policies/"+policyId+"/config/"
-                + RestMockSimplePolicy.INTEGER_CONFIG.getName() + "/set";
-
-        // Should be POST, not GET
-        Response response = client().path(resource)
-                .query("value", "4")
-                .get();
-
-        assertEquals(response.getStatus(), 405);
-        // no input stream; not an API Error
-        InputStream entity = (InputStream) response.getEntity();
-        Assert.assertEquals(entity.read(), -1);
     }
 }

@@ -220,11 +220,6 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         return ApplicationTransformer.summaryFromApplication(brooklyn().getApplication(application), ui.getBaseUriBuilder());
     }
 
-    @Override
-    public Response create(ApplicationSpec applicationSpec) {
-        return createFromAppSpec(applicationSpec);
-    }
-
     /** @deprecated since 0.7.0 see #create */ @Deprecated
     protected Response createFromAppSpec(ApplicationSpec applicationSpec) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DEPLOY_APPLICATION, applicationSpec)) {

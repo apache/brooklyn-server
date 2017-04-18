@@ -60,7 +60,6 @@
                 org.apache.brooklyn.rest.resources.SensorResource,
                 org.apache.brooklyn.rest.resources.ServerResource,
                 org.apache.brooklyn.rest.resources.UsageResource,
-                org.apache.brooklyn.rest.resources.VersionResource
             </param-value>
         </init-param>
 

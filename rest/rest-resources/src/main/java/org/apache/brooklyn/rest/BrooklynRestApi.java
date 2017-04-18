@@ -38,7 +38,6 @@ import org.apache.brooklyn.rest.resources.ScriptResource;
 import org.apache.brooklyn.rest.resources.SensorResource;
 import org.apache.brooklyn.rest.resources.ServerResource;
 import org.apache.brooklyn.rest.resources.UsageResource;
-import org.apache.brooklyn.rest.resources.VersionResource;
 import org.apache.brooklyn.rest.util.DefaultExceptionMapper;
 import org.apache.brooklyn.rest.util.FormMapProvider;
 import org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider;
@@ -67,7 +66,6 @@ public class BrooklynRestApi {
         resources.add(new ScriptResource());
         resources.add(new ServerResource());
         resources.add(new UsageResource());
-        resources.add(new VersionResource());
         resources.add(new LogoutResource());
         return resources;
     }

@@ -139,18 +139,6 @@ public interface CatalogApi {
             @QueryParam("ignoreErrors")  @DefaultValue("false")
             boolean ignoreErrors);
 
-    /** @deprecated since 0.7.0 use {@link #deleteEntity(String, String)} */
-    @Deprecated
-    @DELETE
-    @Path("/entities/{entityId}")
-    @ApiOperation(value = "Deletes a specific version of an entity's definition from the catalog")
-    @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Entity not found")
-    })
-    public void deleteEntity_0_7_0(
-        @ApiParam(name = "entityId", value = "The ID of the entity or template to delete", required = true)
-        @PathParam("entityId") String entityId) throws Exception;
-
     @DELETE
     @Path("/applications/{symbolicName}/{version}")
     @ApiOperation(
@@ -244,20 +232,6 @@ public interface CatalogApi {
             @ApiParam(name = "allVersions", value = "Include all versions (defaults false, only returning the best version)")
             @QueryParam("allVersions") @DefaultValue("false") boolean includeAllVersions);
 
-    /** @deprecated since 0.7.0 use {@link #getEntity(String, String)} */
-    @Deprecated
-    @GET
-    @Path("/entities/{entityId}")
-    @ApiOperation(value = "Fetch an entity's definition from the catalog", 
-            response = CatalogEntitySummary.class,
-            responseContainer = "List")
-    @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Entity not found")
-    })
-    public CatalogEntitySummary getEntity_0_7_0(
-        @ApiParam(name = "entityId", value = "The ID of the entity or template to retrieve", required = true)
-        @PathParam("entityId") String entityId) throws Exception;
-
     @GET
     @Path("/entities/{symbolicName}/{version}")
     @ApiOperation(
@@ -275,20 +249,6 @@ public interface CatalogApi {
 
         @ApiParam(name = "version", value = "The version identifier of the entity or template to retrieve", required = true)
         @PathParam("version") String version) throws Exception;
-
-    /** @deprecated since 0.7.0 use {@link #getEntity(String, String)} */
-    @Deprecated
-    @GET
-    @Path("/applications/{applicationId}")
-    @ApiOperation(value = "Fetch a specific version of an application's definition from the catalog",
-            response = CatalogEntitySummary.class,
-            responseContainer = "List")
-    @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Entity not found")
-    })
-    public CatalogEntitySummary getApplication_0_7_0(
-        @ApiParam(name = "applicationId", value = "The ID of the application to retrieve", required = true)
-        @PathParam("applicationId") String applicationId) throws Exception;
 
     @GET
     @Path("/applications/{symbolicName}/{version}")
@@ -321,20 +281,6 @@ public interface CatalogApi {
             @ApiParam(name = "allVersions", value = "Include all versions (defaults false, only returning the best version)")
             @QueryParam("allVersions") @DefaultValue("false") boolean includeAllVersions);
 
-    /** @deprecated since 0.7.0 use {@link #getPolicy(String, String)} */
-    @Deprecated
-    @GET
-    @Path("/policies/{policyId}")
-    @ApiOperation(value = "Fetch a policy's definition from the catalog", 
-            response = CatalogItemSummary.class,
-            responseContainer = "List")
-    @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Entity not found")
-    })
-    public CatalogItemSummary getPolicy_0_7_0(
-        @ApiParam(name = "policyId", value = "The ID of the policy to retrieve", required = true)
-        @PathParam("policyId") String policyId) throws Exception;
-
     @GET
     @Path("/policies/{policyId}/{version}")
     @ApiOperation(
@@ -365,20 +311,6 @@ public interface CatalogApi {
             @ApiParam(name = "allVersions", value = "Include all versions (defaults false, only returning the best version)")
             @QueryParam("allVersions") @DefaultValue("false") boolean includeAllVersions);
 
-    /** @deprecated since 0.7.0 use {@link #getLocation(String, String)} */
-    @Deprecated
-    @GET
-    @Path("/locations/{locationId}")
-    @ApiOperation(value = "Fetch a location's definition from the catalog", 
-            response = CatalogItemSummary.class,
-            responseContainer = "List")
-    @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Entity not found")
-    })
-    public CatalogItemSummary getLocation_0_7_0(
-        @ApiParam(name = "locationId", value = "The ID of the location to retrieve", required = true)
-        @PathParam("locationId") String locationId) throws Exception;
-
     @GET
     @Path("/locations/{locationId}/{version}")
     @ApiOperation(
@@ -395,19 +327,6 @@ public interface CatalogApi {
         @PathParam("locationId") String locationId,
         @ApiParam(name = "version", value = "The version identifier of the application to retrieve", required = true)
         @PathParam("version") String version) throws Exception;
-
-    /** @deprecated since 0.7.0 use {@link #getIcon(String, String)} */
-    @Deprecated
-    @GET
-    @Path("/icon/{itemId}")
-    @ApiOperation(value = "Return the icon for a given catalog entry (application/image or HTTP redirect)")
-    @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Item not found")
-        })
-    @Produces("application/image")
-    public Response getIcon_0_7_0(
-        @ApiParam(name = "itemId", value = "ID of catalog item (application, entity, policy, location)")
-        @PathParam("itemId") @DefaultValue("") String itemId);
 
     @GET
     @Path("/icon/{itemId}/{version}")
@@ -426,18 +345,6 @@ public interface CatalogApi {
 
         @ApiParam(name = "version", value = "version identifier of catalog item (application, entity, policy, location)", required=true)
         @PathParam("version") String version);
-
-    /**
-     * @deprecated since 0.8.0; use "/entities/{itemId}/deprecated" with payload of true/false
-     */
-    @Deprecated
-    @POST
-    @Path("/entities/{itemId}/deprecated/{deprecated}")
-    public void setDeprecatedLegacy(
-        @ApiParam(name = "itemId", value = "The ID of the catalog item to be deprecated", required = true)
-        @PathParam("itemId") String itemId,
-        @ApiParam(name = "deprecated", value = "Whether or not the catalog item is deprecated", required = true)
-        @PathParam("deprecated") boolean deprecated);
     
     @POST
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})

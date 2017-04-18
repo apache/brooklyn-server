@@ -120,9 +120,8 @@ public class PolicyResourceTest extends BrooklynRestResourceTest {
     public void testReconfigureConfig() throws Exception {
         String configName = RestMockSimplePolicy.SAMPLE_CONFIG.getName();
         
-        Response response = client().path(ENDPOINT + policyId + "/config/" + configName + "/set")
-                .query("value", "newval")
-                .post(null);
+        Response response = client().path(ENDPOINT + policyId + "/config/" + configName)
+                .post(toJsonEntity("newval"));
 
         assertEquals(response.getStatus(), Response.Status.OK.getStatusCode());
     }

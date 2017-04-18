@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
@@ -56,9 +55,7 @@ import org.apache.brooklyn.core.catalog.internal.CatalogItemComparator;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
-import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.rest.api.CatalogApi;
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.domain.CatalogEntitySummary;
@@ -74,7 +71,6 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.Streams;
@@ -302,31 +298,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         ((BasicBrooklynCatalog)mgmt().getCatalog()).reset(CatalogDto.newDtoFromXmlContents(xml, "REST reset"), !ignoreErrors);
         return Response.ok().build();
     }
-    
-    @Override
-    @Deprecated
-    public void deleteEntity_0_7_0(String entityId) throws Exception {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, StringAndArgument.of(entityId, "delete"))) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
-                Entitlements.getEntitlementContext().user());
-        }
-        try {
-            Maybe<RegisteredType> item = RegisteredTypes.tryValidate(mgmt().getTypeRegistry().get(entityId), RegisteredTypeLoadingContexts.spec(Entity.class));
-            if (item.isNull()) {
-                throw WebResourceUtils.notFound("Entity with id '%s' not found", entityId);
-            }
-            if (item.isAbsent()) {
-                throw WebResourceUtils.notFound("Item with id '%s' is not an entity", entityId);
-            }
-
-            brooklyn().getCatalog().deleteCatalogItem(item.get().getSymbolicName(), item.get().getVersion());
-
-        } catch (NoSuchElementException e) {
-            // shouldn't come here
-            throw WebResourceUtils.notFound("Entity with id '%s' could not be deleted", entityId);
-
-        }
-    }
 
     @Override
     public void deleteApplication(String symbolicName, String version) throws Exception {
@@ -410,24 +381,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                         CatalogPredicates.<Application,EntitySpec<? extends Application>>disabled(false));
         return getCatalogItemSummariesMatchingRegexFragment(filter, regex, fragment, allVersions);
     }
-
-    @Override
-    @Deprecated
-    public CatalogEntitySummary getEntity_0_7_0(String entityId) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, entityId)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
-                Entitlements.getEntitlementContext().user());
-        }
-
-        CatalogItem<Entity,EntitySpec<?>> result =
-                CatalogUtils.getCatalogItemOptionalVersion(mgmt(), Entity.class, entityId);
-
-        if (result==null) {
-            throw WebResourceUtils.notFound("Entity with id '%s' not found", entityId);
-        }
-
-        return CatalogTransformer.catalogEntitySummary(brooklyn(), result, ui.getBaseUriBuilder());
-    }
     
     @Override
     public CatalogEntitySummary getEntity(String symbolicName, String version) {
@@ -452,12 +405,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
-    @Deprecated
-    public CatalogEntitySummary getApplication_0_7_0(String applicationId) throws Exception {
-        return getEntity_0_7_0(applicationId);
-    }
-
-    @Override
     public CatalogEntitySummary getApplication(String symbolicName, String version) {
         return getEntity(symbolicName, version);
     }
@@ -470,24 +417,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                         CatalogPredicates.<Policy, PolicySpec<?>>disabled(false));
         List<CatalogItemSummary> result = getCatalogItemSummariesMatchingRegexFragment(filter, regex, fragment, allVersions);
         return castList(result, CatalogPolicySummary.class);
-    }
-
-    @Override
-    @Deprecated
-    public CatalogPolicySummary getPolicy_0_7_0(String policyId) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, policyId)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
-                Entitlements.getEntitlementContext().user());
-        }
-
-        CatalogItem<? extends Policy, PolicySpec<?>> result =
-            CatalogUtils.getCatalogItemOptionalVersion(mgmt(), Policy.class, policyId);
-
-        if (result==null) {
-            throw WebResourceUtils.notFound("Policy with id '%s' not found", policyId);
-        }
-
-        return CatalogTransformer.catalogPolicySummary(brooklyn(), result, ui.getBaseUriBuilder());
     }
 
     @Override
@@ -518,24 +447,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                         CatalogPredicates.<Location, LocationSpec<?>>disabled(false));
         List<CatalogItemSummary> result = getCatalogItemSummariesMatchingRegexFragment(filter, regex, fragment, allVersions);
         return castList(result, CatalogLocationSummary.class);
-    }
-
-    @Override
-    @Deprecated
-    public CatalogLocationSummary getLocation_0_7_0(String locationId) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, locationId)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
-                Entitlements.getEntitlementContext().user());
-        }
-
-        CatalogItem<? extends Location, LocationSpec<?>> result =
-            CatalogUtils.getCatalogItemOptionalVersion(mgmt(), Location.class, locationId);
-
-        if (result==null) {
-            throw WebResourceUtils.notFound("Location with id '%s' not found", locationId);
-        }
-
-        return CatalogTransformer.catalogLocationSummary(brooklyn(), result, ui.getBaseUriBuilder());
     }
 
     @Override
@@ -579,17 +490,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
-    @Deprecated
-    public Response getIcon_0_7_0(String itemId) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, itemId)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
-                Entitlements.getEntitlementContext().user());
-        }
-
-        return getCatalogItemIcon( mgmt().getTypeRegistry().get(itemId) );
-    }
-
-    @Override
     public Response getIcon(String itemId, String version) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, itemId+(Strings.isBlank(version)?"":":"+version))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
@@ -599,13 +499,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         version = processVersion(version);
         
         return getCatalogItemIcon(mgmt().getTypeRegistry().get(itemId, version));
-    }
-
-    @Override
-    public void setDeprecatedLegacy(String itemId, boolean deprecated) {
-        log.warn("Use of deprecated \"/catalog/entities/{itemId}/deprecated/{deprecated}\" for "+itemId
-                +"; use \"/catalog/entities/{itemId}/deprecated\" with request body");
-        setDeprecated(itemId, deprecated);
     }
     
     @SuppressWarnings("deprecation")
