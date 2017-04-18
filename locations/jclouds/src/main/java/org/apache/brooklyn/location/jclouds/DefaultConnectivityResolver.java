@@ -256,12 +256,8 @@ public class DefaultConnectivityResolver extends BasicConfigurableObject impleme
     }
 
     void publishNetworks(NodeMetadata node, Entity entity) {
-        if (entity.sensors().get(PRIVATE_ADDRESSES) == null) {
-            entity.sensors().set(PRIVATE_ADDRESSES, ImmutableSet.copyOf(node.getPrivateAddresses()));
-        }
-        if (entity.sensors().get(PUBLIC_ADDRESSES) == null) {
-            entity.sensors().set(PUBLIC_ADDRESSES, ImmutableSet.copyOf(node.getPublicAddresses()));
-        }
+        entity.sensors().set(PRIVATE_ADDRESSES, ImmutableSet.copyOf(node.getPrivateAddresses()));
+        entity.sensors().set(PUBLIC_ADDRESSES, ImmutableSet.copyOf(node.getPublicAddresses()));
     }
 
     // --------------------------------------------------------------------------------------
