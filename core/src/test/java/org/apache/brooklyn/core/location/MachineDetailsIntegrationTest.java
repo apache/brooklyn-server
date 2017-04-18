@@ -39,9 +39,11 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class MachineDetailsTest {
+public class MachineDetailsIntegrationTest {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MachineDetailsTest.class);
+    // See SshMachineLocationTest.testGetMachineDetails for an equivalent unit test
+    
+    private static final Logger LOG = LoggerFactory.getLogger(MachineDetailsIntegrationTest.class);
 
     TestApplication app;
     ManagementContext mgmt;
