@@ -41,6 +41,8 @@ import org.testng.annotations.Test;
 
 public class MachineDetailsIntegrationTest {
 
+    // See SshMachineLocationTest.testGetMachineDetails for an equivalent unit test
+    
     private static final Logger LOG = LoggerFactory.getLogger(MachineDetailsIntegrationTest.class);
 
     TestApplication app;

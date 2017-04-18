@@ -22,8 +22,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.Immutable;
@@ -47,6 +49,7 @@ import com.google.common.base.CharMatcher;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Maps;
@@ -146,10 +149,20 @@ public class BasicMachineDetails implements MachineDetails {
                     LOG.debug("Found following details at {}: {}", location, stdout);
                 }
 
-                Map<String,String> details = Maps.newHashMap(Splitter.on(CharMatcher.anyOf("\r\n"))
+                // See https://issues.apache.org/jira/browse/BROOKLYN-475:
+                // If using splitter.withKeyValueSeparator, it fails with "Chunk ... is not a valid entry" 
+                // if a line contains more than one ":"; therefore filter those out ourselves.
+                Iterable<String> lines = Splitter.on(CharMatcher.anyOf("\r\n"))
                         .omitEmptyStrings()
-                        .withKeyValueSeparator(":")
-                        .split(stdout));
+                        .split(stdout);
+
+                Map<String, String> details = Maps.newHashMap();
+                for (String line : lines) {
+                    Optional<Entry<String, String>> detail = splitLine(line, ":");
+                    if (detail.isPresent()) {
+                        details.put(detail.get().getKey(), detail.get().getValue());
+                    }
+                }
 
                 String name = details.remove("name");
                 String version = details.remove("version");
@@ -175,6 +188,17 @@ public class BasicMachineDetails implements MachineDetails {
                     return Integer.valueOf(details.remove(key));
                 } catch (NumberFormatException e) {
                     return null;
+                }
+            }
+            
+            private Optional<Map.Entry<String, String>> splitLine(String sequence, String separator) {
+                int index = sequence.indexOf(separator);
+                if (index < 0) {
+                    return Optional.absent(); // ignore
+                } else {
+                    String key = sequence.substring(0, index).trim();
+                    String value = sequence.substring(index+1).trim();
+                    return Optional.<Map.Entry<String, String>>of(new AbstractMap.SimpleEntry<>(key, value));
                 }
             }
         };
