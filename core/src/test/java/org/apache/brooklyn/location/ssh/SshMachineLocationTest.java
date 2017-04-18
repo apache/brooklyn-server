@@ -150,6 +150,41 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
+    public void testGetMachineDetailsWithExtraStdout() throws Exception {
+        String response = Joiner.on("\n").join(
+                "Last login: Fri Apr 14 08:01:37 2017 from 35.156.73.145",
+                "Line with no colons",
+                ": colon first",
+                "colon last:",
+                "name:MyCentOS",
+                "version:6.7",
+                "architecture:x86_64",
+                "ram:15948",
+                "cpus:4");
+        RecordingSshTool.setCustomResponse(".*uname.*", new CustomResponse(0, response, ""));
+
+        BasicExecutionManager execManager = new BasicExecutionManager("mycontextid");
+        BasicExecutionContext execContext = new BasicExecutionContext(execManager);
+        try {
+            MachineDetails details = execContext.submit(new Callable<MachineDetails>() {
+                @Override
+                public MachineDetails call() {
+                    return host.getMachineDetails();
+                }}).get();
+            LOG.info("machineDetails="+details);
+            assertNotNull(details);
+            
+            assertEquals(details.getOsDetails().getName(), "MyCentOS", "details="+details);
+            assertEquals(details.getOsDetails().getVersion(), "6.7", "details="+details);
+            assertEquals(details.getOsDetails().getArch(), "x86_64", "details="+details);
+            assertEquals(details.getHardwareDetails().getCpuCount(), Integer.valueOf(4), "details="+details);
+            assertEquals(details.getHardwareDetails().getRam(), Integer.valueOf(15948), "details="+details);
+        } finally {
+            execManager.shutdownNow();
+        }
+    }
+
+    @Test
     public void testSupplyingMachineDetails() throws Exception {
         MachineDetails machineDetails = new BasicMachineDetails(new BasicHardwareDetails(1, 1024), new BasicOsDetails("myname", "myarch", "myversion"));
         SshMachineLocation host2 = mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)

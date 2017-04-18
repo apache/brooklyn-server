@@ -127,6 +127,13 @@ public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
         }
     }
 
+    // Overrides and disables super, because real machine won't give extra stdout
+    @Test(enabled=false)
+    @Override
+    public void testGetMachineDetailsWithExtraStdout() throws Exception {
+        throw new UnsupportedOperationException("Test disabled because real machine does not have extra stdout");
+    }
+
     @Test(groups = "Integration")
     public void testCopyFileTo() throws Exception {
         File dest = Os.newTempFile(getClass(), ".dest.tmp");
