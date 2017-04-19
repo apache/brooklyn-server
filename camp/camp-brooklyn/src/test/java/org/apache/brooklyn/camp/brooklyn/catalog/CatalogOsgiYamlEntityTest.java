@@ -826,6 +826,9 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
     }
     
     private void addCatalogOSGiEntity(String symbolicName, String serviceType, boolean extraLib) {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_OSGI_TEST_A_0_1_0_PATH);
+
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
@@ -842,6 +845,8 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
     }
 
     private void addCatalogChildOSGiEntityWithServicesBlock(String symbolicName, String serviceType) {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
