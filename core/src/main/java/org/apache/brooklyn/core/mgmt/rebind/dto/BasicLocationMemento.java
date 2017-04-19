@@ -27,7 +27,7 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.TreeNode;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 
-import com.google.common.base.Objects.ToStringHelper;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
@@ -98,7 +98,7 @@ public class BasicLocationMemento extends AbstractTreeNodeMemento implements Loc
     }
     
     @Override
-    protected ToStringHelper newVerboseStringHelper() {
+    protected MoreObjects.ToStringHelper newVerboseStringHelper() {
         return super.newVerboseStringHelper()
                 .add("config", Sanitizer.sanitize(getLocationConfig()))
                 .add("locationConfigDescription", getLocationConfigDescription());

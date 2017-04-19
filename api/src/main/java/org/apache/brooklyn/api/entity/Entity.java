@@ -20,6 +20,7 @@ package org.apache.brooklyn.api.entity;
 
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -160,7 +161,7 @@ public interface Entity extends BrooklynObject {
     /**
      * @return an immutable thread-safe view of the policies.
      * 
-     * @deprecated since 0.9.0; see {@link PolicySupport#getPolicies()}
+     * @deprecated since 0.9.0; see {@link PolicySupport#asList()}
      */
     @Deprecated
     Collection<Policy> getPolicies();
@@ -168,7 +169,7 @@ public interface Entity extends BrooklynObject {
     /**
      * @return an immutable thread-safe view of the enrichers.
      * 
-     * @deprecated since 0.9.0; see {@link EnricherSupport#getEnrichers()}
+     * @deprecated since 0.9.0; see {@link EnricherSupport#asList()}
      */
     @Deprecated
     Collection<Enricher> getEnrichers();
@@ -178,7 +179,7 @@ public interface Entity extends BrooklynObject {
      *
      * Groupings can be used to allow easy management/monitoring of a group of entities.
      * 
-     * @deprecated since 0.9.0; see {@link GroupSupport#getGroups()} and {@link #groups()}
+     * @deprecated since 0.9.0; see {@link #groups()} and {@link GroupSupport#iterator()}
      */
     @Deprecated
     Collection<Group> getGroups();
@@ -349,6 +350,7 @@ public interface Entity extends BrooklynObject {
         
         int size();
         boolean isEmpty();
+        List<T> asList();
         
         /**
          * Adds an instance.

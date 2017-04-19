@@ -32,7 +32,7 @@ import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 
 @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY, getterVisibility = JsonAutoDetect.Visibility.NONE)
@@ -273,7 +273,7 @@ public class BasicCatalogItemMemento extends AbstractMemento implements CatalogI
     }
 
     @Override
-    protected Objects.ToStringHelper newVerboseStringHelper() {
+    protected MoreObjects.ToStringHelper newVerboseStringHelper() {
         return super.newVerboseStringHelper()
                 .add("description", getDescription())
                 .add("symbolicName", getSymbolicName())

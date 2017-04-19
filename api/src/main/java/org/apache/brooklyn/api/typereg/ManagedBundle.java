@@ -16,40 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.api.mgmt.rebind.mementos;
+package org.apache.brooklyn.api.typereg;
 
-import java.util.Collection;
-import java.util.List;
+import org.apache.brooklyn.api.mgmt.rebind.Rebindable;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.api.objs.SpecParameter;
+/** Describes an OSGi bundle which Brooklyn manages, including persisting */
+public interface ManagedBundle extends BrooklynObject, Rebindable, OsgiBundleWithUrl {
 
-public interface CatalogItemMemento extends Memento {
+    String getOsgiUniqueUrl();
 
-    String getDescription();
-
-    String getSymbolicName();
-
-    String getIconUrl();
-
-    String getVersion();
-
-    String getPlanYaml();
-
-    String getJavaType();
-
-    List<SpecParameter<?>> getParameters();
-
-    Collection<CatalogItem.CatalogBundle> getLibraries();
-
-    CatalogItem.CatalogItemType getCatalogItemType();
-
-    Class<?> getCatalogItemJavaType();
-
-    Class<?> getSpecType();
-
-    boolean isDeprecated();
-
-    boolean isDisabled();
-    
 }

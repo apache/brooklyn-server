@@ -18,23 +18,30 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
+import java.util.Map;
+
+import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
-public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl {
+public class BasicManagedBundle extends AbstractBrooklynObject implements ManagedBundle, BrooklynObjectInternal {
+
     private String symbolicName;
     private String version;
     private String url;
 
     // for deserializing (not sure if needed?)
     @SuppressWarnings("unused")
-    private BasicOsgiBundleWithUrl() {}
+    private BasicManagedBundle() {}
 
-    public BasicOsgiBundleWithUrl(String name, String version, String url) {
+    public BasicManagedBundle(String name, String version, String url) {
         if (name == null && version == null) {
             Preconditions.checkNotNull(url, "Either a URL or both name and version are required");
         } else {
@@ -47,21 +54,11 @@ public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl 
         this.url = url;
     }
     
-    public BasicOsgiBundleWithUrl(OsgiBundleWithUrl b) {
-        this(b.getSymbolicName(), b.getVersion(), b.getUrl());
-    }
-
     @Override
     public boolean isNameResolved() {
         return symbolicName != null && version != null;
     }
     
-    @Override
-    @Deprecated //see super
-    public boolean isNamed() {
-        return isNameResolved();
-    }
-
     @Override
     public String getSymbolicName() {
         return symbolicName;
@@ -77,6 +74,11 @@ public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl 
         return url;
     }
 
+    @Override
+    public String getOsgiUniqueUrl() {
+        return "brooklyn:"+getId();
+    }
+    
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
@@ -102,5 +104,47 @@ public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl 
         if (!Objects.equal(url, other.getUrl())) return false;
         return true;
     }
+
+    // ---
     
+    @Override
+    public String getDisplayName() {
+        return null;
+    }
+
+    @Override
+    public <T> T setConfig(ConfigKey<T> key, T val) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public <T> T getConfig(ConfigKey<T> key) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public RebindSupport<?> getRebindSupport() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ConfigurationSupportInternal config() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public SubscriptionSupportInternal subscriptions() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setDisplayName(String newName) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected BrooklynObjectInternal configure(Map<?, ?> flags) {
+        throw new UnsupportedOperationException();
+    }
+
 }

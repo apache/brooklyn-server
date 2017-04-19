@@ -21,8 +21,6 @@ package org.apache.brooklyn.core.mgmt.rebind;
 import java.util.Collection;
 import java.util.Map;
 
-import org.apache.brooklyn.core.location.internal.LocationInternal;
-import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -33,11 +31,15 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EnricherMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.LocationMemento;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.PolicyMemento;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.core.location.internal.LocationInternal;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 
 import com.google.common.collect.Maps;
 
@@ -68,6 +70,7 @@ public class ImmediateDeltaChangeListener implements ChangeListener {
         onChanged(instance);
     }
 
+    // TODO ensure this, and onChanged, are called
     @Override
     public void onUnmanaged(BrooklynObject instance) {
         if (running && persister != null) {
@@ -82,6 +85,8 @@ public class ImmediateDeltaChangeListener implements ChangeListener {
                 delta.removedEnricherIds.add(instance.getId());
             } else if (instance instanceof CatalogItem) {
                 delta.removedCatalogItemIds.add(instance.getId());
+            } else if (instance instanceof ManagedBundle) {
+                delta.removedBundleIds.add(instance.getId());
             } else {
                 throw new IllegalStateException("Unexpected brooklyn type: "+instance);
             }
@@ -105,6 +110,8 @@ public class ImmediateDeltaChangeListener implements ChangeListener {
                 delta.enrichers.add((EnricherMemento) memento);
             } else if (instance instanceof CatalogItem) {
                 delta.catalogItems.add((CatalogItemMemento) instance);
+            } else if (instance instanceof ManagedBundle) {
+                delta.bundles.add((ManagedBundleMemento) memento);
             } else {
                 throw new IllegalStateException("Unexpected brooklyn type: "+instance);
             }

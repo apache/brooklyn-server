@@ -63,6 +63,7 @@ public class BrooklynFeatureEnablement {
 
     public static final String FEATURE_CORS_CXF_PROPERTY = FEATURE_PROPERTY_PREFIX + ".corsCxfFeature";
 
+    public static final String FEATURE_BUNDLE_PERSISTENCE_PROPERTY = FEATURE_PROPERTY_PREFIX+".bundlePersistence";
     public static final String FEATURE_CATALOG_PERSISTENCE_PROPERTY = FEATURE_PROPERTY_PREFIX+".catalogPersistence";
     
     /** whether the default standby mode is {@link HighAvailabilityMode#HOT_STANDBY} or falling back to the traditional
@@ -155,6 +156,7 @@ public class BrooklynFeatureEnablement {
         setDefault(FEATURE_ENRICHER_PERSISTENCE_PROPERTY, true);
         setDefault(FEATURE_FEED_PERSISTENCE_PROPERTY, true);
         setDefault(FEATURE_FEED_REGISTRATION_PROPERTY, false);
+        setDefault(FEATURE_BUNDLE_PERSISTENCE_PROPERTY, true);
         setDefault(FEATURE_CATALOG_PERSISTENCE_PROPERTY, true);
         setDefault(FEATURE_DEFAULT_STANDBY_IS_HOT_PROPERTY, false);
         setDefault(FEATURE_USE_BROOKLYN_LIVE_OBJECTS_DATAGRID_STORAGE, false);

@@ -29,19 +29,21 @@ import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.CaseFormat;
 
 @Beta
 public enum BrooklynObjectType {
-    // these are correctly type-checked by i can't tell how to get java not to warn!
+    // these are correctly type-checked but i can't tell how to get java not to warn!
     @SuppressWarnings("unchecked") ENTITY(Entity.class, EntitySpec.class, "entities"),
     @SuppressWarnings("unchecked") LOCATION(Location.class, LocationSpec.class, "locations"),
     @SuppressWarnings("unchecked") POLICY(Policy.class, PolicySpec.class, "policies"),
     @SuppressWarnings("unchecked") ENRICHER(Enricher.class, EnricherSpec.class, "enrichers"),
     FEED(Feed.class, null, "feeds"),
     CATALOG_ITEM(CatalogItem.class, null, "catalog"),
+    MANAGED_BUNDLE(ManagedBundle.class, null, "bundle"),
     UNKNOWN(null, null, "unknown");
     
     private final Class<? extends BrooklynObject> interfaceType;

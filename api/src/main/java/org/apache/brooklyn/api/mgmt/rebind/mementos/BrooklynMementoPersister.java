@@ -118,6 +118,7 @@ public interface BrooklynMementoPersister {
         Collection<EnricherMemento> enrichers();
         Collection<FeedMemento> feeds();
         Collection<CatalogItemMemento> catalogItems();
+        Collection<ManagedBundleMemento> bundles();
         
         Collection<String> removedLocationIds();
         Collection<String> removedEntityIds();
@@ -125,6 +126,7 @@ public interface BrooklynMementoPersister {
         Collection<String> removedEnricherIds();
         Collection<String> removedFeedIds();
         Collection<String> removedCatalogItemIds();
+        Collection<String> removedBundleIds();
         
         Collection<? extends Memento> getObjectsOfType(BrooklynObjectType type);
         Collection<String> getRemovedIdsOfType(BrooklynObjectType type);

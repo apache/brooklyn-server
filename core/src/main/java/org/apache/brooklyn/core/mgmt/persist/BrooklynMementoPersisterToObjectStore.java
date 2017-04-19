@@ -43,6 +43,7 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoManifest;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
@@ -261,8 +262,11 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
 
         Stopwatch stopwatch = Stopwatch.createStarted();
         try {
-            for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER)
+            for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
+                // TODO exclude bundles
                 subPathDataBuilder.putAll(type, makeIdSubPathMap(objectStore.listContentsWithSubPath(type.getSubPathName())));
+            }
+            // TODO bundles
             
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
@@ -368,6 +372,16 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                             exceptionHandler.onLoadMementoFailed(type, "memento "+objectId+" early catalog deserialization error", e);
                         }
                         break;
+                    case MANAGED_BUNDLE:
+                        try {
+                            ManagedBundleMemento memento = (ManagedBundleMemento) getSerializerWithStandardClassLoader().fromString(contents);
+                            builder.bundle( memento );
+                            // TODO load and set contents
+                        } catch (Exception e) {
+                            exceptionHandler.onLoadMementoFailed(type, "memento "+objectId+" early catalog deserialization error", e);
+                        }
+                        break;
+                        
                     default:
                         throw new IllegalStateException("Unexpected brooklyn type: "+type);
                 }
@@ -527,6 +541,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             
             futures.add(asyncUpdatePlaneId(newMemento.getPlaneId(), exceptionHandler));
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
+                // TODO handle bundles separately
                 for (Map.Entry<String, String> entry : newMemento.getObjectsOfType(type).entrySet()) {
                     futures.add(asyncPersist(type.getSubPathName(), type, entry.getKey(), entry.getValue(), exceptionHandler));
                 }
@@ -604,6 +619,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                 for (Memento item : delta.getObjectsOfType(type)) {
                     if (!deletedIds.contains(item.getId())) {
+                        // TODO if type is bundle then persist the actual bundle first
                         futures.add(asyncPersist(type.getSubPathName(), item, exceptionHandler));
                     }
                 }

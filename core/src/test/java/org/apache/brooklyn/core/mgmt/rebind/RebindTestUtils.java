@@ -537,7 +537,7 @@ public class RebindTestUtils {
             BrooklynMementoRawData data = persister.loadMementoRawData(RebindExceptionHandlerImpl.builder().build());
             List<BrooklynObjectType> types = ImmutableList.of(BrooklynObjectType.ENTITY, BrooklynObjectType.LOCATION, 
                     BrooklynObjectType.POLICY, BrooklynObjectType.ENRICHER, BrooklynObjectType.FEED, 
-                    BrooklynObjectType.CATALOG_ITEM);
+                    BrooklynObjectType.CATALOG_ITEM, BrooklynObjectType.MANAGED_BUNDLE);
             for (BrooklynObjectType type : types) {
                 LOG.info(type+" ("+data.getObjectsOfType(type).keySet()+"):");
                 for (Map.Entry<String, String> entry : data.getObjectsOfType(type).entrySet()) {

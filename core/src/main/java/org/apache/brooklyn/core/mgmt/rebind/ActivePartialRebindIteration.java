@@ -30,12 +30,10 @@ import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
-import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData.Builder;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceActivityMetrics;
@@ -43,11 +41,13 @@ import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 
 /**
- * Replaces a set of existing entities (and their adjunts) and locations:
+ * Replaces a set of existing entities (and their adjuncts) and locations:
  * writes their state, applies a transformation, then reads the state back.
  */
 public class ActivePartialRebindIteration extends RebindIteration {
@@ -85,7 +85,7 @@ public class ActivePartialRebindIteration extends RebindIteration {
         Preconditions.checkState(readOnlyRebindCount.get()==Integer.MIN_VALUE, "Rebind count should be MIN when running in master mode");
         Preconditions.checkNotNull(objectsToRebindInitial, "Objects to rebind must be set");
 
-        LOG.debug("Partial rebind Rebinding ("+mode+") from "+rebindManager.getPersister().getBackingStoreDescription()+"...");
+        LOG.debug("Partial rebind - rebinding ("+mode+") from "+rebindManager.getPersister().getBackingStoreDescription()+"...");
 
         super.doRun();
     }
@@ -111,8 +111,8 @@ public class ActivePartialRebindIteration extends RebindIteration {
             
             if (bo instanceof Entity) {
                 // if it's an entity, add all adjuncts. (if doing some sort of pause, that's maybe not necessary...)
-                objectsToRebindFinal.addAll( ((EntityInternal)bo).getPolicies() );
-                objectsToRebindFinal.addAll( ((EntityInternal)bo).getEnrichers() );
+                objectsToRebindFinal.addAll( ((EntityInternal)bo).policies().asList() );
+                objectsToRebindFinal.addAll( ((EntityInternal)bo).enrichers().asList() );
                 objectsToRebindFinal.addAll( ((EntityInternal)bo).feeds().getFeeds() );
             }
         }
@@ -145,10 +145,11 @@ public class ActivePartialRebindIteration extends RebindIteration {
     }
 
     @Override
-    protected void rebuildCatalog() {
+    protected void installBundlesAndRebuildCatalog() {
         checkEnteringPhase(2);
         
-        // skip; old catalog items should be re-used
+        // skip; bundles and catalog items can't be changed for a partial rebind instruction
+        // (if upgrading, they should be changed beforehand, then this used to upgrade the objects)
     }
     
     @Override

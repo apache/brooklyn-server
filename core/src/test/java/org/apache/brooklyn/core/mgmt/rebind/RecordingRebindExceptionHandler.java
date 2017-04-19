@@ -69,7 +69,7 @@ public class RecordingRebindExceptionHandler extends RebindExceptionHandlerImpl 
 
     @Override
     public void onCreateFailed(BrooklynObjectType type, String id, String instanceType, Exception e) {
-        createFailures.put(id, new IllegalStateException("problem creating location "+id+" of type "+instanceType, e));
+        createFailures.put(id, new IllegalStateException("problem creating "+type+" "+id+" of type "+instanceType, e));
         super.onCreateFailed(type, id, instanceType, e);
     }
 

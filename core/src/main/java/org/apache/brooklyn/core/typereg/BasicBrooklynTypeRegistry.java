@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
@@ -48,6 +49,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
@@ -55,6 +57,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     private static final Logger log = LoggerFactory.getLogger(BasicBrooklynTypeRegistry.class);
     
     private ManagementContext mgmt;
+    private Map<String,ManagedBundle> uploadedBundles = MutableMap.of();
     private Map<String,RegisteredType> localRegisteredTypes = MutableMap.of();
 
     public BasicBrooklynTypeRegistry(ManagementContext mgmt) {
@@ -321,4 +324,5 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
             throw new IllegalStateException("Cannot add "+type+" to catalog; different "+oldType+" is already present");
         }
     }
+    
 }

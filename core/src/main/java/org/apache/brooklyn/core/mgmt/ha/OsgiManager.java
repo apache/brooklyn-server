@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.mgmt.ha;
 
 import java.io.File;
+import java.io.InputStream;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collections;
@@ -31,6 +32,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
@@ -56,6 +58,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
@@ -71,6 +74,7 @@ public class OsgiManager {
     protected final OsgiClassPrefixer osgiClassPrefixer;
     protected Framework framework;
     protected File osgiCacheDir;
+    protected Map<String, ManagedBundle> managedBundles = MutableMap.of();
     
     public OsgiManager(ManagementContext mgmt) {
         this.mgmt = mgmt;
@@ -113,22 +117,44 @@ public class OsgiManager {
         framework = null;
     }
 
-    public synchronized void registerBundle(CatalogBundle bundle) {
+    public Map<String, ManagedBundle> getManagedBundles() {
+        return ImmutableMap.copyOf(managedBundles);
+    }
+    
+    public void installUploadedBundle(ManagedBundle bundleMetadata, InputStream zip) {
         try {
-            if (checkBundleInstalledThrowIfInconsistent(bundle)) {
+            if (checkBundleInstalledThrowIfInconsistent(bundleMetadata)) {
                 return;
             }
 
-            Bundle b = Osgis.install(framework, bundle.getUrl());
-
-            checkCorrectlyInstalled(bundle, b);
+            Bundle bundleInstalled = framework.getBundleContext().installBundle(bundleMetadata.getOsgiUniqueUrl(), zip);
+            checkCorrectlyInstalled(bundleMetadata, bundleInstalled);
+            
+            synchronized (managedBundles) {
+                managedBundles.put(bundleMetadata.getId(), bundleMetadata);
+            }
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            throw new IllegalStateException("Bundle from "+bundle.getUrl()+" failed to install: " + e.getMessage(), e);
+            throw new IllegalStateException("Bundle "+bundleMetadata+" failed to install: " + e.getMessage(), e);
+        }
+    }
+    
+    public synchronized void registerBundle(CatalogBundle bundleMetadata) {
+        try {
+            if (checkBundleInstalledThrowIfInconsistent(bundleMetadata)) {
+                return;
+            }
+
+            Bundle bundleInstalled = Osgis.install(framework, bundleMetadata.getUrl());
+
+            checkCorrectlyInstalled(bundleMetadata, bundleInstalled);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            throw new IllegalStateException("Bundle from "+bundleMetadata.getUrl()+" failed to install: " + e.getMessage(), e);
         }
     }
 
-    private void checkCorrectlyInstalled(CatalogBundle bundle, Bundle b) {
+    private void checkCorrectlyInstalled(OsgiBundleWithUrl bundle, Bundle b) {
         String nv = b.getSymbolicName()+":"+b.getVersion().toString();
 
         if (!isBundleNameEqualOrAbsent(bundle, b)) {
@@ -151,7 +177,7 @@ public class OsgiManager {
         }
     }
 
-    private boolean checkBundleInstalledThrowIfInconsistent(CatalogBundle bundle) {
+    private boolean checkBundleInstalledThrowIfInconsistent(OsgiBundleWithUrl bundle) {
         String bundleUrl = bundle.getUrl();
         if (bundleUrl != null) {
             Maybe<Bundle> installedBundle = Osgis.bundleFinder(framework).requiringFromUrl(bundleUrl).find();
@@ -177,7 +203,7 @@ public class OsgiManager {
         return false;
     }
 
-    public static boolean isBundleNameEqualOrAbsent(CatalogBundle bundle, Bundle b) {
+    public static boolean isBundleNameEqualOrAbsent(OsgiBundleWithUrl bundle, Bundle b) {
         return !bundle.isNameResolved() ||
                 (bundle.getSymbolicName().equals(b.getSymbolicName()) &&
                 bundle.getVersion().equals(b.getVersion().toString()));
@@ -298,5 +324,5 @@ public class OsgiManager {
     public Framework getFramework() {
         return framework;
     }
-    
+
 }
