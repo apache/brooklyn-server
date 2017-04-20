@@ -29,6 +29,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Sets;
 
 public class PersistenceExceptionHandlerImpl implements PersistenceExceptionHandler {
@@ -82,7 +83,14 @@ public class PersistenceExceptionHandlerImpl implements PersistenceExceptionHand
         String errmsg = "delete for memento "+id;
         onErrorImpl(errmsg, e, prevFailedPersisters.add(id));
     }
-    
+
+    @Override
+    public void onUpdatePlaneIdFailed(String planeId, Exception e) {
+        String errmsg = "init planeId " + planeId;
+        String prevFailedId = MoreObjects.firstNonNull(planeId, "null-plane-id");
+        onErrorImpl(errmsg, e, prevFailedPersisters.add(prevFailedId));
+    }
+
     protected void onErrorImpl(String errmsg, Exception e, boolean isNew) {
         // TODO the default behaviour is simply to warn; we should have a "fail_at_end" behaviour,
         // and a way for other subsystems to tune in to such failures

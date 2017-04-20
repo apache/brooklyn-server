@@ -51,6 +51,7 @@ public class MutableBrooklynMemento implements BrooklynMemento {
 
     private static final long serialVersionUID = -442895028005849060L;
     
+    private String planeId;
     private final Collection<String> applicationIds = Sets.newLinkedHashSet();
     private final Collection<String> topLevelLocationIds = Sets.newLinkedHashSet();
     private final Map<String, EntityMemento> entities = Maps.newLinkedHashMap();
@@ -68,6 +69,7 @@ public class MutableBrooklynMemento implements BrooklynMemento {
     }
     
     public void reset(BrooklynMemento memento) {
+        planeId = memento.getPlaneId();
         applicationIds.addAll(memento.getApplicationIds());
         topLevelLocationIds.addAll(memento.getTopLevelLocationIds());
         for (String entityId : memento.getEntityIds()) {
@@ -76,6 +78,10 @@ public class MutableBrooklynMemento implements BrooklynMemento {
         for (String locationId : memento.getLocationIds()) {
             locations.put(locationId, checkNotNull(memento.getLocationMemento(locationId), locationId));
         }
+    }
+
+    public void setPlaneId(String planeId) {
+        this.planeId = planeId;
     }
 
     public void updateEntityMemento(EntityMemento memento) {
@@ -188,6 +194,11 @@ public class MutableBrooklynMemento implements BrooklynMemento {
      */
     public void removeCatalogItems(Collection<String> ids) {
         catalogItems.keySet().removeAll(ids);
+    }
+    
+    @Override
+    public String getPlaneId() {
+        return planeId;
     }
 
     @Override

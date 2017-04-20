@@ -97,6 +97,7 @@ public class DeleteOrphanedStateTransformer extends CompoundTransformer {
         LOG.info("Deleting {} orphaned feed{} (of {}): {}", new Object[] {feedsToDelete.size(), Strings.s(feedsToDelete.size()), input.getFeeds().size(), feedsToDelete});
         
         return BrooklynMementoRawData.builder()
+                .planeId(input.getPlaneId())
                 .brooklynVersion(input.getBrooklynVersion())
                 .catalogItems(input.getCatalogItems())
                 .entities(input.getEntities())

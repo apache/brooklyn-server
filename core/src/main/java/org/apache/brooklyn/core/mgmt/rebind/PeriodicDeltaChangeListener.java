@@ -28,8 +28,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -58,9 +56,12 @@ import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -84,8 +85,11 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
 
     protected final AtomicLong checkpointLogCount = new AtomicLong();
     private static final int INITIAL_LOG_WRITES = 5;
+    private static final Duration PERSIST_PLANE_ID_PERIOD = Duration.ONE_HOUR;
 
     private static class DeltaCollector {
+        private String planeId;
+
         private Set<Location> locations = Sets.newLinkedHashSet();
         private Set<Entity> entities = Sets.newLinkedHashSet();
         private Set<Policy> policies = Sets.newLinkedHashSet();
@@ -101,7 +105,8 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
         private Set<String> removedCatalogItemIds = Sets.newLinkedHashSet();
 
         public boolean isEmpty() {
-            return locations.isEmpty() && entities.isEmpty() && policies.isEmpty() && 
+            return planeId == null &&
+                    locations.isEmpty() && entities.isEmpty() && policies.isEmpty() && 
                     enrichers.isEmpty() && feeds.isEmpty() &&
                     catalogItems.isEmpty() &&
                     removedEntityIds.isEmpty() && removedLocationIds.isEmpty() && removedPolicyIds.isEmpty() && 
@@ -109,6 +114,10 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
                     removedCatalogItemIds.isEmpty();
         }
         
+        public void setPlaneId(String planeId) {
+            this.planeId = planeId;
+        }
+
         public void add(BrooklynObject instance) {
             BrooklynObjectType type = BrooklynObjectType.of(instance);
             getUnsafeCollectionOfType(type).add(instance);
@@ -187,8 +196,18 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
     private final AtomicInteger writeCount = new AtomicInteger(0);
 
     private PersistenceActivityMetrics metrics;
-    
-    public PeriodicDeltaChangeListener(ExecutionContext executionContext, BrooklynMementoPersister persister, PersistenceExceptionHandler exceptionHandler, PersistenceActivityMetrics metrics, Duration period) {
+
+    private CountdownTimer planeIdPersistTimer = CountdownTimer.newInstanceStarted(Duration.ZERO);
+    private Supplier<String> planeIdSupplier;
+
+    public PeriodicDeltaChangeListener(
+            Supplier<String> planeIdSupplier,
+            ExecutionContext executionContext,
+            BrooklynMementoPersister persister,
+            PersistenceExceptionHandler exceptionHandler,
+            PersistenceActivityMetrics metrics,
+            Duration period) {
+        this.planeIdSupplier = planeIdSupplier;
         this.executionContext = executionContext;
         this.persister = persister;
         this.exceptionHandler = exceptionHandler;
@@ -382,6 +401,13 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
             if (!alreadyHasMutex) persistingMutex.acquire();
             if (!isActive() && state != ListenerState.STOPPING) return;
             
+            // Writes to the datastore are lossy. We'll just log failures and move on.
+            // (Most) entities will get updated multiple times in their lifecycle
+            // so not a huge deal. planeId does not get updated so if the first
+            // write fails it's not available to the HA cluster at all. That's why it
+            // gets periodically written to the datastore. 
+            updatePlaneIdIfTimedOut();
+
             // Atomically switch the delta, so subsequent modifications will be done in the
             // next scheduled persist
             DeltaCollector prevDeltaCollector;
@@ -411,7 +437,10 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
                 if (LOG.isTraceEnabled()) LOG.trace("No changes to persist since last delta");
             } else {
                 PersisterDeltaImpl persisterDelta = new PersisterDeltaImpl();
-                
+
+                if (prevDeltaCollector.planeId != null) {
+                    persisterDelta.planeId = prevDeltaCollector.planeId;
+                }
                 for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                     for (BrooklynObject instance: prevDeltaCollector.getCollectionOfType(type)) {
                         try {
@@ -453,6 +482,14 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
         }
     }
     
+    private void updatePlaneIdIfTimedOut() {
+        if (planeIdPersistTimer.isExpired()) {
+            deltaCollector.setPlaneId(planeIdSupplier.get());
+            planeIdPersistTimer = PERSIST_PLANE_ID_PERIOD.countdownTimer();
+        }
+        
+    }
+
     private static String limitedCountString(Collection<?> items) {
         if (items==null) return null;
         int size = items.size();

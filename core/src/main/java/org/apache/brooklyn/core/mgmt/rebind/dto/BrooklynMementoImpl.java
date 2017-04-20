@@ -47,6 +47,7 @@ public class BrooklynMementoImpl implements BrooklynMemento, Serializable {
     }
     
     public static class Builder {
+        protected String planeId;
         protected String brooklynVersion = BrooklynVersion.get();
         protected final List<String> applicationIds = Collections.synchronizedList(Lists.<String>newArrayList());
         protected final List<String> topLevelLocationIds = Collections.synchronizedList(Lists.<String>newArrayList());
@@ -58,6 +59,11 @@ public class BrooklynMementoImpl implements BrooklynMemento, Serializable {
         protected final Map<String, CatalogItemMemento> catalogItems = Maps.newConcurrentMap();
 
         
+        public Builder planeId(String val) {
+            planeId = val; return this;
+        }
+        /** @deprecated since 0.11.0; value unused */
+        @Deprecated
         public Builder brooklynVersion(String val) {
             brooklynVersion = val; return this;
         }
@@ -132,6 +138,7 @@ public class BrooklynMementoImpl implements BrooklynMemento, Serializable {
         }
     }
 
+    private String planeId;
     @SuppressWarnings("unused")
     private String brooklynVersion;
     private List<String> applicationIds;
@@ -144,6 +151,7 @@ public class BrooklynMementoImpl implements BrooklynMemento, Serializable {
     private Map<String, CatalogItemMemento> catalogItems;
     
     private BrooklynMementoImpl(Builder builder) {
+        planeId = builder.planeId;
         brooklynVersion = builder.brooklynVersion;
         applicationIds = builder.applicationIds;
         topLevelLocationIds = builder.topLevelLocationIds;
@@ -153,6 +161,11 @@ public class BrooklynMementoImpl implements BrooklynMemento, Serializable {
         enrichers = builder.enrichers;
         feeds = builder.feeds;
         catalogItems = builder.catalogItems;
+    }
+
+    @Override
+    public String getPlaneId() {
+        return planeId;
     }
 
     @Override

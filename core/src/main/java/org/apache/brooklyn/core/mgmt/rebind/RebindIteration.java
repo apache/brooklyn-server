@@ -76,6 +76,7 @@ import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContex
 import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagementMode;
 import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagerInternal;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.LocationManagerInternal;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.internal.ManagementTransitionMode;
@@ -235,6 +236,7 @@ public abstract class RebindIteration {
     
     protected void doRun() throws Exception {
         loadManifestFiles();
+        initPlaneId();
         rebuildCatalog();
         instantiateLocationsAndEntities();
         instantiateMementos();
@@ -465,6 +467,19 @@ public abstract class RebindIteration {
         checkEnteringPhase(4);
         
         memento = persistenceStoreAccess.loadMemento(mementoRawData, rebindContext.lookup(), exceptionHandler);
+    }
+
+    protected void initPlaneId() {
+        String persistedPlaneId = mementoRawData.getPlaneId();
+        if (persistedPlaneId == null) {
+            if (!mementoRawData.isEmpty()) {
+                LOG.warn("Rebinding against existing persisted state, but no planeId found. Will generate a new one. " +
+                        "Expected if this is the first rebind after upgrading to Brooklyn 0.12.0+");
+            }
+            ((LocalManagementContext)managementContext).generateManagementPlaneId();
+        } else {
+            ((LocalManagementContext)managementContext).setManagementPlaneId(persistedPlaneId);
+        }
     }
 
     protected void instantiateAdjuncts(BrooklynObjectInstantiator instantiator) {

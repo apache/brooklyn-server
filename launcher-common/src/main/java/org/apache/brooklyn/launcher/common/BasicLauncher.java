@@ -571,7 +571,7 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
         if (persistMode == PersistMode.DISABLED) {
             LOG.info("Persistence disabled");
             objectStore = null;
-            
+            ((LocalManagementContext)managementContext).generateManagementPlaneId();
         } else {
             try {
                 if (persistenceLocation == null) {

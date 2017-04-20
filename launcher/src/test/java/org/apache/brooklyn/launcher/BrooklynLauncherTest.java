@@ -101,7 +101,7 @@ public class BrooklynLauncherTest {
                 .start();
         
         ManagementContext managementContext = launcher.getServerDetails().getManagementContext();
-        String expectedTempDir = Os.mergePaths(Os.home(), dataDirName, "planes", managementContext.getManagementPlaneId(), managementContext.getManagementNodeId(), "jetty");
+        String expectedTempDir = Os.mergePaths(Os.home(), dataDirName, "planes", managementContext.getManagementNodeId(), "jetty");
         
         File webappTempDir = launcher.getServerDetails().getWebServer().getWebappTempDir();
         assertEquals(webappTempDir.getAbsolutePath(), expectedTempDir);

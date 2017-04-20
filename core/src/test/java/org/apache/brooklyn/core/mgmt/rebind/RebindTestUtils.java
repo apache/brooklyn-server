@@ -150,7 +150,8 @@ public class RebindTestUtils {
         BrooklynProperties properties;
         PersistenceObjectStore objectStore;
         Duration persistPeriod = Duration.millis(100);
-        HighAvailabilityMode haMode;
+        PersistMode persistMode = PersistMode.AUTO;
+        HighAvailabilityMode haMode = HighAvailabilityMode.DISABLED;
         boolean forLive;
         boolean enableOsgi = false;
         boolean emptyCatalog;
@@ -206,11 +207,25 @@ public class RebindTestUtils {
             return this;
         }
 
+        public ManagementContextBuilder persistMode(PersistMode val) {
+            checkNotNull(val, "persistMode");
+            this.persistMode = val;
+            if (persistMode == PersistMode.DISABLED) {
+                haMode(HighAvailabilityMode.DISABLED);
+            }
+            return this;
+        }
+
         public ManagementContextBuilder haMode(HighAvailabilityMode val) {
+            checkNotNull(val, "haMode");
             this.haMode = val;
             return this;
         }
 
+        /**
+         * What you could actually want is {@link #buildStarted()} with builder properties set to
+         * {@code .persistMode(PersistMode.DISABLED).haMode(HighAvailabilityMode.DISABLED)}
+         */
         public LocalManagementContext buildUnstarted() {
             LocalManagementContext unstarted;
             BrooklynProperties properties = this.properties != null
@@ -227,18 +242,21 @@ public class RebindTestUtils {
             if (forLive) {
                 unstarted = new LocalManagementContext(properties);
             } else {
-                unstarted = LocalManagementContextForTests.builder(true).useProperties(properties).disableOsgi(!enableOsgi).build();
+                unstarted = LocalManagementContextForTests.builder(true)
+                        .useProperties(properties)
+                        .disableOsgi(!enableOsgi)
+                        .disablePersistenceBackups(!enablePersistenceBackups)
+                        .build();
             }
             
             objectStore.injectManagementContext(unstarted);
-            objectStore.prepareForSharedUse(PersistMode.AUTO, (haMode == null ? HighAvailabilityMode.DISABLED : haMode));
+            objectStore.prepareForSharedUse(PersistMode.AUTO, haMode);
             BrooklynMementoPersisterToObjectStore newPersister = new BrooklynMementoPersisterToObjectStore(
                     objectStore, 
                     unstarted.getBrooklynProperties(), 
                     classLoader);
             ((RebindManagerImpl) unstarted.getRebindManager()).setPeriodicPersistPeriod(persistPeriod);
             unstarted.getRebindManager().setPersister(newPersister, PersistenceExceptionHandlerImpl.builder().build());
-            unstarted.getHighAvailabilityManager().disabled();
             // set the HA persister, in case any children want to use HA
             unstarted.getHighAvailabilityManager().setPersister(new ManagementPlaneSyncRecordPersisterToObjectStore(unstarted, objectStore, classLoader));
             return unstarted;
@@ -246,8 +264,17 @@ public class RebindTestUtils {
 
         public LocalManagementContext buildStarted() {
             LocalManagementContext unstarted = buildUnstarted();
-            unstarted.getHighAvailabilityManager().disabled();
-            unstarted.getRebindManager().startPersistence();
+            // Follows BasicLauncher logic for initialising persistence.
+            // TODO It should really be encapsulated in a common entry point
+            if (persistMode == PersistMode.DISABLED) {
+                unstarted.generateManagementPlaneId();
+            } else if (haMode == HighAvailabilityMode.DISABLED) {
+                unstarted.getRebindManager().rebind(classLoader, null, ManagementNodeState.MASTER);
+                unstarted.getRebindManager().startPersistence();
+                unstarted.getHighAvailabilityManager().disabled();
+            } else {
+                unstarted.getHighAvailabilityManager().start(haMode);
+            }
             return unstarted;
         }
 

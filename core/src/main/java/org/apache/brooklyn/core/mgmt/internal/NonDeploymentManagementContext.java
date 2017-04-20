@@ -76,6 +76,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -123,8 +124,14 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
     }
 
     @Override
+    @Deprecated
     public String getManagementPlaneId() {
         return (initialManagementContext == null) ? null : initialManagementContext.getManagementPlaneId();
+    }
+    
+    @Override
+    public Optional<String> getOptionalManagementPlaneId() {
+        return (initialManagementContext == null) ? Optional.<String>absent() : initialManagementContext.getOptionalManagementPlaneId();
     }
     
     @Override

@@ -23,16 +23,23 @@ import java.util.Map;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeSyncRecord;
 import org.apache.brooklyn.api.mgmt.ha.ManagementPlaneSyncRecord;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 
 public class ImmutableManagementPlaneSyncRecord implements ManagementPlaneSyncRecord {
+    private final String planeId;
     private final String masterNodeId;
     private final Map<String, ManagementNodeSyncRecord> managementNodes;
 
-    ImmutableManagementPlaneSyncRecord(String masterNodeId, Map<String, ManagementNodeSyncRecord> nodes) {
+    ImmutableManagementPlaneSyncRecord(String planeId, String masterNodeId, Map<String, ManagementNodeSyncRecord> nodes) {
+        this.planeId = planeId;
         this.masterNodeId = masterNodeId;
         this.managementNodes = ImmutableMap.copyOf(nodes);
+    }
+    
+    @Override
+    public String getPlaneId() {
+        return planeId;
     }
     
     @Override
@@ -47,11 +54,19 @@ public class ImmutableManagementPlaneSyncRecord implements ManagementPlaneSyncRe
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("master", masterNodeId).add("nodes", managementNodes.keySet()).toString();
+        return MoreObjects.toStringHelper(this)
+                .add("planeId", planeId)
+                .add("master", masterNodeId)
+                .add("nodes", managementNodes.keySet())
+                .toString();
     }
     
     @Override
     public String toVerboseString() {
-        return Objects.toStringHelper(this).add("master", masterNodeId).add("nodes", managementNodes).toString();
+        return MoreObjects.toStringHelper(this)
+                .add("planeId", planeId)
+                .add("master", masterNodeId)
+                .add("nodes", managementNodes)
+                .toString();
     }
 }

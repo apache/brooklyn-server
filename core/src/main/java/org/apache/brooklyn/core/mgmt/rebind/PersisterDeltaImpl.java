@@ -39,6 +39,8 @@ import com.google.common.collect.Sets;
 
 public class PersisterDeltaImpl implements Delta, MutableDelta {
     
+    String planeId;
+
     // use multiset?
     
     Collection<LocationMemento> locations = Sets.newLinkedHashSet();
@@ -54,6 +56,11 @@ public class PersisterDeltaImpl implements Delta, MutableDelta {
     Collection<String> removedEnricherIds = Sets.newLinkedHashSet();
     Collection <String> removedFeedIds = Sets.newLinkedHashSet();
     Collection<String> removedCatalogItemIds = Sets.newLinkedHashSet();
+    
+    @Override
+    public String planeId() {
+        return planeId;
+    }
 
     @Override
     public Collection<LocationMemento> locations() {

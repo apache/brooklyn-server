@@ -42,6 +42,7 @@ public class BrooklynMementoRawData {
     }
     
     public static class Builder {
+        protected String planeId;
         protected String brooklynVersion;
         protected final Map<String, String> entities = Maps.newConcurrentMap();
         protected final Map<String, String> locations = Maps.newConcurrentMap();
@@ -49,7 +50,12 @@ public class BrooklynMementoRawData {
         protected final Map<String, String> enrichers = Maps.newConcurrentMap();
         protected final Map<String, String> feeds = Maps.newConcurrentMap();
         protected final Map<String, String> catalogItems = Maps.newConcurrentMap();
-        
+
+        public Builder planeId(String val) {
+            planeId = val; return this;
+        }
+        /** @deprecated since 0.11.0; value not used */
+        @Deprecated
         public Builder brooklynVersion(String val) {
             brooklynVersion = val; return this;
         }
@@ -122,6 +128,7 @@ public class BrooklynMementoRawData {
         }
     }
 
+    private final String planeId;
     private final String brooklynVersion;
     private final Map<String, String> entities;
     private final Map<String, String> locations;
@@ -131,6 +138,7 @@ public class BrooklynMementoRawData {
     private final Map<String, String> catalogItems;
     
     private BrooklynMementoRawData(Builder builder) {
+        planeId = builder.planeId;
         brooklynVersion = builder.brooklynVersion;
         entities = builder.entities;
         locations = builder.locations;
@@ -140,10 +148,17 @@ public class BrooklynMementoRawData {
         catalogItems = builder.catalogItems;
     }
 
+    @Nullable
+    public String getPlaneId() {
+        return planeId;
+    }
+
     /**
      * Setting the brooklyn version explicitly is optional. 
+     * @deprecated since 0.11.0; value unused and not set anywhere
      */
     @Beta
+    @Deprecated
     @Nullable
     public String getBrooklynVersion() {
         return brooklynVersion;
@@ -180,7 +195,7 @@ public class BrooklynMementoRawData {
     }
     
     public boolean isEmpty() {
-        return entities.isEmpty() && locations.isEmpty() && policies.isEmpty() && enrichers.isEmpty() && feeds.isEmpty() && catalogItems.isEmpty();
+        return planeId == null && entities.isEmpty() && locations.isEmpty() && policies.isEmpty() && enrichers.isEmpty() && feeds.isEmpty() && catalogItems.isEmpty();
     }
     
     public Map<String, String> getObjectsOfType(BrooklynObjectType type) {

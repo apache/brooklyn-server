@@ -110,6 +110,8 @@ public interface BrooklynMementoPersister {
     /** All methods on this interface are unmodifiable by the caller. Sub-interfaces may introduce modifiers. */
     // NB: the type-specific methods aren't actually used anymore; we could remove them to simplify the impl (and use a multiset there)
     public interface Delta {
+        String planeId();
+
         Collection<LocationMemento> locations();
         Collection<EntityMemento> entities();
         Collection<PolicyMemento> policies();

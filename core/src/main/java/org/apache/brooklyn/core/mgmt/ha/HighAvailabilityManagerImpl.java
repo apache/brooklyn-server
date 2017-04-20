@@ -56,6 +56,7 @@ import org.apache.brooklyn.core.mgmt.ha.dto.ManagementPlaneSyncRecordImpl;
 import org.apache.brooklyn.core.mgmt.ha.dto.ManagementPlaneSyncRecordImpl.Builder;
 import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagementMode;
 import org.apache.brooklyn.core.mgmt.internal.LocalEntityManager;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.LocationManagerInternal;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.internal.ManagementTransitionMode;
@@ -278,9 +279,12 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         ownNodeId = managementContext.getManagementNodeId();
         // TODO Small race in that we first check, and then we'll do checkMaster() on first poll,
         // so another node could have already become master or terminated in that window.
-        ManagementNodeSyncRecord existingMaster = hasHealthyMaster();
+        ManagementPlaneSyncRecord planeRec = loadManagementPlaneSyncRecord(false);
+        ManagementNodeSyncRecord existingMaster = hasHealthyMaster(planeRec);
         boolean weAreRecognisedAsMaster = existingMaster!=null && ownNodeId.equals(existingMaster.getNodeId());
         boolean weAreMasterLocally = getInternalNodeState()==ManagementNodeState.MASTER;
+        
+        updateLocalPlaneId(planeRec);
         
         // catch error in some tests where mgmt context has a different HA manager
         if (managementContext.getHighAvailabilityManager()!=this)
@@ -456,6 +460,12 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
             registerPollTask();
     }
 
+    protected void updateLocalPlaneId(ManagementPlaneSyncRecord existingMaster) {
+        if (existingMaster.getPlaneId() != null) {
+            ((LocalManagementContext)managementContext).setManagementPlaneId(existingMaster.getPlaneId());
+        }
+    }
+
     @Override
     public void setPriority(long priority) {
         this.priority = priority;
@@ -538,7 +548,6 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         return lastSyncRecord;
     }
     
-    @SuppressWarnings("unchecked")
     protected void registerPollTask() {
         final Runnable job = new Runnable() {
             private boolean lastFailed;
@@ -687,9 +696,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         return (timestampMe - timestampMaster) <= getHeartbeatTimeout().toMilliseconds();
     }
     
-    protected ManagementNodeSyncRecord hasHealthyMaster() {
-        ManagementPlaneSyncRecord memento = loadManagementPlaneSyncRecord(false);
-        
+    protected ManagementNodeSyncRecord hasHealthyMaster(ManagementPlaneSyncRecord memento ) {
         String nodeId = memento.getMasterNodeId();
         ManagementNodeSyncRecord masterMemento = (nodeId == null) ? null : memento.getManagementNodes().get(nodeId);
         
@@ -714,6 +721,8 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
             // if failed or hot backup then we can't promote ourselves, so no point in checking who is master
             return;
         }
+        
+        updateLocalPlaneId(memento);
         
         String currMasterNodeId = memento.getMasterNodeId();
         ManagementNodeSyncRecord currMasterNodeRecord = memento.getManagementNodes().get(currMasterNodeId);
@@ -971,6 +980,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         if (disabled) {
             // if HA is disabled, then we are the only node - no persistence; just load a memento to describe this node
             Builder builder = ManagementPlaneSyncRecordImpl.builder()
+                .planeId(managementContext.getOptionalManagementPlaneId().orNull())
                 .node(createManagementNodeSyncRecord(true));
             if (getTransitionTargetNodeState() == ManagementNodeState.MASTER) {
                 builder.masterNodeId(ownNodeId);

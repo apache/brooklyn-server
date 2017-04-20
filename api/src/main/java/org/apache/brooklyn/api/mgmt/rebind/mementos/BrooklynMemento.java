@@ -37,6 +37,8 @@ import java.util.Map;
  */
 public interface BrooklynMemento extends Serializable {
 
+    public String getPlaneId();
+
     public EntityMemento getEntityMemento(String id);
     public LocationMemento getLocationMemento(String id);
     public PolicyMemento getPolicyMemento(String id);

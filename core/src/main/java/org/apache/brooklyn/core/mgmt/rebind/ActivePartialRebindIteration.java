@@ -131,6 +131,11 @@ public class ActivePartialRebindIteration extends RebindIteration {
     }
     
     @Override
+    protected void initPlaneId() {
+        // managementPlaneId is already initialized, no need to set it on partial rebind
+    }
+    
+    @Override
     protected void preprocessManifestFiles() throws Exception {
         for (CompoundTransformer transformer: transformers) {
             mementoRawData = transformer.transform(mementoRawData);
