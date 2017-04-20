@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.location.access;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -384,6 +385,11 @@ public class PortForwardManagerClient implements PortForwardManager {
     @Override
     public String getCatalogItemId() {
         return getDelegate().getCatalogItemId();
+    }
+
+    @Override
+    public List<String> getCatalogItemIdSearchPath() {
+        return getDelegate().getCatalogItemIdSearchPath();
     }
 
     @Override

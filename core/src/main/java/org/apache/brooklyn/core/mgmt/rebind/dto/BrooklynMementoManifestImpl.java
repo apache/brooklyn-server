@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.mgmt.rebind.dto;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoManifest;
@@ -49,8 +50,8 @@ public class BrooklynMementoManifestImpl implements BrooklynMementoManifest, Ser
         public Builder brooklynVersion(String val) {
             brooklynVersion = val; return this;
         }
-        public Builder entity(String id, String type, String parent, String catalogItemId) {
-            entityIdToManifest.put(id, new EntityMementoManifestImpl(id, type, parent, catalogItemId));
+        public Builder entity(String id, String type, String parent, String catalogItemId, List<String> searchPath) {
+            entityIdToManifest.put(id, new EntityMementoManifestImpl(id, type, parent, catalogItemId, searchPath));
             return this;
         }
         public Builder location(String id, String type) {

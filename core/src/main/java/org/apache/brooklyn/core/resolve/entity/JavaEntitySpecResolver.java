@@ -87,7 +87,7 @@ public class JavaEntitySpecResolver extends AbstractEntitySpecResolver{
                 .additionalInterfaces(additionalInterfaceClazzes);
             spec = rawSpec;
         }
-        spec.catalogItemId(CatalogUtils.getCatalogItemIdFromLoader(loader));
+        spec.stackCatalogItemId(CatalogUtils.getCatalogItemIdFromLoader(loader));
 
         return spec;
     }

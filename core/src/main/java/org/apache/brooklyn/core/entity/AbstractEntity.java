@@ -668,7 +668,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     @Override
     public <T extends Entity> T addChild(T child) {
         checkNotNull(child, "child must not be null (for entity %s)", this);
-        CatalogUtils.setCatalogItemIdOnAddition(this, child);
+        CatalogUtils.addToCatalogSearchPathOnAddition(this, child);
         
         boolean changed;
         synchronized (children) {
@@ -1611,7 +1611,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                 remove(old);
             }
 
-            CatalogUtils.setCatalogItemIdOnAddition(AbstractEntity.this, policy);
+            CatalogUtils.addToCatalogSearchPathOnAddition(AbstractEntity.this, policy);
             policiesInternal.add((AbstractPolicy)policy);
             ((AbstractPolicy)policy).setEntity(AbstractEntity.this);
             ConfigConstraints.assertValid(policy);
@@ -1690,7 +1690,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                 remove(old);
             }
             
-            CatalogUtils.setCatalogItemIdOnAddition(AbstractEntity.this, enricher);
+            CatalogUtils.addToCatalogSearchPathOnAddition(AbstractEntity.this, enricher);
             enrichersInternal.add((AbstractEnricher) enricher);
             ((AbstractEnricher)enricher).setEntity(AbstractEntity.this);
             ConfigConstraints.assertValid(enricher);
@@ -1937,7 +1937,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                 }
             }
             
-            CatalogUtils.setCatalogItemIdOnAddition(AbstractEntity.this, feed);
+            CatalogUtils.addToCatalogSearchPathOnAddition(AbstractEntity.this, feed);
             feedsInternal.add(feed);
             if (!AbstractEntity.this.equals(((AbstractFeed)feed).getEntity()))
                 ((AbstractFeed)feed).setEntity(AbstractEntity.this);

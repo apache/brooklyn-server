@@ -114,27 +114,28 @@ public class InternalLocationFactory extends InternalFactory {
             
             managementContext.prePreManage(loc);
 
+            final AbstractLocation location = (AbstractLocation) loc;
             if (spec.getDisplayName()!=null)
-                ((AbstractLocation)loc).setDisplayName(spec.getDisplayName());
+                location.setDisplayName(spec.getDisplayName());
             
             if (spec.getCatalogItemId()!=null) {
-                ((AbstractLocation)loc).setCatalogItemId(spec.getCatalogItemId());
+                location.setCatalogItemIdAndSearchPath(spec.getCatalogItemId(), spec.getCatalogItemIdSearchPath());
             }
             
             loc.tags().addTags(spec.getTags());
             
             if (isNewStyle(clazz)) {
-                ((AbstractLocation)loc).setManagementContext(managementContext);
-                ((AbstractLocation)loc).configure(ConfigBag.newInstance().putAll(spec.getFlags()).putAll(spec.getConfig()).getAllConfig());
+                location.setManagementContext(managementContext);
+                location.configure(ConfigBag.newInstance().putAll(spec.getFlags()).putAll(spec.getConfig()).getAllConfig());
             }
             
             for (Map.Entry<ConfigKey<?>, Object> entry : spec.getConfig().entrySet()) {
-                ((AbstractLocation)loc).config().set((ConfigKey)entry.getKey(), entry.getValue());
+                location.config().set((ConfigKey)entry.getKey(), entry.getValue());
             }
             for (Entry<Class<?>, Object> entry : spec.getExtensions().entrySet()) {
                 ((LocationInternal)loc).addExtension((Class)entry.getKey(), entry.getValue());
             }
-            ((AbstractLocation)loc).init();
+            location.init();
             
             Location parent = spec.getParent();
             if (parent != null) {

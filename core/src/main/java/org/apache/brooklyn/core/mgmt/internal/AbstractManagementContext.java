@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.mgmt.internal;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoadingContextForCatalogItems;
 
 import java.net.URI;
 import java.net.URL;
@@ -54,7 +55,6 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
-import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.drivers.BasicEntityDriverManager;
@@ -131,20 +131,38 @@ public abstract class AbstractManagementContext implements ManagementContextInte
             public BrooklynClassLoadingContext apply(@Nullable Object input) {
                 if (input instanceof EntityInternal) {
                     EntityInternal internal = (EntityInternal)input;
-                    if (internal.getCatalogItemId() != null) {
-                        RegisteredType item = internal.getManagementContext().getTypeRegistry().get(internal.getCatalogItemId());
+                    String entityCatalogItemId = internal.getCatalogItemId();
+                    final List<String> searchPath = internal.getCatalogItemIdSearchPath();
+                    if(entityCatalogItemId != null || !searchPath.isEmpty()) {
 
-                        if (item != null) {
-                            BrooklynClassLoadingContext itemLoader = CatalogUtils.newClassLoadingContext(internal.getManagementContext(), item);
-                            // Falls back to the entity's class loader
-                            JavaBrooklynClassLoadingContext entityLoader = JavaBrooklynClassLoadingContext.create(input.getClass().getClassLoader());
-                            BrooklynClassLoadingContext seqLoader = new BrooklynClassLoadingContextSequential(internal.getManagementContext(), itemLoader, entityLoader);
-                            return seqLoader;
-                        } else {
-                            log.error("Can't find catalog item " + internal.getCatalogItemId() +
-                                    " used for instantiating entity " + internal +
-                                    ". Falling back to application classpath.");
+                        final ManagementContext managementContext = internal.getManagementContext();
+                        BrooklynClassLoadingContextSequential seqLoader =
+                            new BrooklynClassLoadingContextSequential(managementContext);
+
+                        // check the items are in the registry; 'newClassLoadingContextForCatalogItems' will
+                        // handle this but here we have better context for log messages
+                        if (entityCatalogItemId != null) {
+                            RegisteredType item = internal.getManagementContext().getTypeRegistry().get(entityCatalogItemId);
+                            if (item == null) {
+                                log.warn("Can't find catalog item " + entityCatalogItemId +
+                                    " declared as catalog item type for entity " + internal);
+                            }
                         }
+                        for (String searchPathId : searchPath) {
+                            RegisteredType item = internal.getManagementContext().getTypeRegistry().get(searchPathId);
+                            if (item == null) {
+                                log.warn("Can't find catalog item " + searchPathId +
+                                    " found on search path for entity" + internal);
+                            }
+                        }
+
+                        seqLoader.add(newClassLoadingContextForCatalogItems(managementContext, entityCatalogItemId, searchPath));
+
+                        JavaBrooklynClassLoadingContext entityLoader =
+                            JavaBrooklynClassLoadingContext.create(input.getClass().getClassLoader());
+                        seqLoader.add(entityLoader);
+
+                        return seqLoader;
                     }
                     return apply(internal.getManagementSupport());
                 }

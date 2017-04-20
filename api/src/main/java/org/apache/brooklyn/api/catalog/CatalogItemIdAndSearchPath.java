@@ -16,25 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.api.internal;
+package org.apache.brooklyn.api.catalog;
 
-import org.apache.brooklyn.api.catalog.CatalogItemIdAndSearchPath;
+import java.util.List;
 
-/**
- * Methods from downstream projects used in API classes at runtime. 
- * See {@link ApiObjectsFactory}. 
- */
-public interface ApiObjectsFactoryInterface {
+public class CatalogItemIdAndSearchPath {
+    private String catalogItemId;
+    private List<String> searchPath;
 
-    /**
-     * @deprecated since 0.11.0, prefer {@link #getCatalogItemIdAndSearchPathFromContext()}
-     * @return The catalog item id of the context entity of the current task.
-     */
-    public String getCatalogItemIdFromContext();
-
-    /**
-     * @return The catalog item id and search path of the context entity of the current task.
-     */
-    public CatalogItemIdAndSearchPath getCatalogItemIdAndSearchPathFromContext();
-
+    public CatalogItemIdAndSearchPath(String catalogItemId, List<String> searchPath) {
+        this.catalogItemId = catalogItemId;
+        this.searchPath = searchPath;
+    }
+    public String getCatalogItemId() { return catalogItemId; }
+    public List<String> getSearchPath() { return searchPath; }
 }

@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.api.objs;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -57,6 +58,21 @@ public interface BrooklynObject extends Identifiable, Configurable {
      * Callers can set an explicit catalog item ID if inferencing is not correct.
      */
     String getCatalogItemId();
+
+    /**
+     * An immutable list of ids of catalog items that define this item.
+     * e.g. if the catalog item is defined as a Z where
+     * <pre>
+     *     items:
+     *     - id: X
+     *     - id: Y
+     *       item: X
+     *     - id: Z
+     *       item: Y
+     * </pre>
+     * then the list will contain X, Y.
+     */
+    List<String> getCatalogItemIdSearchPath();
     
     /** 
      * Tags are arbitrary objects which can be attached to an entity for subsequent reference.
