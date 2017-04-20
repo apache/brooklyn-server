@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.mgmt.persist;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,6 +37,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.rebind.PersistenceExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMemento;
@@ -47,22 +49,27 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.mgmt.classloading.ClassLoaderFromBrooklynClassLoadingContext;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore.StoreObjectAccessor;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore.StoreObjectAccessorWithLock;
 import org.apache.brooklyn.core.mgmt.rebind.PeriodicDeltaChangeListener;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BrooklynMementoImpl;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BrooklynMementoManifestImpl;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.xstream.XmlUtil;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -74,6 +81,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.io.ByteSource;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -112,6 +120,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
     private volatile boolean writesAllowed = false;
     private volatile boolean writesShuttingDown = false;
     private StringConfigMap brooklynProperties;
+    private ManagementContext mgmt = null;
     
     private List<Delta> queuedDeltas = new CopyOnWriteArrayList<BrooklynMementoPersister.Delta>();
     
@@ -121,6 +130,17 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
      */
     private final ReadWriteLock lock = new ReentrantReadWriteLock(true);
 
+    public BrooklynMementoPersisterToObjectStore(PersistenceObjectStore objectStore, ManagementContext mgmt) {
+        this(objectStore, mgmt, mgmt.getCatalogClassLoader());
+    }
+    
+    public BrooklynMementoPersisterToObjectStore(PersistenceObjectStore objectStore, ManagementContext mgmt, ClassLoader classLoader) {
+        this(objectStore, ((ManagementContextInternal)mgmt).getBrooklynProperties(), classLoader);
+        this.mgmt = mgmt;
+    }
+    
+    /** @deprecated since 0.12.0 use constructor taking management context */
+    @Deprecated
     public BrooklynMementoPersisterToObjectStore(PersistenceObjectStore objectStore, StringConfigMap brooklynProperties, ClassLoader classLoader) {
         this.objectStore = checkNotNull(objectStore, "objectStore");
         this.brooklynProperties = brooklynProperties;
@@ -263,10 +283,8 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         Stopwatch stopwatch = Stopwatch.createStarted();
         try {
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
-                // TODO exclude bundles
                 subPathDataBuilder.putAll(type, makeIdSubPathMap(objectStore.listContentsWithSubPath(type.getSubPathName())));
             }
-            // TODO bundles
             
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
@@ -306,6 +324,11 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                 if (!Objects.equal(id, safeXmlId))
                     LOG.warn("ID mismatch on "+type.toCamelCase()+", "+id+" from path, "+safeXmlId+" from xml");
                 
+                if (type == BrooklynObjectType.MANAGED_BUNDLE) {
+                    // TODO write to temp file
+                    String jarData = read(contentsSubpath+".jar");
+                    builder.bundleJar(id, ByteSource.wrap(jarData.getBytes()));
+                }
                 builder.put(type, xmlId, contents);
             }
         };
@@ -329,10 +352,8 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
     }
 
     @Override
-    public BrooklynMementoManifest loadMementoManifest(BrooklynMementoRawData mementoData, final RebindExceptionHandler exceptionHandler) throws IOException {
-        if (mementoData==null)
-            mementoData = loadMementoRawData(exceptionHandler);
-        
+    public BrooklynMementoManifest loadMementoManifest(BrooklynMementoRawData mementoDataR, final RebindExceptionHandler exceptionHandler) throws IOException {
+        final BrooklynMementoRawData mementoData = mementoDataR==null ? loadMementoRawData(exceptionHandler) : mementoDataR;
         final BrooklynMementoManifestImpl.Builder builder = BrooklynMementoManifestImpl.builder();
 
         builder.planeId(mementoData.getPlaneId());
@@ -376,7 +397,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                         try {
                             ManagedBundleMemento memento = (ManagedBundleMemento) getSerializerWithStandardClassLoader().fromString(contents);
                             builder.bundle( memento );
-                            // TODO load and set contents
+                            memento.setJarContent(mementoData.getBundleJars().get(objectId));
                         } catch (Exception e) {
                             exceptionHandler.onLoadMementoFailed(type, "memento "+objectId+" early catalog deserialization error", e);
                         }
@@ -541,8 +562,8 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             
             futures.add(asyncUpdatePlaneId(newMemento.getPlaneId(), exceptionHandler));
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
-                // TODO handle bundles separately
                 for (Map.Entry<String, String> entry : newMemento.getObjectsOfType(type).entrySet()) {
+                    addPersistContentIfManagedBundle(type, entry.getKey(), futures, exceptionHandler);
                     futures.add(asyncPersist(type.getSubPathName(), type, entry.getKey(), entry.getValue(), exceptionHandler));
                 }
             }
@@ -619,7 +640,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                 for (Memento item : delta.getObjectsOfType(type)) {
                     if (!deletedIds.contains(item.getId())) {
-                        // TODO if type is bundle then persist the actual bundle first
+                        addPersistContentIfManagedBundle(type, item.getId(), futures, exceptionHandler);
                         futures.add(asyncPersist(type.getSubPathName(), item, exceptionHandler));
                     }
                 }
@@ -627,6 +648,9 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                 for (String id : delta.getRemovedIdsOfType(type)) {
                     futures.add(asyncDelete(type.getSubPathName(), id, exceptionHandler));
+                    if (type==BrooklynObjectType.MANAGED_BUNDLE) {
+                        futures.add(asyncDelete(type.getSubPathName(), id+".jar", exceptionHandler));
+                    }
                 }
             }
             
@@ -642,6 +666,39 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             return stopwatch;
         } finally {
             lock.writeLock().unlock();
+        }
+    }
+
+    private void addPersistContentIfManagedBundle(BrooklynObjectType type, String id, List<ListenableFuture<?>> futures, PersistenceExceptionHandler exceptionHandler) {
+        if (type==BrooklynObjectType.MANAGED_BUNDLE) {
+            if (mgmt==null) {
+                throw new IllegalStateException("Cannot persist bundles without a mangaement context");
+            }
+            final ManagedBundle mb = ((ManagementContextInternal)mgmt).getOsgiManager().get().getManagedBundles().get(id);
+            if (mb==null) {
+                LOG.warn("Cannot find managed bundle for added bundle "+id+"; ignoring");
+            }
+            if (mb.getUrl()==null) {
+                LOG.trace("No URL for managed bundle for bundle "+id+", so not persisting");
+                return;
+            }
+            
+            String jarContent = Streams.readFullyStringAndClose(new ResourceUtils("persist").getResourceFromUrl(mb.getUrl()));
+            
+            // erase the URL once persisted - this prevents it from re-persisting
+            // (could introduce multiple or a transient field instead?)
+            if (mb instanceof BasicManagedBundle) {
+                final File f = ((BasicManagedBundle)mb).getTempLocalFileWhenJustUploaded();
+                if (f!=null) {
+                    futures.add(asyncPersist(type.getSubPathName(), type, id+".jar", jarContent, exceptionHandler));
+                    executor.submit(new Runnable() {
+                        @Override
+                        public void run() {
+                            ((BasicManagedBundle)mb).setTempLocalFileWhenJustUploaded(null);
+                            f.delete();
+                        }});
+                }
+            }
         }
     }
 

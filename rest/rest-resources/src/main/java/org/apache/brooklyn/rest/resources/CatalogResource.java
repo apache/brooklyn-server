@@ -20,6 +20,7 @@ package org.apache.brooklyn.rest.resources;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
@@ -55,6 +56,8 @@ import org.apache.brooklyn.core.catalog.internal.CatalogItemComparator;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.rest.api.CatalogApi;
 import org.apache.brooklyn.rest.domain.ApiError;
@@ -226,7 +229,14 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             
             f2 = bm.copyAddingManifest(f, mf);
             
-            Bundle bundle = bm.installBundle(f2, true);
+            BasicManagedBundle bundleMetadata = new BasicManagedBundle(bundleNameInMF, bundleVersionInMF, null);
+            Bundle bundle;
+            try (FileInputStream f2in = new FileInputStream(f2)) {
+                bundle =
+                    ((LocalManagementContext)mgmt()).getOsgiManager().get().installUploadedBundle(bundleMetadata, f2in);
+            } catch (Exception e) {
+                throw Exceptions.propagate(e);
+            }
 
             Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
             

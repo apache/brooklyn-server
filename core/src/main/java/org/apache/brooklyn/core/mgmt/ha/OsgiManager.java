@@ -19,6 +19,8 @@
 package org.apache.brooklyn.core.mgmt.ha;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.Arrays;
@@ -39,6 +41,7 @@ import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.mgmt.persist.OsgiClassPrefixer;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.osgi.Osgis;
@@ -50,6 +53,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.os.Os.DeletionResult;
 import org.apache.brooklyn.util.repeat.Repeater;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.osgi.framework.Bundle;
@@ -121,33 +125,63 @@ public class OsgiManager {
         return ImmutableMap.copyOf(managedBundles);
     }
     
-    public void installUploadedBundle(ManagedBundle bundleMetadata, InputStream zip) {
+    public Bundle installUploadedBundle(ManagedBundle bundleMetadata, InputStream zipIn) {
         try {
-            if (checkBundleInstalledThrowIfInconsistent(bundleMetadata)) {
-                return;
+            Bundle alreadyBundle = checkBundleInstalledThrowIfInconsistent(bundleMetadata, false);
+            if (alreadyBundle!=null) {
+                return alreadyBundle;
             }
 
-            Bundle bundleInstalled = framework.getBundleContext().installBundle(bundleMetadata.getOsgiUniqueUrl(), zip);
+            File zipF = Os.newTempFile("brooklyn-bundle-transient-"+bundleMetadata, "zip");
+            FileOutputStream fos = new FileOutputStream(zipF);
+            Streams.copy(zipIn, fos);
+            zipIn.close();
+            fos.close();
+            
+            Bundle bundleInstalled = framework.getBundleContext().installBundle(bundleMetadata.getOsgiUniqueUrl(), 
+                new FileInputStream(zipF));
             checkCorrectlyInstalled(bundleMetadata, bundleInstalled);
+            if (!bundleMetadata.isNameResolved()) {
+                ((BasicManagedBundle)bundleMetadata).setSymbolicName(bundleInstalled.getSymbolicName());
+                ((BasicManagedBundle)bundleMetadata).setVersion(bundleInstalled.getVersion().toString());
+            }
+            ((BasicManagedBundle)bundleMetadata).setTempLocalFileWhenJustUploaded(zipF);
             
             synchronized (managedBundles) {
                 managedBundles.put(bundleMetadata.getId(), bundleMetadata);
             }
+            mgmt.getRebindManager().getChangeListener().onChanged(bundleMetadata);
+            
+            bundleInstalled.start();
+            // benefits of start:
+            // a) we get wiring issues thrown here, and
+            // b) catalog.bom in root will be scanned synchronously here
+            // however drawbacks:
+            // c) other code doesn't always do it (see eg BundleMaker)
+            // d) heavier-weight earlier
+            // e) tests in IDE break (but mvn fine)
+            
+            return bundleInstalled;
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             throw new IllegalStateException("Bundle "+bundleMetadata+" failed to install: " + e.getMessage(), e);
         }
     }
     
-    public synchronized void registerBundle(CatalogBundle bundleMetadata) {
+    // TODO uninstall bundle, and call change listener onRemoved ?
+    // TODO on snapshot install, uninstall old equivalent snapshots (items in use might stay in use though?)
+    
+    public synchronized Bundle registerBundle(CatalogBundle bundleMetadata) {
         try {
-            if (checkBundleInstalledThrowIfInconsistent(bundleMetadata)) {
-                return;
+            Bundle alreadyBundle = checkBundleInstalledThrowIfInconsistent(bundleMetadata, true);
+            if (alreadyBundle!=null) {
+                return alreadyBundle;
             }
 
             Bundle bundleInstalled = Osgis.install(framework, bundleMetadata.getUrl());
 
             checkCorrectlyInstalled(bundleMetadata, bundleInstalled);
+            return bundleInstalled;
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             throw new IllegalStateException("Bundle from "+bundleMetadata.getUrl()+" failed to install: " + e.getMessage(), e);
@@ -166,41 +200,48 @@ public class OsgiManager {
                 .version(b.getVersion().toString())
                 .findAll();
         if (matches.isEmpty()) {
-            log.error("OSGi could not find bundle "+nv+" in search after installing it from "+bundle.getUrl());
+            log.error("OSGi could not find bundle "+nv+" in search after installing it from "+bundle);
         } else if (matches.size()==1) {
             log.debug("Bundle from "+bundle.getUrl()+" successfully installed as " + nv + " ("+b+")");
         } else {
-            log.warn("OSGi has multiple bundles matching "+nv+", when just installed from "+bundle.getUrl()+": "+matches+"; "
-                + "brooklyn will prefer the URL-based bundle for top-level references but any dependencies or "
-                + "import-packages will be at the mercy of OSGi. "
-                + "It is recommended to use distinct versions for different bundles, and the same URL for the same bundles.");
+            log.warn("OSGi has multiple bundles matching "+nv+", when installing "+bundle+"; not guaranteed which versions will be consumed");
+            // TODO for snapshot versions we should indicate which one is best to use
         }
     }
 
-    private boolean checkBundleInstalledThrowIfInconsistent(OsgiBundleWithUrl bundle) {
-        String bundleUrl = bundle.getUrl();
+    /** return already-installed bundle or null */
+    private Bundle checkBundleInstalledThrowIfInconsistent(OsgiBundleWithUrl bundleMetadata, boolean requireUrlIfNotAlreadyPresent) {
+        String bundleUrl = bundleMetadata.getUrl();
         if (bundleUrl != null) {
             Maybe<Bundle> installedBundle = Osgis.bundleFinder(framework).requiringFromUrl(bundleUrl).find();
             if (installedBundle.isPresent()) {
                 Bundle b = installedBundle.get();
                 String nv = b.getSymbolicName()+":"+b.getVersion().toString();
-                if (!isBundleNameEqualOrAbsent(bundle, b)) {
-                    throw new IllegalStateException("User requested bundle " + bundle + " but already installed as "+nv);
+                if (!isBundleNameEqualOrAbsent(bundleMetadata, b)) {
+                    throw new IllegalStateException("User requested bundle " + bundleMetadata + " but already installed as "+nv);
                 } else {
                     log.trace("Bundle from "+bundleUrl+" already installed as "+nv+"; not re-registering");
                 }
-                return true;
+                return b;
             }
         } else {
-            Maybe<Bundle> installedBundle = Osgis.bundleFinder(framework).symbolicName(bundle.getSymbolicName()).version(bundle.getVersion()).find();
-            if (installedBundle.isPresent()) {
-                log.trace("Bundle "+bundle+" installed from "+installedBundle.get().getLocation());
+            Maybe<Bundle> installedBundle;
+            if (bundleMetadata.isNameResolved()) {
+                installedBundle = Osgis.bundleFinder(framework).symbolicName(bundleMetadata.getSymbolicName()).version(bundleMetadata.getVersion()).find();
             } else {
-                throw new IllegalStateException("Bundle "+bundle+" not previously registered, but URL is empty.");
+                installedBundle = Maybe.absent("Bundle metadata does not have URL nor does it have both name and version");
             }
-            return true;
+            if (installedBundle.isPresent()) {
+                log.trace("Bundle "+bundleMetadata+" installed from "+installedBundle.get().getLocation());
+            } else {
+                if (requireUrlIfNotAlreadyPresent) {
+                    throw new IllegalStateException("Bundle "+bundleMetadata+" not previously registered, but URL is empty.",
+                        Maybe.Absent.getException(installedBundle));
+                }
+            }
+            return installedBundle.orNull();
         }
-        return false;
+        return null;
     }
 
     public static boolean isBundleNameEqualOrAbsent(OsgiBundleWithUrl bundle, Bundle b) {

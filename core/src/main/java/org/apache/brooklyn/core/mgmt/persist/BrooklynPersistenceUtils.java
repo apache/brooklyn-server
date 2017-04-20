@@ -108,8 +108,7 @@ public class BrooklynPersistenceUtils {
             PersistenceObjectStore destinationObjectStore) {
         BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
             destinationObjectStore,
-            ((ManagementContextInternal)managementContext).getBrooklynProperties(),
-            managementContext.getCatalogClassLoader());
+            managementContext);
         PersistenceExceptionHandler exceptionHandler = PersistenceExceptionHandlerImpl.builder().build();
         persister.enableWriteAccess();
         persister.checkpoint(memento, exceptionHandler);

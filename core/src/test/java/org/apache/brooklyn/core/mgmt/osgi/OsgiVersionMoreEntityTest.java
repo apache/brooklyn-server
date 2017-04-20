@@ -23,12 +23,14 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.policy.PolicySpec;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.CatalogEntityItemDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
@@ -42,8 +44,11 @@ import org.apache.brooklyn.core.objs.proxy.InternalEntityFactory;
 import org.apache.brooklyn.core.objs.proxy.InternalPolicyFactory;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.OsgiTestBase;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -215,6 +220,18 @@ public class OsgiVersionMoreEntityTest {
             OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY,
             BROOKLYN_TEST_MORE_ENTITIES_V2_URL,
             BROOKLYN_TEST_OSGI_ENTITIES_URL);
+    }
+
+    @Test
+    public void testBrooklynManagedBundleInstall() throws Exception {
+        BasicManagedBundle mb = new BasicManagedBundle();
+        Bundle b = ((ManagementContextInternal)mgmt).getOsgiManager().get().installUploadedBundle(mb, 
+            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V1_URL));
+        Assert.assertEquals(mb.getSymbolicName(), b.getSymbolicName());
+        
+        Map<String, ManagedBundle> bundles = ((ManagementContextInternal)mgmt).getOsgiManager().get().getManagedBundles();
+        Asserts.assertSize(bundles.keySet(), 1);
+        Assert.assertEquals(mb.getId(), Iterables.getOnlyElement( bundles.keySet() ));
     }
     
     @Test

@@ -28,5 +28,6 @@ public interface ManagedBundleMemento extends Memento {
     String getUrl();
     
     ByteSource getJarContent();
+    void setJarContent(ByteSource byteSource);
 
 }

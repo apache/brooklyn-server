@@ -20,6 +20,7 @@ package org.apache.brooklyn.camp.brooklyn.catalog;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.List;
@@ -39,6 +40,7 @@ import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -169,8 +171,15 @@ public class CatalogMakeOsgiBundleTest extends AbstractYamlTest {
     }
 
     private void installBundle(File jf) {
-        Bundle bundle = bm.installBundle(jf, true);
-        bundlesToRemove.add(bundle);
+        try (FileInputStream fin = new FileInputStream(jf)) {
+            BasicManagedBundle bundleMetadata = new BasicManagedBundle();
+            Bundle bundle =
+                ((LocalManagementContext)mgmt()).getOsgiManager().get().installUploadedBundle(bundleMetadata, fin);
+            bundlesToRemove.add(bundle);
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
+
     }
     
     @Test

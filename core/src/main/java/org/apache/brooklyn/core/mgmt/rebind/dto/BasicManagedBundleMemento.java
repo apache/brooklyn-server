@@ -74,7 +74,7 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
     private String symbolicName;
     private String version;
     private String url;
-    private ByteSource jarContent;
+    transient private ByteSource jarContent;
 
     @SuppressWarnings("unused") // For deserialisation
     private BasicManagedBundleMemento() {}
@@ -104,6 +104,11 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
     @Override
     public ByteSource getJarContent() {
         return jarContent;
+    }
+    
+    @Override
+    public void setJarContent(ByteSource byteSource) {
+        this.jarContent = byteSource;
     }
 
     @Override

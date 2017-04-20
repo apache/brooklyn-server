@@ -131,9 +131,7 @@ public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphaned
                 PersistMode.AUTO, HighAvailabilityMode.HOT_STANDBY);
 
         BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
-                objectStore,
-                ((ManagementContextInternal)mgmt).getBrooklynProperties(),
-                mgmt.getCatalogClassLoader());
+                objectStore, mgmt);
 
         RebindManager rebindManager = mgmt.getRebindManager();
 

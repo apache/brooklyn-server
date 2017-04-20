@@ -350,7 +350,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         objectStore.prepareForSharedUse(PersistMode.AUTO, HighAvailabilityMode.DISABLED);
         BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
                 objectStore,
-                ((ManagementContextInternal)newManagementContext).getBrooklynProperties(),
+                newManagementContext,
                 classLoader);
         RebindExceptionHandler exceptionHandler = new RecordingRebindExceptionHandler(RebindManager.RebindFailureMode.FAIL_AT_END, RebindManager.RebindFailureMode.FAIL_AT_END);
         BrooklynMementoManifest mementoManifest = persister.loadMementoManifest(null, exceptionHandler);

@@ -36,6 +36,7 @@ import java.util.zip.ZipOutputStream;
 import javax.annotation.Nonnull;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -259,8 +260,10 @@ public class BundleMaker {
     }
     
     /** installs the given JAR file as an OSGi bundle; all manifest info should be already set up.
-     * bundle-start semantics are TBD. */
-    @Beta
+     * bundle-start semantics are TBD.
+     * 
+     * @deprecated since 0.12.0, use {@link OsgiManager#installUploadedBundle(org.apache.brooklyn.api.typereg.ManagedBundle, InputStream)}*/
+    @Deprecated
     public Bundle installBundle(File f, boolean start) {
         try {
             Bundle b = Osgis.install( framework, "file://"+f.getAbsolutePath() );

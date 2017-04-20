@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.typereg;
 
+import java.io.File;
 import java.util.Map;
 
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
@@ -27,6 +28,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -36,10 +38,10 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     private String symbolicName;
     private String version;
     private String url;
+    private transient File localFileWhenJustUploaded;
 
-    // for deserializing (not sure if needed?)
-    @SuppressWarnings("unused")
-    private BasicManagedBundle() {}
+    /** Creates an empty one, with an ID, expecting other fields will be populated. */
+    public BasicManagedBundle() {}
 
     public BasicManagedBundle(String name, String version, String url) {
         if (name == null && version == null) {
@@ -64,16 +66,38 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         return symbolicName;
     }
 
+    public void setSymbolicName(String symbolicName) {
+        this.symbolicName = symbolicName;
+    }
+    
     @Override
     public String getVersion() {
         return version;
     }
 
+    public void setVersion(String version) {
+        this.version = version;
+    }
+    
     @Override
     public String getUrl() {
         return url;
     }
 
+    public void setUrl(String url) {
+        this.url = url;
+    }
+
+    /** This is cached on the object when just uploaded, then deleted after it has been persisted. */
+    @Beta
+    public void setTempLocalFileWhenJustUploaded(File localFileWhenJustUploaded) {
+        this.localFileWhenJustUploaded = localFileWhenJustUploaded;
+    }
+    @Beta
+    public File getTempLocalFileWhenJustUploaded() {
+        return localFileWhenJustUploaded;
+    }
+    
     @Override
     public String getOsgiUniqueUrl() {
         return "brooklyn:"+getId();

@@ -70,7 +70,6 @@ public class ImmediateDeltaChangeListener implements ChangeListener {
         onChanged(instance);
     }
 
-    // TODO ensure this, and onChanged, are called
     @Override
     public void onUnmanaged(BrooklynObject instance) {
         if (running && persister != null) {
