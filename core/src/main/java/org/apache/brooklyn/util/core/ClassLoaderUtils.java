@@ -336,7 +336,8 @@ public class ClassLoaderUtils {
 
         @Override
         public boolean apply(Bundle input) {
-            return symbolicName.matcher(input.getSymbolicName()).matches() &&
+            return input.getSymbolicName() != null && input.getVersion() != null &&
+                    symbolicName.matcher(input.getSymbolicName()).matches() &&
                     (version == null || version.matcher(input.getVersion().toString()).matches());
         }
     }

@@ -25,7 +25,13 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.net.URL;
+import java.util.jar.Attributes;
+import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 
 import javax.annotation.Nullable;
 
@@ -55,6 +61,7 @@ import org.apache.brooklyn.util.maven.MavenArtifact;
 import org.apache.brooklyn.util.maven.MavenRetriever;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.osgi.OsgiUtils;
+import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.launch.Framework;
 import org.testng.annotations.AfterMethod;
@@ -131,6 +138,42 @@ public class ClassLoaderUtilsTest {
 
         mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
         Bundle bundle = installBundle(mgmt, bundleUrl);
+        Class<?> clazz = bundle.loadClass(classname);
+        Entity entity = createSimpleEntity(bundleUrl, clazz);
+        
+        String whileList = bundle.getSymbolicName()+":"+bundle.getVersion();
+        System.setProperty(ClassLoaderUtils.WHITE_LIST_KEY, whileList);
+        
+        ClassLoaderUtils cluMgmt = new ClassLoaderUtils(getClass(), mgmt);
+        ClassLoaderUtils cluClass = new ClassLoaderUtils(clazz);
+        ClassLoaderUtils cluEntity = new ClassLoaderUtils(getClass(), entity);
+        
+        assertLoadSucceeds(classname, clazz, cluMgmt, cluClass, cluEntity);
+        assertLoadSucceeds(bundle.getSymbolicName() + ":" + classname, clazz, cluMgmt, cluClass, cluEntity);
+    }
+    
+    @Test
+    public void testLoadClassInOsgiWhiteListWithInvalidBundlePresent() throws Exception {
+        String bundlePath = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
+        String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
+        String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY;
+        
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
+
+        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        Bundle bundle = installBundle(mgmt, bundleUrl);
+        
+        Manifest manifest = new Manifest();
+        manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        JarOutputStream target = new JarOutputStream(buffer, manifest);
+        target.close();
+        
+        OsgiManager osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager().get();
+        Framework framework = osgiManager.getFramework();
+        Bundle installedBundle = framework.getBundleContext().installBundle("stream://invalid", new ByteArrayInputStream(buffer.toByteArray()));
+        assertNotNull(installedBundle);
+        
         Class<?> clazz = bundle.loadClass(classname);
         Entity entity = createSimpleEntity(bundleUrl, clazz);
         
