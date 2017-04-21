@@ -20,6 +20,7 @@ package org.apache.brooklyn.api.mgmt.rebind.mementos;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -43,11 +44,19 @@ public interface Memento extends Serializable {
     
     String getId();
     
-    public String getType();
-    
-    public String getCatalogItemId();
-    
-    public String getDisplayName();
+    String getType();
+
+    /**
+     * The principal catalog item id.
+     */
+    String getCatalogItemId();
+
+    /**
+     * Item Ids of all catalog items used to define this item.
+     */
+    List<String> getCatalogItemIdSearchPath();
+
+    String getDisplayName();
     
     /**
      * A (weakly-typed) property set for this memento.
@@ -62,11 +71,11 @@ public interface Memento extends Serializable {
      * @deprecated since 0.7.0; use config/attributes so generic persistence will work, rather than requiring "custom fields"
      */
     @Deprecated
-    public Map<String, ? extends Object> getCustomFields();
+    Map<String, ? extends Object> getCustomFields();
     
-    public String toVerboseString();
+    String toVerboseString();
     
-    public void injectTypeClass(Class<?> clazz);
+    void injectTypeClass(Class<?> clazz);
     
     /**
      * Returns the injected type class, or null if not injected.
@@ -74,12 +83,12 @@ public interface Memento extends Serializable {
      * This is useful for ensuring the correct classloader is used (e.g. for {@link EntityMemento} 
      * previously calling {@code EntityTypes.getDefinedSensors(getType())}. 
      */
-    public Class<?> getTypeClass();
+    Class<?> getTypeClass();
 
-    public Collection<Object> getTags();
+    Collection<Object> getTags();
     
-    public Map<String,Set<String>> getRelations();
+    Map<String,Set<String>> getRelations();
     
     /** Null for {@link Entity}, but important for adjuncts; see {@link EntityAdjunct#getUniqueTag()} */
-    public String getUniqueTag();
+    String getUniqueTag();
 }

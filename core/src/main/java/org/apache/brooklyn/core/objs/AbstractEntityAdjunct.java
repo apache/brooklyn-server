@@ -288,7 +288,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
                 doReconfigureConfig(key, (T)val);
             }
         }
-        
+
         @Override
         protected <T> void onConfigChanged(ConfigKey<T> key, Object val) {
             onChanged();
@@ -308,7 +308,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         protected ExecutionContext getContext() {
             return AbstractEntityAdjunct.this.execution;
         }
-        
+
         @Override
         protected AbstractConfigMapImpl<?> getConfigsInternal() {
             return configsInternal;
@@ -342,7 +342,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     public <T> T setConfig(ConfigKey<T> key, T val) {
         return config().set(key, val);
     }
-    
+
     /**
      * Invoked whenever a config change is applied after management is started.
      * Default implementation throws an exception to disallow the change. 
@@ -379,7 +379,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         this.entity = entity;
         this.execution = ((EntityInternal) entity).getExecutionContext();
         if (entity!=null && getCatalogItemId() == null) {
-            setCatalogItemId(entity.getCatalogItemId());
+            setCatalogItemIdAndSearchPath(entity.getCatalogItemId(), entity.getCatalogItemIdSearchPath());
         }
     }
     

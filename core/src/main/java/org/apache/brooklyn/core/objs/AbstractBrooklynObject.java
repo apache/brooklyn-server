@@ -18,9 +18,22 @@
  */
 package org.apache.brooklyn.core.objs;
 
+import java.util.ArrayDeque;
 import java.util.Collections;
+import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import com.google.common.collect.ImmutableList;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 import org.apache.brooklyn.api.internal.ApiObjectsFactory;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -32,13 +45,6 @@ import org.apache.brooklyn.core.relations.ByObjectBasicRelationSupport;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.text.Identifiers;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 
 public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
 
@@ -51,6 +57,7 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
     private String id = Identifiers.makeRandomLowercaseId(10);
 
     private String catalogItemId;
+    private Deque<String> searchPath = new ArrayDeque<>();
 
     /** callers (only in TagSupport) should synchronize on this for all access */
     @SetFromFlag("tags")
@@ -83,9 +90,16 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
         // correct behaviour should be to inherit context's search path, perhaps, though maybe that's better done as spec?
         // in any case, should not define it as _the_ catalog item ID; also see assignment based on parent
         // in CatalogUtils.setCatalogItemIdOnAddition
-        catalogItemId = ApiObjectsFactory.get().getCatalogItemIdFromContext();
+        setCatalogItemId(ApiObjectsFactory.get().getCatalogItemIdFromContext());
 
         // rely on sub-class to call configure(properties), because otherwise its fields will not have been initialised
+    }
+
+    protected Object readResolve() {
+        if (searchPath == null) {
+            searchPath = new ArrayDeque<>();
+        }
+        return this;
     }
 
     /**
@@ -190,7 +204,28 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
 
     @Override
     public void setCatalogItemId(String id) {
-        this.catalogItemId = id;
+        catalogItemId = id;
+    }
+
+    @Override
+    public void setCatalogItemIdAndSearchPath(String catalogItemId, List<String> ids) {
+        setCatalogItemId(catalogItemId);
+        searchPath.clear();
+        searchPath.addAll(ids);
+    }
+
+    @Override
+    public void stackCatalogItemId(String id) {
+        if (null != id) {
+            if (null != catalogItemId && !catalogItemId.equals(id)) {
+                searchPath.addFirst(catalogItemId);
+            }
+            setCatalogItemId(id);
+        }
+    }
+
+    public List<String> getCatalogItemIdSearchPath() {
+        return ImmutableList.copyOf(searchPath);
     }
 
     @Override

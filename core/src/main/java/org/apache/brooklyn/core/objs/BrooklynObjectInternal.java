@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.objs;
 
+import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
@@ -37,6 +38,13 @@ import com.google.common.annotations.Beta;
 public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
     
     void setCatalogItemId(String id);
+    void setCatalogItemIdAndSearchPath(String catalogItemId, List<String> searchPath);
+
+    /**
+     * Moves the current catalog item id onto the start of the search path,
+     * then sets the catalog item id to the supplied value.
+     */
+    void stackCatalogItemId(String id);
     
     // subclasses typically apply stronger typing
     @Override

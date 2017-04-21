@@ -33,6 +33,7 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.EntityTypeRegistry;
 import org.apache.brooklyn.api.entity.Group;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.policy.Policy;
@@ -242,17 +243,18 @@ public class InternalEntityFactory extends InternalFactory {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected <T extends Entity> T loadUnitializedEntity(final T entity, final EntitySpec<T> spec) {
         try {
+            final AbstractEntity theEntity = (AbstractEntity) entity;
             if (spec.getDisplayName()!=null)
-                ((AbstractEntity)entity).setDisplayName(spec.getDisplayName());
+                theEntity.setDisplayName(spec.getDisplayName());
             
             if (spec.getCatalogItemId()!=null) {
-                ((AbstractEntity)entity).setCatalogItemId(spec.getCatalogItemId());
+                theEntity.setCatalogItemIdAndSearchPath(spec.getCatalogItemId(), spec.getCatalogItemIdSearchPath());
             }
             
             entity.tags().addTags(spec.getTags());
-            addSpecParameters(spec, ((AbstractEntity)entity).getMutableEntityType());
+            addSpecParameters(spec, theEntity.getMutableEntityType());
             
-            ((AbstractEntity)entity).configure(MutableMap.copyOf(spec.getFlags()));
+            theEntity.configure(MutableMap.copyOf(spec.getFlags()));
             for (Map.Entry<ConfigKey<?>, Object> entry : spec.getConfig().entrySet()) {
                 entity.config().set((ConfigKey)entry.getKey(), entry.getValue());
             }
@@ -273,7 +275,7 @@ public class InternalEntityFactory extends InternalFactory {
     private void addSpecParameters(EntitySpec<?> spec, EntityDynamicType edType) {
         // if coming from a catalog item, parsed by CAMP, then the spec list of parameters is canonical,
         // the parent item has had its config keys set as parameters here with those non-inheritable
-        // via type definition removed, so wipe those on the EDT to make sure non-inheritable ones are removed; 
+        // via type definition removed, so wipe those on the EDT to make sure non-inheritable ones are removed;
         // OTOH if item is blank, it was set as a java type, not inheriting it,
         // and the config keys on the dynamic type are the correct ones to use, and usually there is nothing in spec.parameters,
         // except what is being added programmatically.
@@ -344,7 +346,7 @@ public class InternalEntityFactory extends InternalFactory {
                     // are already accessible through the REST API.
                     LocationSpec<?> taggedSpec = LocationSpec.create(locationSpec)
                             .tag(BrooklynTags.newOwnerEntityTag(entity.getId()));
-                    ((AbstractEntity)entity).addLocations(MutableList.of(
+                    ((AbstractEntity)entity).addLocations(MutableList.<Location>of(
                         managementContext.getLocationManager().createLocation(taggedSpec)));
                 }
                 ((AbstractEntity)entity).addLocations(spec.getLocations());
