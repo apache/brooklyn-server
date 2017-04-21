@@ -493,9 +493,28 @@ public class BashCommands {
                 "    sleep 1",
                 "done",
                 "if test \"$result\" -ne 0; then",
+                "    ls -l "+file+" || true",
+                "    cat "+file+" || true",
                 "    "+ (failOnTimeout ?
                             "echo \"Couldn't find "+desiredContent+" in "+file+"; aborting\" && exit 1" :
                             "echo \"Couldn't find "+desiredContent+" in "+file+"; continuing\""),
+                "fi");
+        return Joiner.on("\n").join(commands);
+    }
+
+    public static String waitForFileExists(String file, Duration timeout, boolean failOnTimeout) {
+        long secs = Math.max(timeout.toSeconds(), 1);
+        
+        List<String> commands = ImmutableList.of(
+                "for i in {1.."+secs+"}; do",
+                "    [[ -f "+file+" ]] && result=0 || result=$?",
+                "    [ \"$result\" == 0 ] && break",
+                "    sleep 1",
+                "done",
+                "if test \"$result\" -ne 0; then",
+                "    "+ (failOnTimeout ?
+                            "echo \"Couldn't find file "+file+"; aborting\" && exit 1" :
+                            "echo \"Couldn't find file "+file+"; continuing\""),
                 "fi");
         return Joiner.on("\n").join(commands);
     }
