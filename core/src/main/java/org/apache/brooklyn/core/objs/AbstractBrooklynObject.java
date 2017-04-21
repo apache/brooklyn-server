@@ -18,7 +18,9 @@
  */
 package org.apache.brooklyn.core.objs;
 
+import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -29,12 +31,15 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.objs.proxy.InternalFactory;
 import org.apache.brooklyn.core.relations.ByObjectBasicRelationSupport;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -51,6 +56,7 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
     private String id = Identifiers.makeRandomLowercaseId(10);
 
     private String catalogItemId;
+    private Collection<String> searchPath = MutableSet.of();
 
     /** callers (only in TagSupport) should synchronize on this for all access */
     @SetFromFlag("tags")
@@ -79,13 +85,17 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
             _legacyConstruction = true;
         }
 
-        // TODO this will be overridden if the spec has a catalog item ID
-        // correct behaviour should be to inherit context's search path, perhaps, though maybe that's better done as spec?
-        // in any case, should not define it as _the_ catalog item ID; also see assignment based on parent
-        // in CatalogUtils.setCatalogItemIdOnAddition
-        catalogItemId = ApiObjectsFactory.get().getCatalogItemIdFromContext();
+        // inherit any context for search purposes (though maybe that should be done when creating the spec?)
+        addSearchPath(MutableList.<String>of().appendIfNotNull(ApiObjectsFactory.get().getCatalogItemIdFromContext()));
 
         // rely on sub-class to call configure(properties), because otherwise its fields will not have been initialised
+    }
+
+    protected Object readResolve() {
+        if (searchPath == null) {
+            searchPath = MutableList.of();
+        }
+        return this;
     }
 
     /**
@@ -190,7 +200,45 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
 
     @Override
     public void setCatalogItemId(String id) {
-        this.catalogItemId = id;
+        catalogItemId = id;
+    }
+
+    @Override
+    public void setCatalogItemIdAndSearchPath(String catalogItemId, List<String> ids) {
+        setCatalogItemId(catalogItemId);
+        synchronized (searchPath) {
+            searchPath.clear();
+            searchPath.addAll(ids);
+        }
+    }
+
+    @Override
+    public void addSearchPath(List<String> ids) {
+        synchronized (searchPath) {
+            searchPath.addAll(ids);
+        }
+    }
+
+    @Override
+    public void stackCatalogItemId(String id) {
+        if (null != id) {
+            if (null != catalogItemId && !catalogItemId.equals(id)) {
+                synchronized (searchPath) {
+                    Set<String> newPath = MutableSet.of();
+                    newPath.add(catalogItemId);
+                    newPath.addAll(searchPath);
+                    searchPath.clear();
+                    searchPath.addAll(newPath);
+                }
+            }
+            setCatalogItemId(id);
+        }
+    }
+
+    public List<String> getCatalogItemIdSearchPath() {
+        synchronized (searchPath) {
+            return ImmutableList.copyOf(searchPath);
+        }
     }
 
     @Override

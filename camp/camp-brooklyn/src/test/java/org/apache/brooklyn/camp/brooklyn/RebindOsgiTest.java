@@ -22,6 +22,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 import java.io.File;
 import java.util.List;
@@ -43,6 +44,7 @@ import org.apache.brooklyn.core.mgmt.osgi.OsgiVersionMoreEntityTest;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -76,6 +78,8 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
     private static final String OSGI_OBJECT_TYPE = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_OBJECT;
     private static final String OSGI_ENTITY_CONFIG_NAME = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY_CONFIG_NAME;
     private static final String OSGI_ENTITY_SENSOR_NAME = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY_SENSOR_NAME;
+    private static final String MORE_ENTITIES_POM_PROPERTIES_PATH =
+        "META-INF/maven/org.apache.brooklyn.test.resources.osgi/brooklyn-test-osgi-more-entities/pom.properties";
 
     private List<String> bundleUrlsToInstallOnRebind;
     
@@ -157,6 +161,56 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
 
         Entity newEntity = Iterables.getOnlyElement(newApp.getChildren());
         assertEquals(newEntity.config().get(TestEntity.CONF_OBJECT), val);
+    }
+
+
+    @Test
+    public void testReboundDeepCatalogItemCanLoadResources() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_MORE_ENTITIES_0_1_0_PATH);
+
+        String symbolicNameInner = "my.catalog.app.id.inner";
+        String symbolicNameFiller = "my.catalog.app.id.filler";
+        String symbolicNameOuter = "my.catalog.app.id.outer";
+        String appVersion = "0.1.0";
+
+        String appCatalogFormat = Joiner.on("\n").join(
+            "brooklyn.catalog:",
+            "  version: " + TEST_VERSION,
+            "  items:",
+            "  - id: " + symbolicNameInner,
+            "    name: My Catalog App",
+            "    brooklyn.libraries:",
+            "    - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
+            "    item: " + OSGI_ENTITY_TYPE,
+            "  - id: " + symbolicNameFiller,
+            "    name: Filler App",
+            "    brooklyn.libraries:",
+            "    - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_MORE_ENTITIES_0_1_0_URL,
+            "    item: " + symbolicNameInner,
+            "  - id: " + symbolicNameOuter,
+            "    item: " + symbolicNameFiller);
+
+        // Create the catalog items
+        addCatalogItems(String.format(appCatalogFormat, appVersion));
+
+        String yaml = "name: " + symbolicNameOuter + "\n" +
+            "services: \n" +
+            "  - serviceType: "+ver(symbolicNameOuter);
+        origApp = (StartableApplication) createAndStartApplication(yaml);
+
+        // Rebind
+        rebind();
+
+        Entity newEntity = Iterables.getOnlyElement(newApp.getChildren());
+
+        final String catalogBom = ResourceUtils.create(newEntity)
+            .getResourceAsString("classpath://" + MORE_ENTITIES_POM_PROPERTIES_PATH);
+        assertTrue(catalogBom.contains("artifactId=brooklyn-test-osgi-more-entities"));
+
+        deleteCatalogEntity(symbolicNameOuter);
+        deleteCatalogEntity(symbolicNameFiller);
+        deleteCatalogEntity(symbolicNameInner);
     }
 
     @Test

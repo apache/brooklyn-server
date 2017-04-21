@@ -329,6 +329,15 @@ public class Entities {
         if (Strings.isNonBlank(e.getCatalogItemId())) {
             out.append(currentIndentation+tab+tab+"catalogItemId = "+e.getCatalogItemId()+"\n");
         }
+        final List<String> searchPath = e.getCatalogItemIdSearchPath();
+        if (!searchPath.isEmpty()) {
+            out.append(currentIndentation + tab + tab + "searchPath = [");
+            for (int i = 0 ; i < searchPath.size() ; i++) {
+                out.append(i > 0 ? ",\n" : "\n");
+                out.append(currentIndentation + tab + tab + searchPath.get(i));
+            }
+            out.append("\n" + currentIndentation + tab + tab + "]");
+        }
 
         out.append(currentIndentation+tab+tab+"locations = "+e.getLocations()+"\n");
 

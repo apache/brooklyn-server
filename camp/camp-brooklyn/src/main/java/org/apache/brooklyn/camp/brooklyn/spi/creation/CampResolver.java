@@ -115,7 +115,7 @@ class CampResolver {
             throw new IllegalStateException("Creating spec from "+item+", got "+spec.getType()+" which is incompatible with expected "+expectedType);                
         }
 
-        spec.catalogItemIdIfNotNull(item.getId());
+        spec.stackCatalogItemId(item.getId());
         if (!spec.getFlags().containsKey("iconUrl") && item.getIconUrl()!=null) {
             spec.configure("iconUrl", item.getIconUrl());
         }
