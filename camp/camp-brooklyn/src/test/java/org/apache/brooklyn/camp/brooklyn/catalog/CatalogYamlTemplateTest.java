@@ -40,6 +40,7 @@ import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.testng.Assert;
+import org.testng.ITestNGListener;
 import org.testng.TestListenerAdapter;
 import org.testng.TestNG;
 import org.testng.annotations.Test;
@@ -269,7 +270,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
 
     // convenience for running in eclipse when the TestNG plugin drags in old version of snake yaml
     public static void main(String[] args) {
-        TestListenerAdapter tla = new TestListenerAdapter();
+        ITestNGListener tla = new TestListenerAdapter();
         TestNG testng = new TestNG();
         testng.setTestClasses(new Class[] { CatalogYamlTemplateTest.class });
         testng.addListener(tla);

@@ -301,10 +301,10 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         }
 
         BrooklynMementoRawData subPathData = subPathDataBuilder.build();
-        LOG.debug("Loaded rebind lists; took {}: {} entities, {} locations, {} policies, {} enrichers, {} feeds, {} catalog items; from {}", new Object[]{
+        LOG.debug("Loaded rebind lists; took {}: {} entities, {} locations, {} policies, {} enrichers, {} feeds, {} catalog items, {} bundles; from {}", new Object[]{
             Time.makeTimeStringRounded(stopwatch),
             subPathData.getEntities().size(), subPathData.getLocations().size(), subPathData.getPolicies().size(), subPathData.getEnrichers().size(), 
-            subPathData.getFeeds().size(), subPathData.getCatalogItems().size(),
+            subPathData.getFeeds().size(), subPathData.getCatalogItems().size(), subPathData.getBundles().size(),
             objectStore.getSummaryName() });
         
         return subPathData;
@@ -354,10 +354,10 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         BrooklynMementoRawData result = builder.build();
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Loaded rebind raw data; took {}; {} entities, {} locations, {} policies, {} enrichers, {} feeds, {} catalog items, from {}", new Object[]{
+            LOG.debug("Loaded rebind raw data; took {}; {} entities, {} locations, {} policies, {} enrichers, {} feeds, {} catalog items, {} bundles, from {}", new Object[]{
                      Time.makeTimeStringRounded(stopwatch.elapsed(TimeUnit.MILLISECONDS)), result.getEntities().size(), 
                      result.getLocations().size(), result.getPolicies().size(), result.getEnrichers().size(),
-                     result.getFeeds().size(), result.getCatalogItems().size(),
+                     result.getFeeds().size(), result.getCatalogItems().size(), result.getBundles().size(),
                      objectStore.getSummaryName() });
         }
 
@@ -448,11 +448,11 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         BrooklynMementoManifest result = builder.build();
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Loaded rebind manifests; took {}: {} entities, {} locations, {} policies, {} enrichers, {} feeds, {} catalog items; from {}", new Object[]{
+            LOG.debug("Loaded rebind manifests; took {}: {} entities, {} locations, {} policies, {} enrichers, {} feeds, {} catalog items, {} bundles; from {}", new Object[]{
                      Time.makeTimeStringRounded(stopwatch), 
                      result.getEntityIdToManifest().size(), result.getLocationIdToType().size(), 
                      result.getPolicyIdToType().size(), result.getEnricherIdToType().size(), result.getFeedIdToType().size(), 
-                     result.getCatalogItemMementos().size(),
+                     result.getCatalogItemMementos().size(), result.getBundles().size(),
                      objectStore.getSummaryName() });
         }
 
@@ -498,9 +498,9 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         BrooklynMemento result = builder.build();
         
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Loaded rebind mementos; took {}: {} entities, {} locations, {} policies, {} enrichers, {} feeds, {} catalog items, from {}", new Object[]{
+            LOG.debug("Loaded rebind mementos; took {}: {} entities, {} locations, {} policies, {} enrichers, {} feeds, {} catalog items, {} bundles, from {}", new Object[]{
                       Time.makeTimeStringRounded(stopwatch.elapsed(TimeUnit.MILLISECONDS)), result.getEntityIds().size(), 
-                      result.getLocationIds().size(), result.getPolicyIds().size(), result.getEnricherIds().size(), 
+                      result.getLocationIds().size(), result.getPolicyIds().size(), result.getEnricherIds().size(), result.getManagedBundleIds().size(),
                       result.getFeedIds().size(), result.getCatalogItemIds().size(),
                       objectStore.getSummaryName() });
         }
@@ -630,11 +630,11 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         Stopwatch stopwatch = deltaImpl(delta, exceptionHandler);
         
         if (LOG.isDebugEnabled()) LOG.debug("Checkpointed "+(previouslyQueued ? "previously queued " : "")+"delta of memento in {}: "
-                + "updated {} entities, {} locations, {} policies, {} enrichers, {} catalog items; "
-                + "removed {} entities, {} locations, {} policies, {} enrichers, {} catalog items",
+                + "updated {} entities, {} locations, {} policies, {} enrichers, {} catalog items, {} bundles; "
+                + "removed {} entities, {} locations, {} policies, {} enrichers, {} catalog items, {} bundles",
                     new Object[] {Time.makeTimeStringRounded(stopwatch),
-                        delta.entities().size(), delta.locations().size(), delta.policies().size(), delta.enrichers().size(), delta.catalogItems().size(),
-                        delta.removedEntityIds().size(), delta.removedLocationIds().size(), delta.removedPolicyIds().size(), delta.removedEnricherIds().size(), delta.removedCatalogItemIds().size()});
+                        delta.entities().size(), delta.locations().size(), delta.policies().size(), delta.enrichers().size(), delta.catalogItems().size(), delta.bundles().size(),
+                        delta.removedEntityIds().size(), delta.removedLocationIds().size(), delta.removedPolicyIds().size(), delta.removedEnricherIds().size(), delta.removedCatalogItemIds().size(), delta.removedBundleIds().size()});
     }
     
     @Override
@@ -800,7 +800,9 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
     private void updatePlaneId(String planeId, PersistenceExceptionHandler exceptionHandler) {
         try {
             if (planeId==null) {
-                LOG.warn("Null content for planeId");
+                // can happen during initial backup creation; if happens any other time, there's a problem!
+                LOG.debug("Null content for planeId; not updating at server");
+                return;
             }
 
             String persistedPlaneId = read(PLANE_ID_FILE_NAME);

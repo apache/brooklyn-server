@@ -126,6 +126,8 @@ public class BrooklynFeatureEnablement {
      * Whether to scan newly loaded bundles for catalog.bom and load it.
      * 
      * The functionality loads catalog items regardless of the persistence state so best used with persistence disabled.
+     * If a bundle is uploaded its BOM is scanned regardless of this property (this only applies to bundles
+     * installed through a non-brooklyn method, eg karaf.)
      */
     public static final String FEATURE_LOAD_BUNDLE_CATALOG_BOM = FEATURE_PROPERTY_PREFIX+".osgi.catalog_bom";
 

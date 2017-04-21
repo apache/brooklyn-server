@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.io.ByteSource;
 import com.google.common.io.Files;
 
@@ -79,6 +80,7 @@ public class FileBasedStoreObjectAccessor implements PersistenceObjectStore.Stor
 
     @Override
     public void put(String val) {
+        Preconditions.checkNotNull(val, "Illegal attempt to write a null string");
         put(ByteSource.wrap(val.getBytes(Charsets.UTF_8)));
     }
     
