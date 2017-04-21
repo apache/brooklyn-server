@@ -186,7 +186,7 @@ public class MementosGenerators {
         builder.isTopLevelApp = (entity instanceof Application && entity.getParent() == null);
 
         builder.configKeys.addAll(entity.getEntityType().getConfigKeys());
-        
+
         Map<ConfigKey<?>, ?> localConfig = entity.config().getAllLocalRaw();
         for (Map.Entry<ConfigKey<?>, ?> entry : localConfig.entrySet()) {
             ConfigKey<?> key = checkNotNull(entry.getKey(), localConfig);
@@ -461,10 +461,11 @@ public class MementosGenerators {
         }
         OsgiClassPrefixer prefixer = new OsgiClassPrefixer();
         Optional<String> typePrefix = prefixer.getPrefix(instance.getClass());
-        
+
         builder.id = instance.getId();
         builder.displayName = instance.getDisplayName();
         builder.catalogItemId = instance.getCatalogItemId();
+        builder.searchPath = instance.getCatalogItemIdSearchPath();
         builder.type = (typePrefix.isPresent() ? typePrefix.get() : "") + instance.getClass().getName();
         builder.typeClass = instance.getClass();
         if (instance instanceof EntityAdjunct) {

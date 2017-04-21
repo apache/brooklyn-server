@@ -36,6 +36,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import javax.annotation.Nullable;
+import javax.xml.xpath.XPathConstants;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.rebind.PersistenceExceptionHandler;
@@ -55,6 +56,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.classloading.ClassLoaderFromBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore.StoreObjectAccessor;
@@ -63,6 +65,7 @@ import org.apache.brooklyn.core.mgmt.rebind.PeriodicDeltaChangeListener;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BrooklynMementoImpl;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BrooklynMementoManifestImpl;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.xstream.XmlUtil;
@@ -84,6 +87,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import org.w3c.dom.NodeList;
 
 /** Implementation of the {@link BrooklynMementoPersister} backed by a pluggable
  * {@link PersistenceObjectStore} such as a file system or a jclouds object store */
@@ -188,7 +192,8 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         return result;
     }
     
-    @Nullable protected ClassLoader getCustomClassLoaderForBrooklynObject(LookupContext lookupContext, BrooklynObjectType type, String objectId) {
+    @Nullable protected ClassLoader getCustomClassLoaderForBrooklynObject(LookupContext lookupContext,
+                                                                          BrooklynObjectType type, String objectId) {
         BrooklynObject item = lookupContext.peek(type, objectId);
         String catalogItemId = (item == null) ? null : item.getCatalogItemId();
         // TODO enrichers etc aren't yet known -- would need to backtrack to the entity to get them from bundles
@@ -197,13 +202,18 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         }
         // See RebindIteration.BrooklynObjectInstantiator.load(), for handling where catalog item is missing;
         // similar logic here.
-        RegisteredType catalogItem = lookupContext.lookupManagementContext().getTypeRegistry().get(catalogItemId);
+        final ManagementContext managementContext = lookupContext.lookupManagementContext();
+        RegisteredType catalogItem = managementContext.getTypeRegistry().get(catalogItemId);
         if (catalogItem == null) {
             // TODO do we need to only log once, rather than risk log.warn too often? I think this only happens on rebind, so ok.
-            LOG.warn("Unable to load catalog item "+catalogItemId+" for custom class loader of "+type+" "+objectId+"; will use default class loader");
+            LOG.warn("Unable to load catalog item "+catalogItemId
+                +" for custom class loader of " + type + " " + objectId + "; will use default class loader");
             return null;
         } else {
-            return ClassLoaderFromBrooklynClassLoadingContext.of(CatalogUtils.newClassLoadingContext(lookupContext.lookupManagementContext(), catalogItem));
+            final BrooklynClassLoadingContextSequential ctx = new BrooklynClassLoadingContextSequential(managementContext);
+            ctx.add(CatalogUtils.newClassLoadingContextForCatalogItems(managementContext,
+                    item.getCatalogItemId(), item.getCatalogItemIdSearchPath()));
+            return ClassLoaderFromBrooklynClassLoadingContext.of(ctx);
         }
     }
     
@@ -354,9 +364,35 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         return result;
     }
 
+    private static class XPathHelper {
+        private String contents;
+        private String prefix;
+
+        public XPathHelper(String contents, String prefix) {
+            this.contents = contents;
+            this.prefix = prefix;
+        }
+
+        private String get(String innerPath) {
+            return (String) XmlUtil.xpathHandlingIllegalChars(contents, prefix+innerPath);
+        }
+        private List<String> getStringList(String innerPath) {
+            List<String> result = MutableList.of();
+            final NodeList nodeList =
+                (NodeList) XmlUtil.xpathHandlingIllegalChars(contents, prefix + innerPath + "//string", XPathConstants.NODESET);
+            for(int c = 0 ; c < nodeList.getLength() ; c++) {
+                result.add(nodeList.item(c).getFirstChild().getNodeValue());
+            }
+            return result;
+        }
+    }
+
+
     @Override
-    public BrooklynMementoManifest loadMementoManifest(BrooklynMementoRawData mementoDataR, final RebindExceptionHandler exceptionHandler) throws IOException {
+    public BrooklynMementoManifest loadMementoManifest(BrooklynMementoRawData mementoDataR,
+                                                       final RebindExceptionHandler exceptionHandler) throws IOException {
         final BrooklynMementoRawData mementoData = mementoDataR==null ? loadMementoRawData(exceptionHandler) : mementoDataR;
+        
         final BrooklynMementoManifestImpl.Builder builder = BrooklynMementoManifestImpl.builder();
 
         builder.planeId(mementoData.getPlaneId());
@@ -364,19 +400,12 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         Visitor visitor = new Visitor() {
             @Override
             public void visit(BrooklynObjectType type, String objectId, final String contents) throws Exception {
-                final String prefix = "/"+type.toCamelCase()+"/";
-
-                class XPathHelper {
-                    private String get(String innerPath) {
-                        return (String) XmlUtil.xpathHandlingIllegalChars(contents, prefix+innerPath);
-                    }
-                }
-                XPathHelper x = new XPathHelper();
-                
+                XPathHelper x = new XPathHelper(contents, "/"+type.toCamelCase()+"/");
                 switch (type) {
                     case ENTITY:
-                        builder.entity(x.get("id"), x.get("type"), 
-                            Strings.emptyToNull(x.get("parent")), Strings.emptyToNull(x.get("catalogItemId")));
+                        builder.entity(x.get("id"), x.get("type"), Strings.emptyToNull(x.get("parent")),
+                            Strings.emptyToNull(x.get("catalogItemId")),
+                            x.getStringList("searchPath"));
                         break;
                     case LOCATION:
                     case POLICY:

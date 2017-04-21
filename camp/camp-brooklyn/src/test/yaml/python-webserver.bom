@@ -1,0 +1,98 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# Tests nested catalog definition.  'python-webserver' is
+# an example of an item that is meant to be extended.
+# 'my-webserver' is such an extension.
+# For test purposes 'my-webserver' makes reference to a
+# resource defined in a library included in its parent.
+
+brooklyn.catalog:
+  items:
+
+  - id: python-webserver
+    icon_url: classpath://org/apache/brooklyn/test/osgi/entities/icon.gif
+    brooklyn.libraries:
+    - url: https://github.com/apache/brooklyn-server/blob/master/utils/common/src/test/resources/brooklyn/osgi/brooklyn-test-osgi-entities.jar?raw=true
+    item:
+      type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+      brooklyn.config:
+        install.command: |
+          # install python if not present
+          which python || \
+            { sudo apt-get update && sudo apt-get install python ; } || \
+            { sudo yum update && sudo yum install python ; } || \
+            { echo WARNING: cannot install python && exit 1 ; }
+
+        launch.command: |
+          # launch in background (ensuring no streams open), and record PID to file
+          nohup python -m SimpleHTTPServer ${PORT:-8020} < /dev/null > output.txt 2>&1 &
+          echo $! > ${PID_FILE:-pid.txt}
+          sleep 5
+          ps -p `cat ${PID_FILE:-pid.txt}`
+          if [ $? -ne 0 ] ; then
+            cat output.txt
+            echo WARNING: python web server not running
+            exit 1
+          fi
+
+        shell.env:
+          HOSTNAME:     $brooklyn:attributeWhenReady("host.name")
+          PORT:         $brooklyn:config("my.app.port")
+
+      brooklyn.enrichers:
+      # publish the URL as a sensor; the GUI will pick this up (main.uri)
+      - type: org.apache.brooklyn.enricher.stock.Transformer
+        brooklyn.config:
+          uniqueTag: url-generator
+          enricher.sourceSensor: host.subnet.hostname
+          # use the definition from Attributes class, as it has a RendererHint so GUI makes it a link
+          enricher.targetSensor: $brooklyn:sensor("org.apache.brooklyn.core.entity.Attributes", "main.uri")
+          enricher.targetValue:
+            $brooklyn:formatString:
+            - "http://%s:%s/"
+            - $brooklyn:attributeWhenReady("host.subnet.hostname")
+            - $brooklyn:config("my.app.port")
+
+  - id: my-webserver
+    item:
+      type: python-webserver
+      customize.command: |
+        cp ${INSTALL_DIR}/icon.gif ${RUN_DIR}
+        # create the web page to serve
+        cat > index.html << EOF
+
+        <img src='icon.gif'/>
+        Hello world.
+        <p>
+        I am ${ENTITY_INFO}, ${MESSAGE:-a Brooklyn sample}.
+        <p>
+        Created at: `date`
+        <p>
+        I am running at ${HOSTNAME}, with on-box IP configuration:
+        <pre>
+        `ifconfig | grep inet`
+        </pre>
+
+        EOF
+      shell.env:
+        ENTITY_INFO:  $brooklyn:component("this", "")
+        MESSAGE:      $brooklyn:config("my.message")
+      brooklyn.config:
+        files.preinstall:
+          classpath://org/apache/brooklyn/test/osgi/entities/icon.gif: icon.gif
+        my.app.port:  8020
+        my.message:   "good to meet you"

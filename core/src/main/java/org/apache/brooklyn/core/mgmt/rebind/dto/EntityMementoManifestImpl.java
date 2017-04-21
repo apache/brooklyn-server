@@ -18,19 +18,25 @@
  */
 package org.apache.brooklyn.core.mgmt.rebind.dto;
 
+import com.google.common.collect.ImmutableList;
+
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoManifest.EntityMementoManifest;
+
+import java.util.List;
 
 public class EntityMementoManifestImpl implements EntityMementoManifest {
     private String id;
     private String type;
     private String parentId;
     private String catalogItemId;
+    private List<String> searchPath;
 
-    public EntityMementoManifestImpl(String id, String type, String parentId, String catalogItemId) {
+    public EntityMementoManifestImpl(String id, String type, String parentId, String catalogItemId, List<String> searchPath) {
         this.id = id;
         this.type = type;
         this.parentId = parentId;
         this.catalogItemId = catalogItemId;
+        this.searchPath = ImmutableList.copyOf(searchPath);
     }
 
     @Override
@@ -51,6 +57,11 @@ public class EntityMementoManifestImpl implements EntityMementoManifest {
     @Override
     public String getCatalogItemId() {
         return catalogItemId;
+    }
+
+    @Override
+    public List<String> getCatalogItemIdSearchPath() {
+        return searchPath;
     }
 
 }

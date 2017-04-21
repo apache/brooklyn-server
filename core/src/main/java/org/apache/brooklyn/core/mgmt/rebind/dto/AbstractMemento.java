@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import org.apache.brooklyn.util.collections.MutableList;
 
 public abstract class AbstractMemento implements Memento, Serializable {
 
@@ -46,6 +47,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
         protected Class<?> typeClass;
         protected String displayName;
         protected String catalogItemId;
+        protected List<String> searchPath;
         protected Map<String, Object> customFields = Maps.newLinkedHashMap();
         protected List<Object> tags = Lists.newArrayList();
         protected Map<String,Set<String>> relations = Maps.newLinkedHashMap();
@@ -65,13 +67,19 @@ public abstract class AbstractMemento implements Memento, Serializable {
             typeClass = other.getTypeClass();
             displayName = other.getDisplayName();
             catalogItemId = other.getCatalogItemId();
+            searchPath = isEmpty(other.getCatalogItemIdSearchPath()) ?
+                MutableList.<String>of() : MutableList.copyOf(other.getCatalogItemIdSearchPath());
             customFields.putAll(other.getCustomFields());
             tags.addAll(other.getTags());
             relations.putAll(other.getRelations());
             uniqueTag = other.getUniqueTag();
             return self();
         }
-        
+
+        private boolean isEmpty(List<String> ids) {
+            return ids == null || ids.isEmpty();
+        }
+
         /**
          * @deprecated since 0.7.0; use config/attributes so generic persistence will work, rather than requiring "custom fields"
          */
@@ -85,7 +93,8 @@ public abstract class AbstractMemento implements Memento, Serializable {
     private String type;
     private String id;
     private String displayName;
-    private String catalogItemId;
+    protected String catalogItemId;
+    private List<String> searchPath = Lists.newArrayList();
     private List<Object> tags;
     private Map<String,Set<String>> relations;
     
@@ -98,7 +107,14 @@ public abstract class AbstractMemento implements Memento, Serializable {
     protected AbstractMemento() {
     }
 
-    // Trusts the builder to not mess around with mutability after calling build()
+    protected AbstractMemento readResolve() {
+        if (searchPath == null) {
+            searchPath = Lists.newArrayList();
+        }
+        return this;
+    }
+
+        // Trusts the builder to not mess around with mutability after calling build()
     protected AbstractMemento(Builder<?> builder) {
         brooklynVersion = builder.brooklynVersion;
         id = builder.id;
@@ -106,6 +122,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
         typeClass = builder.typeClass;
         displayName = builder.displayName;
         catalogItemId = builder.catalogItemId;
+        searchPath = builder.searchPath;
         setCustomFields(builder.customFields);
         tags = toPersistedList(builder.tags);
         relations = toPersistedMap(builder.relations);
@@ -115,7 +132,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
     // "fields" is not included as a field here, so that it is serialized after selected subclass fields
     // but the method declared here simplifies how it is connected in via builder etc
     protected abstract void setCustomFields(Map<String, Object> fields);
-    
+
     @Override
     public void injectTypeClass(Class<?> clazz) {
         this.typeClass = clazz;
@@ -149,6 +166,11 @@ public abstract class AbstractMemento implements Memento, Serializable {
     @Override
     public String getCatalogItemId() {
         return catalogItemId;
+    }
+
+    @Override
+    public List<String> getCatalogItemIdSearchPath() {
+        return searchPath;
     }
 
     @Override

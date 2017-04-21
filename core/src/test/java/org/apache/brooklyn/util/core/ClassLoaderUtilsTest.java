@@ -325,7 +325,8 @@ public class ClassLoaderUtilsTest {
                 .plan("{\"services\":[{\"type\": \"" + clazz.getName() + "\"}]}")
                 .build();
         mgmt.getCatalog().addItem(item);
-        ((EntityInternal)entity).setCatalogItemId(item.getId());
+        final EntityInternal entityInternal = (EntityInternal) entity;
+        entityInternal.setCatalogItemIdAndSearchPath(item.getCatalogItemId(), item.getCatalogItemIdSearchPath());
         return entity;
     }
 

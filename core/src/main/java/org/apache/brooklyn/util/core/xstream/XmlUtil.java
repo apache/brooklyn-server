@@ -81,18 +81,22 @@ public class XmlUtil {
             throw Exceptions.propagate(e);
         }
     }
-    
-    /**
-     * Executes the given xpath on the given xml. If this fails becaues the xml is invalid
-     * (e.g. contains "&#x1b;"), then it will attempt to escape such illegal characters
-     * and try again. Note that the *escaped* values may be contained in the returned result!
-     * The escaping used is the prefix "BR_UNICODE_"; if that string is already in the xml,
-     * then it will replace that with "NOT_BR_UNICODE_".
-     */
-    @Beta
+
     public static Object xpathHandlingIllegalChars(String xml, String xpath) {
+        return xpathHandlingIllegalChars(xml, xpath, XPathConstants.STRING);
+    }
+
+        /**
+         * Executes the given xpath on the given xml. If this fails becaues the xml is invalid
+         * (e.g. contains "&#x1b;"), then it will attempt to escape such illegal characters
+         * and try again. Note that the *escaped* values may be contained in the returned result!
+         * The escaping used is the prefix "BR_UNICODE_"; if that string is already in the xml,
+         * then it will replace that with "NOT_BR_UNICODE_".
+         */
+    @Beta
+    public static Object xpathHandlingIllegalChars(String xml, String xpath, QName returnType) {
         try {
-            return xpath(xml, xpath);
+            return xpath(xml, xpath, returnType);
         } catch (Exception e) {
             SAXException saxe = Exceptions.getFirstThrowableOfType(e, SAXException.class);
             if (saxe != null && saxe.toString().contains("&#")) {
@@ -101,7 +105,7 @@ public class XmlUtil {
                 Escaper escaper = new Escaper();
                 String xmlCleaned = escaper.escape(xml);
                 try {
-                    Object result = xpath(xmlCleaned, xpath);
+                    Object result = xpath(xmlCleaned, xpath, returnType);
                     if (result instanceof String) {
                         return escaper.unescape((String)result);
                     } else {
