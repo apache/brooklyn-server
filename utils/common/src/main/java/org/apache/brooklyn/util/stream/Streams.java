@@ -150,6 +150,17 @@ public class Streams {
             throw Exceptions.propagate(ioe);
         }
     }
+    
+    /** copies and closes both */
+    public static void copyClose(InputStream input, OutputStream output) {
+        try {
+            copy(input, output);
+        } catch (RuntimeException e) {
+            closeQuietly(input);
+            closeQuietly(output);
+            throw e;
+        }
+    }
 
     public static void copy(Reader input, Writer output) {
         try {

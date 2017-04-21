@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.mgmt.persist;
 
+import java.io.IOException;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
@@ -27,6 +28,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
@@ -34,6 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
+import com.google.common.io.ByteSource;
 
 public class ListeningObjectStore implements PersistenceObjectStore {
 
@@ -206,6 +210,20 @@ public class ListeningObjectStore implements PersistenceObjectStore {
 
             for (ObjectStoreTransactionListener listener: listeners)
                 listener.recordDataOut("writing "+path, val.length());
+            delegate.put(val);
+        }
+        @Override
+        public void put(ByteSource val) {
+            if (writesFailSilently)
+                return;
+
+            for (ObjectStoreTransactionListener listener: listeners) {
+                try {
+                    listener.recordDataOut("writing (binary) "+path, Streams.readFullyAndClose(val.openStream()).length);
+                } catch (IOException e) {
+                    throw Exceptions.propagate(e);
+                }
+            }
             delegate.put(val);
         }
         @Override

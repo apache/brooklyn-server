@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.mgmt.rebind.BasicManagedBundleRebindSupport;
 import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 
@@ -148,7 +149,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
 
     @Override
     public RebindSupport<?> getRebindSupport() {
-        throw new UnsupportedOperationException();
+        return new BasicManagedBundleRebindSupport(this);
     }
 
     @Override

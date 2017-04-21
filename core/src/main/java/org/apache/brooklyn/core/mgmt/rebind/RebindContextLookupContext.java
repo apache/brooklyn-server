@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -129,6 +130,16 @@ public class RebindContextLookupContext implements LookupContext {
     }
     
     @Override
+    public ManagedBundle lookupBundle(String id) {
+        ManagedBundle result = rebindContext.getBundle(id);
+        if (result == null) {
+            // no need for managementContext.lookup(id, ManagedBundle.class);
+            result = exceptionHandler.onDanglingBundleRef(id);
+        }
+        return result;
+    }
+    
+    @Override
     public BrooklynObject lookup(BrooklynObjectType type, String id) {
         if (type==null) {
             BrooklynObject result = peek(null, id);
@@ -140,6 +151,7 @@ public class RebindContextLookupContext implements LookupContext {
         
         switch (type) {
         case CATALOG_ITEM: return lookupCatalogItem(id);
+        case MANAGED_BUNDLE: return lookupBundle(id);
         case ENRICHER: return lookupEnricher(id);
         case ENTITY: return lookupEntity(id);
         case FEED: return lookupFeed(id);
@@ -162,6 +174,7 @@ public class RebindContextLookupContext implements LookupContext {
         
         switch (type) {
         case CATALOG_ITEM: return rebindContext.getCatalogItem(id);
+        case MANAGED_BUNDLE: return rebindContext.getBundle(id);
         case ENRICHER: return rebindContext.getEnricher(id);
         case ENTITY: return rebindContext.getEntity(id);
         case FEED: return rebindContext.getFeed(id);

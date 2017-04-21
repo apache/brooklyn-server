@@ -22,10 +22,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+
 import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.TypePlanTransformers;
+import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
@@ -127,7 +129,7 @@ public class PlanToSpecFactory {
                     continue;
                 }
                 return Maybe.of(result);
-            } catch (PlanNotRecognizedException e) {
+            } catch (PlanNotRecognizedException|UnsupportedTypePlanException e) {
                 transformersWhoDontSupport.add(t.getShortDescription() +
                     (Strings.isNonBlank(e.getMessage()) ? " ("+e.getMessage()+")" : ""));
             } catch (Throwable e) {
@@ -144,7 +146,7 @@ public class PlanToSpecFactory {
             result = otherProblemsFromTransformers.size()==1 ? Exceptions.create(null, otherProblemsFromTransformers) :
                 Exceptions.create("All plan transformers failed", otherProblemsFromTransformers);
         } else {
-            result = new PlanNotRecognizedException("Invalid plan; format could not be recognized, trying with: "+transformersWhoDontSupport);
+            result = new UnsupportedTypePlanException("Invalid plan; format could not be recognized, trying with: "+transformersWhoDontSupport);
         }
         return Maybe.absent(result);
     }

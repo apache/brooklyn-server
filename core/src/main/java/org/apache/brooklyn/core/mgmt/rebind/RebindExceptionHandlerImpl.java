@@ -38,6 +38,7 @@ import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.QuorumCheck;
@@ -247,7 +248,12 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
     }
 
     @Override
-    public CatalogItem<?, ?> onDanglingUntypedItemRef(String id) {
+    public ManagedBundle onDanglingBundleRef(String id) {
+        return (ManagedBundle) onDanglingUntypedItemRef(id);
+    }
+
+    @Override
+    public BrooklynObject onDanglingUntypedItemRef(String id) {
         missingUntypedItems.add(id);
         if (danglingRefFailureMode == RebindManager.RebindFailureMode.FAIL_FAST) {
             throw new IllegalStateException("No item found with id "+id);

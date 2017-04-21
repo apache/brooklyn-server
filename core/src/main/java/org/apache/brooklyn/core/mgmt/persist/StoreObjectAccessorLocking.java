@@ -32,6 +32,8 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.time.Duration;
 
+import com.google.common.io.ByteSource;
+
 /** Wraps access to an object (the delegate {@link StoreObjectAccessor} 
  * in a guarded read-write context such that callers will be blocked if another thread
  * is accessing the object in an incompatible way (e.g. trying to read when someone is writing).
@@ -125,6 +127,28 @@ public class StoreObjectAccessorLocking implements PersistenceObjectStore.StoreO
     
     @Override
     public void put(String val) {
+        try {
+            queuedWriters.add(Thread.currentThread());
+            lock.writeLock().lockInterruptibly();
+            try {
+                queuedWriters.remove(Thread.currentThread());
+                if (hasScheduledPutOrDeleteWithNoRead()) 
+                    // don't bother writing if someone will write after us and no one is reading
+                    return;
+                delegate.put(val);
+                
+            } finally {
+                lock.writeLock().unlock();
+            }
+        } catch (InterruptedException e) {
+            throw Exceptions.propagate(e);
+        } finally {
+            queuedWriters.remove(Thread.currentThread());
+        }
+    }
+    
+    @Override
+    public void put(ByteSource val) {
         try {
             queuedWriters.add(Thread.currentThread());
             lock.writeLock().lockInterruptibly();

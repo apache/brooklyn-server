@@ -175,7 +175,7 @@ public class RebindManagerImpl implements RebindManager {
     private class PlaneIdSupplier implements Supplier<String> {
         @Override
         public String get() {
-            return managementContext.getOptionalManagementPlaneId().orNull();
+            return managementContext.getManagementPlaneIdMaybe().orNull();
         }
     }
 

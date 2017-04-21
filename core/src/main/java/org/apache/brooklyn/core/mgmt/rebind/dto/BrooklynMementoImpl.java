@@ -30,6 +30,7 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.EnricherMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.FeedMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.LocationMemento;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.PolicyMemento;
 import org.apache.brooklyn.core.BrooklynVersion;
@@ -57,7 +58,7 @@ public class BrooklynMementoImpl implements BrooklynMemento, Serializable {
         protected final Map<String, EnricherMemento> enrichers = Maps.newConcurrentMap();
         protected final Map<String, FeedMemento> feeds = Maps.newConcurrentMap();
         protected final Map<String, CatalogItemMemento> catalogItems = Maps.newConcurrentMap();
-
+        protected final Map<String, ManagedBundleMemento> bundles = Maps.newConcurrentMap();
         
         public Builder planeId(String val) {
             planeId = val; return this;
@@ -89,6 +90,8 @@ public class BrooklynMementoImpl implements BrooklynMemento, Serializable {
                 feed((FeedMemento)memento);
             } else if (memento instanceof CatalogItemMemento) {
                 catalogItem((CatalogItemMemento) memento);
+            } else if (memento instanceof ManagedBundleMemento) {
+                bundle((ManagedBundleMemento) memento);
             } else {
                 throw new IllegalStateException("Unexpected memento type :"+memento);
             }
@@ -133,6 +136,9 @@ public class BrooklynMementoImpl implements BrooklynMemento, Serializable {
         public Builder catalogItem(CatalogItemMemento val) {
             catalogItems.put(val.getId(), val); return this;
         }
+        public Builder bundle(ManagedBundleMemento val) {
+            bundles.put(val.getId(), val); return this;
+        }
         public BrooklynMemento build() {
             return new BrooklynMementoImpl(this);
         }
@@ -149,6 +155,7 @@ public class BrooklynMementoImpl implements BrooklynMemento, Serializable {
     private Map<String, EnricherMemento> enrichers;
     private Map<String, FeedMemento> feeds;
     private Map<String, CatalogItemMemento> catalogItems;
+    private Map<String, ManagedBundleMemento> bundles;
     
     private BrooklynMementoImpl(Builder builder) {
         planeId = builder.planeId;
@@ -161,6 +168,7 @@ public class BrooklynMementoImpl implements BrooklynMemento, Serializable {
         enrichers = builder.enrichers;
         feeds = builder.feeds;
         catalogItems = builder.catalogItems;
+        bundles = builder.bundles;
     }
 
     @Override
@@ -199,6 +207,11 @@ public class BrooklynMementoImpl implements BrooklynMemento, Serializable {
     }
 
     @Override
+    public ManagedBundleMemento getManagedBundleMemento(String id) {
+        return bundles.get(id);
+    }
+
+    @Override
     public Collection<String> getApplicationIds() {
         return ImmutableList.copyOf(applicationIds);
     }
@@ -226,6 +239,11 @@ public class BrooklynMementoImpl implements BrooklynMemento, Serializable {
     @Override
     public Collection<String> getCatalogItemIds() {
         return Collections.unmodifiableSet(catalogItems.keySet());
+    }
+
+    @Override
+    public Collection<String> getManagedBundleIds() {
+        return Collections.unmodifiableSet(bundles.keySet());
     }
 
     @Override
@@ -265,5 +283,10 @@ public class BrooklynMementoImpl implements BrooklynMemento, Serializable {
     @Override
     public Map<String, CatalogItemMemento> getCatalogItemMementos() {
         return Collections.unmodifiableMap(catalogItems);
+    }
+
+    @Override
+    public Map<String, ManagedBundleMemento> getManagedBundleMementos() {
+        return Collections.unmodifiableMap(bundles);
     }
 }

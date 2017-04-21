@@ -174,7 +174,7 @@ public class CatalogMakeOsgiBundleTest extends AbstractYamlTest {
         try (FileInputStream fin = new FileInputStream(jf)) {
             BasicManagedBundle bundleMetadata = new BasicManagedBundle();
             Bundle bundle =
-                ((LocalManagementContext)mgmt()).getOsgiManager().get().installUploadedBundle(bundleMetadata, fin);
+                ((LocalManagementContext)mgmt()).getOsgiManager().get().installUploadedBundle(bundleMetadata, fin, true);
             bundlesToRemove.add(bundle);
         } catch (Exception e) {
             throw Exceptions.propagate(e);

@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
+import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -79,14 +80,14 @@ public class XmlPlanToSpecTransformer implements PlanToSpecTransformer {
     @SuppressWarnings({ "unchecked" })
     @Override
     public <T, SpecT extends AbstractBrooklynObjectSpec<? extends T, SpecT>> SpecT createCatalogSpec(CatalogItem<T, SpecT> item, Set<String> encounteredTypes) {
-        if (item.getPlanYaml()==null) throw new PlanNotRecognizedException("Plan is null");
+        if (item.getPlanYaml()==null) throw new UnsupportedTypePlanException("Plan is null");
         if (item.getCatalogItemType()==CatalogItemType.ENTITY) {
             return (SpecT)toEntitySpec(parseXml(item.getPlanYaml()), 1);
         }
         if (item.getCatalogItemType()==CatalogItemType.TEMPLATE) {
             return (SpecT)toEntitySpec(parseXml(item.getPlanYaml()), 0);
         }
-        throw new PlanNotRecognizedException("Type "+item.getCatalogItemType()+" not supported");
+        throw new UnsupportedTypePlanException("Type "+item.getCatalogItemType()+" not supported");
     }
 
     private Document parseXml(String plan) {
@@ -102,7 +103,7 @@ public class XmlPlanToSpecTransformer implements PlanToSpecTransformer {
             
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            throw new PlanNotRecognizedException(e);
+            throw new UnsupportedTypePlanException(e);
         }
         return dom;
     }

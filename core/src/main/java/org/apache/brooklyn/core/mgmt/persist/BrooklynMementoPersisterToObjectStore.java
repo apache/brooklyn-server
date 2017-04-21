@@ -65,11 +65,9 @@ import org.apache.brooklyn.core.mgmt.rebind.dto.BrooklynMementoManifestImpl;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
-import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.xstream.XmlUtil;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -311,6 +309,11 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         Visitor loaderVisitor = new Visitor() {
             @Override
             public void visit(BrooklynObjectType type, String id, String contentsSubpath) throws Exception {
+                if (type == BrooklynObjectType.MANAGED_BUNDLE && id.endsWith(".jar")) {
+                    // don't visit jar files directly; someone else will read them
+                    return;
+                }
+                
                 String contents = null;
                 try {
                     contents = read(contentsSubpath);
@@ -325,9 +328,9 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                     LOG.warn("ID mismatch on "+type.toCamelCase()+", "+id+" from path, "+safeXmlId+" from xml");
                 
                 if (type == BrooklynObjectType.MANAGED_BUNDLE) {
-                    // TODO write to temp file
-                    String jarData = read(contentsSubpath+".jar");
-                    builder.bundleJar(id, ByteSource.wrap(jarData.getBytes()));
+                    // TODO write to temp file, destroy when loaded
+                    byte[] jarData = readBytes(contentsSubpath+".jar");
+                    builder.bundleJar(id, ByteSource.wrap(jarData));
                 }
                 builder.put(type, xmlId, contents);
             }
@@ -669,7 +672,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         }
     }
 
-    private void addPersistContentIfManagedBundle(BrooklynObjectType type, String id, List<ListenableFuture<?>> futures, PersistenceExceptionHandler exceptionHandler) {
+    private void addPersistContentIfManagedBundle(final BrooklynObjectType type, final String id, List<ListenableFuture<?>> futures, final PersistenceExceptionHandler exceptionHandler) {
         if (type==BrooklynObjectType.MANAGED_BUNDLE) {
             if (mgmt==null) {
                 throw new IllegalStateException("Cannot persist bundles without a mangaement context");
@@ -677,26 +680,20 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             final ManagedBundle mb = ((ManagementContextInternal)mgmt).getOsgiManager().get().getManagedBundles().get(id);
             if (mb==null) {
                 LOG.warn("Cannot find managed bundle for added bundle "+id+"; ignoring");
-            }
-            if (mb.getUrl()==null) {
-                LOG.trace("No URL for managed bundle for bundle "+id+", so not persisting");
                 return;
             }
             
-            String jarContent = Streams.readFullyStringAndClose(new ResourceUtils("persist").getResourceFromUrl(mb.getUrl()));
-            
-            // erase the URL once persisted - this prevents it from re-persisting
-            // (could introduce multiple or a transient field instead?)
             if (mb instanceof BasicManagedBundle) {
                 final File f = ((BasicManagedBundle)mb).getTempLocalFileWhenJustUploaded();
+                // use the above transient field to know when to upload
                 if (f!=null) {
-                    futures.add(asyncPersist(type.getSubPathName(), type, id+".jar", jarContent, exceptionHandler));
-                    executor.submit(new Runnable() {
+                    futures.add( executor.submit(new Runnable() {
                         @Override
                         public void run() {
+                            persist(type.getSubPathName(), type, id+".jar", com.google.common.io.Files.asByteSource(f), exceptionHandler);
                             ((BasicManagedBundle)mb).setTempLocalFileWhenJustUploaded(null);
                             f.delete();
-                        }});
+                        } }) );
                 }
             }
         }
@@ -727,6 +724,11 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         return objectAccessor.get();
     }
 
+    private byte[] readBytes(String subPath) {
+        StoreObjectAccessor objectAccessor = objectStore.newAccessor(subPath);
+        return objectAccessor.getBytes();
+    }
+
     private void persist(String subPath, Memento memento, PersistenceExceptionHandler exceptionHandler) {
         try {
             getWriter(getPath(subPath, memento.getId())).put(getSerializerWithStandardClassLoader().toString(memento));
@@ -740,6 +742,14 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             if (content==null) {
                 LOG.warn("Null content for "+type+" "+id);
             }
+            getWriter(getPath(subPath, id)).put(content);
+        } catch (Exception e) {
+            exceptionHandler.onPersistRawMementoFailed(type, id, e);
+        }
+    }
+    
+    private void persist(String subPath, BrooklynObjectType type, String id, ByteSource content, PersistenceExceptionHandler exceptionHandler) {
+        try {
             getWriter(getPath(subPath, id)).put(content);
         } catch (Exception e) {
             exceptionHandler.onPersistRawMementoFailed(type, id, e);

@@ -32,16 +32,20 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynVersion;
+import org.apache.brooklyn.core.catalog.internal.CatalogBundleLoader;
 import org.apache.brooklyn.core.mgmt.persist.OsgiClassPrefixer;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.osgi.Osgis;
@@ -57,11 +61,15 @@ import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleException;
 import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -125,7 +133,7 @@ public class OsgiManager {
         return ImmutableMap.copyOf(managedBundles);
     }
     
-    public Bundle installUploadedBundle(ManagedBundle bundleMetadata, InputStream zipIn) {
+    public Bundle installUploadedBundle(ManagedBundle bundleMetadata, InputStream zipIn, boolean loadCatalogBom) {
         try {
             Bundle alreadyBundle = checkBundleInstalledThrowIfInconsistent(bundleMetadata, false);
             if (alreadyBundle!=null) {
@@ -152,19 +160,18 @@ public class OsgiManager {
             }
             mgmt.getRebindManager().getChangeListener().onChanged(bundleMetadata);
             
+            // starting here  flags wiring issues earlier
+            // but may break some things running from the IDE
             bundleInstalled.start();
-            // benefits of start:
-            // a) we get wiring issues thrown here, and
-            // b) catalog.bom in root will be scanned synchronously here
-            // however drawbacks:
-            // c) other code doesn't always do it (see eg BundleMaker)
-            // d) heavier-weight earlier
-            // e) tests in IDE break (but mvn fine)
+
+            if (loadCatalogBom) {
+                loadCatalogBom(bundleInstalled);
+            }
             
             return bundleInstalled;
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            throw new IllegalStateException("Bundle "+bundleMetadata+" failed to install: " + e.getMessage(), e);
+            throw new IllegalStateException("Bundle "+bundleMetadata+" failed to install: " + Exceptions.collapseText(e), e);
         }
     }
     
@@ -188,6 +195,39 @@ public class OsgiManager {
         }
     }
 
+    @Beta
+    // TODO this is designed to work if the FEATURE_LOAD_BUNDLE_CATALOG_BOM is disabled, the default, but unintuitive here
+    // it probably works even if that is true, but we should consider what to do;
+    // possibly remove that other capability, so that bundles with BOMs _have_ to be installed via this method.
+    // (load order gets confusing with auto-scanning...)
+    public List<? extends CatalogItem<?,?>> loadCatalogBom(Bundle bundle) {
+        List<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
+        loadCatalogBom(mgmt, bundle, catalogItems);
+        return catalogItems;
+    }
+    
+    private static Iterable<? extends CatalogItem<?, ?>> loadCatalogBom(ManagementContext mgmt, Bundle bundle, Iterable<? extends CatalogItem<?, ?>> catalogItems) {
+        if (!BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM)) {
+            // if the above feature is not enabled, let's do it manually (as a contract of this method)
+            try {
+                // TODO improve on this - it ignores the configuration of whitelists, see CatalogBomScanner.
+                // One way would be to add the CatalogBomScanner to the new Scratchpad area, then retrieving the singleton
+                // here to get back the predicate from it.
+                final Predicate<Bundle> applicationsPermitted = Predicates.<Bundle>alwaysTrue();
+
+                catalogItems = new CatalogBundleLoader(applicationsPermitted, mgmt).scanForCatalog(bundle);
+            } catch (RuntimeException ex) {
+                try {
+                    bundle.uninstall();
+                } catch (BundleException e) {
+                    log.error("Cannot uninstall bundle " + bundle.getSymbolicName() + ":" + bundle.getVersion(), e);
+                }
+                throw new IllegalArgumentException("Error installing catalog items", ex);
+            }
+        }
+        return catalogItems;
+    }
+    
     private void checkCorrectlyInstalled(OsgiBundleWithUrl bundle, Bundle b) {
         String nv = b.getSymbolicName()+":"+b.getVersion().toString();
 

@@ -524,7 +524,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         result = getLocationManager().getLocation(id);
         if (result!=null && type.isInstance(result)) return (T)result;
 
-        // TODO policies, enrichers, feeds
+        // TODO policies, enrichers, feeds; bundles?
         return null;
     }
 

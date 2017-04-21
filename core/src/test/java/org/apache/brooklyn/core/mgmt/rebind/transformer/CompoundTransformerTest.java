@@ -169,7 +169,7 @@ public class CompoundTransformerTest extends RebindTestFixtureWithApp {
 
         // Assert has expected config/fields
         assertEquals(newApp.getId(), origApp.getId());
-        assertEquals(origManagementContext.getOptionalManagementPlaneId(), newManagementContext.getOptionalManagementPlaneId());
+        assertEquals(origManagementContext.getManagementPlaneIdMaybe(), newManagementContext.getManagementPlaneIdMaybe());
     }
     
     @Test

@@ -23,14 +23,12 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.policy.PolicySpec;
-import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.CatalogEntityItemDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
@@ -44,11 +42,8 @@ import org.apache.brooklyn.core.objs.proxy.InternalEntityFactory;
 import org.apache.brooklyn.core.objs.proxy.InternalPolicyFactory;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.core.typereg.BasicManagedBundle;
-import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.OsgiTestBase;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -71,20 +66,8 @@ import com.google.common.collect.Iterables;
  * Tests that OSGi entities load correctly and have the right catalog information set.
  * Note further tests done elsewhere using CAMP YAML (referring to methods in this class).
  */
-public class OsgiVersionMoreEntityTest {
+public class OsgiVersionMoreEntityTest implements OsgiTestResources {
    
-    public static final String BROOKLYN_TEST_OSGI_ENTITIES_PATH = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
-    public static final String BROOKLYN_TEST_OSGI_ENTITIES_URL = "classpath:"+OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
-
-    public static final String BROOKLYN_TEST_MORE_ENTITIES_V1_PATH = OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_V1_PATH;
-    public static final String BROOKLYN_TEST_MORE_ENTITIES_V1_URL = "classpath:"+BROOKLYN_TEST_MORE_ENTITIES_V1_PATH;
-    public static final String BROOKLYN_TEST_MORE_ENTITIES_V2_PATH = OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_V2_PATH;
-    public static final String BROOKLYN_TEST_MORE_ENTITIES_V2_URL = "classpath:"+BROOKLYN_TEST_MORE_ENTITIES_V2_PATH;
-    public static final String BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_PATH = OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_PATH;
-    public static final String BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_URL = "classpath:"+BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_PATH;
-    
-    public static final String TEST_VERSION = "0.1.0";
-
     public static final String EXPECTED_SAY_HI_BROOKLYN_RESPONSE_FROM_V1 = "Hi BROOKLYN from V1";
     public static final String EXPECTED_SAY_HI_BROOKLYN_RESPONSE_FROM_V2 = "HI BROOKLYN FROM V2";
     public static final String EXPECTED_SAY_HI_BROOKLYN_RESPONSE_FROM_V2_EVIL_TWIN = "HO BROOKLYN FROM V2 EVIL TWIN";
@@ -222,18 +205,6 @@ public class OsgiVersionMoreEntityTest {
             BROOKLYN_TEST_OSGI_ENTITIES_URL);
     }
 
-    @Test
-    public void testBrooklynManagedBundleInstall() throws Exception {
-        BasicManagedBundle mb = new BasicManagedBundle();
-        Bundle b = ((ManagementContextInternal)mgmt).getOsgiManager().get().installUploadedBundle(mb, 
-            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V1_URL));
-        Assert.assertEquals(mb.getSymbolicName(), b.getSymbolicName());
-        
-        Map<String, ManagedBundle> bundles = ((ManagementContextInternal)mgmt).getOsgiManager().get().getManagedBundles();
-        Asserts.assertSize(bundles.keySet(), 1);
-        Assert.assertEquals(mb.getId(), Iterables.getOnlyElement( bundles.keySet() ));
-    }
-    
     @Test
     public void testMoreEntitiesV1() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), BROOKLYN_TEST_MORE_ENTITIES_V1_PATH);

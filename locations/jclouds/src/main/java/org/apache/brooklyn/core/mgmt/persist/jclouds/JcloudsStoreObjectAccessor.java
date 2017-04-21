@@ -18,13 +18,12 @@
  */
 package org.apache.brooklyn.core.mgmt.persist.jclouds;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Date;
 
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.commons.io.Charsets;
 import org.jclouds.blobstore.BlobStore;
 import org.jclouds.blobstore.domain.Blob;
@@ -32,7 +31,6 @@ import org.jclouds.util.Strings2;
 
 import com.google.common.base.Throwables;
 import com.google.common.io.ByteSource;
-import com.google.common.io.ByteStreams;
 
 /**
  * @author Andrea Turli
@@ -57,11 +55,13 @@ public class JcloudsStoreObjectAccessor implements PersistenceObjectStore.StoreO
     @Override
     public void put(String val) {
         if (val==null) val = "";
-        
+        put(ByteSource.wrap(val.getBytes(Charsets.UTF_8)));
+    }
+    
+    public void put(ByteSource payload) {
         blobStore.createContainerInLocation(null, containerName);
         // seems not needed, at least not w SoftLayer
 //        blobStore.createDirectory(containerName, directoryName);
-        ByteSource payload = ByteSource.wrap(val.getBytes(Charsets.UTF_8));
         Blob blob;
         try {
             blob = blobStore.blobBuilder(blobName).payload(payload)
@@ -104,14 +104,7 @@ public class JcloudsStoreObjectAccessor implements PersistenceObjectStore.StoreO
         try {
             Blob blob = blobStore.getBlob(containerName, blobName);
             if (blob==null) return null;
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            InputStream in = blob.getPayload().openStream();
-            try {
-                ByteStreams.copy(in, out);
-                return out.toByteArray();
-            } finally {
-                out.close();
-            }
+            return Streams.readFullyAndClose(blob.getPayload().openStream());
         } catch (IOException e) {
             Exceptions.propagateIfFatal(e);
             throw new IllegalStateException("Error reading blobstore "+containerName+" "+blobName+": "+e, e);

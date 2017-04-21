@@ -44,7 +44,6 @@ import org.apache.brooklyn.core.mgmt.ha.ManagementPlaneSyncRecordPersisterToObje
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformerLoader;
@@ -166,7 +165,7 @@ public class BrooklynPersistenceUtils {
         MementoSerializer<Object> rawSerializer = new XmlMementoSerializer<Object>(mgmt.getClass().getClassLoader());
         RetryingMementoSerializer<Object> serializer = new RetryingMementoSerializer<Object>(rawSerializer, 1);
         
-        result.planeId(mgmt.getOptionalManagementPlaneId().orNull());
+        result.planeId(mgmt.getManagementPlaneIdMaybe().orNull());
         for (Location instance: mgmt.getLocationManager().getLocations())
             result.location(instance.getId(), serializer.toString(newObjectMemento(instance)));
         for (Entity instance: mgmt.getEntityManager().getEntities()) {

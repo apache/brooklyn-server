@@ -66,11 +66,11 @@ public class StringShortener {
         return input;
     }
 
-    public StringShortener setAllowedCharacters(String disalowedCharacters) {
+    public StringShortener setAllowedCharacters(String allowedCharacters) {
         this.allowedCharacters = new HashSet<>();
-        for(char c : disalowedCharacters.toCharArray()) {
+        for (char c : allowedCharacters.toCharArray()) {
             this.allowedCharacters.add(c);
-            }
+        }
         return this;
     }
     

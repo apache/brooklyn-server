@@ -78,7 +78,7 @@ public class HotStandbyTest {
     private static final Logger log = LoggerFactory.getLogger(HotStandbyTest.class);
     
     private List<HaMgmtNode> nodes = new MutableList<HotStandbyTest.HaMgmtNode>();
-    Map<String,String> sharedBackingStore = MutableMap.of();
+    Map<String,byte[]> sharedBackingStore = MutableMap.of();
     Map<String,Date> sharedBackingStoreDates = MutableMap.of();
     private ClassLoader classLoader = getClass().getClassLoader();
     
