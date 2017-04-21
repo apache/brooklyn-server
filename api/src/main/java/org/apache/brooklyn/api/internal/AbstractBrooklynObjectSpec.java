@@ -22,10 +22,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.Serializable;
 import java.lang.reflect.Modifier;
-import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,6 +34,7 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
@@ -69,7 +68,7 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
     private final Class<? extends T> type;
     private String displayName;
     private String catalogItemId;
-    private Deque<String> catalogItemIdSearchPath = new ArrayDeque<>();
+    private Collection<String> catalogItemIdSearchPath = MutableSet.of();
 
     private Set<Object> tags = MutableSet.of();
     private List<SpecParameter<?>> parameters = ImmutableList.of();
@@ -117,16 +116,30 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
      * Set the immediate catalog item ID of this object, and the search path of other catalog items used to define it.
      */
     public synchronized SpecT catalogItemIdAndSearchPath(String catalogItemId, Collection<String> searchPath) {
+        // TODO if ID is null should we really ignore search path?
         if (catalogItemId != null) {
             catalogItemId(catalogItemId);
-            catalogItemIdSearchPath.clear();
-            catalogItemIdSearchPath.addAll(searchPath);
+            synchronized (catalogItemIdSearchPath) {
+                catalogItemIdSearchPath.clear();
+                if (searchPath!=null) {
+                    catalogItemIdSearchPath.addAll(searchPath);
+                }
+            }
         }
         return self();
     }
 
+    public synchronized SpecT addSearchPath(List<String> searchPath) {
+        if (searchPath!=null) {
+            synchronized (catalogItemIdSearchPath) {
+                catalogItemIdSearchPath.addAll(searchPath);
+            }
+        }
+        return self();
+    }
+    
     /**
-     * @deprecated since 0.11.0, use {@link #stackCatalogItemId(String)} instead
+     * @deprecated since 0.11.0, most callers would want {@link #stackCatalogItemId(String)} instead, though semantics are different
      */
     @Deprecated
     @Beta
@@ -139,7 +152,7 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
 
     protected Object readResolve() {
         if (catalogItemIdSearchPath == null) {
-            catalogItemIdSearchPath = new ArrayDeque<>();
+            catalogItemIdSearchPath = MutableList.of();
         }
         return this;
     }
@@ -160,7 +173,13 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
     public SpecT stackCatalogItemId(String val) {
         if (null != val) {
             if (null != catalogItemId && !catalogItemId.equals(val)) {
-                catalogItemIdSearchPath.addFirst(catalogItemId);
+                synchronized (catalogItemIdSearchPath) {
+                    Set<String> newPath = MutableSet.of();
+                    newPath.add(catalogItemId);
+                    newPath.addAll(catalogItemIdSearchPath);
+                    catalogItemIdSearchPath.clear();
+                    catalogItemIdSearchPath.addAll(newPath);
+                }
             }
             catalogItemId(val);
         }
@@ -253,26 +272,16 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
         return displayName;
     }
 
+    /** Same as {@link BrooklynObject#getCatalogItemId()}. */
     public final String getCatalogItemId() {
         return catalogItemId;
     }
 
-    /**
-     * An immutable list of ids of catalog items that define this item.
-     * Wrapping items are first in the list (i.e. wrapping items precede wrapped items),
-     * for example, for a spec of an item of type Z, where the catalog is:
-     * <pre>
-     *     items:
-     *     - id: X
-     *     - id: Y
-     *       item: X
-     *     - id: Z
-     *       item: Y
-     * </pre>
-     * then the spec will have getCatalogId() of Z and getCatalogItemIdSearchPath()  of Y, X.
-     */
+    /** Same as {@link BrooklynObject#getCatalogItemIdSearchPath()}. */
     public final List<String> getCatalogItemIdSearchPath() {
-        return ImmutableList.copyOf(catalogItemIdSearchPath);
+        synchronized (catalogItemIdSearchPath) {
+            return ImmutableList.copyOf(catalogItemIdSearchPath);
+        }
     }
 
     public final Set<Object> getTags() {

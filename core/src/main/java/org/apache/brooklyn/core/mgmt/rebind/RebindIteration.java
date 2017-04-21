@@ -1124,8 +1124,7 @@ public abstract class RebindIteration {
          */
         protected Policy newPolicy(PolicyMemento memento) {
             String id = memento.getId();
-            LoadedClass<? extends Policy> loaded = load(Policy.class, memento.getType(), memento.getCatalogItemId(),
-                memento.getCatalogItemIdSearchPath(), id);
+            LoadedClass<? extends Policy> loaded = load(Policy.class, memento);
             Class<? extends Policy> policyClazz = loaded.clazz;
 
             Policy policy;
@@ -1151,7 +1150,7 @@ public abstract class RebindIteration {
                 policy = invokeConstructor(null, policyClazz, new Object[] {flags});
             }
             
-            setCatalogItemIds(policy, memento.getCatalogItemId(), memento.getCatalogItemIdSearchPath());
+            setCatalogItemIds(policy, loaded.catalogItemId, loaded.searchPath);
             return policy;
         }
 
@@ -1186,7 +1185,7 @@ public abstract class RebindIteration {
                 enricher = invokeConstructor(reflections, enricherClazz, new Object[] {flags});
             }
             
-            setCatalogItemIds(enricher, memento.getCatalogItemId(), memento.getCatalogItemIdSearchPath());
+            setCatalogItemIds(enricher, loaded.catalogItemId, loaded.searchPath);
             return enricher;
         }
 
@@ -1210,7 +1209,7 @@ public abstract class RebindIteration {
                     "; type="+feedClazz);
             }
             
-            setCatalogItemIds(feed,  memento.getCatalogItemId(), memento.getCatalogItemIdSearchPath());
+            setCatalogItemIds(feed, loaded.catalogItemId, loaded.searchPath);
             return feed;
         }
 

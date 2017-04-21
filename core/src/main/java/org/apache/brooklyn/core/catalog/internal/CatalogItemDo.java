@@ -135,6 +135,11 @@ public class CatalogItemDo<T,SpecT> implements CatalogItem<T,SpecT>, BrooklynObj
     public void setCatalogItemIdAndSearchPath(String catalogItemId, List<String> ids) {
         itemDto.setCatalogItemIdAndSearchPath(catalogItemId, ids);
     }
+    
+    @Override
+    public void addSearchPath(List<String> searchPath) {
+        itemDto.addSearchPath(searchPath);
+    }
 
     @Override
     public List<String> getCatalogItemIdSearchPath() {

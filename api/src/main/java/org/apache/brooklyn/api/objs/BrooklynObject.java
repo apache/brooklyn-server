@@ -60,8 +60,10 @@ public interface BrooklynObject extends Identifiable, Configurable {
     String getCatalogItemId();
 
     /**
-     * An immutable list of ids of catalog items that define this item.
-     * e.g. if the catalog item is defined as a Z where
+     * An immutable list of ids of catalog items that this item depends on in some way,
+     * with the item that directly defines it implicit, but other items it references explicit.
+     * Wrapping items are first in the list (i.e. wrapping items precede wrapped items),
+     * so for example, if the catalog is:
      * <pre>
      *     items:
      *     - id: X
@@ -70,7 +72,8 @@ public interface BrooklynObject extends Identifiable, Configurable {
      *     - id: Z
      *       item: Y
      * </pre>
-     * then the list will contain X, Y.
+     * the spec for Z will have getCatalogId() of Z and getCatalogItemIdSearchPath() of Y, X.
+     * (The self catalog ID is implicit at the head of the search path.)
      */
     List<String> getCatalogItemIdSearchPath();
     

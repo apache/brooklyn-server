@@ -39,6 +39,7 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
     
     void setCatalogItemId(String id);
     void setCatalogItemIdAndSearchPath(String catalogItemId, List<String> searchPath);
+    void addSearchPath(List<String> searchPath);
 
     /**
      * Moves the current catalog item id onto the start of the search path,

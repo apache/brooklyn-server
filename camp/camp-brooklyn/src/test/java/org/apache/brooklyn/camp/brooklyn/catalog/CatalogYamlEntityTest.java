@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.entity.Entity;
@@ -39,8 +38,7 @@ import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.osgi.OsgiTestResources;
+import org.apache.brooklyn.test.Asserts;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -50,15 +48,6 @@ import com.google.common.collect.Iterables;
 
 
 public class CatalogYamlEntityTest extends AbstractYamlTest {
-    
-    private static final String SIMPLE_ENTITY_TYPE = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY;
-    private static final String MORE_ENTITIES_POM_PROPERTIES_PATH =
-        "META-INF/maven/org.apache.brooklyn.test.resources.osgi/brooklyn-test-osgi-more-entities/pom.properties";
-
-    @Override
-    protected boolean disableOsgi() {
-        return false;
-    }
 
     @Test
     public void testAddCatalogItemVerySimple() throws Exception {
@@ -205,7 +194,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
 
         RegisteredType referrer = mgmt().getTypeRegistry().get(referrerSymbolicName, TEST_VERSION);
         String planYaml = RegisteredTypes.getImplementationDataStringForSpec(referrer);
-        Assert.assertTrue(planYaml.contains("services"), "expected services in: "+planYaml);
+        Asserts.assertStringContains(planYaml, "services");
         
         Entity app = createAndStartApplication("services:",
                       "- type: " + ver(referrerSymbolicName, TEST_VERSION));
@@ -334,10 +323,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                     "    - type: " + BasicEntity.class.getName(),
                     "      brooklyn.children:",
                     "      - type: " + ver(referrerSymbolicName, TEST_VERSION));
-            fail("Expected to throw");
+            Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
-            assertTrue(e.getMessage().contains(referrerSymbolicName), "message was: "+e);
+            Asserts.expectedFailureContains(e, referrerSymbolicName);
         }
     }
 
@@ -384,9 +372,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
 
         try {
             addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION + "-update"), symbolicName);
-            fail("Catalog addition expected to fail due to recursive reference to " + symbolicName);
+            Asserts.shouldHaveFailedPreviously("Catalog addition expected to fail due to recursive reference to " + symbolicName);
         } catch (IllegalStateException e) {
-            assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
+            Asserts.expectedFailureContains(e, "recursive", symbolicName);
         }
     }
     
@@ -400,9 +388,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         String versionedId = CatalogUtils.getVersionedId(symbolicName, TEST_VERSION);
         try {
             addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION + "-update"), versionedId);
-            fail("Catalog addition expected to fail due to recursive reference to " + versionedId);
+            Asserts.shouldHaveFailedPreviously("Catalog addition expected to fail due to recursive reference to " + versionedId);
         } catch (IllegalStateException e) {
-            assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
+            Asserts.expectedFailureContains(e, "recursive", symbolicName, versionedId);
         }
     }
 
@@ -419,9 +407,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
 
         try {
             addCatalogEntity(IdAndVersion.of(callerSymbolicName, TEST_VERSION), calleeSymbolicName);
-            fail();
+            Asserts.shouldHaveFailedPreviously();
         } catch (IllegalStateException e) {
-            assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
+            Asserts.expectedFailureContains(e, "recursive");
         }
     }
 
@@ -450,9 +438,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                     "    - type: " + BasicEntity.class.getName(),
                     "      brooklyn.children:",
                     "      - type: " + calleeSymbolicName);
-            fail();
+            Asserts.shouldHaveFailedPreviously();
         } catch (IllegalStateException e) {
-            assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
+            Asserts.expectedFailureContains(e, "recursive");
         }
     }
 
@@ -606,7 +594,8 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         
         String yaml = Joiner.on("\n").join(
                 "name: simple-app-yaml",
-                "location: localhost",
+                "location:",
+                "localhost: { latitude: 0, longitude: 0 }",  // prevent host geo lookup delay (slowing down test on my network)
                 "services:",
                 "  - type: "+id+":"+version);
         Entity app = createAndStartApplication(yaml);
