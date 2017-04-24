@@ -64,6 +64,7 @@ import org.apache.brooklyn.rest.domain.CatalogLocationSummary;
 import org.apache.brooklyn.rest.domain.CatalogPolicySummary;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.CatalogTransformer;
+import org.apache.brooklyn.rest.util.DefaultExceptionMapper;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -156,7 +157,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             return buildCreateResponse(items);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            return ApiError.of(e).asBadRequestResponseJson();
+            return badRequest(e);
         }
     }
 

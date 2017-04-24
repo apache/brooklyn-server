@@ -20,6 +20,7 @@ package org.apache.brooklyn.rest.resources;
 
 import javax.annotation.Nullable;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 import javax.ws.rs.ext.ContextResolver;
 
@@ -27,7 +28,9 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
+import org.apache.brooklyn.rest.util.DefaultExceptionMapper;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider;
@@ -70,6 +73,12 @@ public abstract class AbstractBrooklynRestResource {
         if (brooklynRestResourceUtils!=null) return brooklynRestResourceUtils;
         brooklynRestResourceUtils = new BrooklynRestResourceUtils(mgmt());
         return brooklynRestResourceUtils;
+    }
+    
+    /** returns a bad request Response wrapping the given exception */
+    protected Response badRequest(Exception e) {
+        DefaultExceptionMapper.logExceptionDetailsForDebugging(e);
+        return ApiError.of(e).asBadRequestResponseJson();
     }
     
     protected ObjectMapper mapper() {
