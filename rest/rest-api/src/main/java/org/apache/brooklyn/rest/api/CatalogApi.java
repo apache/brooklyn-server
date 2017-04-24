@@ -54,6 +54,7 @@ public interface CatalogApi {
 
     /** @deprecated since 0.11.0 use {@link #createFromYaml(String)} instead */
     @Deprecated
+    @Consumes("application/json-deprecated")  // prevent this from taking things
     @POST
     @ApiOperation(
             value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading YAML descriptor.",
