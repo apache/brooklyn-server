@@ -28,6 +28,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Entity;
@@ -52,6 +53,7 @@ import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
 import org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.time.Duration;
@@ -290,10 +292,12 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             boolean hasType = type!=null;
 
             TypeToken typeToken = inferType(type, loader);
+            Object immutableDefaultValue = tryToImmutable(defaultValue, typeToken);
+
             Builder builder = BasicConfigKey.builder(typeToken)
                     .name(name)
                     .description(description)
-                    .defaultValue(defaultValue)
+                    .defaultValue(immutableDefaultValue)
                     .constraint(constraint)
                     .runtimeInheritance(runtimeInheritance)
                     .typeInheritance(typeInheritance);
@@ -309,6 +313,26 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                     hasType, hasDefaultValue, hasConstraints, hasRuntimeInheritance, hasTypeInheritance);
         }
 
+        private static Object tryToImmutable(Object val, TypeToken<?> type) {
+            Object result;
+            if (Set.class.isAssignableFrom(type.getRawType()) && val instanceof Iterable) {
+                result = Collections.unmodifiableSet(MutableSet.copyOf((Iterable<?>)val));
+            } else if (val instanceof Iterable) {
+                result = Collections.unmodifiableList(MutableList.copyOf((Iterable<?>)val));
+            } else if (val instanceof Map) {
+                result = Collections.unmodifiableMap(MutableMap.copyOf((Map<?, ?>)val));
+            } else {
+                return val;
+            }
+            
+            if (type != null && !type.isAssignableFrom(result.getClass())) {
+                log.warn("Unable to convert parameter default value (type "+type+") to immutable");
+                return val;
+            } else {
+                return result;
+            }
+        }
+        
         @SuppressWarnings({ "rawtypes" })
         private static TypeToken inferType(String typeRaw, BrooklynClassLoadingContext loader) {
             if (typeRaw == null) return TypeToken.of(String.class);
