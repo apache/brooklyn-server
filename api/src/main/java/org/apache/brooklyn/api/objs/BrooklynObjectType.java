@@ -43,7 +43,7 @@ public enum BrooklynObjectType {
     @SuppressWarnings("unchecked") ENRICHER(Enricher.class, EnricherSpec.class, "enrichers"),
     FEED(Feed.class, null, "feeds"),
     CATALOG_ITEM(CatalogItem.class, null, "catalog"),
-    MANAGED_BUNDLE(ManagedBundle.class, null, "bundle"),
+    MANAGED_BUNDLE(ManagedBundle.class, null, "bundles"),
     UNKNOWN(null, null, "unknown");
     
     private final Class<? extends BrooklynObject> interfaceType;
