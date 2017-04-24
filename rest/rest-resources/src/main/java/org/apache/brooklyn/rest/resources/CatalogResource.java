@@ -209,7 +209,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                     throw new IllegalArgumentException("JAR MANIFEST symbolic-name '"+bundleNameInMF+"' does not match '"+vn.getSymbolicName()+"' defined in BOM");
                 }
             } else {
-                mf.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, vn.getSymbolicName());
+                bundleNameInMF = vn.getSymbolicName();
+                mf.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, bundleNameInMF);
             }
             
             String bundleVersionInMF = mf.getMainAttributes().getValue(Constants.BUNDLE_VERSION);
@@ -218,7 +219,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                     throw new IllegalArgumentException("JAR MANIFEST version '"+bundleVersionInMF+"' does not match '"+vn.getVersion()+"' defined in BOM");
                 }
             } else {
-                mf.getMainAttributes().putValue(Constants.BUNDLE_VERSION, vn.getVersion().toString());
+                bundleVersionInMF = vn.getVersion().toString();
+                mf.getMainAttributes().putValue(Constants.BUNDLE_VERSION, bundleVersionInMF);
             }
             if (mf.getMainAttributes().getValue(Attributes.Name.MANIFEST_VERSION)==null) {
                 mf.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), "1.0");
