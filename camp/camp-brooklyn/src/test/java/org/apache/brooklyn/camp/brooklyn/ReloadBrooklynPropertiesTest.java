@@ -28,6 +28,7 @@ import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.stream.Streams;
@@ -46,7 +47,9 @@ public class ReloadBrooklynPropertiesTest {
     
     @BeforeMethod(alwaysRun=true)
     public void setup() {
-        brooklynMgmt = new BrooklynCampPlatformLauncherNoServer().launch().getBrooklynMgmt();
+        brooklynMgmt = new BrooklynCampPlatformLauncherNoServer().
+            useManagementContext(LocalManagementContextForTests.newInstance()).
+            launch().getBrooklynMgmt();
     }
     
     @AfterMethod(alwaysRun=true)

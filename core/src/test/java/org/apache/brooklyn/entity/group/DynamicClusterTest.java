@@ -35,7 +35,6 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -972,16 +971,6 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         assertTrue(cluster.getAttribute(Attributes.SERVICE_UP));
     }
 
-    private Throwable unwrapException(Throwable e) {
-        if (e instanceof ExecutionException) {
-            return unwrapException(e.getCause());
-        } else if (e instanceof org.codehaus.groovy.runtime.InvokerInvocationException) {
-            return unwrapException(e.getCause());
-        } else {
-            return e;
-        }
-    }
-    
     @Test
     public void testDifferentFirstMemberSpec() throws Exception {
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
@@ -1020,6 +1009,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testPrefersMemberSpecLocation() throws Exception {
+        @SuppressWarnings("deprecation")
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
                 .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class)
                         .location(loc2))
@@ -1124,7 +1114,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
 
         ImmutableList.Builder<RemovalStrategy> sensorMatchingStrategiesBuilder = ImmutableList.builder();
         for (int i = 0; i < clusterSize; i++){
-            SensorMatchingRemovalStrategy sensorMatchingRemovalStrategy = new SensorMatchingRemovalStrategy();
+            SensorMatchingRemovalStrategy<?> sensorMatchingRemovalStrategy = new SensorMatchingRemovalStrategy<>();
             sensorMatchingRemovalStrategy.config().set(SensorMatchingRemovalStrategy.SENSOR, TestEntity.SEQUENCE);
             sensorMatchingRemovalStrategy.config().set(SensorMatchingRemovalStrategy.DESIRED_VALUE, i);
             sensorMatchingStrategiesBuilder.add(sensorMatchingRemovalStrategy);

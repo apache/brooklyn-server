@@ -27,6 +27,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.entity.Group;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
+import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.entity.group.DynamicGroup;
+import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -34,41 +45,17 @@ import org.testng.annotations.Test;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.entity.Group;
-import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
-import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.entity.group.DynamicGroup;
-import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
-import org.apache.brooklyn.util.collections.MutableSet;
-import org.apache.brooklyn.util.text.Identifiers;
-
 public class LoopOverGroupMembersTestCaseTest {
 
     private TestApplication app;
     private Group testGroup;
-    private ManagementContext managementContext;
-    private LocalhostMachineProvisioningLocation loc;
-    private String testId;
     private final String SENSOR_VAL = "Hello World!";
 
     private static final AttributeSensorAndConfigKey<String, String> STRING_SENSOR = ConfigKeys.newSensorAndConfigKey(String.class, "string-sensor", "String Sensor");
 
     @BeforeMethod
     public void setup() {
-        testId = Identifiers.makeRandomId(8);
         app = TestApplication.Factory.newManagedInstanceForTests();
-        managementContext = app.getManagementContext();
-
-        loc = managementContext.getLocationManager()
-                .createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class)
-                        .configure("name", testId));
 
         testGroup = app.createAndManageChild(EntitySpec.create(DynamicGroup.class));
     }
@@ -142,7 +129,7 @@ public class LoopOverGroupMembersTestCaseTest {
         }
     }
 
-    @Test
+    @Test(groups="Integration")  // because slow; LoopOver needs changing if we want to allow different specs for failing and passing
     public void testMultipleChildrenOneOfWhichFails() {
         Set<EmptySoftwareProcess> emptySoftwareProcesses = addMultipleEmptySoftwareProcessesToGroup(3);
         EntitySpec<TestSensor> testSpec = createPassingTestSensorSpec();
@@ -202,7 +189,7 @@ public class LoopOverGroupMembersTestCaseTest {
 
     @Test
     public void testNoTarget() {
-        EmptySoftwareProcess emptySoftwareProcess = addEmptySoftwareProcessToGroup();
+        addEmptySoftwareProcessToGroup();
         EntitySpec<TestSensor> testSpec = createFailingTestSensorSpec();
 
         LoopOverGroupMembersTestCase loopOverGroupMembersTestCase = app.createAndManageChild(EntitySpec.create(LoopOverGroupMembersTestCase.class));
@@ -216,7 +203,7 @@ public class LoopOverGroupMembersTestCaseTest {
 
     @Test
     public void testNotTargetingGroup() {
-        EmptySoftwareProcess emptySoftwareProcess = addEmptySoftwareProcessToGroup();
+        addEmptySoftwareProcessToGroup();
         EntitySpec<TestSensor> testSpec = createFailingTestSensorSpec();
 
         LoopOverGroupMembersTestCase loopOverGroupMembersTestCase = app.createAndManageChild(EntitySpec.create(LoopOverGroupMembersTestCase.class));
@@ -231,8 +218,7 @@ public class LoopOverGroupMembersTestCaseTest {
 
     @Test
     public void testNoSpec() {
-        EmptySoftwareProcess emptySoftwareProcess = addEmptySoftwareProcessToGroup();
-        EntitySpec<TestSensor> testSpec = createFailingTestSensorSpec();
+        addEmptySoftwareProcessToGroup();
 
         LoopOverGroupMembersTestCase loopOverGroupMembersTestCase = app.createAndManageChild(EntitySpec.create(LoopOverGroupMembersTestCase.class));
         loopOverGroupMembersTestCase.config().set(LoopOverGroupMembersTestCase.TARGET_ENTITY, testGroup);
@@ -251,6 +237,7 @@ public class LoopOverGroupMembersTestCaseTest {
 
         return EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.SENSOR_NAME, STRING_SENSOR.getName())
+                .configure(TestSensor.ITERATION_LIMIT, 1)
                 .configure(TestSensor.ASSERTIONS, assertions);
     }
 

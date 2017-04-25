@@ -42,7 +42,7 @@ public class FailingEntityImpl extends TestEntityImpl implements FailingEntity {
             if (Boolean.TRUE.equals(getConfig(SET_SERVICE_DOWN_ON_FAILURE))) {
                 ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
                 sensors().set(SERVICE_UP, false);
-                ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
+                ServiceStateLogic.setExpectedStateRunningWithErrors(this);
             }
             
             callHistory.add("start");
@@ -78,7 +78,7 @@ public class FailingEntityImpl extends TestEntityImpl implements FailingEntity {
                 sensors().set(SERVICE_UP, false);
                 ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
                 ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
-                ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
+                ServiceStateLogic.setExpectedStateRunningWithErrors(this);
             }
 
             callHistory.add("restart");

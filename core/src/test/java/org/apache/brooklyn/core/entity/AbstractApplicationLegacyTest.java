@@ -81,7 +81,7 @@ public class AbstractApplicationLegacyTest extends BrooklynAppUnitTestSupport {
     
     // App and its children will be implicitly managed on first effector call on app.
     // Will cause the implicit creation of a new management context!
-    @Test
+    @Test(groups="Integration")  // Implicit creation is deprecaed and can be removed, plus the test is slow
     public void testStartAndStopUnmanagedAppAutomanagesTheAppAndChildren() throws Exception {
         // deliberately unmanaged
         TestApplication app2 = new TestApplicationImpl();
