@@ -443,6 +443,10 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
 
                 //including tasks, above
                 if (!vfuture.isDone()) {
+                    if (isEvaluatingImmediately()) {
+                        return ImmediateSupplier.ImmediateValueNotAvailableException.newAbsentWithExceptionSupplier();
+                    }
+                    
                     Callable<Maybe> callable = new Callable<Maybe>() {
                         @Override
                         public Maybe call() throws Exception {
