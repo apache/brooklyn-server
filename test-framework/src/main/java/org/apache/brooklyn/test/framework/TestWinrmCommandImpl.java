@@ -107,6 +107,7 @@ public class TestWinrmCommandImpl extends TargetableTestComponentImpl implements
             // See identical comment in `TestSshCommandImpl`.
             ReferenceWithError<Boolean> result = Repeater.create("Running winrm-command tests")
                     .limitTimeTo(timeout)
+                    .limitIterationsTo(getRequiredConfig(ITERATION_LIMIT))
                     .backoffTo((backoffToPeriod != null) ? backoffToPeriod : Duration.millis(500))
                     .until(new Callable<Boolean>() {
                         @Override

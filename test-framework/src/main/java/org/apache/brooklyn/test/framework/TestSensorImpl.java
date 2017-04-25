@@ -77,7 +77,7 @@ public class TestSensorImpl extends TargetableTestComponentImpl implements TestS
                 }
             };
             TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(sensor.get(), supplier)
-                    .timeout(timeout).backoffToPeriod(backoffToPeriod)
+                    .maxAttempts(getConfig(ITERATION_LIMIT)).timeout(timeout).backoffToPeriod(backoffToPeriod)
                     .assertions(assertions).abortConditions(abortConditions));
 
             setUpAndRunState(true, Lifecycle.RUNNING);

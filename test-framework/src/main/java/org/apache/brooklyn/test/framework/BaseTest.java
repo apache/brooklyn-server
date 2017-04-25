@@ -45,6 +45,12 @@ public interface BaseTest extends TargetableTestComponent, Startable {
         Duration.seconds(1));
 
     /**
+     * The max number of iterations to run before throwing an exception.
+     */
+    ConfigKey<Integer> ITERATION_LIMIT = ConfigKeys.newConfigKey(Integer.class, "iterations", "Max iterations to try to get result",
+        Integer.MAX_VALUE);
+
+    /**
      * Max time between checking the assertion (exponential backoff to this limit).
      */
     ConfigKey<Duration> BACKOFF_TO_PERIOD = ConfigKeys.newConfigKey(Duration.class, "backoffToPeriod", 
