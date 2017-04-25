@@ -23,10 +23,12 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -67,7 +69,9 @@ import org.testng.annotations.Test;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
@@ -528,6 +532,69 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         assertEquals(env.get("TEST"), "myDefaultParamVal", "env="+env);
     }
 
+    @Test
+    public void testDefaultValsImmutable() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+TestEntity.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: my.list.key",
+                "        type: java.util.List",
+                "        default: [\"myDefaultVal\"]",
+                "      - name: my.set.key",
+                "        type: "+java.util.Set.class.getName(),
+                "        default: [\"myDefaultVal\"]",
+                "      - name: my.collection.key",
+                "        type: "+java.util.Collection.class.getName(),
+                "        default: [\"myDefaultVal\"]",
+                "      - name: my.map.key",
+                "        type: "+java.util.Map.class.getName(),
+                "        default: {\"myDefaultKey\":\"myDefaultVal\"}");
+
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys");
+        Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        List<?> list = (List<?>) entity.config().get(entity.getEntityType().getConfigKey("my.list.key"));
+        Set<?> set = (Set<?>) entity.config().get(entity.getEntityType().getConfigKey("my.set.key"));
+        Collection<?> collection = (Collection<?>) entity.config().get(entity.getEntityType().getConfigKey("my.set.key"));
+        Map<?, ?> map = (Map<?, ?>) entity.config().get(entity.getEntityType().getConfigKey("my.map.key"));
+        
+        assertEquals(list, ImmutableList.of("myDefaultVal"));
+        assertEquals(set, ImmutableSet.of("myDefaultVal"));
+        assertEquals(collection, ImmutableList.of("myDefaultVal"));
+        assertEquals(map, ImmutableMap.of("myDefaultKey", "myDefaultVal"));
+        assertImmutable(list);
+        assertImmutable(set);
+        assertImmutable(collection);
+        assertImmutable(map);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void assertImmutable(Collection<?> val) {
+        try {
+            ((Collection<Object>)val).add("myNewVal");
+            Asserts.shouldHaveFailedPreviously("Collection of type " + val.getClass().getName() + " was mutable");
+        } catch (UnsupportedOperationException e) {
+            // expected - success
+        }
+    }
+    
+    @SuppressWarnings("unchecked")
+    private void assertImmutable(Map<?,?> val) {
+        try {
+            ((Map<Object, Object>)val).put("myNewKey", "myNewVal");
+            Asserts.shouldHaveFailedPreviously("Map of type " + val.getClass().getName() + " was mutable");
+        } catch (UnsupportedOperationException e) {
+            // expected - success
+        }
+    }
+    
     // See https://issues.apache.org/jira/browse/BROOKLYN-328
     @Test
     public void testConfigParameterOverridingJavaConfig() throws Exception {
