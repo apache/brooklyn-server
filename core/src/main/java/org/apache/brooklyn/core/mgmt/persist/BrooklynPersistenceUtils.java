@@ -106,9 +106,13 @@ public class BrooklynPersistenceUtils {
             destinationObjectStore,
             ((ManagementContextInternal)managementContext).getBrooklynProperties(),
             managementContext.getCatalogClassLoader());
-        PersistenceExceptionHandler exceptionHandler = PersistenceExceptionHandlerImpl.builder().build();
-        persister.enableWriteAccess();
-        persister.checkpoint(memento, exceptionHandler);
+        try {
+            PersistenceExceptionHandler exceptionHandler = PersistenceExceptionHandlerImpl.builder().build();
+            persister.enableWriteAccess();
+            persister.checkpoint(memento, exceptionHandler);
+        } finally {
+            persister.stop(true);
+        }
     }
 
     public static void writeManagerMemento(ManagementContext managementContext, ManagementPlaneSyncRecord optionalPlaneRecord,
@@ -116,7 +120,11 @@ public class BrooklynPersistenceUtils {
         if (optionalPlaneRecord != null) {
             ManagementPlaneSyncRecordPersisterToObjectStore managementPersister = new ManagementPlaneSyncRecordPersisterToObjectStore(
                     managementContext, destinationObjectStore, managementContext.getCatalogClassLoader());
-            managementPersister.checkpoint(optionalPlaneRecord);
+            try {
+                managementPersister.checkpoint(optionalPlaneRecord);
+            } finally {
+                managementPersister.stop();
+            }
         }
     }
 
