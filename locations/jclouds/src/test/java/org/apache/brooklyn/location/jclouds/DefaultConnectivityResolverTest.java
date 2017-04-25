@@ -92,6 +92,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
         initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
         DefaultConnectivityResolver customizer = new DefaultConnectivityResolver();
         final ConfigBag config = ConfigBag.newInstance(ImmutableMap.of(
+                JcloudsLocationConfig.WAIT_FOR_SSHABLE, "1ms",
                 JcloudsLocationConfig.POLL_FOR_FIRST_REACHABLE_ADDRESS, "1ms"));
         assertTrue(customizer.checkCredential(
                 jcloudsLocation, HostAndPort.fromParts("10.0.0.234", 22),
@@ -114,6 +115,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
         initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
         DefaultConnectivityResolver customizer = new DefaultConnectivityResolver();
         final ConfigBag config = ConfigBag.newInstance(ImmutableMap.of(
+                JcloudsLocationConfig.WAIT_FOR_WINRM_AVAILABLE, "1ms",
                 JcloudsLocationConfig.POLL_FOR_FIRST_REACHABLE_ADDRESS, "1ms"));
         assertTrue(customizer.checkCredential(
                 jcloudsLocation, HostAndPort.fromParts("10.0.0.234", 22),
@@ -146,6 +148,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
         });
         ConfigBag config = ConfigBag.newInstance(ImmutableMap.of(
                 JcloudsLocationConfig.LOOKUP_AWS_HOSTNAME, false,
+                JcloudsLocationConfig.WAIT_FOR_SSHABLE, "1ms",
                 JcloudsLocationConfig.POLL_FOR_FIRST_REACHABLE_ADDRESS, "1ms",
                 JcloudsLocation.CUSTOM_CREDENTIALS, credential));
         ConnectivityResolverOptions options = newResolveOptionsForIps(reachableIps).build();
