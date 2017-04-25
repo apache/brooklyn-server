@@ -181,14 +181,16 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
             
         } catch (Exception e) {
             recordApplicationEvent(Lifecycle.ON_FIRE);
+            ServiceStateLogic.setExpectedStateRunningWithErrors(this);
+            
             // no need to log here; the effector invocation should do that
             throw Exceptions.propagate(e);
             
         } finally {
             ServiceStateLogic.ServiceNotUpLogic.clearNotUpIndicator(this, Attributes.SERVICE_STATE_ACTUAL);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
         }
-
+        
+        ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
         setExpectedStateAndRecordLifecycleEvent(Lifecycle.RUNNING);
 
         logApplicationLifecycle("Started");
