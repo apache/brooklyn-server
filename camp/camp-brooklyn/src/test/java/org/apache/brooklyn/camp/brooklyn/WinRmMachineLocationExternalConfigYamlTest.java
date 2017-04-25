@@ -44,7 +44,7 @@ public class WinRmMachineLocationExternalConfigYamlTest extends AbstractYamlTest
 
         return LocalManagementContextForTests.builder(true)
                 .useProperties(props)
-                .disableOsgi(false)
+                .enableOsgiReusable()
                 .build();
     }
 

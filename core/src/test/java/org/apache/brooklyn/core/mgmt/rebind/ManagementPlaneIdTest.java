@@ -215,7 +215,7 @@ public class ManagementPlaneIdTest {
                 .enablePersistenceBackups(backedUp)
                 .emptyCatalog(true)
                 .properties(props)
-                .enableOsgi(false)
+                .setOsgiEnablementAndReuse(false, false)
                 .buildStarted();
         markForTermination(mgmt);
         return mgmt;

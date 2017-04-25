@@ -48,9 +48,9 @@ public class OsgiPathTest {
         if (mgmt!=null) Entities.destroyAll(mgmt);
     }
     
-    @Test(groups="Integration") // integration only because OSGi takes ~200ms
+    @Test(groups="Integration") // integration only because non-reusable OSGi takes ~200ms
     public void testOsgiPathDefault() {
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiNonReusable().build();
         String path = BrooklynServerPaths.getOsgiCacheDir(mgmt).getAbsolutePath();
         Assert.assertTrue(path.startsWith(BrooklynServerPaths.getMgmtBaseDir(mgmt)), path);
         Assert.assertTrue(path.contains(mgmt.getManagementNodeId()), path);
@@ -58,12 +58,12 @@ public class OsgiPathTest {
         assertExistsThenIsCleaned(path);
     }
 
-    @Test(groups="Integration") // integration only because OSGi takes ~200ms
+    @Test(groups="Integration") // integration only because non-reusable OSGi takes ~200ms
     public void testOsgiPathCustom() {
         BrooklynProperties bp = BrooklynProperties.Factory.newEmpty();
         String randomSeg = "osgi-test-"+Identifiers.makeRandomId(4);
         bp.put(BrooklynServerConfig.OSGI_CACHE_DIR, "${brooklyn.os.tmpdir}"+"/"+randomSeg+"/"+"${brooklyn.mgmt.node.id}");
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).useProperties(bp).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiNonReusable().useProperties(bp).build();
         String path = BrooklynServerPaths.getOsgiCacheDir(mgmt).getAbsolutePath();
         Os.deleteOnExitRecursivelyAndEmptyParentsUpTo(new File(path), new File(Os.tmp()+"/"+randomSeg));
         
@@ -73,12 +73,12 @@ public class OsgiPathTest {
         assertExistsThenIsCleaned(path);
     }
 
-    @Test(groups="Integration") // integration only because OSGi takes ~200ms
+    @Test(groups="Integration") // integration only because non-reusable OSGi takes ~200ms
     public void testOsgiPathCustomWithoutNodeIdNotCleaned() {
         BrooklynProperties bp = BrooklynProperties.Factory.newEmpty();
         String randomSeg = "osgi-test-"+Identifiers.makeRandomId(4);
         bp.put(BrooklynServerConfig.OSGI_CACHE_DIR, "${brooklyn.os.tmpdir}"+"/"+randomSeg+"/"+"sample");
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).useProperties(bp).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiNonReusable().useProperties(bp).build();
         String path = BrooklynServerPaths.getOsgiCacheDir(mgmt).getAbsolutePath();
         Os.deleteOnExitRecursivelyAndEmptyParentsUpTo(new File(path), new File(Os.tmp()+"/"+randomSeg));
         

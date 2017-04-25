@@ -110,7 +110,7 @@ public class ClassLoaderUtilsTest {
         
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
 
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         Bundle bundle = installBundle(mgmt, bundleUrl);
         @SuppressWarnings("unchecked")
         Class<? extends Entity> clazz = (Class<? extends Entity>) bundle.loadClass(classname);
@@ -136,7 +136,7 @@ public class ClassLoaderUtilsTest {
         
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
 
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         Bundle bundle = installBundle(mgmt, bundleUrl);
         Class<?> clazz = bundle.loadClass(classname);
         Entity entity = createSimpleEntity(bundleUrl, clazz);
@@ -193,7 +193,7 @@ public class ClassLoaderUtilsTest {
         Class<?> clazz = BasicEntity.class;
         String classname = clazz.getName();
         
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         Bundle bundle = getBundle(mgmt, "org.apache.brooklyn.core");
         Entity entity = createSimpleEntity(bundle.getLocation(), clazz);
         
@@ -213,7 +213,7 @@ public class ClassLoaderUtilsTest {
         Class<?> clazz = Entity.class;
         String classname = clazz.getName();
         
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         Bundle bundle = getBundle(mgmt, "org.apache.brooklyn.api");
         
         ClassLoaderUtils cluMgmt = new ClassLoaderUtils(getClass(), mgmt);
@@ -228,7 +228,7 @@ public class ClassLoaderUtilsTest {
     
     @Test
     public void testIsBundleWhiteListed() throws Exception {
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         ClassLoaderUtils clu = new ClassLoaderUtils(getClass(), mgmt);
         
         assertTrue(clu.isBundleWhiteListed(getBundle(mgmt, "org.apache.brooklyn.core")));
@@ -242,7 +242,7 @@ public class ClassLoaderUtilsTest {
      */
     @Test(groups={"Integration"})
     public void testLoadsFromRightGuavaVersion() throws Exception {
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         ClassLoaderUtils clu = new ClassLoaderUtils(getClass(), mgmt);
         
         String bundleUrl = MavenRetriever.localUrl(MavenArtifact.fromCoordinate("com.google.guava:guava:jar:18.0"));
@@ -255,7 +255,7 @@ public class ClassLoaderUtilsTest {
     
     @Test
     public void testLoadBrooklynClass() throws Exception {
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         new ClassLoaderUtils(this, mgmt).loadClass(
                 "org.apache.brooklyn.api",
                 BrooklynVersion.get(),

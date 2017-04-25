@@ -154,6 +154,7 @@ public class RebindTestUtils {
         HighAvailabilityMode haMode = HighAvailabilityMode.DISABLED;
         boolean forLive;
         boolean enableOsgi = false;
+        boolean reuseOsgi = true;
         boolean emptyCatalog;
         private boolean enablePersistenceBackups = true;
         
@@ -192,9 +193,25 @@ public class RebindTestUtils {
             this.enablePersistenceBackups  = val;
             return this;
         }
+        /** @deprecated since 0.12.0 use {@link #enableOsgiNonReusable()} or {@link #enableOsgiReusable()} */
+        @Deprecated
         public ManagementContextBuilder enableOsgi(boolean val) {
             this.enableOsgi = val;
             return this;
+        }
+
+        /** as {@link LocalManagementContextForTests.Builder#setOsgiEnablementAndReuse(boolean, boolean)} */
+        public ManagementContextBuilder setOsgiEnablementAndReuse(boolean enableOsgi, boolean reuseOsgi) {
+            this.enableOsgi = enableOsgi;
+            this.reuseOsgi = reuseOsgi;
+            return this;
+        }
+        
+        public ManagementContextBuilder enableOsgiReusable() {
+            return setOsgiEnablementAndReuse(true, true);
+        }
+        public ManagementContextBuilder enableOsgiNonReusable() {
+            return setOsgiEnablementAndReuse(true, false);
         }
 
         public ManagementContextBuilder emptyCatalog() {
@@ -244,7 +261,7 @@ public class RebindTestUtils {
             } else {
                 unstarted = LocalManagementContextForTests.builder(true)
                         .useProperties(properties)
-                        .disableOsgi(!enableOsgi)
+                        .setOsgiEnablementAndReuse(enableOsgi, reuseOsgi)
                         .disablePersistenceBackups(!enablePersistenceBackups)
                         .build();
             }

@@ -95,7 +95,7 @@ public class BrooklynVersionTest {
     public void testGetFeatures() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
         LocalManagementContext mgmt = LocalManagementContextForTests.builder(true)
-                .disableOsgi(false)
+                .enableOsgiReusable()
                 .build();
         String symName = "org.apache.brooklyn.test.resources.osgi.brooklyn-test-osgi-entities";
         String version = "0.1.0";

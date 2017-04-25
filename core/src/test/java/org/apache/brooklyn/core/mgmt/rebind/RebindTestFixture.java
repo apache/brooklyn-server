@@ -108,7 +108,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
                 .enablePersistenceBackups(enablePersistenceBackups())
                 .emptyCatalog(useEmptyCatalog())
                 .properties(createBrooklynProperties())
-                .enableOsgi(useOsgi())
+                .setOsgiEnablementAndReuse(useOsgi(), !disallowOsgiReuse())
                 .buildStarted();
     }
 
@@ -141,7 +141,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
                 .haMode(haMode)
                 .emptyCatalog(useEmptyCatalog())
                 .properties(brooklynProperties)
-                .enableOsgi(useOsgi())
+                .setOsgiEnablementAndReuse(useOsgi(), !disallowOsgiReuse())
                 .buildUnstarted();
     }
 
@@ -206,6 +206,10 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
     }
 
     protected boolean useOsgi() {
+        return false;
+    }
+    
+    protected boolean disallowOsgiReuse() {
         return false;
     }
 
