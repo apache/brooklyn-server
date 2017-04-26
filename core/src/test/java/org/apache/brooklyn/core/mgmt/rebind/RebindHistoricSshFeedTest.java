@@ -18,26 +18,11 @@
  */
 package org.apache.brooklyn.core.mgmt.rebind;
 
-import java.io.File;
-
-import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
-import org.apache.brooklyn.api.mgmt.rebind.RebindManager.RebindFailureMode;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
-import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.stream.Streams;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import com.google.common.io.Files;
-
-public class RebindHistoricSshFeedTest extends RebindTestFixtureWithApp {
-
-    @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(RebindHistoricSshFeedTest.class);
-
+public class RebindHistoricSshFeedTest extends RebindAbstractCommandFeedTest {
     @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
@@ -62,34 +47,5 @@ public class RebindHistoricSshFeedTest extends RebindTestFixtureWithApp {
     public void testFoo_2017_01_withoutBundlePrefixes() throws Exception {
         addMemento(BrooklynObjectType.FEED, "ssh-feed-no-bundle-prefixes", "zv7t8bim62");
         rebind();
-    }
-    
-    @Override
-    protected TestApplication rebind() throws Exception {
-        RebindExceptionHandler exceptionHandler = RebindExceptionHandlerImpl.builder()
-                .danglingRefFailureMode(RebindFailureMode.FAIL_AT_END)
-                .rebindFailureMode(RebindFailureMode.FAIL_AT_END)
-                .addConfigFailureMode(RebindFailureMode.FAIL_AT_END)
-                .addPolicyFailureMode(RebindFailureMode.FAIL_AT_END)
-                .loadPolicyFailureMode(RebindFailureMode.FAIL_AT_END)
-                .build();
-        return super.rebind(RebindOptions.create().exceptionHandler(exceptionHandler));
-    }
-    
-    protected void addMemento(BrooklynObjectType type, String label, String id) throws Exception {
-        String mementoFilename = label+"-"+id;
-        String memento = Streams.readFullyString(getClass().getResourceAsStream(mementoFilename));
-        
-        File persistedFile = getPersistanceFile(type, id);
-        Files.write(memento.getBytes(), persistedFile);
-    }
-    
-    protected File getPersistanceFile(BrooklynObjectType type, String id) {
-        String dir;
-        switch (type) {
-            case FEED: dir = "feeds"; break;
-            default: throw new UnsupportedOperationException("type="+type);
-        }
-        return new File(mementoDir, Os.mergePaths(dir, id));
     }
 }
