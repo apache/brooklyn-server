@@ -22,7 +22,6 @@ under the License.
   <type>org.apache.brooklyn.feed.windows.CmdFeed</type>
   <id>akc24nlh2k</id>
   <displayName>org.apache.brooklyn.feed.windows.CmdFeed</displayName>
-  <searchPath class="ImmutableList"/>
   <tags>
     <string>CmdFeed[ssh[echo &quot;test&quot;-&gt;test.sensor]]</string>
   </tags>
