@@ -332,6 +332,37 @@ public class JcloudsLocationResolverTest {
     }
 
     @Test
+    public void testResolvesJcloudsFromNamedLocation() throws Exception {
+        brooklynProperties.put("brooklyn.location.named.foo", "jclouds:aws-ec2");
+        brooklynProperties.put("brooklyn.location.named.foo.region", "eu-west-1");
+        JcloudsLocation l = resolve("named:foo");
+        assertJcloudsEquals(l, "aws-ec2", "eu-west-1");
+    }
+
+    @Test
+    public void testResolvesJcloudsFromNamedLocationInlinedRegion() throws Exception {
+        brooklynProperties.put("brooklyn.location.named.foo", "jclouds:aws-ec2:eu-west-1");
+        JcloudsLocation l = resolve("named:foo");
+        assertJcloudsEquals(l, "aws-ec2", "eu-west-1");
+    }
+
+    // See https://issues.apache.org/jira/browse/BROOKLYN-491
+    @Test
+    public void testResolvesJcloudsFromNamedLocationImplicitlyJclouds() throws Exception {
+        brooklynProperties.put("brooklyn.location.named.foo", "aws-ec2");
+        brooklynProperties.put("brooklyn.location.named.foo.region", "eu-west-1");
+        JcloudsLocation l = resolve("named:foo");
+        assertJcloudsEquals(l, "aws-ec2", "eu-west-1");
+    }
+    
+    @Test
+    public void testResolvesJcloudsFromNamedLocationImplicitlyJcloudsInlinedRegion() throws Exception {
+        brooklynProperties.put("brooklyn.location.named.foo", "aws-ec2:eu-west-1");
+        JcloudsLocation l = resolve("named:foo");
+        assertJcloudsEquals(l, "aws-ec2", "eu-west-1");
+    }
+    
+    @Test
     public void testResolvesListAndMapProperties() throws Exception {
         brooklynProperties.put("brooklyn.location.jclouds.softlayer.prop1", "[ a, b ]");
         brooklynProperties.put("brooklyn.location.jclouds.softlayer.prop2", "{ a: 1, b: 2 }");
