@@ -124,6 +124,8 @@ public interface TestEntity extends Entity, Startable, EntityLocal, EntityIntern
     
     public List<String> getCallHistory();
     
+    public void clearCallHistory();
+
     public String getMyField();
     
     public String getMyField2();

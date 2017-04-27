@@ -206,6 +206,11 @@ public class TestEntityImpl extends AbstractEntity implements TestEntity {
         return callHistory;
     }
     
+    @Override
+    public void clearCallHistory() {
+        callHistory.clear();;
+    }
+    
     public static class TestEntityWithoutEnrichers extends TestEntityImpl {
         @Override
         protected void initEnrichers() {}
