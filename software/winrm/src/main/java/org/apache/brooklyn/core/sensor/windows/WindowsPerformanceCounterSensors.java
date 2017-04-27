@@ -30,6 +30,7 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.feed.windows.WindowsPerformanceCounterFeed;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,12 +40,23 @@ public class WindowsPerformanceCounterSensors implements EntityInitializer {
 
     private static final Logger LOG = LoggerFactory.getLogger(WindowsPerformanceCounterSensors.class);
 
-    public final static ConfigKey<Set<Map<String, String>>> PERFORMANCE_COUNTERS = ConfigKeys.newConfigKey(new TypeToken<Set<Map<String, String>>>(){}, "performance.counters");
+    @SuppressWarnings("serial")
+    public final static ConfigKey<Set<Map<String, String>>> PERFORMANCE_COUNTERS = ConfigKeys.newConfigKey(
+            new TypeToken<Set<Map<String, String>>>(){}, 
+            "performance.counters");
+
+    public final static ConfigKey<Duration> PERIOD = ConfigKeys.newConfigKey(
+            Duration.class, 
+            "period",
+            "poll period",
+            Duration.seconds(30));
 
     protected final Set<Map<String, String>> sensors;
+    protected final Duration period;
 
     public WindowsPerformanceCounterSensors(ConfigBag params) {
         sensors = params.get(PERFORMANCE_COUNTERS);
+        period = params.get(PERIOD);
     }
 
     public WindowsPerformanceCounterSensors(Map<String, String> params) {
@@ -54,6 +66,7 @@ public class WindowsPerformanceCounterSensors implements EntityInitializer {
     @Override
     public void apply(EntityLocal entity) {
         WindowsPerformanceCounterFeed.Builder builder = WindowsPerformanceCounterFeed.builder()
+                .period(period)
                 .entity(entity);
         for (Map<String, String> sensorConfig : sensors) {
             String name = sensorConfig.get("name");
