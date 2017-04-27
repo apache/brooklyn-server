@@ -19,8 +19,10 @@
 package org.apache.brooklyn.camp.brooklyn;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
@@ -30,6 +32,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.external.AbstractExternalConfigSupplier;
@@ -42,6 +45,8 @@ import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
+import org.apache.brooklyn.test.LogWatcher;
+import org.apache.brooklyn.test.LogWatcher.EventPredicates;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -52,7 +57,10 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
+
+import ch.qos.logback.classic.spi.ILoggingEvent;
 
 @Test
 public class ExternalConfigYamlTest extends AbstractYamlTest {
@@ -302,6 +310,37 @@ public class ExternalConfigYamlTest extends AbstractYamlTest {
             if (!e.toString().contains("No matching constructor")) {
                 throw e;
             }
+        }
+    }
+
+    // See https://issues.apache.org/jira/browse/BROOKLYN-269
+    @Test
+    public void testExternalisedConfigValueNotLogged() throws Exception {
+        ConfigKey<String> MY_CONFIG_KEY = ConfigKeys.newStringConfigKey("my.config.key");
+
+        String loggerName = BrooklynDslDeferredSupplier.class.getName();
+        ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.DEBUG;
+        Predicate<ILoggingEvent> filter = EventPredicates.containsMessage("myval");
+        LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter);
+
+        watcher.start();
+        try {
+            String yaml = Joiner.on("\n").join(
+                "services:",
+                "- serviceType: org.apache.brooklyn.core.test.entity.TestApplication",
+                "  brooklyn.config:",
+                "    my.config.key: $brooklyn:external(\"myprovider\", \"mykey\")");
+    
+            TestApplication app = (TestApplication) createAndStartApplication(yaml);
+            waitForApplicationTasks(app);
+    
+            assertEquals(app.getConfig(MY_CONFIG_KEY), "myval");
+        
+            List<ILoggingEvent> events = watcher.getEvents();
+            assertTrue(events.isEmpty(), "events="+events);
+            
+        } finally {
+            watcher.close();
         }
     }
 
