@@ -42,6 +42,7 @@ import com.google.common.collect.ImmutableList;
 
 public class CompositeEffectorIntegrationTest {
 
+    @SuppressWarnings("rawtypes")
     final static Effector<List> EFFECTOR_START = Effectors.effector(List.class, "start").buildAbstract();
 
     private TestApplication app;
@@ -78,7 +79,7 @@ public class CompositeEffectorIntegrationTest {
                 .configure(CompositeEffector.EFFECTORS, ImmutableList.of("eff1", "eff2")))
                 .apply(entity);
 
-        List<Object> results = entity.invoke(EFFECTOR_START, MutableMap.<String,String>of()).get();
+        List<?> results = entity.invoke(EFFECTOR_START, MutableMap.<String,String>of()).get();
 
         assertEquals(results.size(), 3);
         assertNull(results.get(0));

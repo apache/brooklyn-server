@@ -53,10 +53,13 @@ import com.google.mockwebserver.MockResponse;
 
 public class CompositeEffectorTest extends BrooklynAppUnitTestSupport {
 
+    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(CompositeEffectorTest.class);
+    
     private static final String DEFAULT_ENDPOINT = "/";
 
-    final static Effector<List> EFFECTOR_COMPOSITE = Effectors.effector(List.class, "CompositeEffector").buildAbstract();
+    @SuppressWarnings("rawtypes")
+    static final Effector<List> EFFECTOR_COMPOSITE = Effectors.effector(List.class, "CompositeEffector").buildAbstract();
 
     protected BetterMockWebServer server;
     protected URL baseUrl;
@@ -64,7 +67,7 @@ public class CompositeEffectorTest extends BrooklynAppUnitTestSupport {
     protected Location loc;
     protected CompositeEffector compositeEffector;
 
-   @BeforeMethod
+   @BeforeMethod(alwaysRun=true)
    public void start() throws IOException {
       server = BetterMockWebServer.newInstanceLocalhost();
       server.play();
@@ -121,7 +124,7 @@ public class CompositeEffectorTest extends BrooklynAppUnitTestSupport {
       );
       assertNotNull(compositeEffector);
       TestEntity testEntity = app.createAndManageChild(buildEntitySpec(httpCommandEffector, compositeEffector));
-      List<Object> results = testEntity.invoke(EFFECTOR_COMPOSITE, ImmutableMap.<String, Object>of()).getUnchecked(Duration.seconds(1));
+      List<?> results = testEntity.invoke(EFFECTOR_COMPOSITE, ImmutableMap.<String, Object>of()).getUnchecked(Duration.seconds(1));
       Asserts.assertEquals(results.size(), 1);
 
       assertTrue(results.get(0) instanceof String);
@@ -145,7 +148,7 @@ public class CompositeEffectorTest extends BrooklynAppUnitTestSupport {
       );
       assertNotNull(compositeEffector);
       TestEntity testEntity = app.createAndManageChild(buildEntitySpec(httpCommandEffector, compositeEffector));
-      List<Object> results = testEntity.invoke(Effectors.effector(List.class, "start").buildAbstract(), ImmutableMap.<String, Object>of()).getUnchecked(Duration.seconds(1));
+      List<?> results = testEntity.invoke(Effectors.effector(List.class, "start").buildAbstract(), ImmutableMap.<String, Object>of()).getUnchecked(Duration.seconds(1));
       Asserts.assertEquals(results.size(), 2);
       assertNull(results.get(0));
       assertTrue(results.get(1) instanceof String);
@@ -170,7 +173,7 @@ public class CompositeEffectorTest extends BrooklynAppUnitTestSupport {
       );
       assertNotNull(compositeEffector);
       TestEntity testEntity = app.createAndManageChild(buildEntitySpec(httpCommandEffector, compositeEffector));
-      List<Object> results = testEntity.invoke(Effectors.effector(List.class, "start").buildAbstract(), ImmutableMap.<String, Object>of()).getUnchecked(Duration.seconds(1));
+      List<?> results = testEntity.invoke(Effectors.effector(List.class, "start").buildAbstract(), ImmutableMap.<String, Object>of()).getUnchecked(Duration.seconds(1));
       Asserts.assertEquals(results.size(), 1);
       assertTrue(results.get(0) instanceof String);
       Asserts.assertEquals(results.get(0), "myLogin");
@@ -193,7 +196,7 @@ public class CompositeEffectorTest extends BrooklynAppUnitTestSupport {
       );
       assertNotNull(compositeEffector);
       TestEntity testEntity = app.createAndManageChild(buildEntitySpec(httpCommandEffector, compositeEffector));
-      List<Object> results = testEntity.invoke(Effectors.effector(List.class, "stop").buildAbstract(), ImmutableMap.<String, Object>of()).getUnchecked(Duration.minutes(1));
+      List<?> results = testEntity.invoke(Effectors.effector(List.class, "stop").buildAbstract(), ImmutableMap.<String, Object>of()).getUnchecked(Duration.minutes(1));
       Asserts.assertEquals(results.size(), 2);
       assertTrue(results.get(0) instanceof String);
       Asserts.assertEquals(results.get(0), "myLogin");
@@ -218,7 +221,7 @@ public class CompositeEffectorTest extends BrooklynAppUnitTestSupport {
       );
       assertNotNull(compositeEffector);
       TestEntity testEntity = app.createAndManageChild(buildEntitySpec(httpCommandEffector, compositeEffector));
-      List<Object> results = testEntity.invoke(Effectors.effector(List.class, "stop").buildAbstract(), ImmutableMap.<String, Object>of()).getUnchecked(Duration.minutes(1));
+      List<?> results = testEntity.invoke(Effectors.effector(List.class, "stop").buildAbstract(), ImmutableMap.<String, Object>of()).getUnchecked(Duration.minutes(1));
       Asserts.assertEquals(results.size(), 1);
       assertTrue(results.get(0) instanceof String);
       Asserts.assertEquals(results.get(0), "myLogin");
@@ -247,7 +250,7 @@ public class CompositeEffectorTest extends BrooklynAppUnitTestSupport {
       );
       assertNotNull(compositeEffector);
       TestEntity testEntity = app.createAndManageChild(buildEntitySpec(eff1, compositeEffector));
-      List<Object> results = testEntity.invoke(EFFECTOR_COMPOSITE, ImmutableMap.<String, Object>of()).getUnchecked(Duration.seconds(1));
+      List<?> results = testEntity.invoke(EFFECTOR_COMPOSITE, ImmutableMap.<String, Object>of()).getUnchecked(Duration.seconds(1));
       Asserts.assertEquals(results.size(), 2);
    }
 

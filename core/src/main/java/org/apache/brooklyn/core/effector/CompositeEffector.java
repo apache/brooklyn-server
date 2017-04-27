@@ -48,11 +48,17 @@ public class CompositeEffector extends AddEffector {
     private static final Logger LOG = LoggerFactory.getLogger(CompositeEffector.class);
     private static final String ORIGINAL_PREFIX = "original-";
 
-    public static final ConfigKey<List<String>> EFFECTORS = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {
-                                                                                    }, "effectors",
-            "Effector names to be chained together in the composite effector", ImmutableList.<String>of());
-    public static final ConfigKey<Boolean> OVERRIDE = ConfigKeys.newBooleanConfigKey("override",
-            "Wheter additional defined effectors should override pre-existing effector with same name or not (default: false)", Boolean.FALSE);
+    @SuppressWarnings("serial")
+    public static final ConfigKey<List<String>> EFFECTORS = ConfigKeys.newConfigKey(
+            new TypeToken<List<String>>() {}, 
+            "effectors",
+            "Effector names to be chained together in the composite effector",
+            ImmutableList.<String>of());
+
+    public static final ConfigKey<Boolean> OVERRIDE = ConfigKeys.newBooleanConfigKey(
+            "override",
+            "Wheter additional defined effectors should override pre-existing effector with same name or not (default: false)",
+            Boolean.FALSE);
 
     public CompositeEffector(ConfigBag params) {
         super(newEffectorBuilder(params).build());
