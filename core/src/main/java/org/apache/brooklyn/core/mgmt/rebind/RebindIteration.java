@@ -328,10 +328,8 @@ public abstract class RebindIteration {
             logRebindingDebug("RebindManager installing bundles: {}", mementoManifest.getBundleIds());
             for (ManagedBundleMemento bundleM : mementoManifest.getBundles().values()) {
                 logRebindingDebug("RebindManager installing bundle {}", bundleM.getId());
-                try {
-                    InputStream in = bundleM.getJarContent().openStream();
+                try (InputStream in = bundleM.getJarContent().openStream()) {
                     rebindContext.installBundle(instantiator.newManagedBundle(bundleM), in);
-                    in.close();
                 } catch (Exception e) {
                     exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, bundleM.getId(), bundleM.getSymbolicName(), e);
                 }

@@ -704,7 +704,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
     private void addPersistContentIfManagedBundle(final BrooklynObjectType type, final String id, List<ListenableFuture<?>> futures, final PersistenceExceptionHandler exceptionHandler) {
         if (type==BrooklynObjectType.MANAGED_BUNDLE) {
             if (mgmt==null) {
-                throw new IllegalStateException("Cannot persist bundles without a mangaement context");
+                throw new IllegalStateException("Cannot persist bundles without a management context");
             }
             final ManagedBundle mb = ((ManagementContextInternal)mgmt).getOsgiManager().get().getManagedBundles().get(id);
             if (mb==null) {
@@ -719,6 +719,10 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                     futures.add( executor.submit(new Runnable() {
                         @Override
                         public void run() {
+                            if (((BasicManagedBundle)mb).getTempLocalFileWhenJustUploaded()==null) {
+                                // someone else persisted this (race)
+                                return;
+                            }
                             persist(type.getSubPathName(), type, id+".jar", com.google.common.io.Files.asByteSource(f), exceptionHandler);
                             ((BasicManagedBundle)mb).setTempLocalFileWhenJustUploaded(null);
                             f.delete();

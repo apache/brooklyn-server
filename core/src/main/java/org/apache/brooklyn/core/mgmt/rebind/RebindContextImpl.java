@@ -89,10 +89,7 @@ public class RebindContextImpl implements RebindContext {
         catalogItems.put(id, catalogItem);
     }
 
-    public void registerBundle(String id, ManagedBundle bundle) {
-        bundles.put(id, bundle);
-    }
-    
+    // we don't track register/unregister of bundles; it isn't needed as it happens so early
     public void installBundle(ManagedBundle bundle, InputStream zipInput) {
         ((LocalManagementContext)mgmt).getOsgiManager().get().installUploadedBundle(bundle, zipInput, true);
     }
@@ -111,10 +108,6 @@ public class RebindContextImpl implements RebindContext {
 
     public void unregisterCatalogItem(CatalogItem<?,?> item) {
         catalogItems.remove(item.getId());
-    }
-
-    public void unregisterBundle(ManagedBundle bundle) {
-        bundles.remove(bundle.getId());
     }
 
     public void clearCatalogItems() {

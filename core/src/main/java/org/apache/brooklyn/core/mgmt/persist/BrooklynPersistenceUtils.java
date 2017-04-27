@@ -195,7 +195,7 @@ public class BrooklynPersistenceUtils {
         OsgiManager osgi = ((LocalManagementContext)mgmt).getOsgiManager().orNull();
         if (osgi!=null) {
             for (ManagedBundle instance: osgi.getManagedBundles().values()) {
-                result.catalogItem(instance.getId(), serializer.toString(newObjectMemento(instance)));
+                result.bundle(instance.getId(), serializer.toString(newObjectMemento(instance)));
             }
         }
         

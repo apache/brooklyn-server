@@ -24,6 +24,9 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 /** Describes an OSGi bundle which Brooklyn manages, including persisting */
 public interface ManagedBundle extends BrooklynObject, Rebindable, OsgiBundleWithUrl {
 
+    /** A URL-like thing that we can register with the OSGi framework
+     * to uniquely identify this bundle-instance.
+     * This typically includes the unique {@link #getId()} of this item. */
     String getOsgiUniqueUrl();
 
 }
