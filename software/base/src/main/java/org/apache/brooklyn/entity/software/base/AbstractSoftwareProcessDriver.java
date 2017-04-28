@@ -402,7 +402,7 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
         copyResources(getInstallDir(), entity.getConfig(SoftwareProcess.INSTALL_FILES), entity.getConfig(SoftwareProcess.INSTALL_TEMPLATES));
     }
 
-    private void copyResources(String destinationParentDir, Map<String, String> files, Map<String, String> templates) {
+    protected void copyResources(String destinationParentDir, Map<String, String> files, Map<String, String> templates) {
         if (files == null) files = Collections.emptyMap();
         if (templates == null) templates = Collections.emptyMap();
 
