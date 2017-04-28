@@ -26,7 +26,7 @@ package org.apache.brooklyn.util.osgi;
  * Some of these bundles are also used in REST API tests, as that stretches catalog further
  * (using CAMP) and that is one area where OSGi is heavily used. 
  */
-public class OsgiTestResources {
+public interface OsgiTestResources {
 
     /**
      * brooklyn-osgi-test-a_0.1.0 -
@@ -103,5 +103,14 @@ public class OsgiTestResources {
      * at runtime.
      */
     public static final String BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_PATH = "/brooklyn/osgi/" + BROOKLYN_TEST_MORE_ENTITIES_SYMBOLIC_NAME_FINAL_PART + "_evil-twin_0.2.0.jar";
+
+
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_URL = "classpath:"+OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
+
+    public static final String BROOKLYN_TEST_MORE_ENTITIES_V1_URL = "classpath:"+BROOKLYN_TEST_MORE_ENTITIES_V1_PATH;
+    public static final String BROOKLYN_TEST_MORE_ENTITIES_V2_URL = "classpath:"+BROOKLYN_TEST_MORE_ENTITIES_V2_PATH;
+    public static final String BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_URL = "classpath:"+BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_PATH;
     
+    public static final String TEST_VERSION = "0.1.0";
+
 }

@@ -53,10 +53,13 @@ public interface BrooklynMementoManifest extends Serializable {
     Map<String, String> getFeedIdToType();
     
     CatalogItemMemento getCatalogItemMemento(String id);
-
     Collection<String> getCatalogItemIds();
-
     Map<String, CatalogItemMemento> getCatalogItemMementos();
+
+    ManagedBundleMemento getBundle(String id);
+    /** returns UID not symbolic name + version */
+    Collection<String> getBundleIds();
+    Map<String, ManagedBundleMemento> getBundles();
 
     boolean isEmpty();
     

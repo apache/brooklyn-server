@@ -73,7 +73,6 @@ public abstract class AbstractBrooklynObjectRebindSupport<T extends Memento> imp
 
     protected abstract void addCustoms(RebindContext rebindContext, T memento);
     
-    @SuppressWarnings("rawtypes")
     protected void addTags(RebindContext rebindContext, T memento) {
         if (instance instanceof EntityAdjunct && Strings.isNonBlank(memento.getUniqueTag())) {
             ((AdjunctTagSupport)(instance.tags())).setUniqueTag(memento.getUniqueTag());

@@ -63,6 +63,7 @@ public class BrooklynFeatureEnablement {
 
     public static final String FEATURE_CORS_CXF_PROPERTY = FEATURE_PROPERTY_PREFIX + ".corsCxfFeature";
 
+    public static final String FEATURE_BUNDLE_PERSISTENCE_PROPERTY = FEATURE_PROPERTY_PREFIX+".bundlePersistence";
     public static final String FEATURE_CATALOG_PERSISTENCE_PROPERTY = FEATURE_PROPERTY_PREFIX+".catalogPersistence";
     
     /** whether the default standby mode is {@link HighAvailabilityMode#HOT_STANDBY} or falling back to the traditional
@@ -125,6 +126,8 @@ public class BrooklynFeatureEnablement {
      * Whether to scan newly loaded bundles for catalog.bom and load it.
      * 
      * The functionality loads catalog items regardless of the persistence state so best used with persistence disabled.
+     * If a bundle is uploaded its BOM is scanned regardless of this property (this only applies to bundles
+     * installed through a non-brooklyn method, eg karaf.)
      */
     public static final String FEATURE_LOAD_BUNDLE_CATALOG_BOM = FEATURE_PROPERTY_PREFIX+".osgi.catalog_bom";
 
@@ -155,6 +158,7 @@ public class BrooklynFeatureEnablement {
         setDefault(FEATURE_ENRICHER_PERSISTENCE_PROPERTY, true);
         setDefault(FEATURE_FEED_PERSISTENCE_PROPERTY, true);
         setDefault(FEATURE_FEED_REGISTRATION_PROPERTY, false);
+        setDefault(FEATURE_BUNDLE_PERSISTENCE_PROPERTY, true);
         setDefault(FEATURE_CATALOG_PERSISTENCE_PROPERTY, true);
         setDefault(FEATURE_DEFAULT_STANDBY_IS_HOT_PROPERTY, false);
         setDefault(FEATURE_USE_BROOKLYN_LIVE_OBJECTS_DATAGRID_STORAGE, false);

@@ -20,6 +20,7 @@ package org.apache.brooklyn.rest.resources;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
@@ -46,15 +47,15 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
-import org.apache.brooklyn.core.catalog.internal.CatalogBundleLoader;
 import org.apache.brooklyn.core.catalog.internal.CatalogDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemComparator;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.rest.api.CatalogApi;
 import org.apache.brooklyn.rest.domain.ApiError;
@@ -81,7 +82,6 @@ import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.osgi.framework.Bundle;
-import org.osgi.framework.BundleException;
 import org.osgi.framework.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -210,7 +210,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                     throw new IllegalArgumentException("JAR MANIFEST symbolic-name '"+bundleNameInMF+"' does not match '"+vn.getSymbolicName()+"' defined in BOM");
                 }
             } else {
-                mf.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, vn.getSymbolicName());
+                bundleNameInMF = vn.getSymbolicName();
+                mf.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, bundleNameInMF);
             }
             
             String bundleVersionInMF = mf.getMainAttributes().getValue(Constants.BUNDLE_VERSION);
@@ -219,7 +220,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                     throw new IllegalArgumentException("JAR MANIFEST version '"+bundleVersionInMF+"' does not match '"+vn.getVersion()+"' defined in BOM");
                 }
             } else {
-                mf.getMainAttributes().putValue(Constants.BUNDLE_VERSION, vn.getVersion().toString());
+                bundleVersionInMF = vn.getVersion().toString();
+                mf.getMainAttributes().putValue(Constants.BUNDLE_VERSION, bundleVersionInMF);
             }
             if (mf.getMainAttributes().getValue(Attributes.Name.MANIFEST_VERSION)==null) {
                 mf.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), "1.0");
@@ -227,35 +229,17 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             
             f2 = bm.copyAddingManifest(f, mf);
             
-            Bundle bundle = bm.installBundle(f2, true);
-
-            Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
-            
-            if (!BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM)) {
-                // if the above feature is not enabled, let's do it manually (as a contract of this method)
-                try {
-                    // TODO improve on this - it ignores the configuration of whitelists, see CatalogBomScanner.
-                    // One way would be to add the CatalogBomScanner to the new Scratchpad area, then retrieving the singleton
-                    // here to get back the predicate from it.
-                    final Predicate<Bundle> applicationsPermitted = Predicates.<Bundle>alwaysTrue();
-
-                    catalogItems = new CatalogBundleLoader(applicationsPermitted, mgmt()).scanForCatalog(bundle);
-                } catch (RuntimeException ex) {
-                    try {
-                        bundle.uninstall();
-                    } catch (BundleException e) {
-                        log.error("Cannot uninstall bundle " + bundle.getSymbolicName() + ":" + bundle.getVersion(), e);
-                    }
-                    throw new IllegalArgumentException("Error installing catalog items", ex);
-                }
+            BasicManagedBundle bundleMetadata = new BasicManagedBundle(bundleNameInMF, bundleVersionInMF, null);
+            Bundle bundle;
+            try (FileInputStream f2in = new FileInputStream(f2)) {
+                bundle = ((ManagementContextInternal)mgmt()).getOsgiManager().get().installUploadedBundle(bundleMetadata, f2in, false);
+            } catch (Exception e) {
+                throw Exceptions.propagate(e);
             }
 
-            // TODO improve on this - Currently, the added items are returned ONLY if the FEATURE_LOAD_BUNDLE_CATALOG_BOM
-            // is disabled. When enabled, the above code is not executed and the catalog items addition is delegated
-            // to the CatalogBomScanner. The REST API will therefore not know what are the added catalog items and won't
-            // return them.
-            // One way to improved this would be couple agoin the CatalogBomScanner with the CatalogBundleLoader to
-            // retrieve the list of added catalog items per bundle.
+            Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.copyOf( 
+                ((ManagementContextInternal)mgmt()).getOsgiManager().get().loadCatalogBom(bundle) );
+
             return buildCreateResponse(catalogItems);
         } catch (RuntimeException ex) {
             throw WebResourceUtils.badRequest(ex);

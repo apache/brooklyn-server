@@ -25,7 +25,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.TreeNode;
 
-import com.google.common.base.Objects.ToStringHelper;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Lists;
 
 public class AbstractTreeNodeMemento extends AbstractMemento implements Memento, TreeNode, Serializable {
@@ -107,7 +107,7 @@ public class AbstractTreeNodeMemento extends AbstractMemento implements Memento,
     }
 
     @Override
-    protected ToStringHelper newVerboseStringHelper() {
+    protected MoreObjects.ToStringHelper newVerboseStringHelper() {
         return super.newVerboseStringHelper().add("parent", getParent()).add("children", getChildren());
     }
 }

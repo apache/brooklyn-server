@@ -28,8 +28,8 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.Sanitizer;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-import com.google.common.base.Objects.ToStringHelper;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -209,8 +209,8 @@ public abstract class AbstractMemento implements Memento, Serializable {
         return newVerboseStringHelper().toString();
     }
     
-    protected ToStringHelper newVerboseStringHelper() {
-        return Objects.toStringHelper(this).add("id", getId()).add("type", getType())
+    protected MoreObjects.ToStringHelper newVerboseStringHelper() {
+        return MoreObjects.toStringHelper(this).add("id", getId()).add("type", getType())
                 .add("displayName", getDisplayName())
                 .add("tags", getTags())
                 .add("relations", getRelations())

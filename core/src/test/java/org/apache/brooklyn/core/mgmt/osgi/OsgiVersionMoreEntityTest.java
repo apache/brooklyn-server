@@ -66,20 +66,8 @@ import com.google.common.collect.Iterables;
  * Tests that OSGi entities load correctly and have the right catalog information set.
  * Note further tests done elsewhere using CAMP YAML (referring to methods in this class).
  */
-public class OsgiVersionMoreEntityTest {
+public class OsgiVersionMoreEntityTest implements OsgiTestResources {
    
-    public static final String BROOKLYN_TEST_OSGI_ENTITIES_PATH = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
-    public static final String BROOKLYN_TEST_OSGI_ENTITIES_URL = "classpath:"+OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
-
-    public static final String BROOKLYN_TEST_MORE_ENTITIES_V1_PATH = OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_V1_PATH;
-    public static final String BROOKLYN_TEST_MORE_ENTITIES_V1_URL = "classpath:"+BROOKLYN_TEST_MORE_ENTITIES_V1_PATH;
-    public static final String BROOKLYN_TEST_MORE_ENTITIES_V2_PATH = OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_V2_PATH;
-    public static final String BROOKLYN_TEST_MORE_ENTITIES_V2_URL = "classpath:"+BROOKLYN_TEST_MORE_ENTITIES_V2_PATH;
-    public static final String BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_PATH = OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_PATH;
-    public static final String BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_URL = "classpath:"+BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_PATH;
-    
-    public static final String TEST_VERSION = "0.1.0";
-
     public static final String EXPECTED_SAY_HI_BROOKLYN_RESPONSE_FROM_V1 = "Hi BROOKLYN from V1";
     public static final String EXPECTED_SAY_HI_BROOKLYN_RESPONSE_FROM_V2 = "HI BROOKLYN FROM V2";
     public static final String EXPECTED_SAY_HI_BROOKLYN_RESPONSE_FROM_V2_EVIL_TWIN = "HO BROOKLYN FROM V2 EVIL TWIN";
@@ -216,7 +204,7 @@ public class OsgiVersionMoreEntityTest {
             BROOKLYN_TEST_MORE_ENTITIES_V2_URL,
             BROOKLYN_TEST_OSGI_ENTITIES_URL);
     }
-    
+
     @Test
     public void testMoreEntitiesV1() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), BROOKLYN_TEST_MORE_ENTITIES_V1_PATH);

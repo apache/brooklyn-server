@@ -24,6 +24,7 @@ import static org.apache.brooklyn.core.BrooklynFeatureEnablement.FEATURE_BACKWAR
 import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoadingContextForCatalogItems;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -55,6 +56,7 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.EnricherMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.FeedMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.LocationMemento;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.PolicyMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.TreeNode;
@@ -64,6 +66,7 @@ import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynLogging;
@@ -96,6 +99,7 @@ import org.apache.brooklyn.core.objs.proxy.InternalFactory;
 import org.apache.brooklyn.core.objs.proxy.InternalLocationFactory;
 import org.apache.brooklyn.core.objs.proxy.InternalPolicyFactory;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
@@ -121,7 +125,7 @@ Multi-phase deserialization:
 
 <ul>
 <li> 1. load the manifest files and populate the summaries (ID+type) in {@link BrooklynMementoManifest}
-<li> 2. instantiate and reconstruct catalog items
+<li> 2. install bundles, instantiate and reconstruct catalog items
 <li> 3. instantiate entities+locations -- so that inter-entity references can subsequently 
        be set during deserialize (and entity config/state is set).
 <li> 4. deserialize the manifests to instantiate the mementos
@@ -243,7 +247,7 @@ public abstract class RebindIteration {
     protected void doRun() throws Exception {
         loadManifestFiles();
         initPlaneId();
-        rebuildCatalog();
+        installBundlesAndRebuildCatalog();
         instantiateLocationsAndEntities();
         instantiateMementos();
         instantiateAdjuncts(instantiator); 
@@ -314,10 +318,27 @@ public abstract class RebindIteration {
     }
 
     @SuppressWarnings("deprecation")
-    protected void rebuildCatalog() {
+    protected void installBundlesAndRebuildCatalog() {
         
         // Build catalog early so we can load other things
         checkEnteringPhase(2);
+        
+        // Install bundles
+        if (rebindManager.persistBundlesEnabled) {
+            logRebindingDebug("RebindManager installing bundles: {}", mementoManifest.getBundleIds());
+            for (ManagedBundleMemento bundleM : mementoManifest.getBundles().values()) {
+                logRebindingDebug("RebindManager installing bundle {}", bundleM.getId());
+                try (InputStream in = bundleM.getJarContent().openStream()) {
+                    rebindContext.installBundle(instantiator.newManagedBundle(bundleM), in);
+                } catch (Exception e) {
+                    exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, bundleM.getId(), bundleM.getSymbolicName(), e);
+                }
+            }
+        } else {
+            logRebindingDebug("Not rebinding bundles; feature disabled: {}", mementoManifest.getBundleIds());
+        }
+        
+        // Do legacy items
         
         // Instantiate catalog items
         if (rebindManager.persistCatalogItemsEnabled) {
@@ -482,7 +503,9 @@ public abstract class RebindIteration {
                 LOG.warn("Rebinding against existing persisted state, but no planeId found. Will generate a new one. " +
                         "Expected if this is the first rebind after upgrading to Brooklyn 0.12.0+");
             }
-            ((LocalManagementContext)managementContext).generateManagementPlaneId();
+            if (managementContext.getManagementPlaneIdMaybe().isAbsent()) {
+                ((LocalManagementContext)managementContext).generateManagementPlaneId();
+            }
         } else {
             ((LocalManagementContext)managementContext).setManagementPlaneId(persistedPlaneId);
         }
@@ -1222,6 +1245,12 @@ public abstract class RebindIteration {
             return invokeConstructor(reflections, clazz, new Object[]{});
         }
 
+        protected ManagedBundle newManagedBundle(ManagedBundleMemento memento) {
+            ManagedBundle result = new BasicManagedBundle(memento.getSymbolicName(), memento.getVersion(), memento.getUrl());
+            FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", memento.getId()), result);
+            return result;
+        }
+        
         protected <T> T invokeConstructor(Reflections reflections, Class<T> clazz, Object[]... possibleArgs) {
             for (Object[] args : possibleArgs) {
                 try {

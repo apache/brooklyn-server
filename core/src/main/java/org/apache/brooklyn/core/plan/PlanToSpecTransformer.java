@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer;
+import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
 
 import com.google.common.annotations.Beta;
 
@@ -50,20 +51,20 @@ public interface PlanToSpecTransformer extends ManagementContextInjectable {
     /** creates an {@link EntitySpec} given a complete plan textual description for a top-level application, 
      * according to the transformation rules this understands.
      * <p>
-     * should throw {@link PlanNotRecognizedException} if not supported. */
-    EntitySpec<? extends Application> createApplicationSpec(String plan) throws PlanNotRecognizedException;
+     * should throw {@link UnsupportedTypePlanException} if not supported. */
+    EntitySpec<? extends Application> createApplicationSpec(String plan) throws PlanNotRecognizedException, UnsupportedTypePlanException;
     
     /** creates an object spec given a catalog item.
      * <p>
      * the catalog item might be known by type, or its source plan fragment text might be inspected and transformed.
      * implementations will typically look at the {@link CatalogItem#getCatalogItemType()} first.
      * <p>
-     * should throw {@link PlanNotRecognizedException} if this transformer does not know what to do with the plan.
+     * should throw {@link UnsupportedTypePlanException} if this transformer does not know what to do with the plan.
      * 
      * @param item - The catalog item to convert to a spec. The item might not be fully populated (i.e. missing {@code symbolicName} if called
      *        from the catalog parser).
      * @param encounteredTypes - The {@code symbolicName}s of catalog items being resolved up the stack, but not including {@code item}.
      */
-    <T,SpecT extends AbstractBrooklynObjectSpec<? extends T, SpecT>> SpecT createCatalogSpec(CatalogItem<T, SpecT> item, Set<String> encounteredTypes) throws PlanNotRecognizedException;
+    <T,SpecT extends AbstractBrooklynObjectSpec<? extends T, SpecT>> SpecT createCatalogSpec(CatalogItem<T, SpecT> item, Set<String> encounteredTypes) throws PlanNotRecognizedException, UnsupportedTypePlanException;
     
 }

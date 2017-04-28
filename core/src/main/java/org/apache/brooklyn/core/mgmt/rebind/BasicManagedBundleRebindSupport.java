@@ -16,40 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.api.mgmt.rebind.mementos;
+package org.apache.brooklyn.core.mgmt.rebind;
 
-import java.util.Collection;
-import java.util.List;
+import org.apache.brooklyn.api.mgmt.rebind.RebindContext;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.api.objs.SpecParameter;
+public class BasicManagedBundleRebindSupport extends AbstractBrooklynObjectRebindSupport<ManagedBundleMemento> {
 
-public interface CatalogItemMemento extends Memento {
+    public BasicManagedBundleRebindSupport(BasicManagedBundle mb) {
+        super(mb);
+    }
 
-    String getDescription();
+    @Override
+    protected void addConfig(RebindContext rebindContext, ManagedBundleMemento memento) {
+        // no op
+    }
 
-    String getSymbolicName();
-
-    String getIconUrl();
-
-    String getVersion();
-
-    String getPlanYaml();
-
-    String getJavaType();
-
-    List<SpecParameter<?>> getParameters();
-
-    Collection<CatalogItem.CatalogBundle> getLibraries();
-
-    CatalogItem.CatalogItemType getCatalogItemType();
-
-    Class<?> getCatalogItemJavaType();
-
-    Class<?> getSpecType();
-
-    boolean isDeprecated();
-
-    boolean isDisabled();
+    @Override
+    protected void addCustoms(RebindContext rebindContext, ManagedBundleMemento memento) {
+        // no op
+    }
     
 }

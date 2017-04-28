@@ -30,7 +30,11 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.EnricherMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.FeedMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.LocationMemento;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.PolicyMemento;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.google.common.collect.ImmutableList;
@@ -48,7 +52,10 @@ import com.google.common.collect.Sets;
 public class MutableBrooklynMemento implements BrooklynMemento {
 
     // TODO Is this class pulling its weight? Do we really need it?
+    // (shouldn't be used anymore -- have added logging April 2017 to ensure not used)
 
+    private static final Logger log = LoggerFactory.getLogger(MutableBrooklynMemento.class);
+    
     private static final long serialVersionUID = -442895028005849060L;
     
     private String planeId;
@@ -60,7 +67,12 @@ public class MutableBrooklynMemento implements BrooklynMemento {
     private final Map<String, EnricherMemento> enrichers = Maps.newLinkedHashMap();
     private final Map<String, FeedMemento> feeds = Maps.newLinkedHashMap();
     private final Map<String, CatalogItemMemento> catalogItems = Maps.newLinkedHashMap();
+    private final Map<String, ManagedBundleMemento> bundles = Maps.newLinkedHashMap();
 
+    {
+        log.warn("Using legacy "+this, new Exception("location of use of legacy "+this));
+    }
+    
     public MutableBrooklynMemento() {
     }
     
@@ -300,5 +312,20 @@ public class MutableBrooklynMemento implements BrooklynMemento {
     @Override
     public Map<String, CatalogItemMemento> getCatalogItemMementos() {
         return ImmutableMap.copyOf(catalogItems);
+    }
+
+    @Override
+    public ManagedBundleMemento getManagedBundleMemento(String id) {
+        return null;
+    }
+
+    @Override
+    public Collection<String> getManagedBundleIds() {
+        return MutableList.of();
+    }
+
+    @Override
+    public Map<String, ManagedBundleMemento> getManagedBundleMementos() {
+        return bundles;
     }
 }

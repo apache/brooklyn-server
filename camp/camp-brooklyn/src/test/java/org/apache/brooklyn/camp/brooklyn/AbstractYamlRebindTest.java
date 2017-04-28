@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import java.io.File;
 import java.io.Reader;
 import java.io.StringReader;
 import java.util.Map;
@@ -29,7 +30,9 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
+import org.apache.brooklyn.camp.spi.PlatformRootSummary;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
@@ -72,6 +75,16 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
         platform = launcher.getCampPlatform();
     }
 
+    @Override
+    protected LocalManagementContext createNewManagementContext(File mementoDir, HighAvailabilityMode haMode, Map<?, ?> additionalProperties) {
+        LocalManagementContext newMgmt = super.createNewManagementContext(mementoDir, haMode, additionalProperties);
+        new BrooklynCampPlatform(
+                PlatformRootSummary.builder().name("Brooklyn CAMP Platform").build(),
+                newMgmt)
+            .setConfigKeyAtManagmentContext();
+        return newMgmt;
+    }
+    
     @AfterMethod(alwaysRun = true)
     @Override
     public void tearDown() throws Exception {

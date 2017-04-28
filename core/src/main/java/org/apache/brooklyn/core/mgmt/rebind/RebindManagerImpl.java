@@ -132,6 +132,7 @@ public class RebindManagerImpl implements RebindManager {
     final boolean persistEnrichersEnabled;
     final boolean persistFeedsEnabled;
     final boolean persistCatalogItemsEnabled;
+    final boolean persistBundlesEnabled;
     
     private RebindFailureMode danglingRefFailureMode;
     private RebindFailureMode rebindFailureMode;
@@ -174,7 +175,7 @@ public class RebindManagerImpl implements RebindManager {
     private class PlaneIdSupplier implements Supplier<String> {
         @Override
         public String get() {
-            return managementContext.getOptionalManagementPlaneId().orNull();
+            return managementContext.getManagementPlaneIdMaybe().orNull();
         }
     }
 
@@ -185,6 +186,7 @@ public class RebindManagerImpl implements RebindManager {
         this.persistPoliciesEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_POLICY_PERSISTENCE_PROPERTY);
         this.persistEnrichersEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_ENRICHER_PERSISTENCE_PROPERTY);
         this.persistFeedsEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_FEED_PERSISTENCE_PROPERTY);
+        this.persistBundlesEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_CATALOG_PERSISTENCE_PROPERTY);
         this.persistCatalogItemsEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_CATALOG_PERSISTENCE_PROPERTY);
 
         danglingRefFailureMode = managementContext.getConfig().getConfig(DANGLING_REFERENCE_FAILURE_MODE);

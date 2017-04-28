@@ -253,7 +253,7 @@ public class RebindTestUtils {
             objectStore.prepareForSharedUse(PersistMode.AUTO, haMode);
             BrooklynMementoPersisterToObjectStore newPersister = new BrooklynMementoPersisterToObjectStore(
                     objectStore, 
-                    unstarted.getBrooklynProperties(), 
+                    unstarted, 
                     classLoader);
             ((RebindManagerImpl) unstarted.getRebindManager()).setPeriodicPersistPeriod(persistPeriod);
             unstarted.getRebindManager().setPersister(newPersister, PersistenceExceptionHandlerImpl.builder().build());
@@ -455,7 +455,7 @@ public class RebindTestUtils {
             
             BrooklynMementoPersisterToObjectStore newPersister = new BrooklynMementoPersisterToObjectStore(
                     objectStore,
-                    newManagementContext.getBrooklynProperties(),
+                    newManagementContext,
                     classLoader);
             newManagementContext.getRebindManager().setPersister(newPersister, PersistenceExceptionHandlerImpl.builder().build());
         } else {
@@ -533,11 +533,11 @@ public class RebindTestUtils {
             store = new FileBasedObjectStore(dir);
             store.injectManagementContext(mgmt);
             store.prepareForSharedUse(PersistMode.AUTO, HighAvailabilityMode.HOT_STANDBY);
-            persister = new BrooklynMementoPersisterToObjectStore(store, BrooklynProperties.Factory.newEmpty(), RebindTestUtils.class.getClassLoader());
+            persister = new BrooklynMementoPersisterToObjectStore(store, mgmt, RebindTestUtils.class.getClassLoader());
             BrooklynMementoRawData data = persister.loadMementoRawData(RebindExceptionHandlerImpl.builder().build());
             List<BrooklynObjectType> types = ImmutableList.of(BrooklynObjectType.ENTITY, BrooklynObjectType.LOCATION, 
                     BrooklynObjectType.POLICY, BrooklynObjectType.ENRICHER, BrooklynObjectType.FEED, 
-                    BrooklynObjectType.CATALOG_ITEM);
+                    BrooklynObjectType.CATALOG_ITEM, BrooklynObjectType.MANAGED_BUNDLE);
             for (BrooklynObjectType type : types) {
                 LOG.info(type+" ("+data.getObjectsOfType(type).keySet()+"):");
                 for (Map.Entry<String, String> entry : data.getObjectsOfType(type).entrySet()) {

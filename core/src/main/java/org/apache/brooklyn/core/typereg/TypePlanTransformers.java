@@ -120,11 +120,7 @@ public class TypePlanTransformers {
                     continue;
                 }
                 return Maybe.of(result);
-            } catch (UnsupportedTypePlanException e) {
-                transformersWhoDontSupport.add(t.getFormatCode() +
-                    (Strings.isNonBlank(e.getMessage()) ? " ("+e.getMessage()+")" : ""));
-            } catch (@SuppressWarnings("deprecation") org.apache.brooklyn.core.plan.PlanNotRecognizedException e) {
-                // just in case (shouldn't happen)
+            } catch (@SuppressWarnings("deprecation") org.apache.brooklyn.core.plan.PlanNotRecognizedException | UnsupportedTypePlanException e) {
                 transformersWhoDontSupport.add(t.getFormatCode() +
                     (Strings.isNonBlank(e.getMessage()) ? " ("+e.getMessage()+")" : ""));
             } catch (Throwable e) {

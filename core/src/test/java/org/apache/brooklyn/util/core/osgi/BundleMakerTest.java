@@ -36,10 +36,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.stream.Streams;
 import org.osgi.framework.Bundle;
@@ -214,6 +212,7 @@ public class BundleMakerTest extends BrooklynMgmtUnitTestSupport {
         assertJarContents(generatedJar, ImmutableMap.of(JarFile.MANIFEST_NAME, expectedManifest, "myfile.txt", "mytext", "subdir/myfile2.txt", "mytext2"));
     }
     
+    @SuppressWarnings("deprecation")
     @Test
     public void testInstallBundle() throws Exception {
         Map<String, String> manifest = ImmutableMap.of(

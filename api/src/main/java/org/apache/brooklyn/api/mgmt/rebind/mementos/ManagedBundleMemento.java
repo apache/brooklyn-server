@@ -18,38 +18,16 @@
  */
 package org.apache.brooklyn.api.mgmt.rebind.mementos;
 
-import java.util.Collection;
-import java.util.List;
+import com.google.common.io.ByteSource;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.api.objs.SpecParameter;
-
-public interface CatalogItemMemento extends Memento {
-
-    String getDescription();
+public interface ManagedBundleMemento extends Memento {
 
     String getSymbolicName();
-
-    String getIconUrl();
-
     String getVersion();
 
-    String getPlanYaml();
-
-    String getJavaType();
-
-    List<SpecParameter<?>> getParameters();
-
-    Collection<CatalogItem.CatalogBundle> getLibraries();
-
-    CatalogItem.CatalogItemType getCatalogItemType();
-
-    Class<?> getCatalogItemJavaType();
-
-    Class<?> getSpecType();
-
-    boolean isDeprecated();
-
-    boolean isDisabled();
+    String getUrl();
     
+    ByteSource getJarContent();
+    void setJarContent(ByteSource byteSource);
+
 }

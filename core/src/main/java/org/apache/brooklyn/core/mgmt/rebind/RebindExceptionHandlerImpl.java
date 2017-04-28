@@ -24,10 +24,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
-import org.apache.brooklyn.config.ConfigKey;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -36,15 +32,20 @@ import org.apache.brooklyn.api.mgmt.rebind.RebindContext;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager.RebindFailureMode;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -247,7 +248,12 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
     }
 
     @Override
-    public CatalogItem<?, ?> onDanglingUntypedItemRef(String id) {
+    public ManagedBundle onDanglingBundleRef(String id) {
+        return (ManagedBundle) onDanglingUntypedItemRef(id);
+    }
+
+    @Override
+    public BrooklynObject onDanglingUntypedItemRef(String id) {
         missingUntypedItems.add(id);
         if (danglingRefFailureMode == RebindManager.RebindFailureMode.FAIL_FAST) {
             throw new IllegalStateException("No item found with id "+id);

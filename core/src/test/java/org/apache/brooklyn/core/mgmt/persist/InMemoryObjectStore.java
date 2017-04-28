@@ -18,35 +18,36 @@
  */
 package org.apache.brooklyn.core.mgmt.persist;
 
+import java.io.IOException;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
-import org.apache.brooklyn.core.mgmt.persist.PersistMode;
-import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
-import org.apache.brooklyn.core.mgmt.persist.StoreObjectAccessorLocking;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.stream.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
+import com.google.common.io.ByteSource;
 
 public class InMemoryObjectStore implements PersistenceObjectStore {
 
     private static final Logger log = LoggerFactory.getLogger(InMemoryObjectStore.class);
 
-    final Map<String,String> filesByName;
+    final Map<String,byte[]> filesByName;
     final Map<String, Date> fileModTimesByName;
     boolean prepared = false;
     
     public InMemoryObjectStore() {
-        this(MutableMap.<String,String>of(), MutableMap.<String,Date>of());
+        this(MutableMap.<String,byte[]>of(), MutableMap.<String,Date>of());
     }
     
-    public InMemoryObjectStore(Map<String,String> map, Map<String, Date> fileModTimesByName) {
+    public InMemoryObjectStore(Map<String,byte[]> map, Map<String, Date> fileModTimesByName) {
         filesByName = map;
         this.fileModTimesByName = fileModTimesByName;
         log.debug("Using memory-based objectStore");
@@ -72,24 +73,26 @@ public class InMemoryObjectStore implements PersistenceObjectStore {
     }
     
     public static class SingleThreadedInMemoryStoreObjectAccessor implements StoreObjectAccessor {
-        private final Map<String, String> map;
+        private final Map<String, byte[]> map;
         private final Map<String, Date> mapModTime;
         private final String key;
 
-        public SingleThreadedInMemoryStoreObjectAccessor(Map<String,String> map, Map<String, Date> mapModTime, String key) {
+        public SingleThreadedInMemoryStoreObjectAccessor(Map<String,byte[]> map, Map<String, Date> mapModTime, String key) {
             this.map = map;
             this.mapModTime = mapModTime;
             this.key = key;
         }
         @Override
         public String get() {
-            synchronized (map) {
-                return map.get(key);
-            }
+            byte[] b = getBytes();
+            if (b==null) return null;
+            return new String(b);
         }
         @Override
         public byte[] getBytes() {
-            return get().getBytes();
+            synchronized (map) {
+                return map.get(key);
+            }
         }
         @Override
         public boolean exists() {
@@ -99,9 +102,17 @@ public class InMemoryObjectStore implements PersistenceObjectStore {
         }
         @Override
         public void put(String val) {
-            synchronized (map) {
-                map.put(key, val);
-                mapModTime.put(key, new Date());
+            put(ByteSource.wrap(val.getBytes()));
+        }
+        @Override
+        public void put(ByteSource bytes) {
+            try {
+                synchronized (map) {
+                    map.put(key, Streams.readFullyAndClose(bytes.openStream()));
+                    mapModTime.put(key, new Date());
+                }
+            } catch (IOException e) {
+                throw Exceptions.propagate(e);
             }
         }
         @Override
@@ -111,7 +122,7 @@ public class InMemoryObjectStore implements PersistenceObjectStore {
                 if (val2==null) val2 = val;
                 else val2 = val2 + val;
 
-                map.put(key, val2);
+                put(val2);
                 mapModTime.put(key, new Date());
             }
         }
@@ -148,7 +159,7 @@ public class InMemoryObjectStore implements PersistenceObjectStore {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("size", filesByName.size()).toString();
+        return MoreObjects.toStringHelper(this).add("size", filesByName.size()).toString();
     }
 
     @Override

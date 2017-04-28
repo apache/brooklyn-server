@@ -76,7 +76,7 @@ public class ManagementPlaneIdTest {
     @Test
     public void testUninitializedThrows() {
         ManagementContext mgmt = new LocalManagementContext(BrooklynProperties.Factory.newEmpty());
-        assertFalse(mgmt.getOptionalManagementPlaneId().isPresent(), "expected managementPlaneId to be absent");
+        assertFalse(mgmt.getManagementPlaneIdMaybe().isPresent(), "expected managementPlaneId to be absent");
     }
     
     @Test
@@ -90,13 +90,13 @@ public class ManagementPlaneIdTest {
         final LocalManagementContext mgmt = createManagementContext(PersistMode.AUTO, HighAvailabilityMode.AUTO);
 
         checkPlaneIdPersisted(mgmt);
-        final String oldPlaneId = mgmt.getOptionalManagementPlaneId().get();
+        final String oldPlaneId = mgmt.getManagementPlaneIdMaybe().get();
         mgmt.setManagementPlaneId(Strings.makeRandomId(8));
-        assertNotEquals(oldPlaneId, mgmt.getOptionalManagementPlaneId().get());
+        assertNotEquals(oldPlaneId, mgmt.getManagementPlaneIdMaybe().get());
         Asserts.succeedsEventually(new Runnable() {
             @Override
             public void run() {
-                assertEquals(oldPlaneId, mgmt.getOptionalManagementPlaneId().get());
+                assertEquals(oldPlaneId, mgmt.getManagementPlaneIdMaybe().get());
             }
         });
     }
@@ -109,7 +109,7 @@ public class ManagementPlaneIdTest {
 
         LocalManagementContext rebindMgmt = createManagementContext(PersistMode.AUTO, HighAvailabilityMode.DISABLED);
 
-        assertEquals(origMgmt.getOptionalManagementPlaneId(), rebindMgmt.getOptionalManagementPlaneId());
+        assertEquals(origMgmt.getManagementPlaneIdMaybe(), rebindMgmt.getManagementPlaneIdMaybe());
     }
 
 
@@ -131,7 +131,7 @@ public class ManagementPlaneIdTest {
         Asserts.succeedsEventually(new Runnable() {
             @Override
             public void run() {
-                assertEquals(origMgmt.getOptionalManagementPlaneId(), rebindMgmt.getOptionalManagementPlaneId());
+                assertEquals(origMgmt.getManagementPlaneIdMaybe(), rebindMgmt.getManagementPlaneIdMaybe());
             }
         });
     }
@@ -144,7 +144,7 @@ public class ManagementPlaneIdTest {
         Asserts.succeedsEventually(new Runnable() {
             @Override
             public void run() {
-                assertEquals(origMgmt.getOptionalManagementPlaneId(), rebindMgmt.getOptionalManagementPlaneId());
+                assertEquals(origMgmt.getManagementPlaneIdMaybe(), rebindMgmt.getManagementPlaneIdMaybe());
             }
         });
 
@@ -160,7 +160,7 @@ public class ManagementPlaneIdTest {
             }
         });
 
-        assertEquals(origMgmt.getOptionalManagementPlaneId(), rebindMgmt.getOptionalManagementPlaneId());
+        assertEquals(origMgmt.getManagementPlaneIdMaybe(), rebindMgmt.getManagementPlaneIdMaybe());
     }
     
     @Test
@@ -171,7 +171,7 @@ public class ManagementPlaneIdTest {
 
         LocalManagementContext rebindMgmt = createManagementContextWithBackups(PersistMode.AUTO, HighAvailabilityMode.AUTO);
 
-        assertEquals(origMgmt.getOptionalManagementPlaneId(), rebindMgmt.getOptionalManagementPlaneId());
+        assertEquals(origMgmt.getManagementPlaneIdMaybe(), rebindMgmt.getManagementPlaneIdMaybe());
 
         String backupContainer = BrooklynServerPaths.newBackupPersistencePathResolver(rebindMgmt).resolve();
         
@@ -186,7 +186,7 @@ public class ManagementPlaneIdTest {
         
         File planeIdFile = new File(promotionFolders[0], BrooklynMementoPersisterToObjectStore.PLANE_ID_FILE_NAME);
         String planeId = readFile(planeIdFile);
-        assertEquals(origMgmt.getOptionalManagementPlaneId().get(), planeId);
+        assertEquals(origMgmt.getManagementPlaneIdMaybe().get(), planeId);
     }
     
     @Test
@@ -235,7 +235,7 @@ public class ManagementPlaneIdTest {
             @Override
             public Void call() throws Exception {
                 String planeId = readFile(planeIdFile);
-                assertEquals(mgmt.getOptionalManagementPlaneId().get(), planeId);
+                assertEquals(mgmt.getManagementPlaneIdMaybe().get(), planeId);
                 return null;
             }
         });

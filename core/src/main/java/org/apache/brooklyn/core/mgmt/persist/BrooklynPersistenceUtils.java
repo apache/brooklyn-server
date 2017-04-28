@@ -20,8 +20,6 @@ package org.apache.brooklyn.core.mgmt.persist;
 
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -39,11 +37,13 @@ import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.ha.ManagementPlaneSyncRecordPersisterToObjectStore;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformerLoader;
@@ -56,6 +56,8 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Stopwatch;
@@ -68,7 +70,8 @@ public class BrooklynPersistenceUtils {
     @Beta
     public static final List<BrooklynObjectType> STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER = ImmutableList.of( 
         BrooklynObjectType.ENTITY, BrooklynObjectType.LOCATION, BrooklynObjectType.POLICY,
-        BrooklynObjectType.ENRICHER, BrooklynObjectType.FEED, BrooklynObjectType.CATALOG_ITEM);
+        BrooklynObjectType.ENRICHER, BrooklynObjectType.FEED, 
+        BrooklynObjectType.CATALOG_ITEM, BrooklynObjectType.MANAGED_BUNDLE);
 
     /** Creates a {@link PersistenceObjectStore} for general-purpose use. */
     public static PersistenceObjectStore newPersistenceObjectStore(ManagementContext managementContext,
@@ -104,8 +107,7 @@ public class BrooklynPersistenceUtils {
             PersistenceObjectStore destinationObjectStore) {
         BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
             destinationObjectStore,
-            ((ManagementContextInternal)managementContext).getBrooklynProperties(),
-            managementContext.getCatalogClassLoader());
+            managementContext);
         try {
             PersistenceExceptionHandler exceptionHandler = PersistenceExceptionHandlerImpl.builder().build();
             persister.enableWriteAccess();
@@ -171,21 +173,31 @@ public class BrooklynPersistenceUtils {
         MementoSerializer<Object> rawSerializer = new XmlMementoSerializer<Object>(mgmt.getClass().getClassLoader());
         RetryingMementoSerializer<Object> serializer = new RetryingMementoSerializer<Object>(rawSerializer, 1);
         
-        result.planeId(mgmt.getOptionalManagementPlaneId().orNull());
+        result.planeId(mgmt.getManagementPlaneIdMaybe().orNull());
         for (Location instance: mgmt.getLocationManager().getLocations())
             result.location(instance.getId(), serializer.toString(newObjectMemento(instance)));
         for (Entity instance: mgmt.getEntityManager().getEntities()) {
             instance = Entities.deproxy(instance);
             result.entity(instance.getId(), serializer.toString(newObjectMemento(instance)));
-            for (Feed instanceAdjunct: ((EntityInternal)instance).feeds().getFeeds())
+            for (Feed instanceAdjunct: ((EntityInternal)instance).feeds().getFeeds()) {
                 result.feed(instanceAdjunct.getId(), serializer.toString(newObjectMemento(instanceAdjunct)));
-            for (Enricher instanceAdjunct: instance.enrichers())
+            }
+            for (Enricher instanceAdjunct: instance.enrichers()) {
                 result.enricher(instanceAdjunct.getId(), serializer.toString(newObjectMemento(instanceAdjunct)));
-            for (Policy instanceAdjunct: instance.policies())
+            }
+            for (Policy instanceAdjunct: instance.policies()) {
                 result.policy(instanceAdjunct.getId(), serializer.toString(newObjectMemento(instanceAdjunct)));
+            }
         }
-        for (CatalogItem<?,?> instance: mgmt.getCatalog().getCatalogItems())
+        for (CatalogItem<?,?> instance: mgmt.getCatalog().getCatalogItems()) {
             result.catalogItem(instance.getId(), serializer.toString(newObjectMemento(instance)));
+        }
+        OsgiManager osgi = ((LocalManagementContext)mgmt).getOsgiManager().orNull();
+        if (osgi!=null) {
+            for (ManagedBundle instance: osgi.getManagedBundles().values()) {
+                result.bundle(instance.getId(), serializer.toString(newObjectMemento(instance)));
+            }
+        }
         
         return result.build();
     }

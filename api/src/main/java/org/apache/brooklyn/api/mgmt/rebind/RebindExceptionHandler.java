@@ -30,9 +30,10 @@ import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.config.ConfigKey;
 
 import com.google.common.annotations.Beta;
-import org.apache.brooklyn.config.ConfigKey;
 
 /**
  * Handler called on all exceptions to do with rebind.
@@ -81,6 +82,11 @@ public interface RebindExceptionHandler {
      * @return the catalog item to use in place of the missing one
      */
     CatalogItem<?, ?> onDanglingCatalogItemRef(String id);
+    
+    /**
+     * @return the bundle to use in place of a missing one
+     */
+    ManagedBundle onDanglingBundleRef(String id);
 
     /**
      * @return the item to use in place of the missing one

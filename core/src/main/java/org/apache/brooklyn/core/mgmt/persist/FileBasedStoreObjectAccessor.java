@@ -19,17 +19,20 @@
 package org.apache.brooklyn.core.mgmt.persist;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Date;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.io.FileUtil;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
+import com.google.common.io.ByteSource;
 import com.google.common.io.Files;
 
 /**
@@ -76,10 +79,15 @@ public class FileBasedStoreObjectAccessor implements PersistenceObjectStore.Stor
 
     @Override
     public void put(String val) {
+        if (val==null) val = "";
+        put(ByteSource.wrap(val.getBytes(Charsets.UTF_8)));
+    }
+    
+    @Override
+    public void put(ByteSource bytes) {
         try {
-            if (val==null) val = "";
             FileUtil.setFilePermissionsTo600(tmpFile);
-            Files.write(val, tmpFile, Charsets.UTF_8);
+            Streams.copyClose(bytes.openStream(), new FileOutputStream(tmpFile));
             FileBasedObjectStore.moveFile(tmpFile, file);
         } catch (IOException e) {
             throw Exceptions.propagate("Problem writing data to file "+file+" (via temporary file "+tmpFile+")", e);
@@ -125,6 +133,6 @@ public class FileBasedStoreObjectAccessor implements PersistenceObjectStore.Stor
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("file", file).toString();
+        return MoreObjects.toStringHelper(this).add("file", file).toString();
     }
 }

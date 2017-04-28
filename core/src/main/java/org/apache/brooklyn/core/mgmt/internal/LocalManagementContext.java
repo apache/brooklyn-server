@@ -69,7 +69,6 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 
@@ -217,21 +216,21 @@ public class LocalManagementContext extends AbstractManagementContext {
     }
     
     @Override
-    public Optional<String> getOptionalManagementPlaneId() {
-        return Optional.fromNullable(managementPlaneId);
+    public Maybe<String> getManagementPlaneIdMaybe() {
+        return Maybe.ofDisallowingNull(managementPlaneId);
     }
     
     public void setManagementPlaneId(String newPlaneId) {
         if (managementPlaneId != null && !managementPlaneId.equals(newPlaneId)) {
-            log.warn("Management plane ID changed from {} to {}", managementPlaneId, newPlaneId);
-            log.debug("Management plane ID changed from {} to {}", new Object[] {managementPlaneId, newPlaneId, new RuntimeException("Stack trace for setManagementPlaneId")});
+            log.warn("Management plane ID at {} {} changed from {} to {} (can happen on concurrent startup of multiple nodes)", new Object[] { managementNodeId, getHighAvailabilityManager().getNodeState(), managementPlaneId, newPlaneId });
+            log.debug("Management plane ID at {} {} changed from {} to {} (can happen on concurrent startup of multiple nodes)", new Object[] {managementNodeId, getHighAvailabilityManager().getNodeState(), managementPlaneId, newPlaneId, new RuntimeException("Stack trace for setManagementPlaneId")});
         }
         this.managementPlaneId = newPlaneId;
     }
 
     public void generateManagementPlaneId() {
         if (this.managementPlaneId != null) {
-            throw new IllegalStateException("Request to generate a management plane ID but one already exists (" + managementPlaneId + ")");
+            throw new IllegalStateException("Request to generate a management plane ID for node "+managementNodeId+" but one already exists (" + managementPlaneId + ")");
         }
         this.managementPlaneId = Strings.makeRandomId(8);
     }

@@ -57,6 +57,7 @@ import org.apache.brooklyn.core.mgmt.rebind.dto.BasicEnricherMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicEntityMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicFeedMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicLocationMemento;
+import org.apache.brooklyn.core.mgmt.rebind.dto.BasicManagedBundleMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicPolicyMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.MutableBrooklynMemento;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
@@ -102,9 +103,6 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         this.delegatingClassLoader = new OsgiClassLoader(classLoader);
         xstream.setClassLoader(this.delegatingClassLoader);
         
-        // old (deprecated in 070? or earlier) single-file persistence uses this keyword; TODO remove soon in 080 ?
-        xstream.alias("brooklyn", MutableBrooklynMemento.class);
-        
         xstream.alias("entity", BasicEntityMemento.class);
         xstream.alias("location", BasicLocationMemento.class);
         xstream.alias("policy", BasicPolicyMemento.class);
@@ -112,6 +110,7 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         xstream.alias("enricher", BasicEnricherMemento.class);
         xstream.alias("configKey", BasicConfigKey.class);
         xstream.alias("catalogItem", BasicCatalogItemMemento.class);
+        xstream.alias("managedBundle", BasicManagedBundleMemento.class);
         xstream.alias("bundle", CatalogBundleDto.class);
         xstream.alias("attributeSensor", BasicAttributeSensor.class);
 
