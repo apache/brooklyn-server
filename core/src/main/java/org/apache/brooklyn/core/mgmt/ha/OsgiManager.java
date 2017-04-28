@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
@@ -41,6 +42,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.CatalogBundleLoader;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.mgmt.persist.OsgiClassPrefixer;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
@@ -62,6 +64,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
+import org.osgi.framework.Constants;
 import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,14 +82,28 @@ public class OsgiManager {
     private static final Logger log = LoggerFactory.getLogger(OsgiManager.class);
     
     public static final ConfigKey<Boolean> USE_OSGI = BrooklynServerConfig.USE_OSGI;
+    public static final ConfigKey<Boolean> REUSE_OSGI = ConfigKeys.newBooleanConfigKey("brooklyn.osgi.reuse",
+        "Whether the OSGi container can reuse a previous one and itself can be reused, defaulting to false, "
+        + "often overridden in tests for efficiency (and will ignore the cache dir)", false);
     
-    /* see Osgis for info on starting framework etc */
+    /** The {@link Framework#start()} event is the most expensive one; in fact a restart seems to be _more_ expensive than
+     * a start from scratch; however if we leave it running, uninstalling any extra bundles, then tests are fast and don't leak.
+     * See OsgiTestingLeaksAndSpeedTest. */
+    protected static final boolean REUSED_FRAMEWORKS_ARE_KEPT_RUNNING = true;
+    
+    /* see `Osgis` class for info on starting framework etc */
     
     protected final ManagementContext mgmt;
     protected final OsgiClassPrefixer osgiClassPrefixer;
     protected Framework framework;
+    protected boolean reuseFramework;
+    private Set<Bundle> bundlesAtStartup;
     protected File osgiCacheDir;
     protected Map<String, ManagedBundle> managedBundles = MutableMap.of();
+    protected AtomicInteger numberOfReusableFrameworksCreated = new AtomicInteger();
+
+    
+    protected static final List<Framework> OSGI_FRAMEWORK_CONTAINERS_FOR_REUSE = MutableList.of();
     
     public OsgiManager(ManagementContext mgmt) {
         this.mgmt = mgmt;
@@ -94,19 +111,81 @@ public class OsgiManager {
     }
 
     public void start() {
+        if (framework!=null) {
+            throw new IllegalStateException("OSGi framework already set in this management context");
+        }
+        
         try {
-            osgiCacheDir = BrooklynServerPaths.getOsgiCacheDirCleanedIfNeeded(mgmt);
+            if (mgmt.getConfig().getConfig(REUSE_OSGI)) {
+                reuseFramework = true;
+                
+                synchronized (OSGI_FRAMEWORK_CONTAINERS_FOR_REUSE) {
+                    if (!OSGI_FRAMEWORK_CONTAINERS_FOR_REUSE.isEmpty()) {
+                        framework = OSGI_FRAMEWORK_CONTAINERS_FOR_REUSE.remove(0);
+                    }
+                }
+                if (framework!=null) {
+                    if (!REUSED_FRAMEWORKS_ARE_KEPT_RUNNING) {
+                        // don't think we need to do 'init'
+//                        framework.init();
+                        framework.start();
+                    }
+                    
+                    log.debug("Reusing OSGi framework container from "+framework.getBundleContext().getProperty(Constants.FRAMEWORK_STORAGE)+" for mgmt node "+mgmt.getManagementNodeId());
+                    
+                    return;
+                }
+                osgiCacheDir = Os.newTempDir("brooklyn-osgi-reusable-container");
+                Os.deleteOnExitRecursively(osgiCacheDir);
+                if (numberOfReusableFrameworksCreated.incrementAndGet()%10==0) {
+                    log.warn("Possible leak of reusable OSGi containers ("+numberOfReusableFrameworksCreated+" total)");
+                }
+                
+            } else {
+                osgiCacheDir = BrooklynServerPaths.getOsgiCacheDirCleanedIfNeeded(mgmt);
+            }
             
             // any extra OSGi startup args could go here
             framework = Osgis.getFramework(osgiCacheDir.getAbsolutePath(), false);
+            log.debug("OSGi framework container created in "+osgiCacheDir+" mgmt node "+mgmt.getManagementNodeId()+
+                (reuseFramework ? "(reusable, "+numberOfReusableFrameworksCreated.get()+" total)" : "") );
+            
         } catch (Exception e) {
             throw Exceptions.propagate(e);
+        } finally {
+            if (reuseFramework) {
+                bundlesAtStartup = MutableSet.copyOf(Arrays.asList(framework.getBundleContext().getBundles()));
+            }
         }
     }
 
     public void stop() {
-        Osgis.ungetFramework(framework);
-        if (BrooklynServerPaths.isOsgiCacheForCleaning(mgmt, osgiCacheDir)) {
+        if (reuseFramework) {
+            for (Bundle b: framework.getBundleContext().getBundles()) {
+                if (!bundlesAtStartup.contains(b)) {
+                    try {
+                        log.info("Uninstalling "+b+" from OSGi container in "+framework.getBundleContext().getProperty(Constants.FRAMEWORK_STORAGE));
+                        b.uninstall();
+                    } catch (BundleException e) {
+                        Exceptions.propagateIfFatal(e);
+                        log.warn("Unable to uninstall "+b+"; container in "+framework.getBundleContext().getProperty(Constants.FRAMEWORK_STORAGE)+" will not be reused: "+e, e);
+                        reuseFramework = false;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (!reuseFramework || !REUSED_FRAMEWORKS_ARE_KEPT_RUNNING) {
+            Osgis.ungetFramework(framework);
+        }
+        
+        if (reuseFramework) {
+            synchronized (OSGI_FRAMEWORK_CONTAINERS_FOR_REUSE) {
+                OSGI_FRAMEWORK_CONTAINERS_FOR_REUSE.add(framework);
+            }
+            
+        } else if (BrooklynServerPaths.isOsgiCacheForCleaning(mgmt, osgiCacheDir)) {
             // See exception reported in https://issues.apache.org/jira/browse/BROOKLYN-72
             // We almost always fail to delete he OSGi temp directory due to a concurrent modification.
             // Therefore keep trying.

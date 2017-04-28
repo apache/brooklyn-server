@@ -116,7 +116,7 @@ public class EmbeddedFelixFramework {
         return framework;
     }
 
-        public static void stopFramework(Framework framework) throws RuntimeException {
+    public static void stopFramework(Framework framework) throws RuntimeException {
         try {
             if (framework != null) {
                 framework.stop();

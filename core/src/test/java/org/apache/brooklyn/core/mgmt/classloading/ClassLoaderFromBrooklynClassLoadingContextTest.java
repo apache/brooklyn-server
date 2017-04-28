@@ -38,7 +38,7 @@ public class ClassLoaderFromBrooklynClassLoadingContextTest {
     @BeforeMethod(alwaysRun=true)
     @SuppressWarnings("deprecation")
     public void setUp() throws Exception {
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         item = mgmt.getCatalog().addItem(BasicApplication.class);
         
         BrooklynClassLoadingContext clc = new OsgiBrooklynClassLoadingContext(mgmt, item.getCatalogItemId(), ImmutableList.<OsgiBundleWithUrl>of());

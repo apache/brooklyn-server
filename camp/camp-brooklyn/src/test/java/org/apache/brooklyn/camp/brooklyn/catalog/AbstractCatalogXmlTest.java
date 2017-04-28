@@ -58,7 +58,7 @@ public class AbstractCatalogXmlTest extends AbstractYamlTest {
         properties.put(BrooklynServerConfig.BROOKLYN_CATALOG_URL, catalog.toURI().toString());
         return LocalManagementContextForTests.builder(true)
                 .useProperties(properties)
-                .disableOsgi(false)
+                .enableOsgiReusable()
                 .build();
     }
 

@@ -42,7 +42,7 @@ public class ActivePartialRebindVersionTest extends RebindTestFixtureWithApp {
                 .persistPeriodMillis(getPersistPeriodMillis())
                 .forLive(useLiveManagementContext())
                 .emptyCatalog(useEmptyCatalog())
-                .enableOsgi(true)
+                .enableOsgiReusable()
                 .buildStarted();
     }
     

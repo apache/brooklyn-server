@@ -70,7 +70,7 @@ public class CatalogMakeOsgiBundleTest extends AbstractYamlTest {
     @Override
     protected LocalManagementContext newTestManagementContext() {
         return LocalManagementContextForTests.builder(true)
-                .disableOsgi(false)
+                .enableOsgiReusable()
                 .build();
     }
     

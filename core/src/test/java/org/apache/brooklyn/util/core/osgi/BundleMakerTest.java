@@ -62,7 +62,7 @@ public class BundleMakerTest extends BrooklynMgmtUnitTestSupport {
     @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         super.setUp();
         
         bundleMaker = new BundleMaker(mgmt);

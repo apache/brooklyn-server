@@ -22,6 +22,7 @@ import java.util.Map;
 
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
@@ -68,6 +69,12 @@ public class LocalManagementContextForTests extends LocalManagementContext {
         return brooklynProperties;
     }
     
+    public static BrooklynProperties reuseOsgi(BrooklynProperties brooklynProperties) {
+        if (brooklynProperties==null) return null;
+        setFailingIfConflicting(brooklynProperties, OsgiManager.REUSE_OSGI, true);
+        return brooklynProperties;
+    }
+    
     @SuppressWarnings("deprecation")
     public static BrooklynProperties disablePersistenceBackups(BrooklynProperties brooklynProperties) {
         if (brooklynProperties==null) return null;
@@ -87,16 +94,46 @@ public class LocalManagementContextForTests extends LocalManagementContext {
     public static class Builder {
         boolean disablePersistenceBackups = false;
         boolean disableOsgi = false;
+        boolean reuseOsgi = false;
         boolean emptyCatalog = false;
         BrooklynProperties properties = null;
         Map<String, ?> additionalProperties = null;
         
         public Builder disablePersistenceBackups() { return disablePersistenceBackups(true); }
-        public Builder disableOsgi() { return disableOsgi(true); }
+        public Builder disableOsgi() { disableOsgi = true; return this; }
         public Builder emptyCatalog() { return emptyCatalog(true); }
 
         public Builder disablePersistenceBackups(boolean disablePersistenceBackups) { this.disablePersistenceBackups = disablePersistenceBackups; return this; }
+        
+        /** @deprecated since 0.12.0 use {@link #setOsgiEnablementAndReuse(boolean, boolean)}  */
+        @Deprecated
         public Builder disableOsgi(boolean disableOsgi) { this.disableOsgi = disableOsgi; return this; }
+        
+        /** sets the underlying fields more usually controlled by convenience methods 
+         * {@link #disableOsgi()} or {@link #enableOsgiReusable()} or {@link #enableOsgiNonReusable()};
+         * this method is available as a convenience for nested builders */
+        public Builder setOsgiEnablementAndReuse(boolean enableOsgi, boolean reuseOsgi) {
+            this.disableOsgi = !enableOsgi;
+            this.reuseOsgi = reuseOsgi;
+            return this;
+        }
+        
+        /** enables OSGi and sets the flag that a container can be reused;
+         * this is the default if {@link #minimal()} is specdified and then OSGi enabled */
+        public Builder enableOsgiReusable() {
+            disableOsgi = false;
+            reuseOsgi = true;
+            return this;
+        }
+        /** enables OSGi and forces a management context to use its own non-reusable OSGi container;
+         * this is the default in normal Brooklyn and the same behaviour is applied if minimal is not specified,
+         * but if minimal is specified this method must be used if a re-used OSGi container is required */
+        public Builder enableOsgiNonReusable() {
+            disableOsgi = false;
+            reuseOsgi = false;
+            return this;
+        }
+        
         public Builder emptyCatalog(boolean emptyCatalog) { this.emptyCatalog = emptyCatalog; return this; }
 
         // for use in the outer class's constructor
@@ -108,6 +145,7 @@ public class LocalManagementContextForTests extends LocalManagementContext {
         public Builder minimal() {
             disablePersistenceBackups();
             disableOsgi();
+            reuseOsgi = true;
             emptyCatalog();
             properties = null;
             additionalProperties = null;
@@ -137,6 +175,7 @@ public class LocalManagementContextForTests extends LocalManagementContext {
             if (additionalProperties != null) result.putAll(additionalProperties);
             if (disablePersistenceBackups) LocalManagementContextForTests.disablePersistenceBackups(result);
             if (disableOsgi) LocalManagementContextForTests.disableOsgi(result);
+            else if (reuseOsgi) LocalManagementContextForTests.reuseOsgi(result);
             if (emptyCatalog) LocalManagementContextForTests.setEmptyCatalogAsDefault(result);
             return result;
         }
@@ -167,7 +206,7 @@ public class LocalManagementContextForTests extends LocalManagementContext {
 
     /** Creates a new minimal instance with OSGi then enabled. */
     public static LocalManagementContext newInstanceWithOsgi() {
-        return builder(true).disableOsgi(false).build();
+        return builder(true).enableOsgiReusable().build();
     }
 
 }

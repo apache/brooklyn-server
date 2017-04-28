@@ -376,7 +376,7 @@ public class XmlMementoSerializerTest {
     @Test
     public void testEntitySpecFromOsgi() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_V1_PATH);
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         
         RegisteredType ci = OsgiVersionMoreEntityTest.addMoreEntityV1(mgmt, "1.0");
             
@@ -390,7 +390,7 @@ public class XmlMementoSerializerTest {
     
     @Test
     public void testOsgiBundleNameNotIncludedForWhiteListed() throws Exception {
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
 
         serializer.setLookupContext(newEmptyLookupManagementContext(mgmt, true));
         
@@ -410,7 +410,7 @@ public class XmlMementoSerializerTest {
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
         
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         serializer.setLookupContext(newEmptyLookupManagementContext(mgmt, true));
         
         Bundle bundle = installBundle(mgmt, bundleUrl);
@@ -449,7 +449,7 @@ public class XmlMementoSerializerTest {
         String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_OBJECT;
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
         
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         Bundle bundle = installBundle(mgmt, bundleUrl);
 
         String bundlePrefix = bundle.getSymbolicName();
@@ -477,7 +477,7 @@ public class XmlMementoSerializerTest {
         String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_OBJECT;
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
         
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         Bundle bundle = installBundle(mgmt, bundleUrl);
         
         String oldBundlePrefix = "com.old.symbolicname";
@@ -509,7 +509,7 @@ public class XmlMementoSerializerTest {
         String oldClassname = "com.old.package.name.OldClassName";
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
         
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         Bundle bundle = installBundle(mgmt, bundleUrl);
         
         String bundlePrefix = bundle.getSymbolicName();
@@ -535,7 +535,7 @@ public class XmlMementoSerializerTest {
     // how we're using Felix? Would it also be true in Karaf?
     @Test(groups="Broken")
     public void testOsgiBundleNamePrefixIncludedForDownstreamDependency() throws Exception {
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         serializer.setLookupContext(newEmptyLookupManagementContext(mgmt, true));
         
         // Using a guava type (which is a downstream dependency of Brooklyn)
