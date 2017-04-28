@@ -18,8 +18,8 @@
  */
 package org.apache.brooklyn.util.core.xstream;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.StringReader;
 
 import javax.xml.namespace.QName;
 import javax.xml.parsers.DocumentBuilder;
@@ -32,6 +32,7 @@ import javax.xml.xpath.XPathFactory;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 import com.google.common.annotations.Beta;
@@ -65,7 +66,7 @@ public class XmlUtil {
     public static Object xpath(String xml, String xpath, QName returnType) {
         try {
             DocumentBuilder builder = SharedDocumentBuilder.get();
-            Document doc = builder.parse(new ByteArrayInputStream(xml.getBytes()));
+            Document doc = builder.parse(new InputSource(new StringReader(xml)));
             XPathFactory xPathfactory = XPathFactory.newInstance();
             XPathExpression expr = xPathfactory.newXPath().compile(xpath);
             
