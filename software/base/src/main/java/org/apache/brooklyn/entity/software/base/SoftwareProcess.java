@@ -235,6 +235,35 @@ public interface SoftwareProcess extends Entity, Startable {
             .build();
 
     /**
+     * Files to be copied to the server before customize.
+     * <p>
+     * Map of {@code classpath://foo/file.txt} (or other url) source to destination path,
+     * as {@code subdir/file} relative to installation directory or {@code /absolute/path/to/file}.
+     *
+     * @see #INSTALL_TEMPLATES
+     */
+    @Beta
+    @SetFromFlag("customizeFiles")
+    MapConfigKey<String> CUSTOMIZE_FILES = new MapConfigKey.Builder<String>(String.class, "files.customize")
+            .description("Mapping of files, to be copied before customize, to destination name relative to installDir")
+            .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
+            .build();
+
+    /**
+     * Templates to be filled in and then copied to the server before customize.
+     *
+     * @see #INSTALL_FILES
+     */
+    @Beta
+    @SetFromFlag("customizeTemplates")
+    MapConfigKey<String> CUSTOMIZE_TEMPLATES = new MapConfigKey.Builder<String>(String.class, "templates.customize")
+            .description("Mapping of templates, to be filled in and copied before customize, to destination name relative to installDir")
+            .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
+            .build();
+
+    /**
      * Files to be copied to the server after customisation.
      * <p>
      * Map of {@code classpath://foo/file.txt} (or other url) source to destination path,
