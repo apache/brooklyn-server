@@ -544,6 +544,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     }
     
     @Test(groups = "Broken")
+    // See https://issues.apache.org/jira/browse/BROOKLYN-343
     public void testSameCatalogReferences() {
         addCatalogItems(
             "brooklyn.catalog:",
@@ -564,6 +565,26 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             "              type: referenced-entity");
 
     }
+
+    @Test
+    public void testSameCatalogReferencesWithoutServices() {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  items:",
+            "  - id: referenced-entity",
+            "    item:",
+            "      type: " + BasicEntity.class.getName(),
+            "  - id: referrer-entity",
+            "    item:",
+            "      type: " + BasicApplication.class.getName(),
+            "      brooklyn.children:",
+            "      - type: referenced-entity",
+            "      brooklyn.config:",
+            "       spec: ",
+            "          $brooklyn:entitySpec:",
+            "            type: referenced-entity");
+    }
+
 
     @Test
     public void testItemWithBrooklynParameters() throws Exception {
