@@ -22,7 +22,7 @@ import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.core.mgmt.rebind.RebindAbstractCommandFeedTest;
 import org.testng.annotations.Test;
 
-public class RebinWinrmCmdFeedTest extends RebindAbstractCommandFeedTest {
+public class RebindWinrmCmdFeedTest extends RebindAbstractCommandFeedTest {
 
     @Test
     public void testSshFeed_2017_04() throws Exception {
