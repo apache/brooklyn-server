@@ -21,8 +21,6 @@ package org.apache.brooklyn.camp.brooklyn;
 import static org.apache.brooklyn.test.Asserts.assertFalse;
 import static org.testng.Assert.assertEquals;
 
-import java.util.List;
-
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.effector.CompositeEffector;
@@ -32,12 +30,14 @@ import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.http.TestHttpServer;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
@@ -59,7 +59,7 @@ public class CompositeEffectorYamlRebindTest extends AbstractYamlRebindTest {
            "    brooklyn.initializers:",
            "    - type: " + HttpCommandEffector.class.getName(),
            "      brooklyn.config:",
-           "        name: myEffector",
+           "        name: httpEffector",
            "        description: myDescription",
            "        uri: ${serverUrl}/get?id=myId",
            "        httpVerb: GET",
@@ -70,6 +70,7 @@ public class CompositeEffectorYamlRebindTest extends AbstractYamlRebindTest {
            "        name: start",
            "        override: true",
            "        effectors:",
+           "        - httpEffector",
            "        - myEffector"
    );
 
@@ -103,16 +104,23 @@ public class CompositeEffectorYamlRebindTest extends AbstractYamlRebindTest {
       String appYaml = Joiner.on("\n").join(
               "services: ",
               "- type: " + appId);
-      createStartWaitAndLogApplication(appYaml);
-
+      Entity app = createStartWaitAndLogApplication(appYaml);
+      TestEntity entity = (TestEntity) Iterables.find(app.getChildren(), EntityPredicates.displayNameEqualTo("targetEntity"));
+      
+      // start was overridden, so java method not called; but composite will have called "testEntity.myEffector"
+      assertEquals(entity.getCallHistory(), ImmutableList.of("myEffector"));
+      entity.clearCallHistory();
+      
       // Rebind
       StartableApplication newApp = rebind();
-      TestEntity testEntity = (TestEntity) Iterables.find(newApp.getChildren(), EntityPredicates.displayNameEqualTo("targetEntity"));
-      Effector effector = assertHasInitializers(testEntity, "start");
+      TestEntity newEntity = (TestEntity) Iterables.find(newApp.getChildren(), EntityPredicates.displayNameEqualTo("targetEntity"));
+      Effector<?> effector = assertHasInitializers(newEntity, "start");
 
       // Confirm HttpCommandEffector still functions
-      Object results = testEntity.invoke(effector, ImmutableMap.<String, Object>of()).get();
-      assertEquals(((List<Object>)results).get(0), "myId");
+      Object results = newEntity.invoke(effector, ImmutableMap.<String, Object>of()).get();
+      assertEquals(results, MutableList.of("myId", null));
+      
+      assertEquals(newEntity.getCallHistory(), ImmutableList.of("myEffector"));
    }
 
 
