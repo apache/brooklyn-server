@@ -21,6 +21,7 @@ package org.apache.brooklyn.rest.resources;
 import static javax.ws.rs.core.Response.created;
 import static javax.ws.rs.core.Response.status;
 import static javax.ws.rs.core.Response.Status.ACCEPTED;
+import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 import java.net.URI;
 import java.util.LinkedList;
@@ -45,6 +46,7 @@ import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils.CreationResult;
 import org.apache.brooklyn.core.mgmt.entitlement.EntitlementPredicates;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.rest.api.EntityApi;
 import org.apache.brooklyn.rest.domain.EntitySummary;
 import org.apache.brooklyn.rest.domain.LocationSummary;
@@ -66,11 +68,11 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
-import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 @HaHotStateRequired
 public class EntityResource extends AbstractBrooklynRestResource implements EntityApi {
 
+    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(EntityResource.class);
 
     @Context
@@ -162,7 +164,7 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
             // paths (ie non-protocol) and
             // NB, for security, file URL's are NOT served
             MediaType mime = WebResourceUtils.getImageMediaTypeFromExtension(Files.getFileExtension(url));
-            Object content = ResourceUtils.create(brooklyn().getCatalogClassLoader()).getResourceFromUrl(url);
+            Object content = ResourceUtils.create(entity).getResourceFromUrl(url);
             return Response.ok(content, mime).build();
         }
 
