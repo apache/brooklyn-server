@@ -18,18 +18,12 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
-import java.io.Serializable;
+import static com.google.common.base.Preconditions.checkArgument;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-
-import com.google.common.collect.Iterables;
-import com.sun.org.apache.xpath.internal.operations.Bool;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -41,8 +35,7 @@ import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynYamlTypeInstantiator.InstantiatorFromKey;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslAccessible;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
@@ -52,9 +45,11 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.guava.Maybe;
 
-import javax.annotation.Nullable;
-
-import static com.google.common.base.Preconditions.checkArgument;
+import com.google.common.base.Function;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 /**
  * Pattern for resolving "decorations" on service specs / entity specs, such as policies, enrichers, etc.
@@ -254,6 +249,10 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
             if (decorationAttributeJsonValue != null) {
                 entitySpec.tagsAdd(decorationAttributeJsonValue);
             }
+            String iconUrl = attrs.get(BrooklynConfigKeys.ICON_URL);
+            if (iconUrl!=null) {
+                entitySpec.tagsAdd(MutableList.of(BrooklynTags.newIconUrlTag(iconUrl)));
+            }
         }
 
         @Override
@@ -269,13 +268,15 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
             } else if (!(brooklynTags instanceof List)) {
                 throw new IllegalArgumentException(BrooklynCampReservedKeys.BROOKLYN_TAGS + " should be a List of String elements. You supplied " + brooklynTags);
             } else {
-                checkArgument(Iterables.all((List) brooklynTags, new Predicate() {
+                checkArgument(Iterables.all((List<?>) brooklynTags, new Predicate<Object>() {
                     @Override
                     public boolean apply(Object input) {
                         return !(input instanceof DeferredSupplier);
                     }
                 }), BrooklynCampReservedKeys.BROOKLYN_TAGS + " should not contain DeferredSupplier. A DeferredSupplier is made when using $brooklyn:attributeWhenReady. You supplied " + brooklynTags);
-                return (List)brooklynTags;
+                @SuppressWarnings("unchecked")
+                List<Object> result = (List<Object>)brooklynTags;
+                return result;
             }
         }
 

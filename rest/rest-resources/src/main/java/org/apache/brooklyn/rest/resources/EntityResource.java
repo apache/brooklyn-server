@@ -155,7 +155,7 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     @Override
     public Response getIcon(String applicationId, String entityId) {
         Entity entity = brooklyn().getEntity(applicationId, entityId);
-        String url = entity.getIconUrl();
+        String url = RegisteredTypes.getIconUrl(entity);
         if (url == null)
             return Response.status(Status.NO_CONTENT).build();
 

@@ -170,6 +170,7 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
         this.managementContext = managementContext;
     }
 
+    @Override
     public ManagementContext getManagementContext() {
         return managementContext;
     }

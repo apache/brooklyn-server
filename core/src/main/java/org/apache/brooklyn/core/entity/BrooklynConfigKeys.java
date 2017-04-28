@@ -246,6 +246,8 @@ public class BrooklynConfigKeys {
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();
 
+    public static final ConfigKey<String> ICON_URL = newStringConfigKey("iconUrl");
+
     private BrooklynConfigKeys() {}
 
 }
