@@ -26,8 +26,6 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.net.URL;
 import java.util.jar.Attributes;
 import java.util.jar.JarOutputStream;
@@ -127,9 +125,8 @@ public class ClassLoaderUtilsTest {
         assertLoadSucceeds(bundle.getSymbolicName() + ":" + bundle.getVersion()+":" + classname, clazz, cluMgmt, cluClass, cluEntity);
     }
 
-
     @Test
-    public void testLoadClassInOsgiWhiteList() throws Exception {
+    public void testLoadJustOneClassInOsgiWhiteList() throws Exception {
         String bundlePath = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
         String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY;
@@ -141,8 +138,32 @@ public class ClassLoaderUtilsTest {
         Class<?> clazz = bundle.loadClass(classname);
         Entity entity = createSimpleEntity(bundleUrl, clazz);
         
-        String whileList = bundle.getSymbolicName()+":"+bundle.getVersion();
-        System.setProperty(ClassLoaderUtils.WHITE_LIST_KEY, whileList);
+        String whiteList = bundle.getSymbolicName()+":"+bundle.getVersion();
+        System.setProperty(ClassLoaderUtils.WHITE_LIST_KEY, whiteList);
+        
+        ClassLoaderUtils cluEntity = new ClassLoaderUtils(getClass(), entity);
+
+        BundledName resource = new BundledName(classname).toResource();
+        BundledName bn = new BundledName(resource.bundle, resource.version, "/" + resource.name);
+        Asserts.assertSize(cluEntity.getResources(bn.toString()), 1);
+    }
+    
+
+    @Test
+    public void testVariousLoadersLoadClassInOsgiWhiteList() throws Exception {
+        String bundlePath = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
+        String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
+        String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY;
+        
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
+
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
+        Bundle bundle = installBundle(mgmt, bundleUrl);
+        Class<?> clazz = bundle.loadClass(classname);
+        Entity entity = createSimpleEntity(bundleUrl, clazz);
+        
+        String whiteList = bundle.getSymbolicName()+":"+bundle.getVersion();
+        System.setProperty(ClassLoaderUtils.WHITE_LIST_KEY, whiteList);
         
         ClassLoaderUtils cluMgmt = new ClassLoaderUtils(getClass(), mgmt);
         ClassLoaderUtils cluClass = new ClassLoaderUtils(clazz);
@@ -160,7 +181,7 @@ public class ClassLoaderUtilsTest {
         
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
 
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         Bundle bundle = installBundle(mgmt, bundleUrl);
         
         Manifest manifest = new Manifest();
@@ -328,7 +349,7 @@ public class ClassLoaderUtilsTest {
         String bundledResource = resource.toString();
         URL resourceUrl = cl.getResource(resource.name);
         assertEquals(clu.getResource(bundledResource), resourceUrl);
-        assertEquals(clu.getResources(bundledResource), ImmutableList.of(resourceUrl));
+        assertEquals(clu.getResources(bundledResource), ImmutableList.of(resourceUrl), "Loading with "+clu);
 
         BundledName rootResource = new BundledName(resource.bundle, resource.version, "/" + resource.name);
         String rootBundledResource = rootResource.toString();
