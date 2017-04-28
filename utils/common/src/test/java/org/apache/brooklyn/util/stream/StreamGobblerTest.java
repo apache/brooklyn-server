@@ -61,13 +61,16 @@ public class StreamGobblerTest {
         gobbler.start();
         try {
             pipedOutputStream.write("line1\n".getBytes());
+            pipedOutputStream.flush();
             assertEqualsEventually(out, "line1" + NL);
 
             pipedOutputStream.write("line2\n".getBytes());
+            pipedOutputStream.flush();
             assertEqualsEventually(out, "line1" + NL + "line2" + NL);
 
             pipedOutputStream.write("line".getBytes());
             pipedOutputStream.write("3\n".getBytes());
+            pipedOutputStream.flush();
             assertEqualsEventually(out, "line1" + NL + "line2" + NL + "line3" + NL);
 
             pipedOutputStream.close();

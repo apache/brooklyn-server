@@ -38,7 +38,6 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -159,7 +158,7 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
                 .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(sensor)));
 
-        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", VERY_SHORT_WAIT), entity, Sensors.newStringSensor(sensor.getName()+".mapped.public"), null);
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newStringSensor(sensor.getName()+".mapped.public"), null);
     }
 
     @Test
@@ -199,7 +198,7 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
                 .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(Attributes.HTTP_PORT)));
 
-        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", VERY_SHORT_WAIT), entity, Sensors.newStringSensor(Attributes.HTTP_PORT.getName()+".mapped.public"), null);
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newStringSensor(Attributes.HTTP_PORT.getName()+".mapped.public"), null);
     }
     
     @Test
@@ -212,7 +211,7 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
                 .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(Attributes.HTTP_PORT)));
 
-        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", VERY_SHORT_WAIT), entity, Sensors.newStringSensor(Attributes.HTTP_PORT.getName()+".mapped.public"), null);
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newStringSensor(Attributes.HTTP_PORT.getName()+".mapped.public"), null);
     }
     
     @Test
@@ -225,7 +224,7 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
                 .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(TestEntity.NAME)));
 
-        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", VERY_SHORT_WAIT), entity, Sensors.newStringSensor(TestEntity.NAME.getName()+".mapped.public"), null);
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newStringSensor(TestEntity.NAME.getName()+".mapped.public"), null);
     }
     
     @Test
@@ -291,15 +290,12 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class));
 
-        Asserts.succeedsContinually(ImmutableMap.of("timeout", VERY_SHORT_WAIT), new Runnable() {
-            @Override public void run() {
-                Map<AttributeSensor<?>, Object> allSensors = entity.sensors().getAll();
-                String errMsg = "sensors="+allSensors;
-                for (AttributeSensor<?> sensor : allSensors.keySet()) {
-                    String name = sensor.getName();
-                    assertFalse(name.startsWith("my.different") && sensor.getName().contains("public"), errMsg);
-                }
-            }});
+        Map<AttributeSensor<?>, Object> allSensors = entity.sensors().getAll();
+        String errMsg = "sensors="+allSensors;
+        for (AttributeSensor<?> sensor : allSensors.keySet()) {
+            String name = sensor.getName();
+            assertFalse(name.startsWith("my.different") && sensor.getName().contains("public"), errMsg);
+        }
     }
 
     @Test
@@ -446,7 +442,10 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
     
     protected void assertAttributeEqualsContinually(String sensorName, String expectedVal, Duration duration) throws Exception {
         try {
-            EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", duration), entity, Sensors.newStringSensor(sensorName), expectedVal);
+            // EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", duration), entity, Sensors.newStringSensor(sensorName), expectedVal);
+            // TODO "continually" not actually asserted here because these aren't integration tests;
+            // ideally would have two variants of such tests
+            EntityAsserts.assertAttributeEquals(entity, Sensors.newStringSensor(sensorName), expectedVal);
         } catch (Exception e) {
             throw new Exception("Failed assertion for sensor '"+sensorName+"'; attributes are "+entity.sensors().getAll(), e);
         }

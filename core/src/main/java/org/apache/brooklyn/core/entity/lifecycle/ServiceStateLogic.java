@@ -156,7 +156,17 @@ public class ServiceStateLogic {
     }
 
     public static void setExpectedState(Entity entity, Lifecycle state) {
-        waitBrieflyForServiceUpIfStateIsRunning(entity, state);
+        setExpectedState(entity, state, entity.getAttribute(SERVICE_STATE_ACTUAL)!=null && entity.getAttribute(SERVICE_STATE_ACTUAL)!=Lifecycle.ON_FIRE);
+    }
+    
+    public static void setExpectedStateRunningWithErrors(Entity entity) {
+        setExpectedState(entity, Lifecycle.RUNNING, false);
+    }
+    
+    private static void setExpectedState(Entity entity, Lifecycle state, boolean waitBrieflyForServiceUpIfRunning) {
+        if (waitBrieflyForServiceUpIfRunning) {
+            waitBrieflyForServiceUpIfStateIsRunning(entity, state);
+        }
         ((EntityInternal)entity).sensors().set(Attributes.SERVICE_STATE_EXPECTED, new Lifecycle.Transition(state, new Date()));
 
         Maybe<Enricher> enricher = EntityAdjuncts.tryFindWithUniqueTag(entity.enrichers(), ComputeServiceState.DEFAULT_ENRICHER_UNIQUE_TAG);

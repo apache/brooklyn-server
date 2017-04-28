@@ -993,7 +993,10 @@ public class Asserts {
                 }
                 long sleepTime = Math.min(sleepTimeBetweenAttempts, expireTime-System.currentTimeMillis());
                 if (sleepTime > 0) Thread.sleep(sleepTime);
-                sleepTimeBetweenAttempts = Math.min(sleepTimeBetweenAttempts*2, maxPeriod.toMilliseconds());
+                sleepTimeBetweenAttempts = Math.min(
+                    // grow by 1.5x; doubling causes longer extra waits than we like in tests
+                    sleepTimeBetweenAttempts + Math.max(1, sleepTimeBetweenAttempts/2), 
+                    maxPeriod.toMilliseconds());
             }
             
             log.info("succeedsEventually exceeded max attempts or timeout - {} attempts lasting {} ms, for {}", new Object[] {attempt, System.currentTimeMillis()-startTime, c});

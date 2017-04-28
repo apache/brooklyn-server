@@ -37,6 +37,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
@@ -141,6 +142,7 @@ public class TestWinrmCommandTest extends BrooklynAppUnitTestSupport {
         RecordingWinRmTool.setCustomResponse(cmd, new RecordingWinRmTool.CustomResponse(1, null, null));
         
         TestWinrmCommand test = app.createAndManageChild(EntitySpec.create(TestWinrmCommand.class)
+            .configure(TestWinrmCommand.ITERATION_LIMIT, 1)
             .configure(TARGET_ENTITY, testEntity)
             .configure(COMMAND, cmd));
 
@@ -177,6 +179,7 @@ public class TestWinrmCommandTest extends BrooklynAppUnitTestSupport {
         RecordingWinRmTool.setCustomResponse(cmd, new RecordingWinRmTool.CustomResponse(0, "wrongstdout", null));
         
         TestWinrmCommand test = app.createAndManageChild(EntitySpec.create(TestWinrmCommand.class)
+            .configure(TestWinrmCommand.ITERATION_LIMIT, 1)
             .configure(TARGET_ENTITY, testEntity)
             .configure(COMMAND, cmd)
             .configure(ASSERT_OUT, makeAssertions(ImmutableMap.of(CONTAINS, "mystdout"))));
@@ -197,6 +200,7 @@ public class TestWinrmCommandTest extends BrooklynAppUnitTestSupport {
         RecordingWinRmTool.setCustomResponse(cmd, new RecordingWinRmTool.CustomResponse(0, null, "wrongstderr"));
         
         TestWinrmCommand test = app.createAndManageChild(EntitySpec.create(TestWinrmCommand.class)
+            .configure(TestWinrmCommand.ITERATION_LIMIT, 1)
             .configure(TARGET_ENTITY, testEntity)
             .configure(COMMAND, cmd)
             .configure(ASSERT_ERR, makeAssertions(ImmutableMap.of(CONTAINS, "mystderr"))));
@@ -218,6 +222,7 @@ public class TestWinrmCommandTest extends BrooklynAppUnitTestSupport {
         Map<String, ?> equals255 = ImmutableMap.of(EQUALS, 255);
 
         TestWinrmCommand test = app.createAndManageChild(EntitySpec.create(TestWinrmCommand.class)
+            .configure(TestWinrmCommand.ITERATION_LIMIT, 1)
             .configure(TARGET_ENTITY, testEntity)
             .configure(COMMAND, "uptime")
             .configure(ASSERT_STATUS, makeAssertions(equalsOne, equals255)));
@@ -226,6 +231,7 @@ public class TestWinrmCommandTest extends BrooklynAppUnitTestSupport {
             app.start(ImmutableList.<Location>of());
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
+            Entities.dumpInfo(app);
             Asserts.expectedFailureContains(e, "exit code expected equals 1 but found 0", "exit code expected equals 255 but found 0");
         }
 

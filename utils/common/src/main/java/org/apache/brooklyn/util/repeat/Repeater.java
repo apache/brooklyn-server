@@ -90,7 +90,7 @@ public class Repeater implements Callable<Boolean> {
     private Predicate<? super Throwable> rethrowImmediatelyCondition = Exceptions.isFatalPredicate();
     private boolean warnOnUnRethrownException = true;
     private boolean shutdown = false;
-    private ExecutorService executor = MoreExecutors.sameThreadExecutor();
+    private ExecutorService executor = MoreExecutors.newDirectExecutorService();
 
     public Repeater() {
         this(null);
@@ -367,6 +367,9 @@ public class Repeater implements Callable<Boolean> {
         try {
             while (true) {
                 Duration delayThisIteration = delayOnIteration.apply(iterations);
+                if (timer.isNotPaused() && delayThisIteration.isLongerThan(timer.getDurationRemaining())) {
+                    delayThisIteration = timer.getDurationRemaining();
+                }
                 iterations++;
 
                 Future<?> call = executor.submit(body);

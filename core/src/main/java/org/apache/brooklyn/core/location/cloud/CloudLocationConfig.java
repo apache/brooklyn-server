@@ -102,14 +102,20 @@ public interface CloudLocationConfig {
                     "Other keys prefixed with pollForFirstReachableAddress.predicate.<property> will be passed to the Map constructor of the Predicate<HostAndPort> implementation.",
             Networking.IsReachablePredicate.class);
 
-    /** @deprecated since 0.11.0 use {@link #POLL_FOR_FIRST_REACHABLE_ADDRESS} instead. */
-    @Deprecated
+    // FIXME we would like to deprecate this but POLL_FOR_FIRST_REACHABLE_ADDRESS does not have the same behaviour;
+    // just look at the usages of the two fields to see different treatment of the first as opposed to the second;
+    // implementations should probably use ConfigBag.getDeprecatedKey(...) to support both for a transition period.
+    // in addition, remove the settings of this key in DefaultConnectivityResolverTest and observe tests timeout forever
+    // (see the commit where this comment is introduced to fix tests in that class which attempted to migrate) 
+    // /** @deprecated since 0.11.0 use {@link #POLL_FOR_FIRST_REACHABLE_ADDRESS} instead. */
+    // @Deprecated
     ConfigKey<String> WAIT_FOR_SSHABLE = ConfigKeys.newStringConfigKey("waitForSshable",
             "Whether and how long to wait for a newly provisioned VM to be accessible via ssh; " +
             "if 'false', won't check; if 'true' uses default duration; otherwise accepts a time string e.g. '5m' (the default) or a number of milliseconds", "5m");
 
-    /** @deprecated since 0.11.0 use {@link #POLL_FOR_FIRST_REACHABLE_ADDRESS} instead. */
-    @Deprecated
+    // FIXME as WAIT_FOR_SSHABLE above
+    // /** @deprecated since 0.11.0 use {@link #POLL_FOR_FIRST_REACHABLE_ADDRESS} instead. */
+    // @Deprecated
     ConfigKey<String> WAIT_FOR_WINRM_AVAILABLE = ConfigKeys.newStringConfigKey("waitForWinRmAvailable",
             "Whether and how long to wait for a newly provisioned VM to be accessible via WinRm; " +
             "if 'false', won't check; if 'true' uses default duration; otherwise accepts a time string e.g. '30m' (the default) or a number of milliseconds", "30m");
