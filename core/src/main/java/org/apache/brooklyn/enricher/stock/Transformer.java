@@ -108,7 +108,7 @@ public class Transformer<T,U> extends AbstractTransformer<T,U> {
     }
     
     @SuppressWarnings("unchecked")
-    private <U> U resolveImmediately(Object rawVal, Sensor<U> targetSensor) {
+    private U resolveImmediately(Object rawVal, Sensor<U> targetSensor) {
         if (rawVal == Entities.UNCHANGED || rawVal == Entities.REMOVE) {
             // If it's a special marker-object, then don't try to transform it
             return (U) rawVal;
