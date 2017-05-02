@@ -38,11 +38,13 @@ import org.apache.brooklyn.rest.domain.CatalogItemSummary;
 import org.apache.brooklyn.rest.domain.CatalogLocationSummary;
 import org.apache.brooklyn.rest.domain.CatalogPolicySummary;
 
+import com.google.common.annotations.Beta;
+
 import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
 
 @Path("/catalog")
 @Api("Catalog")
@@ -50,14 +52,83 @@ import io.swagger.annotations.ApiParam;
 @Produces(MediaType.APPLICATION_JSON)
 public interface CatalogApi {
 
-    @Consumes
+    /** @deprecated since 0.11.0 use {@link #createFromYaml(String)} instead */
+    @Deprecated
+    @Consumes("application/json-deprecated")  // prevent this from taking things
     @POST
-    @ApiOperation(value = "Add a catalog item (e.g. new type of entity, policy or location) by uploading YAML descriptor "
-        + "Return value is map of ID to CatalogItemSummary, with code 201 CREATED.", response = String.class)
-    public Response create(
+    @ApiOperation(
+            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading YAML descriptor.",
+            notes = "Return value is map of ID to CatalogItemSummary.",
+            response = String.class,
+            hidden = true
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 400, message = "Error processing the given YAML"),
+            @ApiResponse(code = 201, message = "Catalog items added successfully")
+    })
+    public Response create(String yaml);
+
+    @POST
+    @Consumes({MediaType.APPLICATION_JSON, "application/x-yaml",
+        // see http://stackoverflow.com/questions/332129/yaml-mime-type
+        "text/yaml", "text/x-yaml", "application/yaml"})
+    @ApiOperation(
+            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading YAML descriptor.",
+            notes = "Return value is map of ID to CatalogItemSummary.",
+            response = String.class,
+            hidden = true
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 400, message = "Error processing the given YAML"),
+            @ApiResponse(code = 201, message = "Catalog items added successfully")
+    })
+    public Response createFromYaml(
             @ApiParam(name = "yaml", value = "YAML descriptor of catalog item", required = true)
             @Valid String yaml);
 
+    @Beta
+    @POST
+    @Consumes({"application/x-zip", "application/x-jar"})
+    @ApiOperation(
+            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading a ZIP/JAR archive.",
+            notes = "Accepts either an OSGi bundle JAR, or ZIP which will be turned into bundle JAR. Bother format must "
+                    + "contain a catalog.bom at the root of the archive, which must contain the bundle and version key."
+                    + "Return value is map of ID to CatalogItemSummary.",
+            response = String.class,
+            hidden = true)
+    @ApiResponses(value = {
+            @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
+            @ApiResponse(code = 201, message = "Catalog items added successfully")
+    })
+    public Response createFromArchive(
+            @ApiParam(
+                    name = "archive",
+                    value = "Bundle to install, in ZIP or JAR format, requiring catalog.bom containing bundle name and version",
+                    required = true)
+            byte[] archive);
+
+    @Beta
+    @POST
+    @Consumes // anything (if doesn't match other methods with specific content types
+    @ApiOperation(
+            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading either YAML or ZIP/JAR archive (format autodetected)",
+            notes = "Specify a content-type header to skip auto-detection and invoke one of the more specific methods. "
+                    + "Accepts either an OSGi bundle JAR, or ZIP which will be turned into bundle JAR. Bother format must "
+                    + "contain a catalog.bom at the root of the archive, which must contain the bundle and version key."
+                    + "Return value is map of ID to CatalogItemSummary.",
+            response = String.class
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
+            @ApiResponse(code = 201, message = "Catalog items added successfully")
+    })
+    public Response createFromUpload(
+            @ApiParam(
+                    name = "item",
+                    value = "Item to install, as JAR/ZIP or Catalog YAML (autodetected)",
+                    required = true)
+                    byte[] item);
+    
     @POST
     @Consumes(MediaType.APPLICATION_XML)
     @Path("/reset")
@@ -69,21 +140,13 @@ public interface CatalogApi {
             @QueryParam("ignoreErrors")  @DefaultValue("false")
             boolean ignoreErrors);
 
-    /** @deprecated since 0.7.0 use {@link #deleteEntity(String, String)} */
-    @Deprecated
-    @DELETE
-    @Path("/entities/{entityId}")
-    @ApiOperation(value = "Deletes a specific version of an entity's definition from the catalog")
-    @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Entity not found")
-    })
-    public void deleteEntity_0_7_0(
-        @ApiParam(name = "entityId", value = "The ID of the entity or template to delete", required = true)
-        @PathParam("entityId") String entityId) throws Exception;
-
     @DELETE
     @Path("/applications/{symbolicName}/{version}")
-    @ApiOperation(value = "Deletes a specific version of an application's definition from the catalog")
+    @ApiOperation(
+            value = "Deletes a specific version of an application's definition from the catalog",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'symbolicName'"
+    )
     @ApiResponses(value = {
         @ApiResponse(code = 404, message = "Entity not found")
     })
@@ -96,7 +159,11 @@ public interface CatalogApi {
 
     @DELETE
     @Path("/entities/{symbolicName}/{version}")
-    @ApiOperation(value = "Deletes a specific version of an entity's definition from the catalog")
+    @ApiOperation(
+            value = "Deletes a specific version of an entity's definition from the catalog",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'symbolicName'"
+    )
     @ApiResponses(value = {
         @ApiResponse(code = 404, message = "Entity not found")
     })
@@ -109,7 +176,10 @@ public interface CatalogApi {
 
     @DELETE
     @Path("/policies/{policyId}/{version}")
-    @ApiOperation(value = "Deletes a specific version of an policy's definition from the catalog")
+    @ApiOperation(
+            value = "Deletes a specific version of an policy's definition from the catalog",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'policyId'")
     @ApiResponses(value = {
         @ApiResponse(code = 404, message = "Policy not found")
     })
@@ -122,7 +192,11 @@ public interface CatalogApi {
 
     @DELETE
     @Path("/locations/{locationId}/{version}")
-    @ApiOperation(value = "Deletes a specific version of an location's definition from the catalog")
+    @ApiOperation(
+            value = "Deletes a specific version of an location's definition from the catalog",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'locationId'"
+    )
     @ApiResponses(value = {
         @ApiResponse(code = 404, message = "Location not found")
     })
@@ -159,23 +233,12 @@ public interface CatalogApi {
             @ApiParam(name = "allVersions", value = "Include all versions (defaults false, only returning the best version)")
             @QueryParam("allVersions") @DefaultValue("false") boolean includeAllVersions);
 
-    /** @deprecated since 0.7.0 use {@link #getEntity(String, String)} */
-    @Deprecated
-    @GET
-    @Path("/entities/{entityId}")
-    @ApiOperation(value = "Fetch an entity's definition from the catalog", 
-            response = CatalogEntitySummary.class,
-            responseContainer = "List")
-    @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Entity not found")
-    })
-    public CatalogEntitySummary getEntity_0_7_0(
-        @ApiParam(name = "entityId", value = "The ID of the entity or template to retrieve", required = true)
-        @PathParam("entityId") String entityId) throws Exception;
-
     @GET
     @Path("/entities/{symbolicName}/{version}")
-    @ApiOperation(value = "Fetch a specific version of an entity's definition from the catalog", 
+    @ApiOperation(
+            value = "Fetch a specific version of an entity's definition from the catalog",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'symbolicName'",
             response = CatalogEntitySummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
@@ -188,23 +251,12 @@ public interface CatalogApi {
         @ApiParam(name = "version", value = "The version identifier of the entity or template to retrieve", required = true)
         @PathParam("version") String version) throws Exception;
 
-    /** @deprecated since 0.7.0 use {@link #getEntity(String, String)} */
-    @Deprecated
-    @GET
-    @Path("/applications/{applicationId}")
-    @ApiOperation(value = "Fetch a specific version of an application's definition from the catalog",
-            response = CatalogEntitySummary.class,
-            responseContainer = "List")
-    @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Entity not found")
-    })
-    public CatalogEntitySummary getApplication_0_7_0(
-        @ApiParam(name = "applicationId", value = "The ID of the application to retrieve", required = true)
-        @PathParam("applicationId") String applicationId) throws Exception;
-
     @GET
     @Path("/applications/{symbolicName}/{version}")
-    @ApiOperation(value = "Fetch a specific version of an application's definition from the catalog", 
+    @ApiOperation(
+            value = "Fetch a specific version of an application's definition from the catalog",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'symbolicName'",
             response = CatalogEntitySummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
@@ -230,23 +282,12 @@ public interface CatalogApi {
             @ApiParam(name = "allVersions", value = "Include all versions (defaults false, only returning the best version)")
             @QueryParam("allVersions") @DefaultValue("false") boolean includeAllVersions);
 
-    /** @deprecated since 0.7.0 use {@link #getPolicy(String, String)} */
-    @Deprecated
-    @GET
-    @Path("/policies/{policyId}")
-    @ApiOperation(value = "Fetch a policy's definition from the catalog", 
-            response = CatalogItemSummary.class,
-            responseContainer = "List")
-    @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Entity not found")
-    })
-    public CatalogItemSummary getPolicy_0_7_0(
-        @ApiParam(name = "policyId", value = "The ID of the policy to retrieve", required = true)
-        @PathParam("policyId") String policyId) throws Exception;
-
     @GET
     @Path("/policies/{policyId}/{version}")
-    @ApiOperation(value = "Fetch a policy's definition from the catalog", 
+    @ApiOperation(
+            value = "Fetch a policy's definition from the catalog",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'policyId'",
             response = CatalogItemSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
@@ -271,23 +312,12 @@ public interface CatalogApi {
             @ApiParam(name = "allVersions", value = "Include all versions (defaults false, only returning the best version)")
             @QueryParam("allVersions") @DefaultValue("false") boolean includeAllVersions);
 
-    /** @deprecated since 0.7.0 use {@link #getLocation(String, String)} */
-    @Deprecated
-    @GET
-    @Path("/locations/{locationId}")
-    @ApiOperation(value = "Fetch a location's definition from the catalog", 
-            response = CatalogItemSummary.class,
-            responseContainer = "List")
-    @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Entity not found")
-    })
-    public CatalogItemSummary getLocation_0_7_0(
-        @ApiParam(name = "locationId", value = "The ID of the location to retrieve", required = true)
-        @PathParam("locationId") String locationId) throws Exception;
-
     @GET
     @Path("/locations/{locationId}/{version}")
-    @ApiOperation(value = "Fetch a location's definition from the catalog", 
+    @ApiOperation(
+            value = "Fetch a location's definition from the catalog",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'locationId'",
             response = CatalogItemSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
@@ -299,22 +329,13 @@ public interface CatalogApi {
         @ApiParam(name = "version", value = "The version identifier of the application to retrieve", required = true)
         @PathParam("version") String version) throws Exception;
 
-    /** @deprecated since 0.7.0 use {@link #getIcon(String, String)} */
-    @Deprecated
-    @GET
-    @Path("/icon/{itemId}")
-    @ApiOperation(value = "Return the icon for a given catalog entry (application/image or HTTP redirect)")
-    @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Item not found")
-        })
-    @Produces("application/image")
-    public Response getIcon_0_7_0(
-        @ApiParam(name = "itemId", value = "ID of catalog item (application, entity, policy, location)")
-        @PathParam("itemId") @DefaultValue("") String itemId);
-
     @GET
     @Path("/icon/{itemId}/{version}")
-    @ApiOperation(value = "Return the icon for a given catalog entry (application/image or HTTP redirect)")
+    @ApiOperation(
+            value = "Return the icon for a given catalog entry (application/image or HTTP redirect)",
+            notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
+                    "pick up the latest version for the given 'itemId'"
+    )
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Item not found")
         })
@@ -325,18 +346,6 @@ public interface CatalogApi {
 
         @ApiParam(name = "version", value = "version identifier of catalog item (application, entity, policy, location)", required=true)
         @PathParam("version") String version);
-
-    /**
-     * @deprecated since 0.8.0; use "/entities/{itemId}/deprecated" with payload of true/false
-     */
-    @Deprecated
-    @POST
-    @Path("/entities/{itemId}/deprecated/{deprecated}")
-    public void setDeprecatedLegacy(
-        @ApiParam(name = "itemId", value = "The ID of the catalog item to be deprecated", required = true)
-        @PathParam("itemId") String itemId,
-        @ApiParam(name = "deprecated", value = "Whether or not the catalog item is deprecated", required = true)
-        @PathParam("deprecated") boolean deprecated);
     
     @POST
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})

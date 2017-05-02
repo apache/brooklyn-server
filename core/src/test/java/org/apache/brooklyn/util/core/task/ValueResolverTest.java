@@ -34,6 +34,7 @@ import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier.ImmediateValueNotAvailableException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -173,11 +174,26 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         assertImmediateFakeTaskFromMethod(callInfo, "myUniquelyNamedMethod");
     }
     
-    public void testGetImmediatelyFallsBackToDeferredCallInTask() throws Exception {
-        final MyImmediateAndDeferredSupplier supplier = new MyImmediateAndDeferredSupplier(true);
+    public void testGetImmediatelyFallsBackToDeferredCallInTaskOnUnsupported() throws Exception {
+        final MyImmediateAndDeferredSupplier supplier = new MyImmediateAndDeferredSupplier(new ImmediateSupplier.ImmediateUnsupportedException("Simulate immediate unsupported"));
         CallInfo callInfo = Tasks.resolving(supplier).as(CallInfo.class).context(app).immediately(true).get();
-        assertRealTaskNotFromMethod(callInfo, "testGetImmediatelyFallsBackToDeferredCallInTask");
+        assertNotNull(callInfo.task);
         assertEquals(BrooklynTaskTags.getContextEntity(callInfo.task), app);
+        assertNotContainsCallingMethod(callInfo.stackTrace, "testGetImmediatelyFallsBackToDeferredCallInTask");
+    }
+
+    public void testGetImmediatelyDoesntFallBackToDeferredCallOnNotAvailable() throws Exception {
+        final MyImmediateAndDeferredSupplier supplier = new MyImmediateAndDeferredSupplier(new ImmediateSupplier.ImmediateValueNotAvailableException());
+        Maybe<CallInfo> callInfo = Tasks.resolving(supplier).as(CallInfo.class).context(app).immediately(true).getMaybe();
+        Asserts.assertNotPresent(callInfo);
+        
+        try {
+            callInfo.get();
+            Asserts.shouldHaveFailedPreviously("resolution should have failed now the ImmediateSupplier is not expected to fallback to other evaluation forms; instead got "+callInfo);
+            
+        } catch (Exception e) {
+            Asserts.expectedFailureOfType(e, ImmediateValueNotAvailableException.class);
+        }
     }
 
     public void testNonRecursiveBlockingFailsOnNonObjectType() throws Exception {
@@ -317,20 +333,20 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
     }
     
     private static class MyImmediateAndDeferredSupplier implements ImmediateSupplier<CallInfo>, DeferredSupplier<CallInfo> {
-        private final boolean failImmediately;
+        private final RuntimeException failImmediately;
         
         public MyImmediateAndDeferredSupplier() {
-            this(false);
+            this(null);
         }
         
-        public MyImmediateAndDeferredSupplier(boolean simulateImmediateUnsupported) {
-            this.failImmediately = simulateImmediateUnsupported;
+        public MyImmediateAndDeferredSupplier(RuntimeException failImmediately) {
+            this.failImmediately = failImmediately;
         }
         
         @Override
         public Maybe<CallInfo> getImmediately() {
-            if (failImmediately) {
-                throw new ImmediateSupplier.ImmediateUnsupportedException("Simulate immediate unsupported");
+            if (failImmediately!=null) {
+                throw failImmediately;
             } else {
                 return Maybe.of(CallInfo.newInstance());
             }

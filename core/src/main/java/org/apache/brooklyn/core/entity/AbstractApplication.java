@@ -136,6 +136,14 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
         ServiceStateLogic.ServiceNotUpLogic.updateNotUpIndicator(this, Attributes.SERVICE_STATE_ACTUAL, "Application created but not yet started, at "+Time.makeDateString());
     }
 
+    @Override
+    public void onManagementStarted() {
+        super.onManagementStarted();
+        if (!isRebinding()) {
+            recordApplicationEvent(Lifecycle.CREATED);
+        }
+    }
+
     /**
      * Default start will start all Startable children (child.start(Collection<? extends Location>)),
      * calling preStart(locations) first and postStart(locations) afterwards.
@@ -173,14 +181,16 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
             
         } catch (Exception e) {
             recordApplicationEvent(Lifecycle.ON_FIRE);
+            ServiceStateLogic.setExpectedStateRunningWithErrors(this);
+            
             // no need to log here; the effector invocation should do that
             throw Exceptions.propagate(e);
             
         } finally {
             ServiceStateLogic.ServiceNotUpLogic.clearNotUpIndicator(this, Attributes.SERVICE_STATE_ACTUAL);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
         }
-
+        
+        ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
         setExpectedStateAndRecordLifecycleEvent(Lifecycle.RUNNING);
 
         logApplicationLifecycle("Started");

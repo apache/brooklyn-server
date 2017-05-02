@@ -1598,8 +1598,8 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         public boolean isEmpty() {
             return policiesInternal.isEmpty();
         }
-        
-        protected List<Policy> asList() {
+        @Override
+        public List<Policy> asList() {
             return ImmutableList.<Policy>copyOf(policiesInternal);
         }
 
@@ -1670,8 +1670,8 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         public boolean isEmpty() {
             return enrichersInternal.isEmpty();
         }
-        
-        protected List<Enricher> asList() {
+        @Override
+        public List<Enricher> asList() {
             return ImmutableList.<Enricher>copyOf(enrichersInternal);
         }
 

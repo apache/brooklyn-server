@@ -43,7 +43,6 @@ import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
@@ -109,7 +108,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
                 .enablePersistenceBackups(enablePersistenceBackups())
                 .emptyCatalog(useEmptyCatalog())
                 .properties(createBrooklynProperties())
-                .enableOsgi(useOsgi())
+                .setOsgiEnablementAndReuse(useOsgi(), !disallowOsgiReuse())
                 .buildStarted();
     }
 
@@ -142,7 +141,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
                 .haMode(haMode)
                 .emptyCatalog(useEmptyCatalog())
                 .properties(brooklynProperties)
-                .enableOsgi(useOsgi())
+                .setOsgiEnablementAndReuse(useOsgi(), !disallowOsgiReuse())
                 .buildUnstarted();
     }
 
@@ -207,6 +206,10 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
     }
 
     protected boolean useOsgi() {
+        return false;
+    }
+    
+    protected boolean disallowOsgiReuse() {
         return false;
     }
 
@@ -350,7 +353,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         objectStore.prepareForSharedUse(PersistMode.AUTO, HighAvailabilityMode.DISABLED);
         BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
                 objectStore,
-                ((ManagementContextInternal)newManagementContext).getBrooklynProperties(),
+                newManagementContext,
                 classLoader);
         RebindExceptionHandler exceptionHandler = new RecordingRebindExceptionHandler(RebindManager.RebindFailureMode.FAIL_AT_END, RebindManager.RebindFailureMode.FAIL_AT_END);
         BrooklynMementoManifest mementoManifest = persister.loadMementoManifest(null, exceptionHandler);

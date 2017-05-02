@@ -20,6 +20,7 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import static org.testng.Assert.assertEquals;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -34,10 +35,12 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -45,6 +48,7 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.hash.HashCode;
@@ -394,6 +398,23 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         assertEquals(testObject.getNumber(), Integer.valueOf(1));
         assertEquals(testObject.getObject(), "myDefaultThird");
     }
+    
+    @Test
+    public void testBrooklynObjectWithFactoryMethodWithArgCoercion() throws Exception {
+        Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
+            "  brooklyn.config:",
+            "    test.confObject:",
+            "      $brooklyn:object:",
+            "        type: " + Time.class.getName(),
+            "        factoryMethod.name: makeDateString",
+            "        factoryMethod.args:",
+            "        - 1000",
+            "        - yyyy-MM-dd'T'HH:mm:ss",
+            "        - UTC");
+
+        String val = (String) testEntity.getConfig(TestEntity.CONF_OBJECT);
+        assertEquals(val, "1970-01-01T00:00:01");
+    }
 
     @Test
     public void testFieldsAsDeferredSuppliers() throws Exception {
@@ -584,6 +605,104 @@ public class ObjectsYamlTest extends AbstractYamlTest {
 
         assertEquals(salt, testEntity.getId());
         assertEquals(sha256, PasswordHasher.sha256(salt, "mypassword"));
+    }
+
+    @Test
+    public void testBrooklynObjectEvaluatedImmediatelyOnlyOnce() throws Exception {
+        CallRecorder.clear();
+        Entity entity = setupAndCheckTestEntityInBasicYamlWith(
+            "  brooklyn.config:",
+            "    test.confObject:",
+            "      $brooklyn:object:",
+            "        type: "+CallRecorder.class.getName(),
+            "        factoryMethod.name: call",
+            "        factoryMethod.args:",
+            "        - myval");
+        
+        // Nothing has called config().get() yet; but expect it to have been evaluated immediate, on entity construction
+        assertEquals(CallRecorder.getCalls(), ImmutableList.of("myval"));
+
+        // The config value is set to the result of that single call; getting the config will not invoke it again
+        Object val = entity.config().get(TestEntity.CONF_OBJECT);
+        assertEquals(val, "myval");
+        assertEquals(CallRecorder.getCalls(), ImmutableList.of("myval"));
+    }
+
+    @Test
+    public void testBrooklynObjectEvaluationDeferredIfRequired() throws Exception {
+        CallRecorder.clear();
+        Entity entity = setupAndCheckTestEntityInBasicYamlWith(
+            "  brooklyn.config:",
+            "    anotherConfig: myval",
+            "    test.confObject:",
+            "      $brooklyn:object:",
+            "        type: "+CallRecorder.class.getName(),
+            "        factoryMethod.name: call",
+            "        factoryMethod.args:",
+            "        - $brooklyn:config(\"anotherConfig\")");
+        
+        // The value is a DeferredSupplier; nothing in the blueprint will have called config().get() yet.
+        // However, verification will have called it! Therefore not doing:
+        //   assertEquals(CallRecorder.getCalls(), ImmutableList.of());
+        CallRecorder.clear();
+
+        // Retrieving the config value causes it to be resolved
+        Object val = entity.config().get(TestEntity.CONF_OBJECT);
+        assertEquals(val, "myval");
+        assertEquals(CallRecorder.getCalls(), ImmutableList.of("myval"));
+        
+        // Retrieving the config value a second time will resolve it again
+        Object val2 = entity.config().get(TestEntity.CONF_OBJECT);
+        assertEquals(val2, "myval");
+        assertEquals(CallRecorder.getCalls(), ImmutableList.of("myval", "myval"));
+    }
+
+    @Test
+    public void testBrooklynObjectEvaluationExplicitlyDeferred() throws Exception {
+        CallRecorder.clear();
+        Entity entity = setupAndCheckTestEntityInBasicYamlWith(
+            "  brooklyn.config:",
+            "    test.confObject:",
+            "      $brooklyn:object:",
+            "        deferred: true",
+            "        type: "+CallRecorder.class.getName(),
+            "        factoryMethod.name: call",
+            "        factoryMethod.args:",
+            "        - myval");
+        
+        // The value is a DeferredSupplier; nothing in the blueprint will have called config().get() yet.
+        // However, verification will have called it! Therefore not doing:
+        //   assertEquals(CallRecorder.getCalls(), ImmutableList.of());
+        CallRecorder.clear();
+
+        // Retrieving the config value causes it to be resolved
+        Object val = entity.config().get(TestEntity.CONF_OBJECT);
+        assertEquals(val, "myval");
+        assertEquals(CallRecorder.getCalls(), ImmutableList.of("myval"));
+        
+        // Retrieving the config value a second time will resolve it again
+        Object val2 = entity.config().get(TestEntity.CONF_OBJECT);
+        assertEquals(val2, "myval");
+        assertEquals(CallRecorder.getCalls(), ImmutableList.of("myval", "myval"));
+    }
+
+    public static class CallRecorder {
+        private static final List<String> calls = Collections.synchronizedList(Lists.<String>newArrayList());
+        
+        public static String call(String val) {
+            calls.add(val);
+            return val;
+        }
+        
+        public static void clear() {
+            calls.clear();
+        }
+        
+        public static List<String> getCalls() {
+            synchronized (calls) {
+                return MutableList.copyOf(calls);
+            }
+        }
     }
 
     @Override

@@ -44,7 +44,7 @@ public class JcloudsLocationResolver implements LocationResolver {
 
     public static final Logger log = LoggerFactory.getLogger(JcloudsLocationResolver.class);
     
-    private static final String JCLOUDS = "jclouds";
+    public static final String JCLOUDS = "jclouds";
     
     public static final Collection<String> AWS_REGIONS = Arrays.asList(
             // from http://docs.amazonwebservices.com/general/latest/gr/rande.html as of Apr 2012.

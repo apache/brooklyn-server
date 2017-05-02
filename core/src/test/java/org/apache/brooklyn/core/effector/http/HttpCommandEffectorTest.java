@@ -167,6 +167,26 @@ public class HttpCommandEffectorTest extends BrooklynAppUnitTestSupport {
    }
 
    @Test
+   public void testPayloadWithContentTypeHeaderYaml() throws InterruptedException {
+      server.enqueue((jsonResponse("map-response.json")));
+
+      httpCommandEffector = new HttpCommandEffector(ConfigBag.newInstance()
+              .configure(HttpCommandEffector.EFFECTOR_NAME, EFFECTOR_HTTP_COMMAND.getName())
+              .configure(HttpCommandEffector.EFFECTOR_URI, url("/post"))
+              .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "POST")
+              .configure(HttpCommandEffector.EFFECTOR_HTTP_PAYLOAD, "my yaml")
+              .configure(HttpCommandEffector.EFFECTOR_HTTP_HEADERS, ImmutableMap.of(HttpHeaders.CONTENT_TYPE, "application/yaml"))
+              .configure(HttpCommandEffector.JSON_PATH, "$.data")
+      );
+      assertNotNull(httpCommandEffector);
+      TestEntity testEntity = app.createAndManageChild(buildEntitySpec(httpCommandEffector));
+      testEntity.invoke(EFFECTOR_HTTP_COMMAND, ImmutableMap.<String, Object>of()).getUnchecked(Duration.minutes(1));
+
+      assertEquals(server.getRequestCount(), 1);
+      assertEquals(new String(server.takeRequest().getBody()), "my yaml");
+   }
+
+   @Test
    public void testPayloadWithoutContentTypeHeader() throws InterruptedException {
       server.enqueue(jsonResponse("map-response.json"));
 

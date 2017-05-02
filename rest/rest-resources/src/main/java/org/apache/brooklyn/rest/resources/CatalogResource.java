@@ -18,13 +18,19 @@
  */
 package org.apache.brooklyn.rest.resources;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.jar.Attributes;
+import java.util.jar.Manifest;
 
 import javax.annotation.Nullable;
 import javax.ws.rs.core.MediaType;
@@ -48,9 +54,9 @@ import org.apache.brooklyn.core.catalog.internal.CatalogItemComparator;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
-import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.rest.api.CatalogApi;
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.domain.CatalogEntitySummary;
@@ -59,17 +65,28 @@ import org.apache.brooklyn.rest.domain.CatalogLocationSummary;
 import org.apache.brooklyn.rest.domain.CatalogPolicySummary;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.CatalogTransformer;
+import org.apache.brooklyn.rest.util.DefaultExceptionMapper;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yaml.Yamls;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipFile;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -82,6 +99,7 @@ import com.google.common.io.Files;
 public class CatalogResource extends AbstractBrooklynRestResource implements CatalogApi {
 
     private static final Logger log = LoggerFactory.getLogger(CatalogResource.class);
+    private static final String LATEST = "latest";
     
     @SuppressWarnings("rawtypes")
     private Function<CatalogItem, CatalogItemSummary> toCatalogItemSummary(final UriInfo ui) {
@@ -93,42 +111,166 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         };
     };
 
+    private String processVersion(String version) {
+        if (version != null && LATEST.equals(version.toLowerCase())) {
+            version = null;
+        }
+        return version;
+    }
+
     static Set<String> missingIcons = MutableSet.of();
+
+    @Override
+    @Beta
+    public Response createFromUpload(byte[] item) {
+        Throwable yamlException = null;
+        try {
+            MutableList.copyOf( Yamls.parseAll(new InputStreamReader(new ByteArrayInputStream(item))) );
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            yamlException = e;
+        }
+        
+        if (yamlException==null) {
+            // treat as yaml if it parsed
+            return createFromYaml(new String(item));
+        }
+        
+        return createFromArchive(item);
+    }
     
     @Override
+    @Deprecated
     public Response create(String yaml) {
+        return createFromYaml(yaml);
+    }
+    
+    @Override
+    public Response createFromYaml(String yaml) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_CATALOG_ITEM, yaml)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item",
                 Entitlements.getEntitlementContext().user());
         }
-        
-        Iterable<? extends CatalogItem<?, ?>> items; 
+
         try {
-            items = brooklyn().getCatalog().addItems(yaml);
+            final Iterable<? extends CatalogItem<?, ?>> items = brooklyn().getCatalog().addItems(yaml);
+            return buildCreateResponse(items);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            return ApiError.of(e).asBadRequestResponseJson();
+            return badRequest(e);
+        }
+    }
+
+    @Override
+    @Beta
+    public Response createFromArchive(byte[] zipInput) {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ROOT, null)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item",
+                Entitlements.getEntitlementContext().user());
         }
 
-        log.info("REST created catalog items: "+items);
+        BundleMaker bm = new BundleMaker(mgmtInternal());
+        File f=null, f2=null;
+        try {
+            f = Os.newTempFile("brooklyn-posted-archive", "zip");
+            try {
+                Files.write(zipInput, f);
+            } catch (IOException e) {
+                Exceptions.propagate(e);
+            }
+            
+            ZipFile zf;
+            try {
+                zf = new ZipFile(f);
+            } catch (IOException e) {
+                throw new IllegalArgumentException("Invalid ZIP/JAR archive: "+e);
+            }
+            ZipArchiveEntry bom = zf.getEntry("catalog.bom");
+            if (bom==null) {
+                bom = zf.getEntry("/catalog.bom");
+            }
+            if (bom==null) {
+                throw new IllegalArgumentException("Archive must contain a catalog.bom file in the root");
+            }
+            String bomS;
+            try {
+                bomS = Streams.readFullyString(zf.getInputStream(bom));
+            } catch (IOException e) {
+                throw new IllegalArgumentException("Error reading catalog.bom from ZIP/JAR archive: "+e);
+            }
+            VersionedName vn = BasicBrooklynCatalog.getVersionedName( BasicBrooklynCatalog.getCatalogMetadata(bomS) );
+            
+            Manifest mf = bm.getManifest(f);
+            if (mf==null) {
+                mf = new Manifest();
+            }
+            String bundleNameInMF = mf.getMainAttributes().getValue(Constants.BUNDLE_SYMBOLICNAME);
+            if (Strings.isNonBlank(bundleNameInMF)) {
+                if (!bundleNameInMF.equals(vn.getSymbolicName())) {
+                    throw new IllegalArgumentException("JAR MANIFEST symbolic-name '"+bundleNameInMF+"' does not match '"+vn.getSymbolicName()+"' defined in BOM");
+                }
+            } else {
+                bundleNameInMF = vn.getSymbolicName();
+                mf.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, bundleNameInMF);
+            }
+            
+            String bundleVersionInMF = mf.getMainAttributes().getValue(Constants.BUNDLE_VERSION);
+            if (Strings.isNonBlank(bundleVersionInMF)) {
+                if (!bundleVersionInMF.equals(vn.getVersion().toString())) {
+                    throw new IllegalArgumentException("JAR MANIFEST version '"+bundleVersionInMF+"' does not match '"+vn.getVersion()+"' defined in BOM");
+                }
+            } else {
+                bundleVersionInMF = vn.getVersion().toString();
+                mf.getMainAttributes().putValue(Constants.BUNDLE_VERSION, bundleVersionInMF);
+            }
+            if (mf.getMainAttributes().getValue(Attributes.Name.MANIFEST_VERSION)==null) {
+                mf.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), "1.0");
+            }
+            
+            f2 = bm.copyAddingManifest(f, mf);
+            
+            BasicManagedBundle bundleMetadata = new BasicManagedBundle(bundleNameInMF, bundleVersionInMF, null);
+            Bundle bundle;
+            try (FileInputStream f2in = new FileInputStream(f2)) {
+                bundle = ((ManagementContextInternal)mgmt()).getOsgiManager().get().installUploadedBundle(bundleMetadata, f2in, false);
+            } catch (Exception e) {
+                throw Exceptions.propagate(e);
+            }
+
+            Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.copyOf( 
+                ((ManagementContextInternal)mgmt()).getOsgiManager().get().loadCatalogBom(bundle) );
+
+            return buildCreateResponse(catalogItems);
+        } catch (RuntimeException ex) {
+            throw WebResourceUtils.badRequest(ex);
+        } finally {
+            if (f!=null) f.delete();
+            if (f2!=null) f2.delete();
+        }
+    }
+
+    private Response buildCreateResponse(Iterable<? extends CatalogItem<?, ?>> catalogItems) {
+        log.info("REST created catalog items: "+catalogItems);
 
         Map<String,Object> result = MutableMap.of();
-        
-        for (CatalogItem<?,?> item: items) {
+
+        for (CatalogItem<?,?> catalogItem: catalogItems) {
             try {
-                result.put(item.getId(), CatalogTransformer.catalogItemSummary(brooklyn(), item, ui.getBaseUriBuilder()));
+                result.put(
+                        catalogItem.getId(),
+                        CatalogTransformer.catalogItemSummary(brooklyn(), catalogItem, ui.getBaseUriBuilder()));
             } catch (Throwable t) {
-                log.warn("Error loading catalog item '"+item+"' (rethrowing): "+t);
+                log.warn("Error loading catalog item '"+catalogItem+"' (rethrowing): "+t);
                 // unfortunately items are already added to the catalog and hard to remove,
                 // but at least let the user know;
-                // happens eg if a class refers to a missing class, like 
-                // loading nosql items including mongo without the mongo bson class on the classpath 
-                throw Exceptions.propagateAnnotated("At least one unusable item was added ("+item.getId()+")", t);
+                // happens eg if a class refers to a missing class, like
+                // loading nosql items including mongo without the mongo bson class on the classpath
+                throw Exceptions.propagateAnnotated("At least one unusable item was added ("+catalogItem.getId()+")", t);
             }
         }
         return Response.status(Status.CREATED).entity(result).build();
     }
-
+    
     @SuppressWarnings("deprecation")
     @Override
     public Response resetXml(String xml, boolean ignoreErrors) {
@@ -140,31 +282,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
 
         ((BasicBrooklynCatalog)mgmt().getCatalog()).reset(CatalogDto.newDtoFromXmlContents(xml, "REST reset"), !ignoreErrors);
         return Response.ok().build();
-    }
-    
-    @Override
-    @Deprecated
-    public void deleteEntity_0_7_0(String entityId) throws Exception {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, StringAndArgument.of(entityId, "delete"))) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
-                Entitlements.getEntitlementContext().user());
-        }
-        try {
-            Maybe<RegisteredType> item = RegisteredTypes.tryValidate(mgmt().getTypeRegistry().get(entityId), RegisteredTypeLoadingContexts.spec(Entity.class));
-            if (item.isNull()) {
-                throw WebResourceUtils.notFound("Entity with id '%s' not found", entityId);
-            }
-            if (item.isAbsent()) {
-                throw WebResourceUtils.notFound("Item with id '%s' is not an entity", entityId);
-            }
-
-            brooklyn().getCatalog().deleteCatalogItem(item.get().getSymbolicName(), item.get().getVersion());
-
-        } catch (NoSuchElementException e) {
-            // shouldn't come here
-            throw WebResourceUtils.notFound("Entity with id '%s' could not be deleted", entityId);
-
-        }
     }
 
     @Override
@@ -178,6 +295,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
                 Entitlements.getEntitlementContext().user());
         }
+
+        version = processVersion(version);
         
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, version);
         if (item == null) {
@@ -195,6 +314,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
                 Entitlements.getEntitlementContext().user());
         }
+
+        version = processVersion(version);
         
         RegisteredType item = mgmt().getTypeRegistry().get(policyId, version);
         if (item == null) {
@@ -212,6 +333,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
                 Entitlements.getEntitlementContext().user());
         }
+
+        version = processVersion(version);
         
         RegisteredType item = mgmt().getTypeRegistry().get(locationId, version);
         if (item == null) {
@@ -243,24 +366,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                         CatalogPredicates.<Application,EntitySpec<? extends Application>>disabled(false));
         return getCatalogItemSummariesMatchingRegexFragment(filter, regex, fragment, allVersions);
     }
-
-    @Override
-    @Deprecated
-    public CatalogEntitySummary getEntity_0_7_0(String entityId) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, entityId)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
-                Entitlements.getEntitlementContext().user());
-        }
-
-        CatalogItem<Entity,EntitySpec<?>> result =
-                CatalogUtils.getCatalogItemOptionalVersion(mgmt(), Entity.class, entityId);
-
-        if (result==null) {
-            throw WebResourceUtils.notFound("Entity with id '%s' not found", entityId);
-        }
-
-        return CatalogTransformer.catalogEntitySummary(brooklyn(), result, ui.getBaseUriBuilder());
-    }
     
     @Override
     public CatalogEntitySummary getEntity(String symbolicName, String version) {
@@ -268,6 +373,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
         }
+
+        version = processVersion(version);
 
         //TODO These casts are not pretty, we could just provide separate get methods for the different types?
         //Or we could provide asEntity/asPolicy cast methods on the CataloItem doing a safety check internally
@@ -280,12 +387,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
 
         return CatalogTransformer.catalogEntitySummary(brooklyn(), result, ui.getBaseUriBuilder());
-    }
-
-    @Override
-    @Deprecated
-    public CatalogEntitySummary getApplication_0_7_0(String applicationId) throws Exception {
-        return getEntity_0_7_0(applicationId);
     }
 
     @Override
@@ -304,29 +405,13 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
-    @Deprecated
-    public CatalogPolicySummary getPolicy_0_7_0(String policyId) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, policyId)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
-                Entitlements.getEntitlementContext().user());
-        }
-
-        CatalogItem<? extends Policy, PolicySpec<?>> result =
-            CatalogUtils.getCatalogItemOptionalVersion(mgmt(), Policy.class, policyId);
-
-        if (result==null) {
-            throw WebResourceUtils.notFound("Policy with id '%s' not found", policyId);
-        }
-
-        return CatalogTransformer.catalogPolicySummary(brooklyn(), result, ui.getBaseUriBuilder());
-    }
-
-    @Override
     public CatalogPolicySummary getPolicy(String policyId, String version) throws Exception {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, policyId+(Strings.isBlank(version)?"":":"+version))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
         }
+
+        version = processVersion(version);
 
         @SuppressWarnings("unchecked")
         CatalogItem<? extends Policy, PolicySpec<?>> result =
@@ -350,29 +435,13 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
-    @Deprecated
-    public CatalogLocationSummary getLocation_0_7_0(String locationId) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, locationId)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
-                Entitlements.getEntitlementContext().user());
-        }
-
-        CatalogItem<? extends Location, LocationSpec<?>> result =
-            CatalogUtils.getCatalogItemOptionalVersion(mgmt(), Location.class, locationId);
-
-        if (result==null) {
-            throw WebResourceUtils.notFound("Location with id '%s' not found", locationId);
-        }
-
-        return CatalogTransformer.catalogLocationSummary(brooklyn(), result, ui.getBaseUriBuilder());
-    }
-
-    @Override
     public CatalogLocationSummary getLocation(String locationId, String version) throws Exception {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, locationId+(Strings.isBlank(version)?"":":"+version))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
         }
+
+        version = processVersion(version);
 
         @SuppressWarnings("unchecked")
         CatalogItem<? extends Location, LocationSpec<?>> result =
@@ -406,31 +475,15 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
-    @Deprecated
-    public Response getIcon_0_7_0(String itemId) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, itemId)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
-                Entitlements.getEntitlementContext().user());
-        }
-
-        return getCatalogItemIcon( mgmt().getTypeRegistry().get(itemId) );
-    }
-
-    @Override
     public Response getIcon(String itemId, String version) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, itemId+(Strings.isBlank(version)?"":":"+version))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
         }
+
+        version = processVersion(version);
         
         return getCatalogItemIcon(mgmt().getTypeRegistry().get(itemId, version));
-    }
-
-    @Override
-    public void setDeprecatedLegacy(String itemId, boolean deprecated) {
-        log.warn("Use of deprecated \"/catalog/entities/{itemId}/deprecated/{deprecated}\" for "+itemId
-                +"; use \"/catalog/entities/{itemId}/deprecated\" with request body");
-        setDeprecated(itemId, deprecated);
     }
     
     @SuppressWarnings("deprecation")
@@ -514,3 +567,4 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         return result;
     }
 }
+ 

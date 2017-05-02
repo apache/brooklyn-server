@@ -98,14 +98,6 @@ public interface ServerApi {
     @Path("/healthy")
     @ApiOperation(value = "Returns whether this node is healthy - fully started, not stopping, and no errors")
     public boolean isHealthy();
-    
-    @Deprecated /** @deprecated since 0.7.0 use /ha/node (which returns correct JSON) */
-    @GET
-    @Path("/status")
-    @ApiOperation(value = "Returns the status of this Brooklyn instance [DEPRECATED; see ../ha/state]",
-            response = String.class,
-            responseContainer = "List")
-    public String getStatus();
 
     @GET
     @Path("/up/extended")
@@ -124,13 +116,6 @@ public interface ServerApi {
     public String getConfig(
             @ApiParam(value = "Config key ID", required = true)
             @PathParam("configKey") String configKey);
-
-    @Deprecated /** @deprecated since 0.7.0 use /ha/states */
-    @GET
-    @Path("/highAvailability")
-    @ApiOperation(value = "Returns the status of all Brooklyn instances in the management plane [DEPRECATED; see ../ha/states]",
-            response = org.apache.brooklyn.rest.domain.HighAvailabilitySummary.class)
-    public HighAvailabilitySummary getHighAvailability();
     
     @GET
     @Path("/ha/state")

@@ -57,11 +57,13 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.AggregateClassLoader;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.LoadedClassLoader;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.brooklyn.util.yaml.Yamls.YamlExtract;
+import org.osgi.framework.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
@@ -407,7 +409,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
     
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    private Maybe<Map<?,?>> getFirstAsMap(Map<?,?> map, String firstKey, String ...otherKeys) {
+    private static Maybe<Map<?,?>> getFirstAsMap(Map<?,?> map, String firstKey, String ...otherKeys) {
         return (Maybe) getFirstAs(map, Map.class, firstKey, otherKeys);
     }
 
@@ -415,6 +417,26 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         List<CatalogItemDtoAbstract<?, ?>> result = MutableList.of();
         collectCatalogItems(yaml, result, ImmutableMap.of());
         return result;
+    }
+
+    public static Map<?,?> getCatalogMetadata(String yaml) {
+        Map<?,?> itemDef = Yamls.getAs(Yamls.parseAll(yaml), Map.class);
+        return getFirstAsMap(itemDef, "brooklyn.catalog").orNull();        
+    }
+    
+    public static VersionedName getVersionedName(Map<?,?> catalogMetadata) {
+        String version = getFirstAs(catalogMetadata, String.class, "version").orNull();
+        String bundle = getFirstAs(catalogMetadata, String.class, "bundle").orNull();
+        if (Strings.isBlank(bundle) && Strings.isBlank(version)) {
+            throw new IllegalStateException("Catalog BOM must define bundle and version");
+        }
+        if (Strings.isBlank(bundle)) {
+            throw new IllegalStateException("Catalog BOM must define bundle");
+        }
+        if (Strings.isBlank(version)) {
+            throw new IllegalStateException("Catalog BOM must define version");
+        }
+        return new VersionedName(bundle, Version.valueOf(version));
     }
 
     private void collectCatalogItems(String yaml, List<CatalogItemDtoAbstract<?, ?>> result, Map<?, ?> parentMeta) {

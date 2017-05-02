@@ -40,7 +40,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.google.common.base.Objects.ToStringHelper;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -331,7 +331,7 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
     }
     
     @Override
-    protected ToStringHelper newVerboseStringHelper() {
+    protected MoreObjects.ToStringHelper newVerboseStringHelper() {
         return super.newVerboseStringHelper()
                 .add("members", getMembers())
                 .add("config", Sanitizer.sanitize(getConfig()))

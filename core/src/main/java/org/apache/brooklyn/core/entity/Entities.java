@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.entity;
 
+import static org.apache.brooklyn.util.guava.Functionals.isSatisfied;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -32,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
@@ -94,6 +95,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -324,6 +326,18 @@ public class Entities {
         out.append(currentIndentation+e.toString()+" "+e.getId()+"\n");
 
         out.append(currentIndentation+tab+tab+"displayName = "+e.getDisplayName()+"\n");
+        if (Strings.isNonBlank(e.getCatalogItemId())) {
+            out.append(currentIndentation+tab+tab+"catalogItemId = "+e.getCatalogItemId()+"\n");
+        }
+        final List<String> searchPath = e.getCatalogItemIdSearchPath();
+        if (!searchPath.isEmpty()) {
+            out.append(currentIndentation + tab + tab + "searchPath = [");
+            for (int i = 0 ; i < searchPath.size() ; i++) {
+                out.append(i > 0 ? ",\n" : "\n");
+                out.append(currentIndentation + tab + tab + searchPath.get(i));
+            }
+            out.append("\n" + currentIndentation + tab + tab + "]");
+        }
 
         out.append(currentIndentation+tab+tab+"locations = "+e.getLocations()+"\n");
 
@@ -1237,25 +1251,32 @@ public class Entities {
             log.warn("Ignoring "+key+" set on "+entity+" ("+entity.getConfig(key)+")");
     }
 
-    /** Waits until {@link Startable#SERVICE_UP} returns true. */
-    public static void waitForServiceUp(final Entity entity, Duration timeout) {
-        String description = "Waiting for SERVICE_UP on "+entity;
-        Tasks.setBlockingDetails(description);
+    /** Waits until the passed entity satisfies the supplied predicate. */
+    public static void waitFor(Entity entity, Predicate<Entity> condition, Duration timeout) {
         try {
-            if (!Repeater.create(description).limitTimeTo(timeout)
-                    .rethrowException().backoffTo(Duration.ONE_SECOND)
-                    .until(new Callable<Boolean>() {
-                        @Override
-                        public Boolean call() {
-                            return Boolean.TRUE.equals(entity.getAttribute(Startable.SERVICE_UP));
-                        }})
-                    .run()) {
-                throw new IllegalStateException("Timeout waiting for SERVICE_UP from "+entity);
+            String description = "Waiting for " + condition + " on " + entity;
+            Tasks.setBlockingDetails(description);
+
+            Repeater repeater = Repeater.create(description)
+                .until(isSatisfied(entity, condition))
+                .limitTimeTo(timeout)
+                .backoffTo(Duration.ONE_SECOND)
+                .rethrowException();
+
+            if (!repeater.run()) {
+                throw new IllegalStateException("Timeout waiting for " + condition + " on " + entity);
             }
+
         } finally {
             Tasks.resetBlockingDetails();
         }
-        log.debug("Detected SERVICE_UP for software {}", entity);
+
+        log.debug("Detected {} for {}", condition, entity);
+    }
+
+    /** Waits until {@link Startable#SERVICE_UP} is true. */
+    public static void waitForServiceUp(final Entity entity, Duration timeout) {
+        waitFor(entity, EntityPredicates.isServiceUp(), timeout);
     }
     public static void waitForServiceUp(final Entity entity, long duration, TimeUnit units) {
         waitForServiceUp(entity, Duration.of(duration, units));

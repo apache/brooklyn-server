@@ -16,17 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.rest.resources;
+package com.example.brooklyn.test.osgi;
 
-import org.apache.brooklyn.core.BrooklynVersion;
-import org.apache.brooklyn.rest.api.VersionApi;
+import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 
-/** @deprecated since 0.7.0; use /v1/server/version */
-@Deprecated
-public class VersionResource extends AbstractBrooklynRestResource implements VersionApi {
+public class UnprefixedDummyExternalConfigSupplier implements ExternalConfigSupplier {
+
+    public UnprefixedDummyExternalConfigSupplier(ManagementContext mgmt, String name) {
+
+    }
 
     @Override
-    public String getVersion() {
-        return BrooklynVersion.get();
+    public String getName() {
+        return "DummyExternalConfigSupplier";
+    }
+
+    @Override
+    public String get(String key) {
+        return key;
     }
 }

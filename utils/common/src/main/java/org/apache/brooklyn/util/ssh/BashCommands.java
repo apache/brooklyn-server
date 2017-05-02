@@ -91,10 +91,21 @@ public class BashCommands {
      * If null is supplied, it is returned (sometimes used to indicate no command desired).
      */
     public static String sudo(String command) {
+        if (command==null) return null;
         if (command.startsWith("( ") || command.endsWith(" &"))
             return sudoNew(command);
         else
             return sudoOld(command);
+    }
+
+    public static String authSudo(String command, String password) {
+        checkNotNull(password, "password must not be null");
+        if (command==null) return null;
+        if (command.startsWith("( ") || command.endsWith(" &")) {
+            throw new UnsupportedOperationException("authSudo supports only simple commands, not those wrapped in parentheses or backgrounded: cmd="+command);
+        }
+        // some OS's (which?) fail if you try running sudo when you're already root (dumb but true)
+        return format("( if test \"$UID\" -eq 0; then ( %s ); else echo -e '%s\\n' | sudo -E -S -- %s; fi )", command, password, command);
     }
 
     // TODO would like to move away from sudoOld -- but needs extensive testing!
@@ -482,9 +493,28 @@ public class BashCommands {
                 "    sleep 1",
                 "done",
                 "if test \"$result\" -ne 0; then",
+                "    ls -l "+file+" || true",
+                "    cat "+file+" || true",
                 "    "+ (failOnTimeout ?
                             "echo \"Couldn't find "+desiredContent+" in "+file+"; aborting\" && exit 1" :
                             "echo \"Couldn't find "+desiredContent+" in "+file+"; continuing\""),
+                "fi");
+        return Joiner.on("\n").join(commands);
+    }
+
+    public static String waitForFileExists(String file, Duration timeout, boolean failOnTimeout) {
+        long secs = Math.max(timeout.toSeconds(), 1);
+        
+        List<String> commands = ImmutableList.of(
+                "for i in {1.."+secs+"}; do",
+                "    [[ -f "+file+" ]] && result=0 || result=$?",
+                "    [ \"$result\" == 0 ] && break",
+                "    sleep 1",
+                "done",
+                "if test \"$result\" -ne 0; then",
+                "    "+ (failOnTimeout ?
+                            "echo \"Couldn't find file "+file+"; aborting\" && exit 1" :
+                            "echo \"Couldn't find file "+file+"; continuing\""),
                 "fi");
         return Joiner.on("\n").join(commands);
     }
@@ -610,6 +640,7 @@ public class BashCommands {
     public static String installJava(int version) {
         Preconditions.checkArgument(version == 6 || version == 7 || version == 8, "Supported Java versions are 6, 7, or 8");
         List<String> commands = new LinkedList<String>();
+        commands.add(ok(addOpenJDKPPK()));
         commands.add(installPackageOr(MutableMap.of("apt", "openjdk-" + version + "-jdk","yum", "java-1." + version + ".0-openjdk-devel"), null,
                 ifExecutableElse1("zypper", chainGroup(
                         ok(sudo("zypper --non-interactive addrepo http://download.opensuse.org/repositories/Java:/openjdk6:/Factory/SLE_11_SP3 java_sles_11")),
@@ -657,6 +688,15 @@ public class BashCommands {
 
     public static String installJavaLatestOrWarn() {
         return alternatives(installJava8(), installJava7(), installJava6(), warn("java latest install failed, entity may subsequently fail"));
+    }
+
+    /**
+     * Adds the PPA for OpenJDK for older JDK versions (7 and lower) required by some software (e.g. JBoss)
+     */
+    public static String addOpenJDKPPK(){
+        return chainGroup(
+                sudo("sudo add-apt-repository -y ppa:openjdk-r/ppa"),
+                sudo("sudo apt-get update"));
     }
 
     /**

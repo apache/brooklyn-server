@@ -224,7 +224,7 @@ public class BrooklynServerPaths {
     
     public static File getBrooklynWebTmpDir(ManagementContext mgmt) {
         String brooklynMgmtBaseDir = getMgmtBaseDir(mgmt);
-        File webappTempDir = new File(Os.mergePaths(brooklynMgmtBaseDir, "planes", mgmt.getManagementPlaneId(), mgmt.getManagementNodeId(), "jetty"));
+        File webappTempDir = new File(Os.mergePaths(brooklynMgmtBaseDir, "planes", mgmt.getManagementNodeId(), "jetty"));
         try {
             FileUtils.forceMkdir(webappTempDir);
             Os.deleteOnExitRecursivelyAndEmptyParentsUpTo(webappTempDir, new File(brooklynMgmtBaseDir)); 

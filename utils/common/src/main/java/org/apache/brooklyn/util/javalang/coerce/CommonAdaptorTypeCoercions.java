@@ -28,6 +28,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -256,6 +257,24 @@ public class CommonAdaptorTypeCoercions {
             @Override
             public QuorumCheck apply(final String input) {
                 return QuorumChecks.of(input);
+            }
+        });
+        registerAdapter(String.class, TimeZone.class, new Function<String,TimeZone>() {
+            @Override
+            public TimeZone apply(final String input) {
+                return TimeZone.getTimeZone(input);
+            }
+        });
+        registerAdapter(Long.class, Date.class, new Function<Long,Date>() {
+            @Override
+            public Date apply(final Long input) {
+                return new Date(input);
+            }
+        });
+        registerAdapter(Integer.class, Date.class, new Function<Integer,Date>() {
+            @Override
+            public Date apply(final Integer input) {
+                return new Date(input);
             }
         });
     }

@@ -150,9 +150,11 @@ public class RebindTestUtils {
         BrooklynProperties properties;
         PersistenceObjectStore objectStore;
         Duration persistPeriod = Duration.millis(100);
-        HighAvailabilityMode haMode;
+        PersistMode persistMode = PersistMode.AUTO;
+        HighAvailabilityMode haMode = HighAvailabilityMode.DISABLED;
         boolean forLive;
         boolean enableOsgi = false;
+        boolean reuseOsgi = true;
         boolean emptyCatalog;
         private boolean enablePersistenceBackups = true;
         
@@ -191,9 +193,25 @@ public class RebindTestUtils {
             this.enablePersistenceBackups  = val;
             return this;
         }
+        /** @deprecated since 0.12.0 use {@link #enableOsgiNonReusable()} or {@link #enableOsgiReusable()} */
+        @Deprecated
         public ManagementContextBuilder enableOsgi(boolean val) {
             this.enableOsgi = val;
             return this;
+        }
+
+        /** as {@link LocalManagementContextForTests.Builder#setOsgiEnablementAndReuse(boolean, boolean)} */
+        public ManagementContextBuilder setOsgiEnablementAndReuse(boolean enableOsgi, boolean reuseOsgi) {
+            this.enableOsgi = enableOsgi;
+            this.reuseOsgi = reuseOsgi;
+            return this;
+        }
+        
+        public ManagementContextBuilder enableOsgiReusable() {
+            return setOsgiEnablementAndReuse(true, true);
+        }
+        public ManagementContextBuilder enableOsgiNonReusable() {
+            return setOsgiEnablementAndReuse(true, false);
         }
 
         public ManagementContextBuilder emptyCatalog() {
@@ -206,11 +224,25 @@ public class RebindTestUtils {
             return this;
         }
 
+        public ManagementContextBuilder persistMode(PersistMode val) {
+            checkNotNull(val, "persistMode");
+            this.persistMode = val;
+            if (persistMode == PersistMode.DISABLED) {
+                haMode(HighAvailabilityMode.DISABLED);
+            }
+            return this;
+        }
+
         public ManagementContextBuilder haMode(HighAvailabilityMode val) {
+            checkNotNull(val, "haMode");
             this.haMode = val;
             return this;
         }
 
+        /**
+         * What you could actually want is {@link #buildStarted()} with builder properties set to
+         * {@code .persistMode(PersistMode.DISABLED).haMode(HighAvailabilityMode.DISABLED)}
+         */
         public LocalManagementContext buildUnstarted() {
             LocalManagementContext unstarted;
             BrooklynProperties properties = this.properties != null
@@ -227,14 +259,18 @@ public class RebindTestUtils {
             if (forLive) {
                 unstarted = new LocalManagementContext(properties);
             } else {
-                unstarted = LocalManagementContextForTests.builder(true).useProperties(properties).disableOsgi(!enableOsgi).build();
+                unstarted = LocalManagementContextForTests.builder(true)
+                        .useProperties(properties)
+                        .setOsgiEnablementAndReuse(enableOsgi, reuseOsgi)
+                        .disablePersistenceBackups(!enablePersistenceBackups)
+                        .build();
             }
             
             objectStore.injectManagementContext(unstarted);
-            objectStore.prepareForSharedUse(PersistMode.AUTO, (haMode == null ? HighAvailabilityMode.DISABLED : haMode));
+            objectStore.prepareForSharedUse(PersistMode.AUTO, haMode);
             BrooklynMementoPersisterToObjectStore newPersister = new BrooklynMementoPersisterToObjectStore(
                     objectStore, 
-                    unstarted.getBrooklynProperties(), 
+                    unstarted, 
                     classLoader);
             ((RebindManagerImpl) unstarted.getRebindManager()).setPeriodicPersistPeriod(persistPeriod);
             unstarted.getRebindManager().setPersister(newPersister, PersistenceExceptionHandlerImpl.builder().build());
@@ -245,8 +281,17 @@ public class RebindTestUtils {
 
         public LocalManagementContext buildStarted() {
             LocalManagementContext unstarted = buildUnstarted();
-            unstarted.getHighAvailabilityManager().disabled();
-            unstarted.getRebindManager().startPersistence();
+            // Follows BasicLauncher logic for initialising persistence.
+            // TODO It should really be encapsulated in a common entry point
+            if (persistMode == PersistMode.DISABLED) {
+                unstarted.generateManagementPlaneId();
+            } else if (haMode == HighAvailabilityMode.DISABLED) {
+                unstarted.getRebindManager().rebind(classLoader, null, ManagementNodeState.MASTER);
+                unstarted.getRebindManager().startPersistence();
+                unstarted.getHighAvailabilityManager().disabled();
+            } else {
+                unstarted.getHighAvailabilityManager().start(haMode);
+            }
             return unstarted;
         }
 
@@ -427,7 +472,7 @@ public class RebindTestUtils {
             
             BrooklynMementoPersisterToObjectStore newPersister = new BrooklynMementoPersisterToObjectStore(
                     objectStore,
-                    newManagementContext.getBrooklynProperties(),
+                    newManagementContext,
                     classLoader);
             newManagementContext.getRebindManager().setPersister(newPersister, PersistenceExceptionHandlerImpl.builder().build());
         } else {
@@ -505,11 +550,11 @@ public class RebindTestUtils {
             store = new FileBasedObjectStore(dir);
             store.injectManagementContext(mgmt);
             store.prepareForSharedUse(PersistMode.AUTO, HighAvailabilityMode.HOT_STANDBY);
-            persister = new BrooklynMementoPersisterToObjectStore(store, BrooklynProperties.Factory.newEmpty(), RebindTestUtils.class.getClassLoader());
+            persister = new BrooklynMementoPersisterToObjectStore(store, mgmt, RebindTestUtils.class.getClassLoader());
             BrooklynMementoRawData data = persister.loadMementoRawData(RebindExceptionHandlerImpl.builder().build());
             List<BrooklynObjectType> types = ImmutableList.of(BrooklynObjectType.ENTITY, BrooklynObjectType.LOCATION, 
                     BrooklynObjectType.POLICY, BrooklynObjectType.ENRICHER, BrooklynObjectType.FEED, 
-                    BrooklynObjectType.CATALOG_ITEM);
+                    BrooklynObjectType.CATALOG_ITEM, BrooklynObjectType.MANAGED_BUNDLE);
             for (BrooklynObjectType type : types) {
                 LOG.info(type+" ("+data.getObjectsOfType(type).keySet()+"):");
                 for (Map.Entry<String, String> entry : data.getObjectsOfType(type).entrySet()) {

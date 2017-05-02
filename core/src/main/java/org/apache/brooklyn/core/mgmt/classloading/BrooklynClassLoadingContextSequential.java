@@ -38,7 +38,7 @@ import com.google.common.collect.Lists;
 public final class BrooklynClassLoadingContextSequential extends AbstractBrooklynClassLoadingContext {
 
     private static final Logger log = LoggerFactory.getLogger(BrooklynClassLoadingContextSequential.class);
-    
+
     private final List<BrooklynClassLoadingContext> primaries = MutableList.<BrooklynClassLoadingContext>of();
     // secondaries used to put java classloader last
     private final Set<BrooklynClassLoadingContext> secondaries = MutableSet.<BrooklynClassLoadingContext>of();
@@ -132,5 +132,8 @@ public final class BrooklynClassLoadingContextSequential extends AbstractBrookly
         if (!Objects.equal(secondaries, ((BrooklynClassLoadingContextSequential)obj).secondaries)) return false;
         return true;
     }
-    
+
+    public List<BrooklynClassLoadingContext> getPrimaries() {
+        return primaries;
+    }
 }

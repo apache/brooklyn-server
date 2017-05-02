@@ -29,9 +29,10 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
-import org.apache.brooklyn.core.plan.PlanNotRecognizedException;
 import org.apache.brooklyn.core.plan.PlanToSpecTransformer;
+import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,13 +66,13 @@ public class JavaCatalogToSpecTransformer implements PlanToSpecTransformer {
     }
 
     @Override
-    public EntitySpec<? extends Application> createApplicationSpec(String plan) throws PlanNotRecognizedException {
-        throw new PlanNotRecognizedException(getClass().getName() + " doesn't parse application plans.");
+    public EntitySpec<? extends Application> createApplicationSpec(String plan) throws UnsupportedTypePlanException {
+        throw new UnsupportedTypePlanException(getClass().getName() + " doesn't parse application plans.");
     }
 
     @Override
     public <T, SpecT extends AbstractBrooklynObjectSpec<? extends T, SpecT>> SpecT createCatalogSpec(
-            CatalogItem<T, SpecT> item, Set<String> encounteredTypes) throws PlanNotRecognizedException {
+            CatalogItem<T, SpecT> item, Set<String> encounteredTypes) throws UnsupportedTypePlanException {
         @SuppressWarnings("deprecation")
         String javaType = item.getJavaType();
         if (javaType != null) {
@@ -81,7 +82,10 @@ public class JavaCatalogToSpecTransformer implements PlanToSpecTransformer {
                 // java types were deprecated before we added osgi support so this isn't necessary,
                 // but it doesn't hurt (and if we re-instate a class+bundle approach for RegisteredType 
                 // we will want to do this)
-                type = CatalogUtils.newClassLoadingContext(mgmt, item).loadClass(javaType);
+                final BrooklynClassLoadingContextSequential ctx = new BrooklynClassLoadingContextSequential(mgmt);
+                ctx.add(CatalogUtils.newClassLoadingContextForCatalogItems(mgmt, item.getCatalogItemId(),
+                    item.getCatalogItemIdSearchPath()));
+                type = ctx.loadClass(javaType);
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 throw new IllegalStateException("Unable to load old-style java catalog item type " + javaType + " for item " + item, e);
@@ -99,12 +103,12 @@ public class JavaCatalogToSpecTransformer implements PlanToSpecTransformer {
             } else {
                 throw new IllegalStateException("Catalog item " + item + " java type " + javaType + " is not a Brooklyn supported object.");
             }
-            spec.catalogItemId(item.getCatalogItemId());
+            spec.catalogItemIdAndSearchPath(item.getCatalogItemId(), item.getCatalogItemIdSearchPath());
             @SuppressWarnings("unchecked")
             SpecT untypedSpc = (SpecT) spec;
             return untypedSpc;
         } else {
-            throw new PlanNotRecognizedException(getClass().getName() + " parses only old-style catalog items containing javaType");
+            throw new UnsupportedTypePlanException(getClass().getName() + " parses only old-style catalog items containing javaType");
         }
     }
 

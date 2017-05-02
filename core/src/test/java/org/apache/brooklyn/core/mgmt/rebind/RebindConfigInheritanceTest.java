@@ -118,7 +118,7 @@ public class RebindConfigInheritanceTest extends RebindTestFixtureWithApp {
         
         String origMementoTidied = origMemento.substring(origMemento.indexOf("<entity>"));
         origMementoTidied = Strings.replaceAllNonRegex(origMementoTidied, "VERSION", BrooklynVersion.get());
-        Asserts.assertEquals(origMementoTidied, newMemento);
+        Asserts.assertEquals(origMementoTidied, newMemento.replaceAll("\n.*searchPath.*\n", "\n"));
     }
     
     @Test

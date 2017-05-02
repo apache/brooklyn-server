@@ -32,9 +32,9 @@ import org.apache.brooklyn.camp.brooklyn.api.AssemblyTemplateSpecInstantiator;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.camp.spi.instantiate.AssemblyTemplateInstantiator;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
-import org.apache.brooklyn.core.plan.PlanNotRecognizedException;
 import org.apache.brooklyn.core.plan.PlanToSpecTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
@@ -74,10 +74,10 @@ public class CampToSpecTransformer implements PlanToSpecTransformer {
                 if (at.getPlatformComponentTemplates()==null || at.getPlatformComponentTemplates().isEmpty()) {
                     if (at.getCustomAttributes().containsKey(BrooklynCampReservedKeys.BROOKLYN_CATALOG))
                         throw new IllegalArgumentException("Unrecognized application blueprint format: expected an application, not a brooklyn.catalog");
-                    throw new PlanNotRecognizedException("Unrecognized application blueprint format: no services defined");
+                    throw new UnsupportedTypePlanException("Unrecognized application blueprint format: no services defined");
                 }
                 // map this (expected) error to a nicer message
-                throw new PlanNotRecognizedException("Unrecognized application blueprint format");
+                throw new UnsupportedTypePlanException("Unrecognized application blueprint format");
             }
         } catch (Exception e) {
             // TODO how do we figure out that the plan is not supported vs. invalid to wrap in a PlanNotRecognizedException?
@@ -92,7 +92,7 @@ public class CampToSpecTransformer implements PlanToSpecTransformer {
     public <T, SpecT extends AbstractBrooklynObjectSpec<? extends T, SpecT>> SpecT createCatalogSpec(CatalogItem<T, SpecT> item, Set<String> encounteredTypes) {
         // Ignore old-style java type catalog items - there is a different (deprecated) transformer for that
         if (item.getPlanYaml() == null) {
-            throw new PlanNotRecognizedException("Old style catalog item " + item + " not supported.");
+            throw new UnsupportedTypePlanException("Old style catalog item " + item + " not supported.");
         }
         if (encounteredTypes.contains(item.getSymbolicName())) {
             throw new IllegalStateException("Already encountered types " + encounteredTypes + " must not contain catalog item being resolver " + item.getSymbolicName());

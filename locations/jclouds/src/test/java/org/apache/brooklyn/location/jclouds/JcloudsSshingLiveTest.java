@@ -54,6 +54,7 @@ public class JcloudsSshingLiveTest extends AbstractJcloudsLiveTest {
         JcloudsSshMachineLocation machine = obtainMachine(MutableMap.<String,Object>builder()
                 .putIfAbsent("inboundPorts", ImmutableList.of(22))
                 .build());
+        machine.execCommands("test commands", ImmutableList.of("echo test"));
         assertSshable(machine);
         assertEquals(machine.getUser(), "myname");
     }

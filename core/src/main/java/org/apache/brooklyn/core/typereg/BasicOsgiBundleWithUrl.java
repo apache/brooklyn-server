@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.typereg;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
@@ -35,15 +36,19 @@ public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl 
 
     public BasicOsgiBundleWithUrl(String name, String version, String url) {
         if (name == null && version == null) {
-            Preconditions.checkNotNull(url, "url to an OSGi bundle is required");
+            Preconditions.checkNotNull(url, "Either a URL or both name and version are required");
         } else {
-            Preconditions.checkNotNull(name, "both name and version are required");
-            Preconditions.checkNotNull(version, "both name and version are required");
+            Preconditions.checkNotNull(name, "Either a URL or both name and version are required");
+            Preconditions.checkNotNull(version, "Either a URL or both name and version are required");
         }
 
         this.symbolicName = name;
         this.version = version;
         this.url = url;
+    }
+    
+    public BasicOsgiBundleWithUrl(OsgiBundleWithUrl b) {
+        this(b.getSymbolicName(), b.getVersion(), b.getUrl());
     }
 
     @Override
@@ -74,7 +79,7 @@ public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl 
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("symbolicName", symbolicName)
                 .add("version", version)
                 .add("url", url)

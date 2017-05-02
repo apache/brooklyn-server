@@ -28,8 +28,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -43,6 +41,7 @@ import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
@@ -58,9 +57,12 @@ import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -84,14 +86,18 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
 
     protected final AtomicLong checkpointLogCount = new AtomicLong();
     private static final int INITIAL_LOG_WRITES = 5;
+    private static final Duration PERSIST_PLANE_ID_PERIOD = Duration.ONE_HOUR;
 
     private static class DeltaCollector {
+        private String planeId;
+
         private Set<Location> locations = Sets.newLinkedHashSet();
         private Set<Entity> entities = Sets.newLinkedHashSet();
         private Set<Policy> policies = Sets.newLinkedHashSet();
         private Set<Enricher> enrichers = Sets.newLinkedHashSet();
         private Set<Feed> feeds = Sets.newLinkedHashSet();
         private Set<CatalogItem<?, ?>> catalogItems = Sets.newLinkedHashSet();
+        private Set<ManagedBundle> bundles = Sets.newLinkedHashSet();
         
         private Set<String> removedLocationIds = Sets.newLinkedHashSet();
         private Set<String> removedEntityIds = Sets.newLinkedHashSet();
@@ -99,16 +105,22 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
         private Set<String> removedEnricherIds = Sets.newLinkedHashSet();
         private Set<String> removedFeedIds = Sets.newLinkedHashSet();
         private Set<String> removedCatalogItemIds = Sets.newLinkedHashSet();
+        private Set<String> removedBundleIds = Sets.newLinkedHashSet();
 
         public boolean isEmpty() {
-            return locations.isEmpty() && entities.isEmpty() && policies.isEmpty() && 
+            return planeId == null &&
+                    locations.isEmpty() && entities.isEmpty() && policies.isEmpty() && 
                     enrichers.isEmpty() && feeds.isEmpty() &&
-                    catalogItems.isEmpty() &&
+                    catalogItems.isEmpty() && bundles.isEmpty() &&
                     removedEntityIds.isEmpty() && removedLocationIds.isEmpty() && removedPolicyIds.isEmpty() && 
                     removedEnricherIds.isEmpty() && removedFeedIds.isEmpty() &&
-                    removedCatalogItemIds.isEmpty();
+                    removedCatalogItemIds.isEmpty() && removedBundleIds.isEmpty();
         }
         
+        public void setPlaneId(String planeId) {
+            this.planeId = planeId;
+        }
+
         public void add(BrooklynObject instance) {
             BrooklynObjectType type = BrooklynObjectType.of(instance);
             getUnsafeCollectionOfType(type).add(instance);
@@ -143,7 +155,9 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
             case FEED: return feeds;
             case POLICY: return policies;
             case CATALOG_ITEM: return catalogItems;
-            case UNKNOWN: break;
+            case MANAGED_BUNDLE: return bundles;
+            
+            case UNKNOWN: // below
             }
             throw new IllegalStateException("No collection for type "+type);
         }
@@ -156,9 +170,11 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
             case FEED: return removedFeedIds;
             case POLICY: return removedPolicyIds;
             case CATALOG_ITEM: return removedCatalogItemIds;
-            case UNKNOWN: break;
+            case MANAGED_BUNDLE: return removedBundleIds;
+            
+            case UNKNOWN: // below
             }
-            throw new IllegalStateException("No removed ids for type "+type);
+            throw new IllegalStateException("No removed collection for type "+type);
         }
 
     }
@@ -187,8 +203,18 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
     private final AtomicInteger writeCount = new AtomicInteger(0);
 
     private PersistenceActivityMetrics metrics;
-    
-    public PeriodicDeltaChangeListener(ExecutionContext executionContext, BrooklynMementoPersister persister, PersistenceExceptionHandler exceptionHandler, PersistenceActivityMetrics metrics, Duration period) {
+
+    private CountdownTimer planeIdPersistTimer = CountdownTimer.newInstanceStarted(Duration.ZERO);
+    private Supplier<String> planeIdSupplier;
+
+    public PeriodicDeltaChangeListener(
+            Supplier<String> planeIdSupplier,
+            ExecutionContext executionContext,
+            BrooklynMementoPersister persister,
+            PersistenceExceptionHandler exceptionHandler,
+            PersistenceActivityMetrics metrics,
+            Duration period) {
+        this.planeIdSupplier = planeIdSupplier;
         this.executionContext = executionContext;
         this.persister = persister;
         this.exceptionHandler = exceptionHandler;
@@ -382,6 +408,13 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
             if (!alreadyHasMutex) persistingMutex.acquire();
             if (!isActive() && state != ListenerState.STOPPING) return;
             
+            // Writes to the datastore are lossy. We'll just log failures and move on.
+            // (Most) entities will get updated multiple times in their lifecycle
+            // so not a huge deal. planeId does not get updated so if the first
+            // write fails it's not available to the HA cluster at all. That's why it
+            // gets periodically written to the datastore. 
+            updatePlaneIdIfTimedOut();
+
             // Atomically switch the delta, so subsequent modifications will be done in the
             // next scheduled persist
             DeltaCollector prevDeltaCollector;
@@ -391,27 +424,30 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
             }
             
             if (LOG.isDebugEnabled() && shouldLogCheckpoint()) LOG.debug("Checkpointing delta of memento: "
-                    + "updating entities={}, locations={}, policies={}, enrichers={}, catalog items={}; "
-                    + "removing entities={}, locations={}, policies={}, enrichers={}, catalog items={}",
+                    + "updating entities={}, locations={}, policies={}, enrichers={}, catalog items={}, bundles={}; "
+                    + "removing entities={}, locations={}, policies={}, enrichers={}, catalog items={}, bundles={}",
                     new Object[] {
-                        limitedCountString(prevDeltaCollector.entities), limitedCountString(prevDeltaCollector.locations), limitedCountString(prevDeltaCollector.policies), limitedCountString(prevDeltaCollector.enrichers), limitedCountString(prevDeltaCollector.catalogItems), 
-                        limitedCountString(prevDeltaCollector.removedEntityIds), limitedCountString(prevDeltaCollector.removedLocationIds), limitedCountString(prevDeltaCollector.removedPolicyIds), limitedCountString(prevDeltaCollector.removedEnricherIds), limitedCountString(prevDeltaCollector.removedCatalogItemIds)});
+                        limitedCountString(prevDeltaCollector.entities), limitedCountString(prevDeltaCollector.locations), limitedCountString(prevDeltaCollector.policies), limitedCountString(prevDeltaCollector.enrichers), limitedCountString(prevDeltaCollector.catalogItems), limitedCountString(prevDeltaCollector.bundles), 
+                        limitedCountString(prevDeltaCollector.removedEntityIds), limitedCountString(prevDeltaCollector.removedLocationIds), limitedCountString(prevDeltaCollector.removedPolicyIds), limitedCountString(prevDeltaCollector.removedEnricherIds), limitedCountString(prevDeltaCollector.removedCatalogItemIds), limitedCountString(prevDeltaCollector.removedBundleIds)});
 
             addReferencedObjects(prevDeltaCollector);
 
             if (LOG.isTraceEnabled()) LOG.trace("Checkpointing delta of memento with references: "
-                    + "updating {} entities, {} locations, {} policies, {} enrichers, {} catalog items; "
-                    + "removing {} entities, {} locations, {} policies, {} enrichers, {} catalog items",
+                    + "updating {} entities, {} locations, {} policies, {} enrichers, {} catalog items, {} bundles; "
+                    + "removing {} entities, {} locations, {} policies, {} enrichers, {} catalog items, {} bundles",
                     new Object[] {
-                        prevDeltaCollector.entities.size(), prevDeltaCollector.locations.size(), prevDeltaCollector.policies.size(), prevDeltaCollector.enrichers.size(), prevDeltaCollector.catalogItems.size(),
-                        prevDeltaCollector.removedEntityIds.size(), prevDeltaCollector.removedLocationIds.size(), prevDeltaCollector.removedPolicyIds.size(), prevDeltaCollector.removedEnricherIds.size(), prevDeltaCollector.removedCatalogItemIds.size()});
+                        prevDeltaCollector.entities.size(), prevDeltaCollector.locations.size(), prevDeltaCollector.policies.size(), prevDeltaCollector.enrichers.size(), prevDeltaCollector.catalogItems.size(), prevDeltaCollector.bundles.size(),
+                        prevDeltaCollector.removedEntityIds.size(), prevDeltaCollector.removedLocationIds.size(), prevDeltaCollector.removedPolicyIds.size(), prevDeltaCollector.removedEnricherIds.size(), prevDeltaCollector.removedCatalogItemIds.size(), prevDeltaCollector.removedBundleIds.size()});
 
             // Generate mementos for everything that has changed in this time period
             if (prevDeltaCollector.isEmpty()) {
                 if (LOG.isTraceEnabled()) LOG.trace("No changes to persist since last delta");
             } else {
                 PersisterDeltaImpl persisterDelta = new PersisterDeltaImpl();
-                
+
+                if (prevDeltaCollector.planeId != null) {
+                    persisterDelta.planeId = prevDeltaCollector.planeId;
+                }
                 for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                     for (BrooklynObject instance: prevDeltaCollector.getCollectionOfType(type)) {
                         try {
@@ -453,6 +489,14 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
         }
     }
     
+    private void updatePlaneIdIfTimedOut() {
+        if (planeIdPersistTimer.isExpired()) {
+            deltaCollector.setPlaneId(planeIdSupplier.get());
+            planeIdPersistTimer = PERSIST_PLANE_ID_PERIOD.countdownTimer();
+        }
+        
+    }
+
     private static String limitedCountString(Collection<?> items) {
         if (items==null) return null;
         int size = items.size();

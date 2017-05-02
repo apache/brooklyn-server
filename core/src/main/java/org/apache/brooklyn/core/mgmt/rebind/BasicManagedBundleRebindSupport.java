@@ -16,28 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.rest.api;
+package org.apache.brooklyn.core.mgmt.rebind;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import org.apache.brooklyn.api.mgmt.rebind.RebindContext;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
+public class BasicManagedBundleRebindSupport extends AbstractBrooklynObjectRebindSupport<ManagedBundleMemento> {
 
-@Path("/version")
-@Api("Version")
-@Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
-/** @deprecated since 0.7.0; use /server/version */
-@Deprecated
-public interface VersionApi {
+    public BasicManagedBundleRebindSupport(BasicManagedBundle mb) {
+        super(mb);
+    }
 
-  @GET
-  @ApiOperation(value = "Return version identifier information for this Brooklyn instance; deprecated, use /server/version", 
-          response = String.class,
-          responseContainer = "List")
-  public String getVersion();
+    @Override
+    protected void addConfig(RebindContext rebindContext, ManagedBundleMemento memento) {
+        // no op
+    }
+
+    @Override
+    protected void addCustoms(RebindContext rebindContext, ManagedBundleMemento memento) {
+        // no op
+    }
+    
 }

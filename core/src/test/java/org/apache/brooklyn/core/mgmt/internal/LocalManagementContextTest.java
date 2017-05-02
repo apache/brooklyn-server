@@ -23,6 +23,7 @@ import static org.testng.Assert.assertNotEquals;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.location.Location;
@@ -31,8 +32,11 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.internal.BrooklynProperties.Factory.Builder;
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.text.Strings;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -59,15 +63,21 @@ public class LocalManagementContextTest {
     
     @Test
     public void testReloadPropertiesFromBuilder() throws IOException {
-        String globalPropertiesContents = "brooklyn.location.localhost.displayName=myname";
+        String globalPropertiesContents = toMapString( LocalManagementContextForTests.builder(true)
+            .useAdditionalProperties(MutableMap.of("brooklyn.location.localhost.displayName", "myname"))
+            .buildProperties() );
         Files.write(globalPropertiesContents, globalPropertiesFile, Charsets.UTF_8);
+        
         Builder propsBuilder = BrooklynProperties.Factory.builderDefault()
             .globalPropertiesFile(globalPropertiesFile.getAbsolutePath());
         // no builder support in LocalManagementContextForTests (we are testing that the builder's files are reloaded so we need it here)
         context = new LocalManagementContext(propsBuilder);
         Location location = context.getLocationRegistry().getLocationManaged("localhost");
         assertEquals(location.getDisplayName(), "myname");
-        String newGlobalPropertiesContents = "brooklyn.location.localhost.displayName=myname2";
+        
+        String newGlobalPropertiesContents = toMapString( LocalManagementContextForTests.builder(true)
+            .useAdditionalProperties(MutableMap.of("brooklyn.location.localhost.displayName", "myname2"))
+            .buildProperties() );
         Files.write(newGlobalPropertiesContents, globalPropertiesFile, Charsets.UTF_8);
         context.reloadBrooklynProperties();
         Location location2 = context.getLocationRegistry().getLocationManaged("localhost");
@@ -75,6 +85,18 @@ public class LocalManagementContextTest {
         assertEquals(location2.getDisplayName(), "myname2");
     }
     
+    private String toMapString(BrooklynProperties buildProperties) {
+        StringBuilder s = new StringBuilder();
+        Map<String, Object> props = buildProperties.asMapWithStringKeys();
+        for (String key: props.keySet()) {
+            s.append(key);
+            s.append("=");
+            s.append(props.get(key));
+            s.append("\n");
+        }
+        return s.toString();
+    }
+
     @Test
     public void testReloadPropertiesFromProperties() throws IOException {
         String globalPropertiesContents = "brooklyn.location.localhost.displayName=myname";

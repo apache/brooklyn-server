@@ -74,13 +74,6 @@ public interface EntityApi {
             @PathParam("application") final String application,
             @PathParam("entity") final String entity);
 
-    /** @deprecated since 0.7.0 use /children */
-    @Deprecated
-    @Path("/{entity}/entities")
-    public List<EntitySummary> getChildrenOld(
-            @PathParam("application") final String application,
-            @PathParam("entity") final String entity);
-
     @POST
     @ApiOperation(value = "Add a child or children to this entity given a YAML spec",
             response = org.apache.brooklyn.rest.domain.TaskSummary.class)

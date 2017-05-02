@@ -90,7 +90,8 @@ public abstract class AbstractYamlTest {
     }
     
     protected LocalManagementContext newTestManagementContext() {
-        Builder builder = LocalManagementContextForTests.builder(true).disableOsgi(disableOsgi());
+        Builder builder = LocalManagementContextForTests.builder(true).
+            setOsgiEnablementAndReuse(!disableOsgi(), !disallowOsgiReuse());
         if (useDefaultProperties()) {
             builder.useDefaultProperties();
         }
@@ -100,6 +101,11 @@ public abstract class AbstractYamlTest {
     /** Override to enable OSGi in the management context for all tests in the class. */
     protected boolean disableOsgi() {
         return true;
+    }
+
+    /** Override to disable OSGi reuse */
+    protected boolean disallowOsgiReuse() {
+        return false;
     }
     
     protected boolean useDefaultProperties() {

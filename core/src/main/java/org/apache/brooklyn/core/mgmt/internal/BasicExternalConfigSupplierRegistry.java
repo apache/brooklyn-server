@@ -27,6 +27,7 @@ import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
@@ -90,7 +91,6 @@ public class BasicExternalConfigSupplierRegistry implements ExternalConfigSuppli
 
         String EXTERNAL_PROVIDER_PREFIX = "brooklyn.external.";
         Map<String, Object> externalProviderProperties = mgmt.getConfig().submap(ConfigPredicates.nameStartsWith(EXTERNAL_PROVIDER_PREFIX)).asMapWithStringKeys();
-        ClassLoader classloader = mgmt.getCatalogClassLoader();
         List<Exception> exceptions = new LinkedList<Exception>();
 
         for (String key : externalProviderProperties.keySet()) {
@@ -103,12 +103,13 @@ public class BasicExternalConfigSupplierRegistry implements ExternalConfigSuppli
             BrooklynProperties config = ConfigUtils.filterForPrefixAndStrip(externalProviderProperties, key + ".");
 
             try {
-                Maybe<ExternalConfigSupplier> configSupplier = Reflections.invokeConstructorFromArgs(classloader, ExternalConfigSupplier.class, providerClassname, mgmt, name, config);
+                Class<ExternalConfigSupplier> supplierClass = (Class<ExternalConfigSupplier>)new ClassLoaderUtils(this, mgmt).loadClass(providerClassname);
+                Maybe<ExternalConfigSupplier> configSupplier = Reflections.invokeConstructorFromArgs(supplierClass, mgmt, name, config);
                 if (!configSupplier.isPresent()) {
-                    configSupplier = Reflections.invokeConstructorFromArgs(classloader, ExternalConfigSupplier.class, providerClassname, mgmt, name, config.asMapWithStringKeys());
+                    configSupplier = Reflections.invokeConstructorFromArgs(supplierClass, mgmt, name, config.asMapWithStringKeys());
                 }
                 if (!configSupplier.isPresent()) {
-                    configSupplier = Reflections.invokeConstructorFromArgs(classloader, ExternalConfigSupplier.class, providerClassname, mgmt, name);
+                    configSupplier = Reflections.invokeConstructorFromArgs(supplierClass, mgmt, name);
                 }
                 if (!configSupplier.isPresent()) {
                     throw new IllegalStateException("No matching constructor found in "+providerClassname);

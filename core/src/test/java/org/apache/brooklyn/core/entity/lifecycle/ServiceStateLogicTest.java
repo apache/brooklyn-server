@@ -244,7 +244,9 @@ public class ServiceStateLogicTest extends BrooklynAppUnitTestSupport {
         // but running-quorum is still allAndAtLeastOne, so remains on-fire
         assertAttributeEqualsContinually(app, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         
-        // now add a child, it's still up and running because null values are ignored by default (i.e. we're still "empty")
+        // now add a child, not started so it doesn't say up or running or anything
+        // app should be still up and running because null values are ignored by default 
+        // (i.e. it is still "empty")
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         assertAttributeEqualsContinually(app, Attributes.SERVICE_UP, true);
         assertAttributeEqualsContinually(app, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
@@ -259,7 +261,8 @@ public class ServiceStateLogicTest extends BrooklynAppUnitTestSupport {
         appChildrenBasedEnricher.config().set(ComputeServiceIndicatorsFromChildrenAndMembers.IGNORE_ENTITIES_WITH_SERVICE_UP_NULL, false);
         assertAttributeEqualsEventually(app, Attributes.SERVICE_UP, false);
         
-        // set the entity to RUNNING and the app will be healthy again
+        // now set the entity to UP and expected RUNNING, it should go up and running, and so should app
+        ServiceNotUpLogic.updateNotUpIndicator(entity, INDICATOR_KEY_1, "Set then clear a problem to trigger SERVICE_UP enricher");
         ServiceNotUpLogic.clearNotUpIndicator(entity, INDICATOR_KEY_1);
         ServiceStateLogic.setExpectedState(entity, Lifecycle.RUNNING);
         assertAttributeEqualsEventually(app, Attributes.SERVICE_UP, true);

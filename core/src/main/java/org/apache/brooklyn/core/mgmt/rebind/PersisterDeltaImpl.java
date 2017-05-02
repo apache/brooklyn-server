@@ -22,15 +22,16 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 
+import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister.Delta;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister.MutableDelta;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EnricherMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.FeedMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.LocationMemento;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.PolicyMemento;
-import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister.Delta;
-import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister.MutableDelta;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 
 import com.google.common.annotations.Beta;
@@ -39,6 +40,8 @@ import com.google.common.collect.Sets;
 
 public class PersisterDeltaImpl implements Delta, MutableDelta {
     
+    String planeId;
+
     // use multiset?
     
     Collection<LocationMemento> locations = Sets.newLinkedHashSet();
@@ -47,13 +50,20 @@ public class PersisterDeltaImpl implements Delta, MutableDelta {
     Collection<EnricherMemento> enrichers = Sets.newLinkedHashSet();
     Collection<FeedMemento> feeds = Sets.newLinkedHashSet();
     Collection<CatalogItemMemento> catalogItems = Sets.newLinkedHashSet();
+    Collection<ManagedBundleMemento> bundles = Sets.newLinkedHashSet();
     
     Collection<String> removedLocationIds = Sets.newLinkedHashSet();
     Collection<String> removedEntityIds = Sets.newLinkedHashSet();
     Collection<String> removedPolicyIds = Sets.newLinkedHashSet();
     Collection<String> removedEnricherIds = Sets.newLinkedHashSet();
-    Collection <String> removedFeedIds = Sets.newLinkedHashSet();
+    Collection<String> removedFeedIds = Sets.newLinkedHashSet();
     Collection<String> removedCatalogItemIds = Sets.newLinkedHashSet();
+    Collection<String> removedBundleIds = Sets.newLinkedHashSet();
+    
+    @Override
+    public String planeId() {
+        return planeId;
+    }
 
     @Override
     public Collection<LocationMemento> locations() {
@@ -83,6 +93,11 @@ public class PersisterDeltaImpl implements Delta, MutableDelta {
     @Override
     public Collection<CatalogItemMemento> catalogItems() {
         return Collections.unmodifiableCollection(catalogItems);
+    }
+
+    @Override
+    public Collection<ManagedBundleMemento> bundles() {
+        return Collections.unmodifiableCollection(bundles);
     }
 
     @Override
@@ -116,6 +131,11 @@ public class PersisterDeltaImpl implements Delta, MutableDelta {
     }
 
     @Override
+    public Collection<String> removedBundleIds() {
+        return Collections.unmodifiableCollection(removedBundleIds);
+    }
+
+    @Override
     public Collection<? extends Memento> getObjectsOfType(BrooklynObjectType type) {
         return Collections.unmodifiableCollection(getMutableObjectsOfType(type));
     }
@@ -133,6 +153,7 @@ public class PersisterDeltaImpl implements Delta, MutableDelta {
         case ENRICHER: return enrichers;
         case FEED: return feeds;
         case CATALOG_ITEM: return catalogItems;
+        case MANAGED_BUNDLE: return bundles;
         case UNKNOWN: 
         default:
             throw new IllegalArgumentException(type+" not supported");
@@ -152,6 +173,7 @@ public class PersisterDeltaImpl implements Delta, MutableDelta {
         case ENRICHER: return removedEnricherIds;
         case FEED: return removedFeedIds;
         case CATALOG_ITEM: return removedCatalogItemIds;
+        case MANAGED_BUNDLE: return removedBundleIds;
         case UNKNOWN: 
         default:
             throw new IllegalArgumentException(type+" not supported");

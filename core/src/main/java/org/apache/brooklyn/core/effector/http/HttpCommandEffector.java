@@ -181,7 +181,7 @@ public final class HttpCommandEffector extends AddEffector {
                 if (contentType == null || contentType.equalsIgnoreCase(APPLICATION_JSON)) {
                     LOG.warn("Content-Type not specified. Using {}, as default (continuing)", APPLICATION_JSON);
                     body = toJsonString(payload);
-                } else if (!(payload instanceof String) && !contentType.equalsIgnoreCase(APPLICATION_JSON)) {
+                } else if (!contentType.equalsIgnoreCase(APPLICATION_JSON)) {
                     LOG.warn("the http request may fail with payload {} and 'Content-Type= {}, (continuing)", payload, contentType);
                     body = payload.toString();
                 }

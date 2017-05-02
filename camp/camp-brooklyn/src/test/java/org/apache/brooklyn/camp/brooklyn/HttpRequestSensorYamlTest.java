@@ -20,6 +20,7 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import java.net.URI;
 
+import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.Attributes;
@@ -37,7 +38,7 @@ import org.testng.annotations.Test;
 
 import com.google.common.collect.Iterables;
 
-public class HttpRequestSensorYamlTest extends AbstractYamlTest {
+public class HttpRequestSensorYamlTest extends AbstractYamlRebindTest {
     private static final Logger log = LoggerFactory.getLogger(HttpRequestSensorYamlTest.class);
 
     final static AttributeSensor<String> SENSOR_STRING = Sensors.newStringSensor("aString");
@@ -46,7 +47,7 @@ public class HttpRequestSensorYamlTest extends AbstractYamlTest {
     private TestHttpServer server;
     private String serverUrl;
 
-    @BeforeMethod(alwaysRun = true)
+    @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
@@ -86,13 +87,18 @@ public class HttpRequestSensorYamlTest extends AbstractYamlTest {
         entity.sensors().set(Attributes.SERVICE_UP, true);
 
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_STRING, "myValue");
+        
+        // Rebind, and confirm that it resumes polling
+        Application newApp = rebind();
+        Entity newEntity = Iterables.getOnlyElement(newApp.getChildren());
+
+        newEntity.sensors().set(SENSOR_STRING, "reset");
+        EntityAsserts.assertAttributeEqualsEventually(newEntity, SENSOR_STRING, "myValue");
     }
 
-    // TODO Fails trying to coerce DslConfigSupplier to String
     // See https://issues.apache.org/jira/browse/BROOKLYN-330
-    @Test(groups="Broken")
+    @Test
     public void testHttpSensorWithDeferredSuppliers() throws Exception {
-        // TODO If we fix the coercion problem, will it still fail because passing username/password?
         Entity app = createAndStartApplication(
             "services:",
             "- type: " + TestEntity.class.getName(),
@@ -119,6 +125,13 @@ public class HttpRequestSensorYamlTest extends AbstractYamlTest {
         entity.sensors().set(Attributes.SERVICE_UP, true);
 
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_STRING, "myValue");
+        
+        // Rebind, and confirm that it resumes polling
+        Application newApp = rebind();
+        Entity newEntity = Iterables.getOnlyElement(newApp.getChildren());
+
+        newEntity.sensors().set(SENSOR_STRING, "reset");
+        EntityAsserts.assertAttributeEqualsEventually(newEntity, SENSOR_STRING, "myValue");
     }
     
     @Override

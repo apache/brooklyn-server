@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.objs.BrooklynObjectType;
 
 import com.google.common.annotations.Beta;
 import com.google.common.collect.Maps;
+import com.google.common.io.ByteSource;
 
 /**
  * Represents the raw persisted data.
@@ -42,6 +43,7 @@ public class BrooklynMementoRawData {
     }
     
     public static class Builder {
+        protected String planeId;
         protected String brooklynVersion;
         protected final Map<String, String> entities = Maps.newConcurrentMap();
         protected final Map<String, String> locations = Maps.newConcurrentMap();
@@ -49,7 +51,15 @@ public class BrooklynMementoRawData {
         protected final Map<String, String> enrichers = Maps.newConcurrentMap();
         protected final Map<String, String> feeds = Maps.newConcurrentMap();
         protected final Map<String, String> catalogItems = Maps.newConcurrentMap();
-        
+        protected final Map<String, String> bundles = Maps.newConcurrentMap();
+        protected final Map<String, ByteSource> bundleJars = Maps.newConcurrentMap();
+
+        public Builder planeId(String val) {
+            planeId = val; return this;
+        }
+
+        /** @deprecated since 0.11.0; value not used */
+        @Deprecated
         public Builder brooklynVersion(String val) {
             brooklynVersion = val; return this;
         }
@@ -89,6 +99,19 @@ public class BrooklynMementoRawData {
         public Builder catalogItems(Map<String, String> vals) {
             catalogItems.putAll(vals); return this;
         }
+        public Builder bundle(String id, String val) {
+            bundles.put(id, val); return this;
+        }
+        public Builder bundles(Map<String, String> vals) {
+            bundles.putAll(vals); return this;
+        }
+        // extra call needed to store jar source
+        public Builder bundleJar(String id, ByteSource val) {
+            bundleJars.put(id, val); return this;
+        }
+        public Builder bundleJars(Map<String, ByteSource> vals) {
+            bundleJars.putAll(vals); return this;
+        }
         
         public Builder put(BrooklynObjectType type, String id, String val) {
             switch (type) {
@@ -98,6 +121,7 @@ public class BrooklynMementoRawData {
             case ENRICHER: return enricher(id, val);
             case FEED: return feed(id, val);
             case CATALOG_ITEM: return catalogItem(id, val);
+            case MANAGED_BUNDLE: return bundle(id, val);
             case UNKNOWN:
             default:
                 throw new IllegalArgumentException(type+" not supported");
@@ -111,17 +135,19 @@ public class BrooklynMementoRawData {
             case ENRICHER: return enrichers(vals);
             case FEED: return feeds(vals);
             case CATALOG_ITEM: return catalogItems(vals);
+            case MANAGED_BUNDLE: return bundles(vals);
             case UNKNOWN:
             default:
                 throw new IllegalArgumentException(type+" not supported");
             }
         }
-
+        
         public BrooklynMementoRawData build() {
             return new BrooklynMementoRawData(this);
         }
     }
 
+    private final String planeId;
     private final String brooklynVersion;
     private final Map<String, String> entities;
     private final Map<String, String> locations;
@@ -129,8 +155,11 @@ public class BrooklynMementoRawData {
     private final Map<String, String> enrichers;
     private final Map<String, String> feeds;
     private final Map<String, String> catalogItems;
+    private final Map<String, String> bundles;
+    private final Map<String, ByteSource> bundleJars;
     
     private BrooklynMementoRawData(Builder builder) {
+        planeId = builder.planeId;
         brooklynVersion = builder.brooklynVersion;
         entities = builder.entities;
         locations = builder.locations;
@@ -138,12 +167,21 @@ public class BrooklynMementoRawData {
         enrichers = builder.enrichers;
         feeds = builder.feeds;
         catalogItems = builder.catalogItems;
+        bundles = builder.bundles;
+        bundleJars = builder.bundleJars;
+    }
+
+    @Nullable
+    public String getPlaneId() {
+        return planeId;
     }
 
     /**
      * Setting the brooklyn version explicitly is optional. 
+     * @deprecated since 0.11.0; value unused and not set anywhere
      */
     @Beta
+    @Deprecated
     @Nullable
     public String getBrooklynVersion() {
         return brooklynVersion;
@@ -173,6 +211,14 @@ public class BrooklynMementoRawData {
         return Collections.unmodifiableMap(catalogItems);
     }
     
+    public Map<String, String> getBundles() {
+        return Collections.unmodifiableMap(bundles);
+    }
+    
+    public Map<String, ByteSource> getBundleJars() {
+        return Collections.unmodifiableMap(bundleJars);
+    }
+    
     // to handle reset catalog
     @Beta
     public void clearCatalogItems() {
@@ -180,7 +226,7 @@ public class BrooklynMementoRawData {
     }
     
     public boolean isEmpty() {
-        return entities.isEmpty() && locations.isEmpty() && policies.isEmpty() && enrichers.isEmpty() && feeds.isEmpty() && catalogItems.isEmpty();
+        return planeId == null && entities.isEmpty() && locations.isEmpty() && policies.isEmpty() && enrichers.isEmpty() && feeds.isEmpty() && catalogItems.isEmpty() && bundles.isEmpty();
     }
     
     public Map<String, String> getObjectsOfType(BrooklynObjectType type) {
@@ -191,8 +237,11 @@ public class BrooklynMementoRawData {
         case ENRICHER: return getEnrichers();
         case FEED: return getFeeds();
         case CATALOG_ITEM: return getCatalogItems();
+        case MANAGED_BUNDLE: return getBundles();
+        case UNKNOWN:
         default:
             throw new IllegalArgumentException("Type "+type+" not supported");
         }
     }
+
 }

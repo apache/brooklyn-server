@@ -100,6 +100,7 @@ public abstract class AbstractJcloudsStubbedUnitTest extends AbstractJcloudsLive
                 .put(SshMachineLocation.SSH_TOOL_CLASS, RecordingSshTool.class.getName())
                 .put(WinRmMachineLocation.WINRM_TOOL_CLASS, RecordingWinRmTool.class.getName())
                 .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE, Predicates.alwaysTrue())
+                .put(JcloudsLocationConfig.LOOKUP_AWS_HOSTNAME, Boolean.FALSE)
                 .build();
         final ImmutableMap.Builder<Object, Object> flags = ImmutableMap.builder()
                 .putAll(jcloudsLocationConfig);

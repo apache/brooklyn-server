@@ -38,4 +38,12 @@ public interface TestCase extends TargetableTestComponent {
             .description("Spec of entity to instantiate (and start, if startable) if the test-case fails")
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
             .build();
+
+    ConfigKey<Boolean> CONTINUE_ON_FAILURE = ConfigKeys.builder(Boolean.class)
+            .name("continueOnFailure")
+            .description("Whether to continue executing subsequent children if an earlier child fails")
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
+            .defaultValue(false)
+            .build();
+
 }

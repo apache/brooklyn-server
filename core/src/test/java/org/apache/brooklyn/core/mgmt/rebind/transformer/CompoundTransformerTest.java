@@ -169,6 +169,7 @@ public class CompoundTransformerTest extends RebindTestFixtureWithApp {
 
         // Assert has expected config/fields
         assertEquals(newApp.getId(), origApp.getId());
+        assertEquals(origManagementContext.getManagementPlaneIdMaybe(), newManagementContext.getManagementPlaneIdMaybe());
     }
     
     @Test
@@ -451,9 +452,7 @@ public class CompoundTransformerTest extends RebindTestFixtureWithApp {
         objectStore.prepareForSharedUse(PersistMode.CLEAN, HighAvailabilityMode.DISABLED);
 
         BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
-                objectStore,
-                ((ManagementContextInternal)origManagementContext).getBrooklynProperties(),
-                origManagementContext.getCatalog().getRootClassLoader());
+                objectStore, origManagementContext);
         persister.enableWriteAccess();
 
         PersistenceExceptionHandler exceptionHandler = PersistenceExceptionHandlerImpl.builder().build();

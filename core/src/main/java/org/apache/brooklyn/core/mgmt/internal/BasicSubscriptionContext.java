@@ -66,14 +66,24 @@ public class BasicSubscriptionContext implements SubscriptionContext {
         if (flags!=null) this.flags.putAll(flags);
     }
 
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     @SuppressWarnings("rawtypes")
     public <T> SubscriptionHandle subscribe(Entity producer, Sensor<T> sensor, Closure c) {
+        LOG.warn("Use of groovy.lang.Closure is deprecated in BasicSubscriptionContext.subscribe()");
         return subscribe(Collections.<String,Object>emptyMap(), producer, sensor, c);
     }
     
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     @SuppressWarnings("rawtypes")
     public <T> SubscriptionHandle subscribe(Map<String, ?> newFlags, Entity producer, Sensor<T> sensor, Closure c) {
-        return subscribe(newFlags, producer, sensor, toSensorEventListener(c));        
+        LOG.warn("Use of groovy.lang.Closure is deprecated in BasicSubscriptionContext.subscribe()");
+        return subscribe(newFlags, producer, sensor, toSensorEventListener(c));       
     }
 
     @Override
@@ -88,13 +98,23 @@ public class BasicSubscriptionContext implements SubscriptionContext {
         return manager.subscribe(subscriptionFlags, producer, sensor, listener);
     }
 
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     @SuppressWarnings("rawtypes")
     public <T> SubscriptionHandle subscribeToChildren(Entity parent, Sensor<T> sensor, Closure c) {
+        LOG.warn("Use of groovy.lang.Closure is deprecated in BasicSubscriptionContext.subscribeToChildren()");
         return subscribeToChildren(Collections.<String,Object>emptyMap(), parent, sensor, c);
     }
     
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     @SuppressWarnings("rawtypes")
     public <T> SubscriptionHandle subscribeToChildren(Map<String, Object> newFlags, Entity parent, Sensor<T> sensor, Closure c) {
+        LOG.warn("Use of groovy.lang.Closure is deprecated in BasicSubscriptionContext.subscribeToChildren()");
         return subscribeToChildren(newFlags, parent, sensor, toSensorEventListener(c));
     }
 
@@ -110,13 +130,23 @@ public class BasicSubscriptionContext implements SubscriptionContext {
         return manager.subscribeToChildren(subscriptionFlags, parent, sensor, listener);
     }
 
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     @SuppressWarnings("rawtypes")
     public <T> SubscriptionHandle subscribeToMembers(Group parent, Sensor<T> sensor, Closure c) {
+        LOG.warn("Use of groovy.lang.Closure is deprecated in BasicSubscriptionContext.subscribeToMembers()");
         return subscribeToMembers(Collections.<String,Object>emptyMap(), parent, sensor, c);
     }
 
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     @SuppressWarnings("rawtypes")
     public <T> SubscriptionHandle subscribeToMembers(Map<String, Object> newFlags, Group parent, Sensor<T> sensor, Closure c) {
+        LOG.warn("Use of groovy.lang.Closure is deprecated in BasicSubscriptionContext.subscribeToMembers()");
         return subscribeToMembers(newFlags, parent, sensor, toSensorEventListener(c));
     }
     
@@ -171,6 +201,10 @@ public class BasicSubscriptionContext implements SubscriptionContext {
         return count;
     }
     
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     @SuppressWarnings("rawtypes")
     private <T> SensorEventListener<T> toSensorEventListener(final Closure c) {
         return new SensorEventListener<T>() {

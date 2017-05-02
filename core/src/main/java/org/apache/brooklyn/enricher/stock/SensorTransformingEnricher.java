@@ -43,6 +43,10 @@ public class SensorTransformingEnricher<T,U> extends AbstractTypeTransformingEnr
         this.uniqueTag = JavaClassNames.simpleClassName(getClass())+":"+source.getName()+"*->"+target.getName();;
     }
 
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public SensorTransformingEnricher(Entity producer, Sensor<T> source, Sensor<U> target, Closure transformation) {
         this(producer, source, target, GroovyJavaMethods.functionFromClosure(transformation));
     }
@@ -51,11 +55,16 @@ public class SensorTransformingEnricher<T,U> extends AbstractTypeTransformingEnr
         this(null, source, target, transformation);
     }
 
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public SensorTransformingEnricher(Sensor<T> source, Sensor<U> target, Closure transformation) {
         this(null, source, target, GroovyJavaMethods.functionFromClosure(transformation));
     }
 
     @Override
+    @SuppressWarnings({ "rawtypes", "unchecked" })
     public void onEvent(SensorEvent event) {
         if (accept((T)event.getValue())) {
             if (target instanceof AttributeSensor)

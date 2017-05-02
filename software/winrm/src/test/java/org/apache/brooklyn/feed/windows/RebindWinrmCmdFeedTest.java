@@ -16,31 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.rest.resources;
+package org.apache.brooklyn.feed.windows;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-
-import javax.ws.rs.core.Response;
-
+import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.core.mgmt.rebind.RebindAbstractCommandFeedTest;
 import org.testng.annotations.Test;
 
-import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
-
-@Test(singleThreaded = true,
-        // by using a different suite name we disallow interleaving other tests between the methods of this test class, which wrecks the test fixtures
-        suiteName = "VersionResourceTest")
-public class VersionResourceTest extends BrooklynRestResourceTest {
+public class RebindWinrmCmdFeedTest extends RebindAbstractCommandFeedTest {
 
     @Test
-    public void testGetVersion() {
-        Response response = client().path("/version")
-                .get();
-
-        assertEquals(response.getStatus(), Response.Status.OK.getStatusCode());
-        String version = response.readEntity(String.class);
-
-        assertTrue(version.matches("^\\d+\\.\\d+\\.\\d+.*"));
+    public void testSshFeed_2017_04() throws Exception {
+        addMemento(BrooklynObjectType.FEED, "winrm-cmd-feed", "a8pno3muco");
+        rebind();
     }
 
+    @Test
+    public void testSshFeed_2017_04_withoutBundlePrefixes() throws Exception {
+        addMemento(BrooklynObjectType.FEED, "winrm-cmd-feed-no-bundle-prefixes", "akc24nlh2k");
+        rebind();
+    }
 }

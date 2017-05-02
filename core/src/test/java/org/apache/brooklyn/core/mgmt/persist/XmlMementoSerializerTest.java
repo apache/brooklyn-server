@@ -47,6 +47,7 @@ import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
@@ -84,6 +85,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
@@ -292,13 +294,17 @@ public class XmlMementoSerializerTest {
         final TestApplication app = TestApplication.Factory.newManagedInstanceForTests();
         ManagementContext managementContext = app.getManagementContext();
         try {
-            serializer.setLookupContext(new LookupContextImpl(managementContext,
-                    ImmutableList.of(app), ImmutableList.<Location>of(), ImmutableList.<Policy>of(),
-                    ImmutableList.<Enricher>of(), ImmutableList.<Feed>of(), ImmutableList.<CatalogItem<?, ?>>of(), true));
+            serializer.setLookupContext(newEmptyLookupManagementContext(managementContext, true).add(app));
             assertSerializeAndDeserialize(app);
         } finally {
             Entities.destroyAll(managementContext);
         }
+    }
+
+    private LookupContextImpl newEmptyLookupManagementContext(ManagementContext managementContext, boolean failOnDangling) {
+        return new LookupContextImpl(managementContext,
+                ImmutableList.<Entity>of(), ImmutableList.<Location>of(), ImmutableList.<Policy>of(),
+                ImmutableList.<Enricher>of(), ImmutableList.<Feed>of(), ImmutableList.<CatalogItem<?, ?>>of(), ImmutableList.<ManagedBundle>of(), failOnDangling);
     }
 
     @Test
@@ -307,9 +313,7 @@ public class XmlMementoSerializerTest {
         ManagementContext managementContext = app.getManagementContext();
         try {
             final Location loc = managementContext.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class));
-            serializer.setLookupContext(new LookupContextImpl(managementContext,
-                    ImmutableList.<Entity>of(), ImmutableList.of(loc), ImmutableList.<Policy>of(),
-                    ImmutableList.<Enricher>of(), ImmutableList.<Feed>of(), ImmutableList.<CatalogItem<?, ?>>of(), true));
+            serializer.setLookupContext(newEmptyLookupManagementContext(managementContext, true).add(loc));
             assertSerializeAndDeserialize(loc);
         } finally {
             Entities.destroyAll(managementContext);
@@ -328,9 +332,7 @@ public class XmlMementoSerializerTest {
                     .iconUrl("iconUrl")
                     .libraries(CatalogItemDtoAbstract.parseLibraries(ImmutableList.of("library-url")))
                     .build();
-            serializer.setLookupContext(new LookupContextImpl(managementContext,
-                    ImmutableList.<Entity>of(), ImmutableList.<Location>of(), ImmutableList.<Policy>of(),
-                    ImmutableList.<Enricher>of(), ImmutableList.<Feed>of(), ImmutableList.of(catalogItem), true));
+            serializer.setLookupContext(newEmptyLookupManagementContext(managementContext, true).add(catalogItem));
             assertSerializeAndDeserialize(catalogItem);
         } finally {
             Entities.destroyAll(managementContext);
@@ -374,27 +376,23 @@ public class XmlMementoSerializerTest {
     @Test
     public void testEntitySpecFromOsgi() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_V1_PATH);
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         
         RegisteredType ci = OsgiVersionMoreEntityTest.addMoreEntityV1(mgmt, "1.0");
             
         EntitySpec<DynamicCluster> spec = EntitySpec.create(DynamicCluster.class)
             .configure(DynamicCluster.INITIAL_SIZE, 1)
             .configure(DynamicCluster.MEMBER_SPEC, mgmt.getTypeRegistry().createSpec(ci, null, EntitySpec.class));
-
-        serializer.setLookupContext(new LookupContextImpl(mgmt,
-            ImmutableList.<Entity>of(), ImmutableList.<Location>of(), ImmutableList.<Policy>of(),
-            ImmutableList.<Enricher>of(), ImmutableList.<Feed>of(), ImmutableList.<CatalogItem<?,?>>of(), true));
+        
+        serializer.setLookupContext(newEmptyLookupManagementContext(mgmt, true));
         assertSerializeAndDeserialize(spec);
     }
     
     @Test
     public void testOsgiBundleNameNotIncludedForWhiteListed() throws Exception {
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
 
-        serializer.setLookupContext(new LookupContextImpl(mgmt,
-            ImmutableList.<Entity>of(), ImmutableList.<Location>of(), ImmutableList.<Policy>of(),
-            ImmutableList.<Enricher>of(), ImmutableList.<Feed>of(), ImmutableList.<CatalogItem<?,?>>of(), true));
+        serializer.setLookupContext(newEmptyLookupManagementContext(mgmt, true));
         
         Object obj = PersistMode.AUTO;
         
@@ -412,11 +410,8 @@ public class XmlMementoSerializerTest {
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
         
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
-
-        serializer.setLookupContext(new LookupContextImpl(mgmt,
-                ImmutableList.<Entity>of(), ImmutableList.<Location>of(), ImmutableList.<Policy>of(),
-                ImmutableList.<Enricher>of(), ImmutableList.<Feed>of(), ImmutableList.<CatalogItem<?,?>>of(), true));
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
+        serializer.setLookupContext(newEmptyLookupManagementContext(mgmt, true));
         
         Bundle bundle = installBundle(mgmt, bundleUrl);
         
@@ -445,16 +440,103 @@ public class XmlMementoSerializerTest {
             }
         }
     }
-    
+
+    // A sanity-check, to confirm that normal loading works (before we look at success/failure of rename tests)
+    @Test
+    public void testNoRenameOsgiClass() throws Exception {
+        String bundlePath = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH;
+        String bundleUrl = "classpath:" + bundlePath;
+        String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_OBJECT;
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
+        
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
+        Bundle bundle = installBundle(mgmt, bundleUrl);
+
+        String bundlePrefix = bundle.getSymbolicName();
+        Class<?> osgiObjectClazz = bundle.loadClass(classname);
+        Object obj = Reflections.invokeConstructorFromArgs(osgiObjectClazz, "myval").get();
+
+        serializer = new XmlMementoSerializer<Object>(mgmt.getCatalogClassLoader(),
+                ImmutableMap.<String,String>of());
+        
+        serializer.setLookupContext(newEmptyLookupManagementContext(mgmt, true));
+
+        // i.e. prepended with bundle name
+        String serializedForm = Joiner.on("\n").join(
+                "<"+bundlePrefix+":"+classname+">",
+                "  <val>myval</val>",
+                "</"+bundlePrefix+":"+classname+">");
+
+        runRenamed(serializedForm, obj, ImmutableMap.<String, String>of());
+    }
+
+    @Test
+    public void testRenamedOsgiClassMovedBundle() throws Exception {
+        String bundlePath = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH;
+        String bundleUrl = "classpath:" + bundlePath;
+        String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_OBJECT;
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
+        
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
+        Bundle bundle = installBundle(mgmt, bundleUrl);
+        
+        String oldBundlePrefix = "com.old.symbolicname";
+        
+        String bundlePrefix = bundle.getSymbolicName();
+        Class<?> osgiObjectClazz = bundle.loadClass(classname);
+        Object obj = Reflections.invokeConstructorFromArgs(osgiObjectClazz, "myval").get();
+
+        serializer = new XmlMementoSerializer<Object>(mgmt.getCatalogClassLoader(),
+                ImmutableMap.of(oldBundlePrefix + ":" + classname, bundlePrefix + ":" + classname));
+        
+        serializer.setLookupContext(newEmptyLookupManagementContext(mgmt, true));
+
+        // i.e. prepended with bundle name
+        String serializedForm = Joiner.on("\n").join(
+                "<"+bundlePrefix+":"+classname+">",
+                "  <val>myval</val>",
+                "</"+bundlePrefix+":"+classname+">");
+
+        runRenamed(serializedForm, obj, ImmutableMap.<String, String>of(
+                bundlePrefix + ":" + classname, oldBundlePrefix + ":" + classname));
+    }
+
+    @Test
+    public void testRenamedOsgiClassWithoutBundlePrefixInRename() throws Exception {
+        String bundlePath = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH;
+        String bundleUrl = "classpath:" + bundlePath;
+        String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_OBJECT;
+        String oldClassname = "com.old.package.name.OldClassName";
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
+        
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
+        Bundle bundle = installBundle(mgmt, bundleUrl);
+        
+        String bundlePrefix = bundle.getSymbolicName();
+        
+        Class<?> osgiObjectClazz = bundle.loadClass(classname);
+        Object obj = Reflections.invokeConstructorFromArgs(osgiObjectClazz, "myval").get();
+
+        serializer = new XmlMementoSerializer<Object>(mgmt.getCatalogClassLoader(),
+                ImmutableMap.of(oldClassname, classname));
+        serializer.setLookupContext(newEmptyLookupManagementContext(mgmt, true));
+
+        // i.e. prepended with bundle name
+        String serializedForm = Joiner.on("\n").join(
+                "<"+bundlePrefix+":"+classname+">",
+                "  <val>myval</val>",
+                "</"+bundlePrefix+":"+classname+">");
+
+        runRenamed(serializedForm, obj, ImmutableMap.<String, String>of(
+                bundlePrefix + ":" + classname, bundlePrefix + ":" + oldClassname));
+    }
+
     // TODO This doesn't get the bundleName - should we expect it to? Is this because of 
     // how we're using Felix? Would it also be true in Karaf?
     @Test(groups="Broken")
     public void testOsgiBundleNamePrefixIncludedForDownstreamDependency() throws Exception {
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
-
-        serializer.setLookupContext(new LookupContextImpl(mgmt,
-                ImmutableList.<Entity>of(), ImmutableList.<Location>of(), ImmutableList.<Policy>of(),
-                ImmutableList.<Enricher>of(), ImmutableList.<Feed>of(), ImmutableList.<CatalogItem<?,?>>of(), true));
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
+        serializer.setLookupContext(newEmptyLookupManagementContext(mgmt, true));
         
         // Using a guava type (which is a downstream dependency of Brooklyn)
         String bundleName = "com.goole.guava";
@@ -478,9 +560,7 @@ public class XmlMementoSerializerTest {
         final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         ManagementContext managementContext = app.getManagementContext();
         try {
-            serializer.setLookupContext(new LookupContextImpl(managementContext,
-                    ImmutableList.of(app), ImmutableList.<Location>of(), ImmutableList.<Policy>of(),
-                    ImmutableList.<Enricher>of(), ImmutableList.<Feed>of(), ImmutableList.<CatalogItem<?, ?>>of(), false));
+            serializer.setLookupContext(newEmptyLookupManagementContext(managementContext, false).add(app));
             
             List<?> resultList = serializeAndDeserialize(ImmutableList.of(app, entity));
             assertEquals(resultList, ImmutableList.of(app));
@@ -502,9 +582,7 @@ public class XmlMementoSerializerTest {
         ReffingEntity reffer = new ReffingEntity(app);
         ManagementContext managementContext = app.getManagementContext();
         try {
-            serializer.setLookupContext(new LookupContextImpl(managementContext,
-                    ImmutableList.of(app), ImmutableList.<Location>of(), ImmutableList.<Policy>of(),
-                    ImmutableList.<Enricher>of(), ImmutableList.<Feed>of(), ImmutableList.<CatalogItem<?, ?>>of(), true));
+            serializer.setLookupContext(newEmptyLookupManagementContext(managementContext, true).add(app));
             ReffingEntity reffer2 = assertSerializeAndDeserialize(reffer);
             assertEquals(reffer2.entity, app);
         } finally {
@@ -518,9 +596,7 @@ public class XmlMementoSerializerTest {
         ReffingEntity reffer = new ReffingEntity((Object)app);
         ManagementContext managementContext = app.getManagementContext();
         try {
-            serializer.setLookupContext(new LookupContextImpl(managementContext,
-                    ImmutableList.of(app), ImmutableList.<Location>of(), ImmutableList.<Policy>of(),
-                    ImmutableList.<Enricher>of(), ImmutableList.<Feed>of(), ImmutableList.<CatalogItem<?, ?>>of(), true));
+            serializer.setLookupContext(newEmptyLookupManagementContext(managementContext, true).add(app));
             ReffingEntity reffer2 = assertSerializeAndDeserialize(reffer);
             assertEquals(reffer2.obj, app);
         } finally {
@@ -588,7 +664,7 @@ public class XmlMementoSerializerTest {
         LOG.info("serializedForm=" + serializedForm);
         return (T) serializer.fromString(serializedForm);
     }
-
+    
     static class LookupContextImpl implements LookupContext {
         private final ManagementContext mgmt;
         private final Map<String, Entity> entities;
@@ -597,11 +673,13 @@ public class XmlMementoSerializerTest {
         private final Map<String, Enricher> enrichers;
         private final Map<String, Feed> feeds;
         private final Map<String, CatalogItem<?, ?>> catalogItems;
+        private final Map<String, ManagedBundle> bundles;
         private final boolean failOnDangling;
 
         LookupContextImpl(ManagementContext mgmt, Iterable<? extends Entity> entities, Iterable<? extends Location> locations,
                 Iterable<? extends Policy> policies, Iterable<? extends Enricher> enrichers, Iterable<? extends Feed> feeds,
-                Iterable<? extends CatalogItem<?, ?>> catalogItems, boolean failOnDangling) {
+                Iterable<? extends CatalogItem<?, ?>> catalogItems, Iterable<? extends ManagedBundle> bundles,
+                    boolean failOnDangling) {
             this.mgmt = mgmt;
             this.entities = Maps.newLinkedHashMap();
             this.locations = Maps.newLinkedHashMap();
@@ -609,17 +687,20 @@ public class XmlMementoSerializerTest {
             this.enrichers = Maps.newLinkedHashMap();
             this.feeds = Maps.newLinkedHashMap();
             this.catalogItems = Maps.newLinkedHashMap();
+            this.bundles = Maps.newLinkedHashMap();
             for (Entity entity : entities) this.entities.put(entity.getId(), entity);
             for (Location location : locations) this.locations.put(location.getId(), location);
             for (Policy policy : policies) this.policies.put(policy.getId(), policy);
             for (Enricher enricher : enrichers) this.enrichers.put(enricher.getId(), enricher);
             for (Feed feed : feeds) this.feeds.put(feed.getId(), feed);
             for (CatalogItem<?, ?> catalogItem : catalogItems) this.catalogItems.put(catalogItem.getId(), catalogItem);
+            for (ManagedBundle bundle : bundles) this.bundles.put(bundle.getId(), bundle);
             this.failOnDangling = failOnDangling;
         }
         LookupContextImpl(ManagementContext mgmt, Map<String,? extends Entity> entities, Map<String,? extends Location> locations,
                 Map<String,? extends Policy> policies, Map<String,? extends Enricher> enrichers, Map<String,? extends Feed> feeds,
-                Map<String, ? extends CatalogItem<?, ?>> catalogItems, boolean failOnDangling) {
+                Map<String, ? extends CatalogItem<?, ?>> catalogItems, Map<String,? extends ManagedBundle> bundles,
+                boolean failOnDangling) {
             this.mgmt = mgmt;
             this.entities = ImmutableMap.copyOf(entities);
             this.locations = ImmutableMap.copyOf(locations);
@@ -627,6 +708,7 @@ public class XmlMementoSerializerTest {
             this.enrichers = ImmutableMap.copyOf(enrichers);
             this.feeds = ImmutableMap.copyOf(feeds);
             this.catalogItems = ImmutableMap.copyOf(catalogItems);
+            this.bundles = ImmutableMap.copyOf(bundles);
             this.failOnDangling = failOnDangling;
         }
         @Override public ManagementContext lookupManagementContext() {
@@ -686,6 +768,15 @@ public class XmlMementoSerializerTest {
             }
             return null;
         }
+        @Override public ManagedBundle lookupBundle(String id) {
+            if (bundles.containsKey(id)) {
+                return bundles.get(id);
+            }
+            if (failOnDangling) {
+                throw new NoSuchElementException("no bundle with id "+id+"; contenders are "+bundles.keySet());
+            }
+            return null;
+        }
         
         @Override
         public BrooklynObject lookup(BrooklynObjectType type, String id) {
@@ -701,6 +792,7 @@ public class XmlMementoSerializerTest {
             
             switch (type) {
             case CATALOG_ITEM: return lookupCatalogItem(id);
+            case MANAGED_BUNDLE: return lookupBundle(id);
             case ENRICHER: return lookupEnricher(id);
             case ENTITY: return lookupEntity(id);
             case FEED: return lookupFeed(id);
@@ -710,6 +802,21 @@ public class XmlMementoSerializerTest {
             }
             throw new IllegalStateException("Unexpected type "+type+" / id "+id);
         }
+        
+        private Map<String,? extends BrooklynObject> getMapFor(BrooklynObjectType type) {
+            switch (type) {
+            case CATALOG_ITEM: return catalogItems;
+            case MANAGED_BUNDLE: return bundles;
+            case ENRICHER: return enrichers;
+            case ENTITY: return entities;
+            case FEED: return feeds;
+            case LOCATION: return locations;
+            case POLICY: return policies;
+            case UNKNOWN: return null;
+            }
+            throw new IllegalStateException("Unexpected type "+type);
+        }
+        
         @Override
         public BrooklynObject peek(BrooklynObjectType type, String id) {
             if (type==null) {
@@ -720,16 +827,18 @@ public class XmlMementoSerializerTest {
                 return null;
             }
             
-            switch (type) {
-            case CATALOG_ITEM: return catalogItems.get(id);
-            case ENRICHER: return enrichers.get(id);
-            case ENTITY: return entities.get(id);
-            case FEED: return feeds.get(id);
-            case LOCATION: return locations.get(id);
-            case POLICY: return policies.get(id);
-            case UNKNOWN: return null;
+            Map<String, ? extends BrooklynObject> map = getMapFor(type);
+            if (map==null) return null;
+            return map.get(id);
+        }
+        
+        @SuppressWarnings("unchecked")
+        @VisibleForTesting
+        public LookupContextImpl add(BrooklynObject object) {
+            if (object!=null) {
+                ((Map<String,BrooklynObject>) getMapFor(BrooklynObjectType.of(object))).put(object.getId(), object);
             }
-            throw new IllegalStateException("Unexpected type "+type+" / id "+id);
+            return this;
         }
     };
 

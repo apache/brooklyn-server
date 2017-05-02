@@ -51,4 +51,5 @@ public interface CatalogItemMemento extends Memento {
     boolean isDeprecated();
 
     boolean isDisabled();
+    
 }

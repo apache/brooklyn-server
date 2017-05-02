@@ -123,8 +123,14 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
     }
 
     @Override
+    @Deprecated
     public String getManagementPlaneId() {
         return (initialManagementContext == null) ? null : initialManagementContext.getManagementPlaneId();
+    }
+    
+    @Override
+    public Maybe<String> getManagementPlaneIdMaybe() {
+        return (initialManagementContext == null) ? Maybe.<String>absent("Uninitialized non-deployment management context") : initialManagementContext.getManagementPlaneIdMaybe();
     }
     
     @Override

@@ -127,7 +127,20 @@ public class JcloudsPropertiesFromBrooklynProperties extends LocationPropertiesF
     }
     
     protected String getProviderFromDefinition(String definition) {
-        return Iterables.get(Splitter.on(":").split(definition), 1);
+        // This might be passed things like:
+        // "jclouds:aws-ec2", "jclouds:aws-ec2:us-east-1", "aws-ec2:us-east1" or "aws-ec2".
+        // We try to return the right thing, but the caller usually doesn't care as it
+        // was passed the providerOrApi explicitly.
+        Iterable<String> parts = Splitter.on(":").split(definition);
+        if (Iterables.size(parts) <= 1) {
+            return definition;
+        } else if (JcloudsLocationResolver.JCLOUDS.equalsIgnoreCase(Iterables.get(parts, 0))
+                || JcloudsByonLocationResolver.BYON.equalsIgnoreCase(Iterables.get(parts, 0))) {
+            return Iterables.get(parts, 1);
+        } else {
+            return Iterables.get(parts, 0);
+        }
+        
     }
     
     private Map<String, ?> getGenericLocationKnownProperties(Map<String, ?> properties) {

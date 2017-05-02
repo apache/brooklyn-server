@@ -18,18 +18,30 @@
  */
 package org.apache.brooklyn.core.effector;
 
-import groovy.lang.Closure;
-
 import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.effector.ParameterType;
 import org.apache.brooklyn.api.entity.Entity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
+import groovy.lang.Closure;
+
+/**
+ * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted 
+ *             (currently only used via {@link #create(String, Class, List, String, Closure)}, 
+ *             so class is not deemed useful enough - extend {@link AbstractEffector} directly 
+ *             if really required).
+ */
+@Deprecated
 public abstract class ExplicitEffector<I,T> extends AbstractEffector<T> {
+    
+    private static final Logger LOG = LoggerFactory.getLogger(ExplicitEffector.class);
+
     public ExplicitEffector(String name, Class<T> type, String description) {
         this(name, type, ImmutableList.<ParameterType<?>>of(), description);
     }
@@ -46,12 +58,20 @@ public abstract class ExplicitEffector<I,T> extends AbstractEffector<T> {
     
     /** convenience to create an effector supplying a closure; annotations are preferred,
      * and subclass here would be failback, but this is offered as 
-     * workaround for bug GROOVY-5122, as discussed in test class CanSayHi 
+     * workaround for bug GROOVY-5122, as discussed in test class CanSayHi.
+     * 
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
      */
+    @Deprecated
     public static <I,T> ExplicitEffector<I,T> create(String name, Class<T> type, List<ParameterType<?>> parameters, String description, Closure body) {
+        LOG.warn("Use of groovy.lang.Closure is deprecated, in ExplicitEffector.create()");
         return new ExplicitEffectorFromClosure<I,T>(name, type, parameters, description, body);
     }
-    
+
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     private static class ExplicitEffectorFromClosure<I,T> extends ExplicitEffector<I,T> {
         private static final long serialVersionUID = -5771188171702382236L;
         final Closure<T> body;

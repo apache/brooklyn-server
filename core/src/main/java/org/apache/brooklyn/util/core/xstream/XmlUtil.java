@@ -18,8 +18,8 @@
  */
 package org.apache.brooklyn.util.core.xstream;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.StringReader;
 
 import javax.xml.namespace.QName;
 import javax.xml.parsers.DocumentBuilder;
@@ -32,6 +32,7 @@ import javax.xml.xpath.XPathFactory;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 import com.google.common.annotations.Beta;
@@ -65,7 +66,7 @@ public class XmlUtil {
     public static Object xpath(String xml, String xpath, QName returnType) {
         try {
             DocumentBuilder builder = SharedDocumentBuilder.get();
-            Document doc = builder.parse(new ByteArrayInputStream(xml.getBytes()));
+            Document doc = builder.parse(new InputSource(new StringReader(xml)));
             XPathFactory xPathfactory = XPathFactory.newInstance();
             XPathExpression expr = xPathfactory.newXPath().compile(xpath);
             
@@ -81,18 +82,22 @@ public class XmlUtil {
             throw Exceptions.propagate(e);
         }
     }
-    
-    /**
-     * Executes the given xpath on the given xml. If this fails becaues the xml is invalid
-     * (e.g. contains "&#x1b;"), then it will attempt to escape such illegal characters
-     * and try again. Note that the *escaped* values may be contained in the returned result!
-     * The escaping used is the prefix "BR_UNICODE_"; if that string is already in the xml,
-     * then it will replace that with "NOT_BR_UNICODE_".
-     */
-    @Beta
+
     public static Object xpathHandlingIllegalChars(String xml, String xpath) {
+        return xpathHandlingIllegalChars(xml, xpath, XPathConstants.STRING);
+    }
+
+        /**
+         * Executes the given xpath on the given xml. If this fails becaues the xml is invalid
+         * (e.g. contains "&#x1b;"), then it will attempt to escape such illegal characters
+         * and try again. Note that the *escaped* values may be contained in the returned result!
+         * The escaping used is the prefix "BR_UNICODE_"; if that string is already in the xml,
+         * then it will replace that with "NOT_BR_UNICODE_".
+         */
+    @Beta
+    public static Object xpathHandlingIllegalChars(String xml, String xpath, QName returnType) {
         try {
-            return xpath(xml, xpath);
+            return xpath(xml, xpath, returnType);
         } catch (Exception e) {
             SAXException saxe = Exceptions.getFirstThrowableOfType(e, SAXException.class);
             if (saxe != null && saxe.toString().contains("&#")) {
@@ -101,7 +106,7 @@ public class XmlUtil {
                 Escaper escaper = new Escaper();
                 String xmlCleaned = escaper.escape(xml);
                 try {
-                    Object result = xpath(xmlCleaned, xpath);
+                    Object result = xpath(xmlCleaned, xpath, returnType);
                     if (result instanceof String) {
                         return escaper.unescape((String)result);
                     } else {

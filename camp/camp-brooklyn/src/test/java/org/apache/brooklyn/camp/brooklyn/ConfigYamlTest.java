@@ -307,16 +307,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
         assertEquals(entity.config().get(TestEntity.CONF_SET_PLAIN), ImmutableSet.of("myOther"));
     }
     
-    /**
-     * TODO The {@code entity.config().getNonBlocking()} can return absent. When it's called with 
-     * a deferred supplier value, it will kick off a task and then wait just a few millis for that 
-     * task to execute deferredSupplier.get(). If it times out, then it returns Maybe.absent. 
-     * However, on apache jenkins the machine is often slow so the task doesn't complete in the 
-     * given number of millis (even though deferredSupplier.get() doesn't need to block for anything).
-     * Same for {@link #testDeferredSupplierToAttributeWhenReadyInSpecialTypes()}.
-     * See https://issues.apache.org/jira/browse/BROOKLYN-272.
-     */
-    @Test(groups="Broken")
+    @Test
     public void testDeferredSupplierToAttributeWhenReady() throws Exception {
         String yaml = Joiner.on("\n").join(
                 "services:",
@@ -344,17 +335,9 @@ public class ConfigYamlTest extends AbstractYamlTest {
     
     /**
      * This tests config keys of type {@link org.apache.brooklyn.core.config.MapConfigKey}, etc.
-     * For plain maps, see {@link #testDeferredSupplierToAttributeWhenReadyInPlainCollections()}.
-     * 
-     * TODO The {@code entity.config().getNonBlocking()} can return absent. When it's called with 
-     * a deferred supplier value, it will kick off a task and then wait just a few millis for that 
-     * task to execute deferredSupplier.get(). If it times out, then it returns Maybe.absent. 
-     * However, on apache jenkins the machine is often slow so the task doesn't complete in the 
-     * given number of millis (even though deferredSupplier.get() doesn't need to block for anything).
-     * Same for {@link #testDeferredSupplierToAttributeWhenReady()}.
-     * See https://issues.apache.org/jira/browse/BROOKLYN-272.
+     * For plain maps, see {@link #testDeferredSupplierToAttributeWhenReadyInPlainCollections()}
      */
-    @Test(groups="Broken")
+    @Test
     public void testDeferredSupplierToAttributeWhenReadyInSpecialTypes() throws Exception {
         String yaml = Joiner.on("\n").join(
                 "services:",
@@ -372,10 +355,10 @@ public class ConfigYamlTest extends AbstractYamlTest {
         final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
 
         // Attribute not yet set; non-blocking will return promptly without the value
-        assertTrue(entity.config().getNonBlocking(TestEntity.CONF_NAME).isAbsent());
-        assertTrue(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING).isAbsent());
-        assertTrue(entity.config().getNonBlocking(TestEntity.CONF_LIST_THING).isAbsent());
-        assertTrue(entity.config().getNonBlocking(TestEntity.CONF_SET_THING).isAbsent());
+        Asserts.assertNotPresent(entity.config().getNonBlocking(TestEntity.CONF_NAME));
+        Asserts.assertNotPresent(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING));
+        Asserts.assertNotPresent(entity.config().getNonBlocking(TestEntity.CONF_LIST_THING));
+        Asserts.assertNotPresent(entity.config().getNonBlocking(TestEntity.CONF_SET_THING));
 
         // Now set the attribute: get will return once that has happened
         executor.submit(new Callable<Object>() {
@@ -399,15 +382,8 @@ public class ConfigYamlTest extends AbstractYamlTest {
      * This tests config keys of type {@link java.util.Map}, etc.
      * For special types (e.g. {@link org.apache.brooklyn.core.config.MapConfigKey}), see 
      * {@link #testDeferredSupplierToAttributeWhenReadyInPlainCollections()}.
-     * 
-     * TODO test doesn't work because getNonBlocking returns even when no value.
-     *      For example, we get back: Present[value={mykey=attributeWhenReady("myOtherSensor")}].
-     *      However, the `config().get()` does behave as desired.
-     * 
-     * Including the "WIP" group because this test would presumably have never worked!
-     * Added to demonstrate the short-coming.
      */
-    @Test(groups={"Broken", "WIP"})
+    @Test
     public void testDeferredSupplierToAttributeWhenReadyInPlainCollections() throws Exception {
         String yaml = Joiner.on("\n").join(
                 "services:",

@@ -26,7 +26,7 @@ import static org.testng.Assert.assertTrue;
 import java.util.Collection;
 import java.util.Iterator;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -48,8 +48,11 @@ import com.google.common.collect.ImmutableSet;
 
 public class WindowsPerformanceCounterFeedTest extends BrooklynAppUnitTestSupport {
 
+    @SuppressWarnings("unused")
+    private static final Logger log = LoggerFactory.getLogger(WindowsPerformanceCounterFeedTest.class);
+
     private Location loc;
-    private EntityLocal entity;
+    private Entity entity;
 
     @BeforeMethod(alwaysRun=true)
     @Override
@@ -65,8 +68,6 @@ public class WindowsPerformanceCounterFeedTest extends BrooklynAppUnitTestSuppor
     public void tearDown() throws Exception {
         super.tearDown();
     }
-
-    private static final Logger log = LoggerFactory.getLogger(WindowsPerformanceCounterFeedTest.class);
 
     @Test
     public void testIteratorWithSingleValue() {
@@ -95,9 +96,9 @@ public class WindowsPerformanceCounterFeedTest extends BrooklynAppUnitTestSuppor
         AttributeSensor<Double> doubleSensor = Sensors.newDoubleSensor("baz.quux");
 
         Collection<WindowsPerformanceCounterPollConfig<?>> polls = ImmutableSet.<WindowsPerformanceCounterPollConfig<?>>of(
-                new WindowsPerformanceCounterPollConfig(stringSensor).performanceCounterName("\\processor information(_total)\\% processor time"),
-                new WindowsPerformanceCounterPollConfig(integerSensor).performanceCounterName("\\integer.sensor"),
-                new WindowsPerformanceCounterPollConfig(doubleSensor).performanceCounterName("\\double\\sensor\\with\\multiple\\sub\\paths")
+                new WindowsPerformanceCounterPollConfig<>(stringSensor).performanceCounterName("\\processor information(_total)\\% processor time"),
+                new WindowsPerformanceCounterPollConfig<>(integerSensor).performanceCounterName("\\integer.sensor"),
+                new WindowsPerformanceCounterPollConfig<>(doubleSensor).performanceCounterName("\\double\\sensor\\with\\multiple\\sub\\paths")
         );
 
         WindowsPerformanceCounterFeed.SendPerfCountersToSensors sendPerfCountersToSensors = new WindowsPerformanceCounterFeed.SendPerfCountersToSensors(entity, polls);

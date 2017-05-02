@@ -68,6 +68,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 
@@ -187,8 +188,6 @@ public class LocalManagementContext extends AbstractManagementContext {
         
         checkNotNull(configMap, "brooklynProperties");
         
-        // TODO in a persisted world the planeId may be injected
-        this.managementPlaneId = Strings.makeRandomId(8);
         this.managementNodeId = Strings.makeRandomId(8);
         this.builder = builder;
         this.brooklynAdditionalProperties = brooklynAdditionalProperties;
@@ -211,8 +210,29 @@ public class LocalManagementContext extends AbstractManagementContext {
     }
 
     @Override
+    @Deprecated
     public String getManagementPlaneId() {
         return managementPlaneId;
+    }
+    
+    @Override
+    public Maybe<String> getManagementPlaneIdMaybe() {
+        return Maybe.ofDisallowingNull(managementPlaneId);
+    }
+    
+    public void setManagementPlaneId(String newPlaneId) {
+        if (managementPlaneId != null && !managementPlaneId.equals(newPlaneId)) {
+            log.warn("Management plane ID at {} {} changed from {} to {} (can happen on concurrent startup of multiple nodes)", new Object[] { managementNodeId, getHighAvailabilityManager().getNodeState(), managementPlaneId, newPlaneId });
+            log.debug("Management plane ID at {} {} changed from {} to {} (can happen on concurrent startup of multiple nodes)", new Object[] {managementNodeId, getHighAvailabilityManager().getNodeState(), managementPlaneId, newPlaneId, new RuntimeException("Stack trace for setManagementPlaneId")});
+        }
+        this.managementPlaneId = newPlaneId;
+    }
+
+    public void generateManagementPlaneId() {
+        if (this.managementPlaneId != null) {
+            throw new IllegalStateException("Request to generate a management plane ID for node "+managementNodeId+" but one already exists (" + managementPlaneId + ")");
+        }
+        this.managementPlaneId = Strings.makeRandomId(8);
     }
     
     @Override
@@ -391,7 +411,8 @@ public class LocalManagementContext extends AbstractManagementContext {
 
     @Override
     public String toString() {
-        return LocalManagementContext.class.getSimpleName()+"["+getManagementPlaneId()+"-"+getManagementNodeId()+"]";
+        String planeId = MoreObjects.firstNonNull(managementPlaneId, "?");
+        return LocalManagementContext.class.getSimpleName()+"["+planeId+"-"+getManagementNodeId()+"]";
     }
 
     @Override

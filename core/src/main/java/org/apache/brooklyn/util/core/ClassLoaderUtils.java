@@ -16,6 +16,7 @@
 package org.apache.brooklyn.util.core;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoadingContextForCatalogItems;
 
 import java.net.URL;
 import java.util.List;
@@ -26,10 +27,10 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.core.LoaderDispatcher.ClassLoaderDispatcher;
@@ -39,6 +40,7 @@ import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.OsgiUtils;
+import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
@@ -48,7 +50,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 
@@ -62,7 +64,8 @@ public class ClassLoaderUtils {
      */
     static final String WHITE_LIST_KEY = "org.apache.brooklyn.classloader.fallback.bundles";
     static final String CLASS_NAME_DELIMITER = ":";
-    private static final String WHITE_LIST_DEFAULT = "org\\.apache\\.brooklyn\\..*:" + OsgiUtils.toOsgiVersion(BrooklynVersion.get());
+    private static final String WHITE_LIST_DEFAULT =
+        "org\\.apache\\.brooklyn\\..*:" + OsgiUtils.toOsgiVersion(BrooklynVersion.get());
 
     // Class.forName gets the class loader from the calling class.
     // We don't have access to the same reflection API so need to pass it explicitly.
@@ -121,7 +124,8 @@ public class ClassLoaderUtils {
      * <ul>
      *   <li>{@code <classname>}, such as {@code com.google.common.net.HostAndPort}
      *   <li>{@code <bunde-symbolicName>:<classname>}, such as {@code com.google.guava:com.google.common.net.HostAndPort}
-     *   <li>{@code <bunde-symbolicName>:<bundle-version>:<classname>}, such as {@code com.google.guava:16.0.1:com.google.common.net.HostAndPort}
+     *   <li>{@code <bunde-symbolicName>:<bundle-version>:<classname>}, such as
+     *   {@code com.google.guava:16.0.1:com.google.common.net.HostAndPort}
      * </ul>
      * 
      * The classloading order is as follows:
@@ -152,7 +156,8 @@ public class ClassLoaderUtils {
         if (cls.isPresent()) {
             return cls.get();
         } else {
-            throw new ClassNotFoundException("Class " + name + " not found on the application class path, nor in the bundle white list.", getReturnException(cls));
+            throw new ClassNotFoundException("Class " + name +
+                " not found on the application class path, nor in the bundle white list.", getReturnException(cls));
         }
     }
 
@@ -160,7 +165,8 @@ public class ClassLoaderUtils {
         try {
             return tryLoadFromBundle(ClassLoaderDispatcher.INSTANCE, symbolicName, version, className).get();
         } catch (IllegalStateException e) {
-            throw new ClassNotFoundException("Class " + className + " could not be loaded from bundle " + toBundleString(symbolicName, version), e);
+            throw new ClassNotFoundException("Class " + className + " could not be loaded from bundle "
+                + toBundleString(symbolicName, version), e);
         }
     }
 
@@ -175,7 +181,8 @@ public class ClassLoaderUtils {
     }
 
     /**
-     * Finds all the resources with the given name. Aborts going through subsequent fallbacks when it finds at least one resource.
+     * Finds all the resources with the given name.
+     * Aborts going through subsequent fallbacks when it finds at least one resource.
      * @see {@link #loadClass(String)} for loading order
      * 
      * @return empty {@link Iterable} when no resources find
@@ -197,7 +204,8 @@ public class ClassLoaderUtils {
         if (looksLikeBundledClassName(name)) {
             String[] arr = name.split(CLASS_NAME_DELIMITER);
             if (arr.length > 3) {
-                throw new IllegalStateException("'" + name + "' doesn't look like a class name and contains too many colons to be parsed as bundle:version:class triple.");
+                throw new IllegalStateException("'" + name +
+                    "' doesn't look like a class name and contains too many colons to be parsed as bundle:version:class triple.");
             } else if (arr.length == 3) {
                 symbolicName = arr[0];
                 version = arr[1];
@@ -207,7 +215,8 @@ public class ClassLoaderUtils {
                 version = null;
                 className = arr[1];
             } else {
-                throw new IllegalStateException("'" + name + "' contains a bundle:version:class delimiter, but only one of those specified");
+                throw new IllegalStateException("'" + name +
+                    "' contains a bundle:version:class delimiter, but only one of those specified");
             }
         } else {
             symbolicName = null;
@@ -220,19 +229,42 @@ public class ClassLoaderUtils {
             // Very explicit; do as we're told!
             return tryLoadFromBundle(dispatcher, symbolicName, version, className);
         }
+        
+        if (symbolicName != null) {
+            cls = tryLoadFromBundle(dispatcher, symbolicName, version, className);
+            if (cls.isPresent()) {
+                return cls;
+            }
+            Maybe<T> result = loadClass(name, dispatcher, className);
+            
+            String notFoundWithSymbolicNameMessage = "No class '"+className+"' in bundle '"+symbolicName+"' (using spec '"+name+"')";
+            if (result.isPresent()) {
+                log.warn(notFoundWithSymbolicNameMessage+"; found using deprecated no-bundle syntax, but this behaviour is deprecated and likely to be unsupported in future. Change so invalid bundle is not supplied.");
+            } else {
+                return Maybe.absent(notFoundWithSymbolicNameMessage);
+            }
+        }
 
+        return loadClass(name, dispatcher, className);
+    }
+    
+    private <T> Maybe<T> loadClass(String name, LoaderDispatcher<T> dispatcher, String className) {
+        Maybe<T> cls;
         if (entity != null && mgmt != null) {
             String catalogItemId = entity.getCatalogItemId();
             if (catalogItemId != null) {
                 CatalogItem<?, ?> item = CatalogUtils.getCatalogItemOptionalVersion(mgmt, catalogItemId);
                 if (item != null) {
-                    BrooklynClassLoadingContext loader = CatalogUtils.newClassLoadingContext(mgmt, item);
+                    BrooklynClassLoadingContextSequential loader = new BrooklynClassLoadingContextSequential(mgmt);
+                    loader.add(newClassLoadingContextForCatalogItems(mgmt, item.getCatalogItemId(),
+                        item.getCatalogItemIdSearchPath()));
                     cls = dispatcher.tryLoadFrom(loader, className);
                     if (cls.isPresent()) {
                         return cls;
                     }
                 } else {
-                    log.warn("Entity " + entity + " refers to non-existent catalog item " + catalogItemId + ". Trying to load class " + name);
+                    log.warn("Entity " + entity + " refers to non-existent catalog item " + catalogItemId +
+                        ". Trying to load class " + name);
                 }
             }
         }
@@ -254,17 +286,11 @@ public class ClassLoaderUtils {
             }
         }
 
-        if (symbolicName != null) {
-            cls = tryLoadFromBundle(dispatcher, symbolicName, version, className);
-            if (cls.isPresent()) {
-                return cls;
-            }
-        }
-
         return Maybe.absentNull();
     }
 
-    protected <T> Maybe<T> tryLoadFromBundle(LoaderDispatcher<T> dispatcher, String symbolicName, String version, String name) {
+    protected <T> Maybe<T> tryLoadFromBundle(LoaderDispatcher<T> dispatcher, String symbolicName, String version,
+                                             String name) {
         Framework framework = getFramework();
         if (framework != null) {
             Maybe<Bundle> bundle = Osgis.bundleFinder(framework)
@@ -272,10 +298,12 @@ public class ClassLoaderUtils {
                 .version(OsgiUtils.toOsgiVersion(version))
                 .find();
             if (bundle.isAbsent()) {
-                throw new IllegalStateException("Bundle " + toBundleString(symbolicName, version) + " not found to load " + name);
+                throw new IllegalStateException("Bundle " + toBundleString(symbolicName, version)
+                    + " not found to load " + name);
             }
             return dispatcher.tryLoadFrom(bundle.get(), name);
         } else {
+            log.warn("Request for bundle '"+symbolicName+"' "+(Strings.isNonBlank(version) ? "("+version+") " : "")+"will be ignored, loading '"+name+"' as no framework available");
             return dispatcher.tryLoadFrom(classLoader, name);
         }
     }
@@ -321,7 +349,8 @@ public class ClassLoaderUtils {
 
         @Override
         public boolean apply(Bundle input) {
-            return symbolicName.matcher(input.getSymbolicName()).matches() &&
+            return input.getSymbolicName() != null && input.getVersion() != null &&
+                    symbolicName.matcher(input.getSymbolicName()).matches() &&
                     (version == null || version.matcher(input.getVersion().toString()).matches());
         }
     }
@@ -349,7 +378,8 @@ public class ClassLoaderUtils {
         String symbolicName = arr[0];
         String version = null;
         if (arr.length > 2) {
-            throw new IllegalStateException("Class loading fallback bundle white list '" + whiteList + "' not in the expected format <symbolic name regex>[:<version regex>].");
+            throw new IllegalStateException("Class loading fallback bundle white list '" + whiteList +
+                "' not in the expected format <symbolic name regex>[:<version regex>].");
         } else if (arr.length == 2) {
             version = arr[1];
         }
@@ -389,7 +419,7 @@ public class ClassLoaderUtils {
     
     @Override
     public String toString() {
-        return getClass().getSimpleName() + "[" + Objects.toStringHelper(this)
+        return getClass().getSimpleName() + "[" + MoreObjects.toStringHelper(this)
             .add("claddLoader", classLoader)
             .add("entity", entity)
             .add("mgmt", mgmt) + "]";

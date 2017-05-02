@@ -26,8 +26,7 @@ package org.apache.brooklyn.util.osgi;
  * Some of these bundles are also used in REST API tests, as that stretches catalog further
  * (using CAMP) and that is one area where OSGi is heavily used. 
  */
-public class OsgiTestResources {
-
+public interface OsgiTestResources {
 
     /**
      * brooklyn-osgi-test-a_0.1.0 -
@@ -41,9 +40,12 @@ public class OsgiTestResources {
      * defines an entity and an application, to confirm it can be read and used by brooklyn
      */
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FINAL_PART = "brooklyn-test-osgi-entities";
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_VERSION = "0.1.0";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FULL =
         "org.apache.brooklyn.test.resources.osgi."+BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FINAL_PART;
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_PATH = "/brooklyn/osgi/brooklyn-test-osgi-entities.jar";
+    public static final String BROOKLYN_TEST_OSGI_MORE_ENTITIES_0_1_0_PATH = "/brooklyn/osgi/brooklyn-test-osgi-more-entities_0.1.0.jar";
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_MESSAGE_RESOURCE = "/org/apache/brooklyn/test/osgi/resources/message.txt";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_APPLICATION = "org.apache.brooklyn.test.osgi.entities.SimpleApplication";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY = "org.apache.brooklyn.test.osgi.entities.SimpleEntity";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_POLICY = "org.apache.brooklyn.test.osgi.entities.SimplePolicy";
@@ -51,6 +53,7 @@ public class OsgiTestResources {
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_OBJECT = "org.apache.brooklyn.test.osgi.entities.SimpleObject";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY_CONFIG_NAME = "simple.config";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY_SENSOR_NAME = "simple.sensor";
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_UNPREFIXED_DUMMY_EXTERNAL_CONFIG_SUPPLIER = "com.example.brooklyn.test.osgi.UnprefixedDummyExternalConfigSupplier";
 
     /**
      * brooklyn-test-com-example-osgi-entities (v 0.1.0) -
@@ -62,6 +65,9 @@ public class OsgiTestResources {
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_SYMBOLIC_NAME_FULL =
         "com.example.brooklyn.test.resources.osgi."+BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_SYMBOLIC_NAME_FINAL_PART;
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH = "/brooklyn/osgi/brooklyn-test-osgi-com-example-entities.jar";
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_URL = "classpath:"+BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH;
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_VERSION = "0.1.0";
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ICON_PATH = "/com/example/brooklyn/test/osgi/entities/icon.gif";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_APPLICATION = "com.example.brooklyn.test.osgi.entities.SimpleApplication";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ENTITY = "com.example.brooklyn.test.osgi.entities.SimpleEntity";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_POLICY = "com.example.brooklyn.test.osgi.entities.SimplePolicy";
@@ -70,6 +76,7 @@ public class OsgiTestResources {
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_OBJECT = "com.example.brooklyn.test.osgi.entities.SimpleObject";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ENTITY_CONFIG_NAME = "simple.config";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ENTITY_SENSOR_NAME = "simple.sensor";
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_PREFIXED_DUMMY_EXTERNAL_CONFIG_SUPPLIER = "com.example.brooklyn.test.osgi.PrefixedDummyExternalConfigSupplier";
 
     /**
      * brooklyn-test-osgi-more-entities_0.1.0 -
@@ -96,5 +103,14 @@ public class OsgiTestResources {
      * at runtime.
      */
     public static final String BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_PATH = "/brooklyn/osgi/" + BROOKLYN_TEST_MORE_ENTITIES_SYMBOLIC_NAME_FINAL_PART + "_evil-twin_0.2.0.jar";
+
+
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_URL = "classpath:"+OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
+
+    public static final String BROOKLYN_TEST_MORE_ENTITIES_V1_URL = "classpath:"+BROOKLYN_TEST_MORE_ENTITIES_V1_PATH;
+    public static final String BROOKLYN_TEST_MORE_ENTITIES_V2_URL = "classpath:"+BROOKLYN_TEST_MORE_ENTITIES_V2_PATH;
+    public static final String BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_URL = "classpath:"+BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_PATH;
     
+    public static final String TEST_VERSION = "0.1.0";
+
 }

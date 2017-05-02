@@ -38,8 +38,6 @@ import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
-import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
-import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindContextImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
@@ -48,11 +46,11 @@ import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.policy.TestPolicy;
 import org.apache.brooklyn.enricher.stock.Enrichers;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.testng.SkipException;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 
 import com.google.common.collect.Iterables;
 

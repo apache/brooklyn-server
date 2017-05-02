@@ -39,12 +39,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.error.YAMLException;
 
+import com.google.common.annotations.Beta;
+
 @Provider
 public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
 
     private static final Logger LOG = LoggerFactory.getLogger(DefaultExceptionMapper.class);
 
-    static Set<Class<?>> warnedUnknownExceptions = MutableSet.of();
+    static Set<Class<?>> encounteredUnknownExceptions = MutableSet.of();
+    static Set<Object> encounteredExceptionRecords = MutableSet.of();
     
     /**
      * Maps a throwable to a response.
@@ -60,7 +63,7 @@ public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
         // Don't depend on jetty, could be running in other environments as well.
         if (throwable1.getClass().getName().equals("org.eclipse.jetty.io.EofException")) {
             if (LOG.isTraceEnabled()) {
-                LOG.trace("REST request running as {} threw: {}", Entitlements.getEntitlementContext(), 
+                LOG.trace("REST request running as {} was disconnected, threw: {}", Entitlements.getEntitlementContext(), 
                         Exceptions.collapse(throwable1));
             }
             return null;
@@ -74,9 +77,7 @@ public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
             LOG.debug("REST request running as {} threw: {}", Entitlements.getEntitlementContext(), 
                 Exceptions.collapse(throwable1));            
         }
-        if (LOG.isTraceEnabled()) {
-            LOG.trace("Full details of "+Entitlements.getEntitlementContext()+" "+throwable1, throwable1);
-        }
+        logExceptionDetailsForDebugging(throwable1);
 
         // Some methods will throw this, which gets converted automatically
         if (throwable2 instanceof WebApplicationException) {
@@ -103,7 +104,7 @@ public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
         }
 
         if (!Exceptions.isPrefixBoring(throwable2)) {
-            if ( warnedUnknownExceptions.add( throwable2.getClass() )) {
+            if ( encounteredUnknownExceptions.add( throwable2.getClass() )) {
                 LOG.warn("REST call generated exception type "+throwable2.getClass()+" unrecognized in "+getClass()+" (subsequent occurrences will be logged debug only): " + throwable2, throwable2);
             }
         }
@@ -120,6 +121,32 @@ public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
         return rb.build().asResponse(Status.INTERNAL_SERVER_ERROR, MediaType.APPLICATION_JSON_TYPE);
     }
     
+    /** Logs full details at trace, unless it is the first time we've seen this in which case it is debug */
+    @Beta
+    public static void logExceptionDetailsForDebugging(Throwable t) {
+        if (LOG.isDebugEnabled()) {
+            if (firstEncounter(t)) {
+                // include debug trace for everything the first time we get one
+                LOG.debug("Full details of "+Entitlements.getEntitlementContext()+" "+t+" (logging debug on first encounter; subsequent instances will be logged trace)", t);
+            } else if (LOG.isTraceEnabled()) {
+                LOG.trace("Full details of "+Entitlements.getEntitlementContext()+" "+t, t);
+            }
+        }
+    }
+        
+    private static boolean firstEncounter(Throwable t) {
+        Set<Object> record = MutableSet.of();
+        while (true) {
+            record.add(t.getClass());
+            if (t.getStackTrace().length>0) {
+                if (record.add(t.getStackTrace()[0])) break;
+            }
+            t = t.getCause();
+            if (t==null) break;
+        }
+        return encounteredExceptionRecords.add(record);
+    }
+
     protected boolean isSevere(Throwable t) {
         // some things, like this, we want more prominent server notice of
         // (the list could be much larger but this is a start)

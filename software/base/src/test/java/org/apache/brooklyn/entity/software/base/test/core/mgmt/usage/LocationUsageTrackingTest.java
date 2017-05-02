@@ -36,7 +36,6 @@ import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.mgmt.usage.LocationUsage;
 import org.apache.brooklyn.core.mgmt.usage.LocationUsage.LocationEvent;
 import org.apache.brooklyn.core.mgmt.usage.RecordingUsageListener;
-import org.apache.brooklyn.core.mgmt.usage.UsageListener.LocationMetadata;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
@@ -82,15 +81,8 @@ public class LocationUsageTrackingTest extends BrooklynAppUnitTestSupport {
         Asserts.succeedsEventually(new Runnable() {
             @Override public void run() {
                 List<List<?>> events = listener.getLocationEvents();
-                LocationMetadata locMetadata = (LocationMetadata) events.get(0).get(1);
-                LocationEvent locEvent = (LocationEvent) events.get(0).get(2);
-                
                 assertEquals(events.size(), 1, "events="+events);
-                assertEquals(locMetadata.getLocation(), machine, "events="+events);
-                assertEquals(locMetadata.getLocationId(), machine.getId(), "events="+events);
-                assertNotNull(locMetadata.getMetadata(), "events="+events);
-                assertEquals(locEvent.getApplicationId(), app.getId(), "events="+events);
-                assertEquals(locEvent.getState(), Lifecycle.CREATED, "events="+events);
+                listener.assertLocEvent(0, machine, app, Lifecycle.CREATED, "events="+events);
             }});
 
         // Remove the listener; will get no more notifications

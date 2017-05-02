@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;
+import com.google.common.io.ByteSource;
 
 /**
  * Interface for working with persistence targets, including file system and jclouds object stores.
@@ -42,6 +43,7 @@ public interface PersistenceObjectStore {
         byte[] getBytes();
         boolean exists();
         void put(String contentsToReplaceOrCreate);
+        void put(ByteSource bytes);
         void append(String contentsToAppendOrCreate);
         void delete();
         // NB: creation date is available for many blobstores but 

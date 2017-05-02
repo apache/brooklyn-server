@@ -19,6 +19,7 @@
 package org.apache.brooklyn.entity.software.base.lifecycle;
 
 import org.apache.brooklyn.entity.software.base.DoNothingWinRmSoftwareProcessDriver;
+import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -42,7 +43,7 @@ public class WinRmExecuteHelperUnitTest {
     @Test
     public void testNonZeroExitCode() {
         DoNothingWinRmSoftwareProcessDriver nativeWindowsScriptRunner = mock(DoNothingWinRmSoftwareProcessDriver.class);
-        when(nativeWindowsScriptRunner.executeNativeOrPsCommand(any(Map.class), any(String.class), any(String.class), any(String.class), any(Boolean.class))).thenReturn(1);
+        when(nativeWindowsScriptRunner.executeNativeOrPsCommand(any(Map.class), any(String.class), Mockito.<String>isNull(), any(String.class), any(Boolean.class))).thenReturn(1);
 
         WinRmExecuteHelper scriptHelper = new WinRmExecuteHelper(nativeWindowsScriptRunner, "test-zero-code-task")
                 .setCommand(NON_ZERO_CODE_COMMAND);
@@ -52,7 +53,7 @@ public class WinRmExecuteHelperUnitTest {
     @Test(expectedExceptions = IllegalStateException.class)
     public void testNonZeroExitCodeException() {
         DoNothingWinRmSoftwareProcessDriver nativeWindowsScriptRunner = mock(DoNothingWinRmSoftwareProcessDriver.class);
-        when(nativeWindowsScriptRunner.executeNativeOrPsCommand(any(Map.class), any(String.class), any(String.class), any(String.class), any(Boolean.class))).thenReturn(1);
+        when(nativeWindowsScriptRunner.executeNativeOrPsCommand(any(Map.class), any(String.class), Mockito.<String>isNull(), any(String.class), any(Boolean.class))).thenReturn(1);
 
         WinRmExecuteHelper scriptHelper = new WinRmExecuteHelper(nativeWindowsScriptRunner, "test-zero-code-task")
                 .failOnNonZeroResultCode()

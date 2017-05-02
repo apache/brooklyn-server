@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,11 +41,14 @@ import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.base.Function;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 /**
  * Pattern for resolving "decorations" on service specs / entity specs, such as policies, enrichers, etc.
@@ -254,7 +259,49 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
 
         @Override
         protected void addDecorationFromJsonMap(Map<?, ?> decorationJson, List<SpecParameter<?>> decorations) {
-            throw new IllegalStateException("Not called");
+            throw new UnsupportedOperationException("SpecParameterResolver.addDecorationFromJsonMap should never be called.");
+        }
+    }
+
+    public static class TagsResolver extends BrooklynEntityDecorationResolver<Iterable<Object>> {
+        protected TagsResolver(BrooklynYamlTypeInstantiator.Factory instantiator) {
+            super(instantiator);
+        }
+
+        @Override
+        public void decorate(EntitySpec<?> entitySpec, ConfigBag attrs, Set<String> encounteredRegisteredTypeIds) {
+            Iterable<Object> decorationAttributeJsonValue = getDecorationAttributeJsonValue(attrs);
+            if (decorationAttributeJsonValue != null) {
+                entitySpec.tagsAdd(decorationAttributeJsonValue);
+            }
+        }
+
+        @Override
+        protected String getDecorationKind() {
+            return "Brooklyn Tags";
+        }
+
+        @Override
+        protected Iterable<Object> getDecorationAttributeJsonValue(ConfigBag attrs) {
+            Object brooklynTags = attrs.getStringKey(BrooklynCampReservedKeys.BROOKLYN_TAGS);
+            if (brooklynTags == null) {
+                return null;
+            } else if (!(brooklynTags instanceof List)) {
+                throw new IllegalArgumentException(BrooklynCampReservedKeys.BROOKLYN_TAGS + " should be a List of String elements. You supplied " + brooklynTags);
+            } else {
+                checkArgument(Iterables.all((List) brooklynTags, new Predicate() {
+                    @Override
+                    public boolean apply(Object input) {
+                        return !(input instanceof DeferredSupplier);
+                    }
+                }), BrooklynCampReservedKeys.BROOKLYN_TAGS + " should not contain DeferredSupplier. A DeferredSupplier is made when using $brooklyn:attributeWhenReady. You supplied " + brooklynTags);
+                return (List)brooklynTags;
+            }
+        }
+
+        @Override
+        protected void addDecorationFromJsonMap(Map<?, ?> decorationJson, List<Iterable<Object>> decorations) {
+            throw new UnsupportedOperationException("TagsResolver.addDecorationFromJsonMap should never be called.");
         }
     }
 }

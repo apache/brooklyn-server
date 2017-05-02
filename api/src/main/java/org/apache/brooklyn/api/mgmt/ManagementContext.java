@@ -58,6 +58,14 @@ public interface ManagementContext {
     //  - interface PropertiesReloadListener
     
     /** 
+     * As {@link #getManagementPlaneIdMaybe()}, but throws if not available, to prevent callers accessing prematurely.
+     * 
+     * @deprecated since 0.11.0, use {@link #getManagementPlaneIdMaybe()} instead.
+     */
+    @Deprecated
+    String getManagementPlaneId();
+
+    /**
      * UID for the Brooklyn management plane which this {@link ManagementContext} node is a part of.
      * <p>
      * Each Brooklyn entity is actively managed by a unique management plane 
@@ -66,16 +74,22 @@ public interface ManagementContext {
      * In other words the value of {@link Application#getManagementContext()#getManagementPlaneId()} 
      * will generally be constant (in contrast to {@link #getManagementNodeId()}).
      * <p>
-     * This value should not be null unless the management context is a non-functional
-     * (non-deployment) instance. */
-    String getManagementPlaneId();
+     * Returns absent while the management context is still initialising. The value is set:
+     * <ul>
+     *   <li>no persistence - during launch
+     *   <li>persistence enabled, HA disabled - on rebind (during launch)
+     *   <li>persistence enabled, HA enabled - on the first HA state check (async to launch)
+     * </ul>
+     */
+    Maybe<String> getManagementPlaneIdMaybe();
     
     /** 
      * UID for this {@link ManagementContext} node (as part of a single management plane).
      * <p>
      * No two instances of {@link ManagementContext} should ever have the same node UID. 
      * The value of {@link Application#getManagementContext()#getManagementNodeId()} may
-     * change many times (in contrast to {@link #getManagementPlaneId()}). 
+     * change if it is rebinded to a different node,
+     * in contrast to {@link #getManagementPlaneIdMaybe()} which is the same for all nodes in a Brooklyn plane. 
      * <p>
      * This value should not be null unless the management context is a non-functional
      * (non-deployment) instance. */

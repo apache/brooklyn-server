@@ -61,7 +61,7 @@ public class JcloudsExpect100ContinueTest {
         mgmt = new LocalManagementContextForTests(BrooklynProperties.Factory.newDefault());
         JcloudsLocation jcloudsLocation = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged(LOCATION_SPEC);
         
-        context = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(jcloudsLocation.config().getBag());
+        context = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(jcloudsLocation);
 
         containerName = BlobStoreTest.CONTAINER_PREFIX+"-"+Identifiers.makeRandomId(8);
         context.getBlobStore().createContainerInLocation(null, containerName);

@@ -38,6 +38,7 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.EnricherMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.FeedMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.LocationMemento;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.PolicyMemento;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -48,6 +49,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.AttributeSensor.SensorPersistenceMode;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemDo;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
@@ -111,6 +113,8 @@ public class MementosGenerators {
             return newFeedMemento((Feed)instance);
         } else if (instance instanceof CatalogItem) {
             return newCatalogItemMemento((CatalogItem<?,?>) instance);
+        } else if (instance instanceof ManagedBundle) {
+            return newManagedBundleMemento((ManagedBundle) instance);
         } else {
             throw new IllegalArgumentException("Unexpected brooklyn type: "+(instance == null ? "null" : instance.getClass())+" ("+instance+")");
         }
@@ -182,7 +186,7 @@ public class MementosGenerators {
         builder.isTopLevelApp = (entity instanceof Application && entity.getParent() == null);
 
         builder.configKeys.addAll(entity.getEntityType().getConfigKeys());
-        
+
         Map<ConfigKey<?>, ?> localConfig = entity.config().getAllLocalRaw();
         for (Map.Entry<ConfigKey<?>, ?> entry : localConfig.entrySet()) {
             ConfigKey<?> key = checkNotNull(entry.getKey(), localConfig);
@@ -442,16 +446,26 @@ public class MementosGenerators {
         return builder.build();
     }
     
+    private static ManagedBundleMemento newManagedBundleMemento(ManagedBundle bundle) {
+        BasicManagedBundleMemento.Builder builder = BasicManagedBundleMemento.builder();
+        populateBrooklynObjectMementoBuilder(bundle, builder);
+        builder.url(bundle.getUrl())
+            .symbolicName(bundle.getSymbolicName())
+            .version(bundle.getVersion());
+        return builder.build();
+    }
+    
     private static void populateBrooklynObjectMementoBuilder(BrooklynObject instance, AbstractMemento.Builder<?> builder) {
         if (Proxy.isProxyClass(instance.getClass())) {
             throw new IllegalStateException("Attempt to create memento from proxy "+instance+" (would fail with wrong type)");
         }
         OsgiClassPrefixer prefixer = new OsgiClassPrefixer();
         Optional<String> typePrefix = prefixer.getPrefix(instance.getClass());
-        
+
         builder.id = instance.getId();
         builder.displayName = instance.getDisplayName();
         builder.catalogItemId = instance.getCatalogItemId();
+        builder.searchPath = instance.getCatalogItemIdSearchPath();
         builder.type = (typePrefix.isPresent() ? typePrefix.get() : "") + instance.getClass().getName();
         builder.typeClass = instance.getClass();
         if (instance instanceof EntityAdjunct) {

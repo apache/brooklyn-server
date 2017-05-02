@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
@@ -101,7 +102,8 @@ public class CompoundTransformer {
             return xsltTransformer(xslt);
         }
 
-        /** Discards and replaces the item at the given XPath.
+        /**
+         * Discards and replaces the item at the given XPath.
          * <p>
          * For example to replace all occurrences 
          * of text "foo" inside a tag "Tag1", you can use <code>TagName/text()[.='foo']</code>;
@@ -118,7 +120,15 @@ public class CompoundTransformer {
                     + newValue
                 + "</xsl:template>");
         }
-        
+
+        /**
+         * Discards the item at the given XPath.
+         */
+        public Builder xmlDeleteItem(String xpathToMatch) {
+            return xsltTransformerRecursiveCopyWithExtraRules(
+                "<xsl:template match=\"" + xpathToMatch + "\"></xsl:template>");
+        }
+
         /** 
          * Replaces a tag, but while continuing to recurse.
          */
@@ -179,21 +189,29 @@ public class CompoundTransformer {
         }
         /** Changes the contents of an XML tag 'catalogItemId' where the
          * old text matches oldSymbolicName and optionally oldVersion
-         * to have newSymbolicName and newVersion. 
+         * to have newSymbolicName and newVersion.
          * <p>
+         * Also changes contents of elements within a list of 'catalogItemIdSearchPath' e.g.
+         * <pre>
+         *     &lt;catalogItemIdSearchPath>
+         *        &lt;string>one&lt;/string>
+         *        &lt;string>two&lt;/string>
+         *     &lt;/catalogItemIdSearchPath>
+         * </pre>
+         * </p>
          * This provides a programmatic way to change the catalogItemID. */
         public Builder changeCatalogItemId(String oldSymbolicName, String oldVersion,
                 String newSymbolicName, String newVersion) {
             if (oldVersion==null)
                 return changeCatalogItemId(oldSymbolicName, newSymbolicName, newVersion);
             // warnings use underscore notation because that's what CompoundTransformerLoader uses
-            return xmlReplaceItem("catalogItemId/text()[.='"+
+            return xmlReplaceItem("*[self::catalogItemId|parent::catalogItemIdSearchPath]/text()[.='"+
                 Preconditions.checkNotNull(oldSymbolicName, "old_symbolic_name")+":"+Preconditions.checkNotNull(oldVersion, "old_version")+"']", 
                 Preconditions.checkNotNull(newSymbolicName, "new_symbolic_name")+":"+Preconditions.checkNotNull(newVersion, "new_version"));
         }
         /** As {@link #changeCatalogItemId(String, String, String, String)} matching any old version. */
         public Builder changeCatalogItemId(String oldSymbolicName, String newSymbolicName, String newVersion) {
-            return xmlReplaceItem("catalogItemId/text()[starts-with(.,'"+Preconditions.checkNotNull(oldSymbolicName, "old_symbolic_name")+":')]", 
+            return xmlReplaceItem("*[self::catalogItemId|parent::catalogItemIdSearchPath]/text()[starts-with(.,'"+Preconditions.checkNotNull(oldSymbolicName, "old_symbolic_name")+":')]",
                 Preconditions.checkNotNull(newSymbolicName, "new_symbolic_name")+":"+Preconditions.checkNotNull(newVersion, "new_version"));
         }
 
@@ -234,7 +252,7 @@ public class CompoundTransformer {
         deletions = builder.deletions;
     }
 
-    public BrooklynMementoRawData transform(BrooklynMementoPersisterToObjectStore reader, RebindExceptionHandler exceptionHandler) throws Exception {
+    public BrooklynMementoRawData transform(BrooklynMementoPersister reader, RebindExceptionHandler exceptionHandler) throws Exception {
         BrooklynMementoRawData rawData = reader.loadMementoRawData(exceptionHandler);
         return transform(rawData);
     }
@@ -246,6 +264,7 @@ public class CompoundTransformer {
         Map<String, String> enrichers = MutableMap.copyOf(rawData.getEnrichers());
         Map<String, String> feeds = MutableMap.copyOf(rawData.getFeeds());
         Map<String, String> catalogItems = MutableMap.copyOf(rawData.getCatalogItems());
+        Map<String, String> bundles = MutableMap.copyOf(rawData.getBundles());
 
         // TODO @neykov asks whether transformers should be run in registration order,
         // rather than in type order.  TBD.  (would be an easy change.)
@@ -303,6 +322,14 @@ public class CompoundTransformer {
                 }
                 catalogItems.keySet().removeAll(itemsToDelete);
                 break;
+            case MANAGED_BUNDLE:
+                missing = Sets.difference(itemsToDelete, bundles.keySet());
+                if (missing.size() > 0) {
+                    LOG.warn("Unable to delete " + type + " id"+Strings.s(missing.size())+" ("+missing+"), "
+                            + "because not found in persisted state (continuing)");
+                }
+                bundles.keySet().removeAll(itemsToDelete);
+                break;
             case UNKNOWN:
                 break; // no-op
             default:
@@ -344,6 +371,11 @@ public class CompoundTransformer {
                             entry.setValue(transformer.transform(entry.getValue()));
                         }
                         break;
+                    case MANAGED_BUNDLE:
+                        for (Map.Entry<String, String> entry : bundles.entrySet()) {
+                            entry.setValue(transformer.transform(entry.getValue()));
+                        }
+                        break;
                     case UNKNOWN:
                         break; // no-op
                     default:
@@ -353,12 +385,14 @@ public class CompoundTransformer {
         }
         
         return BrooklynMementoRawData.builder()
+                .planeId(rawData.getPlaneId())
                 .entities(entities)
                 .locations(locations)
                 .policies(policies)
                 .enrichers(enrichers)
                 .feeds(feeds)
                 .catalogItems(catalogItems)
+                .bundles(bundles)
                 .build();
     }
     

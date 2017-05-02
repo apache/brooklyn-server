@@ -62,6 +62,12 @@ public class CmdFeed extends AbstractCommandFeed {
         return new CmdFeed.Builder();
     }
 
+    /**
+     * For rebind; do not call directly; use builder
+     */
+    public CmdFeed() {
+    }
+
     protected CmdFeed(final Builder builder) {
         super(builder);
     }

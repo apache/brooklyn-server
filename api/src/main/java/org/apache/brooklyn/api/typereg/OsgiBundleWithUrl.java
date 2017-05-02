@@ -26,7 +26,7 @@ public interface OsgiBundleWithUrl {
     public String getSymbolicName();
     public String getVersion();
     
-    /** where this bundle can be downloaded; typically required unless we are guaranteed the bundle will be manually installed */
+    /** where this bundle can be downloaded; typically required unless we are guaranteed the bundle will be manually installed or handled by persistence */
     public String getUrl();
     
     /** @return true if we have a name and version for this bundle;

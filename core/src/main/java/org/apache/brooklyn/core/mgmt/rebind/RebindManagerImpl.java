@@ -52,8 +52,8 @@ import org.apache.brooklyn.core.mgmt.ha.HighAvailabilityManagerImpl;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
-import org.apache.brooklyn.core.mgmt.persist.PersistenceActivityMetrics;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils.CreateBackupMode;
+import org.apache.brooklyn.core.mgmt.persist.PersistenceActivityMetrics;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -72,6 +72,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Supplier;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -131,6 +132,7 @@ public class RebindManagerImpl implements RebindManager {
     final boolean persistEnrichersEnabled;
     final boolean persistFeedsEnabled;
     final boolean persistCatalogItemsEnabled;
+    final boolean persistBundlesEnabled;
     
     private RebindFailureMode danglingRefFailureMode;
     private RebindFailureMode rebindFailureMode;
@@ -169,6 +171,13 @@ public class RebindManagerImpl implements RebindManager {
             rebinding.set(Boolean.TRUE);
         }
     }
+    
+    private class PlaneIdSupplier implements Supplier<String> {
+        @Override
+        public String get() {
+            return managementContext.getManagementPlaneIdMaybe().orNull();
+        }
+    }
 
     public RebindManagerImpl(ManagementContextInternal managementContext) {
         this.managementContext = managementContext;
@@ -177,6 +186,7 @@ public class RebindManagerImpl implements RebindManager {
         this.persistPoliciesEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_POLICY_PERSISTENCE_PROPERTY);
         this.persistEnrichersEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_ENRICHER_PERSISTENCE_PROPERTY);
         this.persistFeedsEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_FEED_PERSISTENCE_PROPERTY);
+        this.persistBundlesEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_CATALOG_PERSISTENCE_PROPERTY);
         this.persistCatalogItemsEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_CATALOG_PERSISTENCE_PROPERTY);
 
         danglingRefFailureMode = managementContext.getConfig().getConfig(DANGLING_REFERENCE_FAILURE_MODE);
@@ -238,7 +248,13 @@ public class RebindManagerImpl implements RebindManager {
         
         this.persistenceStoreAccess = checkNotNull(val, "persister");
         
-        this.persistenceRealChangeListener = new PeriodicDeltaChangeListener(managementContext.getServerExecutionContext(), persistenceStoreAccess, exceptionHandler, persistMetrics, periodicPersistPeriod);
+        this.persistenceRealChangeListener = new PeriodicDeltaChangeListener(
+                new PlaneIdSupplier(),
+                managementContext.getServerExecutionContext(),
+                persistenceStoreAccess,
+                exceptionHandler,
+                persistMetrics,
+                periodicPersistPeriod);
         this.persistencePublicChangeListener = new SafeChangeListener(persistenceRealChangeListener);
         
         if (persistenceRunning) {
@@ -278,7 +294,6 @@ public class RebindManagerImpl implements RebindManager {
         LOG.debug("Stopped rebind (persistence), mgmt "+managementContext.getManagementNodeId());
     }
     
-    @SuppressWarnings("unchecked")
     @Override
     public void startReadOnly(final ManagementNodeState mode) {
         if (!ManagementNodeState.isHotProxy(mode)) {

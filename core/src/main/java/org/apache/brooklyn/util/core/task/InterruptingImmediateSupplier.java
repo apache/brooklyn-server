@@ -59,10 +59,13 @@ public class InterruptingImmediateSupplier<T> implements ImmediateSupplier<T>, D
             if (!interrupted) Thread.currentThread().interrupt();
             return Maybe.ofAllowingNull(get());
         } catch (Throwable t) {
+            if (Exceptions.getFirstThrowableOfType(t, ImmediateValueNotAvailableException.class)!=null) {
+                return Maybe.absent(Exceptions.getFirstThrowableOfType(t, ImmediateValueNotAvailableException.class));
+            }
             if (Exceptions.getFirstThrowableOfType(t, InterruptedException.class)!=null || 
                     Exceptions.getFirstThrowableOfType(t, RuntimeInterruptedException.class)!=null || 
                     Exceptions.getFirstThrowableOfType(t, CancellationException.class)!=null) {
-                return Maybe.absent(new UnsupportedOperationException("Immediate value not available", t));
+                return Maybe.absent(new ImmediateValueNotAvailableException("Immediate value not available, required non-blocking execution", t));
             }
             throw Exceptions.propagate(t);
         } finally {
@@ -107,7 +110,7 @@ public class InterruptingImmediateSupplier<T> implements ImmediateSupplier<T>, D
         }
     }
 
-    public static class InterruptingImmediateSupplierNotSupportedForObject extends UnsupportedOperationException {
+    public static class InterruptingImmediateSupplierNotSupportedForObject extends ImmediateUnsupportedException {
         private static final long serialVersionUID = 307517409005386500L;
 
         public InterruptingImmediateSupplierNotSupportedForObject(Object o) {

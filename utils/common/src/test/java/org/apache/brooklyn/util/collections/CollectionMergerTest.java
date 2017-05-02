@@ -19,6 +19,7 @@
 package org.apache.brooklyn.util.collections;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 
 import java.io.StringReader;
 import java.util.Map;
@@ -403,6 +404,18 @@ public class CollectionMergerTest {
         assertEquals(resultShallow, resultDepth1);
     }
 
+    @Test
+    public void testRefEquals() {
+        String val = new String("a"); // using `new` to ensure it really is a new object
+        String val2 = new String("a");
+        CollectionMerger.Visited.Ref ref1 = new CollectionMerger.Visited.Ref(val);
+        CollectionMerger.Visited.Ref ref1b = new CollectionMerger.Visited.Ref(val);
+        CollectionMerger.Visited.Ref ref2 = new CollectionMerger.Visited.Ref(val2);
+        
+        assertEquals(ref1, ref1b);
+        assertNotEquals(ref1, ref2);
+    }
+    
     protected Iterable<?> parseYaml(String yaml) {
         return new Yaml().loadAll(new StringReader(yaml));
     }

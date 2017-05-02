@@ -27,6 +27,7 @@ import static org.testng.Assert.fail;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -36,6 +37,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshException;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshToolAbstractIntegrationTest;
@@ -166,6 +168,28 @@ public class SshjToolIntegrationTest extends SshToolAbstractIntegrationTest {
                 "host", "localhost", 
                 SshjTool.PROP_LOCAL_TEMP_DIR.getName(), customRelativeTempDir));
         assertEquals(localtool3.getLocalTempDir(), new File(Os.tidyPath(customRelativeTempDir)));
+    }
+
+    // This is just a sanity check - we actually expect passwordless sudo to work, and the
+    // "dummypa55w0rd" to not be right. It will supply that password to sudo's stdin, which
+    // doesn't require it and ignores it. To really integration-test this, we'd probably have  
+    // to create a new user with sudo-with-password rights, and delete it in tearDown which 
+    // seems overkill for testing!
+    @Test(groups = {"Integration"})
+    public void testRunAsRootWithAuthSudo() {
+        final ShellTool localtool = newTool();
+        connect(localtool);
+        Map<String,Object> props = new LinkedHashMap<String, Object>();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        props.put("out", out);
+        props.put("err", err);
+        props.put(SshTool.PROP_RUN_AS_ROOT.getName(), true);
+        props.put(SshTool.PROP_AUTH_SUDO.getName(), true);
+        props.put(SshTool.PROP_PASSWORD.getName(), "dummypa55w0rd");
+        int exitcode = localtool.execScript(props, Arrays.asList("whoami"), null);
+        assertTrue(out.toString().contains("root"), "not running as root; whoami is: "+out+" (err is '"+err+"')");
+        assertEquals(0, exitcode);
     }
 
     @Test(groups = {"Integration"})

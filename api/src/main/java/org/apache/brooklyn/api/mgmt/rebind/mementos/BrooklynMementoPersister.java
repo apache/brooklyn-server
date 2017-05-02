@@ -37,6 +37,7 @@ import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;
@@ -56,6 +57,7 @@ public interface BrooklynMementoPersister {
         Enricher lookupEnricher(String id);
         Feed lookupFeed(String id);
         CatalogItem<?, ?> lookupCatalogItem(String id);
+        ManagedBundle lookupBundle(String id);
         
         /** retrieve the item with the given ID, optionally ensuring it is of the indicated type; null if not found */
         BrooklynObject lookup(@Nullable BrooklynObjectType type, String objectId);
@@ -110,12 +112,15 @@ public interface BrooklynMementoPersister {
     /** All methods on this interface are unmodifiable by the caller. Sub-interfaces may introduce modifiers. */
     // NB: the type-specific methods aren't actually used anymore; we could remove them to simplify the impl (and use a multiset there)
     public interface Delta {
+        String planeId();
+
         Collection<LocationMemento> locations();
         Collection<EntityMemento> entities();
         Collection<PolicyMemento> policies();
         Collection<EnricherMemento> enrichers();
         Collection<FeedMemento> feeds();
         Collection<CatalogItemMemento> catalogItems();
+        Collection<ManagedBundleMemento> bundles();
         
         Collection<String> removedLocationIds();
         Collection<String> removedEntityIds();
@@ -123,6 +128,7 @@ public interface BrooklynMementoPersister {
         Collection<String> removedEnricherIds();
         Collection<String> removedFeedIds();
         Collection<String> removedCatalogItemIds();
+        Collection<String> removedBundleIds();
         
         Collection<? extends Memento> getObjectsOfType(BrooklynObjectType type);
         Collection<String> getRemovedIdsOfType(BrooklynObjectType type);

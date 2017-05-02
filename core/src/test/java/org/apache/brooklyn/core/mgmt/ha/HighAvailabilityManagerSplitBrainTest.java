@@ -37,8 +37,6 @@ import org.apache.brooklyn.api.mgmt.ha.ManagementPlaneSyncRecordPersister;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
-import org.apache.brooklyn.core.mgmt.ha.HighAvailabilityManagerImpl;
-import org.apache.brooklyn.core.mgmt.ha.ManagementPlaneSyncRecordPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.ha.TestEntityFailingRebind.RebindException;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
@@ -71,7 +69,7 @@ public class HighAvailabilityManagerSplitBrainTest {
     private static final Logger log = LoggerFactory.getLogger(HighAvailabilityManagerSplitBrainTest.class);
     
     private List<HaMgmtNode> nodes = new MutableList<HighAvailabilityManagerSplitBrainTest.HaMgmtNode>();
-    Map<String,String> sharedBackingStore = MutableMap.of();
+    Map<String,byte[]> sharedBackingStore = MutableMap.of();
     Map<String,Date> sharedBackingStoreDates = MutableMap.of();
     private AtomicLong sharedTime; // used to set the ticker's return value
     private ClassLoader classLoader = getClass().getClassLoader();
@@ -108,7 +106,7 @@ public class HighAvailabilityManagerSplitBrainTest {
             objectStore.prepareForSharedUse(PersistMode.CLEAN, HighAvailabilityMode.DISABLED);
             persister = new ManagementPlaneSyncRecordPersisterToObjectStore(mgmt, objectStore, classLoader);
             ((ManagementPlaneSyncRecordPersisterToObjectStore)persister).preferRemoteTimestampInMemento();
-            BrooklynMementoPersisterToObjectStore persisterObj = new BrooklynMementoPersisterToObjectStore(objectStore, mgmt.getBrooklynProperties(), classLoader);
+            BrooklynMementoPersisterToObjectStore persisterObj = new BrooklynMementoPersisterToObjectStore(objectStore, mgmt, classLoader);
             mgmt.getRebindManager().setPersister(persisterObj, PersistenceExceptionHandlerImpl.builder().build());
             ha = ((HighAvailabilityManagerImpl)mgmt.getHighAvailabilityManager())
                 .setPollPeriod(Duration.PRACTICALLY_FOREVER)

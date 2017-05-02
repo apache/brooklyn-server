@@ -408,12 +408,13 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         try {
             doStart();
             DynamicTasks.waitForLast();
+            ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
             
         } catch (Exception e) {
             ServiceProblemsLogic.updateProblemsIndicator(this, START, "start failed with error: "+e);
+            ServiceStateLogic.setExpectedStateRunningWithErrors(this);
+            
             throw Exceptions.propagate(e);
-        } finally {
-            ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
         }
     }
 
@@ -956,8 +957,8 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
                 .putAll(extraFlags)
                 .put(CLUSTER_MEMBER_ID, sensors().get(NEXT_CLUSTER_MEMBER_ID).get())
                 .build();
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Creating and adding a node to cluster {}({}) with properties {}", new Object[] { this, getId(), Sanitizer.sanitize(createFlags) });
+        if (LOG.isTraceEnabled()) {
+            LOG.trace("Creating and adding a node to cluster {}({}) with properties {}", new Object[] { this, getId(), Sanitizer.sanitize(createFlags) });
         }
 
         // TODO should refactor to have a createNodeSpec; and spec should support initial sensor values 

@@ -29,7 +29,7 @@
     <parent>
         <groupId>org.apache.brooklyn</groupId>
         <artifactId>brooklyn-parent</artifactId>
-        <version>0.11.0-SNAPSHOT</version><!-- BROOKLYN_VERSION -->
+        <version>0.12.0-SNAPSHOT</version><!-- BROOKLYN_VERSION -->
         <relativePath>../../parent/pom.xml</relativePath>
     </parent>
 
@@ -113,13 +113,18 @@
             <plugin>
                 <groupId>com.github.kongchen</groupId>
                 <artifactId>swagger-maven-plugin</artifactId>
-                <version>3.1.0</version>
+                <version>3.1.4</version>
                 <configuration>
                     <apiSources>
                         <apiSource>
                             <springmvc>false</springmvc>
-                            <locations>org.apache.brooklyn.rest.api</locations>
-                            <schemes>http,https</schemes>
+                            <locations>
+                                <location>org.apache.brooklyn.rest.api</location>
+                            </locations>
+                            <schemes>
+                                <scheme>http</scheme>
+                                <scheme>https</scheme>
+                            </schemes>
                             <info>
                                 <title>Swagger API Specification for Brooklyn REST server</title>
                                 <version>v1</version>
@@ -152,11 +157,11 @@
                 <artifactId>maven-bundle-plugin</artifactId>
                 <configuration>
                     <instructions>
-                        <Import-Package>
-                            javax.ws.rs;version="[1.1,2.0]",
-                            javax.ws.rs.core;version="[1.1,2.0]",
-                            *
-                        </Import-Package>
+                        <!-- 
+                            The default is to pull in javax.ws.rs;version="[2.0,3)", whereas jclouds-core 2.0 pulls
+                            in javax.ws.rs;version="[1.1,2)". However, that doesn't cause any harm because those
+                            are internal dependencies of jclouds (i.e. not part of the API).
+                        -->
                     </instructions>
                 </configuration>
             </plugin>

@@ -20,6 +20,8 @@ package org.apache.brooklyn.camp.brooklyn.catalog;
 
 import static org.testng.Assert.assertTrue;
 
+import java.util.Map;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
@@ -27,16 +29,22 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynEntityMatcher;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiVersionMoreEntityTest;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.text.Strings;
+import org.osgi.framework.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -45,7 +53,7 @@ import org.testng.annotations.Test;
 import com.google.common.collect.Iterables;
 
 /** Many of the same tests as per {@link OsgiVersionMoreEntityTest} but using YAML for catalog and entities, so catalog item ID is set automatically */
-public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest {
+public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest implements OsgiTestResources {
     
     private static final Logger log = LoggerFactory.getLogger(CatalogOsgiVersionMoreEntityTest.class);
 
@@ -57,6 +65,26 @@ public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest {
     private static String getLocalResource(String filename) {
         return ResourceUtils.create(CatalogOsgiVersionMoreEntityTest.class).getResourceAsString(
             "classpath:/"+CatalogOsgiVersionMoreEntityTest.class.getPackage().getName().replace('.', '/')+"/"+filename);
+    }
+
+    @Test
+    public void testBrooklynManagedBundleInstall() throws Exception {
+        BasicManagedBundle mb = new BasicManagedBundle();
+        Bundle b = ((ManagementContextInternal)mgmt()).getOsgiManager().get().installUploadedBundle(mb, 
+            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V1_URL), true);
+        Assert.assertEquals(mb.getSymbolicName(), b.getSymbolicName());
+        
+        // bundle installed
+        Map<String, ManagedBundle> bundles = ((ManagementContextInternal)mgmt()).getOsgiManager().get().getManagedBundles();
+        Asserts.assertSize(bundles.keySet(), 1);
+        Assert.assertEquals(mb.getId(), Iterables.getOnlyElement( bundles.keySet() ));
+        
+        // types installed
+        RegisteredType t = mgmt().getTypeRegistry().get(BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
+        Assert.assertNotNull(t);
+        
+        // can deploy
+        createAndStartApplication("services: [ { type: "+BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY+" } ]");
     }
     
     @Test

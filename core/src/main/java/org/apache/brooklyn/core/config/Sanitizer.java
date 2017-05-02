@@ -89,15 +89,15 @@ public final class Sanitizer {
     }
 
     public static Map<String, Object> sanitize(ConfigBag input) {
-        return sanitize(input.getAllConfig());
+        return (input == null) ? null : sanitize(input.getAllConfig());
     }
 
     public static <K> Map<K, Object> sanitize(Map<K, ?> input) {
-        return sanitize(input, Sets.newHashSet());
+        return (input == null) ? null : sanitize(input, Sets.newHashSet());
     }
 
     static <K> Map<K, Object> sanitize(Map<K, ?> input, Set<Object> visited) {
-        return newInstance().apply(input, visited);
+        return (input == null) ? null : newInstance().apply(input, visited);
     }
     
     private Predicate<Object> predicate;
@@ -107,7 +107,7 @@ public final class Sanitizer {
     }
 
     public <K> Map<K, Object> apply(Map<K, ?> input) {
-        return apply(input, Sets.newHashSet());
+        return (input == null) ? null : apply(input, Sets.newHashSet());
     }
 
     private <K> Map<K, Object> apply(Map<K, ?> input, Set<Object> visited) {

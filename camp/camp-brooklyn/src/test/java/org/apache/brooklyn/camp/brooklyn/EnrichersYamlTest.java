@@ -23,10 +23,12 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -39,10 +41,13 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 @Test
 public class EnrichersYamlTest extends AbstractYamlTest {
@@ -140,6 +145,85 @@ public class EnrichersYamlTest extends AbstractYamlTest {
         Asserts.eventually(Entities.attributeSupplier(parentEntity, Sensors.newStringSensor("main.uri")), Predicates.<String>equalTo("http://www.example.org:1234/"));
     }
     
+    @Test
+    public void testWithTransformerValueFunctionUsingDsl() throws Exception {
+        // For simpler $brooklyn:object expressions, the args passed in are evaluated early
+        // (i.e. when doing `config().get(TRANSFORMATION_FROM_VALUE)`)
+        //
+        // However, in this example the DSL is embedded inside a map, so $brooklyn:object
+        // does not transform it. The function therefore returns the DSL object. It is the
+        // responsibility of the Transformer to then do `resolveImmediately` to turn that DSL
+        // into the literal value (or null if it can't be resolved).
+        
+        AttributeSensor<Object> sourceSensor = Sensors.newSensor(Object.class, "mySourceSensor");
+        AttributeSensor<Object> targetSensor = Sensors.newSensor(Object.class, "myTargetSensor");
+        AttributeSensor<Object> otherSensor = Sensors.newSensor(Object.class, "myOtherSensor");
+        
+        Entity app = createAndStartApplication(loadYaml("test-entity-basic-template.yaml",
+                    "  id: parentId",
+                    "  brooklyn.enrichers:",
+                    "    - enricherType: org.apache.brooklyn.enricher.stock.Transformer",
+                    "      brooklyn.config:",
+                    "        enricher.sourceSensor: $brooklyn:sensor(\""+sourceSensor.getName()+"\")",
+                    "        enricher.targetSensor: $brooklyn:sensor(\""+targetSensor.getName()+"\")",
+                    "        enricher.transformation:",
+                    "          $brooklyn:object:",
+                    "            type: "+Functions.class.getName(),
+                    "            factoryMethod.name: forMap",
+                    "            factoryMethod.args:",
+                    "            - \"MASTER\": $brooklyn:attributeWhenReady(\""+otherSensor.getName()+"\")",
+                    "            - \"not master\""));
+        waitForApplicationTasks(app);
+        
+        log.info("App started:");
+        final TestEntity entity = (TestEntity) app.getChildren().iterator().next();
+        Entities.dumpInfo(app);
+        
+        entity.sensors().set(sourceSensor, "STANDBY"); // trigger enricher
+        EntityAsserts.assertAttributeEqualsEventually(entity, targetSensor, "not master");
+        
+        entity.sensors().set(otherSensor, "myval");
+        entity.sensors().set(sourceSensor, "MASTER"); // trigger enricher
+        EntityAsserts.assertAttributeEqualsEventually(entity, targetSensor, "myval");
+    }
+
+    @Test
+    public void testWithTransformerEventFunctionUsingDsl() throws Exception {
+        // See explanation in testWithTransformerValueFunctionUsingDsl (for why this test's DSL 
+        // object looks so complicated!)
+        
+        AttributeSensor<Object> sourceSensor = Sensors.newSensor(Object.class, "mySourceSensor");
+        AttributeSensor<Object> targetSensor = Sensors.newSensor(Object.class, "myTargetSensor");
+        AttributeSensor<Object> otherSensor = Sensors.newSensor(Object.class, "myOtherSensor");
+        
+        Entity app = createAndStartApplication(loadYaml("test-entity-basic-template.yaml",
+                    "  id: parentId",
+                    "  brooklyn.enrichers:",
+                    "    - enricherType: org.apache.brooklyn.enricher.stock.Transformer",
+                    "      brooklyn.config:",
+                    "        enricher.sourceSensor: $brooklyn:sensor(\""+sourceSensor.getName()+"\")",
+                    "        enricher.targetSensor: $brooklyn:sensor(\""+targetSensor.getName()+"\")",
+                    "        enricher.transformation.fromevent:",
+                    "          $brooklyn:object:",
+                    "            type: "+EnrichersYamlTest.class.getName(),
+                    "            factoryMethod.name: constantOfSingletonMapValue",
+                    "            factoryMethod.args:",
+                    "            - \"IGNORED\": $brooklyn:attributeWhenReady(\""+otherSensor.getName()+"\")"));
+        waitForApplicationTasks(app);
+        
+        log.info("App started:");
+        final TestEntity entity = (TestEntity) app.getChildren().iterator().next();
+        Entities.dumpInfo(app);
+        
+        entity.sensors().set(otherSensor, "myval");
+        entity.sensors().set(sourceSensor, "any-val"); // trigger enricher
+        EntityAsserts.assertAttributeEqualsEventually(entity, targetSensor, "myval");
+    }
+    
+    public static <E> Function<Object, E> constantOfSingletonMapValue(Map<?, E> singletonMap) {
+        return Functions.constant(Iterables.getOnlyElement(singletonMap.values()));
+    }
+
     @Test
     public void testPropagatingEnricher() throws Exception {
         Entity app = createAndStartApplication(loadYaml("test-propagating-enricher.yaml"));

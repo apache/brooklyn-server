@@ -1,0 +1,121 @@
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+<feed>
+  <brooklynVersion>0.11.0-SNAPSHOT</brooklynVersion>
+  <type>org.apache.brooklyn.feed.windows.CmdFeed</type>
+  <id>akc24nlh2k</id>
+  <displayName>org.apache.brooklyn.feed.windows.CmdFeed</displayName>
+  <searchPath class="ImmutableList"/>
+  <tags>
+    <string>CmdFeed[ssh[echo &quot;test&quot;-&gt;test.sensor]]</string>
+  </tags>
+  <uniqueTag>CmdFeed[ssh[echo &quot;test&quot;-&gt;test.sensor]]</uniqueTag>
+  <config>
+    <machine>
+      <null/>
+    </machine>
+    <execAsCommand type="boolean">false</execAsCommand>
+    <polls>
+      <com.google.common.collect.HashMultimap serialization="custom">
+        <unserializable-parents/>
+        <com.google.common.collect.HashMultimap>
+          <default/>
+          <int>2</int>
+          <int>1</int>
+          <org.apache.brooklyn.feed.AbstractCommandFeed_-CommandPollIdentifier>
+            <command class="org.apache.brooklyn.core.sensor.windows.WinRmCommandSensor$2">
+              <outer-class>
+                <name>test.sensor</name>
+                <period>
+                  <nanos>30000000000</nanos>
+                </period>
+                <type>java.lang.String</type>
+                <sensor class="attributeSensor">
+                  <type>java.lang.String</type>
+                  <name>test.sensor</name>
+                  <description>test.sensor</description>
+                  <persistence>REQUIRED</persistence>
+                </sensor>
+                <params>
+                  <config>
+                    <name>test.sensor</name>
+                    <period>30s</period>
+                    <command>echo &quot;test&quot;</command>
+                  </config>
+                  <unusedConfig/>
+                  <live>false</live>
+                  <sealed>false</sealed>
+                </params>
+                <command>echo &quot;test&quot;</command>
+              </outer-class>
+            </command>
+            <env class="org.apache.brooklyn.feed.CommandPollConfig$CombiningEnvSupplier">
+              <dynamicEnvironmentSupplier class="MutableList" serialization="custom">
+                <unserializable-parents/>
+                <list>
+                  <default>
+                    <size>0</size>
+                  </default>
+                  <int>0</int>
+                </list>
+              </dynamicEnvironmentSupplier>
+            </env>
+          </org.apache.brooklyn.feed.AbstractCommandFeed_-CommandPollIdentifier>
+          <int>1</int>
+          <org.apache.brooklyn.feed.CommandPollConfig>
+            <sensor class="attributeSensor" reference="../../org.apache.brooklyn.feed.AbstractCommandFeed_-CommandPollIdentifier/command/outer-class/sensor"/>
+            <onsuccess class="com.google.common.base.Functions$FunctionComposition">
+              <g class="org.apache.brooklyn.core.sensor.windows.WinRmCommandSensor$3">
+                <outer-class reference="../../../../org.apache.brooklyn.feed.AbstractCommandFeed_-CommandPollIdentifier/command/outer-class"/>
+              </g>
+              <f class="org.apache.brooklyn.feed.ssh.SshValueFunctions$Stdout"/>
+            </onsuccess>
+            <onfailure class="com.google.common.base.Functions$ConstantFunction"/>
+            <onexception class="com.google.common.base.Functions$ConstantFunction" reference="../onfailure"/>
+            <checkSuccess class="org.apache.brooklyn.util.guava.Functionals$1FunctionAsPredicate">
+              <val_-f class="com.google.common.base.Functions$FunctionComposition">
+                <g class="com.google.common.base.Functions$PredicateFunction">
+                  <predicate class="com.google.common.base.Predicates$IsEqualToPredicate">
+                    <target class="int">0</target>
+                  </predicate>
+                </g>
+                <f class="org.apache.brooklyn.feed.ssh.SshValueFunctions$ExitStatus"/>
+              </val_-f>
+            </checkSuccess>
+            <suppressDuplicates>false</suppressDuplicates>
+            <enabled>true</enabled>
+            <period>30000</period>
+            <commandSupplier class="org.apache.brooklyn.core.sensor.windows.WinRmCommandSensor$2" reference="../../org.apache.brooklyn.feed.AbstractCommandFeed_-CommandPollIdentifier/command"/>
+            <dynamicEnvironmentSupplier class="MutableList" serialization="custom">
+              <unserializable-parents/>
+              <list>
+                <default>
+                  <size>0</size>
+                </default>
+                <int>0</int>
+              </list>
+            </dynamicEnvironmentSupplier>
+          </org.apache.brooklyn.feed.CommandPollConfig>
+        </com.google.common.collect.HashMultimap>
+      </com.google.common.collect.HashMultimap>
+    </polls>
+    <feed.onlyIfServiceUp type="boolean">true</feed.onlyIfServiceUp>
+  </config>
+</feed>

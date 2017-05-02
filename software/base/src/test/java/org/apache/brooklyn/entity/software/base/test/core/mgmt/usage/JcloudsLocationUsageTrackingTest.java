@@ -152,6 +152,7 @@ public class JcloudsLocationUsageTrackingTest extends AbstractJcloudsStubbedLive
                 jcloudsLocationConfig(ImmutableMap.<Object, Object>builder()
                         .put(JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry)
                         .put("sshToolClass", RecordingSshTool.class.getName())
+                        .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS, "false")
                         .put(JcloudsLocation.WAIT_FOR_SSHABLE.getName(), false)
                         .put(JcloudsLocation.IMAGE_ID.getName(), "UBUNTU_14_64")
                         .put(JcloudsLocation.MIN_RAM.getName(), 1024)
@@ -218,6 +219,7 @@ public class JcloudsLocationUsageTrackingTest extends AbstractJcloudsStubbedLive
                 jcloudsLocationConfig(ImmutableMap.<Object, Object>builder()
                         .put(JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry)
                         .put("sshToolClass", RecordingSshTool.class.getName())
+                        .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS, "1m")
                         .put(JcloudsLocation.WAIT_FOR_SSHABLE.getName(), "1m")
                         .put(JcloudsLocation.IMAGE_ID.getName(), "UBUNTU_14_64")
                         .build()));

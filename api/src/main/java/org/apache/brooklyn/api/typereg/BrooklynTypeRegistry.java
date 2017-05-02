@@ -85,5 +85,5 @@ public interface BrooklynTypeRegistry {
     @Beta
     /** Typesafe non-spec variant of {@link #createFromPlan(Class, String, Object, RegisteredTypeLoadingContext)} */
     <T> T createBeanFromPlan(String planFormat, Object planData, @Nullable RegisteredTypeLoadingContext optionalConstraint, @Nullable Class<T> optionalBeanSuperType);
-
+    
 }

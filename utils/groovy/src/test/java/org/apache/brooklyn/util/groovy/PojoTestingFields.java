@@ -18,6 +18,10 @@
  */
 package org.apache.brooklyn.util.groovy;
 
+/**
+ * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+ */
+@Deprecated
 public class PojoTestingFields {
     private final int privateInt;
     

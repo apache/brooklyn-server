@@ -120,8 +120,13 @@ public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier
             throw Exceptions.propagate(e);
         }
 
-        if (log.isDebugEnabled())
-            log.debug("Resolved "+result+" from "+dsl);
+        if (log.isDebugEnabled()) {
+            // https://issues.apache.org/jira/browse/BROOKLYN-269
+            // We must not log sensitve data, such as from $brooklyn:external, or if the value
+            // is to be used as a password etc. Unfortunately we don't know the context, so can't
+            // use Sanitizer.sanitize.
+            log.debug("Resolved "+dsl);
+        }
         return result;
     }
 

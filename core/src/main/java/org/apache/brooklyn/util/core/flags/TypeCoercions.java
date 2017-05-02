@@ -121,11 +121,16 @@ public class TypeCoercions {
         });
     }
     
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     @SuppressWarnings("rawtypes")
     public static void registerGroovyAdapters() {
         registerAdapter(Closure.class, Predicate.class, new Function<Closure,Predicate>() {
             @Override
             public Predicate<?> apply(final Closure closure) {
+                log.warn("Use of groovy.lang.Closure is deprecated, in TypeCoercions Closure->Predicate");
                 return new Predicate<Object>() {
                     @Override public boolean apply(Object input) {
                         return (Boolean) closure.call(input);
@@ -136,6 +141,7 @@ public class TypeCoercions {
         registerAdapter(Closure.class, Function.class, new Function<Closure,Function>() {
             @Override
             public Function apply(final Closure closure) {
+                log.warn("Use of groovy.lang.Closure is deprecated, in TypeCoercions Closure->Function");
                 return new Function() {
                     @Override public Object apply(Object input) {
                         return closure.call(input);
@@ -144,7 +150,6 @@ public class TypeCoercions {
             }
         });
         registerAdapter(Object.class, TimeDuration.class, new Function<Object,TimeDuration>() {
-            @SuppressWarnings("deprecation")
             @Override
             public TimeDuration apply(final Object input) {
                 log.warn("deprecated automatic coercion of Object to TimeDuration (set breakpoint in TypeCoercions to inspect, convert to Duration)");
@@ -257,5 +262,19 @@ public class TypeCoercions {
             });        
         }
         
+    }
+
+    public static TypeCoercer asTypeCoercer() {
+        return new TypeCoercer() {
+            @Override public <T> T coerce(Object input, Class<T> type) {
+                return TypeCoercions.coerce(input, type);
+            }
+            @Override public <T> Maybe<T> tryCoerce(Object input, Class<T> type) {
+                return TypeCoercions.tryCoerce(input, type);
+            }
+            @Override public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
+                return TypeCoercions.tryCoerce(input, type);
+            }
+        };
     }
 }

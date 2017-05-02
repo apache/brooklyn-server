@@ -48,7 +48,7 @@ public class XmlMementoSerializerDelegatingClassLoaderTest {
 
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
-        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
     }
 
     @AfterMethod(alwaysRun=true)

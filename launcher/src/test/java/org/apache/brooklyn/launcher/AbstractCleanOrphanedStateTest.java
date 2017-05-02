@@ -52,8 +52,10 @@ public abstract class AbstractCleanOrphanedStateTest extends RebindTestFixtureWi
         @Override
         public BrooklynMementoRawData apply(BrooklynMementoRawData input) {
             return BrooklynMementoRawData.builder()
+                    .planeId(input.getPlaneId())
                     .brooklynVersion(input.getBrooklynVersion())
                     .catalogItems(input.getCatalogItems())
+                    .bundles(input.getBundles())
                     .entities(MutableMap.<String, String>builder().putAll(input.getEntities()).removeAll(deletions.entities).build())
                     .locations(MutableMap.<String, String>builder().putAll(input.getLocations()).removeAll(deletions.locations).build())
                     .feeds(MutableMap.<String, String>builder().putAll(input.getFeeds()).removeAll(deletions.feeds).build())

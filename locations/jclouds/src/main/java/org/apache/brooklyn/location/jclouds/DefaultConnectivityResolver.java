@@ -220,6 +220,10 @@ public class DefaultConnectivityResolver extends BasicConfigurableObject impleme
             }
         }
 
+        if (contextEntity != null) {
+            contextEntity.sensors().set(Attributes.ADDRESS, hapChoice.getHostText());
+        }
+
         // Treat AWS as a special case because the DNS fully qualified hostname in AWS is
         // (normally?!) a good way to refer to the VM from both inside and outside of the region.
         if (!isNetworkModeSet() && !options.isWindows()) {
@@ -241,9 +245,6 @@ public class DefaultConnectivityResolver extends BasicConfigurableObject impleme
             }
         }
 
-        if (contextEntity != null) {
-            contextEntity.sensors().set(Attributes.ADDRESS, hapChoice.getHostText());
-        }
         ManagementAddressResolveResult result = new ManagementAddressResolveResult(hapChoice, credChoice);
         LOG.debug("{} resolved management parameters for {} in {}: {}",
                 new Object[]{this, location, Duration.of(timer), result});
@@ -255,12 +256,8 @@ public class DefaultConnectivityResolver extends BasicConfigurableObject impleme
     }
 
     void publishNetworks(NodeMetadata node, Entity entity) {
-        if (entity.sensors().get(PRIVATE_ADDRESSES) == null) {
-            entity.sensors().set(PRIVATE_ADDRESSES, ImmutableSet.copyOf(node.getPrivateAddresses()));
-        }
-        if (entity.sensors().get(PUBLIC_ADDRESSES) == null) {
-            entity.sensors().set(PUBLIC_ADDRESSES, ImmutableSet.copyOf(node.getPublicAddresses()));
-        }
+        entity.sensors().set(PRIVATE_ADDRESSES, ImmutableSet.copyOf(node.getPrivateAddresses()));
+        entity.sensors().set(PUBLIC_ADDRESSES, ImmutableSet.copyOf(node.getPublicAddresses()));
     }
 
     // --------------------------------------------------------------------------------------

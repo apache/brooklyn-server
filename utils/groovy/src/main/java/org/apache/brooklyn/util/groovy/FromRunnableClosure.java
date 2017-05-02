@@ -24,6 +24,10 @@ import java.util.concurrent.Callable;
 
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 
+/**
+ * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+ */
+@Deprecated
 public class FromRunnableClosure<T> extends Closure<T> {
     private static final long serialVersionUID = 1L;
     private Runnable job;

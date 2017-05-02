@@ -20,9 +20,11 @@ package org.apache.brooklyn.enricher.stock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.slf4j.Logger;
@@ -39,9 +41,12 @@ public class Transformer<T,U> extends AbstractTransformer<T,U> {
     private static final Logger LOG = LoggerFactory.getLogger(Transformer.class);
 
     // exactly one of these should be supplied to set a value
-    public static final ConfigKey<Object> TARGET_VALUE = ConfigKeys.newConfigKey(Object.class, "enricher.targetValue");
-    public static final ConfigKey<Function<?, ?>> TRANSFORMATION_FROM_VALUE = ConfigKeys.newConfigKey(new TypeToken<Function<?, ?>>() {}, "enricher.transformation");
-    public static final ConfigKey<Function<?, ?>> TRANSFORMATION_FROM_EVENT = ConfigKeys.newConfigKey(new TypeToken<Function<?, ?>>() {}, "enricher.transformation.fromevent");
+    public static final ConfigKey<Object> TARGET_VALUE = ConfigKeys.newConfigKey(Object.class,
+            "enricher.targetValue");
+    public static final ConfigKey<Function<?, ?>> TRANSFORMATION_FROM_VALUE = ConfigKeys.newConfigKey(new TypeToken<Function<?, ?>>() {},
+            "enricher.transformation");
+    public static final ConfigKey<Function<?, ?>> TRANSFORMATION_FROM_EVENT = ConfigKeys.newConfigKey(new TypeToken<Function<?, ?>>() {},
+            "enricher.transformation.fromevent");
 
     public Transformer() { }
     
@@ -56,17 +61,30 @@ public class Transformer<T,U> extends AbstractTransformer<T,U> {
         checkArgument(suppliers.size()==1,  
             "Must set exactly one of: %s, %s, %s", TARGET_VALUE.getName(), TRANSFORMATION_FROM_VALUE.getName(), TRANSFORMATION_FROM_EVENT.getName());
         
-        Function<?, ?> fromEvent = config().get(TRANSFORMATION_FROM_EVENT);
-        if (fromEvent != null) {  
-            return (Function<SensorEvent<T>, U>) fromEvent;
+        final Function<SensorEvent<? super T>, ?> fromEvent = (Function<SensorEvent<? super T>, ?>) config().get(TRANSFORMATION_FROM_EVENT);
+        if (fromEvent != null) {
+            // wraps function so can handle DSL response.
+            // named class not necessary as result should not be serialized
+            return new Function<SensorEvent<T>, U>() {
+                @Override public U apply(SensorEvent<T> input) {
+                    Object targetValueRaw = fromEvent.apply(input);
+                    return resolveImmediately(targetValueRaw, targetSensor);
+                }
+                @Override
+                public String toString() {
+                    return ""+fromEvent;
+                }
+            };
         }
         
-        final Function<T, U> fromValueFn = (Function<T, U>) config().get(TRANSFORMATION_FROM_VALUE);
+        final Function<T, ?> fromValueFn = (Function<T, ?>) config().get(TRANSFORMATION_FROM_VALUE);
         if (fromValueFn != null) {
             // named class not necessary as result should not be serialized
             return new Function<SensorEvent<T>, U>() {
                 @Override public U apply(SensorEvent<T> input) {
-                    return fromValueFn.apply(input.getValue());
+                    // input can be null if using `triggerSensors`, rather than `sourceSensor`
+                    Object targetValueRaw = fromValueFn.apply(input == null ? null : input.getValue());
+                    return resolveImmediately(targetValueRaw, targetSensor);
                 }
                 @Override
                 public String toString() {
@@ -80,17 +98,7 @@ public class Transformer<T,U> extends AbstractTransformer<T,U> {
         final Object targetValueRaw = config().getRaw(TARGET_VALUE).orNull();
         return new Function<SensorEvent<T>, U>() {
             @Override public U apply(SensorEvent<T> input) {
-                // evaluate immediately, or return null
-                // PRETTY_QUICK/200ms seems a reasonable compromise for tasks which require BG evaluation
-                // but which are non-blocking
-                // TODO better would be to have a mode in which tasks are not permitted to block on
-                // external events; they can submit tasks and block on them (or even better, have a callback architecture);
-                // however that is a non-trivial refactoring
-                return (U) Tasks.resolving(targetValueRaw).as(targetSensor.getType())
-                    .context(entity)
-                    .description("Computing sensor "+targetSensor+" from "+targetValueRaw)
-                    .immediately(true)
-                    .getMaybe().orNull();
+                return resolveImmediately(targetValueRaw, targetSensor);
             }
             @Override
             public String toString() {
@@ -99,4 +107,22 @@ public class Transformer<T,U> extends AbstractTransformer<T,U> {
         };
     }
     
+    @SuppressWarnings("unchecked")
+    private U resolveImmediately(Object rawVal, Sensor<U> targetSensor) {
+        if (rawVal == Entities.UNCHANGED || rawVal == Entities.REMOVE) {
+            // If it's a special marker-object, then don't try to transform it
+            return (U) rawVal;
+        }
+        
+        // evaluate immediately, or return null.
+        // For vals that implement ImmediateSupplier, we'll use that to get the value 
+        // (or Maybe.absent) without blocking.
+        // Otherwise, the Tasks.resolving will give it its best shot at resolving without
+        // blocking on external events (such as waiting for another entity's sensor).
+        return (U) Tasks.resolving(rawVal).as(targetSensor.getType())
+                .context(entity)
+                .description("Computing sensor "+targetSensor+" from "+rawVal)
+                .immediately(true)
+                .getMaybe().orNull();
+    }
 }

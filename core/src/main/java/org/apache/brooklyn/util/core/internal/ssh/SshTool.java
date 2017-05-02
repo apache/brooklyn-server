@@ -66,7 +66,6 @@ public interface SshTool extends ShellTool {
     public static final ConfigKey<String> PROP_HOST = newStringConfigKey("host", "Host to connect to (required)", null);
     public static final ConfigKey<Integer> PROP_PORT = newConfigKey("port", "Port on host to connect to", 22);
     public static final ConfigKey<String> PROP_USER = newConfigKey("user", "User to connect as", System.getProperty("user.name"));
-    public static final ConfigKey<String> PROP_PASSWORD = newStringConfigKey("password", "Password to use to connect", null);
     
     public static final ConfigKey<String> PROP_PRIVATE_KEY_FILE = newStringConfigKey("privateKeyFile", "the path of an ssh private key file; leave blank to use defaults (i.e. ~/.ssh/id_rsa and id_dsa)", null);
     public static final ConfigKey<String> PROP_PRIVATE_KEY_DATA = newStringConfigKey("privateKeyData", "the private ssh key (e.g. contents of an id_rsa or id_dsa file)", null);

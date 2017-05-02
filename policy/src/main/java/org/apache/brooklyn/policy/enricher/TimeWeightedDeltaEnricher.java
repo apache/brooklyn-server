@@ -74,9 +74,15 @@ public class TimeWeightedDeltaEnricher<T extends Number> extends AbstractTypeTra
 
     public TimeWeightedDeltaEnricher() { // for rebind
     }
+    
     public TimeWeightedDeltaEnricher(Entity producer, Sensor<T> source, Sensor<Double> target, int unitMillis) {
         this(producer, source, target, unitMillis, Functions.<Double>identity());
     }
+    
+    /**
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     */
+    @Deprecated
     public TimeWeightedDeltaEnricher(Entity producer, Sensor<T> source, Sensor<Double> target, int unitMillis, Closure<Double> postProcessor) {
         this(producer, source, target, unitMillis, GroovyJavaMethods.<Double,Double>functionFromClosure(postProcessor));
     }

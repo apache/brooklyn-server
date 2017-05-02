@@ -329,7 +329,7 @@ public abstract class CloudExplorerSupport implements Callable<Void> {
 
         @Override
         protected void doCall(JcloudsLocation loc, String indent) throws Exception {
-            BlobStoreContext context = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(loc.config().getBag());
+            BlobStoreContext context = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(loc);
             try {
                 org.jclouds.blobstore.BlobStore blobStore = context.getBlobStore();
                 doCall(blobStore, indent);

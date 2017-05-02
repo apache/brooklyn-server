@@ -44,7 +44,7 @@ public class StringShortenerTest {
     }
 
     @Test
-    public void testDisalowedCharactersShortener() {
+    public void testDisallowedCharactersShortener() {
         StringShortener ss = new StringShortener()
                 .setAllowedCharacters(Identifiers.UPPER_CASE_ALPHA+Identifiers.LOWER_CASE_ALPHA+Identifiers.NUMERIC)
                 .separator("-")

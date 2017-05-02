@@ -1702,13 +1702,19 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 }
 
                 String initialUser = initialCredentials.getUser();
-
+                boolean authSudo = initialCredentials.shouldAuthenticateSudo();
+                Optional<String> password = initialCredentials.getOptionalPassword();
+                
                 // TODO Retrying lots of times as workaround for vcloud-director. There the guest customizations
                 // can cause the VM to reboot shortly after it was ssh'able.
-                Map<String,Object> execProps = Maps.newLinkedHashMap();
-                execProps.put(ShellTool.PROP_RUN_AS_ROOT.getName(), true);
-                execProps.put(SshTool.PROP_SSH_TRIES.getName(), 50);
-                execProps.put(SshTool.PROP_SSH_TRIES_TIMEOUT.getName(), 10*60*1000);
+                Map<String,Object> execProps = MutableMap.<String, Object>builder()
+                        .put(ShellTool.PROP_RUN_AS_ROOT.getName(), true)
+                        .put(SshTool.PROP_AUTH_SUDO.getName(), authSudo)
+                        .put(SshTool.PROP_ALLOCATE_PTY.getName(), true)
+                        .putIfNotNull(SshTool.PROP_PASSWORD.getName(), authSudo ? password.orNull() : null)
+                        .put(SshTool.PROP_SSH_TRIES.getName(), 50)
+                .put(SshTool.PROP_SSH_TRIES_TIMEOUT.getName(), 10*60*1000)
+                .build();
 
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("VM {}: executing user creation/setup via {}@{}; commands: {}", new Object[] {

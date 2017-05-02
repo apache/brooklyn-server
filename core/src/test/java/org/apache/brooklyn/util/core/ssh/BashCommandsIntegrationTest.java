@@ -33,8 +33,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
@@ -62,11 +61,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 
-public class BashCommandsIntegrationTest {
+public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
 
     private static final Logger log = LoggerFactory.getLogger(BashCommandsIntegrationTest.class);
     
-    private ManagementContext mgmt;
     private BasicExecutionContext exec;
     
     private File destFile;
@@ -87,7 +85,8 @@ public class BashCommandsIntegrationTest {
     
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
-        mgmt = new LocalManagementContextForTests();
+        super.setUp();
+        
         exec = new BasicExecutionContext(mgmt.getExecutionManager());
         
         destFile = Os.newTempFile(getClass(), "commoncommands-test-dest.txt");
@@ -120,14 +119,17 @@ public class BashCommandsIntegrationTest {
     
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
-        if (sourceFile1 != null) sourceFile1.delete();
-        if (sourceFile2 != null) sourceFile2.delete();
-        if (destFile != null) destFile.delete();
-        if (localRepoEntityFile != null) localRepoEntityFile.delete();
-        if (tmpSudoersFile != null) tmpSudoersFile.delete();
-        if (localRepoEntityBasePath != null) FileUtils.deleteDirectory(localRepoEntityBasePath);
-        if (loc != null) loc.close();
-        if (mgmt != null) Entities.destroyAll(mgmt);
+        try {
+            if (sourceFile1 != null) sourceFile1.delete();
+            if (sourceFile2 != null) sourceFile2.delete();
+            if (destFile != null) destFile.delete();
+            if (localRepoEntityFile != null) localRepoEntityFile.delete();
+            if (tmpSudoersFile != null) tmpSudoersFile.delete();
+            if (localRepoEntityBasePath != null) FileUtils.deleteDirectory(localRepoEntityBasePath);
+            if (loc != null) loc.close();
+        } finally {
+            super.tearDown();
+        }
     }
     
     @Test(groups="Integration")
@@ -330,6 +332,30 @@ public class BashCommandsIntegrationTest {
         Files.write(fileContent, destFile, Charsets.UTF_8);
         String output = t.get();
         assertFalse(output.contains("Couldn't find"), "output="+output);
+    }
+    
+    @Test(groups="Integration")
+    public void testWaitForFileExistsWhenAbortingOnFail() throws Exception {
+        String cmd = BashCommands.waitForFileExists(destFile.getAbsolutePath(), Duration.ONE_SECOND, true);
+
+        int exitcode = loc.execCommands("test", ImmutableList.of(cmd));
+        assertEquals(exitcode, 0);
+        
+        destFile.delete();
+        int exitcode2 = loc.execCommands("test", ImmutableList.of(cmd));
+        assertEquals(exitcode2, 1);
+    }
+
+    @Test(groups="Integration")
+    public void testWaitForFileExistsWhenNotAbortingOnFail() throws Exception {
+        String cmd = BashCommands.waitForFileExists(destFile.getAbsolutePath(), Duration.ONE_SECOND, false);
+
+        String output = execRequiringZeroAndReturningStdout(loc, cmd).get();
+        assertFalse(output.contains("Couldn't find"), "output="+output);
+
+        destFile.delete();
+        String output2 = execRequiringZeroAndReturningStdout(loc, cmd).get();
+        assertTrue(output2.contains("Couldn't find"), "output="+output2);
     }
     
     @Test(groups="Integration", dependsOnMethods="testSudo")

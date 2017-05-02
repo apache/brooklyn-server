@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.Map;
 import java.util.Properties;
 
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
@@ -68,12 +69,12 @@ public class BlobStoreContextFactoryImpl implements BlobStoreContextFactory {
     }
 
     @Override
-    public BlobStoreContext newBlobStoreContext(ConfigBag conf) {
-        String rawProvider = checkNotNull(conf.get(LocationConfigKeys.CLOUD_PROVIDER), "provider must not be null");
+    public BlobStoreContext newBlobStoreContext(Location location) {
+        String rawProvider = checkNotNull(location.getConfig(LocationConfigKeys.CLOUD_PROVIDER), "provider must not be null");
         String provider = DeserializingJcloudsRenamesProvider.INSTANCE.applyJcloudsRenames(rawProvider);
-        String identity = checkNotNull(conf.get(LocationConfigKeys.ACCESS_IDENTITY), "identity must not be null");
-        String credential = checkNotNull(conf.get(LocationConfigKeys.ACCESS_CREDENTIAL), "credential must not be null");
-        String endpoint = conf.get(CloudLocationConfig.CLOUD_ENDPOINT);
+        String identity = checkNotNull(location.getConfig(LocationConfigKeys.ACCESS_IDENTITY), "identity must not be null");
+        String credential = checkNotNull(location.getConfig(LocationConfigKeys.ACCESS_CREDENTIAL), "credential must not be null");
+        String endpoint = location.getConfig(CloudLocationConfig.CLOUD_ENDPOINT);
 
         Properties overrides = new Properties();
         // * Java 7,8 bug workaround - sockets closed by GC break the internal bookkeeping
@@ -87,7 +88,7 @@ public class BlobStoreContextFactoryImpl implements BlobStoreContextFactory {
         overrides.setProperty(Constants.PROPERTY_STRIP_EXPECT_HEADER, "true");
 
         // Add extra jclouds-specific configuration
-        Map<String, Object> extra = Maps.filterKeys(conf.getAllConfig(), Predicates.containsPattern("^jclouds\\."));
+        Map<String, Object> extra = Maps.filterKeys(location.getAllConfig(true), Predicates.containsPattern("^jclouds\\."));
         if (extra.size() > 0) {
             LOG.debug("Configuring custom jclouds property overrides for {}: {}", provider, Sanitizer.sanitize(extra));
         }

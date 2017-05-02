@@ -55,7 +55,7 @@ public class WarmStandbyTest {
     private static final Logger log = LoggerFactory.getLogger(WarmStandbyTest.class);
     
     private List<HaMgmtNode> nodes = new MutableList<WarmStandbyTest.HaMgmtNode>();
-    Map<String,String> sharedBackingStore = MutableMap.of();
+    Map<String,byte[]> sharedBackingStore = MutableMap.of();
     Map<String,Date> sharedBackingStoreDates = MutableMap.of();
     private ClassLoader classLoader = getClass().getClassLoader();
     
@@ -79,7 +79,7 @@ public class WarmStandbyTest {
             objectStore.prepareForSharedUse(PersistMode.CLEAN, HighAvailabilityMode.DISABLED);
             persister = new ManagementPlaneSyncRecordPersisterToObjectStore(mgmt, objectStore, classLoader);
             ((ManagementPlaneSyncRecordPersisterToObjectStore)persister).preferRemoteTimestampInMemento();
-            BrooklynMementoPersisterToObjectStore persisterObj = new BrooklynMementoPersisterToObjectStore(objectStore, mgmt.getBrooklynProperties(), classLoader);
+            BrooklynMementoPersisterToObjectStore persisterObj = new BrooklynMementoPersisterToObjectStore(objectStore, mgmt, classLoader);
             mgmt.getRebindManager().setPersister(persisterObj, PersistenceExceptionHandlerImpl.builder().build());
             ha = ((HighAvailabilityManagerImpl)mgmt.getHighAvailabilityManager())
                 .setPollPeriod(Duration.PRACTICALLY_FOREVER)

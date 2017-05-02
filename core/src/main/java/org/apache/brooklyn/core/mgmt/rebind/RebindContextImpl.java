@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.mgmt.rebind;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.io.InputStream;
 import java.util.Collection;
 import java.util.Map;
 
@@ -34,6 +35,8 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.util.collections.MutableMap;
 
 import com.google.common.collect.Maps;
@@ -46,9 +49,9 @@ public class RebindContextImpl implements RebindContext {
     private final Map<String, Enricher> enrichers = Maps.newLinkedHashMap();
     private final Map<String, Feed> feeds = Maps.newLinkedHashMap();
     private final Map<String, CatalogItem<?, ?>> catalogItems = Maps.newLinkedHashMap();
+    private final Map<String, ManagedBundle> bundles = Maps.newLinkedHashMap();
     
     private final ClassLoader classLoader;
-    @SuppressWarnings("unused")
     private final ManagementContext mgmt;
     private final RebindExceptionHandler exceptionHandler;
     private final LookupContext lookupContext;
@@ -84,6 +87,11 @@ public class RebindContextImpl implements RebindContext {
     
     public void registerCatalogItem(String id, CatalogItem<?, ?> catalogItem) {
         catalogItems.put(id, catalogItem);
+    }
+
+    // we don't track register/unregister of bundles; it isn't needed as it happens so early
+    public void installBundle(ManagedBundle bundle, InputStream zipInput) {
+        ((LocalManagementContext)mgmt).getOsgiManager().get().installUploadedBundle(bundle, zipInput, true);
     }
     
     public void unregisterPolicy(Policy policy) {
@@ -122,12 +130,16 @@ public class RebindContextImpl implements RebindContext {
         return enrichers.get(id);
     }
 
+    public Feed getFeed(String id) {
+        return feeds.get(id);
+    }
+    
     public CatalogItem<?, ?> getCatalogItem(String id) {
         return catalogItems.get(id);
     }
 
-    public Feed getFeed(String id) {
-        return feeds.get(id);
+    public ManagedBundle getBundle(String id) {
+        return bundles.get(id);
     }
     
     @Override
@@ -164,6 +176,10 @@ public class RebindContextImpl implements RebindContext {
         return catalogItems.values();
     }
     
+    public Collection<ManagedBundle> getBundles() {
+        return bundles.values();
+    }
+
     @Override
     public Map<String,BrooklynObject> getAllBrooklynObjects() {
         MutableMap<String,BrooklynObject> result = MutableMap.of();
@@ -173,6 +189,7 @@ public class RebindContextImpl implements RebindContext {
         result.putAll(enrichers);
         result.putAll(feeds);
         result.putAll(catalogItems);
+        result.putAll(bundles);
         return result.asUnmodifiable();
     }
 

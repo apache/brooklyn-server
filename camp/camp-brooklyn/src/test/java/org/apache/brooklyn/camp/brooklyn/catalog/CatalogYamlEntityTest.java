@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.entity.Entity;
@@ -39,16 +38,17 @@ import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
-import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.test.Asserts;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 
 public class CatalogYamlEntityTest extends AbstractYamlTest {
-    
+
     @Test
     public void testAddCatalogItemVerySimple() throws Exception {
         String symbolicName = "my.catalog.app.id.load";
@@ -56,7 +56,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
 
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
         String planYaml = RegisteredTypes.getImplementationDataStringForSpec(item);
-        assertTrue(planYaml.indexOf("services:")>=0, "expected 'services:' block: "+item+"\n"+planYaml);
+        assertTrue(planYaml.contains("services:"), "expected 'services:' block: "+item+"\n"+planYaml);
 
         deleteCatalogEntity(symbolicName);
     }
@@ -177,7 +177,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     public void testLaunchApplicationWithCatalogReferencingOtherCatalog() throws Exception {
         String referencedSymbolicName = "my.catalog.app.id.referenced";
         String referrerSymbolicName = "my.catalog.app.id.referring";
-        
+
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  name: My Catalog App",
@@ -191,10 +191,10 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "  - id: " + referrerSymbolicName,
                 "    item:",
                 "      type: " + ver(referencedSymbolicName, TEST_VERSION));
-          
+
         RegisteredType referrer = mgmt().getTypeRegistry().get(referrerSymbolicName, TEST_VERSION);
         String planYaml = RegisteredTypes.getImplementationDataStringForSpec(referrer);
-        Assert.assertTrue(planYaml.indexOf("services")>=0, "expected services in: "+planYaml);
+        Asserts.assertStringContains(planYaml, "services");
         
         Entity app = createAndStartApplication("services:",
                       "- type: " + ver(referrerSymbolicName, TEST_VERSION));
@@ -228,7 +228,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     public void testLaunchApplicationChildWithCatalogReferencingOtherCatalog() throws Exception {
         String referencedSymbolicName = "my.catalog.app.id.child.referenced";
         String referrerSymbolicName = "my.catalog.app.id.child.referring";
-        
+
         addCatalogEntity(IdAndVersion.of(referencedSymbolicName, TEST_VERSION), TestEntity.class.getName());
 
         addCatalogItems(
@@ -241,7 +241,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "    - type: " + BasicEntity.class.getName(),
                 "      brooklyn.children:",
                 "      - type: " + ver(referencedSymbolicName, TEST_VERSION));
-        
+
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: "+BasicEntity.class.getName(),
@@ -323,10 +323,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                     "    - type: " + BasicEntity.class.getName(),
                     "      brooklyn.children:",
                     "      - type: " + ver(referrerSymbolicName, TEST_VERSION));
-            fail("Expected to throw");
+            Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
-            assertTrue(e.getMessage().contains(referrerSymbolicName), "message was: "+e);
+            Asserts.expectedFailureContains(e, referrerSymbolicName);
         }
     }
 
@@ -357,7 +356,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     public void testCreateSpecFromCatalogItem() {
         String id = "my.catalog.app.id.create_spec";
         addCatalogEntity(IdAndVersion.of(id, TEST_VERSION), TestEntity.class.getName());
-        
+
         BrooklynTypeRegistry catalog = mgmt().getTypeRegistry();
         RegisteredType item = catalog.get(id, TEST_VERSION);
         EntitySpec<?> spec = catalog.createSpec(item, null, EntitySpec.class);
@@ -365,7 +364,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         AbstractBrooklynObjectSpec<?,?> spec2 = catalog.createSpec(item, null, null);
         Assert.assertNotNull(spec2);
     }
-    
+
     @Test
     public void testMissingTypeDoesNotRecurse() {
         String symbolicName = "my.catalog.app.id.basic";
@@ -373,25 +372,25 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
 
         try {
             addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION + "-update"), symbolicName);
-            fail("Catalog addition expected to fail due to recursive reference to " + symbolicName);
+            Asserts.shouldHaveFailedPreviously("Catalog addition expected to fail due to recursive reference to " + symbolicName);
         } catch (IllegalStateException e) {
-            assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
+            Asserts.expectedFailureContains(e, "recursive", symbolicName);
         }
     }
     
     @Test
     public void testVersionedTypeDoesNotRecurse() throws Exception {
-        // Alternatively, we could change this to tell foo:v2 reference foo:v1, but that feels 
-        // like a bad idea! 
+        // Alternatively, we could change this to tell foo:v2 reference foo:v1, but that feels
+        // like a bad idea!
         String symbolicName = "my.catalog.app.id.basic";
         addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION), TestEntity.class.getName());
 
         String versionedId = CatalogUtils.getVersionedId(symbolicName, TEST_VERSION);
         try {
             addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION + "-update"), versionedId);
-            fail("Catalog addition expected to fail due to recursive reference to " + versionedId);
+            Asserts.shouldHaveFailedPreviously("Catalog addition expected to fail due to recursive reference to " + versionedId);
         } catch (IllegalStateException e) {
-            assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
+            Asserts.expectedFailureContains(e, "recursive", symbolicName, versionedId);
         }
     }
 
@@ -399,7 +398,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     public void testIndirectRecursionFails() throws Exception {
         String callerSymbolicName = "my.catalog.app.id.caller";
         String calleeSymbolicName = "my.catalog.app.id.callee";
-        
+
         // Need to have a stand alone caller first so we can create an item to depend on it.
         // After that replace it/insert a new version which completes the cycle
         addCatalogEntity(IdAndVersion.of(callerSymbolicName, TEST_VERSION + "-pre"), TestEntity.class.getName());
@@ -408,9 +407,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
 
         try {
             addCatalogEntity(IdAndVersion.of(callerSymbolicName, TEST_VERSION), calleeSymbolicName);
-            fail();
+            Asserts.shouldHaveFailedPreviously();
         } catch (IllegalStateException e) {
-            assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
+            Asserts.expectedFailureContains(e, "recursive");
         }
     }
 
@@ -421,7 +420,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
 
         // Need to have a stand alone caller first so we can create an item to depend on it.
         // After that replace it/insert a new version which completes the cycle
-        
+
         addCatalogEntity(IdAndVersion.of(callerSymbolicName, TEST_VERSION + "-pre"), TestEntity.class.getName());
 
         addCatalogEntity(IdAndVersion.of(calleeSymbolicName, TEST_VERSION), callerSymbolicName);
@@ -439,9 +438,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                     "    - type: " + BasicEntity.class.getName(),
                     "      brooklyn.children:",
                     "      - type: " + calleeSymbolicName);
-            fail();
+            Asserts.shouldHaveFailedPreviously();
         } catch (IllegalStateException e) {
-            assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
+            Asserts.expectedFailureContains(e, "recursive");
         }
     }
 
@@ -497,7 +496,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         Entity testEntity = Iterables.getOnlyElement(app.getChildren());
         assertEquals(testEntity.config().get(TestEntity.CONF_NAME), val);
     }
-    
+
     @Test
     public void testConfigAppliedToCatalogItemImpl() throws Exception {
         addCatalogEntity("test", TestEntityImpl.class.getName());
@@ -545,6 +544,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     }
     
     @Test(groups = "Broken")
+    // See https://issues.apache.org/jira/browse/BROOKLYN-343
     public void testSameCatalogReferences() {
         addCatalogItems(
             "brooklyn.catalog:",
@@ -565,6 +565,26 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             "              type: referenced-entity");
 
     }
+
+    @Test
+    public void testSameCatalogReferencesWithoutServices() {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  items:",
+            "  - id: referenced-entity",
+            "    item:",
+            "      type: " + BasicEntity.class.getName(),
+            "  - id: referrer-entity",
+            "    item:",
+            "      type: " + BasicApplication.class.getName(),
+            "      brooklyn.children:",
+            "      - type: referenced-entity",
+            "      brooklyn.config:",
+            "       spec: ",
+            "          $brooklyn:entitySpec:",
+            "            type: referenced-entity");
+    }
+
 
     @Test
     public void testItemWithBrooklynParameters() throws Exception {
@@ -595,7 +615,8 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         
         String yaml = Joiner.on("\n").join(
                 "name: simple-app-yaml",
-                "location: localhost",
+                "location:",
+                "localhost: { latitude: 0, longitude: 0 }",  // prevent host geo lookup delay (slowing down test on my network)
                 "services:",
                 "  - type: "+id+":"+version);
         Entity app = createAndStartApplication(yaml);
@@ -612,11 +633,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         mgmt().getCatalog().deleteCatalogItem(id, version);
     }
 
-    // The test is disabled as it fails. The entity will get assigned the outer-most catalog
-    // item which doesn't have the necessary libraries with visibility to the entity's classpath
-    // When loading resources from inside the entity then we will use the wrong BCLCS. A workaround
-    // has been implemented which explicitly adds the entity's class loader to the fallbacks.
-    @Test(groups="WIP")
+    @Test
     public void testCatalogItemIdInReferencedItems() throws Exception {
         String symbolicNameInner = "my.catalog.app.id.inner";
         String symbolicNameOuter = "my.catalog.app.id.outer";
@@ -634,10 +651,11 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "  - serviceType: "+ver(symbolicNameOuter);
 
         Entity app = createAndStartApplication(yaml);
-        Entity entity = app.getChildren().iterator().next();
 
-        // Fails
-        assertEquals(entity.getCatalogItemId(), ver(symbolicNameInner));
+        Entity entity = app.getChildren().iterator().next();
+        assertEquals(entity.getCatalogItemId(), ver(symbolicNameOuter));
+        assertEquals(entity.getCatalogItemIdSearchPath(), ImmutableList.of(ver(symbolicNameInner)),
+            "should have just " + symbolicNameInner + " in search path");
 
         deleteCatalogEntity(symbolicNameInner);
         deleteCatalogEntity(symbolicNameOuter);
@@ -646,10 +664,10 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     private void registerAndLaunchAndAssertSimpleEntity(String symbolicName, String serviceType) throws Exception {
         registerAndLaunchAndAssertSimpleEntity(symbolicName, serviceType, serviceType);
     }
-    
+
     private void registerAndLaunchAndAssertSimpleEntity(String symbolicName, String serviceType, String expectedType) throws Exception {
         addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION), serviceType);
-        
+
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: "+ver(symbolicName, TEST_VERSION));
@@ -663,11 +681,11 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     public static class IdAndVersion {
         public final String id;
         public final String version;
-        
+
         public static IdAndVersion of(String id, String version) {
             return new IdAndVersion(id, version);
         }
-        
+
         public IdAndVersion(String id, String version) {
             this.id = checkNotNull(id, "id");
             this.version = checkNotNull(version, "version");
@@ -677,7 +695,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     private void addCatalogEntity(String symbolicName, String entityType) {
         addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION), entityType);
     }
-    
+
     private void addCatalogEntity(IdAndVersion idAndVersion, String serviceType) {
         addCatalogItems(
                 "brooklyn.catalog:",

@@ -36,6 +36,7 @@ import org.apache.brooklyn.api.mgmt.ha.ManagementPlaneSyncRecord;
 import org.apache.brooklyn.api.mgmt.ha.ManagementPlaneSyncRecordPersister;
 import org.apache.brooklyn.core.mgmt.ha.dto.BasicManagementNodeSyncRecord;
 import org.apache.brooklyn.core.mgmt.ha.dto.ManagementPlaneSyncRecordImpl;
+import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.MementoSerializer;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.RetryingMementoSerializer;
@@ -93,6 +94,7 @@ public class ManagementPlaneSyncRecordPersisterToObjectStore implements Manageme
     // TODO Leak if we go through lots of managers; but tiny!
     private final ConcurrentMap<String, StoreObjectAccessorWithLock> nodeWriters = Maps.newConcurrentMap();
 
+    private StoreObjectAccessorWithLock planeIdReader;
     private StoreObjectAccessorWithLock masterWriter;
     private StoreObjectAccessorWithLock changeLogWriter;
 
@@ -143,6 +145,8 @@ public class ManagementPlaneSyncRecordPersisterToObjectStore implements Manageme
                 masterWriter = new StoreObjectAccessorLocking(objectStore.newAccessor("master"));
                 changeLogWriter = new StoreObjectAccessorLocking(objectStore.newAccessor("change.log"));
             }
+            // No need to wrap it in a write lock, doing it just for consistency
+            planeIdReader = new StoreObjectAccessorLocking(objectStore.newAccessor(BrooklynMementoPersisterToObjectStore.PLANE_ID_FILE_NAME));
         }
     }
 
@@ -194,6 +198,8 @@ public class ManagementPlaneSyncRecordPersisterToObjectStore implements Manageme
         } else {
             builder.masterNodeId(masterNodeId);
         }
+        
+        builder.planeId(Strings.emptyToNull(planeIdReader.get()));
 
         // Load node-files
         List<String> nodeFiles = objectStore.listContentsWithSubPath(NODES_SUB_PATH);

@@ -20,21 +20,19 @@ package org.apache.brooklyn.entity.software.base.test.core.mgmt.usage;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Application;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.mgmt.usage.ApplicationUsage;
 import org.apache.brooklyn.core.mgmt.usage.ApplicationUsage.ApplicationEvent;
 import org.apache.brooklyn.core.mgmt.usage.RecordingUsageListener;
-import org.apache.brooklyn.core.mgmt.usage.UsageListener.ApplicationMetadata;
-import org.apache.brooklyn.core.objs.proxy.EntityProxy;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.test.Asserts;
@@ -47,9 +45,11 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 
 public class ApplicationUsageTrackingTest extends BrooklynMgmtUnitTestSupport {
 
+    @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(ApplicationUsageTrackingTest.class);
 
     protected TestApplication app;
@@ -61,31 +61,105 @@ public class ApplicationUsageTrackingTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testAddAndRemoveUsageListener() throws Exception {
+    public void testUsageListenerReceivesEvents() throws Exception {
         final RecordingUsageListener listener = new RecordingUsageListener();
         mgmt.getUsageManager().addUsageListener(listener);
-        
+
+        // Expect CREATED
         app = TestApplication.Factory.newManagedInstanceForTests(mgmt);
+        
+        Asserts.succeedsEventually(new Runnable() {
+            @Override public void run() {
+                List<List<?>> events = listener.getApplicationEvents();
+                assertEquals(events.size(), 1, "events="+events);
+                listener.assertAppEvent(0, app, Lifecycle.CREATED, "events="+events);
+            }});
+
+        // Expect STARTING and RUNNING
         app.setCatalogItemId("testCatalogItem");
         app.start(ImmutableList.<Location>of());
 
         Asserts.succeedsEventually(new Runnable() {
             @Override public void run() {
                 List<List<?>> events = listener.getApplicationEvents();
-                assertEquals(events.size(), 2, "events="+events); // expect STARTING and RUNNING
-                ApplicationMetadata appMetadata = (ApplicationMetadata) events.get(0).get(1);
-                ApplicationEvent appEvent = (ApplicationEvent) events.get(0).get(2);
-                
-                assertEquals(appMetadata.getApplication(), app, "events="+events);
-                assertTrue(appMetadata.getApplication() instanceof EntityProxy, "events="+events);
-                assertEquals(appMetadata.getApplicationId(), app.getId(), "events="+events);
-                assertNotNull(appMetadata.getApplicationName(), "events="+events);
-                assertEquals(appMetadata.getCatalogItemId(), app.getCatalogItemId(), "events="+events);
-                assertNotNull(appMetadata.getEntityType(), "events="+events);
-                assertNotNull(appMetadata.getMetadata(), "events="+events);
-                assertEquals(appEvent.getState(), Lifecycle.STARTING, "events="+events);
+                assertEquals(events.size(), 3, "events="+events);
+                listener.assertAppEvent(1, app, Lifecycle.STARTING, "events="+events);
+                listener.assertAppEvent(2, app, Lifecycle.RUNNING, "events="+events);
             }});
 
+        // Expect STOPPING, STOPPED and DESTROYED
+        app.stop();
+
+        Asserts.succeedsEventually(new Runnable() {
+            @Override public void run() {
+                List<List<?>> events = listener.getApplicationEvents();
+                assertEquals(events.size(), 6, "events="+events);
+                listener.assertAppEvent(3, app, Lifecycle.STOPPING, "events="+events);
+                listener.assertAppEvent(4, app, Lifecycle.STOPPED, "events="+events);
+                listener.assertAppEvent(5, app, Lifecycle.DESTROYED, "events="+events);
+            }});
+    }
+    
+
+    @Test
+    public void testUsageListenerCanRecogniseTopLevelApps() throws Exception {
+        final LinkedHashSet<Application> topLevelApps = Sets.newLinkedHashSet();
+        final RecordingUsageListener listener = new RecordingUsageListener() {
+            public void onApplicationEvent(ApplicationMetadata app, ApplicationEvent event) {
+                if (app.getApplication().getParent() == null) {
+                    topLevelApps.add(app.getApplication());
+                }
+                super.onApplicationEvent(app, event);
+            }
+        };
+        mgmt.getUsageManager().addUsageListener(listener);
+
+        // Expect CREATED
+        app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
+                .child(EntitySpec.create(TestApplication.class)));
+        final TestApplication childApp = (TestApplication) Iterables.getOnlyElement(app.getChildren());
+        
+        Asserts.succeedsEventually(new Runnable() {
+            @Override public void run() {
+                List<List<?>> events = listener.getApplicationEvents();
+                assertEquals(events.size(), 2, "events="+events);
+                listener.assertHasAppEvent(app, Lifecycle.CREATED, "events="+events);
+                listener.assertHasAppEvent(app, Lifecycle.CREATED, "events="+events);
+            }});
+        assertEquals(topLevelApps, ImmutableSet.of(app));
+        
+        listener.clearEvents();
+        topLevelApps.clear();
+
+        // Expect STOPPING, STOPPED and DESTROYED
+        app.stop();
+
+        Asserts.succeedsEventually(new Runnable() {
+            @Override public void run() {
+                List<List<?>> events = listener.getApplicationEvents();
+                listener.assertHasAppEvent(app, Lifecycle.DESTROYED, "events="+events);
+                listener.assertHasAppEvent(childApp, Lifecycle.DESTROYED, "events="+events);
+            }});
+        
+        // TODO By the point of being DESTROYED, we've cleared the app.parent(), so we can't tell
+        // if it was a top-level app anymore. Therefore we are not asserting:
+        //    assertEquals(topLevelApps, ImmutableSet.of(app));
+    }
+    
+    @Test
+    public void testAddAndRemoveUsageListener() throws Exception {
+        final RecordingUsageListener listener = new RecordingUsageListener();
+        mgmt.getUsageManager().addUsageListener(listener);
+
+        // Expect CREATED
+        app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
+        
+        Asserts.succeedsEventually(new Runnable() {
+            @Override public void run() {
+                List<List<?>> events = listener.getApplicationEvents();
+                assertEquals(events.size(), 1, "events="+events);
+                listener.assertAppEvent(0, app, Lifecycle.CREATED, "events="+events);
+            }});
 
         // Remove the listener; will get no more notifications
         listener.clearEvents();
@@ -110,8 +184,9 @@ public class ApplicationUsageTrackingTest extends BrooklynMgmtUnitTestSupport {
         Set<ApplicationUsage> usages1 = mgmt.getUsageManager().getApplicationUsage(Predicates.alwaysTrue());
         ApplicationUsage usage1 = Iterables.getOnlyElement(usages1);
         assertApplicationUsage(usage1, app);
-        assertApplicationEvent(usage1.getEvents().get(0), Lifecycle.STARTING, preStart, postStart);
-        assertApplicationEvent(usage1.getEvents().get(1), Lifecycle.RUNNING, preStart, postStart);
+        assertApplicationEvent(usage1.getEvents().get(0), Lifecycle.CREATED, preStart, postStart);
+        assertApplicationEvent(usage1.getEvents().get(1), Lifecycle.STARTING, preStart, postStart);
+        assertApplicationEvent(usage1.getEvents().get(2), Lifecycle.RUNNING, preStart, postStart);
 
         // Stop events
         long preStop = System.currentTimeMillis();
@@ -121,10 +196,10 @@ public class ApplicationUsageTrackingTest extends BrooklynMgmtUnitTestSupport {
         Set<ApplicationUsage> usages2 = mgmt.getUsageManager().getApplicationUsage(Predicates.alwaysTrue());
         ApplicationUsage usage2 = Iterables.getOnlyElement(usages2);
         assertApplicationUsage(usage2, app);
-        assertApplicationEvent(usage2.getEvents().get(2), Lifecycle.STOPPING, preStop, postStop);
-        assertApplicationEvent(usage2.getEvents().get(3), Lifecycle.STOPPED, preStop, postStop);
+        assertApplicationEvent(usage2.getEvents().get(3), Lifecycle.STOPPING, preStop, postStop);
+        assertApplicationEvent(usage2.getEvents().get(4), Lifecycle.STOPPED, preStop, postStop);
         //Apps unmanage themselves on stop
-        assertApplicationEvent(usage2.getEvents().get(4), Lifecycle.DESTROYED, preStop, postStop);
+        assertApplicationEvent(usage2.getEvents().get(5), Lifecycle.DESTROYED, preStop, postStop);
         
         assertFalse(mgmt.getEntityManager().isManaged(app), "App should already be unmanaged");
         
@@ -132,7 +207,7 @@ public class ApplicationUsageTrackingTest extends BrooklynMgmtUnitTestSupport {
         ApplicationUsage usage3 = Iterables.getOnlyElement(usages3);
         assertApplicationUsage(usage3, app);
         
-        assertEquals(usage3.getEvents().size(), 5, "usage="+usage3);
+        assertEquals(usage3.getEvents().size(), 6, "usage="+usage3);
     }
     
     private void assertApplicationUsage(ApplicationUsage usage, Application expectedApp) {

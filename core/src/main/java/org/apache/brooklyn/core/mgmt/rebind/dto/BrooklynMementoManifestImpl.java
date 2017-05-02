@@ -21,10 +21,12 @@ package org.apache.brooklyn.core.mgmt.rebind.dto;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoManifest;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 
 import com.google.common.collect.Maps;
@@ -38,6 +40,7 @@ public class BrooklynMementoManifestImpl implements BrooklynMementoManifest, Ser
     }
     
     public static class Builder {
+        protected String planeId;
         protected String brooklynVersion;
         protected final Map<String, EntityMementoManifest> entityIdToManifest = Maps.newConcurrentMap();
         protected final Map<String, String> locationIdToType = Maps.newConcurrentMap();
@@ -45,12 +48,19 @@ public class BrooklynMementoManifestImpl implements BrooklynMementoManifest, Ser
         protected final Map<String, String> enricherIdToType = Maps.newConcurrentMap();
         protected final Map<String, String> feedIdToType = Maps.newConcurrentMap();
         protected final Map<String, CatalogItemMemento> catalogItems = Maps.newConcurrentMap();
-        
+        protected final Map<String, ManagedBundleMemento> bundles = Maps.newConcurrentMap();
+
+        public Builder planeId(String planeId) {
+            this.planeId = planeId; return this;
+        }
+
+        /** @deprecated since 0.11.0; value is not used */
+        @Deprecated
         public Builder brooklynVersion(String val) {
             brooklynVersion = val; return this;
         }
-        public Builder entity(String id, String type, String parent, String catalogItemId) {
-            entityIdToManifest.put(id, new EntityMementoManifestImpl(id, type, parent, catalogItemId));
+        public Builder entity(String id, String type, String parent, String catalogItemId, List<String> searchPath) {
+            entityIdToManifest.put(id, new EntityMementoManifestImpl(id, type, parent, catalogItemId, searchPath));
             return this;
         }
         public Builder location(String id, String type) {
@@ -83,6 +93,12 @@ public class BrooklynMementoManifestImpl implements BrooklynMementoManifest, Ser
         public Builder catalogItem(CatalogItemMemento val) {
             catalogItems.put(val.getId(), val); return this;
         }
+        public Builder bundles(Map<String, ManagedBundleMemento> vals) {
+            bundles.putAll(vals); return this;
+        }
+        public Builder bundle(ManagedBundleMemento val) {
+            bundles.put(val.getId(), val); return this;
+        }
 
         public Builder putType(BrooklynObjectType type, String id, String javaType) {
             switch (type) {
@@ -91,7 +107,9 @@ public class BrooklynMementoManifestImpl implements BrooklynMementoManifest, Ser
             case POLICY: return policy(id, javaType);
             case ENRICHER: return enricher(id, javaType);
             case FEED: return feed(id, javaType);
-            case CATALOG_ITEM: throw new IllegalArgumentException(type.toCamelCase()+" requires different parameters");
+            case CATALOG_ITEM: 
+            case MANAGED_BUNDLE: 
+                throw new IllegalArgumentException(type.toCamelCase()+" requires different parameters");
             case UNKNOWN: 
             default: 
                 throw new IllegalArgumentException(type.toCamelCase()+" not supported");
@@ -103,20 +121,29 @@ public class BrooklynMementoManifestImpl implements BrooklynMementoManifest, Ser
         }
     }
 
+    private final String planeId;
     private final Map<String, EntityMementoManifest> entityIdToManifest;
     private final Map<String, String> locationIdToType;
     private final Map<String, String> policyIdToType;
     private final Map<String, String> enricherIdToType;
     private final Map<String, String> feedIdToType;
     private Map<String, CatalogItemMemento> catalogItems;
+    private Map<String, ManagedBundleMemento> bundles; 
     
     private BrooklynMementoManifestImpl(Builder builder) {
+        planeId = builder.planeId;
         entityIdToManifest = builder.entityIdToManifest;
         locationIdToType = builder.locationIdToType;
         policyIdToType = builder.policyIdToType;
         enricherIdToType = builder.enricherIdToType;
         feedIdToType = builder.feedIdToType;
         catalogItems = builder.catalogItems;
+        bundles = builder.bundles;
+    }
+
+    @Override
+    public String getPlaneId() {
+        return planeId;
     }
 
     @Override
@@ -158,6 +185,21 @@ public class BrooklynMementoManifestImpl implements BrooklynMementoManifest, Ser
     public Map<String, CatalogItemMemento> getCatalogItemMementos() {
         return Collections.unmodifiableMap(catalogItems);
     }
+    
+    @Override
+    public ManagedBundleMemento getBundle(String id) {
+        return bundles.get(id);
+    }
+
+    @Override
+    public Collection<String> getBundleIds() {
+        return Collections.unmodifiableSet(bundles.keySet());
+    }
+
+    @Override
+    public Map<String, ManagedBundleMemento> getBundles() {
+        return Collections.unmodifiableMap(bundles);
+    }
 
     @Override
     public boolean isEmpty() {
@@ -166,7 +208,8 @@ public class BrooklynMementoManifestImpl implements BrooklynMementoManifest, Ser
                 policyIdToType.isEmpty() &&
                 enricherIdToType.isEmpty() &&
                 feedIdToType.isEmpty() &&
-                catalogItems.isEmpty();
+                catalogItems.isEmpty() &&
+                bundles.isEmpty();
     }
     
 }

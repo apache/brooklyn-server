@@ -20,6 +20,7 @@ package org.apache.brooklyn.api.mgmt.rebind.mementos;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.objs.Identifiable;
@@ -32,28 +33,34 @@ import org.apache.brooklyn.api.objs.Identifiable;
 public interface BrooklynMementoManifest extends Serializable {
     public interface EntityMementoManifest extends Identifiable{
         @Override
-        public String getId();
-        public String getType();
-        public String getParent();
-        public String getCatalogItemId();
+        String getId();
+        String getType();
+        String getParent();
+        String getCatalogItemId();
+        List<String> getCatalogItemIdSearchPath();
     }
 
-    public Map<String, EntityMementoManifest> getEntityIdToManifest();
+    String getPlaneId();
 
-    public Map<String, String> getLocationIdToType();
+    Map<String, EntityMementoManifest> getEntityIdToManifest();
 
-    public Map<String, String> getPolicyIdToType();
+    Map<String, String> getLocationIdToType();
 
-    public Map<String, String> getEnricherIdToType();
+    Map<String, String> getPolicyIdToType();
 
-    public Map<String, String> getFeedIdToType();
+    Map<String, String> getEnricherIdToType();
+
+    Map<String, String> getFeedIdToType();
     
-    public CatalogItemMemento getCatalogItemMemento(String id);
+    CatalogItemMemento getCatalogItemMemento(String id);
+    Collection<String> getCatalogItemIds();
+    Map<String, CatalogItemMemento> getCatalogItemMementos();
 
-    public Collection<String> getCatalogItemIds();
+    ManagedBundleMemento getBundle(String id);
+    /** returns UID not symbolic name + version */
+    Collection<String> getBundleIds();
+    Map<String, ManagedBundleMemento> getBundles();
 
-    public Map<String, CatalogItemMemento> getCatalogItemMementos();
-
-    public boolean isEmpty();
+    boolean isEmpty();
     
 }

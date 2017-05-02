@@ -24,7 +24,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EnricherMemento;
 import org.apache.brooklyn.core.config.Sanitizer;
 
-import com.google.common.base.Objects.ToStringHelper;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Maps;
 
 /**
@@ -86,7 +86,7 @@ public class BasicEnricherMemento extends AbstractMemento implements EnricherMem
     }
 
     @Override
-    protected ToStringHelper newVerboseStringHelper() {
+    protected MoreObjects.ToStringHelper newVerboseStringHelper() {
         return super.newVerboseStringHelper().add("config", Sanitizer.sanitize(getConfig()));
     }
 }
