@@ -73,6 +73,7 @@ public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest implement
         Bundle b = ((ManagementContextInternal)mgmt()).getOsgiManager().get().installUploadedBundle(mb, 
             new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V1_URL), true);
         Assert.assertEquals(mb.getSymbolicName(), b.getSymbolicName());
+        Assert.assertEquals(mb.getVersion(), "0.1.0");
         
         // bundle installed
         Map<String, ManagedBundle> bundles = ((ManagementContextInternal)mgmt()).getOsgiManager().get().getManagedBundles();

@@ -58,6 +58,7 @@ import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.os.Os.DeletionResult;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
@@ -100,6 +101,7 @@ public class OsgiManager {
     private Set<Bundle> bundlesAtStartup;
     protected File osgiCacheDir;
     protected Map<String, ManagedBundle> managedBundles = MutableMap.of();
+    protected Map<VersionedName, String> managedBundleIds = MutableMap.of();
     protected AtomicInteger numberOfReusableFrameworksCreated = new AtomicInteger();
 
     
@@ -209,9 +211,17 @@ public class OsgiManager {
     }
 
     public Map<String, ManagedBundle> getManagedBundles() {
-        return ImmutableMap.copyOf(managedBundles);
+        synchronized (managedBundles) {
+            return ImmutableMap.copyOf(managedBundles);
+        }
     }
-    
+
+    public String getManagedBundleId(VersionedName vn) {
+        synchronized (managedBundles) {
+            return managedBundleIds.get(vn);
+        }
+    }
+
     public Bundle installUploadedBundle(ManagedBundle bundleMetadata, InputStream zipIn, boolean loadCatalogBom) {
         try {
             Bundle alreadyBundle = checkBundleInstalledThrowIfInconsistent(bundleMetadata, false);
@@ -225,8 +235,30 @@ public class OsgiManager {
             zipIn.close();
             fos.close();
             
-            Bundle bundleInstalled = framework.getBundleContext().installBundle(bundleMetadata.getOsgiUniqueUrl(), 
-                new FileInputStream(zipF));
+            ManagedBundle existingBundleToUpdate = null;
+            synchronized (managedBundles) {
+                String id = managedBundleIds.get(bundleMetadata.getVersionedName());
+                if (id!=null) {
+                    existingBundleToUpdate = managedBundles.get(id); 
+                }
+            }
+            
+            Bundle bundleInstalled;
+            if (existingBundleToUpdate==null) {
+                // install new
+                bundleInstalled = framework.getBundleContext().installBundle(bundleMetadata.getOsgiUniqueUrl(), 
+                    new FileInputStream(zipF));
+            } else {
+                // update
+                bundleInstalled = framework.getBundleContext().getBundle(existingBundleToUpdate.getOsgiUniqueUrl());
+                if (bundleInstalled==null) {
+                    throw new IllegalStateException("Detected bundle "+existingBundleToUpdate+" should be installed but framework cannot find it");
+                }
+                try (InputStream fin = new FileInputStream(zipF)) {
+                    bundleInstalled.update(fin);
+                }
+                bundleMetadata = existingBundleToUpdate;
+            }
             checkCorrectlyInstalled(bundleMetadata, bundleInstalled);
             if (!bundleMetadata.isNameResolved()) {
                 ((BasicManagedBundle)bundleMetadata).setSymbolicName(bundleInstalled.getSymbolicName());
@@ -236,6 +268,7 @@ public class OsgiManager {
             
             synchronized (managedBundles) {
                 managedBundles.put(bundleMetadata.getId(), bundleMetadata);
+                managedBundleIds.put(bundleMetadata.getVersionedName(), bundleMetadata.getId());
             }
             mgmt.getRebindManager().getChangeListener().onChanged(bundleMetadata);
             
@@ -243,6 +276,10 @@ public class OsgiManager {
             // but may break some things running from the IDE
             bundleInstalled.start();
 
+            if (existingBundleToUpdate!=null) {
+                // TODO remove old catalog items (see below)
+                // (ideally the removal and addition would be atomic)
+            }
             if (loadCatalogBom) {
                 loadCatalogBom(bundleInstalled);
             }
@@ -254,8 +291,50 @@ public class OsgiManager {
         }
     }
     
-    // TODO uninstall bundle, and call change listener onRemoved ?
-    // TODO on snapshot install, uninstall old equivalent snapshots (items in use might stay in use though?)
+    /**
+     * Removes this bundle from Brooklyn management, 
+     * removes all catalog items it defined,
+     * and then uninstalls the bundle from OSGi.
+     * <p>
+     * No checking is done whether anything is using the bundle;
+     * behaviour of such things is not guaranteed. They will work for many things
+     * but attempts to load new classes may fail.
+     * <p>
+     * Callers should typically fail if anything from this bundle is in use.
+     */
+    public void uninstallUploadedBundle(ManagedBundle bundleMetadata) {
+        synchronized (managedBundles) {
+            ManagedBundle metadata = managedBundles.remove(bundleMetadata.getId());
+            if (metadata==null) {
+                throw new IllegalStateException("No such bundle registered: "+bundleMetadata);
+            }
+            managedBundleIds.remove(bundleMetadata.getVersionedName());
+        }
+        mgmt.getRebindManager().getChangeListener().onUnmanaged(bundleMetadata);
+        
+        // TODO uninstall things that come from this bundle
+//        mgmt.getTypeRegistry().getMatching(new Predicate<RegisteredType>() {
+//            @Override
+//            public boolean apply(RegisteredType input) {
+//                XXX;
+//                input.getLibraries();
+//                return false;
+//            }
+//        });
+        
+        Bundle bundle = framework.getBundleContext().getBundle(bundleMetadata.getOsgiUniqueUrl());
+        if (bundle==null) {
+            throw new IllegalStateException("No such bundle installed: "+bundleMetadata);
+        }
+        try {
+            bundle.stop();
+            bundle.uninstall();
+        } catch (BundleException e) {
+            throw Exceptions.propagate(e);
+        }
+    }
+    
+    // TODO DO on snapshot install, uninstall old equivalent snapshots (items in use might stay in use though?)
     
     public synchronized Bundle registerBundle(CatalogBundle bundleMetadata) {
         try {
