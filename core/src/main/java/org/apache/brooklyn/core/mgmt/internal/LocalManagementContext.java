@@ -49,7 +49,6 @@ import org.apache.brooklyn.core.entity.drivers.downloads.BasicDownloadsManager;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.internal.BrooklynProperties.Factory.Builder;
-import org.apache.brooklyn.core.internal.storage.DataGridFactory;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.objs.proxy.InternalEntityFactory;
@@ -150,41 +149,26 @@ public class LocalManagementContext extends AbstractManagementContext {
         this(BrooklynProperties.Factory.builderDefault());
     }
 
-    public LocalManagementContext(BrooklynProperties brooklynProperties) {
-        this(brooklynProperties, (DataGridFactory)null);
-    }
-
     /**
      * Creates a new LocalManagementContext.
      *
      * @param brooklynProperties the BrooklynProperties.
-     * @param datagridFactory the DataGridFactory to use. If this instance is null, it means that the system
-     *                        is going to use BrooklynProperties to figure out which instance to load or otherwise
-     *                        use a default instance.
      */
     @VisibleForTesting
-    public LocalManagementContext(BrooklynProperties brooklynProperties, DataGridFactory datagridFactory) {
-        this(Builder.fromProperties(brooklynProperties), datagridFactory);
+    public LocalManagementContext(BrooklynProperties brooklynProperties) {
+        this(Builder.fromProperties(brooklynProperties));
     }
     
     public LocalManagementContext(Builder builder) {
-        this(builder, null, null);
-    }
-    
-    public LocalManagementContext(Builder builder, DataGridFactory datagridFactory) {
-        this(builder, null, datagridFactory);
-    }
-
-    public LocalManagementContext(Builder builder, Map<String, Object> brooklynAdditionalProperties) {
-        this(builder, brooklynAdditionalProperties, null);
+        this(builder, null);
     }
     
     public LocalManagementContext(BrooklynProperties brooklynProperties, Map<String, Object> brooklynAdditionalProperties) {
-        this(Builder.fromProperties(brooklynProperties), brooklynAdditionalProperties, null);
+        this(Builder.fromProperties(brooklynProperties), brooklynAdditionalProperties);
     }
     
-    public LocalManagementContext(Builder builder, Map<String, Object> brooklynAdditionalProperties, DataGridFactory datagridFactory) {
-        super(builder.build(), datagridFactory);
+    public LocalManagementContext(Builder builder, Map<String, Object> brooklynAdditionalProperties) {
+        super(builder.build());
         
         checkNotNull(configMap, "brooklynProperties");
         
