@@ -242,27 +242,15 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
             Entity app2 = createAndStartApplication(yaml);
             Asserts.shouldHaveFailedPreviously("Expected deployment to fail after uninstall; instead got "+app2);
         } catch (Exception e) {
-            // org.apache.brooklyn.util.exceptions.CompoundRuntimeException: Unable to instantiate item; 2 errors including: 
-            // Transformer for brooklyn-camp gave an error creating this plan: Transformer for catalog gave an error creating this plan: 
-            // Unable to instantiate org.apache.brooklyn.test.osgi.entities.more.MoreEntity; 
-            // 2 errors including: Error in definition of org.apache.brooklyn.test.osgi.entities.more.MoreEntity:0.12.0-SNAPSHOT: 
-            // Unable to create spec for type brooklyn:org.apache.brooklyn.test.osgi.entities.more.MoreEntity. 
-            // The reference brooklyn:org.apache.brooklyn.test.osgi.entities.more.MoreEntity looks like a URL 
-            // (running the CAMP Brooklyn assembly-template instantiator) but 
-            // the protocol brooklyn isn't white listed ([classpath, http, https]). 
-            // It's also neither a catalog item nor a java type.
-            // TODO different error after catalog item uninstalled
-            Asserts.expectedFailureContainsIgnoreCase(e, BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY, "not", "registered");
+            Asserts.expectedFailureContainsIgnoreCase(e, "unable to match", BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
         }
         
         try {
             StartableApplication app2 = rebind();
             Asserts.shouldHaveFailedPreviously("Expected deployment to fail rebind; instead got "+app2);
         } catch (Exception e) {
-            Asserts.expectedFailure(e);
-            // TODO should fail to rebind this app
-            // (currently fails to load the catalog item, since it wasn't removed)
-            // Asserts.expectedFailureContainsIgnoreCase(e, BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY, "simple-app-yaml");
+            // should fail to rebind this entity
+            Asserts.expectedFailureContainsIgnoreCase(e, more.getId(), "unable to load", BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
         }
     }
     

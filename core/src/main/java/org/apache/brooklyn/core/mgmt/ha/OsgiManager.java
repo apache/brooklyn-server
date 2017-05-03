@@ -38,6 +38,7 @@ import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynVersion;
@@ -74,6 +75,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -297,6 +299,8 @@ public class OsgiManager {
         }
     }
     
+    
+    
     /**
      * Removes this bundle from Brooklyn management, 
      * removes all catalog items it defined,
@@ -318,15 +322,11 @@ public class OsgiManager {
         }
         mgmt.getRebindManager().getChangeListener().onUnmanaged(bundleMetadata);
         
-        // TODO uninstall things that come from this bundle
-//        mgmt.getTypeRegistry().getMatching(new Predicate<RegisteredType>() {
-//            @Override
-//            public boolean apply(RegisteredType input) {
-//                XXX;
-//                input.getLibraries();
-//                return false;
-//            }
-//        });
+        // uninstall things that come from this bundle
+        List<RegisteredType> thingsFromHere = ImmutableList.copyOf(getTypesFromBundle( bundleMetadata.getVersionedName() ));
+        for (RegisteredType t: thingsFromHere) {
+            mgmt.getCatalog().deleteCatalogItem(t.getSymbolicName(), t.getVersion());
+        }
         
         Bundle bundle = framework.getBundleContext().getBundle(bundleMetadata.getOsgiUniqueUrl());
         if (bundle==null) {
@@ -338,6 +338,16 @@ public class OsgiManager {
         } catch (BundleException e) {
             throw Exceptions.propagate(e);
         }
+    }
+
+    protected Iterable<RegisteredType> getTypesFromBundle(final VersionedName vn) {
+        final String bundleId = vn.toString();
+        return mgmt.getTypeRegistry().getMatching(new Predicate<RegisteredType>() {
+            @Override
+            public boolean apply(RegisteredType input) {
+                return bundleId.equals(input.getContainingBundle());
+            }
+        });
     }
     
     // TODO DO on snapshot install, uninstall old equivalent snapshots (items in use might stay in use though?)
