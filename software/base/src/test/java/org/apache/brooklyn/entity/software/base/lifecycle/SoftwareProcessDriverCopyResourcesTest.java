@@ -49,6 +49,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 
+@Test(groups="Integration")
 public class SoftwareProcessDriverCopyResourcesTest {
 
     File installDir;
