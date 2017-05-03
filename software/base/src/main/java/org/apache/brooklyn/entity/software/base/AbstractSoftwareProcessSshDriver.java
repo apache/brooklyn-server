@@ -304,6 +304,19 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
         }
     }
 
+    @Override
+    public void copyCustomizeResources() {
+        getLocation().acquireMutex("customizing " + elvis(entity, this), "installation lock at host for files and templates");
+        try {
+            super.copyCustomizeResources();
+        } catch (Exception e) {
+            log.warn("Error copying customize resources", e);
+            throw Exceptions.propagate(e);
+        } finally {
+            getLocation().releaseMutex("customizing " + elvis(entity, this));
+        }
+    }
+
     private void executeSuccessfully(ConfigKey<String> configKey, String label) {
         if(Strings.isNonBlank(getEntity().getConfig(configKey))) {
             log.debug("Executing {} on entity {}", label, entity.getDisplayName());

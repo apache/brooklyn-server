@@ -54,13 +54,24 @@ public class EmptySoftwareProcessSshDriver extends AbstractSoftwareProcessSshDri
     }
 
     @Override
-    public void copyRuntimeResources() { 
+    public void copyCustomizeResources() {
+        Map<String, String> customizeFiles = entity.getConfig(SoftwareProcess.CUSTOMIZE_FILES);
+        Map<String, String> customizeTemplates = entity.getConfig(SoftwareProcess.CUSTOMIZE_TEMPLATES);
+        if ((customizeFiles!=null && !customizeFiles.isEmpty())
+            || (customizeTemplates!=null && !customizeTemplates.isEmpty())) {
+            // only do this if there are files, to prevent unnecessary `mkdir`
+            super.copyCustomizeResources();
+        }        
+    }
+
+    @Override
+    public void copyRuntimeResources() {
         Map<String, String> runtimeFiles = entity.getConfig(SoftwareProcess.RUNTIME_FILES);
         Map<String, String> runtimeTemplates = entity.getConfig(SoftwareProcess.RUNTIME_TEMPLATES);
         if ((runtimeFiles!=null && !runtimeFiles.isEmpty()) || (runtimeTemplates!=null && !runtimeTemplates.isEmpty())) {
             // only do this if there are files, to prevent unnecessary `mkdir`
             super.copyRuntimeResources();
-        }        
+        }
     }
 
     @Override

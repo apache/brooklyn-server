@@ -173,6 +173,12 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
             }});
 
             DynamicTasks.queue("customize", new Runnable() { @Override public void run() {
+                DynamicTasks.queue("copy-pre-customize-resources", new Runnable() { @Override public void run() {
+                    try (CloseableLatch value = waitForLatch(BrooklynConfigKeys.CUSTOMIZE_RESOURCES_LATCH)) {
+                        copyCustomizeResources();
+                    }
+                }});
+
                 DynamicTasks.queue("pre-customize-command", new Runnable() { @Override public void run() {
                     runPreCustomizeCommand();
                 }});
@@ -402,7 +408,21 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
         copyResources(getInstallDir(), entity.getConfig(SoftwareProcess.INSTALL_FILES), entity.getConfig(SoftwareProcess.INSTALL_TEMPLATES));
     }
 
-    private void copyResources(String destinationParentDir, Map<String, String> files, Map<String, String> templates) {
+    /**
+     * Files and templates to be copied to the server <em>before</em> customize. This allows the {@link #customize()}
+     * process to have access to all required resources.
+     * <p>
+     * Will be prefixed with the entity's {@link #getInstallDir() install directory} if relative.
+     *
+     * @see SoftwareProcess#INSTALL_FILES
+     * @see SoftwareProcess#INSTALL_TEMPLATES
+     * @see #copyRuntimeResources()
+     */
+    public void copyCustomizeResources() {
+        copyResources(getInstallDir(), entity.getConfig(SoftwareProcess.CUSTOMIZE_FILES), entity.getConfig(SoftwareProcess.CUSTOMIZE_TEMPLATES));
+    }
+
+    protected void copyResources(String destinationParentDir, Map<String, String> files, Map<String, String> templates) {
         if (files == null) files = Collections.emptyMap();
         if (templates == null) templates = Collections.emptyMap();
 
