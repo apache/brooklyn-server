@@ -30,6 +30,7 @@ import org.apache.brooklyn.camp.spi.pdp.AssemblyTemplateConstructor;
 import org.apache.brooklyn.camp.spi.pdp.Service;
 import org.apache.brooklyn.camp.spi.resolve.PdpMatcher;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
@@ -113,6 +114,9 @@ public class BrooklynEntityMatcher implements PdpMatcher {
         Object locations = attrs.remove("locations");
         if (locations!=null)
             builder.customAttribute("locations", locations);
+        Object iconUrl = attrs.remove(BrooklynConfigKeys.ICON_URL.getName());
+        if (iconUrl!=null)
+            builder.customAttribute(BrooklynConfigKeys.ICON_URL.getName(), iconUrl);
 
         MutableMap<Object, Object> brooklynFlags = MutableMap.of();
         Object origBrooklynFlags = attrs.remove(BrooklynCampReservedKeys.BROOKLYN_FLAGS);

@@ -59,6 +59,7 @@ import com.google.common.reflect.TypeToken;
 
 public class InvokeEffectorOnCollectionSensorChangeTest extends BrooklynAppUnitTestSupport {
 
+    @SuppressWarnings("serial")
     private static final AttributeSensor<Collection<Integer>> DEFAULT_SENSOR = Sensors.newSensor(new TypeToken<Collection<Integer>>() {},
             "invokeeffectoronsetchangetest.sensor");
 
@@ -72,7 +73,7 @@ public class InvokeEffectorOnCollectionSensorChangeTest extends BrooklynAppUnitT
     TestEntity testEntity;
 
     @Override
-    @BeforeMethod
+    @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
         onAddedParameters = new LinkedBlockingQueue<>();
@@ -173,6 +174,7 @@ public class InvokeEffectorOnCollectionSensorChangeTest extends BrooklynAppUnitT
 
     @Test
     public void testMapValueUsedAsArgumentDirectly() {
+        @SuppressWarnings("serial")
         AttributeSensor<Collection<Map<String, String>>> sensor = Sensors.newSensor(new TypeToken<Collection<Map<String, String>>>() {},
                 "testMapValueUsedAsArgumentDirectly");
         final Set<Map<String, String>> input1 = ImmutableSet.<Map<String, String>>of(

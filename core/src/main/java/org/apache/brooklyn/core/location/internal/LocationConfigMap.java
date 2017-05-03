@@ -44,7 +44,6 @@ import com.google.common.base.Predicate;
 
 public class LocationConfigMap extends AbstractConfigMapImpl<Location> {
 
-    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(LocationConfigMap.class);
     
     public LocationConfigMap(AbstractLocation loc) {

@@ -50,6 +50,11 @@ public class CatalogItemDo<T,SpecT> implements CatalogItem<T,SpecT>, BrooklynObj
         return itemDto;
     }
     
+    @Override
+    public ManagementContext getManagementContext() {
+        return catalog==null ? null : catalog.mgmt;
+    }
+    
     /**
      * @throws UnsupportedOperationException; Config not supported for catalog item. See {@link #getPlanYaml()}.
      */

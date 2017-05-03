@@ -18,14 +18,13 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
-import org.apache.brooklyn.api.location.MachineLocation;
-import org.apache.brooklyn.core.location.HasSubnetHostname;
+import org.apache.brooklyn.location.jclouds.api.JcloudsMachineLocationPublic;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.Template;
 
 import com.google.common.base.Optional;
 
-public interface JcloudsMachineLocation extends MachineLocation, HasSubnetHostname {
+public interface JcloudsMachineLocation extends JcloudsMachineLocationPublic {
     
     @Override
     public JcloudsLocation getParent();
@@ -49,13 +48,4 @@ public interface JcloudsMachineLocation extends MachineLocation, HasSubnetHostna
     @Deprecated
     public Template getTemplate();
 
-    public String getJcloudsId();
-
-    /** In most clouds, the public hostname is the only way to ensure VMs in different zones can access each other. */
-    @Override
-    public String getSubnetHostname();
-
-    String getUser();
-
-    int getPort();
 }

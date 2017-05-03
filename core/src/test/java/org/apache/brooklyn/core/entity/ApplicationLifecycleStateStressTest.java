@@ -67,18 +67,41 @@ public class ApplicationLifecycleStateStressTest extends ApplicationLifecycleSta
         super.testStartsThenSomeChildFailsCausesAppToFail();
     }
 
+    /** See {@link ApplicationLifecycleStateTest#testChildFailuresOnStartButWithQuorumCausesAppToSucceed()} for details on the failure */
+    @Test(groups="Broken")
     @Override
     public void testChildFailuresOnStartButWithQuorumCausesAppToSucceed() throws Exception {
         super.testChildFailuresOnStartButWithQuorumCausesAppToSucceed();
     }
     
+    /** See {@link ApplicationLifecycleStateTest#testChildFailuresOnStartButWithQuorumCausesAppToSucceed()} for details on the failure */
+    @Test(groups="Broken")
     @Override
     public void testStartsThenChildFailsButWithQuorumCausesAppToSucceed() throws Exception {
         super.testStartsThenChildFailsButWithQuorumCausesAppToSucceed();
     }
 
+    /** See {@link ApplicationLifecycleStateTest#testChildFailuresOnStartButWithQuorumCausesAppToSucceed()} for details on the failure */
+    @Test(groups="Broken")
     @Override
     public void testStartsThenChildFailsButWithQuorumCausesAppToStayHealthy() throws Exception {
         super.testStartsThenChildFailsButWithQuorumCausesAppToStayHealthy();
+    }
+
+    @Test(groups="Broken")
+    @Override
+    public void testSettingSensorFromThreads() {
+        super.testSettingSensorFromThreads();
+    }
+
+    @Test(groups="Broken")
+    @Override
+    public void testWrongSensorInitValue() {
+        super.testWrongSensorInitValue();
+    }
+
+    @Override
+    public void testAbstractEnricherDeduplicationBroken() {
+        super.testAbstractEnricherDeduplicationBroken();
     }
 }

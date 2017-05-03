@@ -107,7 +107,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
         Lifecycle serviceState = entity.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
 
-        String iconUrl = entity.getIconUrl();
+        String iconUrl = RegisteredTypes.getIconUrl(entity);
         if (iconUrl!=null) {
             if (brooklyn().isUrlServerSideAndSafe(iconUrl))
                 // route to server if it is a server-side url

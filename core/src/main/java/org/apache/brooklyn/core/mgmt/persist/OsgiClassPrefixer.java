@@ -21,7 +21,6 @@ package org.apache.brooklyn.core.mgmt.persist;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.core.mgmt.rebind.dto.MementosGenerators;
-import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.osgi.framework.Bundle;
 
@@ -43,7 +42,6 @@ public class OsgiClassPrefixer {
 
     public static final String DELIMITER = ":";
     
-    private final ClassLoaderUtils whiteListRetriever;
     private final Function<Class<?>, Optional<Bundle>> bundleRetriever;
     
     public OsgiClassPrefixer() {
@@ -52,7 +50,6 @@ public class OsgiClassPrefixer {
     
     @VisibleForTesting
     protected OsgiClassPrefixer(@Nullable Function<Class<?>, Optional<Bundle>> bundleRetriever) {
-        this.whiteListRetriever = new ClassLoaderUtils(getClass());
         this.bundleRetriever = bundleRetriever;
     }
     

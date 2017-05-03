@@ -195,14 +195,14 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
     /**
      * adds the given tags
      */
-    public SpecT tags(Iterable<Object> tagsToAdd) {
+    public SpecT tags(Iterable<? extends Object> tagsToAdd) {
         return tagsAdd(tagsToAdd);
     }
 
     /**
      * adds the given tags
      */
-    public SpecT tagsAdd(Iterable<Object> tagsToAdd) {
+    public SpecT tagsAdd(Iterable<? extends Object> tagsToAdd) {
         Iterables.addAll(this.tags, tagsToAdd);
         return self();
     }
@@ -210,7 +210,7 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
     /**
      * replaces tags with the given
      */
-    public SpecT tagsReplace(Iterable<Object> tagsToReplace) {
+    public SpecT tagsReplace(Iterable<? extends Object> tagsToReplace) {
         this.tags.clear();
         Iterables.addAll(this.tags, tagsToReplace);
         return self();

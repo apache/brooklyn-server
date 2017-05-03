@@ -65,9 +65,9 @@ import org.apache.brooklyn.rest.domain.ApplicationSpec;
 import org.apache.brooklyn.rest.domain.EntitySpec;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.javalang.coerce.PrimitiveStringTypeCoercions;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -552,7 +552,7 @@ public class BrooklynRestResourceUtils {
             }
         }
         
-        if (TypeCoercions.isPrimitiveOrBoxer(value.getClass())) return value;
+        if (PrimitiveStringTypeCoercions.isPrimitiveOrBoxer(value.getClass())) return value;
         return value.toString();
     }
 

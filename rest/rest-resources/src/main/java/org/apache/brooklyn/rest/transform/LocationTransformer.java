@@ -70,10 +70,13 @@ public class LocationTransformer {
         // mgmt not actually needed
         Map<String, Object> config = MutableMap.copyOf(explicitConfig==null ? null : explicitConfig.getAllConfig());
         if (spec!=null && (level==LocationDetailLevel.FULL_EXCLUDING_SECRET || level==LocationDetailLevel.FULL_INCLUDING_SECRET)) {
-            // full takes from any resolved spec AND from explicit config
-            config = ConfigBag.newInstance(spec.getConfig()).putAll(config).getAllConfig();
+            // full takes from any resolved spec ie inherited, AND explicit config and flags;
+            // would be nice to distinguish flags from config, but more important to make sure flags are supplied
+            // (ideally would return yaml, using yoml)
+            config = ConfigBag.newInstance(spec.getFlags()).putAll(spec.getConfig()).putAll(config).getAllConfig();
         } else if (level==LocationDetailLevel.LOCAL_EXCLUDING_SECRET) {
-            // in local mode, just make sure display name is set
+            // in local mode, make sure any inherited display name is set, but otherwise _no_ inherited
+            // NB this may not include provider, region, and endpoint -- use 'full' for that
             if (spec!=null && !explicitConfig.containsKey(LocationConfigKeys.DISPLAY_NAME) ) {
                 if (Strings.isNonBlank((String) spec.getFlags().get(LocationConfigKeys.DISPLAY_NAME.getName()))){
                     config.put(LocationConfigKeys.DISPLAY_NAME.getName(), spec.getFlags().get(LocationConfigKeys.DISPLAY_NAME.getName()));
@@ -206,4 +209,22 @@ public class LocationTransformer {
                 .addIfNotNull("spec", specUri)
                 .asUnmodifiable() );
     }
+    
+    public static LocationSummary newInstance(ManagementContext mgmt, String id, LocationDetailLevel level, UriBuilder uriBuilder) {
+        // if it's an ID of a deployed location
+        Location l1 = mgmt.getLocationManager().getLocation(id);
+        if (l1!=null) {
+            return newInstance(mgmt, l1, level, uriBuilder);
+        }
+        
+        // a catalog item OR a legacy properties-based -- but currently goes via registry
+        LocationDefinition l2 = mgmt.getLocationRegistry().getDefinedLocationById(id);
+        if (l2!=null) {
+            return LocationTransformer.newInstance(mgmt, l2, level, uriBuilder);
+        }
+        
+        // not recognised
+        return null;
+    }
+
 }

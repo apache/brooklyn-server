@@ -34,6 +34,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.stock.BasicEntity;
@@ -328,6 +329,8 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         assertEquals(location.getConfig(new BasicConfigKey<String>(String.class, "config1")), "config1");
         assertEquals(location.getConfig(new BasicConfigKey<String>(String.class, "config2")), "config2 override");
         assertEquals(location.getConfig(new BasicConfigKey<String>(String.class, "config3")), "config3");
+        
+        Asserts.assertEquals(location.getConfig(LocationInternal.ORIGINAL_SPEC), locTypeInYaml);
     }
 
     private void addCatalogLocation(String symbolicName, String locationType, List<String> libraries) {

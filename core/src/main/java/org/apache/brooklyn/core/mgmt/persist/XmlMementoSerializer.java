@@ -584,11 +584,7 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         
         private void setCurrentClassLoader(ClassLoader classLoader) {
             currentClassLoader = checkNotNull(classLoader);
-            if (mgmt != null) {
-                currentLoader.set(new ClassLoaderUtils(currentClassLoader, mgmt));
-            } else {
-                currentLoader.set(new ClassLoaderUtils(currentClassLoader));
-            }
+            currentLoader.set(new ClassLoaderUtils(currentClassLoader, mgmt));
         }
         
         protected void acquireXstreamLock() {

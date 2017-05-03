@@ -201,6 +201,7 @@ public class BrooklynConfigKeys {
     public static final ConfigKey<Boolean> INSTALL_LATCH = newBooleanConfigKey("install.latch", "Latch for blocking install until ready");
     public static final ConfigKey<Boolean> RUNTIME_RESOURCES_LATCH = newBooleanConfigKey("resources.runtime.latch", "Latch for blocking runtime resources until ready");
     public static final ConfigKey<Boolean> CUSTOMIZE_LATCH = newBooleanConfigKey("customize.latch", "Latch for blocking customize until ready");
+    public static final ConfigKey<Boolean> CUSTOMIZE_RESOURCES_LATCH = newBooleanConfigKey("resources.customize.latch", "Latch for blocking customize resources until ready");
     public static final ConfigKey<Boolean> LAUNCH_LATCH = newBooleanConfigKey("launch.latch", "Latch for blocking launch until ready");
 
     public static final ConfigKey<Duration> START_TIMEOUT = newConfigKey(
@@ -254,6 +255,8 @@ public class BrooklynConfigKeys {
             .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();
+
+    public static final ConfigKey<String> ICON_URL = newStringConfigKey("iconUrl");
 
     private BrooklynConfigKeys() {}
 
