@@ -67,8 +67,7 @@ public class CatalogLocationResolver implements LocationResolver {
         }
         
         LocationSpec<?> origLocSpec = managementContext.getTypeRegistry().createSpec(item, null, LocationSpec.class);
-        LocationSpec<?> locSpec = LocationSpec.create(origLocSpec).configure(locationFlags);
-        return locSpec;
+        return LocationSpec.create(origLocSpec).configure(locationFlags);
     }
 
     @Override
