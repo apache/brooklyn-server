@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.objs;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.Rebindable;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -50,6 +51,8 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
     // subclasses typically apply stronger typing
     @Override
     RebindSupport<?> getRebindSupport();
+    
+    ManagementContext getManagementContext();
     
     @Override
     ConfigurationSupportInternal config();

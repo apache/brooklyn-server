@@ -104,14 +104,14 @@ public final class BrooklynClassLoadingContextSequential extends AbstractBrookly
 
     @Override
     public Iterable<URL> getResources(String name) {
-        List<Iterable<URL>> resources = Lists.newArrayList();
+        MutableSet<URL> result = MutableSet.<URL>of();
         for (BrooklynClassLoadingContext target : primaries) {
-            resources.add(target.getResources(name));
+            result.addAll(target.getResources(name));
         }
         for (BrooklynClassLoadingContext target : secondaries) {
-            resources.add(target.getResources(name));
+            result.addAll(target.getResources(name));
         }
-        return Iterables.concat(resources);
+        return result;
     }
 
     @Override

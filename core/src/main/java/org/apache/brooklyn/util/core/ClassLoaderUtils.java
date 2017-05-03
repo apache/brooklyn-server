@@ -96,7 +96,7 @@ public class ClassLoaderUtils {
     public ClassLoaderUtils(@Nullable ClassLoader cl, @Nullable ManagementContext mgmt) {
         this.classLoader = getValidClassLoader(cl);
         this.entity = null;
-        this.mgmt = checkNotNull(mgmt, "mgmt");
+        this.mgmt = mgmt;
     }
 
     public ClassLoaderUtils(Class<?> callingClass, Entity entity) {
@@ -303,7 +303,7 @@ public class ClassLoaderUtils {
             }
             return dispatcher.tryLoadFrom(bundle.get(), name);
         } else {
-            log.warn("Request for bundle '"+symbolicName+"' "+(Strings.isNonBlank(version) ? "("+version+") " : "")+"will be ignored, loading '"+name+"' as no framework available");
+            log.warn("Request for bundle '"+symbolicName+"' "+(Strings.isNonBlank(version) ? "("+version+") " : "")+"will be ignored as no framework available; will look for '"+name+"' in plain old classpath");
             return dispatcher.tryLoadFrom(classLoader, name);
         }
     }

@@ -38,6 +38,7 @@ import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -78,7 +79,11 @@ public interface Entity extends BrooklynObject {
     
     /** 
      * A URL pointing to an image which can be used to represent this entity.
+     * @deprecated since 0.12.0 look up the {@link RegisteredType} and use its
+     * {@link RegisteredType#getIconUrl()} or use conveniences such as 
+     * <code>RegisteredTypes.getIconUrl()</code>.
      */
+    @Deprecated
     @Nullable String getIconUrl();
     
     /**

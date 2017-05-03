@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
@@ -38,6 +39,8 @@ import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer.JavaClassNameTypeImplementationPlan;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -453,4 +456,18 @@ public class RegisteredTypes {
         return Maybe.of(object);
     }
 
+    public static String getIconUrl(BrooklynObject object) {
+        if (object==null) return null;
+        
+        NamedStringTag fromTag = BrooklynTags.findFirst(BrooklynTags.ICON_URL, object.tags().getTags());
+        if (fromTag!=null) return fromTag.getContents();
+        
+        ManagementContext mgmt = ((BrooklynObjectInternal)object).getManagementContext();
+        if (mgmt==null) return null;
+        BrooklynTypeRegistry registry = mgmt.getTypeRegistry();
+        if (registry==null) return null;
+        RegisteredType item = registry.get( object.getCatalogItemId() );
+        if (item==null) return null;
+        return item.getIconUrl();
+    }
 }

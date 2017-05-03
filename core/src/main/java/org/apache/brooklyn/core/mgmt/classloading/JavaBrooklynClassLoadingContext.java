@@ -130,11 +130,11 @@ public class JavaBrooklynClassLoadingContext extends AbstractBrooklynClassLoadin
 
     @Override
     public URL getResource(String name) {
-        return new ClassLoaderUtils(loader).getResource(name);
+        return new ClassLoaderUtils(loader, mgmt).getResource(name);
     }
 
     @Override
     public Iterable<URL> getResources(String name) {
-        return new ClassLoaderUtils(loader).getResources(name);
+        return new ClassLoaderUtils(loader, mgmt).getResources(name);
     }
 }
