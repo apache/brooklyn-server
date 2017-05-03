@@ -83,6 +83,7 @@ public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest implement
         // types installed
         RegisteredType t = mgmt().getTypeRegistry().get(BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
         Assert.assertNotNull(t);
+        Assert.assertEquals(t.getContainingBundle(), b.getSymbolicName()+":"+b.getVersion());
         
         // can deploy
         createAndStartApplication("services: [ { type: "+BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY+" } ]");

@@ -123,6 +123,8 @@ public interface CatalogItem<T,SpecT> extends BrooklynObject, Rebindable {
     @Nullable public String getIconUrl();
 
     public String getSymbolicName();
+    
+    public String getContainingBundle();
 
     public String getVersion();
 

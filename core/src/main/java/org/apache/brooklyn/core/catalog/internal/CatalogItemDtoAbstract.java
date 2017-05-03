@@ -20,7 +20,6 @@ package org.apache.brooklyn.core.catalog.internal;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -37,6 +36,8 @@ import org.apache.brooklyn.core.relations.EmptyRelationSupport;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,6 +53,7 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
 
     private @SetFromFlag String symbolicName;
     private @SetFromFlag String version = BasicBrooklynCatalog.NO_VERSION;
+    private @SetFromFlag String containingBundle;
 
     private @SetFromFlag String displayName;
     private @SetFromFlag String description;
@@ -119,6 +121,11 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
     @Deprecated
     public String getRegisteredTypeName() {
         return getSymbolicName();
+    }
+    
+    @Override
+    public String getContainingBundle() {
+        return containingBundle;
     }
 
     @Override
@@ -191,7 +198,7 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(symbolicName, planYaml, javaType, nullIfEmpty(libraries), version, getCatalogItemId(),
+        return Objects.hashCode(symbolicName, containingBundle, planYaml, javaType, nullIfEmpty(libraries), version, getCatalogItemId(),
             getCatalogItemIdSearchPath());
     }
 
@@ -202,6 +209,7 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
         if (getClass() != obj.getClass()) return false;
         CatalogItemDtoAbstract<?,?> other = (CatalogItemDtoAbstract<?,?>) obj;
         if (!Objects.equal(symbolicName, other.symbolicName)) return false;
+        if (!Objects.equal(containingBundle, other.containingBundle)) return false;
         if (!Objects.equal(planYaml, other.planYaml)) return false;
         if (!Objects.equal(javaType, other.javaType)) return false;
         if (!Objects.equal(nullIfEmpty(libraries), nullIfEmpty(other.libraries))) return false;
@@ -360,6 +368,10 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
         this.version = version;
     }
 
+    public void setContainingBundle(VersionedName versionedName) {
+        this.containingBundle = Strings.toString(versionedName);
+    }
+    
     protected void setDescription(String description) {
         this.description = description;
     }
@@ -439,4 +451,5 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
         Object val = map.get(key);
         return val != null ? String.valueOf(val) : null;
     }
+
 }

@@ -37,6 +37,7 @@ public interface RegisteredType extends Identifiable {
     
     String getSymbolicName();
     String getVersion();
+    String getContainingBundle();
 
     Collection<OsgiBundleWithUrl> getLibraries();
 

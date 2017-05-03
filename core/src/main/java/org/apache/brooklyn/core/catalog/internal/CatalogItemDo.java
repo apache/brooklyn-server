@@ -197,6 +197,11 @@ public class CatalogItemDo<T,SpecT> implements CatalogItem<T,SpecT>, BrooklynObj
     public String getSymbolicName() {
         return itemDto.getSymbolicName();
     }
+    
+    @Override
+    public String getContainingBundle() {
+        return itemDto.getContainingBundle();
+    }
 
     @Override
     public String getVersion() {

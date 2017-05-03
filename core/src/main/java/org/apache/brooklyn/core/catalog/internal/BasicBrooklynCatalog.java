@@ -39,6 +39,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.CatalogClasspathDo.CatalogScanningModes;
 import org.apache.brooklyn.core.location.BasicLocationRegistry;
@@ -980,7 +981,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
     @Override
     public List<? extends CatalogItem<?,?>> addItems(String yaml) {
-        return addItems(yaml, false);
+        return addItems(yaml, null);
+    }
+    
+    @Override
+    public List<? extends CatalogItem<?, ?>> addItems(String yaml, ManagedBundle bundle) {
+        return addItems(yaml, bundle, false);
     }
 
     @Override
@@ -990,12 +996,19 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     
     @Override
     public List<? extends CatalogItem<?,?>> addItems(String yaml, boolean forceUpdate) {
+        return addItems(yaml, null, forceUpdate);
+    }
+    
+    private List<? extends CatalogItem<?,?>> addItems(String yaml, ManagedBundle bundle, boolean forceUpdate) {
         log.debug("Adding manual catalog item to "+mgmt+": "+yaml);
         checkNotNull(yaml, "yaml");
         List<CatalogItemDtoAbstract<?, ?>> result = collectCatalogItems(yaml);
 
         // do this at the end for atomic updates; if there are intra-yaml references, we handle them specially
         for (CatalogItemDtoAbstract<?, ?> item: result) {
+            if (bundle!=null && bundle.getVersionedName()!=null) {
+                item.setContainingBundle(bundle.getVersionedName());
+            }
             addItemDto(item, forceUpdate);
         }
         return result;

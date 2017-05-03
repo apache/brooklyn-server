@@ -221,6 +221,12 @@ public class OsgiManager {
             return managedBundleIds.get(vn);
         }
     }
+    
+    public ManagedBundle getManagedBundle(VersionedName vn) {
+        synchronized (managedBundles) {
+            return managedBundles.get(managedBundleIds.get(vn));
+        }
+    }
 
     public Bundle installUploadedBundle(ManagedBundle bundleMetadata, InputStream zipIn, boolean loadCatalogBom) {
         try {
