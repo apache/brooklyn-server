@@ -34,6 +34,7 @@ public class OsgiBundleInstallationResult {
     ManagedBundle metadata;
     Bundle bundle;
     ResultCode code;
+    Runnable deferredStart;
     
     public enum ResultCode { 
         INSTALLED_NEW_BUNDLE,
@@ -63,9 +64,17 @@ public class OsgiBundleInstallationResult {
         if (getMetadata()==null) return null;
         return getMetadata().getVersionedName();
     }
+    public Runnable getDeferredStart() {
+        return deferredStart;
+    }
     
     void setIgnoringAlreadyInstalled() {
         code = OsgiBundleInstallationResult.ResultCode.IGNORING_BUNDLE_AREADY_INSTALLED;
         message = "Bundle "+getMetadata().getVersionedName()+" already installed as "+getMetadata().getId();
+    }
+    
+    @Override
+    public String toString() {
+        return OsgiBundleInstallationResult.class.getSimpleName()+"["+code+", "+metadata+", "+message+"]";
     }
 }

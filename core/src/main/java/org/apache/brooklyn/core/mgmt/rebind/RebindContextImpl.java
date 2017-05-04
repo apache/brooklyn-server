@@ -36,8 +36,10 @@ import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.osgi.framework.BundleException;
 
 import com.google.common.collect.Maps;
 
@@ -90,9 +92,16 @@ public class RebindContextImpl implements RebindContext {
     }
 
     // we don't track register/unregister of bundles; it isn't needed as it happens so early
-    public void installBundle(ManagedBundle bundle, InputStream zipInput) {
-        ((ManagementContextInternal)mgmt).getOsgiManager().get().install(bundle, zipInput, true, false).checkNoError();
+    // but we do need to know which ones to start subsequently
+    public OsgiBundleInstallationResult installBundle(ManagedBundle bundle, InputStream zipInput) {
+        return ((ManagementContextInternal)mgmt).getOsgiManager().get().installDeferredStart(bundle, zipInput).get();
     }
+    public void startBundle(OsgiBundleInstallationResult br) throws BundleException {
+        if (br.getDeferredStart()!=null) {
+            br.getDeferredStart().run();
+        }
+    }
+
     
     public void unregisterPolicy(Policy policy) {
         policies.remove(policy.getId());

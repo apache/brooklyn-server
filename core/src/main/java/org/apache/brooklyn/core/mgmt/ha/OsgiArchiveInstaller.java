@@ -28,6 +28,7 @@ import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
+import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
@@ -45,19 +46,26 @@ import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.VersionComparator;
 import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleException;
 import org.osgi.framework.Constants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
 
 // package-private so we can move this one if/when we move OsgiManager
 class OsgiArchiveInstaller {
 
+    private static final Logger log = LoggerFactory.getLogger(OsgiArchiveInstaller.class);
+    
     final private OsgiManager osgiManager;
     private ManagedBundle suppliedKnownBundleMetadata;
     private InputStream zipIn;
     
-    private boolean loadCatalogBom;
-    private boolean force;
+    private boolean start = true;
+    private boolean loadCatalogBom = true;
+    private boolean force = false;
+    private boolean deferredStart = false;
     
     private File zipFile;
     private Manifest discoveredManifest;
@@ -65,13 +73,19 @@ class OsgiArchiveInstaller {
     OsgiBundleInstallationResult result;
     
     private ManagedBundle inferredMetadata;
+    private final boolean inputStreamSupplied;
     
     OsgiArchiveInstaller(OsgiManager osgiManager, ManagedBundle knownBundleMetadata, InputStream zipIn) {
         this.osgiManager = osgiManager;
         this.suppliedKnownBundleMetadata = knownBundleMetadata;
         this.zipIn = zipIn;
+        inputStreamSupplied = zipIn!=null;
     }
 
+    public void setStart(boolean start) {
+        this.start = start;
+    }
+    
     public void setLoadCatalogBom(boolean loadCatalogBom) {
         this.loadCatalogBom = loadCatalogBom;
     }
@@ -79,6 +93,10 @@ class OsgiArchiveInstaller {
     public void setForce(boolean force) {
         this.force = force;
     }
+
+    public void setDeferredStart(boolean deferredStart) {
+        this.deferredStart = deferredStart;
+    }    
 
     private ManagementContextInternal mgmt() {
         return (ManagementContextInternal) osgiManager.mgmt;
@@ -98,6 +116,15 @@ class OsgiArchiveInstaller {
             Maybe<Bundle> installedBundle = Maybe.absent();
             if (suppliedKnownBundleMetadata!=null) {
                 // if no input stream, look for a URL and/or a matching bundle
+                if (!suppliedKnownBundleMetadata.isNameResolved()) {
+                    ManagedBundle mbFromUrl = osgiManager.getManagedBundleFromUrl(suppliedKnownBundleMetadata.getUrl());
+                    if (mbFromUrl!=null) {
+                        // user supplied just a URL (eg brooklyn.libraries), but we recognise it,
+                        // so don't try to reload it, just record the info we know about it to retrieve the bundle
+                        ((BasicManagedBundle)suppliedKnownBundleMetadata).setSymbolicName(mbFromUrl.getSymbolicName());
+                        ((BasicManagedBundle)suppliedKnownBundleMetadata).setVersion(mbFromUrl.getVersion());
+                    }
+                }
                 if (installedBundle.isAbsent() && suppliedKnownBundleMetadata.getOsgiUniqueUrl()!=null) {
                     installedBundle = Osgis.bundleFinder(osgiManager.framework).requiringFromUrl(suppliedKnownBundleMetadata.getOsgiUniqueUrl()).find();
                 }
@@ -115,19 +142,22 @@ class OsgiArchiveInstaller {
                 }
             }
             
-            if (installedBundle.isPresent()) {
-                result.bundle = installedBundle.get();
-                
-                if (zipIn==null) {
+            if (zipIn==null) {
+                if (installedBundle.isPresent()) {
                     // no way to install (no url), or no need to install (not forced); just ignore it
                     result.metadata = osgiManager.getManagedBundle(new VersionedName(installedBundle.get()));
+                    if (result.metadata==null) {
+                        // low-level installed bundle
+                        result.metadata = new BasicManagedBundle(installedBundle.get().getSymbolicName(), installedBundle.get().getVersion().toString(),
+                            suppliedKnownBundleMetadata!=null ? suppliedKnownBundleMetadata.getUrl() : null);
+                    }
                     result.setIgnoringAlreadyInstalled();
                     return;
                 }
-            } else {
                 result.metadata = suppliedKnownBundleMetadata;
                 throw new IllegalArgumentException("No input stream available and no URL could be found; nothing to install");
             }
+            result.bundle = installedBundle.orNull();
         }
         
         zipFile = Os.newTempFile("brooklyn-bundle-transient-"+suppliedKnownBundleMetadata, "zip");
@@ -243,10 +273,23 @@ class OsgiArchiveInstaller {
             if (result.code!=null) return ReferenceWithError.newInstanceWithoutError(result);
             assert inferredMetadata.isNameResolved() : "Should have resolved "+inferredMetadata;
 
-            Boolean updating = null;
+            final boolean updating;
             result.metadata = osgiManager.getManagedBundle(inferredMetadata.getVersionedName());
             if (result.getMetadata()!=null) {
-                // already have a managed bundle
+                // already have a managed bundle - check if this is using a new/different URL
+                if (suppliedKnownBundleMetadata!=null && suppliedKnownBundleMetadata.getUrl()!=null) {
+                    String knownIdForThisUrl = osgiManager.managedBundlesByUrl.get(suppliedKnownBundleMetadata.getUrl());
+                    if (knownIdForThisUrl==null) {
+                        // it's a new URL, but a bundle we already know about
+                        log.warn("Request to install from "+suppliedKnownBundleMetadata.getUrl()+" which is not recognized but "+
+                            "appears to match "+result.getMetadata()+"; now associating with the latter");
+                        osgiManager.managedBundlesByUrl.put(suppliedKnownBundleMetadata.getUrl(), result.getMetadata().getId());
+                    } else if (!knownIdForThisUrl.equals(result.getMetadata().getId())) {
+                        log.warn("Request to install from "+suppliedKnownBundleMetadata.getUrl()+" which is associated to "+knownIdForThisUrl+" but "+
+                            "appears to match "+result.getMetadata()+"; now associating with the latter");
+                        osgiManager.managedBundlesByUrl.put(suppliedKnownBundleMetadata.getUrl(), result.getMetadata().getId());
+                    }
+                }
                 if (canUpdate()) { 
                     result.bundle = osgiManager.framework.getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
                     if (result.getBundle()==null) {
@@ -290,7 +333,10 @@ class OsgiArchiveInstaller {
             if (!updating) { 
                 synchronized (osgiManager.managedBundles) {
                     osgiManager.managedBundles.put(result.getMetadata().getId(), result.getMetadata());
-                    osgiManager.managedBundleIds.put(result.getMetadata().getVersionedName(), result.getMetadata().getId());
+                    osgiManager.managedBundlesByNam.put(result.getMetadata().getVersionedName(), result.getMetadata().getId());
+                    if (Strings.isNonBlank(result.getMetadata().getUrl())) {
+                        osgiManager.managedBundlesByUrl.put(result.getMetadata().getUrl(), result.getMetadata().getId());
+                    }
                 }
                 result.code = OsgiBundleInstallationResult.ResultCode.INSTALLED_NEW_BUNDLE;
                 result.message = "Installed "+result.getMetadata().getVersionedName()+" with ID "+result.getMetadata().getId();
@@ -305,16 +351,37 @@ class OsgiArchiveInstaller {
             // that seems fine and probably better than allowing bundles to start and catalog items to be installed 
             // when brooklyn isn't aware it is supposed to be managing it
             
-            // starting here  flags wiring issues earlier
+            // starting here flags wiring issues earlier
             // but may break some things running from the IDE
-            result.bundle.start();
-
-            if (updating!=null) {
-                osgiManager.uninstallCatalogItemsFromBundle( result.getVersionedName() );
-                // (ideally removal and addition would be atomic)
-            }
-            if (loadCatalogBom) {
-                osgiManager.loadCatalogBom(result.bundle);
+            // eg if it doesn't have OSGi deps, or if it doesn't have camp parser,
+            // or if caller is installing multiple things that depend on each other
+            // eg rebind code, brooklyn.libraries list -- deferred start allows caller to
+            // determine whether not to start or to start all after things are installed
+            Runnable startRunnable = new Runnable() {
+                public void run() {
+                    if (start) {
+                        try {
+                            result.bundle.start();
+                        } catch (BundleException e) {
+                            throw Exceptions.propagate(e);
+                        }
+                    }
+        
+                    if (loadCatalogBom) {
+                        if (updating) {
+                            osgiManager.uninstallCatalogItemsFromBundle( result.getVersionedName() );
+                            // (ideally removal and addition would be atomic)
+                        }
+                        for (CatalogItem<?,?> ci: osgiManager.loadCatalogBom(result.bundle)) {
+                            result.catalogItemsInstalled.add(ci.getId());
+                        }
+                    }
+                }
+            };
+            if (deferredStart) {
+                result.deferredStart = startRunnable;
+            } else {
+                startRunnable.run();
             }
 
             return ReferenceWithError.newInstanceWithoutError(result);
@@ -331,7 +398,9 @@ class OsgiArchiveInstaller {
     }
 
     private boolean canUpdate() {
-        return force || VersionComparator.isSnapshot(inferredMetadata.getVersion());
+        // only update if forced, or it's a snapshot for which a byte stream is supplied
+        // (IE don't update a snapshot verison every time its URL is referenced in a 'libraries' section)
+        return force || (VersionComparator.isSnapshot(inferredMetadata.getVersion()) && inputStreamSupplied);
     }
 
     /** true if the supplied name and version are complete; updates if the known data is incomplete;
@@ -355,5 +424,6 @@ class OsgiArchiveInstaller {
         }
         
         return suppliedIsComplete;
-    }    
+    }
+
 }

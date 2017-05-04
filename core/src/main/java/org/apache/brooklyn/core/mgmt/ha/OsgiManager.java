@@ -103,7 +103,8 @@ public class OsgiManager {
     private Set<Bundle> bundlesAtStartup;
     private File osgiCacheDir;
     Map<String, ManagedBundle> managedBundles = MutableMap.of();
-    Map<VersionedName, String> managedBundleIds = MutableMap.of();
+    Map<VersionedName, String> managedBundlesByNam = MutableMap.of();
+    Map<String, String> managedBundlesByUrl = MutableMap.of();
     
     private static AtomicInteger numberOfReusableFrameworksCreated = new AtomicInteger();
     private static final List<Framework> OSGI_FRAMEWORK_CONTAINERS_FOR_REUSE = MutableList.of();
@@ -219,26 +220,45 @@ public class OsgiManager {
 
     public String getManagedBundleId(VersionedName vn) {
         synchronized (managedBundles) {
-            return managedBundleIds.get(vn);
+            return managedBundlesByNam.get(vn);
         }
     }
     
     public ManagedBundle getManagedBundle(VersionedName vn) {
         synchronized (managedBundles) {
-            return managedBundles.get(managedBundleIds.get(vn));
+            return managedBundles.get(managedBundlesByNam.get(vn));
         }
     }
 
-    /** See {@link OsgiArchiveInstaller#install()}, using default values */
-    public ReferenceWithError<OsgiBundleInstallationResult> install(InputStream zipIn) {
-        return install(null, zipIn, true, false);
+    /** For bundles which are installed by a URL, see whether a bundle has been installed from that URL */
+    public ManagedBundle getManagedBundleFromUrl(String url) {
+        synchronized (managedBundles) {
+            String id = managedBundlesByUrl.get(url);
+            if (id==null) return null;
+            return managedBundles.get(id);
+        }
     }
     
-    /** See {@link OsgiArchiveInstaller#install()} */
+    /** See {@link OsgiArchiveInstaller#install()}, using default values */
+    public ReferenceWithError<OsgiBundleInstallationResult> install(InputStream zipIn) {
+        return new OsgiArchiveInstaller(this, null, zipIn).install();
+    }
+
+    /** See {@link OsgiArchiveInstaller#install()}, but deferring the start and catalog load */
+    public ReferenceWithError<OsgiBundleInstallationResult> installDeferredStart(@Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream zipIn) {
+        OsgiArchiveInstaller installer = new OsgiArchiveInstaller(this, knownBundleMetadata, zipIn);
+        installer.setDeferredStart(true);
+        
+        return installer.install();
+    }
+    
+    /** See {@link OsgiArchiveInstaller#install()} - this exposes custom options */
+    @Beta
     public ReferenceWithError<OsgiBundleInstallationResult> install(@Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream zipIn,
-            boolean loadCatalogBom, boolean forceUpdateOfNonSnapshots) {
+            boolean start, boolean loadCatalogBom, boolean forceUpdateOfNonSnapshots) {
         
         OsgiArchiveInstaller installer = new OsgiArchiveInstaller(this, knownBundleMetadata, zipIn);
+        installer.setStart(start);
         installer.setLoadCatalogBom(loadCatalogBom);
         installer.setForce(forceUpdateOfNonSnapshots);
         
@@ -262,7 +282,8 @@ public class OsgiManager {
             if (metadata==null) {
                 throw new IllegalStateException("No such bundle registered: "+bundleMetadata);
             }
-            managedBundleIds.remove(bundleMetadata.getVersionedName());
+            managedBundlesByNam.remove(bundleMetadata.getVersionedName());
+            managedBundlesByUrl.remove(bundleMetadata.getUrl());
         }
         mgmt.getRebindManager().getChangeListener().onUnmanaged(bundleMetadata);
 
@@ -280,7 +301,8 @@ public class OsgiManager {
         }
     }
 
-    void uninstallCatalogItemsFromBundle(VersionedName bundle) {
+    @Beta
+    public void uninstallCatalogItemsFromBundle(VersionedName bundle) {
         List<RegisteredType> thingsFromHere = ImmutableList.copyOf(getTypesFromBundle( bundle ));
         for (RegisteredType t: thingsFromHere) {
             mgmt.getCatalog().deleteCatalogItem(t.getSymbolicName(), t.getVersion());
@@ -338,11 +360,14 @@ public class OsgiManager {
 
                 catalogItems = new CatalogBundleLoader(applicationsPermitted, mgmt).scanForCatalog(bundle);
             } catch (RuntimeException ex) {
-                try {
-                    bundle.uninstall();
-                } catch (BundleException e) {
-                    log.error("Cannot uninstall bundle " + bundle.getSymbolicName() + ":" + bundle.getVersion(), e);
-                }
+                // TODO confirm -- as of May 2017 we no longer uninstall the bundle if install of catalog items fails;
+                // caller needs to upgrade, or uninstall then reinstall
+                // (this uninstall wouldn't have unmanaged it in brooklyn in any case)
+//                try {
+//                    bundle.uninstall();
+//                } catch (BundleException e) {
+//                    log.error("Cannot uninstall bundle " + bundle.getSymbolicName() + ":" + bundle.getVersion()+" (after error installing catalog items)", e);
+//                }
                 throw new IllegalArgumentException("Error installing catalog items", ex);
             }
         }
@@ -469,21 +494,39 @@ public class OsgiManager {
     }
 
     public Maybe<Bundle> findBundle(OsgiBundleWithUrl catalogBundle) {
-        //Either fail at install time when the user supplied name:version is different
-        //from the one reported from the bundle
-        //or
-        //Ignore user supplied name:version when URL is supplied to be able to find the
-        //bundle even if it's with a different version.
-        //
-        //For now we just log a warning if there's a version discrepancy at install time,
-        //so prefer URL if supplied.
-        BundleFinder bundleFinder = Osgis.bundleFinder(framework);
+        // Prefer OSGi Location as URL or the managed bundle recorded URL,
+        // not bothering to check name:version if supplied here (eg to forgive snapshot version discrepancies);
+        // but fall back to name/version if URL is not known.
+        // Version checking may be stricter at install time.
+        Maybe<Bundle> result = null;
         if (catalogBundle.getUrl() != null) {
+            BundleFinder bundleFinder = Osgis.bundleFinder(framework);
             bundleFinder.requiringFromUrl(catalogBundle.getUrl());
-        } else {
-            bundleFinder.symbolicName(catalogBundle.getSymbolicName()).version(catalogBundle.getVersion());
+            result = bundleFinder.find();
+            if (result.isPresent()) {
+                return result;
+            }
+            
+            ManagedBundle mb = getManagedBundleFromUrl(catalogBundle.getUrl());
+            if (mb!=null) {
+                bundleFinder.requiringFromUrl(null);
+                bundleFinder.symbolicName(mb.getSymbolicName()).version(mb.getVersion());
+                result = bundleFinder.find();
+                if (result.isPresent()) {
+                    return result;
+                }
+            }
         }
-        return bundleFinder.find();
+
+        if (catalogBundle.getSymbolicName()!=null) {
+            BundleFinder bundleFinder = Osgis.bundleFinder(framework);
+            bundleFinder.symbolicName(catalogBundle.getSymbolicName()).version(catalogBundle.getVersion());
+            return bundleFinder.find();
+        }
+        if (result!=null) {
+            return result;
+        }
+        return Maybe.absent("Insufficient information in "+catalogBundle+" to find bundle");
     }
 
     /**

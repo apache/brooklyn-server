@@ -62,6 +62,7 @@ import org.apache.brooklyn.rest.domain.CatalogLocationSummary;
 import org.apache.brooklyn.rest.domain.CatalogPolicySummary;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.CatalogTransformer;
+import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -151,25 +152,35 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     public static class BundleInstallationRestResult {
+        // as Osgi result, but without bundle, and with maps of catalog items installed
+        
         String message;
         ManagedBundle metadata;
+        OsgiBundleInstallationResult.ResultCode code;
         
-        enum ResultCode { 
-            INSTALLED_NEW_BUNDLE,
-            UPDATED_EXISTING_BUNDLE, 
-            IGNORING_BUNDLE_AREADY_INSTALLED, 
-            ERROR_PREPARING_BUNDLE,
-            ERROR_INSTALLING_BUNDLE 
-        }
-        Map<String,Object> catalogItemsInstalled;
+        Map<String,Object> types;
         
         public String getMessage() {
             return message;
         }
         
-        public static BundleInstallationRestResult of(OsgiBundleInstallationResult result, ManagementContext mgmt) {
-            // TODO 
-            return null;
+        @SuppressWarnings("deprecation")
+        public static BundleInstallationRestResult of(OsgiBundleInstallationResult in, ManagementContext mgmt, BrooklynRestResourceUtils brooklynU, UriInfo ui) {
+            BundleInstallationRestResult result = new BundleInstallationRestResult();
+            result.message = in.getMessage();
+            result.metadata = in.getMetadata();
+            result.code = in.getCode();
+            if (in.getCatalogItemsInstalled()!=null) {
+                result.types = MutableMap.of();
+                for (String id: in.getCatalogItemsInstalled()) {
+                    // TODO prefer to use RegisteredType, but we need transformer for those in REST
+                    //RegisteredType ci = mgmt.getTypeRegistry().get(id);
+                    
+                    CatalogItem<?, ?> ci = CatalogUtils.getCatalogItemOptionalVersion(mgmt, id);
+                    CatalogTransformer.catalogItemSummary(brooklynU, ci, ui.getBaseUriBuilder());
+                }
+            }
+            return result;
         }
     }
     
@@ -186,10 +197,10 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         
         if (result.hasError()) {
             return ApiError.builder().errorCode(Status.BAD_REQUEST).message(result.getWithoutError().getMessage())
-                .data(result).build().asJsonResponse();
+                .data(BundleInstallationRestResult.of(result.getWithoutError(), mgmt(), brooklyn(), ui)).build().asJsonResponse();
         }
 
-        return Response.status(Status.CREATED).entity( BundleInstallationRestResult.of(result.get(), mgmt()) ).build();
+        return Response.status(Status.CREATED).entity( BundleInstallationRestResult.of(result.get(), mgmt(), brooklyn(), ui) ).build();
     }
 
     private Response buildCreateResponse(Iterable<? extends CatalogItem<?, ?>> catalogItems) {

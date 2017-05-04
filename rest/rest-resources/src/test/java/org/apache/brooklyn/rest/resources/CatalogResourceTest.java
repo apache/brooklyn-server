@@ -59,6 +59,7 @@ import org.apache.brooklyn.rest.domain.CatalogItemSummary;
 import org.apache.brooklyn.rest.domain.CatalogLocationSummary;
 import org.apache.brooklyn.rest.domain.CatalogPolicySummary;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -483,7 +484,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .post(Streams.readFully(new FileInputStream(f)));
 
         assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
-        assertTrue(response.readEntity(String.class).contains("Invalid ZIP/JAR archive"));
+        Asserts.assertStringContainsIgnoreCase(response.readEntity(String.class), "zip file is empty");
     }
 
     @Test
@@ -495,7 +496,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .post(Streams.readFully(new FileInputStream(f)));
 
         assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
-        assertTrue(response.readEntity(String.class).contains("Archive must contain a catalog.bom file in the root"));
+        Asserts.assertStringContainsIgnoreCase(response.readEntity(String.class), "Missing bundle symbolic name in BOM or MANIFEST");
     }
 
     @Test
@@ -514,7 +515,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .post(Streams.readFully(new FileInputStream(f)));
 
         assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
-        assertTrue(response.readEntity(String.class).contains("Catalog BOM must define bundle and version"));
+        Asserts.assertStringContainsIgnoreCase(response.readEntity(String.class), "Missing bundle symbolic name in BOM or MANIFEST");
     }
 
     @Test
@@ -534,7 +535,8 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .post(Streams.readFully(new FileInputStream(f)));
 
         assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
-        assertTrue(response.readEntity(String.class).contains("Catalog BOM must define bundle"));
+        Asserts.assertStringContainsIgnoreCase(response.readEntity(String.class), 
+            "Missing bundle symbolic name in BOM or MANIFEST");
     }
 
     @Test
@@ -554,7 +556,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .post(Streams.readFully(new FileInputStream(f)));
 
         assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
-        assertTrue(response.readEntity(String.class).contains("Catalog BOM must define version"));
+        Asserts.assertStringContainsIgnoreCase(response.readEntity(String.class), "Catalog BOM must define version");
     }
 
     @Test
@@ -562,6 +564,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         String name = "My Catalog App";
         String bundle = "org.apache.brooklyn.test";
         String version = "0.1.0";
+        String wrongBundleName = "org.apache.brooklyn.test2";
         File f = createJar(ImmutableMap.<String, String>of(
                 "catalog.bom", Joiner.on("\n").join(
                         "brooklyn.catalog:",
@@ -576,7 +579,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 "META-INF/MANIFEST.MF", Joiner.on("\n").join(
                         "Manifest-Version: 1.0",
                         "Bundle-Name: " + name,
-                        "Bundle-SymbolicName: org.apache.brooklyn.test2",
+                        "Bundle-SymbolicName: "+wrongBundleName,
                         "Bundle-Version: " + version,
                         "Bundle-ManifestVersion: " + version)));
 
@@ -585,7 +588,9 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .post(Streams.readFully(new FileInputStream(f)));
 
         assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
-        assertTrue(response.readEntity(String.class).contains("JAR MANIFEST symbolic-name 'org.apache.brooklyn.test2' does not match '"+bundle+"' defined in BOM"));
+        Asserts.assertStringContainsIgnoreCase(response.readEntity(String.class), 
+            "symbolic name mismatch",
+            wrongBundleName, bundle);
     }
 
     @Test
@@ -593,6 +598,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         String name = "My Catalog App";
         String bundle = "org.apache.brooklyn.test";
         String version = "0.1.0";
+        String wrongVersion = "0.3.0";
         File f = createJar(ImmutableMap.<String, String>of(
                 "catalog.bom", Joiner.on("\n").join(
                         "brooklyn.catalog:",
@@ -608,15 +614,17 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                         "Manifest-Version: 1.0",
                         "Bundle-Name: " + name,
                         "Bundle-SymbolicName: " + bundle,
-                        "Bundle-Version: 0.3.0",
-                        "Bundle-ManifestVersion: 0.3.0")));
+                        "Bundle-Version: " + wrongVersion,
+                        "Bundle-ManifestVersion: " + wrongVersion)));
 
         Response response = client().path("/catalog")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
                 .post(Streams.readFully(new FileInputStream(f)));
 
         assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
-        assertTrue(response.readEntity(String.class).contains("JAR MANIFEST version '0.3.0' does not match '"+version+"' defined in BOM"));
+        Asserts.assertStringContainsIgnoreCase(response.readEntity(String.class), 
+            "version mismatch",
+            wrongVersion, version);
     }
 
     @Test

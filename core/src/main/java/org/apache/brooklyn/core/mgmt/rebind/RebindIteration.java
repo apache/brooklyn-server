@@ -34,8 +34,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.collect.ImmutableList;
-
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Application;
@@ -82,6 +80,7 @@ import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagementMode;
 import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagerInternal;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
@@ -115,6 +114,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -325,13 +325,22 @@ public abstract class RebindIteration {
         
         // Install bundles
         if (rebindManager.persistBundlesEnabled) {
+            List<OsgiBundleInstallationResult> installs = MutableList.of();
             logRebindingDebug("RebindManager installing bundles: {}", mementoManifest.getBundleIds());
             for (ManagedBundleMemento bundleM : mementoManifest.getBundles().values()) {
                 logRebindingDebug("RebindManager installing bundle {}", bundleM.getId());
                 try (InputStream in = bundleM.getJarContent().openStream()) {
-                    rebindContext.installBundle(instantiator.newManagedBundle(bundleM), in);
+                    installs.add(rebindContext.installBundle(instantiator.newManagedBundle(bundleM), in));
                 } catch (Exception e) {
                     exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, bundleM.getId(), bundleM.getSymbolicName(), e);
+                }
+            }
+            // Start them all after we've installed them
+            for (OsgiBundleInstallationResult br: installs) {
+                try {
+                    rebindContext.startBundle(br);
+                } catch (Exception e) {
+                    exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, br.getMetadata().getId(), br.getMetadata().getSymbolicName(), e);
                 }
             }
         } else {

@@ -39,6 +39,7 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl.RebindTracker;
@@ -47,6 +48,7 @@ import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Time;
@@ -170,13 +172,24 @@ public class CatalogUtils {
                     "Loading bundles in {}: {}", 
                     new Object[] {managementContext, Joiner.on(", ").join(libraries)});
             Stopwatch timer = Stopwatch.createStarted();
+            List<OsgiBundleInstallationResult> results = MutableList.of();
             for (CatalogBundle bundleUrl : libraries) {
-                osgi.get().install(BasicManagedBundle.of(bundleUrl), null, true, false).get();
+                OsgiBundleInstallationResult result = osgi.get().installDeferredStart(BasicManagedBundle.of(bundleUrl), null).get();
+                if (log.isDebugEnabled()) {
+                    logDebugOrTraceIfRebinding(log, "Installation of library "+bundleUrl+": "+result);
+                }
+                results.add(result);
             }
-            if (log.isDebugEnabled()) 
+            for (OsgiBundleInstallationResult r: results) {
+                if (r.getDeferredStart()!=null) {
+                    r.getDeferredStart().run();
+                }
+            }
+            if (log.isDebugEnabled()) { 
                 logDebugOrTraceIfRebinding(log, 
                     "Registered {} bundles in {}",
                     new Object[]{libraries.size(), Time.makeTimeStringRounded(timer)});
+            }
         }
     }
 

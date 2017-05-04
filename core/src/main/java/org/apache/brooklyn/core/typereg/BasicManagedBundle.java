@@ -185,5 +185,4 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     public static ManagedBundle of(CatalogBundle bundleUrl) {
         return new BasicManagedBundle(bundleUrl.getSymbolicName(), bundleUrl.getVersion(), bundleUrl.getUrl());
     }
-
 }

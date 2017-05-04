@@ -46,6 +46,7 @@ import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.osgi.OsgiTestBase;
 import org.apache.brooklyn.util.core.osgi.Osgis;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
@@ -128,9 +129,10 @@ public class OsgiVersionMoreEntityTest implements OsgiTestResources {
     protected RegisteredType addCatalogItemWithNameAndType(String symName, String version, String type, String ...libraries) {
         return addCatalogItemWithNameAndType(mgmt, symName, version, type, libraries);
     }
-
+    
     @SuppressWarnings("deprecation")
     static RegisteredType addCatalogItemWithNameAndType(ManagementContext mgmt, String symName, String version, String type, String ...libraries) {
+        OsgiTestBase.preinstallLibrariesLowLevelToPreventCatalogBomParsing(mgmt, libraries);
         CatalogEntityItemDto c1 = newCatalogItemWithNameAndType(symName, version, type, libraries);
         mgmt.getCatalog().addItem(c1);
         RegisteredType c2 = mgmt.getTypeRegistry().get(symName, version);
