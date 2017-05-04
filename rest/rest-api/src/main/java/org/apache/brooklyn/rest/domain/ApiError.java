@@ -72,6 +72,7 @@ public class ApiError implements Serializable {
     public static class Builder {
         private String message;
         private String details;
+        private Object data;
         private Integer errorCode;
 
         public Builder message(String message) {
@@ -80,7 +81,12 @@ public class ApiError implements Serializable {
         }
 
         public Builder details(String details) {
-            this.details = checkNotNull(details, "details");
+            this.details = details;
+            return this;
+        }
+
+        public Builder data(Object data) {
+            this.data = data;
             return this;
         }
 
@@ -111,7 +117,7 @@ public class ApiError implements Serializable {
         }
 
         public ApiError build() {
-            return new ApiError(message, details, errorCode);
+            return new ApiError(message, details, data, errorCode);
         }
 
         /** @deprecated since 0.7.0; use {@link #copy(ApiError)} */
@@ -136,18 +142,23 @@ public class ApiError implements Serializable {
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private final String details;
+    
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private final Object data;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private final Integer error;
 
     public ApiError(String message) { this(message, null); }
-    public ApiError(String message, String details) { this(message, details, null); }
+    public ApiError(String message, String details) { this(message, details, null, null); }
     public ApiError(
             @JsonProperty("message") String message,
             @JsonProperty("details") String details,
+            @JsonProperty("data") Object data,
             @JsonProperty("error") Integer error) {
         this.message = checkNotNull(message, "message");
         this.details = details != null ? details : "";
+        this.data = data;
         this.error = error;
     }
 
@@ -159,6 +170,10 @@ public class ApiError implements Serializable {
         return details;
     }
 
+    public Object getData() {
+        return data;
+    }
+    
     public Integer getError() {
         return error;
     }

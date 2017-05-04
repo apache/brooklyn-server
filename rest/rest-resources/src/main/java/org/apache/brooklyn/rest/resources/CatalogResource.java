@@ -19,9 +19,6 @@
 package org.apache.brooklyn.rest.resources;
 
 import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.util.ArrayList;
@@ -29,8 +26,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.jar.Attributes;
-import java.util.jar.Manifest;
 
 import javax.annotation.Nullable;
 import javax.ws.rs.core.MediaType;
@@ -44,8 +39,10 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
@@ -54,8 +51,8 @@ import org.apache.brooklyn.core.catalog.internal.CatalogItemComparator;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.rest.api.CatalogApi;
 import org.apache.brooklyn.rest.domain.ApiError;
@@ -65,24 +62,16 @@ import org.apache.brooklyn.rest.domain.CatalogLocationSummary;
 import org.apache.brooklyn.rest.domain.CatalogPolicySummary;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.CatalogTransformer;
-import org.apache.brooklyn.rest.util.DefaultExceptionMapper;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
-import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.osgi.VersionedName;
-import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
-import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
-import org.apache.commons.compress.archivers.zip.ZipFile;
-import org.osgi.framework.Bundle;
-import org.osgi.framework.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -161,6 +150,29 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
     }
 
+    public static class BundleInstallationRestResult {
+        String message;
+        ManagedBundle metadata;
+        
+        enum ResultCode { 
+            INSTALLED_NEW_BUNDLE,
+            UPDATED_EXISTING_BUNDLE, 
+            IGNORING_BUNDLE_AREADY_INSTALLED, 
+            ERROR_PREPARING_BUNDLE,
+            ERROR_INSTALLING_BUNDLE 
+        }
+        Map<String,Object> catalogItemsInstalled;
+        
+        public String getMessage() {
+            return message;
+        }
+        
+        public static BundleInstallationRestResult of(OsgiBundleInstallationResult result, ManagementContext mgmt) {
+            // TODO 
+            return null;
+        }
+    }
+    
     @Override
     @Beta
     public Response createFromArchive(byte[] zipInput) {
@@ -169,92 +181,15 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 Entitlements.getEntitlementContext().user());
         }
 
-        BundleMaker bm = new BundleMaker(mgmtInternal());
-        File f=null, f2=null;
-        try {
-            f = Os.newTempFile("brooklyn-posted-archive", "zip");
-            try {
-                Files.write(zipInput, f);
-            } catch (IOException e) {
-                Exceptions.propagate(e);
-            }
-            
-            ZipFile zf;
-            try {
-                zf = new ZipFile(f);
-            } catch (IOException e) {
-                throw new IllegalArgumentException("Invalid ZIP/JAR archive: "+e);
-            }
-            ZipArchiveEntry bom = zf.getEntry("catalog.bom");
-            if (bom==null) {
-                bom = zf.getEntry("/catalog.bom");
-            }
-            if (bom==null) {
-                throw new IllegalArgumentException("Archive must contain a catalog.bom file in the root");
-            }
-            String bomS;
-            try {
-                bomS = Streams.readFullyString(zf.getInputStream(bom));
-            } catch (IOException e) {
-                throw new IllegalArgumentException("Error reading catalog.bom from ZIP/JAR archive: "+e);
-            }
-
-            try {
-                zf.close();
-            } catch (IOException e) {
-                log.debug("Swallowed exception closing zipfile. Full error logged at trace: {}", e.getMessage());
-                log.trace("Exception closing zipfile", e);
-            }
-
-            VersionedName vn = BasicBrooklynCatalog.getVersionedName( BasicBrooklynCatalog.getCatalogMetadata(bomS) );
-            
-            Manifest mf = bm.getManifest(f);
-            if (mf==null) {
-                mf = new Manifest();
-            }
-            String bundleNameInMF = mf.getMainAttributes().getValue(Constants.BUNDLE_SYMBOLICNAME);
-            if (Strings.isNonBlank(bundleNameInMF)) {
-                if (!bundleNameInMF.equals(vn.getSymbolicName())) {
-                    throw new IllegalArgumentException("JAR MANIFEST symbolic-name '"+bundleNameInMF+"' does not match '"+vn.getSymbolicName()+"' defined in BOM");
-                }
-            } else {
-                bundleNameInMF = vn.getSymbolicName();
-                mf.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, bundleNameInMF);
-            }
-            
-            String bundleVersionInMF = mf.getMainAttributes().getValue(Constants.BUNDLE_VERSION);
-            if (Strings.isNonBlank(bundleVersionInMF)) {
-                if (!bundleVersionInMF.equals(vn.getVersion().toString())) {
-                    throw new IllegalArgumentException("JAR MANIFEST version '"+bundleVersionInMF+"' does not match '"+vn.getVersion()+"' defined in BOM");
-                }
-            } else {
-                bundleVersionInMF = vn.getVersion().toString();
-                mf.getMainAttributes().putValue(Constants.BUNDLE_VERSION, bundleVersionInMF);
-            }
-            if (mf.getMainAttributes().getValue(Attributes.Name.MANIFEST_VERSION)==null) {
-                mf.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), "1.0");
-            }
-            
-            f2 = bm.copyAddingManifest(f, mf);
-            
-            BasicManagedBundle bundleMetadata = new BasicManagedBundle(bundleNameInMF, bundleVersionInMF, null);
-            Bundle bundle;
-            try (FileInputStream f2in = new FileInputStream(f2)) {
-                bundle = ((ManagementContextInternal)mgmt()).getOsgiManager().get().installUploadedBundle(bundleMetadata, f2in, false);
-            } catch (Exception e) {
-                throw Exceptions.propagate(e);
-            }
-
-            Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.copyOf( 
-                ((ManagementContextInternal)mgmt()).getOsgiManager().get().loadCatalogBom(bundle) );
-
-            return buildCreateResponse(catalogItems);
-        } catch (RuntimeException ex) {
-            throw WebResourceUtils.badRequest(ex);
-        } finally {
-            if (f!=null) f.delete();
-            if (f2!=null) f2.delete();
+        ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
+            .install(new ByteArrayInputStream(zipInput));
+        
+        if (result.hasError()) {
+            return ApiError.builder().errorCode(Status.BAD_REQUEST).message(result.getWithoutError().getMessage())
+                .data(result).build().asJsonResponse();
         }
+
+        return Response.status(Status.CREATED).entity( BundleInstallationRestResult.of(result.get(), mgmt()) ).build();
     }
 
     private Response buildCreateResponse(Iterable<? extends CatalogItem<?, ?>> catalogItems) {

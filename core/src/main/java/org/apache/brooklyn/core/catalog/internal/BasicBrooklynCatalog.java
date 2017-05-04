@@ -425,17 +425,25 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return getFirstAsMap(itemDef, "brooklyn.catalog").orNull();        
     }
     
+    /** @deprecated since 0.12.0 - use {@link #getVersionedName(Map, boolean)} */
+    @Deprecated
     public static VersionedName getVersionedName(Map<?,?> catalogMetadata) {
+        return getVersionedName(catalogMetadata, true);
+    }
+    
+    public static VersionedName getVersionedName(Map<?,?> catalogMetadata, boolean required) {
         String version = getFirstAs(catalogMetadata, String.class, "version").orNull();
         String bundle = getFirstAs(catalogMetadata, String.class, "bundle").orNull();
         if (Strings.isBlank(bundle) && Strings.isBlank(version)) {
+            if (!required) return null;
             throw new IllegalStateException("Catalog BOM must define bundle and version");
         }
         if (Strings.isBlank(bundle)) {
+            if (!required) return null;
             throw new IllegalStateException("Catalog BOM must define bundle");
         }
         if (Strings.isBlank(version)) {
-            throw new IllegalStateException("Catalog BOM must define version");
+            throw new IllegalStateException("Catalog BOM must define version if bundle is defined");
         }
         return new VersionedName(bundle, Version.valueOf(version));
     }

@@ -43,6 +43,7 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl.RebindTracker;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
@@ -170,7 +171,7 @@ public class CatalogUtils {
                     new Object[] {managementContext, Joiner.on(", ").join(libraries)});
             Stopwatch timer = Stopwatch.createStarted();
             for (CatalogBundle bundleUrl : libraries) {
-                osgi.get().registerBundle(bundleUrl);
+                osgi.get().install(BasicManagedBundle.of(bundleUrl), null, true, false).get();
             }
             if (log.isDebugEnabled()) 
                 logDebugOrTraceIfRebinding(log, 

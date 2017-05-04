@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.typereg;
 import java.io.File;
 import java.util.Map;
 
+import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
@@ -179,6 +180,10 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     @Override
     protected BrooklynObjectInternal configure(Map<?, ?> flags) {
         throw new UnsupportedOperationException();
+    }
+
+    public static ManagedBundle of(CatalogBundle bundleUrl) {
+        return new BasicManagedBundle(bundleUrl.getSymbolicName(), bundleUrl.getVersion(), bundleUrl.getUrl());
     }
 
 }
