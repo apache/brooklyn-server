@@ -16,14 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.internal.storage.impl.inmemory;
+package org.apache.brooklyn.core.internal.storage.impl;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.brooklyn.core.internal.storage.DataGrid;
 import org.apache.brooklyn.core.internal.storage.impl.ConcurrentMapAcceptingNullVals;
 
 import com.google.common.collect.ImmutableMap;
@@ -34,13 +33,12 @@ import com.google.common.collect.Maps;
  * 
  * @author aled
  */
-public class InmemoryDatagrid implements DataGrid {
+class InmemoryDatagrid {
 
     private final Map<String,Map<?,?>> maps = Maps.newLinkedHashMap();
     private final AtomicInteger creationCounter = new AtomicInteger();
     
     @SuppressWarnings("unchecked")
-    @Override
     public <K, V> ConcurrentMap<K, V> getMap(String id) {
         synchronized (maps) {
             ConcurrentMap<K, V> result = (ConcurrentMap<K, V>) maps.get(id);
@@ -64,30 +62,25 @@ public class InmemoryDatagrid implements DataGrid {
         return new ConcurrentMapAcceptingNullVals<K,V>(Maps.<K,V>newConcurrentMap());
     }
 
-    @Override
     public void remove(String id) {
         synchronized (maps) {
             maps.remove(id);
         }
     }
 
-    @Override
     public void terminate() {
         synchronized (maps) {
             maps.clear();
         }
     }
 
-    @Override
     public Map<String, Object> getDatagridMetrics() {
         synchronized (maps) {
             return ImmutableMap.<String, Object>of("size", maps.size(), "createCount", creationCounter.get());
         }
     }
 
-    @Override
     public Set<String> getKeys() {
         return maps.keySet();
     }
-    
 }

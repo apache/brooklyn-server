@@ -61,7 +61,6 @@ import org.apache.brooklyn.core.entity.drivers.downloads.BasicDownloadsManager;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
 import org.apache.brooklyn.core.internal.storage.impl.BrooklynStorageImpl;
-import org.apache.brooklyn.core.internal.storage.impl.inmemory.InmemoryDatagrid;
 import org.apache.brooklyn.core.location.BasicLocationRegistry;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
@@ -169,7 +168,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         this.catalog = new BasicBrooklynCatalog(this);
         this.typeRegistry = new BasicBrooklynTypeRegistry(this);
         
-        this.storage = new BrooklynStorageImpl(new InmemoryDatagrid());
+        this.storage = new BrooklynStorageImpl();
         this.rebindManager = new RebindManagerImpl(this); // TODO leaking "this" reference; yuck
         this.highAvailabilityManager = new HighAvailabilityManagerImpl(this); // TODO leaking "this" reference; yuck
         

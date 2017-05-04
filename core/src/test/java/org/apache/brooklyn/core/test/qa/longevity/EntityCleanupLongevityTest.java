@@ -53,7 +53,7 @@ public class EntityCleanupLongevityTest extends EntityCleanupLongevityTestFixtur
         doTestManyTimesAndAssertNoMemoryLeak(JavaClassNames.niceClassAndMethod(), new Runnable() {
             @Override
             public void run() {
-                loc = managementContext.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class));
+                loc = newLoc();
                 managementContext.getLocationManager().unmanage(loc);
             }
         });
