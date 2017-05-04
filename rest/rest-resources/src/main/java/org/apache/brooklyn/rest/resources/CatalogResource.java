@@ -198,6 +198,14 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             } catch (IOException e) {
                 throw new IllegalArgumentException("Error reading catalog.bom from ZIP/JAR archive: "+e);
             }
+
+            try {
+                zf.close();
+            } catch (IOException e) {
+                log.debug("Swallowed exception closing zipfile. Full error logged at trace: {}", e.getMessage());
+                log.trace("Exception closing zipfile", e);
+            }
+
             VersionedName vn = BasicBrooklynCatalog.getVersionedName( BasicBrooklynCatalog.getCatalogMetadata(bomS) );
             
             Manifest mf = bm.getManifest(f);
