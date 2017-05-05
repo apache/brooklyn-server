@@ -72,14 +72,14 @@ public abstract class AbstractMain {
     private static final Logger log = LoggerFactory.getLogger(AbstractMain.class);
 
     // Launch banner
+    // http://patorjk.com/software/taag/#p=display&f=Standard&t=Apache%20Brooklyn
     public static final String DEFAULT_BANNER =
-        " _                     _    _             \n" +
-        "| |__  _ __ ___   ___ | | _| |_   _ _ __ (R)\n" +
-        "| '_ \\| '__/ _ \\ / _ \\| |/ / | | | | '_ \\ \n" +
-        "| |_) | | | (_) | (_) |   <| | |_| | | | |\n" +
-        "|_.__/|_|  \\___/ \\___/|_|\\_\\_|\\__, |_| |_|\n" +
-        "                              |___/             "+BrooklynVersion.get()+"\n";
-
+        "    _                     _            ____                  _    _             \n" +             
+        "   / \\   _ __   __ _  ___| |__   ___  | __ ) _ __ ___   ___ | | _| |_   _ _ __ (R)\n" +
+        "  / _ \\ | '_ \\ / _` |/ __| '_ \\ / _ \\ |  _ \\| '__/ _ \\ / _ \\| |/ / | | | | '_ \\ \n" +
+        " / ___ \\| |_) | (_| | (__| | | |  __/ | |_) | | | (_) | (_) |   <| | |_| | | | |\n" +
+        "/_/   \\_\\ .__/ \\__,_|\\___|_| |_|\\___| |____/|_|  \\___/ \\___/|_|\\_\\_|\\__, |_| |_|\n" +
+        "        |_|                                                         |___/      "+BrooklynVersion.get()+"\n";
     // Error codes
     public static final int SUCCESS = 0;
     public static final int PARSE_ERROR = 1;
