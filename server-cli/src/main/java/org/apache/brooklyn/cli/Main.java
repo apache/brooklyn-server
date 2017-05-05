@@ -392,7 +392,11 @@ public class Main extends AbstractMain {
             try {
                 if (log.isDebugEnabled()) log.debug("Invoked launch command {}", this);
                 
-                if (!quiet) stdout.println(banner);
+                if (!quiet) {
+                    stdout.println(banner);
+                    stdout.println(productOneLineSummary);
+                    stdout.println();
+                }
     
                 if (verbose) {
                     if (app != null) {
@@ -937,7 +941,11 @@ public class Main extends AbstractMain {
             try {
                 log.info("Retrieving and copying persisted state to "+destinationDir+(Strings.isBlank(destinationLocation) ? "" : " @ "+destinationLocation));
                 
-                if (!quiet) stdout.println(banner);
+                if (!quiet) {
+                    stdout.println(banner);
+                    stdout.println(productOneLineSummary);
+                    stdout.println();
+                }
     
                 PersistMode persistMode = PersistMode.AUTO;
                 HighAvailabilityMode highAvailabilityMode = HighAvailabilityMode.DISABLED;
