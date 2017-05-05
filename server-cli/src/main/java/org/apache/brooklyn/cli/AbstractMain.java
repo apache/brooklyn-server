@@ -74,7 +74,7 @@ public abstract class AbstractMain {
     // Launch banner
     public static final String DEFAULT_BANNER =
         " _                     _    _             \n" +
-        "| |__  _ __ ___   ___ | | _| |_   _ _ __ (R)\n" +
+        "| |__  _ __ ___   ___ | | _| |_   _ _ __ \n" +
         "| '_ \\| '__/ _ \\ / _ \\| |/ / | | | | '_ \\ \n" +
         "| |_) | | | (_) | (_) |   <| | |_| | | | |\n" +
         "|_.__/|_|  \\___/ \\___/|_|\\_\\_|\\__, |_| |_|\n" +
