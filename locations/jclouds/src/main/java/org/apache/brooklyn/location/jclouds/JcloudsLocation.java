@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -60,6 +61,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.Sanitizer;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.BasicMachineMetadata;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
@@ -511,7 +513,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     public ComputeService getComputeService(ConfigBag config) {
         ComputeServiceRegistry registry = getConfig(COMPUTE_SERVICE_REGISTRY);
-        return registry.findComputeService(ResolvingConfigBag.newInstanceExtending(getManagementContext(), config), true);
+        return registry.findComputeService(config, true);
     }
 
     /** @deprecated since 0.7.0 use {@link #listMachines()} */ @Deprecated
@@ -588,17 +590,33 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         return obtain(MutableMap.builder().putAll(flags).put(TEMPLATE_BUILDER, tb).build());
     }
 
-    /** core method for obtaining a VM using jclouds;
+    private ConfigBag getConfigBagExtendedWithFlagsResolved(Map<?, ?> flags) {
+        try {
+            ConfigBag configRaw = ConfigBag.newInstanceExtending(config().getBag(), flags);
+            Object context = configRaw.get(CALLER_CONTEXT);
+            if (context instanceof Entity) {
+                Map<?,?> flagsResolved = (Map<?, ?>) Tasks.resolveDeepValue(flags, Object.class, ((EntityInternal) context).getExecutionContext());
+                configRaw = ConfigBag.newInstanceExtending(config().getBag(), flagsResolved);
+            }
+            ConfigBag config = ResolvingConfigBag.newInstanceExtending(getManagementContext(), configRaw);
+            return config;
+        } catch (InterruptedException | ExecutionException e) {
+            throw Exceptions.propagate(e);
+        }
+    }
+
+    /**
+     * Core method for obtaining a VM using jclouds.
+     * <p>
      * Map should contain CLOUD_PROVIDER and CLOUD_ENDPOINT or CLOUD_REGION, depending on the cloud,
-     * as well as ACCESS_IDENTITY and ACCESS_CREDENTIAL,
-     * plus any further properties to specify e.g. images, hardware profiles, accessing user
-     * (for initial login, and a user potentially to create for subsequent ie normal access) */
+     * as well as ACCESS_IDENTITY and ACCESS_CREDENTIAL, plus any further properties to specify
+     * e.g. images, hardware profiles, accessing user (for initial login, and a user potentially
+     * to create for subsequent ie normal access)
+     */
     @Override
     public MachineLocation obtain(Map<?,?> flags) throws NoMachinesAvailableException {
-        ConfigBag setupRaw = ConfigBag.newInstanceExtending(config().getBag(), flags);
-        ConfigBag setup = ResolvingConfigBag.newInstanceExtending(getManagementContext(), setupRaw);
-
-        Map<String, Object> flagTemplateOptions = ConfigBag.newInstance(flags).get(TEMPLATE_OPTIONS);
+        ConfigBag setup = getConfigBagExtendedWithFlagsResolved(flags);
+        Map<String, Object> flagTemplateOptions = setup.get(TEMPLATE_OPTIONS);
         Map<String, Object> baseTemplateOptions = config().get(TEMPLATE_OPTIONS);
         Map<String, Object> templateOptions = (Map<String, Object>) shallowMerge(Maybe.fromNullable(flagTemplateOptions), Maybe.fromNullable(baseTemplateOptions), TEMPLATE_OPTIONS).orNull();
         setup.put(TEMPLATE_OPTIONS, templateOptions);
