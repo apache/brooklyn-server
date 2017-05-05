@@ -95,7 +95,9 @@ public abstract class AbstractMain {
      * methods are not an option (and one can't override static methods).
      */
     protected static volatile String banner = DEFAULT_BANNER;
-    
+
+    protected static volatile String productOneLineSummary = "Apache Brooklyn, " + BrooklynVersion.get();
+
     /** abstract superclass for commands defining global options, but not arguments,
      * as that prevents Help from being injectable in the {@link HelpCommand} subclass */
     public static abstract class BrooklynCommand implements Callable<Void> {
@@ -205,6 +207,7 @@ public abstract class AbstractMain {
             warnIfArguments();
 
             System.out.println(banner);
+            System.out.println("Name:     " + "Apache Brooklyn");
             System.out.println("Version:  " + BrooklynVersion.get());
             if (BrooklynVersion.INSTANCE.isSnapshot()) {
                 System.out.println("Git SHA1: " + BrooklynVersion.INSTANCE.getSha1FromOsgiManifest());

@@ -360,6 +360,34 @@ public class CliTest {
     }
 
     @Test
+    public void testLaunchWritesOutApacheBrooklyn() throws Exception {
+        InputStream origIn = System.in;
+        PrintStream origOut = System.out;
+        try {
+            InputStream stdin = new ByteArrayInputStream("".getBytes());
+            System.setIn(stdin);
+
+            final ByteArrayOutputStream stdoutBytes = new ByteArrayOutputStream();
+            PrintStream stdout = new PrintStream(stdoutBytes);
+            System.setOut(stdout);
+
+            Cli<BrooklynCommand> cli = buildCli();
+            BrooklynCommand command = cli.parse("launch", "--noConsole");
+            submitCommandAndAssertRunnableSucceeds(command, new Runnable() {
+                    @Override
+                    public void run() {
+                        String actualStdout = new String(stdoutBytes.toByteArray());
+                        assertTrue(actualStdout.contains("Apache Brooklyn"), "stdout="+actualStdout);
+                    }
+                });
+        
+        } finally {
+            System.setIn(origIn);
+            System.setOut(origOut);
+        }
+    }
+    
+    @Test
     public void testLaunchWillStartAppWhenGivenImpl() throws Exception {
         Cli<BrooklynCommand> cli = buildCli();
         BrooklynCommand command = cli.parse("launch", "--noConsole", "--app", ExampleApp.class.getName(), "--location", "localhost");
