@@ -93,6 +93,12 @@ public class CommonAdaptorTypeCoercions {
                 return new String(input);
             }
         });
+        registerAdapter(String.class, byte[].class, new Function<String,byte[]>() {
+            @Override
+            public byte[] apply(String input) {
+                return input.getBytes();
+            }
+        });
         registerAdapter(Collection.class, Set.class, new Function<Collection,Set>() {
             @SuppressWarnings("unchecked")
             @Override
