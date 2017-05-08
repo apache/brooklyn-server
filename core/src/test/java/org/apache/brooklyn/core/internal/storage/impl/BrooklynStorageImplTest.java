@@ -29,10 +29,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
-import org.apache.brooklyn.core.internal.storage.DataGrid;
 import org.apache.brooklyn.core.internal.storage.Reference;
 import org.apache.brooklyn.core.internal.storage.impl.BrooklynStorageImpl;
-import org.apache.brooklyn.core.internal.storage.impl.inmemory.InmemoryDatagrid;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -43,15 +41,13 @@ import com.google.common.collect.Lists;
 
 public class BrooklynStorageImplTest {
     
-    private DataGrid datagrid;
     private BrooklynStorage storage;
 
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         // TODO Note that InmemoryDatagrid's ConcurrentMap currently returns snapshot for entrySet() and values()
         // so the tests here aren't particularly good for confirming it'll work against a real datagrid...
-        datagrid = new InmemoryDatagrid();
-        storage = new BrooklynStorageImpl(datagrid);
+        storage = new BrooklynStorageImpl();
     }
 
     @Test

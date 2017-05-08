@@ -236,11 +236,6 @@ public class CatalogItemDo<T,SpecT> implements CatalogItem<T,SpecT>, BrooklynObj
     }
 
     @Override
-    public String toXmlString() {
-        return itemDto.toXmlString();
-    }
-
-    @Override
     public Class<SpecT> getSpecType() {
         return itemDto.getSpecType();
     }

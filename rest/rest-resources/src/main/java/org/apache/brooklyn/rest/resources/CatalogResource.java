@@ -45,8 +45,6 @@ import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
-import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
-import org.apache.brooklyn.core.catalog.internal.CatalogDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemComparator;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
@@ -224,19 +222,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
         return Response.status(Status.CREATED).entity(result).build();
     }
-    
-    @SuppressWarnings("deprecation")
-    @Override
-    public Response resetXml(String xml, boolean ignoreErrors) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, null) ||
-            !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_CATALOG_ITEM, null)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
-                Entitlements.getEntitlementContext().user());
-        }
-
-        ((BasicBrooklynCatalog)mgmt().getCatalog()).reset(CatalogDto.newDtoFromXmlContents(xml, "REST reset"), !ignoreErrors);
-        return Response.ok().build();
-    }
 
     @Override
     public void deleteApplication(String symbolicName, String version) throws Exception {
@@ -413,9 +398,9 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         List filters = new ArrayList();
         filters.add(type);
         if (Strings.isNonEmpty(regex))
-            filters.add(CatalogPredicates.xml(StringPredicates.containsRegex(regex)));
+            filters.add(CatalogPredicates.stringRepresentationMatches(StringPredicates.containsRegex(regex)));
         if (Strings.isNonEmpty(fragment))
-            filters.add(CatalogPredicates.xml(StringPredicates.containsLiteralIgnoreCase(fragment)));
+            filters.add(CatalogPredicates.stringRepresentationMatches(StringPredicates.containsLiteralIgnoreCase(fragment)));
         if (!allVersions)
             filters.add(CatalogPredicates.isBestVersion(mgmt()));
         

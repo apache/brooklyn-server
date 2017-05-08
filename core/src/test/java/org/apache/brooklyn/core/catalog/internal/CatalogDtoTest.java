@@ -21,22 +21,7 @@ package org.apache.brooklyn.core.catalog.internal;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
-import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
-import org.apache.brooklyn.core.catalog.internal.CatalogBundleDto;
-import org.apache.brooklyn.core.catalog.internal.CatalogDo;
-import org.apache.brooklyn.core.catalog.internal.CatalogDto;
-import org.apache.brooklyn.core.catalog.internal.CatalogEntityItemDto;
-import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
-import org.apache.brooklyn.core.catalog.internal.CatalogItemDo;
-import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
-import org.apache.brooklyn.core.catalog.internal.CatalogXmlSerializer;
 import org.apache.brooklyn.core.catalog.internal.CatalogClasspathDo.CatalogScanningModes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
@@ -47,6 +32,12 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.util.core.BrooklynMavenArtifacts;
 import org.apache.brooklyn.util.maven.MavenRetriever;
 import org.apache.commons.lang3.ClassUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 
@@ -72,20 +63,8 @@ public class CatalogDtoTest {
         checkCatalogHealthy(root);
     }
     
-    @Test(groups="Integration")
-    public void testCatalogSerializeAndLookup() {
-        CatalogDto root = buildExampleCatalog();
-        CatalogXmlSerializer serializer = new CatalogXmlSerializer();
-        
-        String xml = serializer.toString(root);
-        log.info("Example catalog serialized as:\n"+xml);
-        
-        CatalogDto root2 = (CatalogDto) serializer.fromString(xml);
-        checkCatalogHealthy(root2);
-    }
-
     protected void checkCatalogHealthy(CatalogDto root) {
-        assertEquals(root.catalogs.size(), 4);
+        assertEquals(root.catalogs.size(), 3, "dtos="+root.catalogs);
         CatalogDo loader = new CatalogDo(managementContext, root).load();
         
         // test app comes from jar, by default
@@ -142,7 +121,6 @@ public class CatalogDtoTest {
         testEntitiesJavaCatalog.addEntry(osgiEntity);
         root.addCatalog(osgiCatalog.dto);
 
-        root.addCatalog(CatalogDto.newLinkedInstance("classpath://brooklyn-catalog-empty.xml"));
         return root.dto;
     }
     

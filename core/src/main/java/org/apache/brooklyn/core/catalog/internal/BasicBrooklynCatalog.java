@@ -1201,18 +1201,6 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         };
     }
 
-    transient CatalogXmlSerializer serializer;
-    
-    public String toXmlString() {
-        if (serializer==null) loadSerializer();
-        return serializer.toString(catalog.dto);
-    }
-    
-    private synchronized void loadSerializer() {
-        if (serializer==null) 
-            serializer = new CatalogXmlSerializer();
-    }
-
     private static class SpecCache {
         private final Map<String, AbstractBrooklynObjectSpec<?,?>> cache = Collections.synchronizedMap(
                 Maps.<String, AbstractBrooklynObjectSpec<?,?>>newLinkedHashMap());

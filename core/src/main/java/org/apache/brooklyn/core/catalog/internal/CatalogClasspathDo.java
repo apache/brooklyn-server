@@ -166,9 +166,8 @@ public class CatalogClasspathDo {
         
         Stopwatch timer = Stopwatch.createStarted();
         ReflectionScanner scanner = null;
-        if (!catalog.isLocal()) {
-            log.warn("Scanning not supported for remote catalogs; ignoring scan request in "+catalog);
-        } else if (classpath.getEntries() == null || classpath.getEntries().isEmpty()) {
+        
+        if (classpath.getEntries() == null || classpath.getEntries().isEmpty()) {
             // scan default classpath:
             ClassLoader baseCL = null;
             Iterable<URL> baseCP = null;

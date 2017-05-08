@@ -129,17 +129,6 @@ public interface CatalogApi {
                     required = true)
                     byte[] item);
     
-    @POST
-    @Consumes(MediaType.APPLICATION_XML)
-    @Path("/reset")
-    @ApiOperation(value = "Resets the catalog to the given (XML) format")
-    public Response resetXml(
-            @ApiParam(name = "xml", value = "XML descriptor of the entire catalog to install", required = true)
-            @Valid String xml,
-            @ApiParam(name ="ignoreErrors", value ="Don't fail on invalid bundles, log the errors only")
-            @QueryParam("ignoreErrors")  @DefaultValue("false")
-            boolean ignoreErrors);
-
     @DELETE
     @Path("/applications/{symbolicName}/{version}")
     @ApiOperation(

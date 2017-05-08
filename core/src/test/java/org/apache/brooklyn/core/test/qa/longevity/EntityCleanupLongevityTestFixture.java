@@ -18,7 +18,9 @@
  */
 package org.apache.brooklyn.core.test.qa.longevity;
 
-import java.util.Set;
+import static org.testng.Assert.assertTrue;
+
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 
@@ -29,8 +31,6 @@ import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
-import org.apache.brooklyn.core.internal.storage.DataGrid;
-import org.apache.brooklyn.core.internal.storage.impl.BrooklynStorageImpl;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.mgmt.internal.AbstractManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
@@ -50,6 +50,7 @@ import org.testng.annotations.BeforeMethod;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 public abstract class EntityCleanupLongevityTestFixture {
 
@@ -59,6 +60,9 @@ public abstract class EntityCleanupLongevityTestFixture {
     protected SimulatedLocation loc;
     protected TestApplication app;
 
+    protected WeakHashMap<TestApplication, Void> weakApps;
+    protected WeakHashMap<SimulatedLocation, Void> weakLocs;
+    
     // since GC is not definitive (would that it were!)
     final static long MEMORY_MARGIN_OF_ERROR = 10*1024*1024;
 
@@ -76,6 +80,9 @@ public abstract class EntityCleanupLongevityTestFixture {
         
         // do this to ensure GC is initialized
         managementContext.getExecutionManager();
+        
+        weakApps = new WeakHashMap<>();
+        weakLocs = new WeakHashMap<>();
     }
     
     @AfterMethod(alwaysRun=true)
@@ -98,7 +105,8 @@ public abstract class EntityCleanupLongevityTestFixture {
                 long now = timer.elapsed(TimeUnit.MILLISECONDS);
                 System.gc(); System.gc();
                 String msg = testName+" iteration " + i + " at " + Time.makeTimeStringRounded(now) + " (delta "+Time.makeTimeStringRounded(now-last)+"), using "+
-                    ((AbstractManagementContext)managementContext).getGarbageCollector().getUsageString();
+                    ((AbstractManagementContext)managementContext).getGarbageCollector().getUsageString()+
+                    "; weak-refs app="+Iterables.size(weakApps.keySet())+" and locs="+Iterables.size(weakLocs.keySet());
                 LOG.info(msg);
                 if (i>=100 && memUsedNearStart<0) {
                     // set this the first time we've run 100 times (let that create a baseline with classes loaded etc)
@@ -112,20 +120,6 @@ public abstract class EntityCleanupLongevityTestFixture {
         BrooklynStorage storage = ((ManagementContextInternal)managementContext).getStorage();
         Assert.assertTrue(storage.isMostlyEmpty(), "Not empty storage: "+storage);
         
-        DataGrid dg = ((BrooklynStorageImpl)storage).getDataGrid();
-        Set<String> keys = dg.getKeys();
-        for (String key: keys) {
-            ConcurrentMap<Object, Object> v = dg.getMap(key);
-            if (v.isEmpty()) continue;
-            // TODO currently we remember ApplicationUsage
-            if (key.contains("usage-application")) {
-                Assert.assertTrue(v.size() <= iterations, "Too many usage-application entries: "+v.size());
-                continue;
-            }
-            
-            Assert.fail("Non-empty key in datagrid: "+key+" ("+v+")");
-        }
-
         ConcurrentMap<Object, TaskScheduler> schedulers = ((BasicExecutionManager)managementContext.getExecutionManager()).getSchedulerByTag();
         // TODO would like to assert this
 //        Assert.assertTrue( schedulers.isEmpty(), "Not empty schedulers: "+schedulers);
@@ -134,14 +128,21 @@ public abstract class EntityCleanupLongevityTestFixture {
         
         // memory leak detection only applies to subclasses who run lots of iterations
         if (checkMemoryLeaks())
-            assertNoMemoryLeak(memUsedNearStart);
+            assertNoMemoryLeak(memUsedNearStart, iterations);
     }
 
-    protected void assertNoMemoryLeak(long memUsedPreviously) {
+    protected void assertNoMemoryLeak(long memUsedPreviously, int iterations) {
         System.gc(); System.gc();
         long memUsedAfter = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
         long memChange = memUsedAfter - memUsedPreviously;
         Assert.assertTrue(memChange < numIterations()*ACCEPTABLE_LEAK_PER_ITERATION + MEMORY_MARGIN_OF_ERROR, "Leaked too much memory: "+Strings.makeJavaSizeString(memChange));
+        
+        // TODO Want a stronger assertion than this - it just says we don't have more apps than we created! 
+        int numApps = Iterables.size(weakApps.keySet());
+        assertTrue(numApps <= iterations, "numApps="+numApps+"; iterations="+iterations);
+        
+        int numLocs = Iterables.size(weakLocs.keySet());
+        assertTrue(numLocs <= iterations, "numLocs="+numLocs+"; iterations="+iterations);
     }
     
     protected void doTestStartAppThenThrowAway(String testName, final boolean stop) {
@@ -164,12 +165,19 @@ public abstract class EntityCleanupLongevityTestFixture {
 
     protected TestApplication newApp() {
         final TestApplication result = ApplicationBuilder.newManagedApp(TestApplication.class, managementContext);
+        weakApps.put(app, null);
         TestEntity entity = result.createAndManageChild(EntitySpec.create(TestEntity.class));
         result.subscriptions().subscribe(entity, TestEntity.NAME, new SensorEventListener<String>() {
             @Override public void onEvent(SensorEvent<String> event) {
                 result.sensors().set(TestApplication.MY_ATTRIBUTE, event.getValue());
             }});
         entity.sensors().set(TestEntity.NAME, "myname");
+        return result;
+    }
+    
+    protected SimulatedLocation newLoc() {
+        SimulatedLocation result = managementContext.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class));
+        weakLocs.put(result, null);
         return result;
     }
 }

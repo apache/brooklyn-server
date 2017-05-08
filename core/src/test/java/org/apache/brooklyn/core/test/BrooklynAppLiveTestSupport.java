@@ -27,8 +27,7 @@ import org.testng.annotations.BeforeMethod;
 /**
  * To be extended by live tests.
  * <p>
- * Uses a management context that will not load {@code ~/.brooklyn/catalog.xml} but will
- * read from the default {@code ~/.brooklyn/brooklyn.properties}.
+ * Uses a management context that will read from the default {@code ~/.brooklyn/brooklyn.properties}.
  */
 public class BrooklynAppLiveTestSupport extends BrooklynMgmtUnitTestSupport {
 

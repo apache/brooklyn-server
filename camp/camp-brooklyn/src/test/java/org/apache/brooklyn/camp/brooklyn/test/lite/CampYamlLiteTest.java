@@ -40,8 +40,6 @@ import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.camp.spi.pdp.PdpYamlTest;
 import org.apache.brooklyn.camp.test.mock.web.MockWebPlatform;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
-import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
-import org.apache.brooklyn.core.catalog.internal.CatalogDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddChildrenEffector;
@@ -189,31 +187,6 @@ public class CampYamlLiteTest {
         String yaml = prepAndGetSampleMyCatalogAppYaml(symbolicName, bundleUrl);
 
         mgmt.getCatalog().addItems(yaml);
-
-        assertMgmtHasSampleMyCatalogApp(symbolicName, bundleUrl);
-    }
- 
-    @SuppressWarnings("deprecation")
-    @Test
-    public void testResetXmlWithCustomEntity() throws IOException {
-        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
-
-        String symbolicName = "my.catalog.app.id";
-        String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
-        String yaml = prepAndGetSampleMyCatalogAppYaml(symbolicName, bundleUrl);
-
-        LocalManagementContext mgmt2 = LocalManagementContextForTests.newInstanceWithOsgi();
-        try {
-            installWithoutCatalogBom(mgmt2, bundleUrl);
-            CampPlatformWithJustBrooklynMgmt platform2 = new CampPlatformWithJustBrooklynMgmt(mgmt2);
-            MockWebPlatform.populate(platform2, TestAppAssemblyInstantiator.class);
-
-            mgmt2.getCatalog().addItems(yaml);
-            String xml = ((BasicBrooklynCatalog) mgmt2.getCatalog()).toXmlString();
-            ((BasicBrooklynCatalog) mgmt.getCatalog()).reset(CatalogDto.newDtoFromXmlContents(xml, "copy of temporary catalog"));
-        } finally {
-            mgmt2.terminate();
-        }
 
         assertMgmtHasSampleMyCatalogApp(symbolicName, bundleUrl);
     }
