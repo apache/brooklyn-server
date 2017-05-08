@@ -33,6 +33,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
@@ -80,6 +81,15 @@ public final class AttributeMap {
         this.values = checkNotNull(storage, "storage map must not be null");
     }
 
+    /** Internal object this class synchs on when modifying values.
+     * Exposed for internal usage to synchronize on this to enforce canonical order.
+     * @return
+     */
+    @Beta
+    public Object getSynchObjectInternal() {
+        return values;
+    }
+    
     public Map<Collection<String>, Object> asRawMap() {
         synchronized (values) {
             return ImmutableMap.copyOf(values);
