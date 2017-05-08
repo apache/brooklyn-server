@@ -221,8 +221,6 @@
         <module>software/base</module>
         <module>software/winrm</module>
 
-        <module>storage/hazelcast</module>
-
         <module>server-cli</module>
         <module>launcher-common</module>
         <module>launcher</module>
