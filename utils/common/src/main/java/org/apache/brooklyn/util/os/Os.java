@@ -533,10 +533,13 @@ public class Os {
 
     /** creates a private temp file which will be deleted on exit;
      * either prefix or ext may be null; 
-     * if ext is non-empty and not > 4 chars and not starting with a ., then a dot will be inserted */
+     * if ext is non-empty and not > 4 chars and not starting with a ., then a dot will be inserted;
+     * if either name part is too long it will be shortened to prevent filesystem errors */
     public static File newTempFile(String prefix, String ext) {
         String sanitizedPrefix = (Strings.isNonEmpty(prefix) ? Strings.makeValidFilename(prefix) + "-" : "");
+        if (sanitizedPrefix.length()>101) sanitizedPrefix = sanitizedPrefix.substring(0, 100)+"--";
         String extWithPrecedingSeparator = (Strings.isNonEmpty(ext) ? ext.startsWith(".") || ext.length()>4 ? ext : "."+ext : "");
+        if (extWithPrecedingSeparator.length()>13) sanitizedPrefix = sanitizedPrefix.substring(0, 12)+"--";
         try {
             File tempFile = File.createTempFile(sanitizedPrefix, extWithPrecedingSeparator, new File(tmp()));
             tempFile.deleteOnExit();

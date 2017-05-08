@@ -49,6 +49,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
@@ -90,7 +91,8 @@ public class CatalogMakeOsgiBundleTest extends AbstractYamlTest {
             Entities.destroy(app);
         }
         for (Bundle b: bundlesToRemove) {
-            b.uninstall();
+            ((ManagementContextInternal)mgmt()).getOsgiManager().get().uninstallUploadedBundle(
+                ((ManagementContextInternal)mgmt()).getOsgiManager().get().getManagedBundle(new VersionedName(b)));
         }
         bundlesToRemove.clear();
     }
@@ -157,7 +159,8 @@ public class CatalogMakeOsgiBundleTest extends AbstractYamlTest {
         
         jf = bm.copyAddingManifest(jf, MutableMap.of(
                 "Manifest-Version", "1.0", 
-                "Bundle-SymbolicName", customName));
+                "Bundle-SymbolicName", customName,
+                "Bundle-Version", "0.0.0.SNAPSHOT"));
         
         Assert.assertTrue(bm.hasOsgiManifest(jf));
         

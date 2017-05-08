@@ -52,6 +52,7 @@ import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
@@ -156,6 +157,7 @@ public class CampYamlLiteTest {
     @Test
     public void testYamlServiceForCatalog() {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+        installWithoutCatalogBom(mgmt, OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL);
 
         CatalogItem<?, ?> realItem = Iterables.getOnlyElement(mgmt.getCatalog().addItems(Streams.readFullyStringAndClose(getClass().getResourceAsStream("test-app-service-blueprint.yaml"))));
         Iterable<CatalogItem<Object, Object>> retrievedItems = mgmt.getCatalog()
@@ -184,13 +186,13 @@ public class CampYamlLiteTest {
 
         String symbolicName = "my.catalog.app.id";
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
-        String yaml = getSampleMyCatalogAppYaml(symbolicName, bundleUrl);
+        String yaml = prepAndGetSampleMyCatalogAppYaml(symbolicName, bundleUrl);
 
         mgmt.getCatalog().addItems(yaml);
 
         assertMgmtHasSampleMyCatalogApp(symbolicName, bundleUrl);
     }
-
+ 
     @SuppressWarnings("deprecation")
     @Test
     public void testResetXmlWithCustomEntity() throws IOException {
@@ -198,10 +200,11 @@ public class CampYamlLiteTest {
 
         String symbolicName = "my.catalog.app.id";
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
-        String yaml = getSampleMyCatalogAppYaml(symbolicName, bundleUrl);
+        String yaml = prepAndGetSampleMyCatalogAppYaml(symbolicName, bundleUrl);
 
         LocalManagementContext mgmt2 = LocalManagementContextForTests.newInstanceWithOsgi();
         try {
+            installWithoutCatalogBom(mgmt2, bundleUrl);
             CampPlatformWithJustBrooklynMgmt platform2 = new CampPlatformWithJustBrooklynMgmt(mgmt2);
             MockWebPlatform.populate(platform2, TestAppAssemblyInstantiator.class);
 
@@ -215,7 +218,9 @@ public class CampYamlLiteTest {
         assertMgmtHasSampleMyCatalogApp(symbolicName, bundleUrl);
     }
 
-    private String getSampleMyCatalogAppYaml(String symbolicName, String bundleUrl) {
+    private String prepAndGetSampleMyCatalogAppYaml(String symbolicName, String bundleUrl) {
+        installWithoutCatalogBom(mgmt, bundleUrl);
+        
         return Joiner.on("\n").join(
                 "brooklyn.catalog:",
                 "  id: " + symbolicName,
@@ -227,7 +232,14 @@ public class CampYamlLiteTest {
                 "  libraries:",
                 "  - url: " + bundleUrl,
                 "  item:",
-                "    type: io.camp.mock:AppServer");
+                "    type: " + MockWebPlatform.APPSERVER.getName());
+    }
+
+    protected void installWithoutCatalogBom(LocalManagementContext mgmt, String bundleUrl) {
+        // install bundle for class access but without loading its catalog.bom, 
+        // since we only have mock matchers here
+        // (if we don't do this, the default routines install it and try to process the catalog.bom, failing)
+        mgmt.getOsgiManager().get().installDeferredStart(new BasicManagedBundle(null, null, bundleUrl), null).get();
     }
 
     private void assertMgmtHasSampleMyCatalogApp(String symbolicName, String bundleUrl) {
