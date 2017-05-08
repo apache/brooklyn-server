@@ -232,20 +232,6 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
     @Override
     public abstract Class<SpecT> getSpecType();
 
-    transient CatalogXmlSerializer serializer;
-
-    @Override
-    public String toXmlString() {
-        if (serializer==null) loadSerializer();
-        return serializer.toString(this);
-    }
-
-    private synchronized void loadSerializer() {
-        if (serializer == null) {
-            serializer = new CatalogXmlSerializer();
-        }
-    }
-
     @Override
     public RebindSupport<CatalogItemMemento> getRebindSupport() {
         return new BasicCatalogItemRebindSupport(this);
@@ -383,10 +369,6 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
 
     protected void setTags(Set<Object> tags) {
         this.tags = tags;
-    }
-
-    protected void setSerializer(CatalogXmlSerializer serializer) {
-        this.serializer = serializer;
     }
 
     /**

@@ -98,7 +98,7 @@ public class BrooklynServerConfig {
             + "this key is DEPRECATED in favor of promotion and demotion specific flags now defaulting to true");
 
     public static final ConfigKey<String> BROOKLYN_CATALOG_URL = ConfigKeys.newStringConfigKey("brooklyn.catalog.url",
-        "The URL of a custom catalog.bom or catalog.xml descriptor to load");
+        "The URL of a custom catalog.bom to load");
 
     /** @deprecated since 0.7.0 replaced by {@link CatalogInitialization}; also note, default removed 
      * (it was overridden anyway, and in almost all cases the new behaviour is still the default behaviour) */

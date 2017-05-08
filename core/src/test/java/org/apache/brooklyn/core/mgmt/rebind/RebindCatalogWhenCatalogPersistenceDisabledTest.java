@@ -18,23 +18,26 @@
  */
 package org.apache.brooklyn.core.mgmt.rebind;
 
-import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
-import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.server.BrooklynServerConfig;
+import org.apache.brooklyn.core.catalog.internal.CatalogEntityItemDto;
+import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import com.google.common.collect.Iterables;
+import com.google.common.base.Joiner;
 
 public class RebindCatalogWhenCatalogPersistenceDisabledTest extends RebindTestFixtureWithApp {
 
-    private static final String TEST_CATALOG = "classpath://brooklyn/entity/rebind/rebind-catalog-item-test-catalog.xml";
+    private static final Logger LOG = LoggerFactory.getLogger(RebindCatalogWhenCatalogPersistenceDisabledTest.class);
+
     private boolean catalogPersistenceWasPreviouslyEnabled;
 
     @BeforeMethod(alwaysRun = true)
@@ -53,24 +56,30 @@ public class RebindCatalogWhenCatalogPersistenceDisabledTest extends RebindTestF
         BrooklynFeatureEnablement.setEnablement(BrooklynFeatureEnablement.FEATURE_CATALOG_PERSISTENCE_PROPERTY, catalogPersistenceWasPreviouslyEnabled);
     }
 
-    @Override
-    protected BrooklynProperties createBrooklynProperties() {
-        BrooklynProperties properties = super.createBrooklynProperties();
-        properties.put(BrooklynServerConfig.BROOKLYN_CATALOG_URL, TEST_CATALOG);
-        return properties;
-    }
-
     @Test
     public void testModificationsToCatalogAreNotPersistedWhenCatalogPersistenceFeatureIsDisabled() throws Exception {
-        assertEquals(Iterables.size(origManagementContext.getCatalog().getCatalogItems()), 1);
-        CatalogItem<Object, Object> toRemove = Iterables.getOnlyElement(origManagementContext.getCatalog().getCatalogItems());
-        origManagementContext.getCatalog().deleteCatalogItem(toRemove.getSymbolicName(), toRemove.getVersion());
-        assertEquals(Iterables.size(origManagementContext.getCatalog().getCatalogItems()), 0);
+        String symbolicName = "rebind-yaml-catalog-item-test";
+        String version = "1.2.3";
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  items:",
+                "  - id: " + symbolicName,
+                "    version: " + version,
+                "    itemType: entity",
+                "    item:",
+                "      type: io.camp.mock:AppServer");
+        CatalogEntityItemDto item =
+            CatalogItemBuilder.newEntity(symbolicName, version)
+                .displayName(symbolicName)
+                .plan(yaml)
+                .build();
+        origManagementContext.getCatalog().addItem(item);
+        LOG.info("Added item to catalog: {}, id={}", item, item.getId());
+
+        assertNotNull(origManagementContext.getCatalog().getCatalogItem(symbolicName, version));
 
         rebind();
 
-        assertEquals(Iterables.size(newManagementContext.getCatalog().getCatalogItems()), 1);
-        assertCatalogItemsEqual(Iterables.getOnlyElement(newManagementContext.getCatalog().getCatalogItems()), toRemove);
+        assertNull(newManagementContext.getCatalog().getCatalogItem(symbolicName, version));
     }
-
 }

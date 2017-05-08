@@ -191,30 +191,6 @@ public class CampYamlLiteTest {
         assertMgmtHasSampleMyCatalogApp(symbolicName, bundleUrl);
     }
 
-    @SuppressWarnings("deprecation")
-    @Test
-    public void testResetXmlWithCustomEntity() throws IOException {
-        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
-
-        String symbolicName = "my.catalog.app.id";
-        String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
-        String yaml = getSampleMyCatalogAppYaml(symbolicName, bundleUrl);
-
-        LocalManagementContext mgmt2 = LocalManagementContextForTests.newInstanceWithOsgi();
-        try {
-            CampPlatformWithJustBrooklynMgmt platform2 = new CampPlatformWithJustBrooklynMgmt(mgmt2);
-            MockWebPlatform.populate(platform2, TestAppAssemblyInstantiator.class);
-
-            mgmt2.getCatalog().addItems(yaml);
-            String xml = ((BasicBrooklynCatalog) mgmt2.getCatalog()).toXmlString();
-            ((BasicBrooklynCatalog) mgmt.getCatalog()).reset(CatalogDto.newDtoFromXmlContents(xml, "copy of temporary catalog"));
-        } finally {
-            mgmt2.terminate();
-        }
-
-        assertMgmtHasSampleMyCatalogApp(symbolicName, bundleUrl);
-    }
-
     private String getSampleMyCatalogAppYaml(String symbolicName, String bundleUrl) {
         return Joiner.on("\n").join(
                 "brooklyn.catalog:",

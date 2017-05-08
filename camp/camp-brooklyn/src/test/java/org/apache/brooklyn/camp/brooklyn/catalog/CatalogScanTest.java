@@ -16,30 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.catalog.internal;
+package org.apache.brooklyn.camp.brooklyn.catalog;
 
 import java.net.URLEncoder;
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.Test;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatformLauncherNoServer;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
-import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.MyCatalogItems.MySillyAppTemplate;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.Test;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
@@ -47,33 +48,57 @@ import com.google.common.collect.Lists;
 
 public class CatalogScanTest {
 
+    // TODO setUp/tearDown copied from AbstractYamlTest
+    
+    // Moved from brooklyn-core. When we deleted support for catalog.xml, the scanned catalog
+    // was then only stored in camp format, which meant we needed the camp parser.
+
     private static final Logger log = LoggerFactory.getLogger(CatalogScanTest.class);
 
     private BrooklynCatalog defaultCatalog, annotsCatalog, fullCatalog;
     
-    private List<LocalManagementContext> managementContexts = Lists.newCopyOnWriteArrayList();
+    private List<LocalManagementContext> mgmts = Lists.newCopyOnWriteArrayList();
+    private List<BrooklynCampPlatformLauncherNoServer> launchers = Lists.newCopyOnWriteArrayList();
 
+    /** Override to enable OSGi in the management context for all tests in the class. */
+    protected boolean disableOsgi() {
+        return true;
+    }
+    
+    protected boolean useDefaultProperties() {
+        return false;
+    }
+    
     @AfterMethod(alwaysRun = true)
-    public void tearDown(){
-        for (LocalManagementContext managementContext : managementContexts) {
-            Entities.destroyAll(managementContext);
+    public void tearDown() throws Exception {
+        for (LocalManagementContext mgmt : mgmts) {
+            Entities.destroyAll(mgmt);
         }
-        managementContexts.clear();
+        mgmts.clear();
+        
+        for (BrooklynCampPlatformLauncherNoServer launcher : launchers) {
+            launcher.stopServers();
+        }
+        launchers.clear();
     }
-    
+
     private LocalManagementContext newManagementContext(BrooklynProperties props) {
-        LocalManagementContext result = new LocalManagementContext(props);
-        managementContexts.add(result);
-        return result;
-    }
-    
-    private synchronized void loadFullCatalog() {
-        if (fullCatalog!=null) return;
-        BrooklynProperties props = BrooklynProperties.Factory.newEmpty();
-        props.put(BrooklynServerConfig.BROOKLYN_CATALOG_URL.getName(), 
-                "data:,"+Urls.encode("<catalog><classpath scan=\"types\"/></catalog>"));
-        fullCatalog = newManagementContext(props).getCatalog();        
-        log.info("ENTITIES loaded for FULL: "+fullCatalog.getCatalogItems(Predicates.alwaysTrue()));
+        final LocalManagementContext localMgmt = LocalManagementContextForTests.builder(true)
+                .disableOsgi(disableOsgi())
+                .useProperties(props)
+                .build();
+        mgmts.add(localMgmt);
+        
+        BrooklynCampPlatformLauncherNoServer launcher = new BrooklynCampPlatformLauncherNoServer() {
+            @Override
+            protected LocalManagementContext newMgmtContext() {
+                return localMgmt;
+            }
+        };
+        launchers.add(launcher);
+        launcher.launch();
+        
+        return localMgmt;
     }
     
     private synchronized void loadTheDefaultCatalog(boolean lookOnDiskForDefaultCatalog) {
@@ -84,8 +109,8 @@ public class CatalogScanTest {
             // useful as an integration check that we default correctly, but irritating for people to use if they have such a catalog installed
             (lookOnDiskForDefaultCatalog ? "" :
                 "data:,"+Urls.encode(new ResourceUtils(this).getResourceAsString("classpath:/brooklyn/default.catalog.bom"))));
-        LocalManagementContext managementContext = newManagementContext(props);
-        defaultCatalog = managementContext.getCatalog();        
+        LocalManagementContext mgmt = newManagementContext(props);
+        defaultCatalog = mgmt.getCatalog();
         log.info("ENTITIES loaded for DEFAULT: "+defaultCatalog.getCatalogItems(Predicates.alwaysTrue()));
     }
     
@@ -94,9 +119,9 @@ public class CatalogScanTest {
         if (annotsCatalog!=null) return;
         BrooklynProperties props = BrooklynProperties.Factory.newEmpty();
         props.put(BrooklynServerConfig.BROOKLYN_CATALOG_URL.getName(),
-                "data:,"+URLEncoder.encode("<catalog><classpath scan=\"annotations\"/></catalog>"));
-        LocalManagementContext managementContext = newManagementContext(props);
-        annotsCatalog = managementContext.getCatalog();
+                "data:,"+URLEncoder.encode("brooklyn.catalog: {scanJavaAnnotations: true}"));
+        LocalManagementContext mgmt = newManagementContext(props);
+        annotsCatalog = mgmt.getCatalog();
         log.info("ENTITIES loaded with annotation: "+annotsCatalog.getCatalogItems(Predicates.alwaysTrue()));
     }
     
@@ -112,21 +137,15 @@ public class CatalogScanTest {
         Assert.assertEquals(Iterables.size(asdfjkls), 0);
         
         Iterable<CatalogItem<Object,Object>> silly1 = c.getCatalogItems(CatalogPredicates.displayName(Predicates.equalTo("MySillyAppTemplate")));
-        Iterable<CatalogItem<Object,Object>> silly2 = c.getCatalogItems(CatalogPredicates.javaType(Predicates.equalTo(MySillyAppTemplate.class.getName())));
         CatalogItem<Object, Object> silly1El = Iterables.getOnlyElement(silly1);
-        Assert.assertEquals(silly1El, Iterables.getOnlyElement(silly2));
         
         CatalogItem<Application,EntitySpec<? extends Application>> s1 = c.getCatalogItem(Application.class, silly1El.getSymbolicName(), silly1El.getVersion());
         Assert.assertEquals(s1, silly1El);
         
         Assert.assertEquals(s1.getDescription(), "Some silly app test");
         
-        Class<?> app = c.peekSpec(s1).getType();
-        Assert.assertEquals(MySillyAppTemplate.class, app);
-        
-        String xml = ((BasicBrooklynCatalog)c).toXmlString();
-        log.info("Catalog is:\n"+xml);
-        Assert.assertTrue(xml.indexOf("Some silly app test") >= 0);
+        Class<?> app = ((EntitySpec<?>)c.peekSpec(s1)).getImplementation();
+        Assert.assertEquals(app, MySillyAppTemplate.class);
     }
 
     @Test
@@ -144,32 +163,10 @@ public class CatalogScanTest {
     }
     
     @Test
-    public void testMoreTypesThanAnnotations() {
-        loadAnnotationsOnlyCatalog();
-        loadFullCatalog();
-        
-        int numFromAnnots = Iterables.size(annotsCatalog.getCatalogItems(Predicates.alwaysTrue()));
-        int numFromTypes = Iterables.size(fullCatalog.getCatalogItems(Predicates.alwaysTrue()));
-        
-        Assert.assertTrue(numFromAnnots < numFromTypes, "full="+numFromTypes+" annots="+numFromAnnots);
-    }
-    
-    @Test
-    public void testMoreTypesThanAnnotationsForApps() {
-        loadAnnotationsOnlyCatalog();
-        loadFullCatalog();
-        
-        int numFromAnnots = Iterables.size(annotsCatalog.getCatalogItems(CatalogPredicates.IS_TEMPLATE));
-        int numFromTypes = Iterables.size(fullCatalog.getCatalogItems(CatalogPredicates.IS_TEMPLATE));
-        
-        Assert.assertTrue(numFromAnnots < numFromTypes, "full="+numFromTypes+" annots="+numFromAnnots);
-    }
-    
-    @Test
     public void testAnnotationIsDefault() {
         doTestAnnotationIsDefault(false);
     }
-    
+
     // see comment in load method; likely fails if a custom catalog is installed in ~/.brooklyn/
     @Test(groups="Integration", enabled=false)
     public void testAnnotationIsDefaultOnDisk() {
@@ -177,13 +174,15 @@ public class CatalogScanTest {
     }
 
     private void doTestAnnotationIsDefault(boolean lookOnDiskForDefaultCatalog) {
-        loadTheDefaultCatalog(false);
-        int numInDefault = Iterables.size(defaultCatalog.getCatalogItems(Predicates.alwaysTrue()));
+        loadTheDefaultCatalog(lookOnDiskForDefaultCatalog);
+        Iterable<CatalogItem<Object, Object>> defaults = defaultCatalog.getCatalogItems(Predicates.alwaysTrue());
+        int numInDefault = Iterables.size(defaults);
         
         loadAnnotationsOnlyCatalog();
-        int numFromAnnots = Iterables.size(annotsCatalog.getCatalogItems(Predicates.alwaysTrue()));
+        Iterable<CatalogItem<Object, Object>> annotatedItems = annotsCatalog.getCatalogItems(Predicates.alwaysTrue());
+        int numFromAnnots = Iterables.size(annotatedItems);
         
-        Assert.assertEquals(numInDefault, numFromAnnots);
+        Assert.assertEquals(numInDefault, numFromAnnots, "defaults="+defaults+"; annotatedItems="+annotatedItems);
         Assert.assertTrue(numInDefault>0, "Expected more than 0 entries");
     }
 
