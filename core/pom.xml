@@ -225,6 +225,12 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.python</groupId>
+            <artifactId>jython</artifactId>
+            <version>2.7.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
             <classifier>tests</classifier>
