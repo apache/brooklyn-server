@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.policy.Policy;
+import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.camp.CampPlatform;
@@ -102,6 +103,8 @@ class CampResolver {
         supers.addIfNotNull(expectedType);
         if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Policy.class)) {
             spec = CampInternalUtils.createPolicySpec(planYaml, loader, encounteredTypes);
+        } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Enricher.class)) {
+            spec = CampInternalUtils.createEnricherSpec(planYaml, loader, encounteredTypes);
         } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Location.class)) {
             spec = CampInternalUtils.createLocationSpec(planYaml, loader, encounteredTypes);
         } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Application.class)) {

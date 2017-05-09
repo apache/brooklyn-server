@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -53,7 +54,7 @@ import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 
 @SuppressWarnings("serial")
-//@Catalog(name="Propagator", description="Propagates attributes from one entity to another; see Enrichers.builder().propagating(...)")
+@Catalog(name="Propagator", description="Propagates sensors from one entity to another")
 public class Propagator extends AbstractEnricher implements SensorEventListener<Object> {
 
     private static final Logger LOG = LoggerFactory.getLogger(Propagator.class);

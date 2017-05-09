@@ -33,6 +33,7 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import org.apache.brooklyn.rest.domain.CatalogEnricherSummary;
 import org.apache.brooklyn.rest.domain.CatalogEntitySummary;
 import org.apache.brooklyn.rest.domain.CatalogItemSummary;
 import org.apache.brooklyn.rest.domain.CatalogLocationSummary;
@@ -359,4 +360,43 @@ public interface CatalogApi {
         @PathParam("itemId") String itemId,
         @ApiParam(name = "disabled", value = "Whether or not the catalog item is disabled", required = true)
         boolean disabled);
+
+    @GET
+    @Path("/enrichers")
+    @ApiOperation(value = "List available enrichers types optionally matching a query",
+            response = CatalogItemSummary.class,
+            responseContainer = "List")
+    public List<CatalogEnricherSummary> listEnrichers(
+            @ApiParam(name = "regex", value = "Regular expression to search for")
+            @QueryParam("regex") @DefaultValue("") String regex,
+            @ApiParam(name = "fragment", value = "Substring case-insensitive to search for")
+            @QueryParam("fragment") @DefaultValue("") String fragment,
+            @ApiParam(name = "allVersions", value = "Include all versions (defaults false, only returning the best version)")
+            @QueryParam("allVersions") @DefaultValue("false") boolean includeAllVersions);
+
+    @GET
+    @Path("/enrichers/{enricherId}/{version}")
+    @ApiOperation(value = "Fetch an enricher's definition from the catalog",
+            response = CatalogItemSummary.class,
+            responseContainer = "List")
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Enricher not found")
+    })
+    public CatalogEnricherSummary getEnricher(
+            @ApiParam(name = "enricherId", value = "The ID of the enricher to retrieve", required = true)
+            @PathParam("enricherId") String enricherId,
+            @ApiParam(name = "version", value = "The version identifier of the enricher to retrieve", required = true)
+            @PathParam("version") String version) throws Exception;
+
+    @DELETE
+    @Path("/enrichers/{enricherId}/{version}")
+    @ApiOperation(value = "Deletes a specific version of an enricher's definition from the catalog")
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Enricher not found")
+    })
+    public void deleteEnricher(
+            @ApiParam(name = "enricherId", value = "The ID of the enricher to delete", required = true)
+            @PathParam("enricherId") String enricherId,
+            @ApiParam(name = "version", value = "The version identifier of the enricher to delete", required = true)
+            @PathParam("version") String version) throws Exception;
 }
