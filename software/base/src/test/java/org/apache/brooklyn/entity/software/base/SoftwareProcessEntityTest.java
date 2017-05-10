@@ -90,6 +90,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.reflect.TypeToken;
 
 
 public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
@@ -388,12 +389,8 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
     
     @Test
     public void testReleaseEvenIfErrorDuringStart() throws Exception {
-        MyServiceImpl entity = new MyServiceImpl(app) {
-            @Override public Class<?> getDriverInterface() {
-                return SimulatedFailOnStartDriver.class;
-            }
-        };
-        Entities.manage(entity);
+        MyService entity = app.addChild(EntitySpec.create(MyServiceWithCustomDriver.class)
+                .configure(MyServiceWithCustomDriver.DRIVER_CLASS, SimulatedFailOnStartDriver.class));
         
         try {
             entity.start(ImmutableList.of(loc));
@@ -413,17 +410,12 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
         Entities.unmanage(entity);
     }
 
-    @SuppressWarnings("rawtypes")
-    public void doTestReleaseEvenIfErrorDuringStop(final Class driver) throws Exception {
-        MyServiceImpl entity = new MyServiceImpl(app) {
-            @Override public Class<?> getDriverInterface() {
-                return driver;
-            }
-        };
-        Entities.manage(entity);
+    public void doTestReleaseEvenIfErrorDuringStop(final Class<? extends SimulatedDriver> driver) throws Exception {
+        MyService entity = app.addChild(EntitySpec.create(MyServiceWithCustomDriver.class)
+                .configure(MyServiceWithCustomDriver.DRIVER_CLASS, driver));
         
         entity.start(ImmutableList.of(loc));
-        Task<Void> t = entity.invoke(Startable.STOP);
+        Task<Void> t = entity.invoke(Startable.STOP, ImmutableMap.<String, Object>of());
         t.blockUntilEnded();
         
         assertFalse(t.isError(), "Expected parent to succeed, not fail with " + Tasks.getError(t));
@@ -634,9 +626,6 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
     }
 
     public static class MyServiceImpl extends SoftwareProcessImpl implements MyService {
-        public MyServiceImpl() {}
-        public MyServiceImpl(Entity parent) { super(parent); }
-
         @Override
         protected void initEnrichers() {
             // Don't add enrichers messing with the SERVICE_UP state - we are setting it manually
@@ -659,8 +648,21 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
     }
 
     public static class MyServiceWithVersionImpl extends MyServiceImpl implements MyServiceWithVersion {
-        public MyServiceWithVersionImpl() {}
-        public MyServiceWithVersionImpl(Entity parent) { super(parent); }
+    }
+
+    @ImplementedBy(MyServiceWithCustomDriverImpl.class)
+    public interface MyServiceWithCustomDriver extends MyService {
+        @SuppressWarnings("serial")
+        ConfigKey<Class<? extends SimulatedDriver>> DRIVER_CLASS = ConfigKeys.newConfigKey(
+                new TypeToken<Class<? extends SimulatedDriver>>() {},
+                "driverClass");
+    }
+
+    public static class MyServiceWithCustomDriverImpl extends MyServiceImpl implements MyServiceWithCustomDriver {
+        @Override
+        public Class<?> getDriverInterface() {
+            return config().get(DRIVER_CLASS);
+        }
     }
 
     public static class SimulatedFailOnStartDriver extends SimulatedDriver {

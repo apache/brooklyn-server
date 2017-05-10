@@ -63,9 +63,6 @@ public class TestEntityImpl extends AbstractEntity implements TestEntity {
     public TestEntityImpl() {
         super();
     }
-    public TestEntityImpl(Map properties) {
-        this(properties, null);
-    }
     public TestEntityImpl(Entity parent) {
         this(MutableMap.of(), parent);
     }

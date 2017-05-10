@@ -47,14 +47,6 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
-
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -69,6 +61,13 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 public class EntityTypeTest extends BrooklynAppUnitTestSupport {
     private static final AttributeSensor<String> TEST_SENSOR = Sensors.newStringSensor("test.sensor");
@@ -152,29 +151,24 @@ public class EntityTypeTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testCustomSimpleName() throws Exception {
-        class CustomTypeNamedEntity extends AbstractEntity {
-            private final String typeName;
-            @SuppressWarnings("deprecation")
-            CustomTypeNamedEntity(Entity parent, String typeName) {
-                super(parent);
-                this.typeName = typeName;
-            }
-            @Override protected String getEntityTypeName() {
-                return typeName;
-            }
-        }
-        
-        CustomTypeNamedEntity entity2 = new CustomTypeNamedEntity(app, "a.b.with space");
-        Entities.manage(entity2);
+        CustomTypeNamedEntity.typeName = "a.b.with space";
+        Entity entity2 = app.addChild(EntitySpec.create(Entity.class).impl(CustomTypeNamedEntity.class));
         assertEquals(entity2.getEntityType().getSimpleName(), "with_space");
         
-        CustomTypeNamedEntity entity3 = new CustomTypeNamedEntity(app, "a.b.with$dollar");
-        Entities.manage(entity3);
+        CustomTypeNamedEntity.typeName = "a.b.with$dollar";
+        Entity entity3 = app.addChild(EntitySpec.create(Entity.class).impl(CustomTypeNamedEntity.class));
         assertEquals(entity3.getEntityType().getSimpleName(), "with_dollar");
         
-        CustomTypeNamedEntity entity4 = new CustomTypeNamedEntity(app, "a.nothingafterdot.");
-        Entities.manage(entity4);
+        CustomTypeNamedEntity.typeName = "a.nothingafterdot.";
+        Entity entity4 = app.addChild(EntitySpec.create(Entity.class).impl(CustomTypeNamedEntity.class));
         assertEquals(entity4.getEntityType().getSimpleName(), "a.nothingafterdot.");
+    }
+    public static class CustomTypeNamedEntity extends AbstractEntity {
+        static volatile String typeName;
+        
+        @Override protected String getEntityTypeName() {
+            return typeName;
+        }
     }
     
     @Test

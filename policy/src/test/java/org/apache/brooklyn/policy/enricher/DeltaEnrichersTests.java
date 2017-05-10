@@ -20,43 +20,33 @@ package org.apache.brooklyn.policy.enricher;
 
 import static org.testng.Assert.assertEquals;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.SubscriptionContext;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
-import org.apache.brooklyn.core.entity.AbstractApplication;
-import org.apache.brooklyn.core.entity.AbstractEntity;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
-import org.testng.annotations.AfterMethod;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Function;
 
-public class DeltaEnrichersTests {
+public class DeltaEnrichersTests extends BrooklynAppUnitTestSupport {
     
-    AbstractApplication app;
-    
-    EntityLocal producer;
+    Entity producer;
 
     Sensor<Integer> intSensor;
     Sensor<Double> avgSensor;
     SubscriptionContext subscription;
     
-    @BeforeMethod
-    public void before() {
-        app = new AbstractApplication() {};
-        producer = new AbstractEntity(app) {};
-        producer.setParent(app);
-        Entities.startManagement(app);
-
+    @BeforeMethod(alwaysRun=true)
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        producer = app.addChild(EntitySpec.create(TestEntity.class));
         intSensor = new BasicAttributeSensor<Integer>(Integer.class, "int sensor");
-    }
-
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
     }
 
     @Test
@@ -83,15 +73,16 @@ public class DeltaEnrichersTests {
             TimeWeightedDeltaEnricher.<Integer>getPerSecondDeltaEnricher(producer, intSensor, deltaSensor);
         producer.enrichers().add(delta);
         
-        delta.onEvent(intSensor.newEvent(producer, 0), 0);
-        assertEquals(producer.getAttribute(deltaSensor), null);
+        // Don't start with timestamp=0: that may be treated special 
         delta.onEvent(intSensor.newEvent(producer, 0), 1000);
+        assertEquals(producer.getAttribute(deltaSensor), null);
+        delta.onEvent(intSensor.newEvent(producer, 0), 2000);
         assertEquals(producer.getAttribute(deltaSensor), 0d);
-        delta.onEvent(intSensor.newEvent(producer, 1), 2000);
+        delta.onEvent(intSensor.newEvent(producer, 1), 3000);
         assertEquals(producer.getAttribute(deltaSensor), 1d);
-        delta.onEvent(intSensor.newEvent(producer, 3), 3000);
+        delta.onEvent(intSensor.newEvent(producer, 3), 4000);
         assertEquals(producer.getAttribute(deltaSensor), 2d);
-        delta.onEvent(intSensor.newEvent(producer, 8), 4000);
+        delta.onEvent(intSensor.newEvent(producer, 8), 5000);
         assertEquals(producer.getAttribute(deltaSensor), 5d);
     }
     
@@ -102,16 +93,16 @@ public class DeltaEnrichersTests {
             TimeWeightedDeltaEnricher.<Integer>getPerSecondDeltaEnricher(producer, intSensor, deltaSensor);
         producer.enrichers().add(delta);
         
-        delta.onEvent(intSensor.newEvent(producer, 0), 0);
-        delta.onEvent(intSensor.newEvent(producer, 0), 2000);
+        delta.onEvent(intSensor.newEvent(producer, 0), 1000);
+        delta.onEvent(intSensor.newEvent(producer, 0), 3000);
         assertEquals(producer.getAttribute(deltaSensor), 0d);
-        delta.onEvent(intSensor.newEvent(producer, 3), 5000);
+        delta.onEvent(intSensor.newEvent(producer, 3), 6000);
         assertEquals(producer.getAttribute(deltaSensor), 1d);
-        delta.onEvent(intSensor.newEvent(producer, 7), 7000);
+        delta.onEvent(intSensor.newEvent(producer, 7), 8000);
         assertEquals(producer.getAttribute(deltaSensor), 2d);
-        delta.onEvent(intSensor.newEvent(producer, 12), 7500);
+        delta.onEvent(intSensor.newEvent(producer, 12), 8500);
         assertEquals(producer.getAttribute(deltaSensor), 10d);
-        delta.onEvent(intSensor.newEvent(producer, 15), 9500);
+        delta.onEvent(intSensor.newEvent(producer, 15), 10500);
         assertEquals(producer.getAttribute(deltaSensor), 1.5d);
     }
 
@@ -121,10 +112,10 @@ public class DeltaEnrichersTests {
         TimeWeightedDeltaEnricher<Integer> delta = new TimeWeightedDeltaEnricher<Integer>(producer, intSensor, deltaSensor, 1000, new AddConstant(123d));
         producer.enrichers().add(delta);
         
-        delta.onEvent(intSensor.newEvent(producer, 0), 0);
         delta.onEvent(intSensor.newEvent(producer, 0), 1000);
+        delta.onEvent(intSensor.newEvent(producer, 0), 2000);
         assertEquals(producer.getAttribute(deltaSensor), 123+0d);
-        delta.onEvent(intSensor.newEvent(producer, 1), 2000);
+        delta.onEvent(intSensor.newEvent(producer, 1), 3000);
         assertEquals(producer.getAttribute(deltaSensor), 123+1d);
     }
 

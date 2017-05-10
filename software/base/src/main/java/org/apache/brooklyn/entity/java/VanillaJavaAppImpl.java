@@ -23,34 +23,24 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessImpl;
 import org.apache.brooklyn.feed.jmx.JmxFeed;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.VisibleForTesting;
-
 public class VanillaJavaAppImpl extends SoftwareProcessImpl implements VanillaJavaApp {
 
+    private static final Logger log = LoggerFactory.getLogger(VanillaJavaApp.class);
+    
     static {
         JavaAppUtils.init();
     }
-
-    private static final Logger log = LoggerFactory.getLogger(VanillaJavaApp.class);
 
     @SetFromFlag
     protected long jmxPollPeriod;
 
     protected JmxFeed jmxFeed;
-
-    public VanillaJavaAppImpl() {}
-
-    @VisibleForTesting
-    public VanillaJavaAppImpl(Map<?,?> properties, Entity parent) {
-        super(properties, parent);
-    }
 
     @Override
     public String getMainClass() { return getConfig(MAIN_CLASS); }
