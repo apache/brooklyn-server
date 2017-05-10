@@ -217,8 +217,15 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     // values. They must be thread-safe, and where necessary (e.g. group) they should preserve order
     // if possible.
     private Reference<Entity> parent = new BasicReference<Entity>();
-    private Set<Group> groupsInternal = Collections.synchronizedSet(Sets.<Group>newLinkedHashSet());
+    /** Synchronize on this when updating to ensure addition/removals done in order, 
+     * and notifications done in order.
+     * If calling other code while holding this synch lock, any synch locks it might call should be called first
+     * (in particular the AttributeMap.values should be obtained before this if publishing.) */
     private Set<Entity> children = Collections.synchronizedSet(Sets.<Entity>newLinkedHashSet());
+    /** Synchronize on this to ensure group and members are updated at the same time.
+     * Synchronize behavior as for {@link #children} apply here, and in addition
+     * the parent's "members" lock should be obtained first. */
+    private Set<Group> groupsInternal = Collections.synchronizedSet(Sets.<Group>newLinkedHashSet());
     private Reference<List<Location>> locations = new BasicReference<List<Location>>(ImmutableList.<Location>of()); // dups removed in addLocations
     private Reference<Long> creationTimeUtc = new BasicReference<Long>(System.currentTimeMillis());
     private Reference<String> displayName = new BasicReference<String>();
@@ -554,6 +561,14 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         }
     }
 
+    /** Where code needs to synch on the attributes, it can access the low-level object used for synching
+     * through this method. Internally, all attribute updates synch on this object. Code wishing to
+     * update attributes or publish while holding some other lock should acquire the monitor on this
+     * object first to prevent deadlock. */
+    protected Object getAttributesSynchObjectInternal() {
+        return attributesInternal.getSynchObjectInternal();
+    }
+    
     @Override
     public Map<String, String> toMetadataRecord() {
         return ImmutableMap.of();
@@ -667,19 +682,18 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         checkNotNull(child, "child must not be null (for entity %s)", this);
         CatalogUtils.setCatalogItemIdOnAddition(this, child);
         
-        boolean changed;
-        synchronized (children) {
-            if (Entities.isAncestor(this, child)) throw new IllegalStateException("loop detected trying to add child "+child+" to "+this+"; it is already an ancestor");
-            child.setParent(getProxyIfAvailable());
-            changed = children.add(child);
-            
-            getManagementSupport().getEntityChangeListener().onChildrenChanged();
-        }
-        
-        // TODO not holding synchronization lock while notifying risks out-of-order if addChild+removeChild called in rapid succession.
-        // But doing notification in synchronization block may risk deadlock?
-        if (changed) {
-            sensors().emit(AbstractEntity.CHILD_ADDED, child);
+        synchronized (getAttributesSynchObjectInternal()) {
+            // hold synch locks in this order to prevent deadlock
+            synchronized (children) {
+                if (Entities.isAncestor(this, child)) throw new IllegalStateException("loop detected trying to add child "+child+" to "+this+"; it is already an ancestor");
+                child.setParent(getProxyIfAvailable());
+                boolean changed = children.add(child);
+                
+                getManagementSupport().getEntityChangeListener().onChildrenChanged();
+                if (changed) {
+                    sensors().emit(AbstractEntity.CHILD_ADDED, child);
+                }
+            }
         }
         return child;
     }
@@ -709,20 +723,21 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     
     @Override
     public boolean removeChild(Entity child) {
-        boolean changed;
-        synchronized (children) {
-            changed = children.remove(child);
-            child.clearParent();
+        synchronized (getAttributesSynchObjectInternal()) {
+            synchronized (children) {
+                boolean changed = children.remove(child);
+                child.clearParent();
+                
+                if (changed) {
+                    getManagementSupport().getEntityChangeListener().onChildrenChanged();
+                }
             
-            if (changed) {
-                getManagementSupport().getEntityChangeListener().onChildrenChanged();
+                if (changed) {
+                    sensors().emit(AbstractEntity.CHILD_REMOVED, child);
+                }
+                return changed;
             }
         }
-        
-        if (changed) {
-            sensors().emit(AbstractEntity.CHILD_REMOVED, child);
-        }
-        return changed;
     }
 
     // -------- GROUPS --------------
