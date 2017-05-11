@@ -24,6 +24,7 @@ import static javax.ws.rs.core.Response.Status.ACCEPTED;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 import java.net.URI;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,7 @@ import javax.ws.rs.core.UriInfo;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
@@ -58,6 +60,7 @@ import org.apache.brooklyn.rest.transform.LocationTransformer.LocationDetailLeve
 import org.apache.brooklyn.rest.transform.TaskTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -129,11 +132,28 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     }
 
     @Override
-    public List<TaskSummary> listTasks(String applicationId, String entityId) {
+    public List<TaskSummary> listTasks(String applicationId, String entityId, Boolean recurse) {
         Entity entity = brooklyn().getEntity(applicationId, entityId);
-        Set<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(mgmt().getExecutionManager(), entity);
-        return new LinkedList<TaskSummary>(Collections2.transform(tasks, 
-                TaskTransformer.fromTask(ui.getBaseUriBuilder())));
+        List<Task<?>> tasksToScan = MutableList.copyOf(BrooklynTaskTags.getTasksInEntityContext(mgmt().getExecutionManager(), entity));
+        Map<String,Task<?>> tasksLoaded = MutableMap.of();
+        
+        while (!tasksToScan.isEmpty()) {
+            Task<?> t = tasksToScan.remove(0);
+            if (tasksLoaded.put(t.getId(), t)==null) {
+                if (Boolean.TRUE.equals(recurse)) {
+                    if (t instanceof HasTaskChildren) {
+                        Iterables.addAll(tasksToScan, ((HasTaskChildren) t).getChildren() );
+                    }
+                }
+            }
+        }
+        return new LinkedList<TaskSummary>(Collections2.transform(tasksLoaded.values(), 
+            TaskTransformer.fromTask(ui.getBaseUriBuilder())));
+    }
+    
+    @Override @Deprecated
+    public List<TaskSummary> listTasks(String applicationId, String entityId) {
+        return listTasks(applicationId, entityId, false);
     }
 
     @Override

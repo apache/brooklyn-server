@@ -111,8 +111,16 @@ public interface EntityApi {
     })
     public List<TaskSummary> listTasks(
             @ApiParam(value = "Application ID or name", required = true) @PathParam("application") String applicationId,
-            @ApiParam(value = "Entity ID or name", required = true) @PathParam("entity") String entityId);
+            @ApiParam(value = "Entity ID or name", required = true) @PathParam("entity") String entityId,
+            @ApiParam(value = "Whether to include subtasks recursively across different entities", required = false)
+            @QueryParam("recurse") @DefaultValue("false") Boolean recurse);
 
+    /** @deprecated since 0.12.0 use {@link #listTasks(String, String, Boolean)} */
+    @Deprecated
+    public List<TaskSummary> listTasks(
+        String applicationId,
+        String entityId);
+        
     @GET
     @Path("/{entity}/activities/{task}")
     @ApiOperation(value = "Fetch task details", response = org.apache.brooklyn.rest.domain.TaskSummary.class)
