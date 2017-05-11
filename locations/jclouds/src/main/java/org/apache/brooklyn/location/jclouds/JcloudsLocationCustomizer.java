@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
+import javax.annotation.Nullable;
+
+import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.domain.NodeMetadata;
@@ -87,4 +90,19 @@ public interface JcloudsLocationCustomizer {
      * Override to handle machine-related cleanup after Jclouds is called to release (destroy) the machine.
      */
     void postRelease(JcloudsMachineLocation machine);
+
+    /**
+     * Override to handle cleanup after failure to obtain a machine. Could be called as a result of an {@link InterruptedException}
+     * in which case return as quickly as possible.
+     */
+    void preReleaseOnObtainError(JcloudsLocation location, @Nullable JcloudsMachineLocation machineLocation, Exception cause);
+
+    /**
+     * <p>
+     * Override to handle cleanup after failure to obtain a machine. Called after releasing the locations' underlying node.
+     * Could be called as a result of an {@link InterruptedException} in which case return as quickly as possible.
+     * <p>
+     * Will be skipped if {@link CloudLocationConfig#DESTROY_ON_FAILURE} is set to {@code false}.
+     */
+    void postReleaseOnObtainError(JcloudsLocation location, @Nullable JcloudsMachineLocation machineLocation, Exception cause);
 }

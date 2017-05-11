@@ -1055,6 +1055,13 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     + ": "+e.getMessage());
             LOG.debug(Throwables.getStackTraceAsString(e));
 
+            try {
+                customizersDelegate.preReleaseOnObtainError(this, machineLocation, e);
+            } catch (Exception customizerException) {
+                LOG.info("Got exception on calling customizer preReleaseOnObtainError, ignoring. Location is {}, machine location is {}, node is {}",
+                        new Object[] {this, machineLocation, node, customizerException});
+            }
+
             if (destroyNode) {
                 Stopwatch destroyingStopwatch = Stopwatch.createStarted();
                 if (machineLocation != null) {
@@ -1064,6 +1071,14 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 }
                 LOG.info("Destroyed " + (machineLocation != null ? "machine " + machineLocation : "node " + node)
                         + " in " + Duration.of(destroyingStopwatch).toStringRounded());
+
+                try {
+                    customizersDelegate.postReleaseOnObtainError(this, machineLocation, e);
+                } catch (Exception customizerException) {
+                    LOG.debug("Got exception on calling customizer postReleaseOnObtainError, ignoring. Location is {}, machine Location is {}, node is {}",
+                            new Object[] {this, machineLocation, node, customizerException});
+                }
+
             }
 
             throw Exceptions.propagate(e);

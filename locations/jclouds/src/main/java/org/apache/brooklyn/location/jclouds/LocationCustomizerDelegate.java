@@ -154,6 +154,43 @@ public class LocationCustomizerDelegate implements JcloudsLocationCustomizer {
         }
     }
 
+    @Override
+    public void preReleaseOnObtainError(JcloudsLocation location, JcloudsMachineLocation machineLocation,
+            Exception cause) {
+        Exception tothrow = null;
+        for (JcloudsLocationCustomizer customizer : customizers) {
+            try {
+                customizer.preReleaseOnObtainError(location, machineLocation, cause);
+            } catch (Exception e) {
+                LOG.error("Problem invoking customizer preReleaseOnObtainError for "+customizer+" for machine "+machineLocation+
+                    ", locaiton=" + location + "; ignoring and continuing, "
+                    + (tothrow==null ? "will throw subsequently" : "swallowing due to previous error")+": "+e, e);
+                if (tothrow==null) tothrow = e;
+            }
+        }
+        if (tothrow != null) {
+            throw Exceptions.propagate(tothrow);
+        }
+    }
+
+    @Override
+    public void postReleaseOnObtainError(JcloudsLocation location, JcloudsMachineLocation machineLocation, Exception cause) {
+        Exception tothrow = null;
+        for (JcloudsLocationCustomizer customizer : customizers) {
+            try {
+                customizer.postReleaseOnObtainError(location, machineLocation, cause);
+            } catch (Exception e) {
+                LOG.error("Problem invoking customizer postReleaseOnObtainError for "+customizer+" for machine "+machineLocation+
+                    ", locaiton=" + location + "; ignoring and continuing, "
+                    + (tothrow==null ? "will throw subsequently" : "swallowing due to previous error")+": "+e, e);
+                if (tothrow==null) tothrow = e;
+            }
+        }
+        if (tothrow != null) {
+            throw Exceptions.propagate(tothrow);
+        }
+    }
+
     @SuppressWarnings("deprecation")
     public static Collection<JcloudsLocationCustomizer> getCustomizers(ManagementContext mgmt, ConfigBag setup) {
         JcloudsLocationCustomizer customizer = setup.get(JcloudsLocationConfig.JCLOUDS_LOCATION_CUSTOMIZER);
