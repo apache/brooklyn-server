@@ -23,10 +23,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
@@ -71,9 +74,11 @@ public final class HttpCommandEffector extends AddEffector {
     public static final ConfigKey<Map<String, String>> EFFECTOR_HTTP_HEADERS = new MapConfigKey(String.class, "headers");
     public static final ConfigKey<Object> EFFECTOR_HTTP_PAYLOAD = ConfigKeys.newConfigKey(Object.class, "httpPayload");
     public static final ConfigKey<String> JSON_PATH = ConfigKeys.newStringConfigKey("jsonPath", "JSON path to select in HTTP response");
-    public static final ConfigKey<String> PUBLISH_SENSOR = ConfigKeys.newStringConfigKey("publishSensor", "Sensor name where to store json path extracted value");
+//    public static final ConfigKey<String> PUBLISH_SENSOR = ConfigKeys.newStringConfigKey("publishSensor", "Sensor name where to store json path extracted value");
+    public static final ConfigKey<Map<String, String>> JSON_PATHS_AND_SENSORS = new MapConfigKey(String.class, "jsonPathAndSensors", "json path selector and correspondant sensor name tha will publish the json path extracted value");
 
     public static final String APPLICATION_JSON = "application/json";
+    public static final String APPLICATION_X_WWW_FORM_URLENCODE = "application/x-www-form-urlencoded";
 
     private enum HttpVerb {
         GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
@@ -110,7 +115,8 @@ public final class HttpCommandEffector extends AddEffector {
             final Map<String, String> headers = EntityInitializers.resolve(allConfig, EFFECTOR_HTTP_HEADERS);
             final Object payload = EntityInitializers.resolve(allConfig, EFFECTOR_HTTP_PAYLOAD);
             final String jsonPath = EntityInitializers.resolve(allConfig, JSON_PATH);
-            final String publishSensor = EntityInitializers.resolve(allConfig, PUBLISH_SENSOR);
+//            final String publishSensor = EntityInitializers.resolve(allConfig, PUBLISH_SENSOR);
+            final Map<String, String> pathsAndSensors = EntityInitializers.resolve(allConfig, JSON_PATHS_AND_SENSORS);
             final HttpExecutor httpExecutor = HttpExecutorImpl.newInstance();
 
             final HttpRequest request = buildHttpRequest(httpVerb, uri, headers, httpUsername, httpPassword, payload);
@@ -130,14 +136,22 @@ public final class HttpCommandEffector extends AddEffector {
             }).build();
 
             String responseBody = (String) queue(t).getUnchecked();
+            
+            if (jsonPath == null && pathsAndSensors.isEmpty()) return responseBody;
 
-            if (jsonPath == null) return responseBody;
-
-            String extractedValue = JsonPath.parse(responseBody).read(jsonPath, String.class);
-            if (publishSensor != null) {
-                entity().sensors().set(Sensors.newStringSensor(publishSensor), extractedValue);
+            if (jsonPath != null) {
+                return JsonPath.parse(responseBody).read(jsonPath, String.class);
+//                if (publishSensor != null) {
+//                    entity().sensors().set(Sensors.newStringSensor(publishSensor), jsonPathValue);
+//                }
+            } else if (!pathsAndSensors.isEmpty()) {
+                for (String path : pathsAndSensors.keySet()) {
+                    String jsonPathValue = JsonPath.parse(responseBody).read(path, String.class);
+                    entity().sensors().set(Sensors.newStringSensor(pathsAndSensors.get(path)), jsonPathValue);
+                }
             }
-            return extractedValue;
+            // TODO responseBody or else ???
+            return responseBody;
         }
 
         private URI convertToURI(String url) {
@@ -181,7 +195,19 @@ public final class HttpCommandEffector extends AddEffector {
                 if (contentType == null || contentType.equalsIgnoreCase(APPLICATION_JSON)) {
                     LOG.warn("Content-Type not specified. Using {}, as default (continuing)", APPLICATION_JSON);
                     body = toJsonString(payload);
-                } else if (!contentType.equalsIgnoreCase(APPLICATION_JSON)) {
+                } else if (contentType.equalsIgnoreCase(APPLICATION_X_WWW_FORM_URLENCODE)) {
+                    if (payload instanceof Map) {
+                        for (Map.Entry<String, String> entry : ((Map<String, String>) payload).entrySet()) {
+                            try {
+                                if (!body.equals("")) body += "&";
+                                body += URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8.toString()) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8.toString());
+                            } catch (UnsupportedEncodingException e) {
+                                e.printStackTrace();
+                            }
+
+                        }
+                    }
+                } else if (!contentType.equalsIgnoreCase(APPLICATION_X_WWW_FORM_URLENCODE) && !contentType.equalsIgnoreCase(APPLICATION_JSON)) {
                     LOG.warn("the http request may fail with payload {} and 'Content-Type= {}, (continuing)", payload, contentType);
                     body = payload.toString();
                 }

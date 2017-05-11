@@ -147,8 +147,10 @@ public class HttpCommandEffectorHttpBinTest {
                         "public", "false",
                         "files", ImmutableMap.of("demo.txt", ImmutableMap.of("content","Demo"))))
                 .configure(HttpCommandEffector.EFFECTOR_HTTP_HEADERS, ImmutableMap.of("Content-Type", "application/json"))
-                .configure(HttpCommandEffector.JSON_PATH, "$.url")
-                .configure(HttpCommandEffector.PUBLISH_SENSOR, "result")
+//                .configure(HttpCommandEffector.JSON_PATH, "$.url")
+//                .configure(HttpCommandEffector.PUBLISH_SENSOR, "result")
+                .configure(HttpCommandEffector.JSON_PATHS_AND_SENSORS, ImmutableMap.of("$.url", "result"))
+
         ).apply(entity);
 
         String url = entity.invoke(Effectors.effector(String.class, "HttpbinPost").buildAbstract(), MutableMap.<String,String>of()).get();
@@ -161,8 +163,9 @@ public class HttpCommandEffectorHttpBinTest {
                 .configure(HttpCommandEffector.EFFECTOR_NAME, "Httpbin")
                 .configure(HttpCommandEffector.EFFECTOR_URI, serverUrl + "/get?id=myId")
                 .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "GET")
-                .configure(HttpCommandEffector.JSON_PATH, "$.args.id")
-                .configure(HttpCommandEffector.PUBLISH_SENSOR, "result")
+//                .configure(HttpCommandEffector.JSON_PATH, "$.args.id")
+//                .configure(HttpCommandEffector.PUBLISH_SENSOR, "result")
+                .configure(HttpCommandEffector.JSON_PATHS_AND_SENSORS, ImmutableMap.of("$.args.id", "result"))
         ).apply(entity);
 
         String val = entity.invoke(EFFECTOR_HTTPBIN, MutableMap.<String,String>of()).get();
