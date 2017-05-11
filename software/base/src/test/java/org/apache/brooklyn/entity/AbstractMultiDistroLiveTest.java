@@ -30,6 +30,7 @@ import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
+import org.apache.brooklyn.location.jclouds.JcloudsLocationConfig;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -92,7 +93,11 @@ public abstract class AbstractMultiDistroLiveTest extends BrooklynAppLiveTestSup
         // Also removes scriptHeader (e.g. if doing `. ~/.bashrc` and `. ~/.profile`, then that can cause "stdin: is not a tty")
         brooklynProperties.remove("brooklyn.ssh.config.scriptHeader");
         
-        mgmt = new LocalManagementContextForTests(brooklynProperties);
+        LocalManagementContextForTests localManagementContextForTests = new LocalManagementContextForTests(brooklynProperties);
+        localManagementContextForTests.generateManagementPlaneId();
+
+        mgmt = localManagementContextForTests;
+        mgmt.getHighAvailabilityManager().disabled();
         
         super.setUp();
     }
@@ -101,6 +106,7 @@ public abstract class AbstractMultiDistroLiveTest extends BrooklynAppLiveTestSup
     protected void runTest(Map<String,?> flags) throws Exception {
         Map<String,?> allFlags = MutableMap.<String,Object>builder()
                 .put("tags", ImmutableList.of(getClass().getName()))
+                .put(JcloudsLocationConfig.MACHINE_CREATE_ATTEMPTS.getName(), 1)
                 .putAll(flags)
                 .build();
         jcloudsLocation = mgmt.getLocationRegistry().getLocationManaged(getLocationSpec(), allFlags);
