@@ -391,45 +391,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     public Collection<JcloudsLocationCustomizer> getCustomizers(ConfigBag setup) {
-        @SuppressWarnings("deprecation")
-        JcloudsLocationCustomizer customizer = setup.get(JCLOUDS_LOCATION_CUSTOMIZER);
-        Collection<JcloudsLocationCustomizer> customizers = setup.get(JCLOUDS_LOCATION_CUSTOMIZERS);
-        @SuppressWarnings("deprecation")
-        String customizerType = setup.get(JCLOUDS_LOCATION_CUSTOMIZER_TYPE);
-        @SuppressWarnings("deprecation")
-        String customizersSupplierType = setup.get(JCLOUDS_LOCATION_CUSTOMIZERS_SUPPLIER_TYPE);
-
-        ClassLoader catalogClassLoader = getManagementContext().getCatalogClassLoader();
-        List<JcloudsLocationCustomizer> result = new ArrayList<JcloudsLocationCustomizer>();
-        if (customizer != null) result.add(customizer);
-        if (customizers != null) result.addAll(customizers);
-        if (Strings.isNonBlank(customizerType)) {
-            Maybe<JcloudsLocationCustomizer> customizerByType = Reflections.invokeConstructorFromArgs(catalogClassLoader, JcloudsLocationCustomizer.class, customizerType, setup);
-            if (customizerByType.isPresent()) {
-                result.add(customizerByType.get());
-            } else {
-                customizerByType = Reflections.invokeConstructorFromArgs(catalogClassLoader, JcloudsLocationCustomizer.class, customizerType);
-                if (customizerByType.isPresent()) {
-                    result.add(customizerByType.get());
-                } else {
-                    throw new IllegalStateException("Failed to create JcloudsLocationCustomizer "+customizersSupplierType+" for location "+this);
-                }
-            }
+        try {
+            return LocationCustomizerDelegate.getCustomizers(getManagementContext(), setup);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to create initialize customizers for location "+this);
         }
-        if (Strings.isNonBlank(customizersSupplierType)) {
-            Maybe<Supplier<Collection<JcloudsLocationCustomizer>>> supplier = Reflections.<Supplier<Collection<JcloudsLocationCustomizer>>>invokeConstructorFromArgsUntyped(catalogClassLoader, customizersSupplierType, setup);
-            if (supplier.isPresent()) {
-                result.addAll(supplier.get().get());
-            } else {
-                supplier = Reflections.<Supplier<Collection<JcloudsLocationCustomizer>>>invokeConstructorFromArgsUntyped(catalogClassLoader, customizersSupplierType);
-                if (supplier.isPresent()) {
-                    result.addAll(supplier.get().get());
-                } else {
-                    throw new IllegalStateException("Failed to create JcloudsLocationCustomizer supplier "+customizersSupplierType+" for location "+this);
-                }
-            }
-        }
-        return result;
     }
 
     public ConnectivityResolver getLocationNetworkInfoCustomizer(ConfigBag setup) {
@@ -438,8 +404,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     protected Collection<MachineLocationCustomizer> getMachineCustomizers(ConfigBag setup) {
-        Collection<MachineLocationCustomizer> customizers = setup.get(MACHINE_LOCATION_CUSTOMIZERS);
-        return (customizers == null ? ImmutableList.<MachineLocationCustomizer>of() : customizers);
+        try {
+            return LocationCustomizerDelegate.getMachineCustomizers(getManagementContext(), setup);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to create initialize customizers for location "+this);
+        }
     }
 
     public void setDefaultImageId(String val) {
@@ -675,6 +644,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         Duration customizedTimestamp = null;
         Stopwatch provisioningStopwatch = Stopwatch.createStarted();
 
+        JcloudsLocationCustomizer customizersDelegate = LocationCustomizerDelegate.newInstance(getManagementContext(), setup);
+
         try {
             LOG.info("Creating VM "+getCreationString(setup)+" in "+this);
 
@@ -693,12 +664,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             LoginCredentials userCredentials = null;
             Set<? extends NodeMetadata> nodes;
             Template template;
-            Collection<JcloudsLocationCustomizer> customizers = getCustomizers(setup);
-            Collection<MachineLocationCustomizer> machineCustomizers = getMachineCustomizers(setup);
 
             try {
                 // Setup the template
-                template = buildTemplate(computeService, setup, customizers);
+                template = buildTemplate(computeService, setup, ImmutableList.of(customizersDelegate));
                 boolean expectWindows = isWindows(template, setup);
                 if (!options.skipJcloudsSshing()) {
                     if (expectWindows) {
@@ -732,7 +701,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     }
                 }
 
-                customizeTemplate(computeService, template, customizers);
+                customizeTemplate(computeService, template, customizersDelegate);
 
                 LOG.debug("jclouds using template {} / options {} to provision machine in {}",
                         new Object[] {template, template.getOptions(), getCreationString(setup)});
@@ -748,9 +717,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             if (node == null)
                 throw new IllegalStateException("No nodes returned by jclouds create-nodes in " + getCreationString(setup));
 
-            for (JcloudsLocationCustomizer customizer : customizers) {
-                customizer.customize(this, node, setup);
-            }
+            customizersDelegate.customize(this, node, setup);
 
             boolean windows = isWindows(node, setup);
 
@@ -1037,15 +1004,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 // ssh to exec these commands!
             }
 
-            // Apply any optional app-specific customization.
-            for (JcloudsLocationCustomizer customizer : customizers) {
-                LOG.debug("Customizing machine {}, using customizer {}", machineLocation, customizer);
-                customizer.customize(this, computeService, machineLocation);
-            }
-            for (MachineLocationCustomizer customizer : machineCustomizers) {
-                LOG.debug("Customizing machine {}, using customizer {}", machineLocation, customizer);
-                customizer.customize(machineLocation);
-            }
+            customizersDelegate.customize(this, computeService, machineLocation);
 
             customizedTimestamp = Duration.of(provisioningStopwatch);
             String logMessage = "Finished VM "+getCreationString(setup)+" creation:"
@@ -1275,11 +1234,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             .build();
 
     /** hook whereby template customizations can be made for various clouds */
-    protected void customizeTemplate(ComputeService computeService, Template template, Collection<JcloudsLocationCustomizer> customizers) {
-        for (JcloudsLocationCustomizer customizer : customizers) {
-            customizer.customize(this, computeService, template);
-            customizer.customize(this, computeService, template.getOptions());
-        }
+    protected void customizeTemplate(ComputeService computeService, Template template, JcloudsLocationCustomizer customizersDelegate) {
+        customizersDelegate.customize(this, computeService, template);
+        customizersDelegate.customize(this, computeService, template.getOptions());
 
         // these things are nice on softlayer
         if (template.getOptions() instanceof SoftLayerTemplateOptions) {
@@ -1341,8 +1298,15 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         return BrooklynImageChooser.cloneFor(chooser, computeService, config);
     }
 
-    /** returns the jclouds Template which describes the image to be built, for the given config and compute service */
+    /** @deprecated since 0.11.0. Use {@link #buildTemplate(ComputeService, ConfigBag, JcloudsLocationCustomizer)} instead. */
+    @Deprecated
     public Template buildTemplate(ComputeService computeService, ConfigBag config, Collection<JcloudsLocationCustomizer> customizers) {
+        JcloudsLocationCustomizer customizersDelegate = LocationCustomizerDelegate.newInstance(customizers);
+        return buildTemplate(computeService, config, customizersDelegate);
+    }
+
+    /** returns the jclouds Template which describes the image to be built, for the given config and compute service */
+    public Template buildTemplate(ComputeService computeService, ConfigBag config, JcloudsLocationCustomizer customizersDelegate) {
         TemplateBuilder templateBuilder = config.get(TEMPLATE_BUILDER);
         if (templateBuilder==null) {
             templateBuilder = new PortableTemplateBuilder<PortableTemplateBuilder<?>>();
@@ -1396,10 +1360,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
         }
 
-        // Then apply any optional app-specific customization.
-        for (JcloudsLocationCustomizer customizer : customizers) {
-            customizer.customize(this, computeService, templateBuilder);
-        }
+        customizersDelegate.customize(this, computeService, templateBuilder);
 
         LOG.debug("jclouds using templateBuilder {} for provisioning in {} for {}", new Object[] {
             templateBuilder, this, getCreationString(config)});
@@ -2130,21 +2091,16 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         Exception tothrow = null;
 
         ConfigBag setup = ((LocationInternal)machine).config().getBag();
-        Collection<JcloudsLocationCustomizer> customizers = getCustomizers(setup);
-        Collection<MachineLocationCustomizer> machineCustomizers = getMachineCustomizers(setup);
-        
-        for (JcloudsLocationCustomizer customizer : customizers) {
-            try {
-                customizer.preRelease(machine);
-            } catch (Exception e) {
-                LOG.error("Problem invoking pre-release customizer "+customizer+" for machine "+machine+" in "+this+", instance id "+instanceId+
+
+        JcloudsLocationCustomizer customizersDelegate = LocationCustomizerDelegate.newInstance(getManagementContext(), setup);
+
+        try {
+            customizersDelegate.preRelease(machine);
+        } catch (Exception e) {
+            LOG.error("Problem invoking pre-release for machine "+machine+" in "+this+", instance id "+instanceId+
                     "; ignoring and continuing, "
                     + (tothrow==null ? "will throw subsequently" : "swallowing due to previous error")+": "+e, e);
-                if (tothrow==null) tothrow = e;
-            }
-        }
-        for (MachineLocationCustomizer customizer : machineCustomizers) {
-            customizer.preRelease(machine);
+            if (tothrow==null) tothrow = e;
         }
 
         try {
@@ -2170,15 +2126,13 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         removeChild(machine);
 
-        for (JcloudsLocationCustomizer customizer : customizers) {
-            try {
-                customizer.postRelease(machine);
-            } catch (Exception e) {
-                LOG.error("Problem invoking pre-release customizer "+customizer+" for machine "+machine+" in "+this+", instance id "+instanceId+
+        try {
+            customizersDelegate.postRelease(machine);
+        } catch (Exception e) {
+            LOG.error("Problem invoking post-release for machine "+machine+" in "+this+", instance id "+instanceId+
                     "; ignoring and continuing, "
                     + (tothrow==null ? "will throw subsequently" : "swallowing due to previous error")+": "+e, e);
-                if (tothrow==null) tothrow = e;
-            }
+            if (tothrow==null) tothrow = e;
         }
         
         if (tothrow != null) {
