@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.network;
 
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -67,6 +68,7 @@ import com.google.common.reflect.TypeToken;
  * </pre>
  */
 @Beta
+@Catalog(name = "Public Network Advertiser", description = "Advertises entity's public mapped ports. This can be used with sensors of type URI, HostAndPort or plain integer port values")
 public class OnPublicNetworkEnricher extends AbstractOnNetworkEnricher {
 
     // TODO Need more logging, particularly for when the value has *not* been transformed.

@@ -28,6 +28,8 @@ import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
+import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
@@ -103,6 +105,10 @@ public class JavaCatalogToSpecTransformer implements PlanToSpecTransformer {
                 @SuppressWarnings("unchecked")
                 Class<Policy> policyType = (Class<Policy>)type;
                 spec = PolicySpec.create(policyType);
+            } else if (Enricher.class.isAssignableFrom(type)) {
+                @SuppressWarnings("unchecked")
+                Class<Enricher> enricherType = (Class<Enricher>)type;
+                spec = EnricherSpec.create(enricherType);
             } else {
                 throw new IllegalStateException("Catalog item " + item + " java type " + javaType + " is not a Brooklyn supported object.");
             }

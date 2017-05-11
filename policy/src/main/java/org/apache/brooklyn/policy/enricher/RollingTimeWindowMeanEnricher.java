@@ -21,6 +21,7 @@ package org.apache.brooklyn.policy.enricher;
 import java.util.Iterator;
 import java.util.LinkedList;
 
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
@@ -63,8 +64,8 @@ import com.google.common.base.Preconditions;
  * marking as @Beta in 0.7.0 timeframe 
  */
 @Beta
-//@Catalog(name="Rolling Mean in Time Window", description="Transforms a sensor's data into a rolling average "
-//        + "based on a time window.")
+@Catalog(name="Rolling Mean in Time Window", description="Transforms a sensor's data into a rolling average "
+        + "based on a time window.")
 public class RollingTimeWindowMeanEnricher<T extends Number> extends AbstractTypeTransformingEnricher<T,Double> {
     
     public static ConfigKey<Double> CONFIDENCE_REQUIRED_TO_PUBLISH = ConfigKeys.newDoubleConfigKey("confidenceRequired",

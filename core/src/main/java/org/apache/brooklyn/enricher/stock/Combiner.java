@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -49,7 +50,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 
 @SuppressWarnings("serial")
-//@Catalog(name="Combiner", description="Combines attributes; see Enrichers.builder().combining(...)")
+@Catalog(name="Combiner", description="Combines and apply a transformation to sensors of an entity")
 public class Combiner<T,U> extends AbstractEnricher implements SensorEventListener<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(Combiner.class);

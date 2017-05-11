@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.policy.Policy;
+import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
@@ -198,6 +199,7 @@ public class RegisteredTypePredicates {
     public static final Predicate<RegisteredType> IS_ENTITY = subtypeOf(Entity.class);
     public static final Predicate<RegisteredType> IS_LOCATION = subtypeOf(Location.class);
     public static final Predicate<RegisteredType> IS_POLICY = subtypeOf(Policy.class);
+    public static final Predicate<RegisteredType> IS_ENRICHER = subtypeOf(Enricher.class);
 
     public static Predicate<RegisteredType> entitledToSee(final ManagementContext mgmt) {
         return new EntitledToSee(mgmt);

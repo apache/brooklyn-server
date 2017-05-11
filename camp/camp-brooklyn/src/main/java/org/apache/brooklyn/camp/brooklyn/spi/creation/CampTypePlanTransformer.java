@@ -54,6 +54,7 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
         // TODO these should become legacy
         if (plan.get().containsKey("brooklyn.locations")) return 0.7;
         if (plan.get().containsKey("brooklyn.policies")) return 0.7;
+        if (plan.get().containsKey("brooklyn.enrichers")) return 0.7;
         return 0;
     }
 

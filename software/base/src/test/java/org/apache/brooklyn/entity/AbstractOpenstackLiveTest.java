@@ -18,8 +18,9 @@
  */
 package org.apache.brooklyn.entity;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.Map;
+
+import org.apache.brooklyn.location.jclouds.JcloudsLocationConfig;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableMap;
@@ -42,9 +43,6 @@ brooklyn.location.jclouds.openstack-nova.templateOptions={"networks":["abcdef12-
 
  */
 public abstract class AbstractOpenstackLiveTest extends AbstractMultiDistroLiveTest {
-    
-    private static final Logger LOG = LoggerFactory.getLogger(AbstractOpenstackLiveTest.class);
-
     @Override
     public String getProvider() {
         return PROVIDER;
@@ -61,20 +59,25 @@ public abstract class AbstractOpenstackLiveTest extends AbstractMultiDistroLiveT
 
     @Test(groups = {"Live"})
     public void test_Centos_6() throws Exception {
-        // There are two images named "CentOS 6"; we need the newest so using the explicit imageId
-        runTest(ImmutableMap.of(
-            "imageId", "RegionOne/55e1fcb5-5a74-461c-b4fc-5b14c575b188",
-            "loginUser", "centos",
-            "minRam", "2000"));
+        runTest(getCentos6Config());
+    }
+
+    protected Map<String, ?> getCentos6Config() {
+        return ImmutableMap.of(
+            "osFamily", "centos",
+            "osVersionRegex", "6",
+            "loginUser", "centos");
     }
 
     @Test(groups = {"Live"})
     public void test_Centos_7() throws Exception {
-        // release codename "squeeze"
-        runTest(ImmutableMap.of(
-            "imageNameRegex", "CentOS 7",
-            "loginUser", "centos",
-            "minRam", "2000"));
+        runTest(getCentos7Config());
     }
 
+    protected Map<String, ?> getCentos7Config() {
+        return ImmutableMap.of(
+            "osFamily", "centos",
+            "osVersionRegex", "7",
+            "loginUser", "centos");
+    }
 }

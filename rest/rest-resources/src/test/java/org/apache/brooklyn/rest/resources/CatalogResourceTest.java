@@ -53,7 +53,9 @@ import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.enricher.stock.Aggregator;
 import org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy;
+import org.apache.brooklyn.rest.domain.CatalogEnricherSummary;
 import org.apache.brooklyn.rest.domain.CatalogEntitySummary;
 import org.apache.brooklyn.rest.domain.CatalogItemSummary;
 import org.apache.brooklyn.rest.domain.CatalogLocationSummary;
@@ -352,6 +354,103 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         Response getPostDeleteResponse = client().path("/catalog/locations/"+symbolicName+"/"+TEST_VERSION)
                 .get();
         assertEquals(getPostDeleteResponse.getStatus(), Response.Status.NOT_FOUND.getStatusCode());
+    }
+
+    @Test
+    public void testListEnrichers() {
+        Set<CatalogEnricherSummary> enrichers = client().path("/catalog/enrichers")
+                .get(new GenericType<Set<CatalogEnricherSummary>>() {});
+
+        assertTrue(enrichers.size() > 0);
+        CatalogEnricherSummary asp = null;
+        for (CatalogEnricherSummary p : enrichers) {
+            if (Aggregator.class.getName().equals(p.getType()))
+                asp = p;
+        }
+        Assert.assertNotNull(asp, "didn't find Aggregator");
+    }
+
+    @Test
+    public void testEnricherAddGetAndRemove() {
+        String symbolicName = "my.catalog.enricher.id";
+        String enricherType = "org.apache.brooklyn.enricher.stock.Aggregator";
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  itemType: enricher",
+                "  name: My Catalog Enricher",
+                "  description: My description",
+                "  item:",
+                "    type: " + enricherType);
+
+        // Create location item
+        Map<String, CatalogEnricherSummary> items = client().path("/catalog")
+                .post(yaml, new GenericType<Map<String, CatalogEnricherSummary>>() {});
+        CatalogEnricherSummary enricherItem = Iterables.getOnlyElement(items.values());
+
+        Assert.assertNotNull(enricherItem.getPlanYaml());
+        Assert.assertTrue(enricherItem.getPlanYaml().contains(enricherType));
+        assertEquals(enricherItem.getId(), ver(symbolicName));
+        assertEquals(enricherItem.getSymbolicName(), symbolicName);
+        assertEquals(enricherItem.getVersion(), TEST_VERSION);
+
+        // Retrieve location item
+        CatalogEnricherSummary enricher = client().path("/catalog/enrichers/"+symbolicName+"/"+TEST_VERSION)
+                .get(CatalogEnricherSummary.class);
+        assertEquals(enricher.getSymbolicName(), symbolicName);
+
+        // Retrieve all locations
+        Set<CatalogEnricherSummary> enrichers = client().path("/catalog/enrichers")
+                .get(new GenericType<Set<CatalogEnricherSummary>>() {});
+        boolean found = false;
+        for (CatalogEnricherSummary contender : enrichers) {
+            if (contender.getSymbolicName().equals(symbolicName)) {
+                found = true;
+                break;
+            }
+        }
+        Assert.assertTrue(found, "contenders="+enrichers);
+
+        // Delete
+        Response deleteResponse = client().path("/catalog/enrichers/"+symbolicName+"/"+TEST_VERSION)
+                .delete();
+        assertEquals(deleteResponse.getStatus(), Response.Status.NO_CONTENT.getStatusCode());
+
+        Response getPostDeleteResponse = client().path("/catalog/enrichers/"+symbolicName+"/"+TEST_VERSION)
+                .get();
+        assertEquals(getPostDeleteResponse.getStatus(), Response.Status.NOT_FOUND.getStatusCode());
+    }
+
+    @Test
+    // osgi may fail in IDE, typically works on mvn CLI though
+    public void testRegisterOsgiEnricherTopLevelSyntax() {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+
+        String symbolicName = "my.catalog.enricher.id";
+        String enricherType = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENRICHER;
+        String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
+
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  itemType: enricher",
+                "  name: My Catalog Enricher",
+                "  description: My description",
+                "  libraries:",
+                "  - url: " + bundleUrl,
+                "  item:",
+                "    type: " + enricherType);
+
+        CatalogEnricherSummary entityItem = Iterables.getOnlyElement( client().path("/catalog")
+                .post(yaml, new GenericType<Map<String,CatalogEnricherSummary>>() {}).values() );
+
+        Assert.assertNotNull(entityItem.getPlanYaml());
+        Assert.assertTrue(entityItem.getPlanYaml().contains(enricherType));
+        assertEquals(entityItem.getId(), ver(symbolicName));
+        assertEquals(entityItem.getSymbolicName(), symbolicName);
+        assertEquals(entityItem.getVersion(), TEST_VERSION);
     }
 
     @Test

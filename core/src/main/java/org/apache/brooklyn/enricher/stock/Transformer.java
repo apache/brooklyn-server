@@ -20,6 +20,7 @@ package org.apache.brooklyn.enricher.stock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.config.ConfigKey;
@@ -33,7 +34,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Function;
 import com.google.common.reflect.TypeToken;
 
-//@Catalog(name="Transformer", description="Transforms attributes of an entity; see Enrichers.builder().transforming(...)")
+@Catalog(name="Transformer", description="Transforms sensors of an entity")
 @SuppressWarnings("serial")
 public class Transformer<T,U> extends AbstractTransformer<T,U> {
 
@@ -113,9 +114,9 @@ public class Transformer<T,U> extends AbstractTransformer<T,U> {
             // If it's a special marker-object, then don't try to transform it
             return (U) rawVal;
         }
-        
+
         // evaluate immediately, or return null.
-        // For vals that implement ImmediateSupplier, we'll use that to get the value 
+        // For vals that implement ImmediateSupplier, we'll use that to get the value
         // (or Maybe.absent) without blocking.
         // Otherwise, the Tasks.resolving will give it its best shot at resolving without
         // blocking on external events (such as waiting for another entity's sensor).

@@ -35,6 +35,8 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
+import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializer;
@@ -143,6 +145,8 @@ public class CatalogPredicates {
             CatalogPredicates.<Entity,EntitySpec<?>>isCatalogItemType(CatalogItemType.ENTITY);
     public static final Predicate<CatalogItem<Policy,PolicySpec<?>>> IS_POLICY = 
             CatalogPredicates.<Policy,PolicySpec<?>>isCatalogItemType(CatalogItemType.POLICY);
+    public static final Predicate<CatalogItem<Enricher,EnricherSpec<?>>> IS_ENRICHER =
+            CatalogPredicates.<Enricher,EnricherSpec<?>>isCatalogItemType(CatalogItemType.ENRICHER);
     public static final Predicate<CatalogItem<Location,LocationSpec<?>>> IS_LOCATION = 
             CatalogPredicates.<Location,LocationSpec<?>>isCatalogItemType(CatalogItemType.LOCATION);
     

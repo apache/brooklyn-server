@@ -79,6 +79,13 @@ public class CatalogItemBuilderTest {
     }
 
     @Test
+    public void testNewEnricherReturnCatalogEnricherItemDto() {
+        final CatalogItem catalogItem = CatalogItemBuilder.newEnricher(symbolicName, version).build();
+
+        assertTrue(catalogItem != null);
+    }
+
+    @Test
     public void testNewTemplateReturnCatalogTemplateItemDto() {
         final CatalogItem<?, ?> catalogItem = CatalogItemBuilder.newTemplate(symbolicName, version).build();
 

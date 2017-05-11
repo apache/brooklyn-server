@@ -84,6 +84,7 @@ import com.google.common.collect.Maps;
  * to isolate classpaths. with osgi everything is just put into the "manual additions" catalog. */
 public class BasicBrooklynCatalog implements BrooklynCatalog {
     public static final String POLICIES_KEY = "brooklyn.policies";
+    public static final String ENRICHERS_KEY = "brooklyn.enrichers";
     public static final String LOCATIONS_KEY = "brooklyn.locations";
     public static final String NO_VERSION = "0.0.0.SNAPSHOT";
 
@@ -809,6 +810,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
                 attemptType("services", CatalogItemType.ENTITY);
                 attemptType(POLICIES_KEY, CatalogItemType.POLICY);
+                attemptType(ENRICHERS_KEY, CatalogItemType.ENRICHER);
                 attemptType(LOCATIONS_KEY, CatalogItemType.LOCATION);
             }
             
@@ -1189,6 +1191,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                         break;
                     case POLICY:
                         dto.setPlanYaml(POLICIES_KEY + ": [{ type: "+dto.getJavaType()+" }]");
+                        break;
+                    case ENRICHER:
+                        dto.setPlanYaml(ENRICHERS_KEY + ": [{ type: "+dto.getJavaType()+" }]");
                         break;
                     case LOCATION:
                         dto.setPlanYaml(LOCATIONS_KEY + ": [{ type: "+dto.getJavaType()+" }]");

@@ -38,6 +38,8 @@ import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
+import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.camp.CampPlatform;
@@ -144,6 +146,38 @@ class CampInternalUtils {
         return spec;
     }
 
+    static EnricherSpec<?> createEnricherSpec(String yamlPlan, BrooklynClassLoadingContext loader, Set<String> encounteredCatalogTypes) {
+        DeploymentPlan plan = makePlanFromYaml(loader.getManagementContext(), yamlPlan);
+
+        //Would ideally re-use the EnricherSpecResolver
+        //but it is CAMP specific and there is no easy way to get hold of it.
+        Object enrichers = checkNotNull(plan.getCustomAttributes().get(BasicBrooklynCatalog.ENRICHERS_KEY), "enricher config");
+        if (!(enrichers instanceof Iterable<?>)) {
+            throw new IllegalStateException("The value of " + BasicBrooklynCatalog.ENRICHERS_KEY + " must be an Iterable.");
+        }
+
+        Object policy = Iterables.getOnlyElement((Iterable<?>)enrichers);
+
+        return createEnricherSpec(loader, policy, encounteredCatalogTypes);
+    }
+
+    @SuppressWarnings("unchecked")
+    static EnricherSpec<?> createEnricherSpec(BrooklynClassLoadingContext loader, Object enricher, Set<String> encounteredCatalogTypes) {
+        Map<String, Object> itemMap;
+        if (enricher instanceof String) {
+            itemMap = ImmutableMap.<String, Object>of("type", enricher);
+        } else if (enricher instanceof Map) {
+            itemMap = (Map<String, Object>) enricher;
+        } else {
+            throw new IllegalStateException("Enricher expected to be string or map. Unsupported object type " + enricher.getClass().getName() + " (" + enricher.toString() + ")");
+        }
+
+        String versionedId = (String) checkNotNull(Yamls.getMultinameAttribute(itemMap, "enricher_type", "enricherType", "type"), "enricher type");
+        EnricherSpec<? extends Enricher> spec = resolveEnricherSpec(versionedId, loader, encounteredCatalogTypes);
+        initConfigAndParameters(spec, itemMap, loader);
+        return spec;
+    }
+
     static LocationSpec<?> createLocationSpec(String yamlPlan, BrooklynClassLoadingContext loader, Set<String> encounteredTypes) {
         DeploymentPlan plan = makePlanFromYaml(loader.getManagementContext(), yamlPlan);
         Object locations = checkNotNull(plan.getCustomAttributes().get(BasicBrooklynCatalog.LOCATIONS_KEY), "location config");
@@ -213,6 +247,24 @@ class CampInternalUtils {
         } else {
             // TODO-type-registry pass the loader in to the above, and allow it to load with the loader
             spec = PolicySpec.create(loader.loadClass(versionedId, Policy.class));
+        }
+        return spec;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static EnricherSpec<? extends Enricher> resolveEnricherSpec(
+            String versionedId,
+            BrooklynClassLoadingContext loader,
+            Set<String> encounteredCatalogTypes) {
+
+        EnricherSpec<? extends Enricher> spec;
+        RegisteredType item = loader.getManagementContext().getTypeRegistry().get(versionedId);
+        if (item != null && !encounteredCatalogTypes.contains(item.getSymbolicName())) {
+            RegisteredTypeLoadingContext context = RegisteredTypeLoadingContexts.alreadyEncountered(encounteredCatalogTypes);
+            return loader.getManagementContext().getTypeRegistry().createSpec(item, context, EnricherSpec.class);
+        } else {
+            // TODO-type-registry pass the loader in to the above, and allow it to load with the loader
+            spec = EnricherSpec.create(loader.loadClass(versionedId, Enricher.class));
         }
         return spec;
     }

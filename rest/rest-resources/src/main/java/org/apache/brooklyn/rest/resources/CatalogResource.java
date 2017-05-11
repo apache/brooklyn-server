@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nullable;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -42,6 +43,8 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
+import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
@@ -54,6 +57,7 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.rest.api.CatalogApi;
 import org.apache.brooklyn.rest.domain.ApiError;
+import org.apache.brooklyn.rest.domain.CatalogEnricherSummary;
 import org.apache.brooklyn.rest.domain.CatalogEntitySummary;
 import org.apache.brooklyn.rest.domain.CatalogItemSummary;
 import org.apache.brooklyn.rest.domain.CatalogLocationSummary;
@@ -82,6 +86,8 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
+
+import io.swagger.annotations.ApiParam;
 
 @HaHotStateRequired
 public class CatalogResource extends AbstractBrooklynRestResource implements CatalogApi {
@@ -445,6 +451,53 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         CatalogUtils.setDisabled(mgmt(), itemId, disabled);
     }
 
+    @Override
+    public List<CatalogEnricherSummary> listEnrichers(@ApiParam(name = "regex", value = "Regular expression to search for") @DefaultValue("") String regex, @ApiParam(name = "fragment", value = "Substring case-insensitive to search for") @DefaultValue("") String fragment, @ApiParam(name = "allVersions", value = "Include all versions (defaults false, only returning the best version)") @DefaultValue("false") boolean includeAllVersions) {
+        Predicate<CatalogItem<Enricher, EnricherSpec<?>>> filter =
+                Predicates.and(
+                        CatalogPredicates.IS_ENRICHER,
+                        CatalogPredicates.<Enricher, EnricherSpec<?>>disabled(false));
+        List<CatalogItemSummary> result = getCatalogItemSummariesMatchingRegexFragment(filter, regex, fragment, includeAllVersions);
+        return castList(result, CatalogEnricherSummary.class);
+    }
+
+    @Override
+    public CatalogEnricherSummary getEnricher(@ApiParam(name = "enricherId", value = "The ID of the enricher to retrieve", required = true) String enricherId, @ApiParam(name = "version", value = "The version identifier of the enricher to retrieve", required = true) String version) throws Exception {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, enricherId+(Strings.isBlank(version)?"":":"+version))) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
+                    Entitlements.getEntitlementContext().user());
+        }
+
+        version = processVersion(version);
+
+        @SuppressWarnings("unchecked")
+        CatalogItem<? extends Enricher, EnricherSpec<?>> result =
+                (CatalogItem<? extends Enricher, EnricherSpec<?>>)brooklyn().getCatalog().getCatalogItem(enricherId, version);
+
+        if (result==null) {
+            throw WebResourceUtils.notFound("Enricher with id '%s:%s' not found", enricherId, version);
+        }
+
+        return CatalogTransformer.catalogEnricherSummary(brooklyn(), result, ui.getBaseUriBuilder());
+    }
+
+    @Override
+    public void deleteEnricher(@ApiParam(name = "enricherId", value = "The ID of the enricher to delete", required = true) String enricherId, @ApiParam(name = "version", value = "The version identifier of the enricher to delete", required = true) String version) throws Exception {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, StringAndArgument.of(enricherId+(Strings.isBlank(version) ? "" : ":"+version), "delete"))) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
+                    Entitlements.getEntitlementContext().user());
+        }
+
+        RegisteredType item = mgmt().getTypeRegistry().get(enricherId, version);
+        if (item == null) {
+            throw WebResourceUtils.notFound("Enricher with id '%s:%s' not found", enricherId, version);
+        } else if (!RegisteredTypePredicates.IS_ENRICHER.apply(item)) {
+            throw WebResourceUtils.preconditionFailed("Item with id '%s:%s' not an enricher", enricherId, version);
+        } else {
+            brooklyn().getCatalog().deleteCatalogItem(item.getSymbolicName(), item.getVersion());
+        }
+    }
+
     private Response getCatalogItemIcon(RegisteredType result) {
         String url = result.getIconUrl();
         if (url==null) {
@@ -506,4 +559,4 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         return result;
     }
 }
- 
+

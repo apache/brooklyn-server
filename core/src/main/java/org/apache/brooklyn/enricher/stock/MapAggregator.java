@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
@@ -35,6 +36,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
  * Building on {@link AbstractMultipleSensorAggregator} for a pair of source sensors(on multiple children and/or members)
  * that are used as key-value pairs in a generated Map.
  */
+@Catalog(name = "Map Aggregator", description = "Aggregates a pair of sensors on multiple children and/or members that are used as key-value pairs in a generated Map")
 @SuppressWarnings("serial")
 public class MapAggregator<U> extends AbstractMultipleSensorAggregator<U> {
 
