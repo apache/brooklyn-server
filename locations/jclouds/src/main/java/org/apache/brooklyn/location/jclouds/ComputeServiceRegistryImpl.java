@@ -147,13 +147,6 @@ public class ComputeServiceRegistryImpl implements ComputeServiceRegistry, Jclou
             if (Strings.isNonBlank(region)) {
                 properties.setProperty(LocationConstants.PROPERTY_REGIONS, region);
             }
-            // jclouds 2.0.0 does not include the rate limit module for Azure ARM. This quick fix enables this which will
-            // avoid provisioning to fail due to rate limit exceeded
-            // See https://issues.apache.org/jira/browse/JCLOUDS-1229
-            modules = ImmutableSet.<Module>builder()
-                    .addAll(modules)
-                    .add(new AzureComputeRateLimitModule())
-                    .build();
         }
 
         // Add extra jclouds-specific configuration
