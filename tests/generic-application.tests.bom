@@ -112,7 +112,7 @@ brooklyn.catalog:
           osFamily: centos
           osVersionRegex: 7
         datastore.creation.script.url:
-          "https://github.com/apache/brooklyn-library/raw/master/examples/simple-web-cluster/src/main/resources/visitors-creation-script.sql"
+          "https://raw.githubusercontent.com/apache/brooklyn-library/0.11.x/examples/simple-web-cluster/src/main/resources/visitors-creation-script.sql"
       brooklyn.enrichers:
         - type: org.apache.brooklyn.core.network.OnSubnetNetworkEnricher
           brooklyn.config:
