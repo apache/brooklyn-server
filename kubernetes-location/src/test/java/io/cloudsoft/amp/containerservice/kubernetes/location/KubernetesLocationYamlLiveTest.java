@@ -15,6 +15,7 @@ import static org.apache.brooklyn.core.entity.EntityAsserts.assertEntityHealthy;
 import static org.apache.brooklyn.test.Asserts.succeedsEventually;
 import static org.apache.brooklyn.util.http.HttpAsserts.assertHttpStatusCodeEventuallyEquals;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import java.util.List;
@@ -326,49 +327,6 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "            WORDPRESS_DB_HOST: \"wordpress-mysql-" + randomId + "\"",
                 "            WORDPRESS_DB_PASSWORD: \"password\"",
                 "          deployment: wordpress-" + randomId);
-
-        runWordpress(yaml, randomId);
-    }
-
-    /**
-     * Testing original behaviour of KubernetesPod as parent entity containing containers,
-     * to ensure no regressions.
-     *
-     * @deprecated this capability will be deleted in a future release
-     */
-    @Deprecated
-    @Test(groups={"Live"})
-    public void testWordpressInContainersWithPodParent() throws Exception {
-        // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
-        String randomId = Identifiers.makeRandomLowercaseId(4);
-        String yaml = Joiner.on("\n").join(
-                locationYaml,
-                "services:",
-                "  - type: " + KubernetesPod.class.getName(),
-                "    brooklyn.children:",
-                "      - type: " + DockerContainer.class.getName(),
-                "        id: wordpress-mysql",
-                "        name: mysql",
-                "        brooklyn.config:",
-                "          docker.container.imageName: mysql:5.6",
-                "          docker.container.inboundPorts:",
-                "            - \"3306\"",
-                "          docker.container.environment:",
-                "            MYSQL_ROOT_PASSWORD: \"password\"",
-                "          provisioning.properties:",
-                "            deployment: wordpress-mysql-" + randomId,
-                "      - type: " + DockerContainer.class.getName(),
-                "        id: wordpress",
-                "        name: wordpress",
-                "        brooklyn.config:",
-                "          docker.container.imageName: wordpress:4-apache",
-                "          docker.container.inboundPorts:",
-                "            - \"80\"",
-                "          docker.container.environment:",
-                "            WORDPRESS_DB_HOST: \"wordpress-mysql-" + randomId + "\"",
-                "            WORDPRESS_DB_PASSWORD: \"password\"",
-                "          provisioning.properties:",
-                "            deployment: wordpress-" + randomId);
 
         runWordpress(yaml, randomId);
     }

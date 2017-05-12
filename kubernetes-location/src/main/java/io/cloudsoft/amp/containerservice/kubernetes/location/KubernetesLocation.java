@@ -30,8 +30,6 @@ import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolv
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.network.OnPublicNetworkEnricher;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.entity.software.base.SoftwareProcess;
-import org.apache.brooklyn.entity.software.base.SoftwareProcess.ChildStartableMode;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -67,7 +65,6 @@ import com.google.common.collect.Sets;
 import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
 
-import io.cloudsoft.amp.containerservice.ThreadedRepeater;
 import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
 import io.cloudsoft.amp.containerservice.dockerlocation.DockerJcloudsLocation;
 import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod;
@@ -193,42 +190,15 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         if (isKubernetesResource(entity)) {
             return createKubernetesResourceLocation(entity, setup);
         } else {
-            // Heuristic for determining whether KubernetesPod is simply a parent entity
-            if (isKubernetesPod(entity) &&
-                    entity.config().get(DockerContainer.IMAGE_NAME) == null &&
-                    entity.config().get(DockerContainer.INBOUND_TCP_PORTS) == null &&
-                    entity.getChildren().size() > 0) {
-                return createEmptyKubernetesMachineLocation(entity);
-            }
             return createKubernetesContainerLocation(entity, setup);
         }
-    }
-
-    /** @deprecated This mechanism will be removed in future releases */
-    @Deprecated
-    public KubernetesEmptyMachineLocation createEmptyKubernetesMachineLocation(Entity entity) {
-        LOG.warn("IMPORTANT: Deprecated behaviour: Use of KubernetesPod as a parent entity is deprecated and support will be removed in future versions");
-
-        LocationSpec<KubernetesEmptyMachineLocation> locationSpec = LocationSpec.create(KubernetesEmptyMachineLocation.class)
-                .configure(KubernetesLocationConfig.CALLER_CONTEXT, entity)
-                .configure("address", "0.0.0.0")
-                .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE, KubernetesPod.EMPTY)
-                .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_NAME, entity.getId());
-
-        KubernetesEmptyMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
-
-        return machine;
     }
 
     @Override
     public void release(KubernetesMachineLocation machine) {
         Entity entity = validateCallerContext(machine);
         if (isKubernetesResource(entity)) {
-            if (machine instanceof KubernetesEmptyMachineLocation && KubernetesPod.EMPTY.equals(machine.config().get(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE))) {
-                // Nothing to do, the location does not represent a Kubernetes resource
-            } else {
-                deleteKubernetesResourceLocation(entity);
-            }
+            deleteKubernetesResourceLocation(entity);
         } else {
             deleteKubernetesContainerLocation(entity, machine);
         }
@@ -526,12 +496,12 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             }};
 
         Stopwatch stopwatch = Stopwatch.createStarted();
-        ReferenceWithError<Boolean> reachable = new ThreadedRepeater("reachable")
+        ReferenceWithError<Boolean> reachable = Repeater.create("reachable")
+                .threaded()
                 .backoff(Duration.FIVE_SECONDS, 2, Duration.TEN_SECONDS) // Exponential backoff, to 10 seconds
                 .until(checker)
                 .limitTimeTo(timeout)
                 .runKeepingError();
-
         if (!reachable.getWithoutError()) {
             throw new IllegalStateException("Connection failed for "+machine.getSshHostAndPort()+" after waiting "+stopwatch.elapsed(TimeUnit.SECONDS), reachable.getError());
         } else {
