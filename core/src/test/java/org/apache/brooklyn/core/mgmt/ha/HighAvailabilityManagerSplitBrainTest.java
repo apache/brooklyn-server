@@ -36,7 +36,6 @@ import org.apache.brooklyn.api.mgmt.ha.ManagementPlaneSyncRecord;
 import org.apache.brooklyn.api.mgmt.ha.ManagementPlaneSyncRecordPersister;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.mgmt.ha.TestEntityFailingRebind.RebindException;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
@@ -205,8 +204,8 @@ public class HighAvailabilityManagerSplitBrainTest {
         n2.ha.start(HighAvailabilityMode.AUTO);
         assertEquals(n1.ha.getNodeState(), ManagementNodeState.MASTER);
 
-        TestApplication app = ApplicationBuilder.newManagedApp(
-                EntitySpec.create(TestApplication.class).impl(TestEntityFailingRebind.class), n1.mgmt);
+        TestApplication app = n1.mgmt.getEntityManager().createEntity(
+                EntitySpec.create(TestApplication.class).impl(TestEntityFailingRebind.class));
         app.start(ImmutableList.<Location>of());
 
         n1.mgmt.getRebindManager().forcePersistNow(false, null);
@@ -254,8 +253,8 @@ public class HighAvailabilityManagerSplitBrainTest {
         n1.ha.start(HighAvailabilityMode.AUTO);
         n2.ha.start(HighAvailabilityMode.AUTO);
 
-        TestApplication app = ApplicationBuilder.newManagedApp(
-                EntitySpec.create(TestApplication.class).impl(TestEntityFailingRebind.class), n1.mgmt);
+        TestApplication app = n1.mgmt.getEntityManager().createEntity(
+                EntitySpec.create(TestApplication.class).impl(TestEntityFailingRebind.class));
         app.start(ImmutableList.<Location>of());
 
         n1.mgmt.getRebindManager().forcePersistNow(false, null);
@@ -323,7 +322,7 @@ public class HighAvailabilityManagerSplitBrainTest {
         assertEquals(n2.mgmt.getApplications().size(), 0);
 
         // create
-        TestApplication app = ApplicationBuilder.newManagedApp(EntitySpec.create(TestApplication.class), n1.mgmt);
+        TestApplication app = n1.mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
         app.start(ImmutableList.<Location>of());
         app.sensors().set(TestApplication.MY_ATTRIBUTE, "hello");
         

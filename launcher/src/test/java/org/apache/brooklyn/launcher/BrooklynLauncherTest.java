@@ -172,19 +172,6 @@ public class BrooklynLauncherTest {
     }
     
     @Test
-    @SuppressWarnings("deprecation")
-    public void testStartsAppFromBuilder() throws Exception {
-        launcher = newLauncherForTests(true)
-                .webconsole(false)
-                .application(new org.apache.brooklyn.core.entity.factory.ApplicationBuilder(EntitySpec.create(TestApplication.class)) {
-                        @Override protected void doBuild() {
-                        }})
-                .start();
-        
-        assertOnlyApp(launcher, TestApplication.class);
-    }
-
-    @Test
     public void testStartsAppFromYAML() throws Exception {
         String yaml = "name: example-app\n" +
                 "services:\n" +

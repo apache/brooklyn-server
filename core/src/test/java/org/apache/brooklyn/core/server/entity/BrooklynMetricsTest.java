@@ -25,11 +25,8 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.location.SimulatedLocation;
-import org.apache.brooklyn.core.server.entity.BrooklynMetrics;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestApplicationNoEnrichersImpl;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -37,15 +34,13 @@ import org.apache.brooklyn.core.test.entity.TestEntityNoEnrichersImpl;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.time.Duration;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 
-public class BrooklynMetricsTest {
+public class BrooklynMetricsTest extends BrooklynAppUnitTestSupport {
 
-    private static final long TIMEOUT_MS = 2*1000;
     private final static int NUM_SUBSCRIPTIONS_PER_ENTITY = 4;
     
     TestApplication app;
@@ -53,18 +48,19 @@ public class BrooklynMetricsTest {
     BrooklynMetrics brooklynMetrics;
     
     @BeforeMethod(alwaysRun=true)
-    public void setUp() {
-        loc = new SimulatedLocation();
-        app = ApplicationBuilder.newManagedApp(EntitySpec.create(TestApplication.class, TestApplicationNoEnrichersImpl.class),
-            LocalManagementContextForTests.newInstance());
-        brooklynMetrics = app.createAndManageChild(EntitySpec.create(BrooklynMetrics.class).configure("updatePeriod", 10L));
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        loc = app.newSimulatedLocation();
+        brooklynMetrics = app.addChild(EntitySpec.create(BrooklynMetrics.class).configure("updatePeriod", 10L));
     }
     
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
+    @Override
+    protected void setUpApp() {
+        app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
+                .impl(TestApplicationNoEnrichersImpl.class));
     }
-
+    
     @Test
     public void testInitialBrooklynMetrics() {
         app.start(ImmutableList.of(loc));

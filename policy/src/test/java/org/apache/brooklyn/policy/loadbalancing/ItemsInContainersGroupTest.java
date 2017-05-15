@@ -23,14 +23,14 @@ import static org.testng.Assert.assertEquals;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.location.SimulatedLocation;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.group.DynamicGroup;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -38,21 +38,21 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-public class ItemsInContainersGroupTest {
+public class ItemsInContainersGroupTest extends BrooklynAppUnitTestSupport {
 
     // all tests are 20ms or less, but use a big timeout just in case very slow machine!
     private static final long TIMEOUT_MS = 15000;
     
-    private TestApplication app;
     private SimulatedLocation loc;
     private Group containerGroup;
     private ItemsInContainersGroup itemGroup;
 
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
-        loc = new SimulatedLocation(MutableMap.of("name", "loc"));
+        super.setUp();
+        loc = mgmt.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class)
+                .configure("name", "loc"));
         
-        app = ApplicationBuilder.newManagedApp(TestApplication.class);
         containerGroup = app.createAndManageChild(EntitySpec.create(DynamicGroup.class)
                 .displayName("containerGroup")
                 .configure(DynamicGroup.ENTITY_FILTER, new Predicate<Entity>() {
@@ -66,11 +66,6 @@ public class ItemsInContainersGroupTest {
         itemGroup.setContainers(containerGroup);
         
         app.start(ImmutableList.of(loc));
-    }
-
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
     }
 
     @Test

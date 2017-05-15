@@ -45,7 +45,6 @@ import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.launcher.SimpleYamlLauncherForTests;
@@ -67,7 +66,7 @@ public class BrooklynNodeRestTest {
     public void testBrooklynNodeRestDeployAndMirror() {
         final SimpleYamlLauncher l = new SimpleYamlLauncherForTests();
         try {
-            TestApplication app = ApplicationBuilder.newManagedApp(TestApplication.class, l.getManagementContext());
+            TestApplication app = TestApplication.Factory.newManagedInstanceForTests(l.getManagementContext());
 
             BrooklynNode bn = app.createAndManageChild(EntitySpec.create(BrooklynNode.class, SameBrooklynNodeImpl.class));
             bn.start(MutableSet.<Location>of());

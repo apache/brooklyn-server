@@ -18,27 +18,17 @@
  */
 package org.apache.brooklyn.location.multi;
 
-import java.io.File;
 import java.util.List;
 
-import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.location.cloud.AvailabilityZoneExtension;
-import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
-import org.apache.brooklyn.location.multi.MultiLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.net.Networking;
-import org.apache.brooklyn.util.os.Os;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Function;
@@ -46,36 +36,14 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-public class MultiLocationRebindTest {
+public class MultiLocationRebindTest extends RebindTestFixtureWithApp {
 
-    private ClassLoader classLoader = getClass().getClassLoader();
-    private ManagementContext origManagementContext;
-    private ManagementContext newManagementContext;
-    private File mementoDir;
-    
-    private TestApplication origApp;
-    private TestApplication newApp;
     private SshMachineLocation mac1a;
     private SshMachineLocation mac2a;
     private FixedListMachineProvisioningLocation<SshMachineLocation> loc1;
     private FixedListMachineProvisioningLocation<SshMachineLocation> loc2;
     private MultiLocation<SshMachineLocation> multiLoc;
     
-    @BeforeMethod(alwaysRun=true)
-    public void setUp() throws Exception {
-        mementoDir = Os.newTempDir(getClass());
-        origManagementContext = RebindTestUtils.newPersistingManagementContext(mementoDir, classLoader, 1);
-        origApp = ApplicationBuilder.newManagedApp(EntitySpec.create(TestApplication.class), origManagementContext);
-    }
-
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (origManagementContext != null) Entities.destroyAll(origManagementContext);
-        if (newApp != null) Entities.destroyAll(newApp.getManagementContext());
-        if (newManagementContext != null) Entities.destroyAll(newManagementContext);
-        if (mementoDir != null) RebindTestUtils.deleteMementoDir(mementoDir);
-    }
-
     @SuppressWarnings("unchecked")
     @Test
     public void testRebindsMultiLocation() throws Exception {
@@ -98,7 +66,7 @@ public class MultiLocationRebindTest {
         newApp = rebind();
         newManagementContext = newApp.getManagementContext();
         
-        MultiLocation newMultiLoc = (MultiLocation) Iterables.find(newManagementContext.getLocationManager().getLocations(), Predicates.instanceOf(MultiLocation.class));
+        MultiLocation<?> newMultiLoc = (MultiLocation<?>) Iterables.find(newManagementContext.getLocationManager().getLocations(), Predicates.instanceOf(MultiLocation.class));
         AvailabilityZoneExtension azExtension = newMultiLoc.getExtension(AvailabilityZoneExtension.class);
         List<Location> newSublLocs = azExtension.getAllSubLocations();
         Iterable<String> newSubLocNames = Iterables.transform(newSublLocs, new Function<Location, String>() {
@@ -106,17 +74,5 @@ public class MultiLocationRebindTest {
                 return (input == null) ? null : input.getDisplayName();
             }});
         Asserts.assertEqualsIgnoringOrder(newSubLocNames, ImmutableList.of("loc1", "loc2"));
-    }
-    
-    private TestApplication rebind() throws Exception {
-        return rebind(true);
-    }
-    
-    private TestApplication rebind(boolean checkSerializable) throws Exception {
-        RebindTestUtils.stopPersistence(origApp);
-        if (checkSerializable) {
-            RebindTestUtils.checkCurrentMementoSerializable(origApp);
-        }
-        return (TestApplication) RebindTestUtils.rebind(mementoDir, getClass().getClassLoader());
     }
 }

@@ -24,7 +24,6 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.software.base.test.location.WindowsTestFixture;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
@@ -70,7 +69,7 @@ public class VanillaWindowsProcessWinrmStreamsLiveTest extends AbstractSoftwareP
     @BeforeMethod(alwaysRun = true)
     @Override
     public void setUp() throws Exception {
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, mgmt);
+        app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
     }
 
     @AfterMethod(alwaysRun = true)

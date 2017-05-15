@@ -55,7 +55,7 @@ public class CatalogScanTest {
 
     private static final Logger log = LoggerFactory.getLogger(CatalogScanTest.class);
 
-    private BrooklynCatalog defaultCatalog, annotsCatalog, fullCatalog;
+    private BrooklynCatalog defaultCatalog, annotsCatalog;
     
     private List<LocalManagementContext> mgmts = Lists.newCopyOnWriteArrayList();
     private List<BrooklynCampPlatformLauncherNoServer> launchers = Lists.newCopyOnWriteArrayList();
@@ -153,13 +153,6 @@ public class CatalogScanTest {
         loadAnnotationsOnlyCatalog();
         Iterable<CatalogItem<Object,Object>> silly1 = annotsCatalog.getCatalogItems(CatalogPredicates.displayName(Predicates.equalTo("MySillyAppTemplate")));
         Assert.assertEquals(Iterables.getOnlyElement(silly1).getDescription(), "Some silly app test");
-    }
-    
-    @Test
-    public void testAnnotationLoadsSomeAppBuilders() {
-        loadAnnotationsOnlyCatalog();
-        Iterable<CatalogItem<Object,Object>> silly1 = annotsCatalog.getCatalogItems(CatalogPredicates.displayName(Predicates.equalTo("MySillyAppBuilderTemplate")));
-        Assert.assertEquals(Iterables.getOnlyElement(silly1).getDescription(), "Some silly app builder test");
     }
     
     @Test

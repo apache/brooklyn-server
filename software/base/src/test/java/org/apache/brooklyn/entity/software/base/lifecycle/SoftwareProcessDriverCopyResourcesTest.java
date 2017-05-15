@@ -31,15 +31,10 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.config.MapConfigKey;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.util.os.Os;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -50,15 +45,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 
 @Test(groups="Integration")
-public class SoftwareProcessDriverCopyResourcesTest {
+public class SoftwareProcessDriverCopyResourcesTest extends BrooklynAppUnitTestSupport {
 
     File installDir;
     File runDir;
     File sourceFileDir;
     File sourceTemplateDir;
-
-    private LocalManagementContext managementContext;
-    private TestApplication app;
 
     private Location location;
 
@@ -66,9 +58,9 @@ public class SoftwareProcessDriverCopyResourcesTest {
     private static final String TEST_CONTENT_TEMPLATE = "id=${entity.id}";
 
     @BeforeMethod(alwaysRun = true)
-    public void setUp() {
-        managementContext = new LocalManagementContextForTests();
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, managementContext);
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
 
         sourceFileDir = Os.newTempDir(getClass().getSimpleName());
         sourceTemplateDir = Os.newTempDir(getClass().getSimpleName());
@@ -76,7 +68,7 @@ public class SoftwareProcessDriverCopyResourcesTest {
         installDir = Os.newTempDir(getClass().getSimpleName());
         runDir = Os.newTempDir(getClass().getSimpleName());
 
-        location = new LocalhostMachineProvisioningLocation();
+        location = app.newLocalhostProvisioningLocation();
     }
 
     @Test
@@ -131,13 +123,14 @@ public class SoftwareProcessDriverCopyResourcesTest {
     }
 
     @AfterMethod(alwaysRun = true)
-    public void tearDown() {
-        app.stop();
-        if (managementContext != null) Entities.destroyAll(managementContext);
-        app = null;
-        Os.deleteRecursively(sourceFileDir);
-        Os.deleteRecursively(sourceTemplateDir);
-        Os.deleteRecursively(installDir);
-        Os.deleteRecursively(runDir);
+    public void tearDown() throws Exception {
+        try {
+            super.tearDown();
+        } finally {
+            Os.deleteRecursively(sourceFileDir);
+            Os.deleteRecursively(sourceTemplateDir);
+            Os.deleteRecursively(installDir);
+            Os.deleteRecursively(runDir);
+        }
     }
 }

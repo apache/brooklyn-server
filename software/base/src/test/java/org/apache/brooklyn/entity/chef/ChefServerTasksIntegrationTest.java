@@ -21,10 +21,8 @@ package org.apache.brooklyn.entity.chef;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.entity.chef.ChefConfig;
 import org.apache.brooklyn.entity.chef.ChefServerTasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
@@ -34,8 +32,6 @@ import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /** Many tests expect knife on the path, but none require any configuration beyond that.
@@ -65,25 +61,12 @@ import org.testng.annotations.Test;
  * Note also that some tests require a location  named:ChefLive  to be set up in your brooklyn.properties.
  * This can be a cloud (but will require frequent chef-node pruning) or a permanently set-up machine.
  **/
-public class ChefServerTasksIntegrationTest {
+// TODO Does it really need to be a live test? When converting from ApplicationBuilder, preserved
+// existing behaviour of using the live BrooklynProperties.
+public class ChefServerTasksIntegrationTest extends BrooklynAppLiveTestSupport {
 
     private static final Logger log = LoggerFactory.getLogger(ChefServerTasksIntegrationTest.class);
     
-    protected TestApplication app;
-    protected ManagementContext mgmt;
-
-    @BeforeMethod(alwaysRun=true)
-    public void setup() throws Exception {
-        app = ApplicationBuilder.newManagedApp(TestApplication.class);
-        mgmt = app.getManagementContext();
-    }
-
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (mgmt != null) Entities.destroyAll(mgmt);
-        mgmt = null;
-    }
-
     /** @deprecated use {@link ChefLiveTestSupport} */
     @Deprecated
     public synchronized static String installBrooklynChefHostedConfig() {

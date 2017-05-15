@@ -21,41 +21,14 @@ package org.apache.brooklyn.core.mgmt.entitlement;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-import org.apache.brooklyn.api.entity.Application;
-import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementManager;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
-import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.EntityAndItem;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.entity.stock.BasicApplication;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.testng.annotations.Test;
 
 @Test
-public class EntitlementsTest {
-
-    private ManagementContext mgmt;
-    private Application app;
-
-    @BeforeMethod
-    public void setup() {
-        mgmt = new LocalManagementContextForTests(BrooklynProperties.Factory.newEmpty());
-        app = ApplicationBuilder.newManagedApp(EntitySpec.create(BasicApplication.class), mgmt);
-    }
-
-    @AfterMethod
-    public void tearDown() {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
-        if (mgmt != null) Entities.destroyAll(mgmt);
-        app = null;
-        mgmt = null;
-    }
+public class EntitlementsTest extends BrooklynAppUnitTestSupport {
 
     // allowing
     public void testAllowingRoot() {
