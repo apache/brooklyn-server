@@ -92,7 +92,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 
-
 public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
 
     // NB: These tests don't actually require ssh to localhost -- only that 'localhost' resolves.
@@ -364,12 +363,12 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
                     .configure(StopSoftwareParameters.STOP_MACHINE_MODE, stopMachineMode)));
         t1.asTask().get(10, TimeUnit.SECONDS);
 
-        if (MachineLifecycleEffectorTasksTest.canStop(stopProcessMode, isEntityStopped)) {
+        if (MachineLifecycleEffectorTasksTest.canStop(app, stopProcessMode, isEntityStopped)) {
             assertEquals(d.events, ImmutableList.of("stop"));
         } else {
             assertTrue(d.events.isEmpty());
         }
-        if (MachineLifecycleEffectorTasksTest.canStop(stopMachineMode, machine == null)) {
+        if (MachineLifecycleEffectorTasksTest.canStop(app, stopMachineMode, machine == null)) {
             assertTrue(entity.getLocations().isEmpty());
             assertTrue(l.getAvailable().contains(machine));
         } else {

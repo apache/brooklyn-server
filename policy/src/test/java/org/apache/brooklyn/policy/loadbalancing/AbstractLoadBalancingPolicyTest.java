@@ -32,9 +32,9 @@ import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.group.DynamicGroup;
 import org.apache.brooklyn.test.Asserts;
@@ -53,7 +53,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-public class AbstractLoadBalancingPolicyTest {
+public abstract class AbstractLoadBalancingPolicyTest extends BrooklynAppUnitTestSupport {
     
     private static final Logger LOG = LoggerFactory.getLogger(AbstractLoadBalancingPolicyTest.class);
     
@@ -68,7 +68,6 @@ public class AbstractLoadBalancingPolicyTest {
     public static final ConfigKey<Double> LOW_THRESHOLD_CONFIG_KEY = new BasicConfigKey<Double>(Double.class, TEST_METRIC.getName()+".threshold.low", "desc", 0.0);
     public static final ConfigKey<Double> HIGH_THRESHOLD_CONFIG_KEY = new BasicConfigKey<Double>(Double.class, TEST_METRIC.getName()+".threshold.high", "desc", 0.0);
     
-    protected TestApplication app;
     protected SimulatedLocation loc;
     protected BalanceableWorkerPool pool;
     protected DefaultBalanceablePoolModel<Entity, Entity> model;
@@ -78,7 +77,9 @@ public class AbstractLoadBalancingPolicyTest {
     protected Random random = new Random();
     
     @BeforeMethod(alwaysRun=true)
-    public void before() {
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
         LOG.debug("In AbstractLoadBalancingPolicyTest.before()");
         
         MockItemEntityImpl.totalMoveCount.set(0);
@@ -103,9 +104,13 @@ public class AbstractLoadBalancingPolicyTest {
     }
     
     @AfterMethod(alwaysRun=true)
-    public void after() {
-        if (policy != null) policy.destroy();
-        if (app != null) Entities.destroyAll(app.getManagementContext());
+    @Override
+    public void tearDown() throws Exception {
+        try {
+            if (policy != null) policy.destroy();
+        } finally {
+            super.tearDown();
+        }
     }
     
     // Using this utility, as it gives more info about the workrates of all containers rather than just the one that differs    

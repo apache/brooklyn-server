@@ -112,6 +112,10 @@ public interface TestEntity extends Entity, Startable, EntityLocal, EntityIntern
 
     public Map<?,?> getConfigureProperties();
 
+    public int getConfigureCount();
+    
+    public int getConfigureDuringConstructionCount();
+    
     public int getSequenceValue();
 
     public void setSequenceValue(int value);

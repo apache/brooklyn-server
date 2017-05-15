@@ -31,17 +31,21 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
-import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
@@ -51,7 +55,6 @@ import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -62,29 +65,23 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
-public class DynamicGroupTest {
+public class DynamicGroupTest extends BrooklynAppUnitTestSupport {
 
     private static final Logger LOG = LoggerFactory.getLogger(DynamicGroupTest.class);
     
     private static final int TIMEOUT_MS = 50*1000;
     private static final int VERY_SHORT_WAIT_MS = 100;
     
-    private TestApplication app;
     private DynamicGroup group;
     private TestEntity e1;
     private TestEntity e2;
     
     @BeforeMethod(alwaysRun=true)
-    public void setUp() {
-        app = TestApplication.Factory.newManagedInstanceForTests();
-        group = app.createAndManageChild(EntitySpec.create(DynamicGroup.class));
-        e1 = app.createAndManageChild(EntitySpec.create(TestEntity.class));
-        e2 = app.createAndManageChild(EntitySpec.create(TestEntity.class));
-    }
-    
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
+    public void setUp() throws Exception {
+        super.setUp();
+        group = app.addChild(EntitySpec.create(DynamicGroup.class));
+        e1 = app.addChild(EntitySpec.create(TestEntity.class));
+        e2 = app.addChild(EntitySpec.create(TestEntity.class));
     }
     
     @Test
@@ -219,13 +216,11 @@ public class DynamicGroupTest {
     //      is deleted!
     @Test
     public void testStoppedGroupIgnoresComingAndGoingsOfEntities() throws Exception {
-        Entity e3 = new AbstractEntity() {};
         group.setEntityFilter(Predicates.instanceOf(TestEntity.class));
         assertEqualsIgnoringOrder(group.getMembers(), ImmutableSet.of(e1, e2));
         group.stop();
         
-        e3.setParent(app);
-        Entities.manage(e3);
+        Entity e3 = app.addChild(EntitySpec.create(TestEntity.class));
         Asserts.succeedsContinually(MutableMap.of("timeout", VERY_SHORT_WAIT_MS), new Runnable() {
             @Override
             public void run() {
@@ -242,13 +237,13 @@ public class DynamicGroupTest {
     
     @Test
     public void testUnmanagedGroupIgnoresComingAndGoingsOfEntities() {
-        Entity e3 = new AbstractEntity() {};
         group.setEntityFilter(Predicates.instanceOf(TestEntity.class));
         assertEqualsIgnoringOrder(group.getMembers(), ImmutableSet.of(e1, e2));
         Entities.unmanage(group);
         
-        e3.setParent(app);
-        Entities.manage(e3);
+        @SuppressWarnings("unused")
+        Entity e3 = app.addChild(EntitySpec.create(TestEntity.class));
+        
         Asserts.succeedsContinually(MutableMap.of("timeout", VERY_SHORT_WAIT_MS), new Runnable() {
             @Override
             public void run() {
@@ -344,106 +339,99 @@ public class DynamicGroupTest {
     @Test(groups="Integration")
     public void testEntityAddedAndRemovedCalledSequentially() throws Exception {
         final int NUM_CYCLES = 10;
-        final Set<Entity> knownMembers = Sets.newLinkedHashSet();
-        final AtomicInteger notificationCount = new AtomicInteger(0);
-        final AtomicInteger concurrentCallsCount = new AtomicInteger(0);
-        final List<Exception> exceptions = new CopyOnWriteArrayList<Exception>();
         
-        DynamicGroupImpl group2 = new DynamicGroupImpl() {
-            @Override protected void onEntityAdded(Entity item) {
-                try {
-                    onCall("Member added: member="+item);
-                    assertTrue(knownMembers.add(item));
-                } catch (Throwable t) {
-                    exceptions.add(new Exception("Error detected adding "+item, t));
-                    throw Exceptions.propagate(t);
-                }
-            }
-            @Override protected void onEntityRemoved(Entity item) {
-                try {
-                    onCall("Member removed: member="+item);
-                    assertTrue(knownMembers.remove(item));
-                } catch (Throwable t) {
-                    exceptions.add(new Exception("Error detected adding "+item, t));
-                    throw Exceptions.propagate(t);
-                }
-            }
-            private void onCall(String msg) {
-                LOG.debug(msg+", thread="+Thread.currentThread().getName());
-                try {
-                    assertEquals(concurrentCallsCount.incrementAndGet(), 1);
-                    Time.sleep(100);
-                } finally {
-                    concurrentCallsCount.decrementAndGet();
-                }
-                notificationCount.incrementAndGet();
-            }
-        };
-        group2.config().set(DynamicGroup.ENTITY_FILTER, Predicates.instanceOf(TestEntity.class));
-        app.addChild(group2);
-        Entities.manage(group2);
+        DynamicGroup group2 = app.addChild(EntitySpec.create(DynamicGroup.class)
+                .impl(DynamicGroupCheckingEntityAddedAndRemovedSequentially.class)
+                .configure(DynamicGroup.ENTITY_FILTER, Predicates.instanceOf(TestEntity.class)));
         
         for (int i = 0; i < NUM_CYCLES; i++) {
             TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
             Entities.unmanage(entity);
         }
 
+        final DynamicGroupCheckingEntityAddedAndRemovedSequentially group2impl = 
+                (DynamicGroupCheckingEntityAddedAndRemovedSequentially) Entities.deproxy(group2);
+        
         Asserts.succeedsEventually(new Runnable() {
             @Override
             public void run() {
-                assertTrue(notificationCount.get() == (NUM_CYCLES*2) || exceptions.size() > 0);
+                assertTrue(group2impl.notificationCount.get() == (NUM_CYCLES*2) || group2impl.exceptions.size() > 0);
             }});
 
-        if (exceptions.size() > 0) {
-            throw exceptions.get(0);
+        if (group2impl.exceptions.size() > 0) {
+            throw group2impl.exceptions.get(0);
         }
         
-        assertEquals(notificationCount.get(), NUM_CYCLES*2);
+        assertEquals(group2impl.notificationCount.get(), NUM_CYCLES*2);
+    }
+    public static class DynamicGroupCheckingEntityAddedAndRemovedSequentially extends DynamicGroupImpl {
+        final Set<Entity> knownMembers = Sets.newLinkedHashSet();
+        final AtomicInteger notificationCount = new AtomicInteger(0);
+        final AtomicInteger concurrentCallsCount = new AtomicInteger(0);
+        final List<Exception> exceptions = new CopyOnWriteArrayList<Exception>();
+
+        @Override
+        protected void onEntityAdded(Entity item) {
+            try {
+                onCall("Member added: member="+item);
+                assertTrue(knownMembers.add(item));
+            } catch (Throwable t) {
+                exceptions.add(new Exception("Error detected adding "+item, t));
+                throw Exceptions.propagate(t);
+            }
+        }
+        @Override
+        protected void onEntityRemoved(Entity item) {
+            try {
+                onCall("Member removed: member="+item);
+                assertTrue(knownMembers.remove(item));
+            } catch (Throwable t) {
+                exceptions.add(new Exception("Error detected adding "+item, t));
+                throw Exceptions.propagate(t);
+            }
+        }
+        private void onCall(String msg) {
+            LOG.debug(msg+", thread="+Thread.currentThread().getName());
+            try {
+                assertEquals(concurrentCallsCount.incrementAndGet(), 1);
+                Time.sleep(100);
+            } finally {
+                concurrentCallsCount.decrementAndGet();
+            }
+            notificationCount.incrementAndGet();
+        }
     }
     
     // See Deadlock in https://github.com/brooklyncentral/brooklyn/issues/378
-    // TODO Now that entities are auto-managed, this test is no longer appropriate.
-    // Should it be re-written or deleted?
-    @Test(groups="WIP")
+    // Rewritten to avoid using entity-constructors and explicit "manage" call, so possibly not
+    // as directly applicable to the deadlock in the github issue, but that old code path is no
+    // longer possible!
+    @Test
     public void testDoesNotDeadlockOnManagedAndMemberAddedConcurrently() throws Exception {
         final CountDownLatch rescanReachedLatch = new CountDownLatch(1);
         final CountDownLatch entityAddedReachedLatch = new CountDownLatch(1);
         final CountDownLatch rescanLatch = new CountDownLatch(1);
         final CountDownLatch entityAddedLatch = new CountDownLatch(1);
         
-        final TestEntity e3 = app.addChild(EntitySpec.create(TestEntity.class));
-        
-        final DynamicGroupImpl group2 = new DynamicGroupImpl() {
-            @Override public void rescanEntities() {
-                rescanReachedLatch.countDown();
-                try {
-                    rescanLatch.await();
-                } catch (InterruptedException e) {
-                    Exceptions.propagate(e);
-                }
-                super.rescanEntities();
-            }
-            @Override protected void onEntityAdded(Entity item) {
-                entityAddedReachedLatch.countDown();
-                try {
-                    entityAddedLatch.await();
-                } catch (InterruptedException e) {
-                    Exceptions.propagate(e);
-                }
-                super.onEntityAdded(item);
-            }
-        };
-        group2.config().set(DynamicGroup.ENTITY_FILTER, Predicates.<Object>equalTo(e3));
-        app.addChild(group2);
+        final AtomicReference<DynamicGroup> group2ref = new AtomicReference<>();
+        final AtomicReference<TestEntity> e3ref = new AtomicReference<>();
         
         Thread t1 = new Thread(new Runnable() {
             @Override public void run() {
-                Entities.manage(group2);
+                DynamicGroup group2 = app.addChild(EntitySpec.create(DynamicGroupTestManagedAndMemberAddedConcurrently.class)
+                        .configure("rescanReachedLatch", rescanReachedLatch)
+                        .configure("entityAddedReachedLatch", entityAddedReachedLatch)
+                        .configure("rescanLatch", rescanLatch)
+                        .configure("entityAddedLatch", entityAddedLatch)
+                        .configure(DynamicGroup.ENTITY_FILTER, EntityPredicates.displayNameEqualTo("e3")));
+                group2ref.set(group2);
             }});
         
         Thread t2 = new Thread(new Runnable() {
             @Override public void run() {
-                Entities.manage(e3);
+                TestEntity e3 = app.addChild(EntitySpec.create(TestEntity.class)
+                        .displayName("e3"));
+                e3ref.set(e3);
             }});
 
         t1.start();
@@ -469,48 +457,66 @@ public class DynamicGroupTest {
         Asserts.succeedsEventually(new Runnable() {
             @Override
             public void run() {
-                assertEqualsIgnoringOrder(group2.getMembers(), ImmutableSet.of(e3));
+                assertEqualsIgnoringOrder(group2ref.get().getMembers(), ImmutableSet.of(e3ref.get()));
             }});
+    }
+    @ImplementedBy(DynamicGroupTestManagedAndMemberAddedConcurrentlyImpl.class)
+    public interface DynamicGroupTestManagedAndMemberAddedConcurrently extends DynamicGroup {
+        ConfigKey<CountDownLatch> RESCAN_REACHED_LATCH = ConfigKeys.newConfigKey(CountDownLatch.class, "rescanReachedLatch");
+        ConfigKey<CountDownLatch> ENTITY_ADDED_REACHED_LATCH = ConfigKeys.newConfigKey(CountDownLatch.class, "entityAddedReachedLatch");
+        ConfigKey<CountDownLatch> RESCAN_LATCH = ConfigKeys.newConfigKey(CountDownLatch.class, "rescanLatch");
+        ConfigKey<CountDownLatch> ENTITY_ADDED_LATCH = ConfigKeys.newConfigKey(CountDownLatch.class, "entityAddedLatch");
+    }
+    public static class DynamicGroupTestManagedAndMemberAddedConcurrentlyImpl extends DynamicGroupImpl implements DynamicGroupTestManagedAndMemberAddedConcurrently {
+        CountDownLatch rescanReachedLatch;
+        CountDownLatch entityAddedReachedLatch;
+        CountDownLatch rescanLatch;
+        CountDownLatch entityAddedLatch;
+
+        @Override
+        public void init() {
+            super.init();
+            rescanReachedLatch = config().get(RESCAN_REACHED_LATCH);
+            entityAddedReachedLatch = config().get(ENTITY_ADDED_REACHED_LATCH);
+            rescanLatch = config().get(RESCAN_LATCH);
+            entityAddedLatch = config().get(ENTITY_ADDED_LATCH);
+        }
+        
+        @Override public void rescanEntities() {
+            rescanReachedLatch.countDown();
+            try {
+                rescanLatch.await();
+            } catch (InterruptedException e) {
+                Exceptions.propagate(e);
+            }
+            super.rescanEntities();
+        }
+        @Override protected void onEntityAdded(Entity item) {
+            entityAddedReachedLatch.countDown();
+            try {
+                entityAddedLatch.await();
+            } catch (InterruptedException e) {
+                Exceptions.propagate(e);
+            }
+            super.onEntityAdded(item);
+        }
     }
     
     // See deadlock in https://issues.apache.org/jira/browse/BROOKLYN-66
     @Test
     public void testDoesNotDeadlockOnUnmanageWhileOtherMemberBeingAdded() throws Exception {
-        final CountDownLatch removingMemberReachedLatch = new CountDownLatch(1);
-        final CountDownLatch addingMemberReachedLatch = new CountDownLatch(1);
-        final CountDownLatch addingMemberContinueLatch = new CountDownLatch(1);
-        final AtomicBoolean addingMemberDoLatching = new AtomicBoolean(false);
         final List<Entity> membersAdded = new CopyOnWriteArrayList<Entity>();
         
-        final DynamicGroupImpl group2 = new DynamicGroupImpl() {
-            private final BasicSensorSupport interceptedSensors = new BasicSensorSupport() {
-                @Override
-                public <T> void emit(Sensor<T> sensor, T val) {
-                    // intercept inside AbstractGroup.addMember, while it still holds lock on members
-                    if (sensor == AbstractGroup.MEMBER_ADDED && addingMemberDoLatching.get()) {
-                        addingMemberReachedLatch.countDown();
-                        try {
-                            addingMemberContinueLatch.await();
-                        } catch (InterruptedException e) {
-                            throw Exceptions.propagate(e);
-                        }
-                    }
-                    super.emit(sensor, val);
-                }
-            };
-            @Override
-            public BasicSensorSupport sensors() {
-                return interceptedSensors;
-            }
-            @Override
-            public boolean removeMember(final Entity member) {
-                removingMemberReachedLatch.countDown();
-                return super.removeMember(member);
-            }
-        };
-        group2.config().set(DynamicGroup.MEMBER_DELEGATE_CHILDREN, true);
-        app.addChild(group2);
-        Entities.manage(group2);
+        final DynamicGroup group2 = app.addChild(EntitySpec.create(DynamicGroup.class)
+                .impl(DynamicGroupTestingUnmanageWhileOtherMemberBeingAdded.class)
+                .configure(DynamicGroup.MEMBER_DELEGATE_CHILDREN, true));
+
+        DynamicGroupTestingUnmanageWhileOtherMemberBeingAdded group2impl = 
+                (DynamicGroupTestingUnmanageWhileOtherMemberBeingAdded) Entities.deproxy(group2);
+        final CountDownLatch removingMemberReachedLatch = group2impl.removingMemberReachedLatch;
+        final CountDownLatch addingMemberReachedLatch = group2impl.addingMemberReachedLatch;
+        final CountDownLatch addingMemberContinueLatch = group2impl.addingMemberContinueLatch;
+        final AtomicBoolean addingMemberDoLatching = group2impl.addingMemberDoLatching;
         
         app.subscriptions().subscribe(group2, AbstractGroup.MEMBER_ADDED, new SensorEventListener<Entity>() {
             @Override public void onEvent(SensorEvent<Entity> event) {
@@ -553,6 +559,37 @@ public class DynamicGroupTest {
             t2.interrupt();
         }
     }
+    public static class DynamicGroupTestingUnmanageWhileOtherMemberBeingAdded extends DynamicGroupImpl {
+        final CountDownLatch removingMemberReachedLatch = new CountDownLatch(1);
+        final CountDownLatch addingMemberReachedLatch = new CountDownLatch(1);
+        final CountDownLatch addingMemberContinueLatch = new CountDownLatch(1);
+        final AtomicBoolean addingMemberDoLatching = new AtomicBoolean(false);
+        
+        private final BasicSensorSupport interceptedSensors = new BasicSensorSupport() {
+            @Override
+            public <T> void emit(Sensor<T> sensor, T val) {
+                // intercept inside AbstractGroup.addMember, while it still holds lock on members
+                if (sensor == AbstractGroup.MEMBER_ADDED && addingMemberDoLatching.get()) {
+                    addingMemberReachedLatch.countDown();
+                    try {
+                        addingMemberContinueLatch.await();
+                    } catch (InterruptedException e) {
+                        throw Exceptions.propagate(e);
+                    }
+                }
+                super.emit(sensor, val);
+            }
+        };
+        @Override
+        public BasicSensorSupport sensors() {
+            return interceptedSensors;
+        }
+        @Override
+        public boolean removeMember(final Entity member) {
+            removingMemberReachedLatch.countDown();
+            return super.removeMember(member);
+        }
+    };
 
     @Test
     public void testOnlyMatchesEntitiesInSameApplication() {

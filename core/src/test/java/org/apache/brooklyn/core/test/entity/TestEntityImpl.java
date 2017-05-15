@@ -58,6 +58,8 @@ public class TestEntityImpl extends AbstractEntity implements TestEntity {
     protected AtomicInteger counter = new AtomicInteger(0);
     protected Map<?,?> constructorProperties;
     protected Map<?,?> configureProperties;
+    protected int configureCount;
+    protected int configureDuringConstructionCount;
     protected List<String> callHistory = Collections.synchronizedList(Lists.<String>newArrayList());
 
     public TestEntityImpl() {
@@ -69,11 +71,13 @@ public class TestEntityImpl extends AbstractEntity implements TestEntity {
     public TestEntityImpl(Map properties, Entity parent) {
         super(properties, parent);
         this.constructorProperties = properties;
+        this.configureDuringConstructionCount = configureCount;
     }
     
     @Override
     public AbstractEntity configure(Map flags) {
         this.configureProperties = flags;
+        configureCount++;
         return super.configure(flags);
     }
     
@@ -132,6 +136,16 @@ public class TestEntityImpl extends AbstractEntity implements TestEntity {
         return configureProperties;
     }
     
+    @Override
+    public int getConfigureCount() {
+        return configureCount;
+    }
+
+    @Override
+    public int getConfigureDuringConstructionCount() {
+        return configureDuringConstructionCount;
+    }
+
     @Override
     public synchronized int getSequenceValue() {
         return sequenceValue;

@@ -20,40 +20,35 @@ package org.apache.brooklyn.core.entity.drivers;
 
 import static org.testng.Assert.assertTrue;
 
-import org.apache.brooklyn.api.entity.drivers.DriverDependentEntity;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.entity.drivers.EntityDriver;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.entity.drivers.ReflectiveEntityDriverFactoryTest.MyDriver;
 import org.apache.brooklyn.core.entity.drivers.ReflectiveEntityDriverFactoryTest.MyDriverDependentEntity;
 import org.apache.brooklyn.core.entity.drivers.RegistryEntityDriverFactoryTest.MyOtherSshDriver;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.testng.annotations.AfterMethod;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 
-public class EntityDriverRegistryTest {
+public class EntityDriverRegistryTest extends BrooklynAppUnitTestSupport {
 
-    private ManagementContext managementContext;
     private SshMachineLocation sshLocation;
-
+    private MyDriverDependentEntity entity;
+    
     @BeforeMethod
     public void setUp() throws Exception {
-        managementContext = new LocalManagementContextForTests();
-        sshLocation = new SshMachineLocation(MutableMap.of("address", "localhost"));
-    }
-
-    @AfterMethod
-    public void tearDown(){
-        if (managementContext != null) Entities.destroyAll(managementContext);
+        super.setUp();
+        sshLocation = mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
+                .configure("address", "localhost"));
+        entity = app.addChild(EntitySpec.create(MyDriverDependentEntity.class)
+                .configure(MyDriverDependentEntity.DRIVER_CLASS, MyDriver.class));
     }
 
     @Test
     public void testInstantiatesRegisteredDriver() throws Exception {
-        managementContext.getEntityDriverManager().registerDriver(MyDriver.class, SshMachineLocation.class, MyOtherSshDriver.class);
-        DriverDependentEntity<MyDriver> entity = new MyDriverDependentEntity<MyDriver>(MyDriver.class);
-        MyDriver driver = managementContext.getEntityDriverManager().build(entity, sshLocation);
+        mgmt.getEntityDriverManager().registerDriver(MyDriver.class, SshMachineLocation.class, MyOtherSshDriver.class);
+        EntityDriver driver = mgmt.getEntityDriverManager().build(entity, sshLocation);
         assertTrue(driver instanceof MyOtherSshDriver);
     }
 }
