@@ -18,7 +18,9 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.jclouds.compute.ComputeService;
+import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.domain.TemplateBuilder;
 import org.jclouds.compute.options.TemplateOptions;
@@ -60,6 +62,13 @@ public interface JcloudsLocationCustomizer {
      * be used by {@link JcloudsLocation} to obtain machines.
      */
     void customize(JcloudsLocation location, ComputeService computeService, TemplateOptions templateOptions);
+
+
+    /**
+     * Override to configure the {@link NodeMetadata}, and {@link ConfigBag} that will be used when
+     * connecting to the machine.
+     */
+    void customize(JcloudsLocation location, NodeMetadata node, ConfigBag setup);
 
     /**
      * Override to configure the given machine once it has been created and started by Jclouds.

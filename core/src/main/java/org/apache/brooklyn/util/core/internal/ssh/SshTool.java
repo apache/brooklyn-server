@@ -86,6 +86,10 @@ public interface SshTool extends ShellTool {
     public static final ConfigKey<Long> PROP_LAST_MODIFICATION_DATE = newConfigKey("lastModificationDate", "Last-modification-date to be set on files copied/created (should be UTC/1000, ie seconds since 1970; default 0 usually means current)", 0L);
     public static final ConfigKey<Long> PROP_LAST_ACCESS_DATE = newConfigKey("lastAccessDate", "Last-access-date to be set on files copied/created (should be UTC/1000, ie seconds since 1970; default 0 usually means lastModificationDate)", 0L);
     public static final ConfigKey<Integer> PROP_OWNER_UID = newConfigKey("ownerUid", "Default owner UID (not username) for files created on remote machine; default is unset", -1);
+
+    ConfigKey<String> ADDITIONAL_CONNECTION_METADATA = newStringConfigKey("additional.connection.metadata",
+            "Can be used to pass additional custom data to the SshTool, which is especially useful " +
+                    "if writing a bespoke tool implementation");
     
     // TODO remove unnecessary "public static final" modifiers
     
