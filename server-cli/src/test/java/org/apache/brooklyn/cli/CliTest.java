@@ -172,14 +172,6 @@ public class CliTest {
         assertTrue(Iterables.getOnlyElement(entities) instanceof EntityProxy, "entities="+entities);
     }
 
-    @Test
-    public void testLoadApplicationByParsingGroovyFile() throws Exception {
-        String appName = "ExampleAppInFile.groovy"; // file found in src/test/resources (contains empty app)
-        Object appBuilder = loadApplicationFromClasspathOrParse(appName);
-        assertTrue(appBuilder instanceof ApplicationBuilder, "app="+appBuilder);
-        assertAppWrappedInBuilder((ApplicationBuilder)appBuilder, "ExampleAppInFile");
-    }
-    
     private Object loadApplicationFromClasspathOrParse(String appName) throws Exception {
         LaunchCommand launchCommand = new Main.LaunchCommand();
         ResourceUtils resourceUtils = ResourceUtils.create(this);
