@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.objs.BasicConfigurableObject;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.jclouds.compute.ComputeService;
+import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.domain.TemplateBuilder;
 import org.jclouds.compute.options.TemplateOptions;
@@ -100,6 +101,11 @@ public class BasicJcloudsLocationCustomizer extends BasicConfigurableObject impl
 
     @Override
     public void customize(JcloudsLocation location, ComputeService computeService, TemplateOptions templateOptions) {
+        // no-op
+    }
+
+    @Override
+    public void customize(JcloudsLocation location, NodeMetadata node, ConfigBag setup) {
         // no-op
     }
 

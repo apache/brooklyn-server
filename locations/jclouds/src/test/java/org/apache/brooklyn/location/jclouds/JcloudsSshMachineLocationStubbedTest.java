@@ -18,14 +18,20 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
+import static org.apache.brooklyn.location.jclouds.JcloudsLocationConfig.JCLOUDS_LOCATION_CUSTOMIZERS;
+import static org.apache.brooklyn.util.core.internal.ssh.SshTool.ADDITIONAL_CONNECTION_METADATA;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
 import java.util.List;
+import java.util.Map;
 
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.AbstractNodeCreator;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.NodeCreator;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.jclouds.compute.domain.NodeMetadata;
@@ -117,5 +123,20 @@ public class JcloudsSshMachineLocationStubbedTest extends AbstractJcloudsStubbed
                 WinRmTool.PROP_EXEC_TRIES.getName(), 456));
         assertEquals(machine.config().get(WinRmMachineLocation.COPY_FILE_CHUNK_SIZE_BYTES), Integer.valueOf(123));
         assertEquals(machine.config().get(WinRmTool.PROP_EXEC_TRIES), Integer.valueOf(456));
+    }
+
+    @Test
+    public void testNodeSetupCustomizer() throws Exception {
+        final String testMetadata = "test-metadata";
+        obtainMachine(ImmutableMap.of(JCLOUDS_LOCATION_CUSTOMIZERS, ImmutableList.of(new BasicJcloudsLocationCustomizer(){
+            @Override
+            public void customize(JcloudsLocation location, NodeMetadata node, ConfigBag setup) {
+                assertNotNull(node, "node");
+                assertNotNull(location, "location");
+                setup.configure(ADDITIONAL_CONNECTION_METADATA, testMetadata);
+            }
+        })));
+        Map<?, ?> lastConstructorProps = RecordingSshTool.getLastConstructorProps();
+        assertEquals(lastConstructorProps.get(ADDITIONAL_CONNECTION_METADATA.getName()), testMetadata);
     }
 }

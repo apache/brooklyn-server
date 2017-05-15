@@ -756,6 +756,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             if (node == null)
                 throw new IllegalStateException("No nodes returned by jclouds create-nodes in " + getCreationString(setup));
 
+            for (JcloudsLocationCustomizer customizer : customizers) {
+                customizer.customize(this, node, setup);
+            }
+
             boolean windows = isWindows(node, setup);
 
             if (windows) {
