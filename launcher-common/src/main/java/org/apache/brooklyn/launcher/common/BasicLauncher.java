@@ -105,7 +105,6 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
     private final List<String> locationSpecs = new ArrayList<String>();
     private final List<Location> locations = new ArrayList<Location>();
 
-    private final List<Application> appsToManage = new ArrayList<Application>();
     @SuppressWarnings("deprecation") // TODO convert to EntitySpec; should be easy when users not allowed to pass in a builder
     private final List<org.apache.brooklyn.core.entity.factory.ApplicationBuilder> appBuildersToManage = new ArrayList<org.apache.brooklyn.core.entity.factory.ApplicationBuilder>();
     private final List<String> yamlAppsToManage = new ArrayList<String>();
@@ -141,24 +140,6 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
     public List<Application> getApplications() {
         if (!started) throw new IllegalStateException("Cannot retrieve application until started");
         return ImmutableList.copyOf(apps);
-    }
-
-    /** 
-     * Specifies that the launcher should manage the given Brooklyn application.
-     * The application must not yet be managed. 
-     * The application will not be started as part of this call (callers can
-     * subsequently call {@link #start()} or {@link #getApplications()}.
-     * 
-     * @see #application(ApplicationBuilder)
-     * 
-     * @deprecated since 0.9.0; instead use {@link #application(String)} for YAML apps, or {@link #application(EntitySpec)}.
-     *             Note that apps are now auto-managed on construction through EntitySpec/YAML.
-     */
-    @Deprecated
-    public T application(Application app) {
-        if (Entities.isManaged(app)) throw new IllegalArgumentException("Application must not already be managed");
-        appsToManage.add(checkNotNull(app, "app"));
-        return self();
     }
 
     /** 
@@ -675,10 +656,6 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
     protected void createApps() {
         for (org.apache.brooklyn.core.entity.factory.ApplicationBuilder appBuilder : appBuildersToManage) {
             StartableApplication app = appBuilder.manage(managementContext);
-            apps.add(app);
-        }
-        for (Application app : appsToManage) {
-            Entities.startManagement(app, managementContext);
             apps.add(app);
         }
         for (String blueprint : yamlAppsToManage) {
