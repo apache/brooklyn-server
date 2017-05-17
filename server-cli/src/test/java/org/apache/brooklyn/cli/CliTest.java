@@ -41,8 +41,10 @@ import java.util.regex.Pattern;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.cli.AbstractMain.BrooklynCommand;
 import org.apache.brooklyn.cli.AbstractMain.BrooklynCommandCollectingArgs;
@@ -211,19 +213,19 @@ public class CliTest {
     @Test
     public void testStopAllApplications() throws Exception {
         LaunchCommand launchCommand = new Main.LaunchCommand();
-        ExampleApp app = new ExampleApp();
-        ManagementContext mgmt = null;
+        ManagementContext mgmt = LocalManagementContextForTests.newInstance();
+        
         try {
-            Entities.startManagement(app);
-            mgmt = app.getManagementContext();
-            app.start(ImmutableList.of(new SimulatedLocation()));
-            assertTrue(app.running);
+            StartableApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(StartableApplication.class).impl(ExampleApp.class));
+            ExampleApp appImpl = (ExampleApp) Entities.deproxy(app);
+            SimulatedLocation loc = mgmt.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class));
+            app.start(ImmutableList.of(loc));
+            assertTrue(appImpl.running);
             
             launchCommand.stopAllApps(ImmutableList.of(app));
-            assertFalse(app.running);
+            assertFalse(appImpl.running);
         } finally {
             // Stopping the app will make app.getManagementContext return the "NonDeploymentManagementContext";
-            // hence we've retrieved it before calling stopAllApps()
             if (mgmt != null) Entities.destroyAll(mgmt);
         }
     }

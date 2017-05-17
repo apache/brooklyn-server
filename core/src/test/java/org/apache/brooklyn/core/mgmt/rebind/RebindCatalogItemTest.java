@@ -298,6 +298,7 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
         final String tag = "tag1";
         origItem.tags().addTag(tag);
         assertTrue(origItem.tags().containsTag(tag));
+        origManagementContext.getCatalog().persist(origItem);
 
         rebindAndAssertCatalogsAreEqual();
 
@@ -352,7 +353,9 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
         
         item.setDeprecated(true);
         catalog.persist(item);
+        
         rebindAndAssertCatalogsAreEqual();
+        
         RegisteredType catalogItemAfterRebind = newManagementContext.getTypeRegistry().get("rebind-yaml-catalog-item-test", TEST_VERSION);
         assertTrue(catalogItemAfterRebind.isDeprecated(), "Expected item to be deprecated");
     }

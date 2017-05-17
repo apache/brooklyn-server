@@ -22,41 +22,48 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-import org.testng.annotations.AfterMethod;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.core.location.SimulatedLocation;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.policy.loadbalancing.MockContainerEntity;
+import org.apache.brooklyn.policy.loadbalancing.MockItemEntity;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.core.location.SimulatedLocation;
-import org.apache.brooklyn.policy.loadbalancing.MockContainerEntity;
-import org.apache.brooklyn.policy.loadbalancing.MockContainerEntityImpl;
-import org.apache.brooklyn.policy.loadbalancing.MockItemEntity;
-import org.apache.brooklyn.policy.loadbalancing.MockItemEntityImpl;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-public class FollowTheSunModelTest {
+public class FollowTheSunModelTest extends BrooklynAppUnitTestSupport {
 
-    private Location loc1 = new SimulatedLocation(DefaultFollowTheSunModel.newHashMap("name","loc1"));
-    private Location loc2 = new SimulatedLocation(DefaultFollowTheSunModel.newHashMap("name","loc2"));
-    private MockContainerEntity container1 = new MockContainerEntityImpl();
-    private MockContainerEntity container2 = new MockContainerEntityImpl();
-    private MockItemEntity item1 = new MockItemEntityImpl();
-    private MockItemEntity item2 = new MockItemEntityImpl();
-    private MockItemEntity item3 = new MockItemEntityImpl();
+    private Location loc1;
+    private Location loc2;
+    private MockContainerEntity container1;
+    private MockContainerEntity container2;
+    private MockItemEntity item1;
+    private MockItemEntity item2;
+    private MockItemEntity item3;
     
     private DefaultFollowTheSunModel<MockContainerEntity, MockItemEntity> model;
 
     @BeforeMethod(alwaysRun=true)
+    @Override
     public void setUp() throws Exception {
+        super.setUp();
         model = new DefaultFollowTheSunModel<MockContainerEntity, MockItemEntity>("myname");
+        
+        loc1 = mgmt.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class)
+                .configure("name","loc1"));
+        loc2 = mgmt.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class)
+                .configure("name","loc2"));
+        container1 = app.addChild(EntitySpec.create(MockContainerEntity.class));
+        container2 = app.addChild(EntitySpec.create(MockContainerEntity.class));
+        item1 = app.addChild(EntitySpec.create(MockItemEntity.class));
+        item2 = app.addChild(EntitySpec.create(MockItemEntity.class));
+        item3 = app.addChild(EntitySpec.create(MockItemEntity.class));
     }
     
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        // noting to tear down; no management context created
-    }
-
     @Test
     public void testSimpleAddAndRemove() throws Exception {
         model.onContainerAdded(container1, loc1);

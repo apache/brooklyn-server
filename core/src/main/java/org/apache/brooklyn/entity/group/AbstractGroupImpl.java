@@ -21,7 +21,6 @@ package org.apache.brooklyn.entity.group;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -62,14 +61,6 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
     private static final Logger log = LoggerFactory.getLogger(AbstractGroupImpl.class);
 
     private Set<Entity> members = Sets.newLinkedHashSet();
-
-    public AbstractGroupImpl() {
-    }
-
-    @Deprecated
-    public AbstractGroupImpl(@SuppressWarnings("rawtypes") Map flags, Entity parent) {
-        super(flags, parent);
-    }
 
     @Override
     public void setManagementContext(ManagementContextInternal managementContext) {

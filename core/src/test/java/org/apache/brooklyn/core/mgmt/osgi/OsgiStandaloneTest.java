@@ -170,7 +170,7 @@ public class OsgiStandaloneTest extends OsgiTestBase {
     public void testLoadOsgiBundleDependencies() throws Exception {
         Bundle bundle = installFromClasspath(BROOKLYN_TEST_OSGI_ENTITIES_PATH);
         Assert.assertNotNull(bundle);
-        Class<?> aClass = bundle.loadClass("org.apache.brooklyn.test.osgi.entities.SimpleApplicationImpl");
+        Class<?> aClass = bundle.loadClass("org.apache.brooklyn.test.osgi.entities.SimpleObject");
         Object aInst = aClass.newInstance();
         Assert.assertNotNull(aInst);
     }

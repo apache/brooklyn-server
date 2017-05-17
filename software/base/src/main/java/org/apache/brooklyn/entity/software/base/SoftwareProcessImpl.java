@@ -89,19 +89,6 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
 
     protected boolean connectedSensors = false;
 
-    public SoftwareProcessImpl() {
-        super(MutableMap.of(), null);
-    }
-    public SoftwareProcessImpl(Entity parent) {
-        this(MutableMap.of(), parent);
-    }
-    public SoftwareProcessImpl(Map properties) {
-        this(properties, null);
-    }
-    public SoftwareProcessImpl(Map properties, Entity parent) {
-        super(properties, parent);
-    }
-
     protected void setProvisioningLocation(MachineProvisioningLocation val) {
         if (getAttribute(PROVISIONING_LOCATION) != null) throw new IllegalStateException("Cannot change provisioning location: existing="+getAttribute(PROVISIONING_LOCATION)+"; new="+val);
         sensors().set(PROVISIONING_LOCATION, val);
