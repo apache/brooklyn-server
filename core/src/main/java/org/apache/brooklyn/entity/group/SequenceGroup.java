@@ -41,7 +41,7 @@ import com.google.common.reflect.TypeToken;
  * <p>
  * Usage:
  * <pre>{@code
- * - type: org.apache.brooklyn.entity.stock.SequenceGroup
+ * - type: org.apache.brooklyn.entity.group.SequenceGroup
  *   id: entity-sequence
  *   brooklyn.config:
  *     entityFilter:
