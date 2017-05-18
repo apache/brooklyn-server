@@ -1,11 +1,29 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.brooklyn.container.location.kubernetes;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-
-import java.io.File;
-import java.util.List;
-
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import com.google.common.base.Charsets;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
+import com.google.common.io.Files;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.LogWatcher;
 import org.apache.brooklyn.test.LogWatcher.EventPredicates;
@@ -15,24 +33,22 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Charsets;
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
-import com.google.common.io.Files;
+import java.io.File;
+import java.util.List;
 
-import ch.qos.logback.classic.spi.ILoggingEvent;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 public class KubernetesCertsTest {
 
     private List<File> tempFiles;
 
-    @BeforeMethod(alwaysRun=true)
+    @BeforeMethod(alwaysRun = true)
     public void setUp() throws Exception {
         tempFiles = Lists.newArrayList();
     }
-    
-    @AfterMethod(alwaysRun=true)
+
+    @AfterMethod(alwaysRun = true)
     public void tearDown() throws Exception {
         if (tempFiles != null) {
             for (File tempFile : tempFiles) {
@@ -40,12 +56,12 @@ public class KubernetesCertsTest {
             }
         }
     }
-    
+
     @Test
     public void testCertsAbsent() throws Exception {
         ConfigBag config = ConfigBag.newInstance();
         KubernetesCerts certs = new KubernetesCerts(config);
-        
+
         assertFalse(certs.caCertData.isPresent());
         assertFalse(certs.clientCertData.isPresent());
         assertFalse(certs.clientKeyData.isPresent());
@@ -63,7 +79,7 @@ public class KubernetesCertsTest {
                 .put(KubernetesLocationConfig.CLIENT_KEY_PASSPHRASE, "myClientKeyPassphrase")
                 .build());
         KubernetesCerts certs = new KubernetesCerts(config);
-        
+
         assertEquals(certs.caCertData.get(), "myCaCertData");
         assertEquals(certs.clientCertData.get(), "myClientCertData");
         assertEquals(certs.clientKeyData.get(), "myClientKeyData");
@@ -79,12 +95,12 @@ public class KubernetesCertsTest {
                 .put(KubernetesLocationConfig.CLIENT_KEY_FILE, newTempFile("myClientKeyData").getAbsolutePath())
                 .build());
         KubernetesCerts certs = new KubernetesCerts(config);
-        
+
         assertEquals(certs.caCertData.get(), "myCaCertData");
         assertEquals(certs.clientCertData.get(), "myClientCertData");
         assertEquals(certs.clientKeyData.get(), "myClientKeyData");
     }
-    
+
     @Test
     public void testCertsFailsIfConflictingConfig() throws Exception {
         ConfigBag config = ConfigBag.newInstance(ImmutableMap.builder()
@@ -98,18 +114,18 @@ public class KubernetesCertsTest {
             Asserts.expectedFailureContains(e, "Duplicate conflicting configuration for caCertData and caCertFile");
         }
     }
-    
+
     @Test
     public void testCertsWarnsIfConflictingConfig() throws Exception {
         ConfigBag config = ConfigBag.newInstance(ImmutableMap.builder()
                 .put(KubernetesLocationConfig.CA_CERT_DATA, "myCaCertData")
                 .put(KubernetesLocationConfig.CA_CERT_FILE, newTempFile("myCaCertData").getAbsolutePath())
                 .build());
-        
+
         String loggerName = KubernetesCerts.class.getName();
         ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.WARN;
-        Predicate<ILoggingEvent> filter = EventPredicates.containsMessage("Duplicate (matching) configuration for " 
-                    + "caCertData and caCertFile (continuing)");
+        Predicate<ILoggingEvent> filter = EventPredicates.containsMessage("Duplicate (matching) configuration for "
+                + "caCertData and caCertFile (continuing)");
         LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter);
 
         watcher.start();
@@ -120,14 +136,14 @@ public class KubernetesCertsTest {
         } finally {
             watcher.close();
         }
-        
+
         assertEquals(certs.caCertData.get(), "myCaCertData");
     }
-    
+
     @Test
     public void testCertsFailsIfFileNotFound() throws Exception {
         ConfigBag config = ConfigBag.newInstance(ImmutableMap.builder()
-                .put(KubernetesLocationConfig.CA_CERT_FILE, "/path/to/fileDoesNotExist-"+Identifiers.makeRandomId(8))
+                .put(KubernetesLocationConfig.CA_CERT_FILE, "/path/to/fileDoesNotExist-" + Identifiers.makeRandomId(8))
                 .build());
         try {
             new KubernetesCerts(config);
@@ -136,7 +152,7 @@ public class KubernetesCertsTest {
             Asserts.expectedFailureContains(e, "not found on classpath or filesystem");
         }
     }
-    
+
     private File newTempFile(String contents) throws Exception {
         File file = File.createTempFile("KubernetesCertsTest", ".txt");
         tempFiles.add(file);

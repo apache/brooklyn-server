@@ -1,14 +1,31 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.brooklyn.container.entity.docker;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
-
-import com.google.common.collect.ImmutableMap;
-import com.google.common.reflect.TypeToken;
 
 /**
  * The DockerContainer type is for easily deploying any docker image from the
@@ -60,7 +77,8 @@ public interface DockerContainer extends SoftwareProcess {
     @SuppressWarnings("serial")
     ConfigKey<Iterable<String>> INBOUND_TCP_PORTS =
             ConfigKeys.newConfigKey(
-                    new TypeToken<Iterable<String>>() {},
+                    new TypeToken<Iterable<String>>() {
+                    },
                     "docker.container.inboundPorts",
                     "List of ports, that the docker image opens, to be made public");
 

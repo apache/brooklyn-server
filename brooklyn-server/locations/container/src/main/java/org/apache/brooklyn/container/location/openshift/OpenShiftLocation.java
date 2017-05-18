@@ -1,24 +1,24 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.brooklyn.container.location.openshift;
 
-import java.net.InetAddress;
-import java.util.Map;
-
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
-import org.apache.brooklyn.util.net.Networking;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.collect.ImmutableSet;
-
-import org.apache.brooklyn.container.location.kubernetes.KubernetesClientRegistry;
-import org.apache.brooklyn.container.location.kubernetes.KubernetesLocation;
-import org.apache.brooklyn.container.location.kubernetes.machine.KubernetesMachineLocation;
-import org.apache.brooklyn.container.entity.openshift.OpenShiftPod;
-import org.apache.brooklyn.container.entity.openshift.OpenShiftResource;
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Namespace;
@@ -33,13 +33,27 @@ import io.fabric8.openshift.api.model.DeploymentConfigStatus;
 import io.fabric8.openshift.api.model.Project;
 import io.fabric8.openshift.api.model.ProjectBuilder;
 import io.fabric8.openshift.client.OpenShiftClient;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.container.entity.openshift.OpenShiftPod;
+import org.apache.brooklyn.container.entity.openshift.OpenShiftResource;
+import org.apache.brooklyn.container.location.kubernetes.KubernetesClientRegistry;
+import org.apache.brooklyn.container.location.kubernetes.KubernetesLocation;
+import org.apache.brooklyn.container.location.kubernetes.machine.KubernetesMachineLocation;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
+import org.apache.brooklyn.util.net.Networking;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.net.InetAddress;
+import java.util.Map;
 
 public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLocationConfig {
 
-    private static final Logger LOG = LoggerFactory.getLogger(OpenShiftLocation.class);
-
     public static final String OPENSHIFT_GENERATED_BY = "openshift.io/generated-by";
-
+    private static final Logger LOG = LoggerFactory.getLogger(OpenShiftLocation.class);
     private OpenShiftClient client;
 
     public OpenShiftLocation() {
@@ -115,10 +129,11 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
                 Project actualProject = client.projects().withName(name).get();
                 return actualProject != null && actualProject.getStatus().getPhase().equals(PHASE_ACTIVE);
             }
+
             @Override
             public String getFailureMessage() {
                 Project actualProject = client.projects().withName(name).get();
-                return "Project for " + name+ " " + (actualProject == null ? "absent" : " status " + actualProject.getStatus());
+                return "Project for " + name + " " + (actualProject == null ? "absent" : " status " + actualProject.getStatus());
             }
         };
         if (project != null) {
@@ -144,9 +159,10 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
                     public Boolean call() {
                         return client.projects().withName(name).get() == null;
                     }
+
                     @Override
                     public String getFailureMessage() {
-                        return "Project " + name+ " still present";
+                        return "Project " + name + " still present";
                     }
                 };
                 waitForExitCondition(exitCondition);
@@ -157,46 +173,46 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
     @Override
     protected boolean isNamespaceEmpty(String namespace) {
         return client.deploymentConfigs().inNamespace(namespace).list().getItems().isEmpty() &&
-               client.services().inNamespace(namespace).list().getItems().isEmpty() &&
-               client.secrets().inNamespace(namespace).list().getItems().isEmpty();
+                client.services().inNamespace(namespace).list().getItems().isEmpty() &&
+                client.secrets().inNamespace(namespace).list().getItems().isEmpty();
     }
 
     @Override
     protected void deploy(final String namespace, Entity entity, Map<String, String> metadata, final String deploymentName, Container container, final Integer replicas, Map<String, String> secrets) {
         PodTemplateSpecBuilder podTemplateSpecBuilder = new PodTemplateSpecBuilder()
                 .withNewMetadata()
-                    .addToLabels("name", deploymentName)
-                    .addToLabels(metadata)
+                .addToLabels("name", deploymentName)
+                .addToLabels(metadata)
                 .endMetadata()
                 .withNewSpec()
-                    .addToContainers(container)
+                .addToContainers(container)
                 .endSpec();
         if (secrets != null) {
             for (String secretName : secrets.keySet()) {
                 podTemplateSpecBuilder.withNewSpec()
-                            .addToContainers(container)
-                            .addNewImagePullSecret(secretName)
+                        .addToContainers(container)
+                        .addNewImagePullSecret(secretName)
                         .endSpec();
             }
         }
         PodTemplateSpec template = podTemplateSpecBuilder.build();
         DeploymentConfig deployment = new DeploymentConfigBuilder()
                 .withNewMetadata()
-                    .withName(deploymentName)
-                    .addToAnnotations(OPENSHIFT_GENERATED_BY, "AMP")
-                    .addToAnnotations(CLOUDSOFT_ENTITY_ID, entity.getId())
-                    .addToAnnotations(CLOUDSOFT_APPLICATION_ID, entity.getApplicationId())
+                .withName(deploymentName)
+                .addToAnnotations(OPENSHIFT_GENERATED_BY, "AMP")
+                .addToAnnotations(CLOUDSOFT_ENTITY_ID, entity.getId())
+                .addToAnnotations(CLOUDSOFT_APPLICATION_ID, entity.getApplicationId())
                 .endMetadata()
                 .withNewSpec()
-                    .withNewStrategy()
-                        .withType("Recreate")
-                    .endStrategy()
-                    .addNewTrigger()
-                        .withType("ConfigChange")
-                    .endTrigger()
-                    .withReplicas(replicas)
-                    .addToSelector("name", deploymentName)
-                    .withTemplate(template)
+                .withNewStrategy()
+                .withType("Recreate")
+                .endStrategy()
+                .addNewTrigger()
+                .withType("ConfigChange")
+                .endTrigger()
+                .withReplicas(replicas)
+                .addToSelector("name", deploymentName)
+                .withTemplate(template)
                 .endSpec()
                 .build();
         client.deploymentConfigs().inNamespace(namespace).create(deployment);
@@ -208,6 +224,7 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
                 Integer replicas = (status == null) ? null : status.getAvailableReplicas();
                 return replicas != null && replicas.intValue() == replicas;
             }
+
             @Override
             public String getFailureMessage() {
                 DeploymentConfig dc = client.deploymentConfigs().inNamespace(namespace).withName(deploymentName).get();
@@ -232,6 +249,7 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
             public Boolean call() {
                 return client.deploymentConfigs().inNamespace(namespace).withName(deployment).get() == null;
             }
+
             @Override
             public String getFailureMessage() {
                 return "No deployment with namespace=" + namespace + ", deployment=" + deployment;

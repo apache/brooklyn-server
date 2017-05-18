@@ -1,14 +1,31 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.brooklyn.container.location.kubernetes;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
-
-import java.util.List;
-import java.util.Map;
-
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
+import com.google.common.net.HostAndPort;
 import org.apache.brooklyn.api.location.MachineDetails;
 import org.apache.brooklyn.api.location.OsDetails;
+import org.apache.brooklyn.container.location.kubernetes.machine.KubernetesMachineLocation;
+import org.apache.brooklyn.container.location.kubernetes.machine.KubernetesSshMachineLocation;
 import org.apache.brooklyn.core.location.BasicMachineDetails;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
@@ -23,37 +40,32 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
-import com.google.common.net.HostAndPort;
+import java.util.List;
+import java.util.Map;
 
-import org.apache.brooklyn.container.location.kubernetes.machine.KubernetesMachineLocation;
-import org.apache.brooklyn.container.location.kubernetes.machine.KubernetesSshMachineLocation;
+import static org.testng.Assert.*;
 
 /**
-/**
+ * /**
  * Live tests for deploying simple containers. Particularly useful during dev, but not so useful
  * after that (because assumes the existence of a kubernetes endpoint). It needs configured with
  * something like:
- *
- *   {@code -Dtest.amp.kubernetes.endpoint=http://10.104.2.206:8080}).
- *
+ * <p>
+ * {@code -Dtest.amp.kubernetes.endpoint=http://10.104.2.206:8080}).
+ * <p>
  * The QA Framework is more important for that - hence these tests (trying to be) kept simple
  * and focused.
  */
 public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
 
-    private static final Logger LOG = LoggerFactory.getLogger(KubernetesLocationLiveTest.class);
-
     public static final String KUBERNETES_ENDPOINT = System.getProperty("test.amp.kubernetes.endpoint", "");
     public static final String IDENTITY = System.getProperty("test.amp.kubernetes.identity", "");
     public static final String CREDENTIAL = System.getProperty("test.amp.kubernetes.credential", "");
-
+    private static final Logger LOG = LoggerFactory.getLogger(KubernetesLocationLiveTest.class);
     protected KubernetesLocation loc;
     protected List<KubernetesMachineLocation> machines;
 
-    @BeforeMethod(alwaysRun=true)
+    @BeforeMethod(alwaysRun = true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
@@ -61,21 +73,21 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
     }
 
     // FIXME: Clear up properly: Test leaves deployment, replicas and pods behind if obtain fails.
-    @AfterMethod(alwaysRun=true)
+    @AfterMethod(alwaysRun = true)
     @Override
     public void tearDown() throws Exception {
         for (KubernetesMachineLocation machine : machines) {
             try {
                 loc.release(machine);
             } catch (Exception e) {
-                LOG.error("Error releasing machine "+machine+" in location "+loc, e);
+                LOG.error("Error releasing machine " + machine + " in location " + loc, e);
             }
         }
         super.tearDown();
     }
 
     protected KubernetesLocation newKubernetesLocation(Map<String, ?> flags) throws Exception {
-        Map<String,?> allFlags = MutableMap.<String,Object>builder()
+        Map<String, ?> allFlags = MutableMap.<String, Object>builder()
                 .put("identity", IDENTITY)
                 .put("credential", CREDENTIAL)
                 .put("endpoint", KUBERNETES_ENDPOINT)
@@ -84,18 +96,18 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
         return (KubernetesLocation) mgmt.getLocationRegistry().getLocationManaged("kubernetes", allFlags);
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testDefault() throws Exception {
         // Default is "cloudsoft/centos:7"
         runImage(ImmutableMap.<String, Object>of(), "centos", "7");
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testMatchesCentos() throws Exception {
         runImage(ImmutableMap.<String, Object>of(KubernetesLocationConfig.OS_FAMILY.getName(), "centos"), "centos", "7");
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testMatchesCentos7() throws Exception {
         ImmutableMap<String, Object> conf = ImmutableMap.<String, Object>of(
                 KubernetesLocationConfig.OS_FAMILY.getName(), "centos",
@@ -103,12 +115,12 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
         runImage(conf, "centos", "7");
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testMatchesUbuntu() throws Exception {
         runImage(ImmutableMap.<String, Object>of(KubernetesLocationConfig.OS_FAMILY.getName(), "ubuntu"), "ubuntu", "14.04");
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testMatchesUbuntu16() throws Exception {
         ImmutableMap<String, Object> conf = ImmutableMap.<String, Object>of(
                 KubernetesLocationConfig.OS_FAMILY.getName(), "ubuntu",
@@ -116,22 +128,22 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
         runImage(conf, "ubuntu", "16.04");
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testCloudsoftCentos7() throws Exception {
         runImage(ImmutableMap.of(KubernetesLocationConfig.IMAGE.getName(), "cloudsoft/centos:7"), "centos", "7");
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testCloudsoftUbuntu14() throws Exception {
         runImage(ImmutableMap.of(KubernetesLocationConfig.IMAGE.getName(), "cloudsoft/ubuntu:14.04"), "ubuntu", "14.04");
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testCloudsoftUbuntu16() throws Exception {
         runImage(ImmutableMap.of(KubernetesLocationConfig.IMAGE.getName(), "cloudsoft/ubuntu:16.04"), "ubuntu", "16.04");
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testFailsForNonMatching() throws Exception {
         ImmutableMap<String, Object> conf = ImmutableMap.<String, Object>of(
                 KubernetesLocationConfig.OS_FAMILY.getName(), "weirdOsFamiliy");
@@ -150,12 +162,12 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
                 .put(LocationConfigKeys.CALLER_CONTEXT.getName(), app)
                 .build());
 
-        assertTrue(machine.isSshable(), "not sshable machine="+machine);
+        assertTrue(machine.isSshable(), "not sshable machine=" + machine);
         assertOsNameContains(machine, expectedOs, expectedVersion);
         assertMachinePasswordSecure(machine);
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     protected void testUsesSuppliedLoginPassword() throws Exception {
         // Because defaulting to "cloudsoft/centos:7", it knows to set the loginUserPassword
         // on container creation.
@@ -166,11 +178,11 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
                 .put(LocationConfigKeys.CALLER_CONTEXT.getName(), app)
                 .build());
 
-        assertTrue(machine.isSshable(), "not sshable machine="+machine);
+        assertTrue(machine.isSshable(), "not sshable machine=" + machine);
         assertEquals(machine.config().get(SshMachineLocation.PASSWORD), password);
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testOpenPorts() throws Exception {
         List<Integer> inboundPorts = ImmutableList.of(22, 443, 8000, 8081);
         loc = newKubernetesLocation(ImmutableMap.<String, Object>of());
@@ -186,9 +198,9 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
         PortForwardManager pfm = (PortForwardManager) mgmt.getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         for (int targetPort : inboundPorts) {
             HostAndPort mappedPort = pfm.lookup(machine, targetPort);
-            assertNotNull(mappedPort, "no mapping for targetPort "+targetPort);
+            assertNotNull(mappedPort, "no mapping for targetPort " + targetPort);
             assertEquals(mappedPort.getHostText(), publicHostText);
-            assertTrue(mappedPort.hasPort(), "no port-part in "+mappedPort+" for targetPort "+targetPort);
+            assertTrue(mappedPort.hasPort(), "no port-part in " + mappedPort + " for targetPort " + targetPort);
         }
     }
 
@@ -199,8 +211,8 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
         OsDetails osDetails = machineDetails.getOsDetails();
         String osName = osDetails.getName();
         String osVersion = osDetails.getVersion();
-        assertTrue(osName != null && osName.toLowerCase().contains(expectedNamePart), "osDetails="+osDetails);
-        assertTrue(osVersion != null && osVersion.toLowerCase().contains(expectedVersionPart), "osDetails="+osDetails);
+        assertTrue(osName != null && osName.toLowerCase().contains(expectedNamePart), "osDetails=" + osDetails);
+        assertTrue(osVersion != null && osVersion.toLowerCase().contains(expectedVersionPart), "osDetails=" + osDetails);
     }
 
     protected SshMachineLocation newContainerMachine(KubernetesLocation loc, Map<?, ?> flags) throws Exception {
@@ -212,7 +224,7 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
 
     protected void assertMachinePasswordSecure(SshMachineLocation machine) {
         String password = machine.config().get(SshMachineLocation.PASSWORD);
-        assertTrue(password.length() > 10, "password="+password);
+        assertTrue(password.length() > 10, "password=" + password);
         boolean hasUpper = false;
         boolean hasLower = false;
         boolean hasNonAlphabetic = false;
@@ -221,6 +233,6 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
             if (Character.isLowerCase(c)) hasLower = true;
             if (!Character.isAlphabetic(c)) hasNonAlphabetic = true;
         }
-        assertTrue(hasUpper && hasLower && hasNonAlphabetic, "password="+password);
+        assertTrue(hasUpper && hasLower && hasNonAlphabetic, "password=" + password);
     }
 }

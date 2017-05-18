@@ -1,30 +1,36 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.brooklyn.container.location.kubernetes;
 
-import static com.google.common.base.Predicates.and;
-import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.base.Predicates.notNull;
-import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationLiveTest.CREDENTIAL;
-import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationLiveTest.IDENTITY;
-import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationLiveTest.KUBERNETES_ENDPOINT;
-import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEquals;
-import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEqualsEventually;
-import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEventually;
-import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEventuallyNonNull;
-import static org.apache.brooklyn.core.entity.EntityAsserts.assertEntityHealthy;
-import static org.apache.brooklyn.test.Asserts.succeedsEventually;
-import static org.apache.brooklyn.util.http.HttpAsserts.assertHttpStatusCodeEventuallyEquals;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
-
-import java.util.List;
-import java.util.Map;
-
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.net.HostAndPort;
+import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.client.KubernetesClient;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
+import org.apache.brooklyn.container.entity.docker.DockerContainer;
+import org.apache.brooklyn.container.entity.kubernetes.KubernetesPod;
+import org.apache.brooklyn.container.entity.kubernetes.KubernetesResource;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityPredicates;
@@ -39,28 +45,28 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.text.Identifiers;
-import org.apache.logging.log4j.util.Strings;
+import org.apache.commons.lang3.StringUtils;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.net.HostAndPort;
+import java.util.List;
+import java.util.Map;
 
-import org.apache.brooklyn.container.entity.docker.DockerContainer;
-import org.apache.brooklyn.container.entity.kubernetes.KubernetesPod;
-import org.apache.brooklyn.container.entity.kubernetes.KubernetesResource;
-import io.fabric8.kubernetes.api.model.Pod;
-import io.fabric8.kubernetes.client.KubernetesClient;
+import static com.google.common.base.Predicates.*;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationLiveTest.*;
+import static org.apache.brooklyn.core.entity.EntityAsserts.*;
+import static org.apache.brooklyn.test.Asserts.succeedsEventually;
+import static org.apache.brooklyn.util.http.HttpAsserts.assertHttpStatusCodeEventuallyEquals;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 /**
  * Live tests for deploying simple blueprints. Particularly useful during dev, but not so useful
  * after that (because assumes the existence of a kubernetes endpoint). It needs configured with
  * something like:
- *
- *   {@code -Dtest.amp.kubernetes.endpoint=http://10.104.2.206:8080}).
- *
+ * <p>
+ * {@code -Dtest.amp.kubernetes.endpoint=http://10.104.2.206:8080}).
+ * <p>
  * The QA Framework is more important for that - hence these tests (trying to be) kept simple
  * and focused.
  */
@@ -70,7 +76,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     protected List<MachineLocation> machines;
     protected String locationYaml;
 
-    @BeforeMethod(alwaysRun=true)
+    @BeforeMethod(alwaysRun = true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
@@ -79,11 +85,11 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "location:",
                 "  kubernetes:",
                 "    " + KubernetesLocationConfig.MASTER_URL.getName() + ": \"" + KUBERNETES_ENDPOINT + "\"",
-                "    " + (Strings.isBlank(IDENTITY) ? "" : "identity: "+IDENTITY),
-                "    " + (Strings.isBlank(CREDENTIAL) ? "" : "credential: "+CREDENTIAL));
+                "    " + (StringUtils.isBlank(IDENTITY) ? "" : "identity: " + IDENTITY),
+                "    " + (StringUtils.isBlank(CREDENTIAL) ? "" : "credential: " + CREDENTIAL));
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testLoginPasswordOverride() throws Exception {
         String customPassword = "myDifferentPassword";
 
@@ -103,7 +109,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         assertTrue(machine.isSshable());
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testNetcatServer() throws Exception {
         // Runs as root user (hence not `sudo yum install ...`)
         // breaks if shell.env uses attributeWhenReady, so not doing that - see testNetcatServerWithDslInShellEnv()
@@ -136,10 +142,10 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         String publicMapped = assertAttributeEventuallyNonNull(entity, Sensors.newStringSensor("netcat.endpoint.mapped.public"));
         HostAndPort publicPort = HostAndPort.fromString(publicMapped);
 
-        assertTrue(Networking.isReachable(publicPort), "publicPort="+publicPort);
+        assertTrue(Networking.isReachable(publicPort), "publicPort=" + publicPort);
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testInterContainerNetworking() throws Exception {
         String message = "mymessage";
         int netcatPort = 8081;
@@ -189,13 +195,13 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "cat netcat.out",
                 "grep " + message + " netcat.out"));
 
-        String errMsg = "result1="+result1+"; result2="+result2+"; result3="+result3;
+        String errMsg = "result1=" + result1 + "; result2=" + result2 + "; result3=" + result3;
         assertEquals(result1, 0, errMsg);
         assertEquals(result2, 0, errMsg);
         assertEquals(result3, 0, errMsg);
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testTomcatPod() throws Exception {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
@@ -208,7 +214,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         runTomcat(yaml, KubernetesPod.class);
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testTomcatPodExtras() throws Exception {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
@@ -231,7 +237,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         assertEquals(labels.get("extra"), "test");
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testTomcatContainer() throws Exception {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
@@ -256,12 +262,12 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         HostAndPort publicPort = HostAndPort.fromString(publicMapped);
 
         assertReachableEventually(publicPort);
-        assertHttpStatusCodeEventuallyEquals("http://"+publicPort.getHostText()+":"+publicPort.getPort(), 200);
+        assertHttpStatusCodeEventuallyEquals("http://" + publicPort.getHostText() + ":" + publicPort.getPort(), 200);
 
         return entity;
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testWordpressInContainersWithStartableParent() throws Exception {
         // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
         String randomId = Identifiers.makeRandomLowercaseId(4);
@@ -297,7 +303,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         runWordpress(yaml, randomId);
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testWordpressInPodsWithStartableParent() throws Exception {
         // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
         String randomId = Identifiers.makeRandomLowercaseId(4);
@@ -331,7 +337,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         runWordpress(yaml, randomId);
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testWordpressInPods() throws Exception {
         // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
         String randomId = Identifiers.makeRandomLowercaseId(4);
@@ -388,7 +394,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         // TODO more assertions (e.g. wordpress can successfully reach the database)
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testPod() throws Exception {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
@@ -407,7 +413,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     }
 
     /* Test disabled as QA framework AMP does not have catalog entries deployed yet */
-    @Test(groups={"Live"}, enabled=false)
+    @Test(groups = {"Live"}, enabled = false)
     public void testPodCatalogEntry() throws Exception {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
@@ -434,10 +440,10 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         HostAndPort publicPort = HostAndPort.fromString(publicMapped);
 
         assertReachableEventually(publicPort);
-        assertHttpStatusCodeEventuallyEquals("http://"+publicPort.getHostText()+":"+publicPort.getPort(), 200);
+        assertHttpStatusCodeEventuallyEquals("http://" + publicPort.getHostText() + ":" + publicPort.getPort(), 200);
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testNginxReplicationController() throws Exception {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
@@ -465,7 +471,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         assertAttributeEventually(entity, SoftwareProcess.SUBNET_ADDRESS, and(notNull(), not(equalTo("0.0.0.0"))));
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testNginxService() throws Exception {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
@@ -500,8 +506,9 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     protected void assertReachableEventually(final HostAndPort hostAndPort) {
         succeedsEventually(new Runnable() {
             public void run() {
-                assertTrue(Networking.isReachable(hostAndPort), "publicPort="+hostAndPort);
-            }});
+                assertTrue(Networking.isReachable(hostAndPort), "publicPort=" + hostAndPort);
+            }
+        });
     }
 
     public KubernetesClient getClient(Entity entity) {

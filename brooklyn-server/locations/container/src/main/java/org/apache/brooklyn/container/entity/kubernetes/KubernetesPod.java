@@ -1,22 +1,38 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.brooklyn.container.entity.kubernetes;
 
-import java.util.List;
-import java.util.Map;
-
+import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.container.entity.docker.DockerContainer;
+import org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.math.MathPredicates;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.reflect.TypeToken;
-
-import org.apache.brooklyn.container.entity.docker.DockerContainer;
-import org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig;
+import java.util.List;
+import java.util.Map;
 
 @ImplementedBy(KubernetesPodImpl.class)
 public interface KubernetesPod extends DockerContainer {
@@ -26,7 +42,8 @@ public interface KubernetesPod extends DockerContainer {
     ConfigKey<Boolean> PRIVILEGED = KubernetesLocationConfig.PRIVILEGED;
 
     @SuppressWarnings("serial")
-    ConfigKey<List<String>> PERSISTENT_VOLUMES = ConfigKeys.builder(new TypeToken<List<String>>() {})
+    ConfigKey<List<String>> PERSISTENT_VOLUMES = ConfigKeys.builder(new TypeToken<List<String>>() {
+    })
             .name("persistentVolumes")
             .description("Persistent volumes used by the pod")
             .build();
@@ -44,13 +61,15 @@ public interface KubernetesPod extends DockerContainer {
             .build();
 
     @SuppressWarnings("serial")
-    ConfigKey<Map<String, String>> SECRETS = ConfigKeys.builder(new TypeToken<Map<String, String>>() {})
+    ConfigKey<Map<String, String>> SECRETS = ConfigKeys.builder(new TypeToken<Map<String, String>>() {
+    })
             .name("secrets")
             .description("Secrets to be added to the pod")
             .build();
 
     @SuppressWarnings("serial")
-    ConfigKey<Map<String, String>> LIMITS = ConfigKeys.builder(new TypeToken<Map<String, String>>() {})
+    ConfigKey<Map<String, String>> LIMITS = ConfigKeys.builder(new TypeToken<Map<String, String>>() {
+    })
             .name("limits")
             .description("Container resource limits for the pod")
             .build();

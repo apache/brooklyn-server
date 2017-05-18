@@ -1,39 +1,39 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.brooklyn.container.location.openshift;
 
-import static com.google.common.base.Predicates.and;
-import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.base.Predicates.notNull;
-import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.CA_CERT_FILE;
-import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.CLIENT_CERT_FILE;
-import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.CLIENT_KEY_FILE;
-import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.NAMESPACE;
-import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.OPENSHIFT_ENDPOINT;
-import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttribute;
-import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEquals;
-import static org.apache.brooklyn.core.entity.EntityAsserts.assertEntityHealthy;
-
+import com.google.common.base.Joiner;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.entity.software.base.SoftwareProcess;
+import org.apache.brooklyn.container.entity.openshift.OpenShiftPod;
+import org.apache.brooklyn.container.entity.openshift.OpenShiftResource;
+import org.apache.brooklyn.container.location.kubernetes.KubernetesLocationYamlLiveTest;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.Iterables;
-
-import org.apache.brooklyn.container.entity.kubernetes.KubernetesPod;
-import org.apache.brooklyn.container.entity.kubernetes.KubernetesResource;
-import org.apache.brooklyn.container.location.kubernetes.KubernetesLocationYamlLiveTest;
-import org.apache.brooklyn.container.entity.openshift.OpenShiftPod;
-import org.apache.brooklyn.container.entity.openshift.OpenShiftResource;
+import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.*;
 
 /**
  * Tests YAML apps via the {@code openshift"} location, to an OpenShift endpoint.
  * By extending {@link KubernetesLocationYamlLiveTest}, we get all the k8s tests.
- * 
+ * <p>
  * It needs configured with something like:
- * 
+ * <p>
  * <pre>
  * {@code
  * -Dtest.amp.openshift.endpoint=https://master.example.com:8443/
@@ -64,7 +64,7 @@ public class OpenShiftLocationYamlLiveTest extends KubernetesLocationYamlLiveTes
     //
     // With node1, it takes only 6 seconds to deploy the we app.
 
-    @BeforeMethod(alwaysRun=true)
+    @BeforeMethod(alwaysRun = true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
@@ -81,7 +81,7 @@ public class OpenShiftLocationYamlLiveTest extends KubernetesLocationYamlLiveTes
                 "    " + OpenShiftLocation.LOGIN_USER_PASSWORD.getName() + ": p4ssw0rd");
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testTomcatOpenShiftPod() throws Exception {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
@@ -94,7 +94,7 @@ public class OpenShiftLocationYamlLiveTest extends KubernetesLocationYamlLiveTes
         runTomcat(yaml, OpenShiftPod.class);
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testOpenShiftPod() throws Exception {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
@@ -113,7 +113,7 @@ public class OpenShiftLocationYamlLiveTest extends KubernetesLocationYamlLiveTes
     }
 
     /* Test disabled as QA framework AMP does not have catalog entries deployed yet */
-    @Test(groups={"Live"}, enabled=false)
+    @Test(groups = {"Live"}, enabled = false)
     public void testOpenShiftPodCatalogEntry() throws Exception {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
@@ -131,7 +131,7 @@ public class OpenShiftLocationYamlLiveTest extends KubernetesLocationYamlLiveTes
         checkPod(app, OpenShiftPod.class);
     }
 
-    @Test(groups={"Live"})
+    @Test(groups = {"Live"})
     public void testNginxOpenShiftResource() throws Exception {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
@@ -147,7 +147,7 @@ public class OpenShiftLocationYamlLiveTest extends KubernetesLocationYamlLiveTes
     }
 
     /* Test disabled as QA framework AMP does not have catalog entries deployed yet */
-    @Test(groups={"Live"}, enabled=false)
+    @Test(groups = {"Live"}, enabled = false)
     public void testNginxOpenShiftResourceCatalogEntry() throws Exception {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
