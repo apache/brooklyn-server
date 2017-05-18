@@ -6,11 +6,11 @@
 
 
     <bean id="dockerLocationResolver" scope="prototype"
-          class="io.cloudsoft.amp.containerservice.dockerlocation.DockerLocationResolver"/>
+          class="org.apache.brooklyn.container.location.docker.DockerLocationResolver"/>
     <bean id="kubernetesLocationResolver" scope="prototype"
-          class="io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationResolver"/>
+          class="org.apache.brooklyn.container.location.kubernetes.KubernetesLocationResolver"/>
     <bean id="openshiftLocationResolver" scope="prototype"
-          class="io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocationResolver"/>
+          class="org.apache.brooklyn.container.location.openshift.OpenShiftLocationResolver"/>
 
     <service id="dockerLocationResolverService" ref="dockerLocationResolver"
              interface="org.apache.brooklyn.api.location.LocationResolver"/>

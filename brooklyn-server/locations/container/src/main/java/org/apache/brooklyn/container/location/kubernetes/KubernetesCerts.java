@@ -1,13 +1,13 @@
-package io.cloudsoft.amp.containerservice.kubernetes.location;
+package org.apache.brooklyn.container.location.kubernetes;
 
-import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationConfig.CA_CERT_DATA;
-import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationConfig.CA_CERT_FILE;
-import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationConfig.CLIENT_CERT_DATA;
-import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationConfig.CLIENT_CERT_FILE;
-import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationConfig.CLIENT_KEY_ALGO;
-import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationConfig.CLIENT_KEY_DATA;
-import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationConfig.CLIENT_KEY_FILE;
-import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationConfig.CLIENT_KEY_PASSPHRASE;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.CA_CERT_DATA;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.CA_CERT_FILE;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.CLIENT_CERT_DATA;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.CLIENT_CERT_FILE;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.CLIENT_KEY_ALGO;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.CLIENT_KEY_DATA;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.CLIENT_KEY_FILE;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.CLIENT_KEY_PASSPHRASE;
 
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.core.ResourceUtils;

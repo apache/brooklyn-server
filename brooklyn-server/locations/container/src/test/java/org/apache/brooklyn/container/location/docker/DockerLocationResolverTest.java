@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.dockerlocation;
+package org.apache.brooklyn.container.location.docker;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

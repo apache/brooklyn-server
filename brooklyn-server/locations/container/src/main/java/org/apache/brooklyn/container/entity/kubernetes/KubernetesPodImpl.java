@@ -1,6 +1,6 @@
-package io.cloudsoft.amp.containerservice.kubernetes.entity;
+package org.apache.brooklyn.container.entity.kubernetes;
 
-import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainerImpl;
+import org.apache.brooklyn.container.entity.docker.DockerContainerImpl;
 
 public class KubernetesPodImpl extends DockerContainerImpl implements KubernetesPod {
 

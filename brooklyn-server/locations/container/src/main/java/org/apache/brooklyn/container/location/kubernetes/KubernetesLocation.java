@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.kubernetes.location;
+package org.apache.brooklyn.container.location.kubernetes;
 
 import java.io.InputStream;
 import java.net.InetAddress;
@@ -65,13 +65,13 @@ import com.google.common.collect.Sets;
 import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
 
-import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
-import io.cloudsoft.amp.containerservice.dockerlocation.DockerJcloudsLocation;
-import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod;
-import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesResource;
-import io.cloudsoft.amp.containerservice.kubernetes.location.machine.KubernetesEmptyMachineLocation;
-import io.cloudsoft.amp.containerservice.kubernetes.location.machine.KubernetesMachineLocation;
-import io.cloudsoft.amp.containerservice.kubernetes.location.machine.KubernetesSshMachineLocation;
+import org.apache.brooklyn.container.entity.docker.DockerContainer;
+import org.apache.brooklyn.container.location.docker.DockerJcloudsLocation;
+import org.apache.brooklyn.container.entity.kubernetes.KubernetesPod;
+import org.apache.brooklyn.container.entity.kubernetes.KubernetesResource;
+import org.apache.brooklyn.container.location.kubernetes.machine.KubernetesEmptyMachineLocation;
+import org.apache.brooklyn.container.location.kubernetes.machine.KubernetesMachineLocation;
+import org.apache.brooklyn.container.location.kubernetes.machine.KubernetesSshMachineLocation;
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.ContainerPort;

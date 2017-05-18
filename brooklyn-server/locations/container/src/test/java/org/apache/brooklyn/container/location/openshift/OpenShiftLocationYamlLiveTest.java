@@ -1,14 +1,14 @@
-package io.cloudsoft.amp.containerservice.openshift.location;
+package org.apache.brooklyn.container.location.openshift;
 
 import static com.google.common.base.Predicates.and;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Predicates.notNull;
-import static io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocationLiveTest.CA_CERT_FILE;
-import static io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocationLiveTest.CLIENT_CERT_FILE;
-import static io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocationLiveTest.CLIENT_KEY_FILE;
-import static io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocationLiveTest.NAMESPACE;
-import static io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocationLiveTest.OPENSHIFT_ENDPOINT;
+import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.CA_CERT_FILE;
+import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.CLIENT_CERT_FILE;
+import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.CLIENT_KEY_FILE;
+import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.NAMESPACE;
+import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.OPENSHIFT_ENDPOINT;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttribute;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEquals;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertEntityHealthy;
@@ -22,11 +22,11 @@ import org.testng.annotations.Test;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
 
-import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod;
-import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesResource;
-import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationYamlLiveTest;
-import io.cloudsoft.amp.containerservice.openshift.entity.OpenShiftPod;
-import io.cloudsoft.amp.containerservice.openshift.entity.OpenShiftResource;
+import org.apache.brooklyn.container.entity.kubernetes.KubernetesPod;
+import org.apache.brooklyn.container.entity.kubernetes.KubernetesResource;
+import org.apache.brooklyn.container.location.kubernetes.KubernetesLocationYamlLiveTest;
+import org.apache.brooklyn.container.entity.openshift.OpenShiftPod;
+import org.apache.brooklyn.container.entity.openshift.OpenShiftResource;
 
 /**
  * Tests YAML apps via the {@code openshift"} location, to an OpenShift endpoint.

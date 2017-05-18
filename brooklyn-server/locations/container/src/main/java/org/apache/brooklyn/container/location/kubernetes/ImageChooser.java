@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.kubernetes.location;
+package org.apache.brooklyn.container.location.kubernetes;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 

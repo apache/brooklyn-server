@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.kubernetes.entity;
+package org.apache.brooklyn.container.entity.kubernetes;
 
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;

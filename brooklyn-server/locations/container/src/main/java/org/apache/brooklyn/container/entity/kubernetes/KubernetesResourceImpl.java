@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.kubernetes.entity;
+package org.apache.brooklyn.container.entity.kubernetes;
 
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessImpl;

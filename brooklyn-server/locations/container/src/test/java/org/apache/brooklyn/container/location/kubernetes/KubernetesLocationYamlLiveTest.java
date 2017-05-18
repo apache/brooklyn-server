@@ -1,12 +1,12 @@
-package io.cloudsoft.amp.containerservice.kubernetes.location;
+package org.apache.brooklyn.container.location.kubernetes;
 
 import static com.google.common.base.Predicates.and;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Predicates.notNull;
-import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationLiveTest.CREDENTIAL;
-import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationLiveTest.IDENTITY;
-import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationLiveTest.KUBERNETES_ENDPOINT;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationLiveTest.CREDENTIAL;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationLiveTest.IDENTITY;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationLiveTest.KUBERNETES_ENDPOINT;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEquals;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEqualsEventually;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEventually;
@@ -48,9 +48,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
 
-import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
-import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod;
-import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesResource;
+import org.apache.brooklyn.container.entity.docker.DockerContainer;
+import org.apache.brooklyn.container.entity.kubernetes.KubernetesPod;
+import org.apache.brooklyn.container.entity.kubernetes.KubernetesResource;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
 

@@ -33,7 +33,7 @@ Once your Docker container location has been configured, AMP can launch instance
     location: my-docker-engine
 
     services:
-    - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+    - type: org.apache.brooklyn.container.entity.docker.DockerContainer
       id: wordpress-mysql
       name: MySQL
       brooklyn.config:
@@ -44,7 +44,7 @@ Once your Docker container location has been configured, AMP can launch instance
         - "3306"
         docker.container.environment: 
           MYSQL_ROOT_PASSWORD: $brooklyn:config("mysql.root_password")
-    - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+    - type: org.apache.brooklyn.container.entity.docker.DockerContainer
       id: wordpress
       name: Wordpress
       brooklyn.config:

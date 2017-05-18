@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.openshift.location;
+package org.apache.brooklyn.container.location.openshift;
 
 import java.net.InetAddress;
 import java.util.Map;
@@ -14,11 +14,11 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableSet;
 
-import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesClientRegistry;
-import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocation;
-import io.cloudsoft.amp.containerservice.kubernetes.location.machine.KubernetesMachineLocation;
-import io.cloudsoft.amp.containerservice.openshift.entity.OpenShiftPod;
-import io.cloudsoft.amp.containerservice.openshift.entity.OpenShiftResource;
+import org.apache.brooklyn.container.location.kubernetes.KubernetesClientRegistry;
+import org.apache.brooklyn.container.location.kubernetes.KubernetesLocation;
+import org.apache.brooklyn.container.location.kubernetes.machine.KubernetesMachineLocation;
+import org.apache.brooklyn.container.entity.openshift.OpenShiftPod;
+import org.apache.brooklyn.container.entity.openshift.OpenShiftResource;
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Namespace;

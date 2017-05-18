@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.dockercontainer;
+package org.apache.brooklyn.container.entity.docker;
 
 import java.util.Iterator;
 import java.util.List;

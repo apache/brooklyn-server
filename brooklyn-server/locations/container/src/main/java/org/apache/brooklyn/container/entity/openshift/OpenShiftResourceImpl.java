@@ -1,6 +1,6 @@
-package io.cloudsoft.amp.containerservice.openshift.entity;
+package org.apache.brooklyn.container.entity.openshift;
 
-import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesResourceImpl;
+import org.apache.brooklyn.container.entity.kubernetes.KubernetesResourceImpl;
 
 public class OpenShiftResourceImpl extends KubernetesResourceImpl implements OpenShiftResource {
 }

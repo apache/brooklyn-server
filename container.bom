@@ -15,7 +15,7 @@ brooklyn.catalog:
       itemType: entity
       iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
       item:
-        type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+        type: org.apache.brooklyn.container.entity.docker.DockerContainer
         brooklyn.parameters:
           - name: docker.container.imageName
             label: "Docker Container Image Name"
@@ -40,7 +40,7 @@ brooklyn.catalog:
       itemType: entity
       iconUrl: https://pbs.twimg.com/media/Bt_pEfqCAAAiVyz.png
       item:
-        type: io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod
+        type: org.apache.brooklyn.container.entity.kubernetes.KubernetesPod
         brooklyn.parameters:
           - name: docker.container.imageName
             label: "Docker Container Image Name"
@@ -81,7 +81,7 @@ brooklyn.catalog:
       itemType: entity
       iconUrl: https://pbs.twimg.com/media/Bt_pEfqCAAAiVyz.png
       item:
-        type: io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesResource
+        type: org.apache.brooklyn.container.entity.kubernetes.KubernetesResource
 		brooklyn.parameters:
           - name: resource
             label: "Resource"
@@ -96,7 +96,7 @@ brooklyn.catalog:
       itemType: entity
       iconUrl: https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/OpenShift-LogoType.svg/225px-OpenShift-LogoType.svg.png
       item:
-        type: io.cloudsoft.amp.containerservice.openshift.entity.OpenShiftPod
+        type: org.apache.brooklyn.container.entity.openshift.OpenShiftPod
         brooklyn.parameters:
           - name: docker.container.imageName
             label: "Docker Container Image Name"
@@ -137,7 +137,7 @@ brooklyn.catalog:
       itemType: entity
       iconUrl: https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/OpenShift-LogoType.svg/225px-OpenShift-LogoType.svg.png
       item:
-        type: io.cloudsoft.amp.containerservice.openshift.entity.OpenShiftResource
+        type: org.apache.brooklyn.container.entity.openshift.OpenShiftResource
 		brooklyn.parameters:
           - name: resource
             label: "Resource"

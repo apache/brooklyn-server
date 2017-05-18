@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.kubernetes.entity;
+package org.apache.brooklyn.container.entity.kubernetes;
 
 import java.util.List;
 import java.util.Map;
@@ -15,8 +15,8 @@ import org.apache.brooklyn.util.math.MathPredicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 
-import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
-import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationConfig;
+import org.apache.brooklyn.container.entity.docker.DockerContainer;
+import org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig;
 
 @ImplementedBy(KubernetesPodImpl.class)
 public interface KubernetesPod extends DockerContainer {

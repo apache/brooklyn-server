@@ -87,9 +87,9 @@ Alternatively AMP can launch instances based on a `DockerContainer`, this means 
       << see above >>
 
     services:
-    - type: io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod
+    - type: org.apache.brooklyn.container.entity.kubernetes.KubernetesPod
       brooklyn.children:
-      - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+      - type: org.apache.brooklyn.container.entity.docker.DockerContainer
         id: wordpress-mysql
         name: "MySQL"
         brooklyn.config:
@@ -99,7 +99,7 @@ Alternatively AMP can launch instances based on a `DockerContainer`, this means 
             MYSQL_ROOT_PASSWORD: "password"
           provisioning.properties:
             deployment: wordpress-mysql
-      - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+      - type: org.apache.brooklyn.container.entity.docker.DockerContainer
         id: wordpress
         name: "Wordpress"
         brooklyn.config:

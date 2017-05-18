@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.dockerlocation;
+package org.apache.brooklyn.container.location.docker;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -33,7 +33,7 @@ import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
-import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
+import org.apache.brooklyn.container.entity.docker.DockerContainer;
 
 /**
  * For provisioning docker containers, using the jclouds-docker integration.

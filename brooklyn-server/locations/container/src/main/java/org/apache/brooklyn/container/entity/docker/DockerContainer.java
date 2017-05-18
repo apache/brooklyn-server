@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.dockercontainer;
+package org.apache.brooklyn.container.entity.docker;
 
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.config.ConfigKey;
@@ -32,7 +32,7 @@ import com.google.common.reflect.TypeToken;
  *       - "HTTP_CONFIG_ROOT=/var/httpd"
  *       - "USE_DEFAULTS=true"
  * services:
- *   - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+ *   - type: org.apache.brooklyn.container.entity.docker.DockerContainer
  *     brooklyn.config:
  *       docker.container.imageName: "apache/httpd:latest"
  *       docker.container.disableSsh: true

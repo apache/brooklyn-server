@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.dockerlocation;
+package org.apache.brooklyn.container.location.docker;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;

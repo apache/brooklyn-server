@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.kubernetes.location.machine;
+package org.apache.brooklyn.container.location.kubernetes.machine;
 
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.config.ConfigKey;

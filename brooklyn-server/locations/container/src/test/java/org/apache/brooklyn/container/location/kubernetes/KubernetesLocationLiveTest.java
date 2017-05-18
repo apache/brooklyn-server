@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.kubernetes.location;
+package org.apache.brooklyn.container.location.kubernetes;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -28,8 +28,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
 
-import io.cloudsoft.amp.containerservice.kubernetes.location.machine.KubernetesMachineLocation;
-import io.cloudsoft.amp.containerservice.kubernetes.location.machine.KubernetesSshMachineLocation;
+import org.apache.brooklyn.container.location.kubernetes.machine.KubernetesMachineLocation;
+import org.apache.brooklyn.container.location.kubernetes.machine.KubernetesSshMachineLocation;
 
 /**
 /**

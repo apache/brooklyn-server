@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.dockerlocation;
+package org.apache.brooklyn.container.location.docker;
 
 import java.util.Map;
 

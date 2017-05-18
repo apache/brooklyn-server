@@ -1,8 +1,8 @@
-package io.cloudsoft.amp.containerservice.openshift.location;
+package org.apache.brooklyn.container.location.openshift;
 
 import org.apache.brooklyn.util.core.config.ConfigBag;
 
-import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesClientRegistryImpl;
+import org.apache.brooklyn.container.location.kubernetes.KubernetesClientRegistryImpl;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.openshift.client.OpenShiftClient;
 

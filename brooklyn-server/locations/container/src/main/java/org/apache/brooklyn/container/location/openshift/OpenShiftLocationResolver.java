@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.openshift.location;
+package org.apache.brooklyn.container.location.openshift;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationResolver;

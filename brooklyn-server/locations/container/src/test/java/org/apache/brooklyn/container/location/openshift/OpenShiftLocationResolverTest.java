@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.openshift.location;
+package org.apache.brooklyn.container.location.openshift;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
