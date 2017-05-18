@@ -1,0 +1,3 @@
+io.cloudsoft.amp.containerservice.dockerlocation.DockerLocationResolver
+io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationResolver
+io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocationResolver
