@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.location.AbstractLocationResolver;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
+import org.apache.brooklyn.core.objs.BasicConfigurableObject;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -152,49 +153,55 @@ public class ByonLocationResolver extends AbstractLocationResolver {
         
         String osFamily = (String) machineConfig.remove(OS_FAMILY.getName());
         String ssh = (String) machineConfig.remove("ssh");
-        String winrm = (String) machineConfig.remove("winrm");
-        Map<Integer, String> tcpPortMappings = (Map<Integer, String>) machineConfig.get("tcpPortMappings");
-        
-        checkArgument(ssh != null ^ winrm != null, "Must specify exactly one of 'ssh' or 'winrm' for machine: %s", valSanitized);
-        
-        UserAndHostAndPort userAndHostAndPort;
-        String host;
-        int port;
-        if (ssh != null) {
-            userAndHostAndPort = parseUserAndHostAndPort(ssh, 22);
+        if (machineConfig.containsKey("winrm") && !(machineConfig.get("winrm") instanceof String)) {
+            machineConfig.put("address", machineConfig.get("winrm"));
+            machineConfig.remove("winrm");
         } else {
-            // TODO set to null and rely on the MachineLocation. If not then make a dependency to WinRmMachineLocation and use its config key name.
-            userAndHostAndPort = parseUserAndHostAndPort(winrm, vals.get("winrm.useHttps") != null && (Boolean)vals.get("winrm.useHttps") ? 5986 : 5985);
-        }
-        
-        // If there is a tcpPortMapping defined for the connection-port, then use that for ssh/winrm machine
-        port = userAndHostAndPort.getHostAndPort().getPort();
-        if (tcpPortMappings != null && tcpPortMappings.containsKey(port)) {
-            String override = tcpPortMappings.get(port);
-            HostAndPort hostAndPortOverride = HostAndPort.fromString(override);
-            if (!hostAndPortOverride.hasPort()) {
-                throw new IllegalArgumentException("Invalid portMapping ('"+override+"') for port "+port+" in "+specForErrMsg);
-            }
-            port = hostAndPortOverride.getPort();
-            host = hostAndPortOverride.getHostText().trim();
-        } else {
-            host = userAndHostAndPort.getHostAndPort().getHostText().trim();
-        }
-        
-        machineConfig.put("address", host);
-        try {
-            InetAddress.getByName(host);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Invalid host '"+host+"' specified in '"+specForErrMsg+"': "+e);
-        }
+            String winrm = (String) machineConfig.remove("winrm");
 
-        if (userAndHostAndPort.getUser() != null) {
-            checkArgument(!vals.containsKey("user"), "Must not specify user twice for machine: %s", valSanitized);
-            machineConfig.put("user", userAndHostAndPort.getUser());
-        }
-        if (userAndHostAndPort.getHostAndPort().hasPort()) {
-            checkArgument(!vals.containsKey("port"), "Must not specify port twice for machine: %s", valSanitized);
-            machineConfig.put("port", port);
+            Map<Integer, String> tcpPortMappings = (Map<Integer, String>) machineConfig.get("tcpPortMappings");
+
+            checkArgument(ssh != null ^ winrm != null, "Must specify exactly one of 'ssh' or 'winrm' for machine: %s", valSanitized);
+
+            UserAndHostAndPort userAndHostAndPort;
+            String host;
+            int port;
+            if (ssh != null) {
+                userAndHostAndPort = parseUserAndHostAndPort(ssh, 22);
+            } else {
+                // TODO set to null and rely on the MachineLocation. If not then make a dependency to WinRmMachineLocation and use its config key name.
+                userAndHostAndPort = parseUserAndHostAndPort(winrm, vals.get("winrm.useHttps") != null && (Boolean)vals.get("winrm.useHttps") ? 5986 : 5985);
+            }
+
+            // If there is a tcpPortMapping defined for the connection-port, then use that for ssh/winrm machine
+            port = userAndHostAndPort.getHostAndPort().getPort();
+            if (tcpPortMappings != null && tcpPortMappings.containsKey(port)) {
+                String override = tcpPortMappings.get(port);
+                HostAndPort hostAndPortOverride = HostAndPort.fromString(override);
+                if (!hostAndPortOverride.hasPort()) {
+                    throw new IllegalArgumentException("Invalid portMapping ('"+override+"') for port "+port+" in "+specForErrMsg);
+                }
+                port = hostAndPortOverride.getPort();
+                host = hostAndPortOverride.getHostText().trim();
+            } else {
+                host = userAndHostAndPort.getHostAndPort().getHostText().trim();
+            }
+
+            machineConfig.put("address", host);
+            try {
+                InetAddress.getByName(host);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid host '"+host+"' specified in '"+specForErrMsg+"': "+e);
+            }
+
+            if (userAndHostAndPort.getUser() != null) {
+                checkArgument(!vals.containsKey("user"), "Must not specify user twice for machine: %s", valSanitized);
+                machineConfig.put("user", userAndHostAndPort.getUser());
+            }
+            if (userAndHostAndPort.getHostAndPort().hasPort()) {
+                checkArgument(!vals.containsKey("port"), "Must not specify port twice for machine: %s", valSanitized);
+                machineConfig.put("port", port);
+            }
         }
         for (Map.Entry<String, ?> entry : defaults.entrySet()) {
             if (!machineConfig.containsKey(entry.getKey())) {

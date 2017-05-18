@@ -41,6 +41,8 @@ public class WinRmMachineLocationExternalConfigYamlTest extends AbstractYamlTest
         BrooklynProperties props = BrooklynProperties.Factory.newEmpty();
         props.put("brooklyn.external.inPlaceSupplier1", "org.apache.brooklyn.core.config.external.InPlaceExternalConfigSupplier");
         props.put("brooklyn.external.inPlaceSupplier1.byonPassword", "passw0rd");
+        props.put("brooklyn.external.inPlaceSupplier1.byonUser", "admin");
+        props.put("brooklyn.external.inPlaceSupplier1.ip", "127.0.0.1");
 
         return LocalManagementContextForTests.builder(true)
                 .useProperties(props)
@@ -49,13 +51,13 @@ public class WinRmMachineLocationExternalConfigYamlTest extends AbstractYamlTest
     }
 
     @Test()
-    public void testWindowsMachinesPasswordExternalProvider() throws Exception {
+    public void testWindowsMachinesExternalProvider() throws Exception {
         RecordingWinRmTool.constructorProps.clear();
         final String yaml = Joiner.on("\n").join("location:",
                 "  byon:",
                 "    hosts:",
-                "    - winrm: 127.0.0.1",
-                "      user: admin",
+                "    - winrm: $brooklyn:external(\"inPlaceSupplier1\", \"ip\")",
+                "      user: $brooklyn:external(\"inPlaceSupplier1\", \"byonUser\")",
                 "      brooklyn.winrm.config.winrmToolClass: org.apache.brooklyn.util.core.internal.winrm.RecordingWinRmTool",
                 "      password: $brooklyn:external(\"inPlaceSupplier1\", \"byonPassword\")",
                 "      osFamily: windows",
@@ -67,17 +69,19 @@ public class WinRmMachineLocationExternalConfigYamlTest extends AbstractYamlTest
 
         BasicApplication app = (BasicApplication) createAndStartApplication(yaml);
         waitForApplicationTasks(app);
+        assertEquals(RecordingWinRmTool.constructorProps.get(0).get(WinRmMachineLocation.ADDRESS.getName()), "127.0.0.1");
+        assertEquals(RecordingWinRmTool.constructorProps.get(0).get(WinRmMachineLocation.USER.getName()), "admin");
         assertEquals(RecordingWinRmTool.constructorProps.get(0).get(WinRmMachineLocation.PASSWORD.getName()), "passw0rd");
     }
 
     @Test()
-    public void testWindowsMachinesNoPasswordExternalProvider() throws Exception {
+    public void testWindowsMachinesNoExternalProvider() throws Exception {
         RecordingWinRmTool.constructorProps.clear();
         final String yaml = Joiner.on("\n").join("location:",
                 "  byon:",
                 "    hosts:",
-                "    - winrm: 127.0.0.1",
-                "      user: admin",
+                "    - winrm: $brooklyn:external(\"inPlaceSupplier1\", \"ipEmpty\")",
+                "      user: $brooklyn:external(\"inPlaceSupplier1\", \"byonUserEmpty\")",
                 "      brooklyn.winrm.config.winrmToolClass: org.apache.brooklyn.util.core.internal.winrm.RecordingWinRmTool",
                 "      password: $brooklyn:external(\"inPlaceSupplier1\", \"byonPasswordddd\")",
                 "      osFamily: windows",
@@ -89,6 +93,8 @@ public class WinRmMachineLocationExternalConfigYamlTest extends AbstractYamlTest
 
         BasicApplication app = (BasicApplication) createAndStartApplication(yaml);
         waitForApplicationTasks(app);
+        assertNull(RecordingWinRmTool.constructorProps.get(0).get(WinRmMachineLocation.ADDRESS.getName()));
+        assertNull(RecordingWinRmTool.constructorProps.get(0).get(WinRmMachineLocation.USER.getName()));
         assertNull(RecordingWinRmTool.constructorProps.get(0).get(WinRmMachineLocation.PASSWORD.getName()));
     }
 
