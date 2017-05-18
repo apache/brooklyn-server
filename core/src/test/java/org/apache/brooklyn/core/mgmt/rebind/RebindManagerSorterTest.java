@@ -140,7 +140,7 @@ public class RebindManagerSorterTest {
     private Map<String, EntityMemento> toMementos(Iterable<? extends Entity> entities) {
         Map<String, EntityMemento> result = Maps.newLinkedHashMap();
         for (Entity entity : entities) {
-            result.put(entity.getId(), MementosGenerators.newEntityMemento(Entities.deproxy(entity)));
+            result.put(entity.getId(), (EntityMemento) MementosGenerators.newBasicMemento(Entities.deproxy(entity)));
         }
         return result;
     }

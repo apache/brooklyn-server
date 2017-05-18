@@ -19,7 +19,6 @@ package org.apache.brooklyn.core.mgmt.rebind;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.util.Collections;
 import java.util.Map;
 
 import org.apache.brooklyn.api.effector.Effector;
@@ -41,7 +40,6 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.feed.AbstractFeed;
 import org.apache.brooklyn.core.location.Machines;
-import org.apache.brooklyn.core.mgmt.rebind.dto.MementosGenerators;
 import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.entity.group.AbstractGroupImpl;
@@ -64,22 +62,6 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
         this.entity = checkNotNull(entity, "entity");
     }
     
-    // Can rely on super-type once the deprecated getMementoWithProperties is deleted
-    @Override
-    public EntityMemento getMemento() {
-        return getMementoWithProperties(Collections.<String,Object>emptyMap());
-    }
-
-    /**
-     * @deprecated since 0.7.0; use generic config/attributes rather than "custom fields", so use {@link #getMemento()}
-     */
-    @Deprecated
-    protected EntityMemento getMementoWithProperties(Map<String,?> props) {
-        EntityMemento memento = MementosGenerators.newEntityMementoBuilder(entity).customFields(props).build();
-        if (LOG.isTraceEnabled()) LOG.trace("Creating memento for entity: {}", memento.toVerboseString());
-        return memento;
-    }
-
     @Override
     @SuppressWarnings("unchecked")
     protected void addCustoms(RebindContext rebindContext, EntityMemento memento) {
