@@ -30,7 +30,6 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -41,7 +40,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 public class AbstractLocationTest {
 
@@ -55,6 +53,18 @@ public class AbstractLocationTest {
 
         public ConcreteLocation(Map<?,?> properties) {
             super(properties);
+        }
+    }
+
+    public static class LocationWithOverriddenId extends ConcreteLocation {
+        @SetFromFlag
+        String overriddenId;
+        
+        public LocationWithOverriddenId() {
+        }
+
+        public String getId() {
+            return overriddenId;
         }
     }
 
@@ -74,18 +84,21 @@ public class AbstractLocationTest {
         return createConcrete(MutableMap.<String,Object>of());
     }
     private ConcreteLocation createConcrete(Map<String,?> flags) {
-        return createConcrete(null, flags);
-    }
-    @SuppressWarnings("deprecation")
-    private ConcreteLocation createConcrete(String id, Map<String,?> flags) {
-        return mgmt.getLocationManager().createLocation( LocationSpec.create(ConcreteLocation.class).id(id).configure(flags) );
+        return mgmt.getLocationManager().createLocation( LocationSpec.create(ConcreteLocation.class).configure(flags) );
     }
     
     @Test
     public void testEqualsUsesId() {
-        Location l1 = createConcrete("1", MutableMap.of("name", "bob"));
-        Location l1b = new ConcreteLocation(ImmutableMap.of("id", 1));
-        Location l2 = createConcrete("2", MutableMap.of("name", "frank"));
+        Location l1 = mgmt.getLocationManager().createLocation(LocationSpec.create(LocationWithOverriddenId.class)
+                .configure("overriddenId", "id1")
+                .configure("myfield", "bob"));
+        Location l1b = mgmt.getLocationManager().createLocation(LocationSpec.create(LocationWithOverriddenId.class)
+                .configure("overriddenId", "id1")
+                .configure("myfield", "frank"));
+        Location l2 = mgmt.getLocationManager().createLocation(LocationSpec.create(LocationWithOverriddenId.class)
+                .configure("overriddenId", "id2")
+                .configure("myfield", "bob"));
+        
         assertEquals(l1, l1b);
         assertNotEquals(l1, l2);
     }
