@@ -30,9 +30,7 @@ import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EnricherMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
@@ -60,7 +58,6 @@ import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.OsgiClassPrefixer;
 import org.apache.brooklyn.core.mgmt.rebind.AbstractBrooklynObjectRebindSupport;
-import org.apache.brooklyn.core.mgmt.rebind.TreeUtils;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -113,42 +110,6 @@ public class MementosGenerators {
         }
     }
 
-    /**
-     * Walks the contents of a ManagementContext, to create a corresponding memento.
-     * 
-     * @deprecated since 0.7.0; will be moved to test code; generate each entity/location memento separately
-     */
-    @Deprecated
-    public static BrooklynMemento newBrooklynMemento(ManagementContext managementContext) {
-        BrooklynMementoImpl.Builder builder = BrooklynMementoImpl.builder();
-                
-        for (Application app : managementContext.getApplications()) {
-            builder.applicationIds.add(app.getId());
-        }
-        for (Entity entity : managementContext.getEntityManager().getEntities()) {
-            builder.entities.put(entity.getId(), ((EntityInternal)entity).getRebindSupport().getMemento());
-            
-            for (Location location : entity.getLocations()) {
-                if (!builder.locations.containsKey(location.getId())) {
-                    for (Location locationInHierarchy : TreeUtils.findLocationsInHierarchy(location)) {
-                        if (!builder.locations.containsKey(locationInHierarchy.getId())) {
-                            builder.locations.put(locationInHierarchy.getId(), ((LocationInternal)locationInHierarchy).getRebindSupport().getMemento());
-                        }
-                    }
-                }
-            }
-        }
-        for (LocationMemento memento : builder.locations.values()) {
-            if (memento.getParent() == null) {
-                builder.topLevelLocationIds.add(memento.getId());
-            }
-        }
-
-        BrooklynMemento result = builder.build();
-        MementoValidators.validateMemento(result);
-        return result;
-    }
-    
     /**
      * Inspects an entity to create a corresponding memento.
      */

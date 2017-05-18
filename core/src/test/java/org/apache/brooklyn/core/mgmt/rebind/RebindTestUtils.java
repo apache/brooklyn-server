@@ -40,7 +40,9 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.objs.Identifiable;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.ha.ManagementPlaneSyncRecordPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -49,7 +51,8 @@ import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.rebind.Dumpers.Pointer;
-import org.apache.brooklyn.core.mgmt.rebind.dto.MementosGenerators;
+import org.apache.brooklyn.core.mgmt.rebind.dto.BrooklynMementoImpl;
+import org.apache.brooklyn.core.mgmt.rebind.dto.MementoValidators;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.util.io.FileUtil;
@@ -114,7 +117,7 @@ public class RebindTestUtils {
     }
 
     public static void checkMementoSerializable(Application app) throws Exception {
-        BrooklynMemento memento = MementosGenerators.newBrooklynMemento(app.getManagementContext());
+        BrooklynMemento memento = newBrooklynMemento(app.getManagementContext());
         checkMementoSerializable(memento);
     }
 
@@ -530,7 +533,7 @@ public class RebindTestUtils {
     }
     
     public static void checkCurrentMementoSerializable(ManagementContext mgmt) throws Exception {
-        BrooklynMemento memento = MementosGenerators.newBrooklynMemento(mgmt);
+        BrooklynMemento memento = newBrooklynMemento(mgmt);
         serializeAndDeserialize(memento);
     }
     
@@ -566,5 +569,29 @@ public class RebindTestUtils {
             if (store != null) store.close();
             mgmt.terminate();
         }
+    }
+    
+    /**
+     * Walks the contents of a ManagementContext, to create a corresponding memento.
+     */
+    protected static BrooklynMemento newBrooklynMemento(ManagementContext managementContext) {
+        BrooklynMementoImpl.Builder builder = BrooklynMementoImpl.builder();
+                
+        for (Application app : managementContext.getApplications()) {
+            builder.applicationId(app.getId());
+        }
+        for (Entity entity : managementContext.getEntityManager().getEntities()) {
+            builder.entity(((EntityInternal)entity).getRebindSupport().getMemento());
+        }
+        for (Location location : managementContext.getLocationManager().getLocations()) {
+            builder.location(((LocationInternal)location).getRebindSupport().getMemento());
+            if (location.getParent() == null) {
+                builder.topLevelLocationId(location.getId());
+            }
+        }
+
+        BrooklynMemento result = builder.build();
+        MementoValidators.validateMemento(result);
+        return result;
     }
 }
