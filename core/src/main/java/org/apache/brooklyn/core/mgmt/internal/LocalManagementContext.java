@@ -359,7 +359,7 @@ public class LocalManagementContext extends AbstractManagementContext {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
-    public <T> Task<T> runAtEntity(Map flags, Entity entity, Callable<T> c) {
+    protected <T> Task<T> runAtEntity(Map flags, Entity entity, Callable<T> c) {
         manageIfNecessary(entity, elvis(Arrays.asList(flags.get("displayName"), flags.get("description"), flags, c)));
         return runAtEntity(entity, Tasks.<T>builder().dynamic(true).body(c).flags(flags).build());
     }
