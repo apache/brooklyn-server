@@ -30,9 +30,7 @@ import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EnricherMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
@@ -60,7 +58,6 @@ import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.OsgiClassPrefixer;
 import org.apache.brooklyn.core.mgmt.rebind.AbstractBrooklynObjectRebindSupport;
-import org.apache.brooklyn.core.mgmt.rebind.TreeUtils;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -72,7 +69,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Sets;
@@ -82,12 +78,6 @@ public class MementosGenerators {
     private MementosGenerators() {}
 
     private static final Logger log = LoggerFactory.getLogger(MementosGenerators.class);
-    
-    /** @deprecated since 0.7.0 use {@link #newBasicMemento(BrooklynObject)} */
-    @Deprecated
-    public static Memento newMemento(BrooklynObject instance) {
-        return newBasicMemento(instance);
-    }
     
     /**
      * Inspects a brooklyn object to create a basic corresponding memento.
@@ -121,56 +111,9 @@ public class MementosGenerators {
     }
 
     /**
-     * Walks the contents of a ManagementContext, to create a corresponding memento.
-     * 
-     * @deprecated since 0.7.0; will be moved to test code; generate each entity/location memento separately
-     */
-    @Deprecated
-    public static BrooklynMemento newBrooklynMemento(ManagementContext managementContext) {
-        BrooklynMementoImpl.Builder builder = BrooklynMementoImpl.builder();
-                
-        for (Application app : managementContext.getApplications()) {
-            builder.applicationIds.add(app.getId());
-        }
-        for (Entity entity : managementContext.getEntityManager().getEntities()) {
-            builder.entities.put(entity.getId(), ((EntityInternal)entity).getRebindSupport().getMemento());
-            
-            for (Location location : entity.getLocations()) {
-                if (!builder.locations.containsKey(location.getId())) {
-                    for (Location locationInHierarchy : TreeUtils.findLocationsInHierarchy(location)) {
-                        if (!builder.locations.containsKey(locationInHierarchy.getId())) {
-                            builder.locations.put(locationInHierarchy.getId(), ((LocationInternal)locationInHierarchy).getRebindSupport().getMemento());
-                        }
-                    }
-                }
-            }
-        }
-        for (LocationMemento memento : builder.locations.values()) {
-            if (memento.getParent() == null) {
-                builder.topLevelLocationIds.add(memento.getId());
-            }
-        }
-
-        BrooklynMemento result = builder.build();
-        MementoValidators.validateMemento(result);
-        return result;
-    }
-    
-    /**
      * Inspects an entity to create a corresponding memento.
-     * <p>
-     * @deprecated since 0.7.0, see {@link #newBasicMemento(BrooklynObject)}
      */
-    @Deprecated
-    public static EntityMemento newEntityMemento(Entity entity) {
-        return newEntityMementoBuilder(entity).build();
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@link #newBasicMemento(BrooklynObject)} instead
-     */
-    @Deprecated
-    public static BasicEntityMemento.Builder newEntityMementoBuilder(Entity entityRaw) {
+    private static EntityMemento newEntityMemento(Entity entityRaw) {
         EntityInternal entity = (EntityInternal) entityRaw;
         BasicEntityMemento.Builder builder = BasicEntityMemento.builder();
         populateBrooklynObjectMementoBuilder(entity, builder);
@@ -244,23 +187,9 @@ public class MementosGenerators {
             }
         }
 
-        return builder;
+        return builder.build();
     }
  
-    /**
-     * @deprecated since 0.7.0, see {@link #newBasicMemento(BrooklynObject)}
-     */
-    @Deprecated
-    public static Function<Entity, EntityMemento> entityMementoFunction() {
-        return new Function<Entity,EntityMemento>() {
-            @Override
-            public EntityMemento apply(Entity input) {
-                return MementosGenerators.newEntityMemento(input);
-            }
-        };
-    }
-
-    
     /**
      * Given a location, extracts its state for serialization.
      * 
@@ -311,20 +240,6 @@ public class MementosGenerators {
     }
     
     /**
-     * @deprecated since 0.7.0, see {@link #newBasicMemento(BrooklynObject)}
-     */
-    @Deprecated
-    public static Function<Location, LocationMemento> locationMementoFunction() {
-        return new Function<Location,LocationMemento>() {
-            @Override
-            public LocationMemento apply(Location input) {
-                return MementosGenerators.newLocationMemento(input);
-            }
-        };
-    }
-
-    
-    /**
      * Given a policy, extracts its state for serialization.
      * 
      * @deprecated since 0.7.0, see {@link #newBasicMemento(BrooklynObject)}
@@ -355,19 +270,6 @@ public class MementosGenerators {
         return builder.build();
     }
     
-    /**
-     * @deprecated since 0.7.0, see {@link #newBasicMemento(BrooklynObject)}
-     */
-    @Deprecated
-    public static Function<Policy, PolicyMemento> policyMementoFunction() {
-        return new Function<Policy,PolicyMemento>() {
-            @Override
-            public PolicyMemento apply(Policy input) {
-                return MementosGenerators.newPolicyMemento(input);
-            }
-        };
-    }
-
     /**
      * Given an enricher, extracts its state for serialization.
      * @deprecated since 0.7.0, see {@link #newBasicMemento(BrooklynObject)}
@@ -421,11 +323,7 @@ public class MementosGenerators {
         return builder.build();
     }
     
-    /**
-     * @deprecated since 0.7.0, see {@link #newBasicMemento(BrooklynObject)}
-     */
-    @Deprecated
-    public static CatalogItemMemento newCatalogItemMemento(CatalogItem<?, ?> catalogItem) {
+    private static CatalogItemMemento newCatalogItemMemento(CatalogItem<?, ?> catalogItem) {
         if (catalogItem instanceof CatalogItemDo<?,?>) {
             catalogItem = ((CatalogItemDo<?,?>)catalogItem).getDto();
         }
@@ -523,23 +421,5 @@ public class MementosGenerators {
             return result;
         }
         return value;
-    }
-    
-    public static Function<Enricher, EnricherMemento> enricherMementoFunction() {
-        return new Function<Enricher,EnricherMemento>() {
-            @Override
-            public EnricherMemento apply(Enricher input) {
-                return MementosGenerators.newEnricherMemento(input);
-            }
-        };
-    }
-
-    public static Function<Feed, FeedMemento> feedMementoFunction() {
-        return new Function<Feed,FeedMemento>() {
-            @Override
-            public FeedMemento apply(Feed input) {
-                return MementosGenerators.newFeedMemento(input);
-            }
-        };
     }
 }
