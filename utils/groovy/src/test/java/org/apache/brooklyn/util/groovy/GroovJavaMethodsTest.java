@@ -67,8 +67,8 @@ public class GroovJavaMethodsTest {
         assertEquals(elvis("string1", "string2"), "string1");
         assertEquals(elvis(null, "string2"), "string2");
         assertEquals(elvis("", "string2"), "string2");
-        assertEquals(elvis(1, 2), 1);
-        assertEquals(elvis(0, 2), 2);
+        assertEquals((int)elvis(1, 2), 1);
+        assertEquals((int)elvis(0, 2), 2);
         assertEquals(elvis(singletonList, differentList), singletonList);
         assertEquals(elvis(emptyList, differentList), differentList);
         assertEquals(elvis(gstring, "other"), gstringVal);

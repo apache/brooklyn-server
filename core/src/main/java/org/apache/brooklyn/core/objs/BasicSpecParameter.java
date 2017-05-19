@@ -571,10 +571,11 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         }
 
         /** used if yaml specifies a parameter, but possibly incomplete, and a spec supertype has a parameter */
+        @SuppressWarnings("unchecked")
         SpecParameter<?> resolveWithAncestor(SpecParameter<?> ancestor) {
             if (ancestor==null) return new BasicSpecParameter<>(getLabel(), isPinned(), getConfigKey(), getSensor());
 
-            return new BasicSpecParameter<>(
+            return new BasicSpecParameter(
                     hasLabelSet ? getLabel() : ancestor.getLabel(), 
                     hasPinnedSet ? isPinned() : ancestor.isPinned(), 
                     resolveWithAncestorConfigKey(ancestor.getConfigKey()), 
