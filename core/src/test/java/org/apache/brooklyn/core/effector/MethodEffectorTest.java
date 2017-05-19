@@ -50,9 +50,9 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
-public class EffectorConcatenateTest extends BrooklynAppUnitTestSupport {
+public class MethodEffectorTest extends BrooklynAppUnitTestSupport {
     
-    private static final Logger log = LoggerFactory.getLogger(EffectorConcatenateTest.class);
+    private static final Logger log = LoggerFactory.getLogger(MethodEffectorTest.class);
     private static final long TIMEOUT = 10*1000;
 
     @ImplementedBy(MyEntityImpl.class)
