@@ -18,15 +18,7 @@
  */
 package org.apache.brooklyn.util.core.flags;
 
-import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
-import com.google.common.reflect.TypeToken;
-
-import javax.annotation.Nullable;
-
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -34,7 +26,16 @@ import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import javax.annotation.Nullable;
+
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+
+import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
+import com.google.common.reflect.TypeToken;
 
 /**
  * A way of binding a loosely-specified method call into a strongly-typed Java method call.
@@ -93,7 +94,7 @@ public class MethodCoercions {
             return Maybe.absent();
         }
     }
-
+    
     /**
      * Returns a predicate that matches a method with the given name, and parameters that
      * {@link org.apache.brooklyn.util.core.flags.TypeCoercions#tryCoerce(Object, com.google.common.reflect.TypeToken)} can process
@@ -104,21 +105,48 @@ public class MethodCoercions {
      * @return a predicate that will match a compatible method
      */
     public static Predicate<Method> matchMultiParameterMethod(final String methodName, final List<?> arguments) {
+        return Predicates.and(matchMethodByName(methodName), matchMultiParameterMethod(arguments));
+    }
+
+    /**
+     * Returns a predicate that matches a method with the given name.
+     *
+     * @param methodName name of the method
+     * @return a predicate that will match a compatible method
+     */
+    public static Predicate<Method> matchMethodByName(final String methodName) {
         checkNotNull(methodName, "methodName");
+
+        return new Predicate<Method>() {
+            @Override
+            public boolean apply(@Nullable Method input) {
+                return (input != null) && input.getName().equals(methodName);
+            }
+        };
+    }
+
+    /**
+     * Returns a predicate that matches a method with parameters that
+     * {@link org.apache.brooklyn.util.core.flags.TypeCoercions#tryCoerce(Object, com.google.common.reflect.TypeToken)} can process
+     * from the given list of arguments.
+     *
+     * @param arguments arguments that is intended to be given
+     * @return a predicate that will match a compatible method
+     */
+    public static Predicate<Method> matchMultiParameterMethod(final List<?> arguments) {
         checkNotNull(arguments, "arguments");
 
         return new Predicate<Method>() {
             @Override
             public boolean apply(@Nullable Method input) {
                 if (input == null) return false;
-                if (!input.getName().equals(methodName)) return false;
                 int numOptionParams = arguments.size();
                 Type[] parameterTypes = input.getGenericParameterTypes();
                 if (parameterTypes.length != numOptionParams) return false;
 
                 for (int paramCount = 0; paramCount < numOptionParams; paramCount++) {
                     if (!TypeCoercions.tryCoerce(((List<?>) arguments).get(paramCount),
-                            TypeToken.of(parameterTypes[paramCount])).isPresentAndNonNull()) return false;
+                            TypeToken.of(parameterTypes[paramCount])).isPresent()) return false;
                 }
                 return true;
             }
@@ -129,15 +157,13 @@ public class MethodCoercions {
      * Tries to find a multiple-parameter method with each parameter compatible with (can be coerced to) the
      * corresponding argument, and invokes it.
      *
-     * @param instance the object to invoke the method on
-     * @param methodName the name of the method to invoke
+     * @param instanceOrClazz the object or class to invoke the method on
+     * @param methods the methods to choose from
      * @param argument a list of the arguments to the method's parameters.
      * @return the result of the method call, or {@link org.apache.brooklyn.util.guava.Maybe#absent()} if method could not be matched.
      */
-    public static Maybe<?> tryFindAndInvokeMultiParameterMethod(final Object instance, final String methodName, final List<?> arguments) {
-        Class<?> clazz = instance.getClass();
-        Iterable<Method> methods = Arrays.asList(clazz.getMethods());
-        Optional<Method> matchingMethod = Iterables.tryFind(methods, matchMultiParameterMethod(methodName, arguments));
+    public static Maybe<?> tryFindAndInvokeMultiParameterMethod(Object instanceOrClazz, Iterable<Method> methods, List<?> arguments) {
+        Optional<Method> matchingMethod = Iterables.tryFind(methods, matchMultiParameterMethod(arguments));
         if (matchingMethod.isPresent()) {
             Method method = matchingMethod.get();
             try {
@@ -148,13 +174,28 @@ public class MethodCoercions {
                     Type paramType = method.getGenericParameterTypes()[paramCount];
                     coercedArguments[paramCount] = TypeCoercions.coerce(argument, TypeToken.of(paramType));
                 }
-                return Maybe.of(method.invoke(instance, coercedArguments));
+                return Maybe.of(method.invoke(instanceOrClazz, coercedArguments));
             } catch (IllegalAccessException | InvocationTargetException e) {
                 throw Exceptions.propagate(e);
             }
         } else {
             return Maybe.absent();
         }
+    }
+    
+    /**
+     * Tries to find a multiple-parameter method with each parameter compatible with (can be coerced to) the
+     * corresponding argument, and invokes it.
+     *
+     * @param instance the object to invoke the method on
+     * @param methodName the name of the method to invoke
+     * @param argument a list of the arguments to the method's parameters.
+     * @return the result of the method call, or {@link org.apache.brooklyn.util.guava.Maybe#absent()} if method could not be matched.
+     */
+    public static Maybe<?> tryFindAndInvokeMultiParameterMethod(Object instance, String methodName, List<?> arguments) {
+        Class<?> clazz = instance.getClass();
+        Iterable<Method> methods = Iterables.filter(Arrays.asList(clazz.getMethods()), matchMethodByName(methodName));
+        return tryFindAndInvokeMultiParameterMethod(instance, methods, arguments);
     }
 
     /**
@@ -165,7 +206,7 @@ public class MethodCoercions {
      * @param argument a list of the arguments to the method's parameters, or a single argument for a single-parameter method.
      * @return the result of the method call, or {@link org.apache.brooklyn.util.guava.Maybe#absent()} if method could not be matched.
      */
-    public static Maybe<?> tryFindAndInvokeBestMatchingMethod(final Object instance, final String methodName, final Object argument) {
+    public static Maybe<?> tryFindAndInvokeBestMatchingMethod(Object instance, String methodName, Object argument) {
         if (argument instanceof List) {
             List<?> arguments = (List<?>) argument;
 
@@ -181,5 +222,4 @@ public class MethodCoercions {
             return tryFindAndInvokeSingleParameterMethod(instance, methodName, argument);
         }
     }
-
 }
