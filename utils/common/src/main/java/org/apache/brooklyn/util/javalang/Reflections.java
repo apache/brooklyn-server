@@ -242,15 +242,15 @@ public class Reflections {
     }
     /** @deprecated since 0.10.0 use {@link #invokeConstructorFromArgs(Class, Object...)} or one of the variants */ @Deprecated
     public static <T> Optional<T> invokeConstructorWithArgs(Class<? extends T> clazz, Object...argsArray) {
-        return invokeConstructorFromArgs(clazz, argsArray).toOptional();
+        return Reflections.<T>invokeConstructorFromArgs(clazz, argsArray).toOptional();
     }
     /** @deprecated since 0.10.0 use {@link #invokeConstructorFromArgs(Class, Object...)} or one of the variants */ @Deprecated
     public static <T> Optional<T> invokeConstructorWithArgs(Class<? extends T> clazz, Object[] argsArray, boolean setAccessible) {
-        return invokeConstructorFromArgs(clazz, argsArray, setAccessible).toOptional();
+        return Reflections.<T>invokeConstructorFromArgs(clazz, argsArray, setAccessible).toOptional();
     }
     /** @deprecated since 0.10.0 use {@link #invokeConstructorFromArgs(Class, Object...)} or one of the variants */ @Deprecated
     public static <T> Optional<T> invokeConstructorWithArgs(Reflections reflections, Class<? extends T> clazz, Object[] argsArray, boolean setAccessible) {
-        return invokeConstructorFromArgs(reflections, clazz, argsArray, setAccessible).toOptional();
+        return Reflections.<T>invokeConstructorFromArgs(reflections, clazz, argsArray, setAccessible).toOptional();
     }
     
     /** Finds and invokes a suitable constructor, supporting varargs and primitives, boxing and looking at compatible supertypes in the constructor's signature */
