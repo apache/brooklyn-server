@@ -38,6 +38,7 @@ import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -50,27 +51,70 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
-public class EffectorConcatenateTest extends BrooklynAppUnitTestSupport {
+public class MethodEffectorTest extends BrooklynAppUnitTestSupport {
+
+    private static final Logger log = LoggerFactory.getLogger(MethodEffectorTest.class);
     
-    private static final Logger log = LoggerFactory.getLogger(EffectorConcatenateTest.class);
-    private static final long TIMEOUT = 10*1000;
+    private static final long TIMEOUT = Asserts.DEFAULT_LONG_TIMEOUT.toMilliseconds();
 
     @ImplementedBy(MyEntityImpl.class)
-    public static interface MyEntity extends Entity, EntityInternal {
-        public static MethodEffector<String> CONCATENATE = new MethodEffector<String>(MyEntityImpl.class, "concatenate");
-        public static MethodEffector<Void> WAIT_A_BIT = new MethodEffector<Void>(MyEntityImpl.class, "waitabit");
-        public static MethodEffector<Void> SPAWN_CHILD = new MethodEffector<Void>(MyEntityImpl.class, "spawnchild");
+    public interface MyEntity extends Entity, EntityInternal {
+        public static MethodEffector<String> EFFECTOR_WITH_DEFAULTS = new MethodEffector<String>(MyEntity.class, "effectorWithDefaults");
+        public static MethodEffector<String> EFFECTOR_WITH_TYPED_ARGS = new MethodEffector<String>(MyEntity.class, "effectorWithTypedArgs");
+        public static MethodEffector<String> EFFECTOR_WITH_OBJECT_ARGS = new MethodEffector<String>(MyEntity.class, "effectorWithObjectArgs");
+        public static MethodEffector<String> OVERLOADED = new MethodEffector<String>(MyEntity.class, "overloaded");
+        public static MethodEffector<String> CONCATENATE = new MethodEffector<String>(MyEntity.class, "concatenate");
+        public static MethodEffector<Void> WAIT_A_BIT = new MethodEffector<Void>(MyEntity.class, "waitabit");
+        public static MethodEffector<Void> SPAWN_CHILD = new MethodEffector<Void>(MyEntity.class, "spawnchild");
         
         @Effector(description="sample effector concatenating strings")
-        String concatenate(@EffectorParam(name="first", description="first argument") String first,
+        public String concatenate(
+                @EffectorParam(name="first", description="first argument") String first,
                 @EffectorParam(name="second", description="2nd arg") String second) throws Exception;
         
+        @Effector
+        public String effectorWithDefaults(
+                @EffectorParam(name="first", defaultValue="firstDefault") String first,
+                @EffectorParam(name="second", defaultValue="secondDefault") String second) throws Exception;
+        
+        @Effector
+        public String effectorWithTypedArgs(
+                @EffectorParam(name="booleanArg") boolean booleanArg,
+                @EffectorParam(name="byteArg") byte byteArg,
+                @EffectorParam(name="shortArg") short shortArg,
+                @EffectorParam(name="intArg") int intArg,
+                @EffectorParam(name="longArg") long longArg,
+                @EffectorParam(name="floatArg") float floatArg,
+                @EffectorParam(name="doubleArg") double doubleArg) throws Exception;
+        
+        @Effector
+        public String effectorWithObjectArgs(
+                @EffectorParam(name="objectArg") Object objectArg) throws Exception;
+        
+        @Effector
+        public String overloaded() throws Exception;
+        
+        @Effector
+        public String overloaded(
+                @EffectorParam(name="first") String first) throws Exception;
+        
+        @Effector
+        public String overloaded(
+                @EffectorParam(name="first") Integer first) throws Exception;
+        
+        @Effector
+        public String overloaded(
+                @EffectorParam(name="first") String first,
+                @EffectorParam(name="second") String second) throws Exception;
+        
         @Effector(description="sample effector doing some waiting")
-        void waitabit() throws Exception;
+        public void waitabit() throws Exception;
         
         @Effector(description="sample effector that spawns a child task that waits a bit")
         void spawnchild() throws Exception;
         
+
+        /** The "current task" representing the effector currently executing */
         AtomicReference<Task<?>> getWaitingTask();
         
         /** latch is .countDown'ed by the effector at the beginning of the "waiting" point */
@@ -79,31 +123,14 @@ public class EffectorConcatenateTest extends BrooklynAppUnitTestSupport {
         /** latch is await'ed on by the effector when it is in the "waiting" point */
         CountDownLatch getContinueFromWaitingLatch();
     }
-    
+        
     public static class MyEntityImpl extends AbstractEntity implements MyEntity {
-        /** The "current task" representing the effector currently executing */
-        AtomicReference<Task<?>> waitingTask = new AtomicReference<Task<?>>();
-        
-        /** latch is .countDown'ed by the effector at the beginning of the "waiting" point */
-        CountDownLatch nowWaitingLatch = new CountDownLatch(1);
-        
-        /** latch is await'ed on by the effector when it is in the "waiting" point */
-        CountDownLatch continueFromWaitingLatch = new CountDownLatch(1);
 
-        @Override
-        public AtomicReference<Task<?>> getWaitingTask() {
-            return waitingTask;
-        }
-
-        @Override
-        public CountDownLatch getNowWaitingLatch() {
-            return nowWaitingLatch;
-        }
+        private final AtomicReference<Task<?>> waitingTask = new AtomicReference<Task<?>>();
         
-        @Override
-        public CountDownLatch getContinueFromWaitingLatch() {
-            return continueFromWaitingLatch;
-        }
+        private final CountDownLatch nowWaitingLatch = new CountDownLatch(1);
+        
+        private final CountDownLatch continueFromWaitingLatch = new CountDownLatch(1);
         
         @Override
         public String concatenate(String first, String second) throws Exception {
@@ -144,6 +171,59 @@ public class EffectorConcatenateTest extends BrooklynAppUnitTestSupport {
                             return null;
                         }});
         }
+        
+        @Override
+        public AtomicReference<Task<?>> getWaitingTask() {
+            return waitingTask;
+        }
+        
+        @Override
+        public CountDownLatch getNowWaitingLatch() {
+            return nowWaitingLatch;
+        }
+        
+        @Override
+        public CountDownLatch getContinueFromWaitingLatch() {
+            return continueFromWaitingLatch;
+        }
+
+        @Override
+        public String effectorWithDefaults(String first, String second) throws Exception {
+            return "effectorWithDefaults(String first="+first+", String second="+second+")";
+        }
+
+        @Override
+        public String effectorWithTypedArgs(boolean booleanArg, byte byteArg, short shortArg, int intArg,
+                long longArg, float floatArg, double doubleArg) throws Exception {
+            return "effectorWithTypedArgs(boolean booleanArg="+booleanArg+", byte byteArg="+byteArg+", "
+                    + "short shortArg="+shortArg+", int intArg="+intArg+", long longArg="+longArg+", "
+                    + "float floatArg="+floatArg+", double doubleArg="+doubleArg+")";
+        }
+
+        @Override
+        public String effectorWithObjectArgs(Object objectArg) throws Exception {
+            return "effectorWithObjectArgs(Object objectArg="+objectArg+")";
+        }
+
+        @Override
+        public String overloaded() throws Exception {
+            return "overloaded()";
+        }
+
+        @Override
+        public String overloaded(String first) throws Exception {
+            return "overloaded(String first="+first+")";
+        }
+
+        @Override
+        public String overloaded(Integer first) throws Exception {
+            return "overloaded(Integer first="+first+")";
+        }
+
+        @Override
+        public String overloaded(String first, String second) throws Exception {
+            return "overloaded(String first="+first+", String second="+second+")";
+        }
     }
             
     private MyEntity entity;
@@ -162,6 +242,81 @@ public class EffectorConcatenateTest extends BrooklynAppUnitTestSupport {
 
         // method syntax
         assertEquals("xy", entity.concatenate("x", "y"));
+    }
+    
+    @Test
+    public void testDefaultArgs() throws Exception {
+        String result = entity.invoke(MyEntity.EFFECTOR_WITH_DEFAULTS, ImmutableMap.<String, Object>of()).get();
+        assertEquals(result, "effectorWithDefaults(String first=firstDefault, String second=secondDefault)");
+        
+        String result2 = entity.invoke(MyEntity.EFFECTOR_WITH_DEFAULTS, ImmutableMap.of("first", "myfirst")).get();
+        assertEquals(result2, "effectorWithDefaults(String first=myfirst, String second=secondDefault)");
+    }
+    
+    @Test
+    public void testTypedArgs() throws Exception {
+        String result1 = entity.invoke(MyEntity.EFFECTOR_WITH_TYPED_ARGS, 
+                ImmutableMap.<String, Object>builder()
+                        .put("booleanArg", true)
+                        .put("byteArg", 1)
+                        .put("shortArg", 2)
+                        .put("intArg", 3)
+                        .put("longArg", 4)
+                        .put("floatArg", 5)
+                        .put("doubleArg", 6)
+                        .build())
+                .get();
+        assertEquals(result1, "effectorWithTypedArgs(boolean booleanArg=true, byte byteArg=1, short shortArg=2, "
+                + "int intArg=3, long longArg=4, float floatArg=5.0, double doubleArg=6.0)");
+        
+        // method syntax
+        String result1b = entity.effectorWithTypedArgs(true, (byte)1, (short)2, 3, 4L, 5F, 6D);
+        assertEquals(result1, result1b);
+    }
+    
+    @Test
+    public void testObjectArgs() throws Exception {
+        String result1 = entity.invoke(MyEntity.EFFECTOR_WITH_OBJECT_ARGS, ImmutableMap.of("objectArg", "myval")).get();
+        assertEquals(result1, "effectorWithObjectArgs(Object objectArg=myval)");
+        
+        String result2 = entity.invoke(MyEntity.EFFECTOR_WITH_OBJECT_ARGS, ImmutableMap.of("objectArg", 1)).get();
+        assertEquals(result2, "effectorWithObjectArgs(Object objectArg=1)");
+        
+        // method syntax
+        String result1b = entity.effectorWithObjectArgs("myval");
+        assertEquals(result1b, result1);
+        
+        String result2b = entity.effectorWithObjectArgs(1);
+        assertEquals(result2b, result2);
+    }
+    
+    // Always calls `overloaded()` - we don't support method overloading for effectors
+    @Test(enabled=false, groups="Broken")
+    public void testOverloaded() throws Exception {
+        String result1 = entity.invoke(MyEntity.OVERLOADED, ImmutableMap.<String, Object>of()).get();
+        assertEquals(result1, "overloaded()");
+        
+        String result2 = entity.invoke(MyEntity.OVERLOADED, ImmutableMap.of("first", "myfirst")).get();
+        assertEquals(result2, "overloaded(String first=myfirst)");
+        
+        String result3 = entity.invoke(MyEntity.OVERLOADED, ImmutableMap.of("first", "myfirst", "second", "mysecond")).get();
+        assertEquals(result3, "overloaded(String first=myfirst, String second=mysecond)");
+        
+        String result4 = entity.invoke(MyEntity.OVERLOADED, ImmutableMap.of("first", 1)).get();
+        assertEquals(result4, "overloaded(Integer first=1)");
+        
+        // method syntax
+        String result1b = entity.overloaded();
+        assertEquals(result1b, result1);
+        
+        String result2b = entity.overloaded("myfirst");
+        assertEquals(result2b, result2);
+        
+        String result3b = entity.overloaded("myfirst", "mysecond");
+        assertEquals(result3b, result3);
+        
+        String result4b = entity.overloaded(1);
+        assertEquals(result4b, result4);
     }
     
     @Test
@@ -234,7 +389,7 @@ public class EffectorConcatenateTest extends BrooklynAppUnitTestSupport {
                         }
                     });
                     
-                    // Expect spawned task to haev correct "blocking details"
+                    // Expect spawned task to have correct "blocking details"
                     try {
                         String status = subtask.getStatusDetail(true);
                         log.info("subtask task says:\n"+status);

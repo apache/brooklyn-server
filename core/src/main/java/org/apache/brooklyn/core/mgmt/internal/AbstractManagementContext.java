@@ -21,8 +21,10 @@ package org.apache.brooklyn.core.mgmt.internal;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoadingContextForCatalogItems;
 
+import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -75,8 +77,9 @@ import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -276,11 +279,28 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         return runAtEntity(entity, eff, parameters);
     }
     
+    @SuppressWarnings("unchecked")
     protected <T> T invokeEffectorMethodLocal(Entity entity, Effector<T> eff, Map<String, ?> args) {
         assert isManagedLocally(entity) : "cannot invoke effector method at "+this+" because it is not managed here";
         totalEffectorInvocationCount.incrementAndGet();
         Object[] transformedArgs = EffectorUtils.prepareArgsForEffector(eff, args);
-        return GroovyJavaMethods.invokeMethodOnMetaClass(entity, eff.getName(), transformedArgs);
+        
+        try {
+            Maybe<Object> result = Reflections.invokeMethodFromArgs(entity, eff.getName(), Arrays.asList(transformedArgs));
+            if (result.isPresent()) {
+                return (T) result.get();
+            } else {
+                throw new IllegalStateException("Unable to invoke entity effector method "+eff.getName()+" on "+entity+" - not found matching args");
+            }
+            
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            // Note that if we do any "nicer" error, such as:
+            //     throw Exceptions.propagate("Unable to invoke entity effector method "+eff.getName()+" on "+entity, e)
+            // then EffectorBasicTest.testInvokeEffectorErrorCollapsedNicely fails because its call to:
+            //     Exceptions.collapseTextInContext
+            // does not unwrap this text.
+            throw Exceptions.propagate(e);
+        }
     }
 
     /**
