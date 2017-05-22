@@ -377,8 +377,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         //TODO These casts are not pretty, we could just provide separate get methods for the different types?
         //Or we could provide asEntity/asPolicy cast methods on the CataloItem doing a safety check internally
         @SuppressWarnings("unchecked")
-        CatalogItem<Entity, EntitySpec<?>> result =
-              (CatalogItem<Entity, EntitySpec<?>>) brooklyn().getCatalog().getCatalogItem(symbolicName, version);
+        CatalogItem<Entity, EntitySpec<? extends Entity>> result =
+              (CatalogItem<Entity, EntitySpec<? extends Entity>>) brooklyn().getCatalog().getCatalogItem(symbolicName, version);
 
         if (result==null) {
             throw WebResourceUtils.notFound("Entity with id '%s:%s' not found", symbolicName, version);

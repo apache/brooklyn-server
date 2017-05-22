@@ -57,7 +57,7 @@ public class EnricherSpec<T extends Enricher> extends AbstractBrooklynObjectSpec
      * @param config The spec's configuration (see {@link EnricherSpec#configure(Map)}).
      * @param type   An {@link Enricher} class
      */
-    public static <T extends Enricher> EnricherSpec<T> create(Map<?,?> config, Class<? extends T> type) {
+    public static <T extends Enricher> EnricherSpec<T> create(Map<?,?> config, Class<T> type) {
         return EnricherSpec.create(type).configure(config);
     }
     

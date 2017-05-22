@@ -362,7 +362,6 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
     }
     
     @Test
-    @SuppressWarnings({ "unchecked", "rawtypes" })
     public <T> void testCoercesSensorName() throws Exception {
         AttributeSensor<String> sensor = Sensors.newStringSensor("mysensor");
 
@@ -370,9 +369,8 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         portForwardManager.associate("myPublicIp", HostAndPort.fromParts("mypublichost", 5678), machine, 1234);
         entity.addLocations(ImmutableList.of(machine));
         
-        // Ugly casting in java, but easy to get passed this when constructed from YAML
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
-                .configure(OnPublicNetworkEnricher.SENSORS, ((List)ImmutableList.of("mysensor"))));
+                .configure(OnPublicNetworkEnricher.SENSORS.getName(), ImmutableList.of("mysensor")));
 
         assertAttributeEqualsEventually("mysensor.mapped.public", "mypublichost:5678");
     }
