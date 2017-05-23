@@ -122,6 +122,8 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import javax.annotation.Nullable;
+
 public class KubernetesLocation extends AbstractLocation implements MachineProvisioningLocation<KubernetesMachineLocation>, KubernetesLocationConfig {
 
     /*
@@ -999,22 +1001,32 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         throw new UnsupportedOperationException();
     }
 
-    /**
-     * @see {@link #lookup(ConfigKey, Entity, ConfigBag, Object)}
-     */
+    /** @see {@link #lookup(ConfigKey, Entity, ConfigBag, Object)} */
     public <T> T lookup(ConfigKey<T> config, Entity entity, ConfigBag setup) {
-        return lookup(config, entity, setup, null);
+        return lookup(config, entity, setup, config.getDefaultValue());
     }
 
     /**
      * Looks up {@link ConfigKey configuration} with the entity value taking precedence over the
      * location, and returning a default value (normally {@literal null}) if neither is present.
      */
-    public <T> T lookup(ConfigKey<T> config, Entity entity, ConfigBag setup, T defaultValue) {
-        Optional<T> entityValue = Optional.fromNullable(entity.config().get(config));
-        Optional<T> locationValue = Optional.fromNullable(setup.get(config));
+    public <T> T lookup(final ConfigKey<T> config, Entity entity, ConfigBag setup, T defaultValue) {
+        boolean entityConfigPresent = !entity.config().findKeysPresent(new Predicate<ConfigKey<?>>() {
+            @Override
+            public boolean apply(@Nullable ConfigKey<?> configKey) {
+                return config.equals(configKey);
+            }
+        }).isEmpty();
 
-        return Iterables.getFirst(Optional.presentInstances(Arrays.asList(entityValue, locationValue)), defaultValue);
+        boolean setupBagConfigPresent = setup.containsKey(config);
+
+        if (entityConfigPresent) {
+            return entity.config().get(config);
+        } else if (setupBagConfigPresent) {
+            return setup.get(config);
+        }
+
+        return defaultValue;
     }
 
     public void waitForExitCondition(ExitCondition exitCondition) {
