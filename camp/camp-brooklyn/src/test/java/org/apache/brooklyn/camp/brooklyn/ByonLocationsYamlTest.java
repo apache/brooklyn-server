@@ -38,6 +38,7 @@ import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -253,6 +254,22 @@ public class ByonLocationsYamlTest extends AbstractYamlTest {
         assertNull(machine.config().get(CloudLocationConfig.INBOUND_PORTS));
     }
 
+    // See https://issues.apache.org/jira/browse/BROOKLYN-479
+    @Test
+    public void testByonSpecWithNoConfig() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "location: byon",
+                "services:",
+                "- serviceType: org.apache.brooklyn.entity.stock.BasicApplication");
+        
+        try {
+            Entity app = createStartWaitAndLogApplication(yaml);
+            Asserts.shouldHaveFailedPreviously("app="+app);
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "Invalid location", "byon", "at least one host must be defined");
+        }
+    }
+    
     private void assertMachine(SshMachineLocation machine, UserAndHostAndPort conn, Map<String, ?> config) {
         assertEquals(machine.getAddress().getHostAddress(), conn.getHostAndPort().getHostText());
         assertEquals(machine.getPort(), conn.getHostAndPort().getPort());
