@@ -18,8 +18,13 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.Map;
 
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.BasicNodeCreator;
@@ -33,7 +38,6 @@ import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 
@@ -94,7 +98,7 @@ public abstract class AbstractJcloudsStubbedUnitTest extends AbstractJcloudsLive
         this.computeServiceRegistry = new StubbedComputeServiceRegistry(nodeCreator, false);
         final Map<Object, Object> defaults = ImmutableMap.builder()
                 .put(JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry)
-                .put(JcloudsLocationConfig.TEMPLATE_BUILDER, JcloudsStubTemplateBuilder.create())
+                .put(JcloudsLocationConfig.TEMPLATE_BUILDER, JcloudsStubTemplateBuilder.create(getProvider(), getRegion()))
                 .put(JcloudsLocationConfig.ACCESS_IDENTITY, "stub-identity")
                 .put(JcloudsLocationConfig.ACCESS_CREDENTIAL, "stub-credential")
                 .put(SshMachineLocation.SSH_TOOL_CLASS, RecordingSshTool.class.getName())
@@ -124,5 +128,24 @@ public abstract class AbstractJcloudsStubbedUnitTest extends AbstractJcloudsLive
     
     protected NodeCreator newNodeCreator() {
         return new BasicNodeCreator();
+    }
+    
+    protected String getProvider() {
+        LocationSpec<?> spec = mgmt().getLocationRegistry().getLocationSpec(getLocationSpec()).get();
+        return getRequiredConfig(spec, JcloudsLocation.CLOUD_PROVIDER);
+    }
+    
+    protected String getRegion() {
+        LocationSpec<? extends Location> spec = mgmt().getLocationRegistry().getLocationSpec(getLocationSpec()).get();
+        return getRequiredConfig(spec, JcloudsLocation.CLOUD_REGION_ID);
+    }
+    
+    protected String getRequiredConfig(LocationSpec<?> spec, ConfigKey<String> key) {
+        String result = (String) spec.getConfig().get(key);
+        if (result != null) {
+            return result;
+        }
+        result = (String) spec.getFlags().get(key.getName());
+        return checkNotNull(result, "config "+key.getName());
     }
 }

@@ -41,8 +41,8 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.Cidr;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
-import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.yaml.Yamls;
@@ -61,10 +61,6 @@ public class CommonAdaptorTypeCoercions {
         this.coercer = coercer;
     }
 
-    public TypeCoercerExtensible getCoercer() {
-        return coercer;
-    }
-    
     public CommonAdaptorTypeCoercions registerAllAdapters() {
         registerStandardAdapters();
         registerRecursiveIterableAdapters();

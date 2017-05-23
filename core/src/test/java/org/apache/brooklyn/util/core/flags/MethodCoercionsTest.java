@@ -18,22 +18,23 @@
  */
 package org.apache.brooklyn.util.core.flags;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableList;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
-import org.apache.brooklyn.util.core.flags.MethodCoercions;
+import java.lang.reflect.Method;
+import java.util.List;
+
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.lang.reflect.Method;
-import java.util.List;
-
-import static org.testng.Assert.*;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 
 public class MethodCoercionsTest {
 
+    private Method staticMultiParameterMethod;
     private Method singleParameterMethod;
     private Method multiParameterMethod;
     private Method singleCollectionParameterMethod;
@@ -41,6 +42,7 @@ public class MethodCoercionsTest {
     @BeforeClass
     public void testFixtureSetUp() {
         try {
+            staticMultiParameterMethod = TestClass.class.getMethod("staticMultiParameterMethod", boolean.class, int.class);
             singleParameterMethod = TestClass.class.getMethod("singleParameterMethod", int.class);
             multiParameterMethod = TestClass.class.getMethod("multiParameterMethod", boolean.class, int.class);
             singleCollectionParameterMethod = TestClass.class.getMethod("singleCollectionParameterMethod", List.class);
@@ -58,11 +60,19 @@ public class MethodCoercionsTest {
     }
 
     @Test
-    public void testTryFindAndInvokeSingleParameterMethod() throws Exception {
-        TestClass instance = new TestClass();
-        Maybe<?> maybe = MethodCoercions.tryFindAndInvokeSingleParameterMethod(instance, "singleParameterMethod", "42");
-        assertTrue(maybe.isPresent());
-        assertTrue(instance.wasSingleParameterMethodCalled());
+    public void testMatchSingleCollectionParameterMethod() throws Exception {
+        Predicate<Method> predicate = MethodCoercions.matchSingleParameterMethod("singleCollectionParameterMethod", ImmutableList.of("42"));
+        assertFalse(predicate.apply(singleParameterMethod));
+        assertFalse(predicate.apply(multiParameterMethod));
+        assertTrue(predicate.apply(singleCollectionParameterMethod));
+    }
+
+    @Test
+    public void testMatchMethodByName() throws Exception {
+        Predicate<Method> predicate = MethodCoercions.matchMethodByName("singleParameterMethod");
+        assertTrue(predicate.apply(singleParameterMethod));
+        assertFalse(predicate.apply(multiParameterMethod));
+        assertFalse(predicate.apply(singleCollectionParameterMethod));
     }
 
     @Test
@@ -74,11 +84,30 @@ public class MethodCoercionsTest {
     }
 
     @Test
+    public void testMatchMultiParameterMethodWithoutName() throws Exception {
+        Predicate<Method> predicate = MethodCoercions.matchMultiParameterMethod(ImmutableList.of("true", "42"));
+        assertFalse(predicate.apply(singleParameterMethod));
+        assertTrue(predicate.apply(multiParameterMethod));
+        assertFalse(predicate.apply(singleCollectionParameterMethod));
+    }
+
+    @Test
     public void testTryFindAndInvokeMultiParameterMethod() throws Exception {
         TestClass instance = new TestClass();
         Maybe<?> maybe = MethodCoercions.tryFindAndInvokeMultiParameterMethod(instance, "multiParameterMethod", ImmutableList.of("true", "42"));
         assertTrue(maybe.isPresent());
         assertTrue(instance.wasMultiParameterMethodCalled());
+    }
+
+    @Test
+    public void testTryFindAndInvokeStaticMultiParameterMethod() throws Exception {
+        try {
+            Maybe<?> maybe = MethodCoercions.tryFindAndInvokeMultiParameterMethod(TestClass.class, ImmutableList.of(staticMultiParameterMethod), ImmutableList.of("true", "42"));
+            assertTrue(maybe.isPresent());
+            assertTrue(TestClass.wasStaticMultiParameterMethodCalled());
+        } finally {
+            TestClass.clear();
+        }
     }
 
     @Test
@@ -98,29 +127,43 @@ public class MethodCoercionsTest {
         assertTrue(maybe.isPresent());
         assertTrue(instance.wasSingleCollectionParameterMethodCalled());
     }
-/*
+
     @Test
-    public void testMatchSingleCollectionParameterMethod() throws Exception {
-        Predicate<Method> predicate = MethodCoercions.matchSingleCollectionParameterMethod("singleCollectionParameterMethod", ImmutableList.of("42"));
-        assertFalse(predicate.apply(singleParameterMethod));
-        assertFalse(predicate.apply(multiParameterMethod));
-        assertTrue(predicate.apply(singleCollectionParameterMethod));
+    public void testTryFindAndInvokeSingleParameterMethod() throws Exception {
+        TestClass instance = new TestClass();
+        Maybe<?> maybe = MethodCoercions.tryFindAndInvokeSingleParameterMethod(instance, "singleParameterMethod", "42");
+        assertTrue(maybe.isPresent());
+        assertTrue(instance.wasSingleParameterMethodCalled());
     }
 
     @Test
     public void testTryFindAndInvokeSingleCollectionParameterMethod() throws Exception {
         TestClass instance = new TestClass();
-        Maybe<?> maybe = MethodCoercions.tryFindAndInvokeSingleCollectionParameterMethod(instance, "singleCollectionParameterMethod", ImmutableList.of("42"));
+        Maybe<?> maybe = MethodCoercions.tryFindAndInvokeSingleParameterMethod(instance, "singleCollectionParameterMethod", ImmutableList.of("42"));
         assertTrue(maybe.isPresent());
         assertTrue(instance.wasSingleCollectionParameterMethodCalled());
     }
-*/
+
     public static class TestClass {
 
+        private static boolean staticMultiParameterMethodCalled;
+        
         private boolean singleParameterMethodCalled;
         private boolean multiParameterMethodCalled;
         private boolean singleCollectionParameterMethodCalled;
 
+        public static void staticMultiParameterMethod(boolean parameter1, int parameter2) {
+            staticMultiParameterMethodCalled = true;
+        }
+
+        public static boolean wasStaticMultiParameterMethodCalled() {
+            return staticMultiParameterMethodCalled;
+        }
+
+        public static void clear() {
+            staticMultiParameterMethodCalled = false;
+        }
+        
         public void singleParameterMethod(int parameter) {
             singleParameterMethodCalled = true;
         }
