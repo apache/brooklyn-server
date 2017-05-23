@@ -151,7 +151,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
                 JcloudsLocationConfig.WAIT_FOR_SSHABLE, "1ms",
                 JcloudsLocationConfig.POLL_FOR_FIRST_REACHABLE_ADDRESS, "1ms",
                 JcloudsLocation.CUSTOM_CREDENTIALS, credential));
-        ConnectivityResolverOptions options = newResolveOptionsForIps(reachableIps).build();
+        ConnectivityResolverOptions options = newResolveOptionsForIps(reachableIps, Duration.millis(100)).build();
 
         // Chooses authorisedHostAndPort when credentials are tested.
         DefaultConnectivityResolver customizer = new DefaultConnectivityResolver(ImmutableMap.of(
@@ -193,7 +193,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
         initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of(
                 JcloudsLocationConfig.CONNECTIVITY_RESOLVER, customizer));
 
-        ConnectivityResolverOptions options = newResolveOptionsForIps(reachableIps).build();
+        ConnectivityResolverOptions options = newResolveOptionsForIps(reachableIps, Duration.millis(100)).build();
         ConfigBag configBag = ConfigBag.newInstance();
 
         ManagementAddressResolveResult result = customizer.resolve(jcloudsLocation, newNodeMetadata(), configBag, options);
@@ -222,7 +222,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
         initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of(
                 JcloudsLocationConfig.CONNECTIVITY_RESOLVER, customizer));
 
-        ConnectivityResolverOptions options = newResolveOptionsForIps(reachableIps).build();
+        ConnectivityResolverOptions options = newResolveOptionsForIps(reachableIps, Duration.ONE_MILLISECOND).build();
         ConfigBag configBag = ConfigBag.newInstance();
         customizer.resolve(jcloudsLocation, newNodeMetadata(), configBag, options);
     }
@@ -232,9 +232,14 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
                 .initialCredentials(credential);
     }
     
-    private ConnectivityResolverOptions.Builder newResolveOptionsForIps(Set<HostAndPort> reachableIps) {
+    private ConnectivityResolverOptions.Builder newResolveOptionsForIps(Set<HostAndPort> reachableIps, Duration timeout) {
+        // It's important to not use a tiny timeout (e.g. 1ms) if you expect it to succeed, 
+        // because that can fail on apache jenkins. We execute the check in a background
+        // thread, and then wait for this timeout for it to succeed. On a slow machine, we 
+        // might not have finished executing the predicate, so might abort. 
+        // (see `ReachableSocketFinder.tryReachable()`, and its use of `timeout`).
         return newResolveOptions().
-            pollForReachableAddresses(Predicates.in(reachableIps), Duration.millis(1), true);
+            pollForReachableAddresses(Predicates.in(reachableIps), timeout, true);
     }
 
     private NodeMetadata newNodeMetadata() {
