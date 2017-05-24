@@ -763,8 +763,8 @@ public class DslYamlTest extends AbstractYamlTest {
             public T call() throws Exception {
                 // TODO Move the getNonBlocking call out of the task after #480 is merged.
                 // Currently doesn't work because no execution context available.
-                Maybe<T> immediateValue = ((EntityInternal)entity).config().getNonBlocking(configKey);
                 T blockingValue = entity.config().get(configKey);
+                Maybe<T> immediateValue = ((EntityInternal)entity).config().getNonBlocking(configKey);
                 assertEquals(immediateValue.get(), blockingValue);
                 return blockingValue;
             }
