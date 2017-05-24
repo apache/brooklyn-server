@@ -4,12 +4,12 @@ brooklyn.catalog:
   dependsOn:
     # From https://github.com/brooklyncentral/common-catalog-utils
     - commontests/common.tests.bom
-  license_code: CLOUDSOFT-1.0
+  license_code: Apache-2.0
 
 
   items:
   - "https://raw.githubusercontent.com/brooklyncentral/common-catalog-utils/master/common-tests/src/main/resources/commontests/common.tests.bom"
-  
+
   - id: cluster-endpoint-tests
     name: "Cluster Endpoint Deployment Tests"
     description: |

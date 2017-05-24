@@ -4,7 +4,7 @@ brooklyn.catalog:
   dependsOn:
     # From https://github.com/brooklyncentral/common-catalog-utils
     - commontests/common.tests.bom
-  license_code: CLOUDSOFT-1.0
+  license_code: Apache-2.0
 
 ##
 # To test stop effector:
@@ -49,7 +49,7 @@ brooklyn.catalog:
 ##
 
   items:
-  
+
   ##
   # Wrapper test
   ##
