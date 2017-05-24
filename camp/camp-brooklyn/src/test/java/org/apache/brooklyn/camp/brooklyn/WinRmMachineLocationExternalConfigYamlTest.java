@@ -24,6 +24,7 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.internal.winrm.RecordingWinRmTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,13 +70,36 @@ public class WinRmMachineLocationExternalConfigYamlTest extends AbstractYamlTest
 
         BasicApplication app = (BasicApplication) createAndStartApplication(yaml);
         waitForApplicationTasks(app);
-        assertEquals(RecordingWinRmTool.constructorProps.get(0).get(WinRmMachineLocation.ADDRESS.getName()), "127.0.0.1");
+        assertEquals(RecordingWinRmTool.constructorProps.get(0).get("host"), "127.0.0.1");
         assertEquals(RecordingWinRmTool.constructorProps.get(0).get(WinRmMachineLocation.USER.getName()), "admin");
         assertEquals(RecordingWinRmTool.constructorProps.get(0).get(WinRmMachineLocation.PASSWORD.getName()), "passw0rd");
     }
 
     @Test()
     public void testWindowsMachinesNoExternalProvider() throws Exception {
+        RecordingWinRmTool.constructorProps.clear();
+        final String yaml = Joiner.on("\n").join("location:",
+                "  byon:",
+                "    hosts:",
+                "    - winrm: 127.0.0.1",
+                "      user: $brooklyn:external(\"inPlaceSupplier1\", \"byonUserEmpty\")",
+                "      brooklyn.winrm.config.winrmToolClass: org.apache.brooklyn.util.core.internal.winrm.RecordingWinRmTool",
+                "      password: $brooklyn:external(\"inPlaceSupplier1\", \"byonPasswordddd\")",
+                "      osFamily: windows",
+                "services:",
+                "- type: org.apache.brooklyn.entity.software.base.VanillaWindowsProcess",
+                "  brooklyn.config:",
+                "    launch.command: echo launch",
+                "    checkRunning.command: echo running");
+
+        BasicApplication app = (BasicApplication) createAndStartApplication(yaml);
+        waitForApplicationTasks(app);
+        assertNull(RecordingWinRmTool.constructorProps.get(0).get(WinRmMachineLocation.USER.getName()));
+        assertNull(RecordingWinRmTool.constructorProps.get(0).get(WinRmMachineLocation.PASSWORD.getName()));
+    }
+
+    @Test()
+    public void testWindowsMachinesNoExternalIPProvider() throws Exception {
         RecordingWinRmTool.constructorProps.clear();
         final String yaml = Joiner.on("\n").join("location:",
                 "  byon:",
@@ -91,11 +115,13 @@ public class WinRmMachineLocationExternalConfigYamlTest extends AbstractYamlTest
                 "    launch.command: echo launch",
                 "    checkRunning.command: echo running");
 
-        BasicApplication app = (BasicApplication) createAndStartApplication(yaml);
-        waitForApplicationTasks(app);
-        assertNull(RecordingWinRmTool.constructorProps.get(0).get(WinRmMachineLocation.ADDRESS.getName()));
-        assertNull(RecordingWinRmTool.constructorProps.get(0).get(WinRmMachineLocation.USER.getName()));
-        assertNull(RecordingWinRmTool.constructorProps.get(0).get(WinRmMachineLocation.PASSWORD.getName()));
+        try {
+            BasicApplication app = (BasicApplication) createAndStartApplication(yaml);
+            waitForApplicationTasks(app);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureOfType(e, NullPointerException.class);
+        }
     }
 
     @Override
