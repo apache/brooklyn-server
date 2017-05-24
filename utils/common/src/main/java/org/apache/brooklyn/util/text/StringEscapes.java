@@ -131,6 +131,8 @@ public class StringEscapes {
                     appendEscaped(out, c);
                 } else if (c == '!') {
                     out.append("\"'!'\"");
+                } else if (c == '\n') {
+                    out.append("\\n");
                 } else {
                     out.append(c);
                 }
