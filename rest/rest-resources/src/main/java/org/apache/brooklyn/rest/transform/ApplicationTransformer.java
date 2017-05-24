@@ -100,7 +100,7 @@ public class ApplicationTransformer {
             @Override
             @Nullable
             public String apply(@Nullable Location input) {
-                return input.getId();
+                return input.getCatalogItemId() != null ? input.getCatalogItemId() : input.getId();
             }
         });
         // okay to have entities and config as null, as this comes from a real instance
