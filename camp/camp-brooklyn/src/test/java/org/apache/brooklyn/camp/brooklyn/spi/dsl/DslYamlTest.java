@@ -19,10 +19,13 @@ import static org.testng.Assert.assertEquals;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslTestObjects.DslTestCallable;
@@ -758,17 +761,19 @@ public class DslYamlTest extends AbstractYamlTest {
     }
 
     private static <T> T getConfigEventually(final Entity entity, final ConfigKey<T> configKey) throws Exception {
-        Task<T> result = ((EntityInternal)entity).getExecutionContext().submit(new Callable<T>() {
-            @Override
-            public T call() throws Exception {
-                // TODO Move the getNonBlocking call out of the task after #480 is merged.
-                // Currently doesn't work because no execution context available.
-                Maybe<T> immediateValue = ((EntityInternal)entity).config().getNonBlocking(configKey);
-                T blockingValue = entity.config().get(configKey);
-                assertEquals(immediateValue.get(), blockingValue);
-                return blockingValue;
-            }
-        });
-        return result.get(Asserts.DEFAULT_LONG_TIMEOUT);
+        // Use an executor, in case config().get() blocks forever, waiting for the config value.
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<T> future = executor.submit(new Callable<T>() {
+                public T call() {
+                    T blockingValue = entity.config().get(configKey);
+                    Maybe<T> immediateValue = ((EntityInternal)entity).config().getNonBlocking(configKey);
+                    assertEquals(immediateValue.get(), blockingValue);
+                    return blockingValue;
+                }});
+            return future.get(Asserts.DEFAULT_LONG_TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 }
