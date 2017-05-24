@@ -11,7 +11,7 @@
  #  - app comes up
  #  - via nginx, we can connect to the web-app
  #  - via nginx (and the web-app), we can write to the database and read from database
- # 
+ #
  # The different variants of the test will:
  #  - everything running in cluster;
  #    See "multi-node-app-cluster".
@@ -25,17 +25,17 @@
  #
  # It assumes that the tests are run against a location in which VMs can be provisioned
  # (which is then overridden where "testing-cluster" should instead be used). For example,
- # "multi-node-app-cloud-to-cluster" deploys nginx to the location passed in; and 
+ # "multi-node-app-cloud-to-cluster" deploys nginx to the location passed in; and
  # deploys the tomcat-webapp-cluster to "testing-cluster".
  ##
- 
+
 brooklyn.catalog:
   version: "2.1.0-SNAPSHOT" # CONTAINER_SERVICE_VERSION
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
   dependsOn:
     # From https://github.com/brooklyncentral/common-catalog-utils
     - commontests/common.tests.bom
-  license_code: CLOUDSOFT-1.0
+  license_code: Apache-2.0
 
 
   items:
