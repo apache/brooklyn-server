@@ -16,10 +16,10 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<features xmlns="http://karaf.apache.org/xmlns/features/v1.2.0"
+<features xmlns="http://karaf.apache.org/xmlns/features/v1.4.0"
           name="org.apache.brooklyn-${project.version}"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="http://karaf.apache.org/xmlns/features/v1.2.0">
+          xsi:noNamespaceSchemaLocation="http://karaf.apache.org/xmlns/features/v1.4.0">
 
     <repository>mvn:org.apache.karaf.features/standard/${karaf.version}/xml/features</repository>
     <repository>mvn:org.apache.jclouds.karaf/jclouds-karaf/${jclouds.version}/xml/features</repository>
