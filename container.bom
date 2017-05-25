@@ -131,7 +131,7 @@ brooklyn.catalog:
 			defaultValue: 1
 
     - id: openshift-resource-entity
-      name: "Kubernetes resource"
+      name: "OpenShift resource"
       description: |
         An easy way to launch an OpenShift resource defined by a YAML file
       itemType: entity
@@ -142,5 +142,5 @@ brooklyn.catalog:
           - name: resource
             label: "Resource"
             description: |
-              Kubernetes resource YAML file URI
+              OpenShift resource YAML file URI
             type: string
