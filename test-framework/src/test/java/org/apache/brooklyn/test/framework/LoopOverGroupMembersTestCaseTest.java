@@ -32,7 +32,6 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.group.DynamicGroup;
@@ -70,9 +69,9 @@ public class LoopOverGroupMembersTestCaseTest {
         EmptySoftwareProcess emptySoftwareProcess = addEmptySoftwareProcessToGroup();
         EntitySpec<TestSensor> testSpec = createPassingTestSensorSpec();
 
-        LoopOverGroupMembersTestCase loopOverGroupMembersTestCase = app.createAndManageChild(EntitySpec.create(LoopOverGroupMembersTestCase.class));
-        loopOverGroupMembersTestCase.config().set(LoopOverGroupMembersTestCase.TEST_SPEC, testSpec);
-        loopOverGroupMembersTestCase.config().set(LoopOverGroupMembersTestCase.TARGET_ENTITY, testGroup);
+        LoopOverGroupMembersTestCase loopOverGroupMembersTestCase = app.addChild(EntitySpec.create(LoopOverGroupMembersTestCase.class)
+                .configure(LoopOverGroupMembersTestCase.TEST_SPEC, testSpec)
+                .configure(LoopOverGroupMembersTestCase.TARGET_ENTITY, testGroup));
 
         app.start(ImmutableList.of(app.newSimulatedLocation()));
 
@@ -90,9 +89,9 @@ public class LoopOverGroupMembersTestCaseTest {
         Set<EmptySoftwareProcess> emptySoftwareProcesses = addMultipleEmptySoftwareProcessesToGroup(4);
         EntitySpec<TestSensor> testSpec = createPassingTestSensorSpec();
 
-        LoopOverGroupMembersTestCase loopOverGroupMembersTestCase = app.createAndManageChild(EntitySpec.create(LoopOverGroupMembersTestCase.class));
-        loopOverGroupMembersTestCase.config().set(LoopOverGroupMembersTestCase.TEST_SPEC, testSpec);
-        loopOverGroupMembersTestCase.config().set(LoopOverGroupMembersTestCase.TARGET_ENTITY, testGroup);
+        LoopOverGroupMembersTestCase loopOverGroupMembersTestCase = app.addChild(EntitySpec.create(LoopOverGroupMembersTestCase.class)
+                .configure(LoopOverGroupMembersTestCase.TEST_SPEC, testSpec)
+                .configure(LoopOverGroupMembersTestCase.TARGET_ENTITY, testGroup));
 
         app.start(ImmutableList.of(app.newSimulatedLocation()));
 
@@ -112,9 +111,9 @@ public class LoopOverGroupMembersTestCaseTest {
         Set<EmptySoftwareProcess> emptySoftwareProcesses = addMultipleEmptySoftwareProcessesToGroup(4);
         EntitySpec<TestSensor> testSpec = createFailingTestSensorSpec();
 
-        LoopOverGroupMembersTestCase loopOverGroupMembersTestCase = app.createAndManageChild(EntitySpec.create(LoopOverGroupMembersTestCase.class));
-        loopOverGroupMembersTestCase.config().set(LoopOverGroupMembersTestCase.TEST_SPEC, testSpec);
-        loopOverGroupMembersTestCase.config().set(LoopOverGroupMembersTestCase.TARGET_ENTITY, testGroup);
+        LoopOverGroupMembersTestCase loopOverGroupMembersTestCase = app.addChild(EntitySpec.create(LoopOverGroupMembersTestCase.class)
+                .configure(LoopOverGroupMembersTestCase.TEST_SPEC, testSpec)
+                .configure(LoopOverGroupMembersTestCase.TARGET_ENTITY, testGroup));
 
         app.start(ImmutableList.of(app.newSimulatedLocation()));
 
@@ -137,9 +136,9 @@ public class LoopOverGroupMembersTestCaseTest {
         EmptySoftwareProcess failingProcess = testGroup.addMemberChild(EntitySpec.create(EmptySoftwareProcess.class));
         failingProcess.sensors().set(STRING_SENSOR, "THIS STRING WILL CAUSE SENSOR TEST TO FAIL");
 
-        LoopOverGroupMembersTestCase loopOverGroupMembersTestCase = app.createAndManageChild(EntitySpec.create(LoopOverGroupMembersTestCase.class));
-        loopOverGroupMembersTestCase.config().set(LoopOverGroupMembersTestCase.TEST_SPEC, testSpec);
-        loopOverGroupMembersTestCase.config().set(LoopOverGroupMembersTestCase.TARGET_ENTITY, testGroup);
+        LoopOverGroupMembersTestCase loopOverGroupMembersTestCase = app.addChild(EntitySpec.create(LoopOverGroupMembersTestCase.class)
+                .configure(LoopOverGroupMembersTestCase.TEST_SPEC, testSpec)
+                .configure(LoopOverGroupMembersTestCase.TARGET_ENTITY, testGroup));
 
         app.start(ImmutableList.of(app.newSimulatedLocation()));
 
@@ -167,9 +166,9 @@ public class LoopOverGroupMembersTestCaseTest {
         EmptySoftwareProcess emptySoftwareProcess = addEmptySoftwareProcessToGroup();
         EntitySpec<TestSensor> testSpec = createFailingTestSensorSpec();
 
-        LoopOverGroupMembersTestCase loopOverGroupMembersTestCase = app.createAndManageChild(EntitySpec.create(LoopOverGroupMembersTestCase.class));
-        loopOverGroupMembersTestCase.config().set(LoopOverGroupMembersTestCase.TEST_SPEC, testSpec);
-        loopOverGroupMembersTestCase.config().set(LoopOverGroupMembersTestCase.TARGET_ENTITY, testGroup);
+        LoopOverGroupMembersTestCase loopOverGroupMembersTestCase = app.addChild(EntitySpec.create(LoopOverGroupMembersTestCase.class)
+                .configure(LoopOverGroupMembersTestCase.TEST_SPEC, testSpec)
+                .configure(LoopOverGroupMembersTestCase.TARGET_ENTITY, testGroup));
 
         app.start(ImmutableList.of(app.newSimulatedLocation()));
 
