@@ -125,6 +125,10 @@ public class RecordingWinRmTool implements WinRmTool {
         return execs.get(execs.size()-1);
     }
 
+    public static Map<?,?> getLastConstructorProps() {
+        return constructorProps.get(constructorProps.size()-1);
+    }
+
     private final Map<?, ?> ownConstructorProps;
     
     public RecordingWinRmTool(Map<?,?> props) {
