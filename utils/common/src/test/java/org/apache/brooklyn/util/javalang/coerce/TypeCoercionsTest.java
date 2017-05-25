@@ -245,6 +245,13 @@ public class TypeCoercionsTest {
     }
 
     @Test
+    public void testListEntryToIterableCoercion() {
+        @SuppressWarnings("serial")
+        Iterable<?> val = coerce(ImmutableList.of("1", "2"), new TypeToken<Iterable<Integer>>() {});
+        Assert.assertEquals(ImmutableList.copyOf(val), ImmutableList.of(1, 2));
+    }
+
+    @Test
     public void testMapValueCoercion() {
         @SuppressWarnings("serial")
         Map<?,?> s = coerce(ImmutableMap.of("int", "java.lang.Integer", "double", "java.lang.Double"), new TypeToken<Map<String, Class<?>>>() { });

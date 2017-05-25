@@ -120,8 +120,8 @@ public class TypeCoercerExtensible implements TypeCoercer {
 
         //recursive coercion of parameterized collections and map entries
         if (targetTypeToken.getType() instanceof ParameterizedType) {
-            if (value instanceof Collection && Collection.class.isAssignableFrom(targetType)) {
-                result = tryCoerceCollection(value, targetTypeToken, targetType);
+            if (value instanceof Iterable && Iterable.class.isAssignableFrom(targetType)) {
+                result = tryCoerceIterable(value, targetTypeToken, targetType);
                 
                 if (result != null && result.isAbsent() && targetType.isInstance(value)) {
                     log.warn("Failed to coerce collection from " + value.getClass().getName() + " to " + targetTypeToken  
@@ -238,11 +238,11 @@ public class TypeCoercerExtensible implements TypeCoercer {
      * returns null if it just doesn't apply, a {@link Maybe.Present} if it succeeded,
      * or {@link Maybe.Absent} with a good exception if it should have applied but couldn't */
     @SuppressWarnings("unchecked")
-    protected <T> Maybe<T> tryCoerceCollection(Object value, TypeToken<T> targetTypeToken, Class<? super T> targetType) {
+    protected <T> Maybe<T> tryCoerceIterable(Object value, TypeToken<T> targetTypeToken, Class<? super T> targetType) {
         if (!(value instanceof Iterable) || !(Iterable.class.isAssignableFrom(targetTypeToken.getRawType()))) return null;
         Type[] arguments = ((ParameterizedType) targetTypeToken.getType()).getActualTypeArguments();
         if (arguments.length != 1) {
-            return Maybe.absent(new IllegalStateException("Unexpected number of parameters in collection type: " + arguments));
+            return Maybe.absent(new IllegalStateException("Unexpected number of parameters in iterable type: " + arguments));
         }
         Collection<Object> coerced = Lists.newLinkedList();
         TypeToken<?> listEntryType = TypeToken.of(arguments[0]);
