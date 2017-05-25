@@ -72,7 +72,7 @@ brooklyn.catalog:
             description: |
               Number of replicas in the pod
             type: integer
-			defaultValue: 1
+            defaultValue: 1
 
     - id: kubernetes-resource-entity
       name: "Kubernetes resource"
@@ -82,7 +82,7 @@ brooklyn.catalog:
       iconUrl: https://pbs.twimg.com/media/Bt_pEfqCAAAiVyz.png
       item:
         type: org.apache.brooklyn.container.entity.kubernetes.KubernetesResource
-		brooklyn.parameters:
+        brooklyn.parameters:
           - name: resource
             label: "Resource"
             description: |
@@ -128,7 +128,7 @@ brooklyn.catalog:
             description: |
               Number of replicas in the pod
             type: integer
-			defaultValue: 1
+            defaultValue: 1
 
     - id: openshift-resource-entity
       name: "OpenShift resource"
@@ -138,7 +138,7 @@ brooklyn.catalog:
       iconUrl: https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/OpenShift-LogoType.svg/225px-OpenShift-LogoType.svg.png
       item:
         type: org.apache.brooklyn.container.entity.openshift.OpenShiftResource
-		brooklyn.parameters:
+        brooklyn.parameters:
           - name: resource
             label: "Resource"
             description: |
