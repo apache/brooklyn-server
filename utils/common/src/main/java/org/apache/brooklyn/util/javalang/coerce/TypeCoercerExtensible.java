@@ -29,6 +29,7 @@ import java.util.Set;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
@@ -124,7 +125,16 @@ public class TypeCoercerExtensible implements TypeCoercer {
                 result = tryCoerceIterable(value, targetTypeToken, targetType);
                 
                 if (result != null && result.isAbsent() && targetType.isInstance(value)) {
-                    log.warn("Failed to coerce collection from " + value.getClass().getName() + " to " + targetTypeToken  
+                    log.warn("Failed to coerce iterable from " + value.getClass().getName() + " to " + targetTypeToken  
+                            + "; returning uncoerced result to preserve (deprecated) backwards compatibility", 
+                            Maybe.getException(result));
+                }
+                
+            } else if (value.getClass().isArray() && Iterable.class.isAssignableFrom(targetType)) {
+                result = tryCoerceArray(value, targetTypeToken, targetType);
+                
+                if (result != null && result.isAbsent() && targetType.isInstance(value)) {
+                    log.warn("Failed to coerce array from " + value.getClass().getName() + " to " + targetTypeToken  
                             + "; returning uncoerced result to preserve (deprecated) backwards compatibility", 
                             Maybe.getException(result));
                 }
@@ -234,6 +244,11 @@ public class TypeCoercerExtensible implements TypeCoercer {
         return Maybe.of((T) Maps.newLinkedHashMap(coerced));
     }
 
+    protected <T> Maybe<T> tryCoerceArray(Object value, TypeToken<T> targetTypeToken, Class<? super T> targetType) {
+       List<?> listValue = Reflections.arrayToList(value);
+       return tryCoerceIterable(listValue, targetTypeToken, targetType);
+    }
+    
     /** tries to coerce a list;
      * returns null if it just doesn't apply, a {@link Maybe.Present} if it succeeded,
      * or {@link Maybe.Absent} with a good exception if it should have applied but couldn't */

@@ -32,6 +32,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -1099,4 +1100,14 @@ public class Reflections {
         return hasSpecialSerializationMethods(type.getSuperclass());
     }
 
+    public static List<?> arrayToList(Object input) {
+        // We can't just use Arrays.asList(), because that would return a list containing the single
+        // value "input".
+        List<Object> result = new ArrayList<>();
+        int length = Array.getLength(input);
+        for (int i = 0; i < length; i++) {
+            result.add(Array.get(input, i));
+        }
+        return result;
+    }
 }
