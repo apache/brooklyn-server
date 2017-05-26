@@ -33,6 +33,7 @@ public interface LoopOverGroupMembersTestCase extends TargetableTestComponent {
      * The test spec that will be run against each member of the group
      */
     @SetFromFlag("testSpec")
+    @SuppressWarnings("serial")
     ConfigKey<EntitySpec<? extends TargetableTestComponent>> TEST_SPEC = ConfigKeys.newConfigKey(
             new TypeToken<EntitySpec<? extends TargetableTestComponent>>(){},
             "test.spec",
