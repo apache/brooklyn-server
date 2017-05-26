@@ -131,9 +131,12 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     }
     
     /**
+     * This class should be considered internal, and not instantiated directly. It is only public 
+     * to better support rebind.
+     * 
      * @since 0.8.0
      */
-    protected static class ServiceNotUpDiagnosticsCollector extends AbstractEnricher implements SensorEventListener<Object> {
+    public static class ServiceNotUpDiagnosticsCollector extends AbstractEnricher implements SensorEventListener<Object> {
         public ServiceNotUpDiagnosticsCollector() {
         }
         
@@ -207,10 +210,15 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         }
     }
 
-    /** subscribes to SERVICE_PROCESS_IS_RUNNING and SERVICE_UP; the latter has no effect if the former is set,
+    /**
+     * Subscribes to SERVICE_PROCESS_IS_RUNNING and SERVICE_UP; the latter has no effect if the former is set,
      * but to support entities which set SERVICE_UP directly we want to make sure that the absence of 
-     * SERVICE_PROCESS_IS_RUNNING does not trigger any not-up indicators */
-    protected static class UpdatingNotUpFromServiceProcessIsRunning extends AbstractEnricher implements SensorEventListener<Object> {
+     * SERVICE_PROCESS_IS_RUNNING does not trigger any not-up indicators.
+     * 
+     * This class should be considered internal, and not instantiated directly. It is only public 
+     * to better support rebind.
+     */
+    public static class UpdatingNotUpFromServiceProcessIsRunning extends AbstractEnricher implements SensorEventListener<Object> {
         public UpdatingNotUpFromServiceProcessIsRunning() {}
         
         @Override
