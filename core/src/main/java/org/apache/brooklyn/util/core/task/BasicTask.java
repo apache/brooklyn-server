@@ -20,7 +20,6 @@ package org.apache.brooklyn.util.core.task;
 
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.asString;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvisString;
-import groovy.lang.Closure;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -44,6 +43,7 @@ import java.util.concurrent.TimeoutException;
 
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -63,6 +63,8 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Callables;
 import com.google.common.util.concurrent.ExecutionList;
 import com.google.common.util.concurrent.ListenableFuture;
+
+import groovy.lang.Closure;
 
 /**
  * The basic concrete implementation of a {@link Task} to be executed.
@@ -130,8 +132,13 @@ public class BasicTask<T> implements TaskInternal<T> {
         displayName = (d==null ? "" : d);
     }
 
-    public BasicTask(Runnable job) { this(GroovyJavaMethods.<T>callableFromRunnable(job)); }
-    public BasicTask(Map<?,?> flags, Runnable job) { this(flags, GroovyJavaMethods.<T>callableFromRunnable(job)); }
+    public BasicTask(Runnable job) {
+        this(JavaGroovyEquivalents.toCallable(job));
+    }
+    
+    public BasicTask(Map<?,?> flags, Runnable job) {
+        this(flags, JavaGroovyEquivalents.toCallable(job));
+    }
     
     /**
      * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
