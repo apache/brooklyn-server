@@ -49,7 +49,6 @@ import com.google.common.collect.ImmutableMap;
  */
 public abstract class AbstractJcloudsStubbedUnitTest extends AbstractJcloudsLiveTest {
 
-    @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(AbstractJcloudsStubbedUnitTest.class);
 
     // TODO These values are hard-coded into the JcloudsStubTemplateBuilder, so best not to mess!
@@ -96,7 +95,7 @@ public abstract class AbstractJcloudsStubbedUnitTest extends AbstractJcloudsLive
     protected void initNodeCreatorAndJcloudsLocation(NodeCreator nodeCreator, Map<?, ?> jcloudsLocationConfig) throws Exception {
         this.nodeCreator = nodeCreator;
         this.computeServiceRegistry = new StubbedComputeServiceRegistry(nodeCreator, false);
-        final Map<Object, Object> defaults = ImmutableMap.builder()
+        final Map<ConfigKey<?>, Object> defaults = ImmutableMap.<ConfigKey<?>, Object>builder()
                 .put(JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry)
                 .put(JcloudsLocationConfig.TEMPLATE_BUILDER, JcloudsStubTemplateBuilder.create(getProvider(), getRegion()))
                 .put(JcloudsLocationConfig.ACCESS_IDENTITY, "stub-identity")
@@ -108,11 +107,14 @@ public abstract class AbstractJcloudsStubbedUnitTest extends AbstractJcloudsLive
                 .build();
         final ImmutableMap.Builder<Object, Object> flags = ImmutableMap.builder()
                 .putAll(jcloudsLocationConfig);
-        for (Map.Entry<Object, Object> entry : defaults.entrySet()) {
-            if (!jcloudsLocationConfig.containsKey(entry.getKey())) {
-                flags.put(entry.getKey(), entry.getValue());
+        for (Map.Entry<ConfigKey<?>, Object> entry : defaults.entrySet()) {
+            ConfigKey<?> key = entry.getKey();
+            if (!jcloudsLocationConfig.containsKey(key) && !jcloudsLocationConfig.containsKey(key.getName())) {
+                flags.put(key, entry.getValue());
             } else {
-                LOG.debug("Overridden default value for {} with: {}", new Object[]{entry.getKey(), entry.getValue()});
+                Object overrideVal = jcloudsLocationConfig.get(key);
+                if (overrideVal == null) overrideVal = jcloudsLocationConfig.get(key.getName());
+                LOG.debug("Overridden default value for {} with: {}", new Object[]{key, overrideVal});
             }
         }
         this.jcloudsLocation = (JcloudsLocation)managementContext.getLocationRegistry().getLocationManaged(
