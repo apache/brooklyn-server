@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.javalang.coerce;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.List;
@@ -25,8 +26,10 @@ import java.util.List;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.reflect.TypeToken;
 
@@ -45,6 +48,7 @@ public class CommonAdaptorTryCoercions {
     public CommonAdaptorTryCoercions registerAllAdapters() {
         registerAdapter(new TryCoercerWithFromMethod());
         registerAdapter(new TryCoercerToEnum());
+        registerAdapter(new TryCoercerToArray(coercer));
         registerAdapter(new TryCoercerForPrimitivesAndStrings());
         return this;
     }
@@ -98,6 +102,42 @@ public class CommonAdaptorTryCoercions {
             } else {
                 return null;
             }
+        }
+    }
+
+    protected static class TryCoercerToArray implements TryCoercer {
+        private final TypeCoercerExtensible coercer;
+        
+        public TryCoercerToArray(TypeCoercerExtensible coercer) {
+            this.coercer = coercer;
+        }
+        
+        @Override
+        @SuppressWarnings("unchecked")
+        public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> targetType) {
+            if (!targetType.isArray()) return null;
+            
+            TypeToken<?> targetComponentType = targetType.getComponentType();
+            Iterable<?> castInput;
+            if (input.getClass().isArray()) {
+                castInput = Reflections.arrayToList(input);
+            } else if (Iterable.class.isAssignableFrom(input.getClass())) {
+                castInput = (Iterable<?>) input;
+            } else {
+                return null;
+            }
+            
+            Object result = Array.newInstance(targetComponentType.getRawType(), Iterables.size(castInput));
+            int index = 0;
+            for (Object member : castInput) {
+                Maybe<?> coercedMember = coercer.tryCoerce(member, targetComponentType);
+                if (coercedMember == null || coercedMember.isAbsent()) {
+                    RuntimeException cause = Maybe.Absent.getException(coercedMember);
+                    return Maybe.absent("Array member at index "+index+" cannot be coerced to "+targetComponentType, cause);
+                }
+                Array.set(result, index++, coercedMember.get());
+            }
+            return (Maybe<T>) Maybe.of(result);
         }
     }
 

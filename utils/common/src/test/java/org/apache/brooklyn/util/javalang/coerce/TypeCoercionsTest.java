@@ -37,6 +37,7 @@ import java.util.TimeZone;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.text.StringPredicates;
+import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.codehaus.groovy.runtime.GStringImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -194,6 +195,57 @@ public class TypeCoercionsTest {
         UPPER,
         UPPER_WITH_UNDERSCORE,
         lower_with_underscore;
+    }
+    
+    @Test
+    public void testArrayToListCoercion() {
+        @SuppressWarnings("serial")
+        List<?> s = coerce(new String[] {"1", "2"}, new TypeToken<List<String>>() { });
+        Assert.assertEquals(s, ImmutableList.of("1", "2"));
+    }
+    
+    @Test
+    public void testArrayEntryCoercion() {
+        @SuppressWarnings("serial")
+        Integer[] val = coerce(new String[] {"1", "2"}, new TypeToken<Integer[]>() { });
+        Assert.assertTrue(Arrays.equals(val, new Integer[] {1, 2}), "val="+Arrays.toString(val)+" of type "+val.getClass());
+    }
+    
+    @Test
+    public void testArrayEntryInvalidCoercion() {
+        try {
+            @SuppressWarnings("serial")
+            Integer[] val = coerce(new String[] {"myWrongVal"}, new TypeToken<Integer[]>() { });
+            Asserts.shouldHaveFailedPreviously("val="+val);
+        } catch (ClassCoercionException e) {
+            Asserts.expectedFailureContains(e, "Cannot coerce", "myWrongVal", "to java.lang.Integer");
+        }
+    }
+    
+    @Test
+    public void testListToArrayInvalidCoercion() {
+        try {
+            @SuppressWarnings("serial")
+            Integer[] val = coerce(ImmutableList.of("myWrongVal"), new TypeToken<Integer[]>() { });
+            Asserts.shouldHaveFailedPreviously("val="+val);
+        } catch (ClassCoercionException e) {
+            Asserts.expectedFailureContains(e, "Cannot coerce", "myWrongVal", "to java.lang.Integer");
+        }
+    }
+    
+    @Test
+    public void testArrayMultiDimensionEntryCoercion() {
+        @SuppressWarnings("serial")
+        Integer[][] val = coerce(new String[][] {{"1", "2"}, {"3", "4"}}, new TypeToken<Integer[][]>() { });
+        Assert.assertTrue(EqualsBuilder.reflectionEquals(val, new Integer[][] {{1, 2}, {3, 4}}), 
+                "val="+Arrays.toString(val)+" of type "+val.getClass());
+    }
+    
+    @Test
+    public void testArrayEntryToListCoercion() {
+        @SuppressWarnings("serial")
+        List<?> s = coerce(new String[] {"1", "2"}, new TypeToken<List<Integer>>() { });
+        Assert.assertEquals(s, ImmutableList.of(1, 2));
     }
     
     @Test

@@ -172,6 +172,12 @@ public class ReflectionsTest {
         Assert.assertFalse(Reflections.invokeConstructorFromArgs(CI1.class, new Object[] {"wrong", "args"}).isPresent());
     }
 
+    @Test
+    public void testArrayToList() throws Exception {
+        assertEquals(Reflections.arrayToList(new String[] {"a", "b"}), ImmutableList.of("a", "b"));
+        assertEquals(Reflections.arrayToList((Object) new String[] {"a", "b"}), ImmutableList.of("a", "b"));
+    }
+    
     interface I { };
     interface J extends I { };
     interface K extends I, J { };
