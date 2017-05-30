@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import javax.xml.ws.WebServiceException;
 
+import com.google.common.primitives.Ints;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -936,8 +937,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     } else {
                         LOG.warn("Using DEPRECATED flag OPEN_IPTABLES (will not be supported in future versions) for {} at {}", machineLocation, this);
 
-                        @SuppressWarnings("unchecked")
-                        Iterable<Integer> inboundPorts = (Iterable<Integer>) setup.get(INBOUND_PORTS);
+                        Iterable<Integer> inboundPorts = Ints.asList(template.getOptions().getInboundPorts());
 
                         if (inboundPorts == null || Iterables.isEmpty(inboundPorts)) {
                             LOG.info("No ports to open in iptables (no inbound ports) for {} at {}", machineLocation, this);
