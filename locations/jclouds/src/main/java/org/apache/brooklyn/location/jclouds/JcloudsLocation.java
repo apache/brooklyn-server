@@ -1611,10 +1611,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         sshProps.put("port", hostAndPort.getPort());
         sshProps.put(AbstractLocation.TEMPORARY_LOCATION.getName(), true);
         sshProps.put(LocalLocationManager.CREATE_UNMANAGED.getName(), true);
-        String sshClass = config().get(SshMachineLocation.SSH_TOOL_CLASS);
-        if (Strings.isNonBlank(sshClass)) {
-            sshProps.put(SshMachineLocation.SSH_TOOL_CLASS.getName(), sshClass);
-        }
 
         sshProps.remove("id");
         sshProps.remove("password");

@@ -55,7 +55,8 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
                 .portForwardSshOverride(HostAndPort.fromParts("10.1.1.4", 4361))
                 .build();
         DefaultConnectivityResolver customizer = new DefaultConnectivityResolver();
-        ManagementAddressResolveResult result = customizer.resolve(jcloudsLocation, newNodeMetadata(), ConfigBag.newInstance(), options);
+        ConfigBag configBag = jcloudsLocation.config().getBag();
+        ManagementAddressResolveResult result = customizer.resolve(jcloudsLocation, newNodeMetadata(), configBag, options);
         assertEquals(result.hostAndPort().getHostText(), "10.1.1.4");
         assertEquals(result.hostAndPort().getPort(), 4361);
     }
@@ -72,7 +73,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
                 .userCredentials(credential)
                 .build();
         DefaultConnectivityResolver customizer = new DefaultConnectivityResolver();
-        ConfigBag configBag = ConfigBag.newInstance();
+        ConfigBag configBag = jcloudsLocation.config().getBag();
         ManagementAddressResolveResult result = customizer.resolve(
                 jcloudsLocation, newNodeMetadata(), configBag, options);
         assertEquals(result.hostAndPort().getHostText(), expectedHostname);
@@ -91,7 +92,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
         });
         initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
         DefaultConnectivityResolver customizer = new DefaultConnectivityResolver();
-        final ConfigBag config = ConfigBag.newInstance(ImmutableMap.of(
+        final ConfigBag config = ConfigBag.newInstanceExtending(jcloudsLocation.config().getBag(), ImmutableMap.of(
                 JcloudsLocationConfig.WAIT_FOR_SSHABLE, "1ms",
                 JcloudsLocationConfig.POLL_FOR_FIRST_REACHABLE_ADDRESS, "1ms"));
         assertTrue(customizer.checkCredential(
@@ -114,7 +115,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
         });
         initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
         DefaultConnectivityResolver customizer = new DefaultConnectivityResolver();
-        final ConfigBag config = ConfigBag.newInstance(ImmutableMap.of(
+        final ConfigBag config = ConfigBag.newInstanceExtending(jcloudsLocation.config().getBag(), ImmutableMap.of(
                 JcloudsLocationConfig.WAIT_FOR_WINRM_AVAILABLE, "1ms",
                 JcloudsLocationConfig.POLL_FOR_FIRST_REACHABLE_ADDRESS, "1ms"));
         assertTrue(customizer.checkCredential(
@@ -146,7 +147,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
                 return new RecordingSshTool.CustomResponse(exitCode, "", "");
             }
         });
-        ConfigBag config = ConfigBag.newInstance(ImmutableMap.of(
+        ConfigBag config = ConfigBag.newInstanceExtending(jcloudsLocation.config().getBag(), ImmutableMap.of(
                 JcloudsLocationConfig.LOOKUP_AWS_HOSTNAME, false,
                 JcloudsLocationConfig.WAIT_FOR_SSHABLE, "1ms",
                 JcloudsLocationConfig.POLL_FOR_FIRST_REACHABLE_ADDRESS, "1ms",
@@ -194,7 +195,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
                 JcloudsLocationConfig.CONNECTIVITY_RESOLVER, customizer));
 
         ConnectivityResolverOptions options = newResolveOptionsForIps(reachableIps, Duration.millis(100)).build();
-        ConfigBag configBag = ConfigBag.newInstance();
+        ConfigBag configBag = jcloudsLocation.config().getBag();
 
         ManagementAddressResolveResult result = customizer.resolve(jcloudsLocation, newNodeMetadata(), configBag, options);
         assertEquals(result.hostAndPort().getHostText(), expectedIp);
@@ -223,7 +224,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
                 JcloudsLocationConfig.CONNECTIVITY_RESOLVER, customizer));
 
         ConnectivityResolverOptions options = newResolveOptionsForIps(reachableIps, Duration.ONE_MILLISECOND).build();
-        ConfigBag configBag = ConfigBag.newInstance();
+        ConfigBag configBag = jcloudsLocation.config().getBag();
         customizer.resolve(jcloudsLocation, newNodeMetadata(), configBag, options);
     }
 
