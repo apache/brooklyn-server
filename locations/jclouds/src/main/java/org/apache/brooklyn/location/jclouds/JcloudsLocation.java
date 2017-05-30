@@ -1784,12 +1784,24 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     /**
      * Brings an existing machine with the given details under management.
      * <p>
-     * Required fields are:
+     * The args passed in are used to match against an existing machine. The machines are listed
+     * (see @link #listMachines()}), and each is compared against the given args. There should
+     * be exactly one matching machine.
+     * <p>
+     * Arguments that can be used for matching are:
      * <ul>
-     *   <li>id: the jclouds VM id, e.g. "eu-west-1/i-5504f21d" (NB this is {@see JcloudsMachineLocation#getJcloudsId()} not #getId())
-     *   <li>hostname: the public hostname or IP of the machine, e.g. "ec2-176-34-93-58.eu-west-1.compute.amazonaws.com"
-     *   <li>userName: the username for sshing into the machine (for use if it is not a Windows system)
-     * <ul>
+     *   <li>{@code id}: the cloud provider's VM id, e.g. "eu-west-1/i-5504f21d" (NB this is 
+     *       {@see JcloudsMachineLocation#getJcloudsId()} not #getId())
+     *   <li>{@code hostname}: the public hostname or IP of the machine, 
+     *       e.g. "ec2-176-34-93-58.eu-west-1.compute.amazonaws.com"
+     * </ul>
+     * 
+     * Other config options can also be passed in, for subsequent usage of the machine. For example,
+     * {@code user} will deterine the username subsequently used for ssh or WinRM. See the standard
+     * config options of {@link JcloudsLocation}, {@link SshMachineLocation} and 
+     * {@link WinRmMachineLocation}.
+     * 
+     * @throws IllegalArgumentException if there is not exactly one match
      */
     public JcloudsMachineLocation registerMachine(ConfigBag flags) throws NoMachinesAvailableException {
         ConfigBag setup = ConfigBag.newInstanceExtending(config().getBag(), flags.getAllConfig());
