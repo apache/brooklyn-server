@@ -766,7 +766,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
             if (windows) {
                 int newLoginPort = node.getLoginPort() == 22
-                        ? (getConfig(WinRmMachineLocation.USE_HTTPS_WINRM) ? 5986 : 5985)
+                        ? (setup.get(WinRmMachineLocation.USE_HTTPS_WINRM) ? 5986 : 5985)
                         : node.getLoginPort();
                 String newLoginUser = "root".equals(node.getCredentials().getUser())
                         ? "Administrator"
