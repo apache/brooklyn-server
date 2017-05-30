@@ -2456,7 +2456,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     if (success) {
                         credsSuccessful.set(machinesToTry.getRight());
 
-                        String verifyWindowsUp = getConfig(WinRmMachineLocation.WAIT_WINDOWS_TO_START);
+                        String verifyWindowsUp = setup.get(WinRmMachineLocation.WAIT_WINDOWS_TO_START);
                         if (Strings.isBlank(verifyWindowsUp) || verifyWindowsUp.equals("false")) {
                             return true;
                         }
