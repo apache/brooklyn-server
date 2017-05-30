@@ -516,17 +516,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         return registry.findComputeService(ResolvingConfigBag.newInstanceExtending(getManagementContext(), config), true);
     }
 
-    /** @deprecated since 0.7.0 use {@link #listMachines()} */ @Deprecated
-    public Set<? extends ComputeMetadata> listNodes() {
-        return listNodes(MutableMap.of());
-    }
-    /** @deprecated since 0.7.0 use {@link #listMachines()}.
-     * (no support for custom compute service flags; if that is needed, we'll have to introduce a new method,
-     * but it seems there are no usages) */ @Deprecated
-    public Set<? extends ComputeMetadata> listNodes(Map<?,?> flags) {
-        return getComputeService(flags).listNodes();
-    }
-
     @Override
     public Map<String, MachineManagementMixins.MachineMetadata> listMachines() {
         Set<? extends ComputeMetadata> nodes =
@@ -1783,24 +1772,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     // ----------------- registering existing machines ------------------------
 
-    /**
-     * @deprecated since 0.8.0 use {@link #registerMachine(NodeMetadata)} instead.
-     */
-    @Deprecated
-    public JcloudsSshMachineLocation rebindMachine(NodeMetadata metadata) throws NoMachinesAvailableException {
-        return (JcloudsSshMachineLocation) registerMachine(metadata);
-    }
-
     protected MachineLocation registerMachine(NodeMetadata metadata) throws NoMachinesAvailableException {
         return registerMachine(MutableMap.of(), metadata);
-    }
-
-    /**
-     * @deprecated since 0.8.0 use {@link #registerMachine(Map, NodeMetadata)} instead.
-     */
-    @Deprecated
-    public JcloudsSshMachineLocation rebindMachine(Map<?,?> flags, NodeMetadata metadata) throws NoMachinesAvailableException {
-        return (JcloudsSshMachineLocation) registerMachine(flags, metadata);
     }
 
     protected MachineLocation registerMachine(Map<?, ?> flags, NodeMetadata metadata) throws NoMachinesAvailableException {
@@ -1808,17 +1781,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         if (!setup.containsKey("id")) setup.putStringKey("id", metadata.getId());
         setHostnameUpdatingCredentials(setup, metadata);
         return registerMachine(setup);
-    }
-
-    /**
-     * Brings an existing machine with the given details under management.
-     * <p>
-     * This method will throw an exception if used to reconnect to a Windows VM.
-     * @deprecated since 0.8.0 use {@link #registerMachine(ConfigBag)} instead.
-     */
-    @Deprecated
-    public JcloudsSshMachineLocation rebindMachine(ConfigBag setup) throws NoMachinesAvailableException {
-        return (JcloudsSshMachineLocation) registerMachine(setup);
     }
 
     /**
@@ -1907,14 +1869,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         node = NodeMetadataBuilder.fromNodeMetadata(node).credentials(expectedCredentials).build();
 
         return node;
-    }
-
-    /**
-     * @deprecated since 0.8.0 use {@link #registerMachine(Map)} instead.
-     */
-    @Deprecated
-    public JcloudsSshMachineLocation rebindMachine(Map<?, ?> flags) throws NoMachinesAvailableException {
-        return (JcloudsSshMachineLocation) registerMachine(flags);
     }
 
     public MachineLocation registerMachine(Map<?,?> flags) throws NoMachinesAvailableException {

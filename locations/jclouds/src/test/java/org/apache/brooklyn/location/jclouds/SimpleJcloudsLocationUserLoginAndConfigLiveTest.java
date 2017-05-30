@@ -67,7 +67,7 @@ public class SimpleJcloudsLocationUserLoginAndConfigLiveTest extends AbstractJcl
         Assert.assertTrue(result.contains("trying m1"));
         
         log.info("now trying rebind "+m1);
-        JcloudsSshMachineLocation m2 = jcloudsLocation.rebindMachine(details);
+        JcloudsSshMachineLocation m2 = (JcloudsSshMachineLocation) jcloudsLocation.registerMachine(details);
         result = execWithOutput(m2, Arrays.asList("echo trying  m2", "hostname", "date"));
         Assert.assertTrue(result.contains("trying m2"));
     }
@@ -86,7 +86,7 @@ public class SimpleJcloudsLocationUserLoginAndConfigLiveTest extends AbstractJcl
         Assert.assertTrue(result.contains("trying m1"));
         
         log.info("now trying rebind "+m1);
-        JcloudsSshMachineLocation m2 = jcloudsLocation.rebindMachine(details);
+        JcloudsSshMachineLocation m2 = (JcloudsSshMachineLocation) jcloudsLocation.registerMachine(details);
         result = execWithOutput(m2, Arrays.asList("echo trying  m2", "hostname", "date"));
         Assert.assertTrue(result.contains("trying m2"));
         
@@ -112,7 +112,7 @@ public class SimpleJcloudsLocationUserLoginAndConfigLiveTest extends AbstractJcl
         Assert.assertTrue(result.contains("trying m1"));
         
         log.info("now trying rebind "+m1);
-        JcloudsSshMachineLocation m2 = jcloudsLocation.rebindMachine(details);
+        JcloudsSshMachineLocation m2 = (JcloudsSshMachineLocation) jcloudsLocation.registerMachine(details);
         result = execWithOutput(m2, Arrays.asList("echo trying  m2", "hostname", "date"));
         Assert.assertTrue(result.contains("trying m2"));
         Assert.assertEquals(m2.node.getUserMetadata().get(key), value);
@@ -153,7 +153,7 @@ public class SimpleJcloudsLocationUserLoginAndConfigLiveTest extends AbstractJcl
         Assert.assertTrue(result.contains("trying m1"));
         
         log.info("now trying rebind "+m1);
-        JcloudsSshMachineLocation m2 = jcloudsLocation.rebindMachine(details);
+        JcloudsSshMachineLocation m2 = (JcloudsSshMachineLocation) jcloudsLocation.registerMachine(details);
         result = execWithOutput(m2, Arrays.asList("echo trying  m2", "hostname", "date"));
         Assert.assertTrue(result.contains("trying m2"));
         
@@ -178,7 +178,7 @@ public class SimpleJcloudsLocationUserLoginAndConfigLiveTest extends AbstractJcl
         Assert.assertTrue(result.contains("trying m1"));
         
         log.info("now trying rebind "+m1);
-        JcloudsSshMachineLocation m2 = jcloudsLocation.rebindMachine(details);
+        JcloudsSshMachineLocation m2 = (JcloudsSshMachineLocation) jcloudsLocation.registerMachine(details);
         result = execWithOutput(m2, Arrays.asList("echo trying  m2", "hostname", "date"));
         Assert.assertTrue(result.contains("trying m2"));
         
@@ -202,7 +202,7 @@ public class SimpleJcloudsLocationUserLoginAndConfigLiveTest extends AbstractJcl
         Assert.assertTrue(result.contains("trying m1"));
         
         log.info("now trying rebind "+m1);
-        JcloudsSshMachineLocation m2 = jcloudsLocation.rebindMachine(details);
+        JcloudsSshMachineLocation m2 = (JcloudsSshMachineLocation) jcloudsLocation.registerMachine(details);
         result = execWithOutput(m2, Arrays.asList("echo trying  m2", "hostname", "date"));
         Assert.assertTrue(result.contains("trying m2"));
     }
