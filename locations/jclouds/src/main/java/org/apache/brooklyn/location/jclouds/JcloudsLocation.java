@@ -1772,11 +1772,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     // ----------------- registering existing machines ------------------------
 
-    protected MachineLocation registerMachine(NodeMetadata metadata) throws NoMachinesAvailableException {
+    protected JcloudsMachineLocation registerMachine(NodeMetadata metadata) throws NoMachinesAvailableException {
         return registerMachine(MutableMap.of(), metadata);
     }
 
-    protected MachineLocation registerMachine(Map<?, ?> flags, NodeMetadata metadata) throws NoMachinesAvailableException {
+    protected JcloudsMachineLocation registerMachine(Map<?, ?> flags, NodeMetadata metadata) throws NoMachinesAvailableException {
         ConfigBag setup = ConfigBag.newInstanceExtending(config().getBag(), flags);
         if (!setup.containsKey("id")) setup.putStringKey("id", metadata.getId());
         setHostnameUpdatingCredentials(setup, metadata);
@@ -1793,7 +1793,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
      *   <li>userName: the username for sshing into the machine (for use if it is not a Windows system)
      * <ul>
      */
-    public JcloudsMachineLocation registerMachine(ConfigBag setup) throws NoMachinesAvailableException {
+    public JcloudsMachineLocation registerMachine(ConfigBag flags) throws NoMachinesAvailableException {
+        ConfigBag setup = ConfigBag.newInstanceExtending(config().getBag(), flags.getAllConfig());
         NodeMetadata node = findNodeOrThrow(setup);
         return registerMachineLocation(setup, node);
     }
@@ -1871,9 +1872,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         return node;
     }
 
-    public MachineLocation registerMachine(Map<?,?> flags) throws NoMachinesAvailableException {
-        ConfigBag setup = ConfigBag.newInstanceExtending(config().getBag(), flags);
-        return registerMachine(setup);
+    public JcloudsMachineLocation registerMachine(Map<?,?> flags) throws NoMachinesAvailableException {
+        return registerMachine(ConfigBag.newInstance(flags));
     }
 
     /**
