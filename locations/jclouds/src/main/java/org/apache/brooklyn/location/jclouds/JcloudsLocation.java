@@ -1727,7 +1727,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                         LOG.warn("exit code {} when creating user for {}; usage may subsequently fail", exitcode, node);
                     }
                 } finally {
-                    getManagementContext().getLocationManager().unmanage(sshLoc);
+                    if (getManagementContext().getLocationManager().isManaged(sshLoc)) {
+                        getManagementContext().getLocationManager().unmanage(sshLoc);
+                    }
                     Streams.closeQuietly(sshLoc);
                 }
             }
@@ -2901,11 +2903,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     String getHostnameAws(HostAndPort hostAndPort, LoginCredentials userCredentials, ConfigBag setup) {
-        SshMachineLocation sshLocByIp = null;
+        // TODO messy way to get an SSH session
+        SshMachineLocation sshLocByIp = createTemporarySshMachineLocation(hostAndPort, userCredentials, setup);
         try {
-            // TODO messy way to get an SSH session
-            sshLocByIp = createTemporarySshMachineLocation(hostAndPort, userCredentials, setup);
-
             ByteArrayOutputStream outStream = new ByteArrayOutputStream();
             ByteArrayOutputStream errStream = new ByteArrayOutputStream();
             int exitcode = sshLocByIp.execCommands(
@@ -2921,6 +2921,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
             throw new IllegalStateException("Could not obtain aws-ec2 hostname for vm "+hostAndPort+"; exitcode="+exitcode+"; stdout="+outString+"; stderr="+new String(errStream.toByteArray()));
         } finally {
+            if (getManagementContext().getLocationManager().isManaged(sshLocByIp)) {
+                getManagementContext().getLocationManager().unmanage(sshLocByIp);
+            }
             Streams.closeQuietly(sshLocByIp);
         }
     }
