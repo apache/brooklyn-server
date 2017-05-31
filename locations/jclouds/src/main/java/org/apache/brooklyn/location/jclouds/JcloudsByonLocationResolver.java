@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
 /**
@@ -155,7 +156,7 @@ public class JcloudsByonLocationResolver extends AbstractLocationResolver implem
                 for (Map<?,?> machineFlags : machinesFlags) {
                     try {
                         jcloudsLocation.config().putAll(machineFlags);
-                        JcloudsMachineLocation machine = jcloudsLocation.registerMachine(jcloudsLocation.config().getBag());
+                        JcloudsMachineLocation machine = jcloudsLocation.registerMachine(ImmutableMap.of());
                         result.add(machine);
                     } catch (NoMachinesAvailableException e) {
                         Map<?,?> sanitizedMachineFlags = Sanitizer.sanitize(machineFlags);

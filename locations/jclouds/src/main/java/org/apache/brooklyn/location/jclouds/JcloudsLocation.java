@@ -1611,10 +1611,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         sshProps.put("port", hostAndPort.getPort());
         sshProps.put(AbstractLocation.TEMPORARY_LOCATION.getName(), true);
         sshProps.put(LocalLocationManager.CREATE_UNMANAGED.getName(), true);
-        String sshClass = config().get(SshMachineLocation.SSH_TOOL_CLASS);
-        if (Strings.isNonBlank(sshClass)) {
-            sshProps.put(SshMachineLocation.SSH_TOOL_CLASS.getName(), sshClass);
-        }
 
         sshProps.remove("id");
         sshProps.remove("password");
@@ -1727,7 +1723,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                         LOG.warn("exit code {} when creating user for {}; usage may subsequently fail", exitcode, node);
                     }
                 } finally {
-                    getManagementContext().getLocationManager().unmanage(sshLoc);
+                    if (getManagementContext().getLocationManager().isManaged(sshLoc)) {
+                        getManagementContext().getLocationManager().unmanage(sshLoc);
+                    }
                     Streams.closeQuietly(sshLoc);
                 }
             }
@@ -1772,11 +1770,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     // ----------------- registering existing machines ------------------------
 
-    protected MachineLocation registerMachine(NodeMetadata metadata) throws NoMachinesAvailableException {
+    protected JcloudsMachineLocation registerMachine(NodeMetadata metadata) throws NoMachinesAvailableException {
         return registerMachine(MutableMap.of(), metadata);
     }
 
-    protected MachineLocation registerMachine(Map<?, ?> flags, NodeMetadata metadata) throws NoMachinesAvailableException {
+    protected JcloudsMachineLocation registerMachine(Map<?, ?> flags, NodeMetadata metadata) throws NoMachinesAvailableException {
         ConfigBag setup = ConfigBag.newInstanceExtending(config().getBag(), flags);
         if (!setup.containsKey("id")) setup.putStringKey("id", metadata.getId());
         setHostnameUpdatingCredentials(setup, metadata);
@@ -1786,14 +1784,27 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     /**
      * Brings an existing machine with the given details under management.
      * <p>
-     * Required fields are:
+     * The args passed in are used to match against an existing machine. The machines are listed
+     * (see @link #listMachines()}), and each is compared against the given args. There should
+     * be exactly one matching machine.
+     * <p>
+     * Arguments that can be used for matching are:
      * <ul>
-     *   <li>id: the jclouds VM id, e.g. "eu-west-1/i-5504f21d" (NB this is {@see JcloudsMachineLocation#getJcloudsId()} not #getId())
-     *   <li>hostname: the public hostname or IP of the machine, e.g. "ec2-176-34-93-58.eu-west-1.compute.amazonaws.com"
-     *   <li>userName: the username for sshing into the machine (for use if it is not a Windows system)
-     * <ul>
+     *   <li>{@code id}: the cloud provider's VM id, e.g. "eu-west-1/i-5504f21d" (NB this is 
+     *       {@see JcloudsMachineLocation#getJcloudsId()} not #getId())
+     *   <li>{@code hostname}: the public hostname or IP of the machine, 
+     *       e.g. "ec2-176-34-93-58.eu-west-1.compute.amazonaws.com"
+     * </ul>
+     * 
+     * Other config options can also be passed in, for subsequent usage of the machine. For example,
+     * {@code user} will deterine the username subsequently used for ssh or WinRM. See the standard
+     * config options of {@link JcloudsLocation}, {@link SshMachineLocation} and 
+     * {@link WinRmMachineLocation}.
+     * 
+     * @throws IllegalArgumentException if there is not exactly one match
      */
-    public JcloudsMachineLocation registerMachine(ConfigBag setup) throws NoMachinesAvailableException {
+    public JcloudsMachineLocation registerMachine(ConfigBag flags) throws NoMachinesAvailableException {
+        ConfigBag setup = ConfigBag.newInstanceExtending(config().getBag(), flags.getAllConfig());
         NodeMetadata node = findNodeOrThrow(setup);
         return registerMachineLocation(setup, node);
     }
@@ -1871,9 +1882,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         return node;
     }
 
-    public MachineLocation registerMachine(Map<?,?> flags) throws NoMachinesAvailableException {
-        ConfigBag setup = ConfigBag.newInstanceExtending(config().getBag(), flags);
-        return registerMachine(setup);
+    public JcloudsMachineLocation registerMachine(Map<?,?> flags) throws NoMachinesAvailableException {
+        return registerMachine(ConfigBag.newInstance(flags));
     }
 
     /**
@@ -2454,7 +2464,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     if (success) {
                         credsSuccessful.set(machinesToTry.getRight());
 
-                        String verifyWindowsUp = getConfig(WinRmMachineLocation.WAIT_WINDOWS_TO_START);
+                        String verifyWindowsUp = setup.get(WinRmMachineLocation.WAIT_WINDOWS_TO_START);
                         if (Strings.isBlank(verifyWindowsUp) || verifyWindowsUp.equals("false")) {
                             return true;
                         }
@@ -2901,11 +2911,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     String getHostnameAws(HostAndPort hostAndPort, LoginCredentials userCredentials, ConfigBag setup) {
-        SshMachineLocation sshLocByIp = null;
+        // TODO messy way to get an SSH session
+        SshMachineLocation sshLocByIp = createTemporarySshMachineLocation(hostAndPort, userCredentials, setup);
         try {
-            // TODO messy way to get an SSH session
-            sshLocByIp = createTemporarySshMachineLocation(hostAndPort, userCredentials, setup);
-
             ByteArrayOutputStream outStream = new ByteArrayOutputStream();
             ByteArrayOutputStream errStream = new ByteArrayOutputStream();
             int exitcode = sshLocByIp.execCommands(
@@ -2921,6 +2929,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
             throw new IllegalStateException("Could not obtain aws-ec2 hostname for vm "+hostAndPort+"; exitcode="+exitcode+"; stdout="+outString+"; stderr="+new String(errStream.toByteArray()));
         } finally {
+            if (getManagementContext().getLocationManager().isManaged(sshLocByIp)) {
+                getManagementContext().getLocationManager().unmanage(sshLocByIp);
+            }
             Streams.closeQuietly(sshLocByIp);
         }
     }
