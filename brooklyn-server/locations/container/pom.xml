@@ -54,8 +54,8 @@
         </dependency>
 
         <!--
-            Expect AMP to exclude this, and to choose its own jclouds-docker version.
-            So if this version is not kept up-to-date then it won't impact AMP.
+            Expect Brooklyn to exclude this, and to choose its own jclouds-docker version.
+            So if this version is not kept up-to-date then it won't impact Brooklyn.
         -->
         <dependency>
             <groupId>${jclouds.groupId}.api</groupId>

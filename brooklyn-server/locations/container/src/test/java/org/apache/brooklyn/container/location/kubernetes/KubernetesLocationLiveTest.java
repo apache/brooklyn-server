@@ -51,16 +51,13 @@ import static org.testng.Assert.*;
  * after that (because assumes the existence of a kubernetes endpoint). It needs configured with
  * something like:
  * <p>
- * {@code -Dtest.amp.kubernetes.endpoint=http://10.104.2.206:8080}).
- * <p>
- * The QA Framework is more important for that - hence these tests (trying to be) kept simple
- * and focused.
+ * {@code -Dtest.brooklyn-container-service.kubernetes.endpoint=http://10.104.2.206:8080}
  */
 public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
 
-    public static final String KUBERNETES_ENDPOINT = System.getProperty("test.amp.kubernetes.endpoint", "");
-    public static final String IDENTITY = System.getProperty("test.amp.kubernetes.identity", "");
-    public static final String CREDENTIAL = System.getProperty("test.amp.kubernetes.credential", "");
+    public static final String KUBERNETES_ENDPOINT = System.getProperty("test.brooklyn-container-service.kubernetes.endpoint", "");
+    public static final String IDENTITY = System.getProperty("test.brooklyn-container-service.kubernetes.identity", "");
+    public static final String CREDENTIAL = System.getProperty("test.brooklyn-container-service.kubernetes.credential", "");
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesLocationLiveTest.class);
     protected KubernetesLocation loc;
     protected List<KubernetesMachineLocation> machines;

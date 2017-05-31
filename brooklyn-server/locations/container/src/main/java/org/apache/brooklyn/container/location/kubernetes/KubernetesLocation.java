@@ -143,8 +143,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     public static final String NODE_PORT = "NodePort";
     public static final String IMMUTABLE_CONTAINER_KEY = "immutable-container";
     public static final String SSHABLE_CONTAINER = "sshable-container";
-    public static final String CLOUDSOFT_ENTITY_ID = "cloudsoft.io/entity-id";
-    public static final String CLOUDSOFT_APPLICATION_ID = "cloudsoft.io/application-id";
+    public static final String BROOKLYN_ENTITY_ID = "brooklyn.apache.org/entity-id";
+    public static final String BROOKLYN_APPLICATION_ID = "brooklyn.apache.org/application-id";
     public static final String KUBERNETES_DOCKERCFG = "kubernetes.io/dockercfg";
     public static final String PHASE_AVAILABLE = "Available";
     public static final String PHASE_TERMINATING = "Terminating";
@@ -712,8 +712,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Deployment deployment = new DeploymentBuilder()
                 .withNewMetadata()
                 .withName(deploymentName)
-                .addToAnnotations(CLOUDSOFT_ENTITY_ID, entity.getId())
-                .addToAnnotations(CLOUDSOFT_APPLICATION_ID, entity.getApplicationId())
+                .addToAnnotations(BROOKLYN_ENTITY_ID, entity.getId())
+                .addToAnnotations(BROOKLYN_APPLICATION_ID, entity.getApplicationId())
                 .endMetadata()
                 .withNewSpec()
                 .withReplicas(replicas)

@@ -65,10 +65,7 @@ import static org.testng.Assert.assertTrue;
  * after that (because assumes the existence of a kubernetes endpoint). It needs configured with
  * something like:
  * <p>
- * {@code -Dtest.amp.kubernetes.endpoint=http://10.104.2.206:8080}).
- * <p>
- * The QA Framework is more important for that - hence these tests (trying to be) kept simple
- * and focused.
+ * {@code -Dtest.brooklyn-container-service.kubernetes.endpoint=http://10.104.2.206:8080}
  */
 public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
 
@@ -383,12 +380,12 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
 
         String mysqlPublicPort = assertAttributeEventuallyNonNull(mysql, Sensors.newStringSensor("docker.port.3306.mapped.public"));
         assertReachableEventually(HostAndPort.fromString(mysqlPublicPort));
-        assertAttributeEquals(mysql, KubernetesPod.KUBERNETES_NAMESPACE, "amp");
+        assertAttributeEquals(mysql, KubernetesPod.KUBERNETES_NAMESPACE, "brooklyn");
         assertAttributeEquals(mysql, KubernetesPod.KUBERNETES_SERVICE, "wordpress-mysql-" + randomId);
 
         String wordpressPublicPort = assertAttributeEventuallyNonNull(wordpress, Sensors.newStringSensor("docker.port.80.mapped.public"));
         assertReachableEventually(HostAndPort.fromString(wordpressPublicPort));
-        assertAttributeEquals(wordpress, KubernetesPod.KUBERNETES_NAMESPACE, "amp");
+        assertAttributeEquals(wordpress, KubernetesPod.KUBERNETES_NAMESPACE, "brooklyn");
         assertAttributeEquals(wordpress, KubernetesPod.KUBERNETES_SERVICE, "wordpress-" + randomId);
 
         // TODO more assertions (e.g. wordpress can successfully reach the database)
@@ -412,7 +409,6 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         checkPod(app, KubernetesPod.class);
     }
 
-    /* Test disabled as QA framework AMP does not have catalog entries deployed yet */
     @Test(groups = {"Live"}, enabled = false)
     public void testPodCatalogEntry() throws Exception {
         String yaml = Joiner.on("\n").join(

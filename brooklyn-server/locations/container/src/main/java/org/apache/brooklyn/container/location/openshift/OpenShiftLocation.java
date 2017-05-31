@@ -199,7 +199,7 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
         DeploymentConfig deployment = new DeploymentConfigBuilder()
                 .withNewMetadata()
                 .withName(deploymentName)
-                .addToAnnotations(OPENSHIFT_GENERATED_BY, "AMP")
+                .addToAnnotations(OPENSHIFT_GENERATED_BY, "Apache Brooklyn")
                 .addToAnnotations(CLOUDSOFT_ENTITY_ID, entity.getId())
                 .addToAnnotations(CLOUDSOFT_APPLICATION_ID, entity.getApplicationId())
                 .endMetadata()

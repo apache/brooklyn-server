@@ -50,8 +50,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.*;
 
 /**
- * TODO For these tests to pass, they need on the classpath the patch file(s) from AMP.
- * <p>
  * Assumes that a pre-existing swarm endpoint is available. See system properties and the defaults
  * below.
  */
@@ -59,10 +57,10 @@ public class DockerJcloudsLocationLiveTest extends BrooklynAppLiveTestSupport {
 
     private static final Logger LOG = LoggerFactory.getLogger(DockerJcloudsLocationLiveTest.class);
 
-    private static final String SWARM_ENDPOINT = System.getProperty("test.amp.docker.swarmEndpoint", "https://10.104.0.162:3376/");
-    private static final String IDENTITY_FILE_PATH = System.getProperty("test.amp.docker.identity", Os.tidyPath("~/.docker/.certs/cert.pem"));
-    private static final String CREDENTIAL_FILE_PATH = System.getProperty("test.amp.docker.credential", Os.tidyPath("~/.docker/.certs/key.pem"));
-    private static final String SWARM_NETWORK_NAME = System.getProperty("test.amp.docker.networkName", Os.tidyPath("brooklyn"));
+    private static final String SWARM_ENDPOINT = System.getProperty("test.brooklyn-container-service.docker.swarmEndpoint", "https://10.104.0.162:3376/");
+    private static final String IDENTITY_FILE_PATH = System.getProperty("test.brooklyn-container-service.docker.identity", Os.tidyPath("~/.docker/.certs/cert.pem"));
+    private static final String CREDENTIAL_FILE_PATH = System.getProperty("test.brooklyn-container-service.docker.credential", Os.tidyPath("~/.docker/.certs/key.pem"));
+    private static final String SWARM_NETWORK_NAME = System.getProperty("test.brooklyn-container-service.docker.networkName", Os.tidyPath("brooklyn"));
 
     protected DockerJcloudsLocation loc;
     protected List<MachineLocation> machines;

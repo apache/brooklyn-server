@@ -117,8 +117,8 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
 
     ConfigKey<String> NAMESPACE = ConfigKeys.builder(String.class)
             .name("namespace")
-            .description("Namespace where resources will live; the default is 'amp'")
-            .defaultValue("amp")
+            .description("Namespace where resources will live; the default is 'brooklyn'")
+            .defaultValue("brooklyn")
             .constraint(Predicates.<String>notNull())
             .build();
 
