@@ -19,6 +19,7 @@
 package org.apache.brooklyn.util.javalang;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import java.lang.reflect.Field;
@@ -178,6 +179,30 @@ public class ReflectionsTest {
         assertEquals(Reflections.arrayToList((Object) new String[] {"a", "b"}), ImmutableList.of("a", "b"));
     }
     
+    @Test
+    public void testFindAccessibleMethodFromSuperType() throws Exception {
+        Method objectHashCode = Object.class.getMethod("hashCode", new Class[0]);
+        Method methodOnSuperClass = PublicSuperClass.class.getMethod("methodOnSuperClass", new Class[0]);
+        Method subMethodOnSuperClass = PrivateClass.class.getMethod("methodOnSuperClass", new Class[0]);
+        Method methodOnInterface = PublicInterface.class.getMethod("methodOnInterface", new Class[0]);
+        Method subMethodOnInterface = PrivateClass.class.getMethod("methodOnInterface", new Class[0]);
+        
+        assertEquals(Reflections.findAccessibleMethod(objectHashCode), objectHashCode);
+        assertEquals(Reflections.findAccessibleMethod(methodOnSuperClass), methodOnSuperClass);
+        assertEquals(Reflections.findAccessibleMethod(methodOnInterface), methodOnInterface);
+        assertEquals(Reflections.findAccessibleMethod(subMethodOnSuperClass), methodOnSuperClass);
+        assertEquals(Reflections.findAccessibleMethod(subMethodOnInterface), methodOnInterface);
+    }
+    
+    @Test
+    public void testFindAccessibleMethodCallsSetAccessible() throws Exception {
+        Method inaccessibleOtherMethod = PrivateClass.class.getMethod("otherMethod", new Class[0]);
+        
+        assertFalse(inaccessibleOtherMethod.isAccessible());
+        assertEquals(Reflections.findAccessibleMethod(inaccessibleOtherMethod), inaccessibleOtherMethod);
+        assertTrue(inaccessibleOtherMethod.isAccessible());
+    }
+    
     interface I { };
     interface J extends I { };
     interface K extends I, J { };
@@ -194,4 +219,23 @@ public class ReflectionsTest {
         Assert.assertEquals(Reflections.getAllInterfaces(C.class), ImmutableList.of(M.class, K.class, I.class, J.class, L.class));
     }
 
+    public static abstract class PublicSuperClass {
+        public abstract void methodOnSuperClass();
+    }
+        
+    public static interface PublicInterface {
+        public void methodOnInterface();
+    }
+        
+    static class PrivateClass extends PublicSuperClass implements PublicInterface {
+        public PrivateClass() {}
+        
+        @Override
+        public void methodOnSuperClass() {}
+        
+        @Override
+        public void methodOnInterface() {}
+        
+        public void otherMethod() {}
+    }
 }

@@ -22,6 +22,7 @@ import static org.apache.brooklyn.util.core.flags.TypeCoercions.coerce;
 import static org.testng.Assert.assertEquals;
 
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.flags.MethodCoercions;
 import org.apache.brooklyn.util.javalang.coerce.ClassCoercionException;
 import org.testng.annotations.Test;
 
@@ -96,6 +97,17 @@ public class JcloudsTypeCoercionsWithBuilderTest {
         assertEquals(
                 coerce(ImmutableMap.of("val",ImmutableMap.of("arg1", "val1", "arg2", "val2")), MyCompositeClazz.class), 
                 MyCompositeClazz.builder().val((MyClazz.builder().arg1("val1").arg2("val2").build())).build());
+    }
+    
+    @Test
+    public void testPrivateBuilderClass() throws Exception {
+        org.apache.brooklyn.location.jclouds.JcloudsTypeCoercionsWithBuilderTest.MyClazzWithBuilderReturningPrivateClass.Builder builder = MyClazzWithBuilderReturningPrivateClass.builder();
+        MethodCoercions.tryFindAndInvokeSingleParameterMethod(builder, "arg1", "val1").get();
+
+        assertEquals(
+                coerce(ImmutableMap.of("arg1", "val1"), MyClazzWithBuilderReturningPrivateClass.class), 
+                MyClazzWithBuilderReturningPrivateClass.builder().arg1("val1").build());
+        
     }
 
     public static class MyClazz {
@@ -245,6 +257,52 @@ public class JcloudsTypeCoercionsWithBuilderTest {
         }
         
         private MyClazzWithNoNoargBuildMethod(String arg1) {
+        }
+    }
+    
+    public static class MyClazzWithBuilderReturningPrivateClass {
+        private final String arg1;
+        
+        public static abstract class Builder {
+            public abstract Builder arg1(String val);
+            public abstract MyClazzWithBuilderReturningPrivateClass build();
+        }
+
+        private static class PrivateBuilder extends Builder {
+            private String arg1;
+            
+            public Builder arg1(String val) {
+                this.arg1 = val;
+                return this;
+            }
+            public MyClazzWithBuilderReturningPrivateClass build() {
+                return new MyClazzWithBuilderReturningPrivateClass(arg1);
+            }
+        }
+
+        public static Builder builder() {
+            return new PrivateBuilder();
+        }
+        
+        private MyClazzWithBuilderReturningPrivateClass(String arg1) {
+            this.arg1 = arg1;
+        }
+        
+        @Override
+        public boolean equals(Object obj) {
+            if (obj == null || obj.getClass() != getClass()) return false;
+            MyClazzWithBuilderReturningPrivateClass o = (MyClazzWithBuilderReturningPrivateClass) obj;
+            return Objects.equal(arg1, o.arg1);
+        }
+        
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(arg1);
+        }
+        
+        @Override
+        public String toString() {
+            return MoreObjects.toStringHelper(this).add("arg1", arg1).toString();
         }
     }
 }

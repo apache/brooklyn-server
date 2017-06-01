@@ -1110,4 +1110,21 @@ public class Reflections {
         }
         return result;
     }
+    
+    /**
+     * Attempts to find an equivalent accessible method to be invoked, or failing that will call
+     * {@link Method#setAccessible(boolean)} if either of the method or the declaring class are
+     * not public.
+     * 
+     * For example, if a {@code method} is declared on a private sub-class, but the method is also
+     * declared on a public super-class, then this method will return the {@link Method} instance
+     * for the public super-class (assuming the method is not static).
+     * 
+     * If the call to {@link Method#setAccessible(boolean)} fails, this method will return anyway.
+     * It will log.warn once per method signature for which we fail to set it accessible. It will
+     * also log.warn about succeeding (once per method signature) as this is discouraged!
+     */
+    public static Method findAccessibleMethod(Method method) {
+        return MethodAccessibleReflections.findAccessibleMethod(method);
+    }
 }

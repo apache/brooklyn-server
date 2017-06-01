@@ -129,6 +129,18 @@ public class MethodCoercionsTest {
     }
 
     @Test
+    public void testTryFindAndInvokeBestMatchingMethodOnPrivateClassWithPublicSuper() throws Exception {
+        PrivateClass instance = new PrivateClass();
+        Maybe<?> maybe = MethodCoercions.tryFindAndInvokeBestMatchingMethod(instance, "methodOnSuperClass", "42");
+        assertTrue(maybe.isPresent());
+        assertTrue(instance.wasMethodOnSuperClassCalled());
+        
+        Maybe<?> maybe2 = MethodCoercions.tryFindAndInvokeBestMatchingMethod(instance, "methodOnInterface", "42");
+        assertTrue(maybe2.isPresent());
+        assertTrue(instance.wasMethodOnInterfaceCalled());
+    }
+
+    @Test
     public void testTryFindAndInvokeSingleParameterMethod() throws Exception {
         TestClass instance = new TestClass();
         Maybe<?> maybe = MethodCoercions.tryFindAndInvokeSingleParameterMethod(instance, "singleParameterMethod", "42");
@@ -186,6 +198,42 @@ public class MethodCoercionsTest {
 
         public boolean wasSingleCollectionParameterMethodCalled() {
             return singleCollectionParameterMethodCalled;
+        }
+    }
+
+    public static abstract class PublicSuperClass {
+        public abstract PublicSuperClass methodOnSuperClass(int arg);
+    }
+        
+    public static interface PublicInterface {
+        public PublicInterface methodOnInterface(int arg);
+    }
+        
+    static class PrivateClass extends PublicSuperClass implements PublicInterface {
+
+        private boolean methodOnSuperClassCalled;
+        private boolean methodOnInterfaceCalled;
+
+        public PrivateClass() {}
+        
+        @Override
+        public PrivateClass methodOnSuperClass(int arg) {
+            methodOnSuperClassCalled = true;
+            return this;
+        }
+        
+        @Override
+        public PrivateClass methodOnInterface(int arg) {
+            methodOnInterfaceCalled = true;
+            return this;
+        }
+        
+        public boolean wasMethodOnSuperClassCalled() {
+            return methodOnSuperClassCalled;
+        }
+
+        public boolean wasMethodOnInterfaceCalled() {
+            return methodOnInterfaceCalled;
         }
     }
 }
