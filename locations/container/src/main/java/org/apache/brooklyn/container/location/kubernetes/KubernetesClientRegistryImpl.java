@@ -67,7 +67,7 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
                 Path configPath = Paths.get(configFile);
                 Path configFolder = configPath.normalize().getParent();
                 Config kubeconfig = KubeConfigUtils.parseConfig(configPath.toFile());
-                String currentContext = kubeconfig.getCurrentContext();
+                String currentContext = Optional.fromNullable(conf.get(KubernetesLocationConfig.KUBECONFIG_CONTEXT)).or(kubeconfig.getCurrentContext());
                 Optional<NamedContext> foundContext = Iterables.tryFind(kubeconfig.getContexts(), c -> c.getName().equals(currentContext));
                 if (!foundContext.isPresent()) {
                     throw new IllegalStateException(String.format("Context %s not found", currentContext));

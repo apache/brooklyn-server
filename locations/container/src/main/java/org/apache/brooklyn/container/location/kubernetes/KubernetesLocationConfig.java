@@ -38,8 +38,13 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
 
     ConfigKey<String> KUBECONFIG = ConfigKeys.builder(String.class)
             .name("kubeconfig")
-            .description("Kubernetes .kubeconfig file to use instead of individual Location configuration keys")
+            .description("Kubernetes .kubeconfig file to use for Location configuration keys")
             .constraint(file -> Files.isReadable(Paths.get(file)))
+            .build();
+
+    ConfigKey<String> KUBECONFIG_CONTEXT = ConfigKeys.builder(String.class)
+            .name("kubeconfig.context")
+            .description("Kubernetes .kubeconfig context to use for Location configuration")
             .build();
 
     ConfigKey<String> CA_CERT_DATA = ConfigKeys.builder(String.class)
