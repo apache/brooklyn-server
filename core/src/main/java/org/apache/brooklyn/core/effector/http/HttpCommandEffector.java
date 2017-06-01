@@ -56,6 +56,7 @@ import org.apache.brooklyn.util.http.executor.apacheclient.HttpExecutorImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Enums;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -63,6 +64,19 @@ import com.google.common.io.ByteStreams;
 import com.google.common.net.HttpHeaders;
 import com.jayway.jsonpath.JsonPath;
 
+/**
+ * An {@link Effector} to invoke REST endpoints.
+ *
+ * It allows to specify the URI, the HTTP verb, credentials for authentication and HTTP headers.
+ * 
+ * It deals with some {@link HttpHeaders.CONTENT_TYPE} namely 'application/json' (as default) and 'application/x-www-form-urlencoded'. 
+ * In the latter case, a map payload will be URLEncoded in a single string
+ * 
+ * With optional JSON_PATH config key, the effector will extract a section of the json response.
+ * 
+ * Using JSON_PATHS_AND_SENSORS, it is possible to extract one or more values from a json response, and publish them in sensors
+ */
+@Beta
 public final class HttpCommandEffector extends AddEffector {
 
     private static final Logger LOG = LoggerFactory.getLogger(HttpCommandEffector.class);
@@ -74,7 +88,6 @@ public final class HttpCommandEffector extends AddEffector {
     public static final ConfigKey<Map<String, String>> EFFECTOR_HTTP_HEADERS = new MapConfigKey(String.class, "headers");
     public static final ConfigKey<Object> EFFECTOR_HTTP_PAYLOAD = ConfigKeys.newConfigKey(Object.class, "httpPayload");
     public static final ConfigKey<String> JSON_PATH = ConfigKeys.newStringConfigKey("jsonPath", "JSON path to select in HTTP response");
-//    public static final ConfigKey<String> PUBLISH_SENSOR = ConfigKeys.newStringConfigKey("publishSensor", "Sensor name where to store json path extracted value");
     public static final ConfigKey<Map<String, String>> JSON_PATHS_AND_SENSORS = new MapConfigKey(String.class, "jsonPathAndSensors", "json path selector and correspondant sensor name tha will publish the json path extracted value");
 
     public static final String APPLICATION_JSON = "application/json";
@@ -115,7 +128,6 @@ public final class HttpCommandEffector extends AddEffector {
             final Map<String, String> headers = EntityInitializers.resolve(allConfig, EFFECTOR_HTTP_HEADERS);
             final Object payload = EntityInitializers.resolve(allConfig, EFFECTOR_HTTP_PAYLOAD);
             final String jsonPath = EntityInitializers.resolve(allConfig, JSON_PATH);
-//            final String publishSensor = EntityInitializers.resolve(allConfig, PUBLISH_SENSOR);
             final Map<String, String> pathsAndSensors = EntityInitializers.resolve(allConfig, JSON_PATHS_AND_SENSORS);
             final HttpExecutor httpExecutor = HttpExecutorImpl.newInstance();
 
@@ -141,9 +153,6 @@ public final class HttpCommandEffector extends AddEffector {
 
             if (jsonPath != null) {
                 return JsonPath.parse(responseBody).read(jsonPath, String.class);
-//                if (publishSensor != null) {
-//                    entity().sensors().set(Sensors.newStringSensor(publishSensor), jsonPathValue);
-//                }
             } else if (!pathsAndSensors.isEmpty()) {
                 for (String path : pathsAndSensors.keySet()) {
                     String jsonPathValue = JsonPath.parse(responseBody).read(path, String.class);
