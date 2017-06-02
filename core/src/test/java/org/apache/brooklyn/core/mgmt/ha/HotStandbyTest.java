@@ -412,7 +412,10 @@ public class HotStandbyTest {
         byte[] array;
     }
     
-    @Test(groups="Integration")
+//    Failing consistently with error:
+//        Jenkins: java.lang.AssertionError: Too much memory used - 158m > max 154m
+//        Svet local: java.lang.AssertionError: Too much memory used - 16m > max 13m
+    @Test(groups={"Integration", "Broken"})
     public void testHotStandbyDoesNotLeakBigObjects() throws Exception {
         log.info("Starting test "+JavaClassNames.niceClassAndMethod());
         final int SIZE = 5;

@@ -55,7 +55,7 @@ public class LoopOverGroupMembersTestCaseTest {
 
     private static final AttributeSensorAndConfigKey<String, String> STRING_SENSOR = ConfigKeys.newSensorAndConfigKey(String.class, "string-sensor", "String Sensor");
 
-    @BeforeMethod
+    @BeforeMethod(alwaysRun = true)
     public void setup() {
         app = TestApplication.Factory.newManagedInstanceForTests();
 
