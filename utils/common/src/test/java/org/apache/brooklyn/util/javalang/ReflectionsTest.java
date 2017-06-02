@@ -19,6 +19,7 @@
 package org.apache.brooklyn.util.javalang;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import java.lang.reflect.Field;
@@ -178,6 +179,40 @@ public class ReflectionsTest {
         assertEquals(Reflections.arrayToList((Object) new String[] {"a", "b"}), ImmutableList.of("a", "b"));
     }
     
+    @Test
+    public void testFindAccessibleMethodFromSuperType() throws Exception {
+        Method objectHashCode = Object.class.getMethod("hashCode", new Class[0]);
+        Method methodOnSuperClass = PublicSuperClass.class.getMethod("methodOnSuperClass", new Class[0]);
+        Method subMethodOnSuperClass = PrivateClass.class.getMethod("methodOnSuperClass", new Class[0]);
+        Method methodOnInterface = PublicInterface.class.getMethod("methodOnInterface", new Class[0]);
+        Method subMethodOnInterface = PrivateClass.class.getMethod("methodOnInterface", new Class[0]);
+        Method inaccessibleStaticMethod = PrivateClass.class.getMethod("otherStaticMethod", new Class[0]);
+        Method inaccessiblePublicMethod = PrivateClass.class.getMethod("otherPublicMethod", new Class[0]);
+        Method inaccessibleProtectedMethod = PrivateClass.class.getDeclaredMethod("otherProtectedMethod", new Class[0]);
+        
+        assertEquals(Reflections.findAccessibleMethod(objectHashCode).get(), objectHashCode);
+        assertEquals(Reflections.findAccessibleMethod(methodOnSuperClass).get(), methodOnSuperClass);
+        assertEquals(Reflections.findAccessibleMethod(methodOnInterface).get(), methodOnInterface);
+        assertEquals(Reflections.findAccessibleMethod(subMethodOnSuperClass).get(), methodOnSuperClass);
+        assertEquals(Reflections.findAccessibleMethod(subMethodOnInterface).get(), methodOnInterface);
+        
+        assertFalse(Reflections.findAccessibleMethod(inaccessibleStaticMethod).isPresent());
+        assertFalse(Reflections.findAccessibleMethod(inaccessiblePublicMethod).isPresent());
+        assertFalse(Reflections.findAccessibleMethod(inaccessibleProtectedMethod).isPresent());
+    }
+    
+    // I wanted to use LogWatcher to confirm we only get log.warn once, but that is in 
+    // brooklyn-test-support, which depends on brooklyn-utils-common (where this class is).
+    // Unfortunately that would create a circular dependency.
+    @Test
+    public void testTrySetAccessible() throws Exception {
+        Method inaccessibleOtherMethod = PrivateClass.class.getMethod("otherPublicMethod", new Class[0]);
+        
+        assertFalse(inaccessibleOtherMethod.isAccessible());
+        Reflections.trySetAccessible(inaccessibleOtherMethod);
+        assertTrue(inaccessibleOtherMethod.isAccessible());
+    }
+    
     interface I { };
     interface J extends I { };
     interface K extends I, J { };
@@ -194,4 +229,27 @@ public class ReflectionsTest {
         Assert.assertEquals(Reflections.getAllInterfaces(C.class), ImmutableList.of(M.class, K.class, I.class, J.class, L.class));
     }
 
+    public static abstract class PublicSuperClass {
+        public abstract void methodOnSuperClass();
+    }
+        
+    public static interface PublicInterface {
+        public void methodOnInterface();
+    }
+        
+    static class PrivateClass extends PublicSuperClass implements PublicInterface {
+        public PrivateClass() {}
+        
+        @Override
+        public void methodOnSuperClass() {}
+        
+        @Override
+        public void methodOnInterface() {}
+        
+        public void otherPublicMethod() {}
+        
+        protected void otherProtectedMethod() {}
+        
+        public static void otherStaticMethod() {}
+    }
 }

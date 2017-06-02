@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Reflections;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -83,10 +84,11 @@ public class MethodCoercions {
         Optional<Method> matchingMethod = Iterables.tryFind(methods, matchSingleParameterMethod(methodName, argument));
         if (matchingMethod.isPresent()) {
             Method method = matchingMethod.get();
+            Method accessibleMethod = Reflections.findAccessibleMethod(method).get();
             try {
                 Type paramType = method.getGenericParameterTypes()[0];
                 Object coercedArgument = TypeCoercions.coerce(argument, TypeToken.of(paramType));
-                return Maybe.of(method.invoke(instance, coercedArgument));
+                return Maybe.of(accessibleMethod.invoke(instance, coercedArgument));
             } catch (IllegalAccessException | InvocationTargetException e) {
                 throw Exceptions.propagate(e);
             }
@@ -166,6 +168,7 @@ public class MethodCoercions {
         Optional<Method> matchingMethod = Iterables.tryFind(methods, matchMultiParameterMethod(arguments));
         if (matchingMethod.isPresent()) {
             Method method = matchingMethod.get();
+            Method accessibleMethod = Reflections.findAccessibleMethod(method).get();
             try {
                 int numOptionParams = ((List<?>)arguments).size();
                 Object[] coercedArguments = new Object[numOptionParams];
@@ -174,7 +177,7 @@ public class MethodCoercions {
                     Type paramType = method.getGenericParameterTypes()[paramCount];
                     coercedArguments[paramCount] = TypeCoercions.coerce(argument, TypeToken.of(paramType));
                 }
-                return Maybe.of(method.invoke(instanceOrClazz, coercedArguments));
+                return Maybe.of(accessibleMethod.invoke(instanceOrClazz, coercedArguments));
             } catch (IllegalAccessException | InvocationTargetException e) {
                 throw Exceptions.propagate(e);
             }

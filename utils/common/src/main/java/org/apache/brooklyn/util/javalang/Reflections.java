@@ -1110,4 +1110,34 @@ public class Reflections {
         }
         return result;
     }
+    
+    /**
+     * Attempts to find an equivalent accessible method to be invoked (or if the given method is
+     * already accessible, then return it). Otherwise return absent.
+     * 
+     * "Accessible" means that it is a public method declared on a public type.
+     * 
+     * For example, if {@code method} is declared on a private sub-class, but that overides a 
+     * method declared on a public super-class, then this method will return the {@link Method} 
+     * instance for the public super-class (assuming the method is not static).
+     * 
+     * If no better method could be found, it does a log.warn (once per method signature, per 
+     * jvm-invocation), and then returns absent.
+     */
+    public static Maybe<Method> findAccessibleMethod(Method method) {
+        return MethodAccessibleReflections.findAccessibleMethod(method);
+    }
+
+    /**
+     * Calls {@link Method#setAccessible(boolean)} "safely", wrapping in a try-catch block so that 
+     * the exception is never propagated.
+     * <p>
+     * It will log.warn once per method signature for which we fail to set it accessible. It will
+     * also log.warn if it succeeds (once per method signature) as this is discouraged!
+     * 
+     * @return True if setAccessible succeeded; false otherwise
+     */
+    public static boolean trySetAccessible(Method method) {
+        return MethodAccessibleReflections.trySetAccessible(method);
+    }
 }
