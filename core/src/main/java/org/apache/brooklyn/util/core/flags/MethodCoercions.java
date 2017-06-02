@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.List;
@@ -33,7 +32,6 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -86,7 +84,7 @@ public class MethodCoercions {
         Optional<Method> matchingMethod = Iterables.tryFind(methods, matchSingleParameterMethod(methodName, argument));
         if (matchingMethod.isPresent()) {
             Method method = matchingMethod.get();
-            Method accessibleMethod = Reflections.findAccessibleMethod(method);
+            Method accessibleMethod = Reflections.findAccessibleMethod(method).get();
             try {
                 Type paramType = method.getGenericParameterTypes()[0];
                 Object coercedArgument = TypeCoercions.coerce(argument, TypeToken.of(paramType));
@@ -170,7 +168,7 @@ public class MethodCoercions {
         Optional<Method> matchingMethod = Iterables.tryFind(methods, matchMultiParameterMethod(arguments));
         if (matchingMethod.isPresent()) {
             Method method = matchingMethod.get();
-            Method accessibleMethod = Reflections.findAccessibleMethod(method);
+            Method accessibleMethod = Reflections.findAccessibleMethod(method).get();
             try {
                 int numOptionParams = ((List<?>)arguments).size();
                 Object[] coercedArguments = new Object[numOptionParams];

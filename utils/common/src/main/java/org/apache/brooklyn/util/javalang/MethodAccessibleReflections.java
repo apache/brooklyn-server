@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.javalang;
 
+import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Set;
@@ -50,6 +51,12 @@ class MethodAccessibleReflections {
      */
     private static final Set<String> SET_ACCESSIBLE_SUCCEEDED_LOGGED_METHODS = Sets.newConcurrentHashSet();
     
+    /**
+     * Contains method.toString() representations for methods for which {@link #findAccessibleMethod(Method)} 
+     * failed to find a suitable publicly accessible method.
+     */
+    private static final Set<String> FIND_ACCESSIBLE_FAILED_LOGGED_METHODS = Sets.newConcurrentHashSet();
+
     static boolean trySetAccessible(Method method) {
         try {
             method.setAccessible(true);
@@ -70,42 +77,66 @@ class MethodAccessibleReflections {
             return false;
         }
     }
+    
+    // Copy of org.apache.commons.lang3.reflect.MemberUtils, except not checking !m.isSynthetic()
+    static boolean isAccessible(Member m) {
+        return m != null && Modifier.isPublic(m.getModifiers());
+    }
 
+    static boolean isAccessible(Class<?> c) {
+        return c != null && Modifier.isPublic(c.getModifiers());
+    }
+    
     /**
      * @see {@link Reflections#findAccessibleMethod(Method)}
      */
-    static Method findAccessibleMethod(Method method) {
-        if (!Modifier.isPublic(method.getModifiers())) {
-            trySetAccessible(method);
-            return method;
-        }
-        boolean declaringClassPublic = Modifier.isPublic(method.getDeclaringClass().getModifiers());
-        if (!declaringClassPublic) {
-            // reflectively calling a public method on a private class can fail, unless we first set it
-            // call setAccessible. But first see if there is a public method on a public super-type
-            // that we can call instead!
-            Maybe<Method> publicMethod = tryFindPublicEquivalent(method);
-            if (publicMethod.isPresent()) {
-                LOG.debug("Switched method for publicly accessible equivalent: method={}; origMethod={}", publicMethod.get(), method);
-                return publicMethod.get();
-            } else {
-                trySetAccessible(method);
-                return method;
+    // Similar to org.apache.commons.lang3.reflect.MethodUtils.getAccessibleMethod
+    // We could delegate to that, but currently brooklyn-utils-common doesn't depend on commons-lang3; maybe it should?
+    static Maybe<Method> findAccessibleMethod(Method method) {
+        if (!isAccessible(method)) {
+            String err = "Method is not public, so not normally accessible for "+method;
+            if (FIND_ACCESSIBLE_FAILED_LOGGED_METHODS.add(method.toString())) {
+                LOG.warn(err+"; usage may subsequently fail");
             }
+            return Maybe.absent(err);
         }
         
-        return method;
+        boolean declaringClassAccessible = isAccessible(method.getDeclaringClass());
+        if (declaringClassAccessible) {
+            return Maybe.of(method);
+        }
+        
+        // reflectively calling a public method on a private class can fail (unless one first 
+        // calls setAccessible). Check if this overrides a public method on a public super-type
+        // that we can call instead!
+        
+        if (Modifier.isStatic(method.getModifiers())) {
+            String err = "Static method not declared on a public class, so not normally accessible for "+method;
+            if (FIND_ACCESSIBLE_FAILED_LOGGED_METHODS.add(method.toString())) {
+                LOG.warn(err+"; usage may subsequently fail");
+            }
+            return Maybe.absent(err);
+        }
+
+        Maybe<Method> altMethod = tryFindAccessibleEquivalent(method);
+        
+        if (altMethod.isPresent()) {
+            LOG.debug("Switched method for publicly accessible equivalent: method={}; origMethod={}", altMethod.get(), method);
+            return altMethod;
+        } else {
+            String err = "No accessible (overridden) method found in public super-types for method " + method;
+            if (FIND_ACCESSIBLE_FAILED_LOGGED_METHODS.add(method.toString())) {
+                LOG.warn(err);
+            }
+            return Maybe.absent(err);
+        }
     }
     
-    private static Maybe<Method> tryFindPublicEquivalent(Method method) {
-        if (Modifier.isStatic(method.getModifiers())) {
-            return Maybe.absent();
-        }
-        
+    private static Maybe<Method> tryFindAccessibleEquivalent(Method method) {
         Class<?> clazz = method.getDeclaringClass();
         
-        for (Class<?> interf : clazz.getInterfaces()) {
-            Maybe<Method> altMethod = tryFindPublicMethod(interf, method.getName(), method.getParameterTypes());
+        for (Class<?> interf : Reflections.getAllInterfaces(clazz)) {
+            Maybe<Method> altMethod = tryFindAccessibleMethod(interf, method.getName(), method.getParameterTypes());
             if (altMethod.isPresent()) {
                 return altMethod;
             }
@@ -113,7 +144,7 @@ class MethodAccessibleReflections {
         
         Class<?> superClazz = clazz.getSuperclass();
         while (superClazz != null) {
-            Maybe<Method> altMethod = tryFindPublicMethod(superClazz, method.getName(), method.getParameterTypes());
+            Maybe<Method> altMethod = tryFindAccessibleMethod(superClazz, method.getName(), method.getParameterTypes());
             if (altMethod.isPresent()) {
                 return altMethod;
             }
@@ -123,18 +154,18 @@ class MethodAccessibleReflections {
         return Maybe.absent();
     }
 
-    private static Maybe<Method> tryFindPublicMethod(Class<?> clazz, String methodName, Class<?>... parameterTypes) {
-        if (!Modifier.isPublic(clazz.getModifiers())) {
+    private static Maybe<Method> tryFindAccessibleMethod(Class<?> clazz, String methodName, Class<?>... parameterTypes) {
+        if (!isAccessible(clazz)) {
             return Maybe.absent();
         }
         
         try {
             Method altMethod = clazz.getMethod(methodName, parameterTypes);
-            if (Modifier.isPublic(altMethod.getModifiers()) && !Modifier.isStatic(altMethod.getModifiers())) {
+            if (isAccessible(altMethod) && !Modifier.isStatic(altMethod.getModifiers())) {
                 return Maybe.of(altMethod);
             }
         } catch (NoSuchMethodException | SecurityException e) {
-            // Not found; return absent
+            // Not found; swallow, and return absent
         }
         
         return Maybe.absent();

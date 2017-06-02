@@ -186,20 +186,30 @@ public class ReflectionsTest {
         Method subMethodOnSuperClass = PrivateClass.class.getMethod("methodOnSuperClass", new Class[0]);
         Method methodOnInterface = PublicInterface.class.getMethod("methodOnInterface", new Class[0]);
         Method subMethodOnInterface = PrivateClass.class.getMethod("methodOnInterface", new Class[0]);
+        Method inaccessibleStaticMethod = PrivateClass.class.getMethod("otherStaticMethod", new Class[0]);
+        Method inaccessiblePublicMethod = PrivateClass.class.getMethod("otherPublicMethod", new Class[0]);
+        Method inaccessibleProtectedMethod = PrivateClass.class.getDeclaredMethod("otherProtectedMethod", new Class[0]);
         
-        assertEquals(Reflections.findAccessibleMethod(objectHashCode), objectHashCode);
-        assertEquals(Reflections.findAccessibleMethod(methodOnSuperClass), methodOnSuperClass);
-        assertEquals(Reflections.findAccessibleMethod(methodOnInterface), methodOnInterface);
-        assertEquals(Reflections.findAccessibleMethod(subMethodOnSuperClass), methodOnSuperClass);
-        assertEquals(Reflections.findAccessibleMethod(subMethodOnInterface), methodOnInterface);
+        assertEquals(Reflections.findAccessibleMethod(objectHashCode).get(), objectHashCode);
+        assertEquals(Reflections.findAccessibleMethod(methodOnSuperClass).get(), methodOnSuperClass);
+        assertEquals(Reflections.findAccessibleMethod(methodOnInterface).get(), methodOnInterface);
+        assertEquals(Reflections.findAccessibleMethod(subMethodOnSuperClass).get(), methodOnSuperClass);
+        assertEquals(Reflections.findAccessibleMethod(subMethodOnInterface).get(), methodOnInterface);
+        
+        assertFalse(Reflections.findAccessibleMethod(inaccessibleStaticMethod).isPresent());
+        assertFalse(Reflections.findAccessibleMethod(inaccessiblePublicMethod).isPresent());
+        assertFalse(Reflections.findAccessibleMethod(inaccessibleProtectedMethod).isPresent());
     }
     
+    // I wanted to use LogWatcher to confirm we only get log.warn once, but that is in 
+    // brooklyn-test-support, which depends on brooklyn-utils-common (where this class is).
+    // Unfortunately that would create a circular dependency.
     @Test
-    public void testFindAccessibleMethodCallsSetAccessible() throws Exception {
-        Method inaccessibleOtherMethod = PrivateClass.class.getMethod("otherMethod", new Class[0]);
+    public void testTrySetAccessible() throws Exception {
+        Method inaccessibleOtherMethod = PrivateClass.class.getMethod("otherPublicMethod", new Class[0]);
         
         assertFalse(inaccessibleOtherMethod.isAccessible());
-        assertEquals(Reflections.findAccessibleMethod(inaccessibleOtherMethod), inaccessibleOtherMethod);
+        Reflections.trySetAccessible(inaccessibleOtherMethod);
         assertTrue(inaccessibleOtherMethod.isAccessible());
     }
     
@@ -236,6 +246,10 @@ public class ReflectionsTest {
         @Override
         public void methodOnInterface() {}
         
-        public void otherMethod() {}
+        public void otherPublicMethod() {}
+        
+        protected void otherProtectedMethod() {}
+        
+        public static void otherStaticMethod() {}
     }
 }
