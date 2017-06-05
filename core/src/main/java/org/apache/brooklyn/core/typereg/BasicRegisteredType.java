@@ -29,6 +29,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.osgi.VersionedName;
 
 import com.google.common.annotations.Beta;
 import com.google.common.collect.ImmutableSet;
@@ -39,7 +40,7 @@ public class BasicRegisteredType implements RegisteredType {
     final RegisteredTypeKind kind;
     final String symbolicName;
     final String version;
-    String containingBundle;
+    VersionedName containingBundle;
     
     final List<OsgiBundleWithUrl> bundles = MutableList.of();
     String displayName;
@@ -85,7 +86,7 @@ public class BasicRegisteredType implements RegisteredType {
     }
     
     @Override
-    public String getContainingBundle() {
+    public VersionedName getContainingBundle() {
         return containingBundle;
     }
     

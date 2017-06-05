@@ -48,7 +48,6 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.Maybe.Absent;
 import org.apache.brooklyn.util.text.NaturalOrderComparator;
-import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.VersionComparator;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
@@ -171,8 +170,7 @@ public class RegisteredTypes {
 
     @Beta
     public static RegisteredType setContainingBundle(RegisteredType type, @Nullable ManagedBundle bundle) {
-        ((BasicRegisteredType)type).containingBundle =
-            bundle==null ? null : Strings.toString(bundle.getVersionedName());
+        ((BasicRegisteredType)type).containingBundle = bundle==null ? null : bundle.getVersionedName();
         return type;
     }
 

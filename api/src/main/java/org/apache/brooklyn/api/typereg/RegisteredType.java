@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Identifiable;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
+import org.apache.brooklyn.util.osgi.VersionedName;
 
 import com.google.common.annotations.Beta;
 
@@ -38,7 +39,7 @@ public interface RegisteredType extends Identifiable {
     String getSymbolicName();
     String getVersion();
     /** Bundle in symbolicname:id format where this type is defined */
-    String getContainingBundle();
+    VersionedName getContainingBundle();
 
     Collection<OsgiBundleWithUrl> getLibraries();
 

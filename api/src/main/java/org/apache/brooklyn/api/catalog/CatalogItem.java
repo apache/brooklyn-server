@@ -38,6 +38,7 @@ import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
+import org.apache.brooklyn.util.osgi.VersionedName;
 
 import com.google.common.annotations.Beta;
 
@@ -129,7 +130,7 @@ public interface CatalogItem<T,SpecT> extends BrooklynObject, Rebindable {
 
     public String getSymbolicName();
     
-    public String getContainingBundle();
+    public VersionedName getContainingBundle();
 
     public String getVersion();
 
