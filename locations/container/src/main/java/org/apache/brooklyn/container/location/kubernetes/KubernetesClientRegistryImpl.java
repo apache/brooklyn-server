@@ -73,7 +73,7 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
                     throw new IllegalStateException(String.format("Context %s not found", currentContext));
                 }
                 Context context = foundContext.get().getContext();
-                LOG.warn("Context {} additional properties: {}", currentContext, context.getAdditionalProperties());
+                LOG.debug("Context {} additional properties: {}", currentContext, context.getAdditionalProperties());
                 configBuilder.withNamespace(context.getNamespace());
 
                 String user = context.getUser();
@@ -82,10 +82,16 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
                     throw new IllegalStateException(String.format("Auth info %s not found", user));
                 }
                 AuthInfo auth = foundAuthInfo.get().getUser();
-                LOG.warn("Auth info {} additional properties: {}", user, auth.getAdditionalProperties());
+                LOG.debug("Auth info {} additional properties: {}", user, auth.getAdditionalProperties());
                 configBuilder.withUsername(auth.getUsername());
                 configBuilder.withPassword(auth.getPassword());
-                configBuilder.withOauthToken(auth.getToken());
+                if (auth.getToken() == null) {
+                    if (auth.getAuthProvider() != null) {
+                        configBuilder.withOauthToken(auth.getAuthProvider().getConfig().get("id-token"));
+                    }
+                } else {
+                    configBuilder.withOauthToken(auth.getToken());
+                }
                 configBuilder.withClientCertFile(getRelativeFile(auth.getClientCertificate(), configFolder));
                 configBuilder.withClientCertData(auth.getClientCertificateData());
                 configBuilder.withClientKeyFile(getRelativeFile(auth.getClientKey(), configFolder));
@@ -102,8 +108,8 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
                 configBuilder.withCaCertData(cluster.getCertificateAuthorityData());
                 configBuilder.withApiVersion(Optional.fromNullable(cluster.getApiVersion()).or("v1"));
                 configBuilder.withTrustCerts(Boolean.TRUE.equals(cluster.getInsecureSkipTlsVerify()));
-                LOG.warn("Cluster {} server: {}", clusterName, cluster.getServer());
-                LOG.warn("Cluster {} additional properties: {}", clusterName, cluster.getAdditionalProperties());
+                LOG.debug("Cluster {} server: {}", clusterName, cluster.getServer());
+                LOG.debug("Cluster {} additional properties: {}", clusterName, cluster.getAdditionalProperties());
             } catch (IOException e) {
                 Exceptions.propagate(e);
             }
