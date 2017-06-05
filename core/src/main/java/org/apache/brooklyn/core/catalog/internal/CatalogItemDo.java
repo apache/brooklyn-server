@@ -31,7 +31,6 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.relations.EmptyRelationSupport;
-import org.apache.brooklyn.util.osgi.VersionedName;
 
 import com.google.common.base.Preconditions;
 
@@ -200,7 +199,7 @@ public class CatalogItemDo<T,SpecT> implements CatalogItem<T,SpecT>, BrooklynObj
     }
     
     @Override
-    public VersionedName getContainingBundle() {
+    public String getContainingBundle() {
         return itemDto.getContainingBundle();
     }
 

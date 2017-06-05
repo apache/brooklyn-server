@@ -37,6 +37,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,7 +53,7 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
 
     private @SetFromFlag String symbolicName;
     private @SetFromFlag String version = BasicBrooklynCatalog.NO_VERSION;
-    private @SetFromFlag VersionedName containingBundle;
+    private @SetFromFlag String containingBundle;
 
     private @SetFromFlag String displayName;
     private @SetFromFlag String description;
@@ -123,7 +124,7 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
     }
     
     @Override
-    public VersionedName getContainingBundle() {
+    public String getContainingBundle() {
         return containingBundle;
     }
 
@@ -354,7 +355,7 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
     }
 
     public void setContainingBundle(VersionedName versionedName) {
-        this.containingBundle = versionedName;
+        this.containingBundle = Strings.toString(versionedName);
     }
     
     protected void setDescription(String description) {
