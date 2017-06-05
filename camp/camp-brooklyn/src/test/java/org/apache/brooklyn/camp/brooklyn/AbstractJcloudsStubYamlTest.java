@@ -105,13 +105,17 @@ public abstract class AbstractJcloudsStubYamlTest extends AbstractJcloudsStubbed
     }
 
     protected void addStubbedLocationToCatalog() {
+        String locationSpec = getLocationSpec();
+        String provider = getProvider();
+        String regionOrEndpoint = getRegion();
+        
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: " + LOCATION_CATALOG_ID,
                 "  version: 1.0.0",
                 "  itemType: location",
                 "  item:",
-                "    type: " + LOCATION_SPEC,
+                "    type: " + locationSpec,
                 "    brooklyn.config:",
                 "      identity: myidentity",
                 "      credential: mycredential",
@@ -124,6 +128,9 @@ public abstract class AbstractJcloudsStubYamlTest extends AbstractJcloudsStubbed
                 "        $brooklyn:object:",
                 "          type: "+JcloudsStubTemplateBuilder.class.getName(),
                 "          factoryMethod.name: create",
+                "          factoryMethod.args:",
+                "          - " + provider,
+                "          - " + regionOrEndpoint,
                 "      " + JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE.getName() + ":",
                 "        $brooklyn:object:",
                 "          type: "+Predicates.class.getName(),

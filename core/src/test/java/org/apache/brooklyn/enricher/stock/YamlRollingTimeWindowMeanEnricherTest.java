@@ -24,22 +24,16 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.SubscriptionContext;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
-import org.apache.brooklyn.core.entity.AbstractApplication;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.sensor.BasicSensorEvent;
-import org.apache.brooklyn.enricher.stock.YamlRollingTimeWindowMeanEnricher;
-import org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.enricher.stock.YamlRollingTimeWindowMeanEnricher.ConfidenceQualifiedNumber;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.util.time.Duration;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class YamlRollingTimeWindowMeanEnricherTest {
-    
-    AbstractApplication app;
+public class YamlRollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSupport {
     
     BasicEntity producer;
 
@@ -55,10 +49,10 @@ public class YamlRollingTimeWindowMeanEnricherTest {
     SubscriptionContext subscription;
     
     @SuppressWarnings("unchecked")
-    @BeforeMethod
-    public void before() {
-        app = new AbstractApplication() {};
-        Entities.startManagement(app);
+    @BeforeMethod(alwaysRun=true)
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
         producer = app.addChild(EntitySpec.create(BasicEntity.class));
 
         intSensor = new BasicAttributeSensor<Integer>(Integer.class, "int sensor");
@@ -77,11 +71,6 @@ public class YamlRollingTimeWindowMeanEnricherTest {
                 .configure(YamlRollingTimeWindowMeanEnricher.WINDOW_DURATION, timePeriod));
     }
 
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
-    }
-        
     @Test
     public void testDefaultAverageWhenEmpty() {
         ConfidenceQualifiedNumber average = averager.getAverage(0, 0);

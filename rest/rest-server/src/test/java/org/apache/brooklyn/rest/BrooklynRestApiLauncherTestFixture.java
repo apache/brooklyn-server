@@ -41,6 +41,7 @@ import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 
 import java.net.URI;
+import java.util.Map;
 
 import static org.apache.brooklyn.util.http.HttpTool.httpClientBuilder;
 import static org.testng.Assert.assertTrue;
@@ -104,7 +105,10 @@ public abstract class BrooklynRestApiLauncherTestFixture {
     }
 
     protected HttpToolResponse httpPost(String user, String path, byte[] body) throws Exception {
-        final ImmutableMap<String, String> headers = ImmutableMap.of();
+        return httpPost(user, path, body, ImmutableMap.<String, String>of());
+    }
+
+    protected HttpToolResponse httpPost(String user, String path, byte[] body, Map<String, String> headers) throws Exception {
         final URI uri = URI.create(getBaseUriRest()).resolve(path);
         return HttpTool.httpPost(newClient(user), uri, headers, body);
     }

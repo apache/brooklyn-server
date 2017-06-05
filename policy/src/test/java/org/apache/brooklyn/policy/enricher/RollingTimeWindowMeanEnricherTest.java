@@ -20,24 +20,21 @@ package org.apache.brooklyn.policy.enricher;
 
 import static org.testng.Assert.assertEquals;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
-import org.apache.brooklyn.core.entity.AbstractApplication;
-import org.apache.brooklyn.core.entity.AbstractEntity;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher.ConfidenceQualifiedNumber;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 @SuppressWarnings("deprecation")
-public class RollingTimeWindowMeanEnricherTest {
+public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSupport {
     
-    AbstractApplication app;
-    
-    EntityLocal producer;
+    Entity producer;
 
     Sensor<Integer> intSensor;
     AttributeSensor<Integer> deltaSensor;
@@ -48,11 +45,11 @@ public class RollingTimeWindowMeanEnricherTest {
 
     private final long timePeriod = 1000;
     
-    @BeforeMethod
-    public void before() {
-        app = new AbstractApplication() {};
-        producer = new AbstractEntity(app) {};
-        Entities.startManagement(app);
+    @BeforeMethod(alwaysRun=true)
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        producer = app.addChild(EntitySpec.create(TestEntity.class));
 
         intSensor = new BasicAttributeSensor<Integer>(Integer.class, "int sensor");
         deltaSensor = new BasicAttributeSensor<Integer>(Integer.class, "delta sensor");
@@ -61,11 +58,6 @@ public class RollingTimeWindowMeanEnricherTest {
         producer.enrichers().add(new DeltaEnricher<Integer>(producer, intSensor, deltaSensor));
         averager = new RollingTimeWindowMeanEnricher<Integer>(producer, deltaSensor, avgSensor, timePeriod);
         producer.enrichers().add(averager);
-    }
-
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
     }
 
     @Test

@@ -21,20 +21,17 @@ package org.apache.brooklyn.entity.group;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
-import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.entity.stock.DelegateEntity;
-import org.apache.brooklyn.util.collections.SetFromLiveMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,31 +60,9 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
 
     private Set<Entity> members = Sets.newLinkedHashSet();
 
-    public AbstractGroupImpl() {
-    }
-
-    @Deprecated
-    public AbstractGroupImpl(@SuppressWarnings("rawtypes") Map flags, Entity parent) {
-        super(flags, parent);
-    }
-
     @Override
     public void setManagementContext(ManagementContextInternal managementContext) {
         super.setManagementContext(managementContext);
-
-        if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_USE_BROOKLYN_LIVE_OBJECTS_DATAGRID_STORAGE)) {
-            Set<Entity> oldMembers = members;
-            
-            members = SetFromLiveMap.create(managementContext.getStorage().<Entity,Boolean>getMap(getId()+"-members"));
-
-            // Only override stored defaults if we have actual values. We might be in setManagementContext
-            // because we are reconstituting an existing entity in a new brooklyn management-node (in which
-            // case believe what is already in the storage), or we might be in the middle of creating a new
-            // entity. Normally for a new entity (using EntitySpec creation approach), this will get called
-            // before setting the parent etc. However, for backwards compatibility we still support some
-            // things calling the entity's constructor directly.
-            if (oldMembers.size() > 0) members.addAll(oldMembers);
-        }
     }
 
     @Override
@@ -119,53 +94,55 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
      */
     @Override
     public boolean addMember(Entity member) {
-        synchronized (members) {
-            if (Entities.isNoLongerManaged(member)) {
-                // Don't add dead entities, as they could never be removed (because addMember could be called in
-                // concurrent thread as removeMember triggered by the unmanage).
-                // Not using Entities.isManaged here, as could be called in entity.init()
-                log.debug("Group {} ignoring new member {}, because it is no longer managed", this, member);
-                return false;
-            }
-
-            // FIXME do not set sensors on members; possibly we don't need FIRST at all, just look at the first in MEMBERS, and take care to guarantee order there
-            Entity first = getAttribute(FIRST);
-            if (first == null) {
-                member.sensors().set(FIRST_MEMBER, true);
-                member.sensors().set(FIRST, member);
-                sensors().set(FIRST, member);
-            } else {
-                if (first.equals(member) || first.equals(member.getAttribute(FIRST))) {
-                    // do nothing (rebinding)
-                } else {
-                    member.sensors().set(FIRST_MEMBER, false);
-                    member.sensors().set(FIRST, first);
+        synchronized (getAttributesSynchObjectInternal()) {
+            synchronized (members) {
+                if (Entities.isNoLongerManaged(member)) {
+                    // Don't add dead entities, as they could never be removed (because addMember could be called in
+                    // concurrent thread as removeMember triggered by the unmanage).
+                    // Not using Entities.isManaged here, as could be called in entity.init()
+                    log.debug("Group {} ignoring new member {}, because it is no longer managed", this, member);
+                    return false;
                 }
-            }
-
-            ((EntityInternal)member).groups().add((Group)getProxyIfAvailable());
-            boolean changed = addMemberInternal(member);
-            if (changed) {
-                log.debug("Group {} got new member {}", this, member);
-                sensors().set(GROUP_SIZE, getCurrentSize());
-                sensors().set(GROUP_MEMBERS, getMembers());
-                // emit after the above so listeners can use getMembers() and getCurrentSize()
-                sensors().emit(MEMBER_ADDED, member);
-
-                if (Boolean.TRUE.equals(getConfig(MEMBER_DELEGATE_CHILDREN))) {
-                    log.warn("Use of deprecated ConfigKey {} in {} (as of 0.9.0)", MEMBER_DELEGATE_CHILDREN.getName(), this);
-                    Optional<Entity> result = Iterables.tryFind(getChildren(), Predicates.equalTo(member));
-                    if (!result.isPresent()) {
-                        String nameFormat = Optional.fromNullable(getConfig(MEMBER_DELEGATE_NAME_FORMAT)).or("%s");
-                        DelegateEntity child = addChild(EntitySpec.create(DelegateEntity.class)
-                                .configure(DelegateEntity.DELEGATE_ENTITY, member)
-                                .displayName(String.format(nameFormat, member.getDisplayName())));
+    
+                // FIXME do not set sensors on members; possibly we don't need FIRST at all, just look at the first in MEMBERS, and take care to guarantee order there
+                Entity first = getAttribute(FIRST);
+                if (first == null) {
+                    member.sensors().set(FIRST_MEMBER, true);
+                    member.sensors().set(FIRST, member);
+                    sensors().set(FIRST, member);
+                } else {
+                    if (first.equals(member) || first.equals(member.getAttribute(FIRST))) {
+                        // do nothing (rebinding)
+                    } else {
+                        member.sensors().set(FIRST_MEMBER, false);
+                        member.sensors().set(FIRST, first);
                     }
                 }
-
-                getManagementSupport().getEntityChangeListener().onMembersChanged();
+    
+                ((EntityInternal)member).groups().add((Group)getProxyIfAvailable());
+                boolean changed = addMemberInternal(member);
+                if (changed) {
+                    log.debug("Group {} got new member {}", this, member);
+                    sensors().set(GROUP_SIZE, getCurrentSize());
+                    sensors().set(GROUP_MEMBERS, getMembers());
+                    // emit after the above so listeners can use getMembers() and getCurrentSize()
+                    sensors().emit(MEMBER_ADDED, member);
+    
+                    if (Boolean.TRUE.equals(getConfig(MEMBER_DELEGATE_CHILDREN))) {
+                        log.warn("Use of deprecated ConfigKey {} in {} (as of 0.9.0)", MEMBER_DELEGATE_CHILDREN.getName(), this);
+                        Optional<Entity> result = Iterables.tryFind(getChildren(), Predicates.equalTo(member));
+                        if (!result.isPresent()) {
+                            String nameFormat = Optional.fromNullable(getConfig(MEMBER_DELEGATE_NAME_FORMAT)).or("%s");
+                            DelegateEntity child = addChild(EntitySpec.create(DelegateEntity.class)
+                                    .configure(DelegateEntity.DELEGATE_ENTITY, member)
+                                    .displayName(String.format(nameFormat, member.getDisplayName())));
+                        }
+                    }
+    
+                    getManagementSupport().getEntityChangeListener().onMembersChanged();
+                }
+                return changed;
             }
-            return changed;
         }
     }
 
@@ -181,58 +158,60 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
      */
     @Override
     public boolean removeMember(final Entity member) {
-        synchronized (members) {
-            boolean changed = (member != null && members.remove(member));
-            if (changed) {
-                log.debug("Group {} lost member {}", this, member);
-                // TODO ideally the following are all synched
-                sensors().set(GROUP_SIZE, getCurrentSize());
-                sensors().set(GROUP_MEMBERS, getMembers());
-                if (member.equals(getAttribute(FIRST))) {
-                    // TODO should we elect a new FIRST ?  as is the *next* will become first.  could we do away with FIRST altogether?
-                    sensors().set(FIRST, null);
-                }
-                // emit after the above so listeners can use getMembers() and getCurrentSize()
-                sensors().emit(MEMBER_REMOVED, member);
-
-                if (Boolean.TRUE.equals(getConfig(MEMBER_DELEGATE_CHILDREN))) {
-                    Optional<Entity> result = Iterables.tryFind(getChildren(), new Predicate<Entity>() {
-                        @Override
-                        public boolean apply(Entity input) {
-                            Entity delegate = input.getConfig(DelegateEntity.DELEGATE_ENTITY);
-                            if (delegate == null) return false;
-                            return delegate.equals(member);
+        synchronized (getAttributesSynchObjectInternal()) {
+            synchronized (members) {
+                boolean changed = (member != null && members.remove(member));
+                if (changed) {
+                    log.debug("Group {} lost member {}", this, member);
+                    // TODO ideally the following are all synched
+                    sensors().set(GROUP_SIZE, getCurrentSize());
+                    sensors().set(GROUP_MEMBERS, getMembers());
+                    if (member.equals(getAttribute(FIRST))) {
+                        // TODO should we elect a new FIRST ?  as is the *next* will become first.  could we do away with FIRST altogether?
+                        sensors().set(FIRST, null);
+                    }
+                    // emit after the above so listeners can use getMembers() and getCurrentSize()
+                    sensors().emit(MEMBER_REMOVED, member);
+    
+                    if (Boolean.TRUE.equals(getConfig(MEMBER_DELEGATE_CHILDREN))) {
+                        Optional<Entity> result = Iterables.tryFind(getChildren(), new Predicate<Entity>() {
+                            @Override
+                            public boolean apply(Entity input) {
+                                Entity delegate = input.getConfig(DelegateEntity.DELEGATE_ENTITY);
+                                if (delegate == null) return false;
+                                return delegate.equals(member);
+                            }
+                        });
+                        if (result.isPresent()) {
+                            Entity child = result.get();
+                            removeChild(child);
+                            Entities.unmanage(child);
                         }
-                    });
-                    if (result.isPresent()) {
-                        Entity child = result.get();
-                        removeChild(child);
-                        Entities.unmanage(child);
+                    }
+    
+                }
+                
+                Exception errorRemoving = null;
+                // suppress errors if member is being unmanaged in parallel
+                try {
+                    ((EntityInternal)member).groups().remove((Group)getProxyIfAvailable());
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    errorRemoving = e;
+                }
+                
+                getManagementSupport().getEntityChangeListener().onMembersChanged();
+                
+                if (errorRemoving!=null) {
+                    if (Entities.isNoLongerManaged(member)) {
+                        log.debug("Ignoring error when telling group "+this+" unmanaged member "+member+" is is removed: "+errorRemoving);
+                    } else {
+                        Exceptions.propagate(errorRemoving);
                     }
                 }
-
+    
+                return changed;
             }
-            
-            Exception errorRemoving = null;
-            // suppress errors if member is being unmanaged in parallel
-            try {
-                ((EntityInternal)member).groups().remove((Group)getProxyIfAvailable());
-            } catch (Exception e) {
-                Exceptions.propagateIfFatal(e);
-                errorRemoving = e;
-            }
-            
-            getManagementSupport().getEntityChangeListener().onMembersChanged();
-            
-            if (errorRemoving!=null) {
-                if (Entities.isNoLongerManaged(member)) {
-                    log.debug("Ignoring error when telling group "+this+" unmanaged member "+member+" is is removed: "+errorRemoving);
-                } else {
-                    Exceptions.propagate(errorRemoving);
-                }
-            }
-
-            return changed;
         }
     }
 
@@ -243,22 +222,24 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
 
     @Override
     public void setMembers(Collection<Entity> mm, Predicate<Entity> filter) {
-        synchronized (members) {
-            log.debug("Group {} members set explicitly to {} (of which some possibly filtered)", this, members);
-            List<Entity> mmo = new ArrayList<Entity>(getMembers());
-            for (Entity m: mmo) {
-                if (!(mm.contains(m) && (filter==null || filter.apply(m))))
-                    // remove, unless already present, being set, and not filtered out
-                    removeMember(m);
-            }
-            for (Entity m: mm) {
-                if ((!mmo.contains(m)) && (filter==null || filter.apply(m))) {
-                    // add if not alrady contained, and not filtered out
-                    addMember(m);
+        synchronized (getAttributesSynchObjectInternal()) {
+            synchronized (members) {
+                log.debug("Group {} members set explicitly to {} (of which some possibly filtered)", this, members);
+                List<Entity> mmo = new ArrayList<Entity>(getMembers());
+                for (Entity m: mmo) {
+                    if (!(mm.contains(m) && (filter==null || filter.apply(m))))
+                        // remove, unless already present, being set, and not filtered out
+                        removeMember(m);
                 }
+                for (Entity m: mm) {
+                    if ((!mmo.contains(m)) && (filter==null || filter.apply(m))) {
+                        // add if not alrady contained, and not filtered out
+                        addMember(m);
+                    }
+                }
+    
+                getManagementSupport().getEntityChangeListener().onMembersChanged();
             }
-
-            getManagementSupport().getEntityChangeListener().onMembersChanged();
         }
     }
 

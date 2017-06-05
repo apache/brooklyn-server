@@ -74,6 +74,9 @@ public class BrooklynMementoImpl implements BrooklynMemento, Serializable {
         public Builder applicationIds(Collection<String> vals) {
             applicationIds.addAll(vals); return this;
         }
+        public Builder topLevelLocationId(String val) {
+            topLevelLocationIds.add(val); return this;
+        }
         public Builder topLevelLocationIds(Collection<String> vals) {
             topLevelLocationIds.addAll(vals); return this;
         }

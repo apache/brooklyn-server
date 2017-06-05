@@ -38,16 +38,20 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
+import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.rest.api.CatalogApi;
+import org.apache.brooklyn.rest.domain.CatalogEnricherSummary;
 import org.apache.brooklyn.rest.domain.CatalogEntitySummary;
 import org.apache.brooklyn.rest.domain.CatalogItemSummary;
 import org.apache.brooklyn.rest.domain.CatalogLocationSummary;
 import org.apache.brooklyn.rest.domain.CatalogPolicySummary;
 import org.apache.brooklyn.rest.domain.EffectorSummary;
+import org.apache.brooklyn.rest.domain.EnricherConfigSummary;
 import org.apache.brooklyn.rest.domain.EntityConfigSummary;
 import org.apache.brooklyn.rest.domain.LocationConfigSummary;
 import org.apache.brooklyn.rest.domain.PolicyConfigSummary;
@@ -67,7 +71,7 @@ import com.google.common.collect.Sets;
 public class CatalogTransformer {
 
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(CatalogTransformer.class);
-    
+
     public static <T extends Entity> CatalogEntitySummary catalogEntitySummary(BrooklynRestResourceUtils b, CatalogItem<T,EntitySpec<? extends T>> item, UriBuilder ub) {
         Set<EntityConfigSummary> config = Sets.newLinkedHashSet();
         Set<SensorSummary> sensors = Sets.newTreeSet(SummaryComparators.nameComparator());
@@ -116,6 +120,8 @@ public class CatalogTransformer {
                 return catalogEntitySummary(b, item, ub);
             case POLICY:
                 return catalogPolicySummary(b, item, ub);
+            case ENRICHER:
+                return catalogEnricherSummary(b, item, ub);
             case LOCATION:
                 return catalogLocationSummary(b, item, ub);
             default:
@@ -147,6 +153,23 @@ public class CatalogTransformer {
                 item.tags().getTags(), item.isDeprecated(), makeLinks(item, ub));
     }
 
+    public static CatalogEnricherSummary catalogEnricherSummary(BrooklynRestResourceUtils b, CatalogItem<? extends Enricher,EnricherSpec<?>> item, UriBuilder ub) {
+        final Set<EnricherConfigSummary> config = Sets.newLinkedHashSet();
+        try{
+            final EnricherSpec<?> spec = (EnricherSpec<?>) b.getCatalog().peekSpec(item);
+            for (final SpecParameter<?> input : spec.getParameters()){
+                config.add(EntityTransformer.enricherConfigSummary(input));
+            }
+        }catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            log.trace("Unable to create policy spec for "+item+": "+e, e);
+        }
+        return new CatalogEnricherSummary(item.getSymbolicName(), item.getVersion(), item.getDisplayName(),
+                item.getJavaType(), item.getCatalogItemType().toString(), item.getPlanYaml(),
+                item.getDescription(), tidyIconLink(b, item, item.getIconUrl(), ub), config,
+                item.tags().getTags(), item.isDeprecated(), makeLinks(item, ub));
+    }
+
     public static CatalogLocationSummary catalogLocationSummary(BrooklynRestResourceUtils b, CatalogItem<? extends Location,LocationSpec<?>> item, UriBuilder ub) {
         Set<LocationConfigSummary> config = ImmutableSet.of();
         return new CatalogLocationSummary(item.getSymbolicName(), item.getVersion(), item.getDisplayName(),
@@ -168,6 +191,8 @@ public class CatalogTransformer {
             return serviceUriBuilder(ub, CatalogApi.class, "getEntity").build(itemId, item.getVersion());
         case POLICY:
             return serviceUriBuilder(ub, CatalogApi.class, "getPolicy").build(itemId, item.getVersion());
+        case ENRICHER:
+            return serviceUriBuilder(ub, CatalogApi.class, "getEnricher").build(itemId, item.getVersion());
         case LOCATION:
             return serviceUriBuilder(ub, CatalogApi.class, "getLocation").build(itemId, item.getVersion());
         default:

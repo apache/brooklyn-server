@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.render.RendererHints;
+import org.apache.brooklyn.rest.domain.EnricherConfigSummary;
 import org.apache.brooklyn.rest.domain.EntityConfigSummary;
 import org.apache.brooklyn.rest.domain.EntitySummary;
 import org.apache.brooklyn.rest.domain.PolicyConfigSummary;
@@ -129,6 +130,10 @@ public class EntityTransformer {
         return new PolicyConfigSummary(config, label, priority, links);
     }
 
+    public static EnricherConfigSummary enricherConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
+        return new EnricherConfigSummary(config, label, priority, links);
+    }
+
     /** generates a representation for a given config key, 
      * with label inferred from annoation in the entity class,
      * and links pointing to the entity and the applicaiton */
@@ -193,5 +198,10 @@ public class EntityTransformer {
     public static PolicyConfigSummary policyConfigSummary(SpecParameter<?> input) {
         Double priority = input.isPinned() ? Double.valueOf(1d) : null;
         return policyConfigSummary(input.getConfigKey(), input.getLabel(), priority, null);
+    }
+
+    public static EnricherConfigSummary enricherConfigSummary(SpecParameter<?> input) {
+        Double priority = input.isPinned() ? Double.valueOf(1d) : null;
+        return enricherConfigSummary(input.getConfigKey(), input.getLabel(), priority, null);
     }
 }

@@ -78,7 +78,6 @@ public class LocationSpec<T extends Location> extends AbstractBrooklynObjectSpec
         return create(exactType).copyFrom(spec);
     }
 
-    private String id;
     private Location parent;
     private final Map<Class<?>, Object> extensions = Maps.newLinkedHashMap();
 
@@ -90,7 +89,6 @@ public class LocationSpec<T extends Location> extends AbstractBrooklynObjectSpec
     protected LocationSpec<T> copyFrom(LocationSpec<T> otherSpec) {
         LocationSpec<T> result = super.copyFrom(otherSpec).extensions(otherSpec.getExtensions());
         if (otherSpec.getParent() != null) result.parent(otherSpec.getParent());
-        if (otherSpec.getId() != null) result.id(otherSpec.getId());
         return result;
     }
     
@@ -98,15 +96,6 @@ public class LocationSpec<T extends Location> extends AbstractBrooklynObjectSpec
     protected void checkValidType(Class<? extends T> type) {
         checkIsImplementation(type, Location.class);
         checkIsNewStyleImplementation(type);
-    }
-
-    /**
-     * @deprecated since 0.7.0; instead let the management context pick a random+unique id
-     */
-    @Deprecated
-    public LocationSpec<T> id(String val) {
-        id = val;
-        return this;
     }
 
     public LocationSpec<T> parent(Location val) {
@@ -125,16 +114,6 @@ public class LocationSpec<T extends Location> extends AbstractBrooklynObjectSpec
             extension((Class)entry.getKey(), entry.getValue());
         }
         return this;
-    }
-    
-    /**
-     * @return The id of the location to be created, or null if brooklyn can auto-generate an id
-     * 
-     * @deprecated since 0.7.0; instead let the management context pick a random+unique id
-     */
-    @Deprecated
-    public String getId() {
-        return id;
     }
     
     /**

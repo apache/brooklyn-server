@@ -43,19 +43,19 @@ import org.testng.annotations.Test;
 
 public class InternalEntityFactoryTest {
 
-    private ManagementContextInternal managementContext;
+    private ManagementContextInternal mgmt;
     private InternalEntityFactory factory;
 
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
-        managementContext = new LocalManagementContextForTests();
-        InternalPolicyFactory policyFactory = new InternalPolicyFactory(managementContext);
-        factory = new InternalEntityFactory(managementContext, managementContext.getEntityManager().getEntityTypeRegistry(), policyFactory);
+        mgmt = new LocalManagementContextForTests();
+        InternalPolicyFactory policyFactory = new InternalPolicyFactory(mgmt);
+        factory = new InternalEntityFactory(mgmt, mgmt.getEntityManager().getEntityTypeRegistry(), policyFactory);
     }
     
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
-        if (managementContext != null) Entities.destroyAll(managementContext);
+        if (mgmt != null) Entities.destroyAll(mgmt);
     }
     
     @Test
@@ -73,12 +73,19 @@ public class InternalEntityFactoryTest {
     
     @Test
     public void testCreatesProxy() throws Exception {
-        TestApplicationImpl app = new TestApplicationImpl();
         EntitySpec<Application> spec = EntitySpec.create(Application.class).impl(TestApplicationImpl.class);
+        Application app = factory.createEntity(spec);
         Application proxy = factory.createEntityProxy(spec, app);
+        TestApplicationImpl deproxied = (TestApplicationImpl) Entities.deproxy(proxy);
         
-        assertFalse(proxy instanceof TestApplicationImpl, "proxy="+app);
-        assertTrue(proxy instanceof EntityProxy, "proxy="+app);
+        assertTrue(app instanceof TestApplicationImpl, "app="+app);
+        
+        assertFalse(proxy instanceof TestApplicationImpl, "proxy="+proxy);
+        assertTrue(proxy instanceof EntityProxy, "proxy="+proxy);
+        assertTrue(proxy instanceof Application, "proxy="+proxy);
+        
+        assertTrue(deproxied instanceof TestApplicationImpl, "deproxied="+deproxied);
+        assertFalse(deproxied instanceof EntityProxy, "deproxied="+deproxied);
     }
     
     @Test
@@ -92,13 +99,14 @@ public class InternalEntityFactoryTest {
     
     @Test
     public void testCreatesProxyImplementingAdditionalInterfaces() throws Exception {
-        MyApplicationImpl app = new MyApplicationImpl();
         EntitySpec<Application> spec = EntitySpec.create(Application.class).impl(MyApplicationImpl.class).additionalInterfaces(MyInterface.class);
+        Application app = factory.createEntity(spec);
         Application proxy = factory.createEntityProxy(spec, app);
         
-        assertFalse(proxy instanceof MyApplicationImpl, "proxy="+app);
-        assertTrue(proxy instanceof MyInterface, "proxy="+app);
-        assertTrue(proxy instanceof EntityProxy, "proxy="+app);
+        assertFalse(proxy instanceof MyApplicationImpl, "proxy="+proxy);
+        assertTrue(proxy instanceof Application, "proxy="+proxy);
+        assertTrue(proxy instanceof MyInterface, "proxy="+proxy);
+        assertTrue(proxy instanceof EntityProxy, "proxy="+proxy);
     }
     
     public interface MyInterface {

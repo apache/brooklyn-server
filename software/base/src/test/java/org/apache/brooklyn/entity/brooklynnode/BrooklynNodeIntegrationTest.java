@@ -220,30 +220,6 @@ services:
     }
 
     @Test(groups={"Integration", "Broken"})
-    public void testSetsBrooklynCatalogFromContents() throws Exception {
-        BrooklynNode brooklynNode = app.createAndManageChild(newBrooklynNodeSpecForTest()
-                .configure(BrooklynNode.BROOKLYN_CATALOG_REMOTE_PATH, pseudoBrooklynCatalogFile.getAbsolutePath())
-                .configure(BrooklynNode.BROOKLYN_CATALOG_CONTENTS, "<catalog/>"));
-        app.start(locs);
-        log.info("started "+app+" containing "+brooklynNode+" for "+JavaClassNames.niceClassAndMethod());
-
-        assertEquals(Files.readLines(pseudoBrooklynCatalogFile, Charsets.UTF_8), ImmutableList.of("<catalog/>"));
-    }
-
-    @Test(groups={"Integration", "Broken"})
-    public void testSetsBrooklynCatalogFromUri() throws Exception {
-        Files.write("abc=def", brooklynCatalogSourceFile, Charsets.UTF_8);
-
-        BrooklynNode brooklynNode = app.createAndManageChild(newBrooklynNodeSpecForTest()
-                .configure(BrooklynNode.BROOKLYN_CATALOG_REMOTE_PATH, pseudoBrooklynCatalogFile.getAbsolutePath())
-                .configure(BrooklynNode.BROOKLYN_CATALOG_URI, brooklynCatalogSourceFile.toURI().toString()));
-        app.start(locs);
-        log.info("started "+app+" containing "+brooklynNode+" for "+JavaClassNames.niceClassAndMethod());
-
-        assertEquals(Files.readLines(pseudoBrooklynCatalogFile, Charsets.UTF_8), ImmutableList.of("abc=def"));
-    }
-
-    @Test(groups={"Integration", "Broken"})
     public void testSetsBrooklynCatalogInitialBomFromContents() throws Exception {
         runBrooklynCatalogInitialBom(false);
     }

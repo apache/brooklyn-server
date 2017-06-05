@@ -32,6 +32,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -242,15 +243,15 @@ public class Reflections {
     }
     /** @deprecated since 0.10.0 use {@link #invokeConstructorFromArgs(Class, Object...)} or one of the variants */ @Deprecated
     public static <T> Optional<T> invokeConstructorWithArgs(Class<? extends T> clazz, Object...argsArray) {
-        return invokeConstructorFromArgs(clazz, argsArray).toOptional();
+        return Reflections.<T>invokeConstructorFromArgs(clazz, argsArray).toOptional();
     }
     /** @deprecated since 0.10.0 use {@link #invokeConstructorFromArgs(Class, Object...)} or one of the variants */ @Deprecated
     public static <T> Optional<T> invokeConstructorWithArgs(Class<? extends T> clazz, Object[] argsArray, boolean setAccessible) {
-        return invokeConstructorFromArgs(clazz, argsArray, setAccessible).toOptional();
+        return Reflections.<T>invokeConstructorFromArgs(clazz, argsArray, setAccessible).toOptional();
     }
     /** @deprecated since 0.10.0 use {@link #invokeConstructorFromArgs(Class, Object...)} or one of the variants */ @Deprecated
     public static <T> Optional<T> invokeConstructorWithArgs(Reflections reflections, Class<? extends T> clazz, Object[] argsArray, boolean setAccessible) {
-        return invokeConstructorFromArgs(reflections, clazz, argsArray, setAccessible).toOptional();
+        return Reflections.<T>invokeConstructorFromArgs(reflections, clazz, argsArray, setAccessible).toOptional();
     }
     
     /** Finds and invokes a suitable constructor, supporting varargs and primitives, boxing and looking at compatible supertypes in the constructor's signature */
@@ -1141,4 +1142,44 @@ public class Reflections {
         return hasSpecialSerializationMethods(type.getSuperclass());
     }
 
+    public static List<?> arrayToList(Object input) {
+        // We can't just use Arrays.asList(), because that would return a list containing the single
+        // value "input".
+        List<Object> result = new ArrayList<>();
+        int length = Array.getLength(input);
+        for (int i = 0; i < length; i++) {
+            result.add(Array.get(input, i));
+        }
+        return result;
+    }
+    
+    /**
+     * Attempts to find an equivalent accessible method to be invoked (or if the given method is
+     * already accessible, then return it). Otherwise return absent.
+     * 
+     * "Accessible" means that it is a public method declared on a public type.
+     * 
+     * For example, if {@code method} is declared on a private sub-class, but that overides a 
+     * method declared on a public super-class, then this method will return the {@link Method} 
+     * instance for the public super-class (assuming the method is not static).
+     * 
+     * If no better method could be found, it does a log.warn (once per method signature, per 
+     * jvm-invocation), and then returns absent.
+     */
+    public static Maybe<Method> findAccessibleMethod(Method method) {
+        return MethodAccessibleReflections.findAccessibleMethod(method);
+    }
+
+    /**
+     * Calls {@link Method#setAccessible(boolean)} "safely", wrapping in a try-catch block so that 
+     * the exception is never propagated.
+     * <p>
+     * It will log.warn once per method signature for which we fail to set it accessible. It will
+     * also log.warn if it succeeds (once per method signature) as this is discouraged!
+     * 
+     * @return True if setAccessible succeeded; false otherwise
+     */
+    public static boolean trySetAccessible(Method method) {
+        return MethodAccessibleReflections.trySetAccessible(method);
+    }
 }

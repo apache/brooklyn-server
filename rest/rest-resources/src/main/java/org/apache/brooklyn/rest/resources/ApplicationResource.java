@@ -19,9 +19,9 @@
 package org.apache.brooklyn.rest.resources;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static javax.ws.rs.core.Response.Status.ACCEPTED;
 import static javax.ws.rs.core.Response.created;
 import static javax.ws.rs.core.Response.status;
-import static javax.ws.rs.core.Response.Status.ACCEPTED;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 import java.net.URI;
@@ -32,7 +32,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
-
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
@@ -296,8 +295,6 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     private Response launch(String yaml, EntitySpec<? extends Application> spec) {
         try {
             Application app = EntityManagementUtils.createUnstarted(mgmt(), spec);
-            CreationResult<Application,Void> result = EntityManagementUtils.start(app);
-            waitForStart(app, Duration.millis(100));
 
             boolean isEntitled = Entitlements.isEntitled(
                     mgmt().getEntitlementManager(),
@@ -308,6 +305,9 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                 throw WebResourceUtils.forbidden("User '%s' is not authorized to start application %s",
                     Entitlements.getEntitlementContext().user(), spec.getType());
             }
+
+            CreationResult<Application,Void> result = EntityManagementUtils.start(app);
+            waitForStart(app, Duration.millis(100));
 
             log.info("Launched from YAML: " + yaml + " -> " + app + " (" + result.task() + ")");
 

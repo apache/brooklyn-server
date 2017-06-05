@@ -70,13 +70,6 @@ public class BrooklynFeatureEnablement {
      * {@link HighAvailabilityMode#STANDBY} */
     public static final String FEATURE_DEFAULT_STANDBY_IS_HOT_PROPERTY = FEATURE_PROPERTY_PREFIX+".defaultStandbyIsHot";
     
-    /** whether to attempt to use {@link BrooklynStorage} (datagrid) as a backing store for data;
-     * note this is <b>not</b> compatible with {@link #FEATURE_DEFAULT_STANDBY_IS_HOT_PROPERTY} 
-     * which uses a blob/file store and a larger-granularity rebind process than was intended with the datagrid */
-    /* not sure if we still even need this? now the rebind/read-only feature reloads on demand from the persistence store;
-     * the data-grid backing  */
-    public static final String FEATURE_USE_BROOKLYN_LIVE_OBJECTS_DATAGRID_STORAGE = FEATURE_PROPERTY_PREFIX+".useBrooklynLiveObjectsDatagridStorage";
-
     /**
      * Renaming threads can really helps with debugging etc; however it's a massive performance hit (2x)
      * <p>
@@ -161,7 +154,6 @@ public class BrooklynFeatureEnablement {
         setDefault(FEATURE_BUNDLE_PERSISTENCE_PROPERTY, true);
         setDefault(FEATURE_CATALOG_PERSISTENCE_PROPERTY, true);
         setDefault(FEATURE_DEFAULT_STANDBY_IS_HOT_PROPERTY, false);
-        setDefault(FEATURE_USE_BROOKLYN_LIVE_OBJECTS_DATAGRID_STORAGE, false);
         setDefault(FEATURE_RENAME_THREADS, false);
         setDefault(FEATURE_JITTER_THREADS, false);
         setDefault(FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND, true);

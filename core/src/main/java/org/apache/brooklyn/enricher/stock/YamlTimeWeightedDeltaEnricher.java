@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.enricher.stock;
 
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.config.ConfigKey;
@@ -38,6 +39,7 @@ import com.google.common.base.Function;
  * <p>
  * Suitable for configuration from YAML.
  */
+@Catalog(name = "YAML Time-weighted Delta", description = "Converts an absolute count sensor into a delta sensor")
 public class YamlTimeWeightedDeltaEnricher<T extends Number> extends AbstractTransformer<T,Double> {
     private static final Logger LOG = LoggerFactory.getLogger(YamlTimeWeightedDeltaEnricher.class);
     

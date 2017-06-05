@@ -29,15 +29,11 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
-import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.ImmutableMap;
 
 /**
  * Creates locations of required types.
@@ -92,9 +88,6 @@ public class InternalLocationFactory extends InternalFactory {
         if (spec.getFlags().containsKey("id")) {
             throw new IllegalArgumentException("Spec's flags must not contain id; use spec.id() instead for "+spec);
         }
-        if (spec.getId() != null && ((LocalLocationManager)managementContext.getLocationManager()).isKnownLocationId(spec.getId())) {
-            throw new IllegalArgumentException("Entity with id "+spec.getId()+" already exists; cannot create new entity with this explicit id from spec "+spec);
-        }
 
         try {
             Class<? extends T> clazz = spec.getType();
@@ -108,10 +101,6 @@ public class InternalLocationFactory extends InternalFactory {
                 return loc;
             }
 
-            if (spec.getId() != null) {
-                FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", spec.getId()), loc);
-            }
-            
             managementContext.prePreManage(loc);
 
             final AbstractLocation location = (AbstractLocation) loc;

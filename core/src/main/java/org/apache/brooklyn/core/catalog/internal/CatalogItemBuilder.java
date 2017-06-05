@@ -35,6 +35,7 @@ public class CatalogItemBuilder<CIConcreteType extends CatalogItemDtoAbstract<?,
         case ENTITY: return newEntity(symbolicName, version);
         case TEMPLATE: return newTemplate(symbolicName, version);
         case POLICY: return newPolicy(symbolicName, version);
+        case ENRICHER: return newEnricher(symbolicName, version);
         case LOCATION: return newLocation(symbolicName, version);
         }
         throw new IllegalStateException("Unexpected itemType: "+itemType);
@@ -54,6 +55,12 @@ public class CatalogItemBuilder<CIConcreteType extends CatalogItemDtoAbstract<?,
 
     public static CatalogItemBuilder<CatalogPolicyItemDto> newPolicy(String symbolicName, String version) {
         return new CatalogItemBuilder<CatalogPolicyItemDto>(new CatalogPolicyItemDto())
+                .symbolicName(symbolicName)
+                .version(version);
+    }
+
+    public static CatalogItemBuilder<CatalogEnricherItemDto> newEnricher(String symbolicName, String version) {
+        return new CatalogItemBuilder<CatalogEnricherItemDto>(new CatalogEnricherItemDto())
                 .symbolicName(symbolicName)
                 .version(version);
     }

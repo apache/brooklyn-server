@@ -51,7 +51,7 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
  * <pre>
  * {@code
  * cp /path/to/test-entities.jar ./lib/dropins/
- * export JAVA_OPTS="-Xms256m -Xmx1g -XX:MaxPermSize=256m -Dlogback.configurationFile=/path/to/logback-trace.xml"
+ * export JAVA_OPTS="-Xms256m -Xmx1g -Dlogback.configurationFile=/path/to/logback-trace.xml"
  * ./bin/brooklyn launch --persist auto --persistenceDir /path/to/persistedState
  * }
  * </pre>

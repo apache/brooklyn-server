@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -47,6 +48,7 @@ import com.google.common.collect.Lists;
 import com.google.common.reflect.TypeToken;
 
 @SuppressWarnings("serial")
+@Catalog(name = "Reducer", description = "Applies a transformation to a sensor")
 public class Reducer extends AbstractEnricher implements SensorEventListener<Object> {
 
     private static final Logger LOG = LoggerFactory.getLogger(Reducer.class);
@@ -63,7 +65,7 @@ public class Reducer extends AbstractEnricher implements SensorEventListener<Obj
     @SetFromFlag("transformation")
     public static final ConfigKey<String> REDUCER_FUNCTION_TRANSFORMATION = ConfigKeys.newStringConfigKey(
             "enricher.reducerFunction.transformation",
-            "A string matching a pre-defined named reducer function, such as joiner");
+            "A string matching a pre-defined named reducer function, such as joiner, formatString, etc");
     public static final ConfigKey<Map<String, Object>> PARAMETERS = ConfigKeys.newConfigKey(new TypeToken<Map<String, Object>>() {},
             "enricher.reducerFunction.parameters",
             "A map of parameters to pass into the reducer function");

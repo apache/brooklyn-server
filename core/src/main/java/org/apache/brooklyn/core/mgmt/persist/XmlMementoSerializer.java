@@ -59,7 +59,6 @@ import org.apache.brooklyn.core.mgmt.rebind.dto.BasicFeedMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicLocationMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicManagedBundleMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicPolicyMemento;
-import org.apache.brooklyn.core.mgmt.rebind.dto.MutableBrooklynMemento;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.xstream.XmlSerializer;

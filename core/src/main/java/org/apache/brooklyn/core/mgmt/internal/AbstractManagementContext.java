@@ -19,11 +19,12 @@
 package org.apache.brooklyn.core.mgmt.internal;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.lang.String.format;
 import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoadingContextForCatalogItems;
 
+import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -61,10 +62,7 @@ import org.apache.brooklyn.core.entity.drivers.BasicEntityDriverManager;
 import org.apache.brooklyn.core.entity.drivers.downloads.BasicDownloadsManager;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
-import org.apache.brooklyn.core.internal.storage.DataGrid;
-import org.apache.brooklyn.core.internal.storage.DataGridFactory;
 import org.apache.brooklyn.core.internal.storage.impl.BrooklynStorageImpl;
-import org.apache.brooklyn.core.internal.storage.impl.inmemory.InMemoryDataGridFactory;
 import org.apache.brooklyn.core.location.BasicLocationRegistry;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
@@ -75,13 +73,13 @@ import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -94,36 +92,6 @@ import com.google.common.collect.ImmutableSet;
 
 public abstract class AbstractManagementContext implements ManagementContextInternal {
     private static final Logger log = LoggerFactory.getLogger(AbstractManagementContext.class);
-
-    private static DataGridFactory loadDataGridFactory(BrooklynProperties properties) {
-        String clazzName = properties.getFirst(DataGridFactory.class.getName());
-        if(clazzName == null){
-            clazzName = InMemoryDataGridFactory.class.getName();
-        }
-
-        Class<?> clazz;
-        try{
-            //todo: which classloader should we use?
-            clazz = new ClassLoaderUtils(AbstractManagementContext.class).loadClass(clazzName);
-        }catch(ClassNotFoundException e){
-            throw new IllegalStateException(format("Could not load class [%s]",clazzName),e);
-        }
-
-        Object instance;
-        try {
-            instance = clazz.newInstance();
-        } catch (InstantiationException e) {
-            throw new IllegalStateException(format("Could not instantiate class [%s]",clazzName),e);
-        } catch (IllegalAccessException e) {
-            throw new IllegalStateException(format("Could not instantiate class [%s]",clazzName),e);
-        }
-
-        if(!(instance instanceof DataGridFactory)){
-            throw new IllegalStateException(format("Class [%s] not an instantiate of class [%s]",clazzName, DataGridFactory.class.getName()));
-        }
-
-        return (DataGridFactory)instance;
-    }
 
     static {
         ResourceUtils.addClassLoaderProvider(new Function<Object, BrooklynClassLoadingContext>() {
@@ -194,24 +162,16 @@ public abstract class AbstractManagementContext implements ManagementContextInte
     protected Maybe<URI> uri = Maybe.absent();
     protected CatalogInitialization catalogInitialization;
 
-    public AbstractManagementContext(BrooklynProperties brooklynProperties){
-        this(brooklynProperties, null);
-    }
-
-    public AbstractManagementContext(BrooklynProperties brooklynProperties, DataGridFactory datagridFactory) {
+    public AbstractManagementContext(BrooklynProperties brooklynProperties) {
         this.configMap = new DeferredBrooklynProperties(brooklynProperties, this);
         this.scratchpad = new BasicScratchpad();
         this.entityDriverManager = new BasicEntityDriverManager();
         this.downloadsManager = BasicDownloadsManager.newDefault(configMap);
-        if (datagridFactory == null) {
-            datagridFactory = loadDataGridFactory(brooklynProperties);
-        }
-        DataGrid datagrid = datagridFactory.newDataGrid(this);
-
+        
         this.catalog = new BasicBrooklynCatalog(this);
         this.typeRegistry = new BasicBrooklynTypeRegistry(this);
         
-        this.storage = new BrooklynStorageImpl(datagrid);
+        this.storage = new BrooklynStorageImpl();
         this.rebindManager = new RebindManagerImpl(this); // TODO leaking "this" reference; yuck
         this.highAvailabilityManager = new HighAvailabilityManagerImpl(this); // TODO leaking "this" reference; yuck
         
@@ -319,11 +279,28 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         return runAtEntity(entity, eff, parameters);
     }
     
+    @SuppressWarnings("unchecked")
     protected <T> T invokeEffectorMethodLocal(Entity entity, Effector<T> eff, Map<String, ?> args) {
         assert isManagedLocally(entity) : "cannot invoke effector method at "+this+" because it is not managed here";
         totalEffectorInvocationCount.incrementAndGet();
         Object[] transformedArgs = EffectorUtils.prepareArgsForEffector(eff, args);
-        return GroovyJavaMethods.invokeMethodOnMetaClass(entity, eff.getName(), transformedArgs);
+        
+        try {
+            Maybe<Object> result = Reflections.invokeMethodFromArgs(entity, eff.getName(), Arrays.asList(transformedArgs));
+            if (result.isPresent()) {
+                return (T) result.get();
+            } else {
+                throw new IllegalStateException("Unable to invoke entity effector method "+eff.getName()+" on "+entity+" - not found matching args");
+            }
+            
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            // Note that if we do any "nicer" error, such as:
+            //     throw Exceptions.propagate("Unable to invoke entity effector method "+eff.getName()+" on "+entity, e)
+            // then EffectorBasicTest.testInvokeEffectorErrorCollapsedNicely fails because its call to:
+            //     Exceptions.collapseTextInContext
+            // does not unwrap this text.
+            throw Exceptions.propagate(e);
+        }
     }
 
     /**
@@ -371,7 +348,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
      * (Callable with Map flags is too open-ended, bothersome to support, and not used much) 
      */
     @Deprecated
-    public abstract <T> Task<T> runAtEntity(@SuppressWarnings("rawtypes") Map flags, Entity entity, Callable<T> c);
+    protected abstract <T> Task<T> runAtEntity(@SuppressWarnings("rawtypes") Map flags, Entity entity, Callable<T> c);
 
     /** Runs the given effector in the right place for the given entity.
      * The task is immediately submitted in the background, but also recorded in the queueing context (if present)

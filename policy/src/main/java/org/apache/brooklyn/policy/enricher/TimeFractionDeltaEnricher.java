@@ -20,6 +20,7 @@ package org.apache.brooklyn.policy.enricher;
 
 import java.util.concurrent.TimeUnit;
 
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.api.entity.Entity;
@@ -40,8 +41,8 @@ import org.apache.brooklyn.util.time.Duration;
  * 
  * It also configured with the time units for the values.
  */
-//@Catalog(name="Time-fraction Delta", description="Converts an absolute measure of time into a fraction of time, "
-//        + "based on the delta between consecutive values and the elapsed time between those values.")
+@Catalog(name="Time-fraction Delta", description="Converts an absolute measure of time into a fraction of time, "
+        + "based on the delta between consecutive values and the elapsed time between those values.")
 public class TimeFractionDeltaEnricher<T extends Number> extends AbstractTypeTransformingEnricher<T,Double> {
     private static final Logger LOG = LoggerFactory.getLogger(TimeFractionDeltaEnricher.class);
     

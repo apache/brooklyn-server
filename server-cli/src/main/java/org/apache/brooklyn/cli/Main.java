@@ -61,6 +61,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
@@ -70,7 +71,6 @@ import org.apache.brooklyn.launcher.BrooklynLauncher;
 import org.apache.brooklyn.launcher.BrooklynServerDetails;
 import org.apache.brooklyn.launcher.config.StopWhichAppsOnShutdown;
 import org.apache.brooklyn.rest.security.PasswordHasher;
-import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.FatalConfigurationRuntimeException;
@@ -207,8 +207,8 @@ public class Main extends AbstractMain {
 
         @Option(name = { "-a", "--app" }, title = "application class or file",
                 description = "The Application to start. " +
-                        "For example, my.AppName, file://my/app.yaml, or classpath://my/AppName.groovy " 
-                        + "(but passing groovy scripts is deprecated) -- note that a BROOKLYN_CLASSPATH "
+                        "For example, my.AppName or file://my/app.yaml" 
+                        + " -- note that a BROOKLYN_CLASSPATH "
                         + "environment variable may be required to load classes from other locations")
         public String app;
 
@@ -392,7 +392,11 @@ public class Main extends AbstractMain {
             try {
                 if (log.isDebugEnabled()) log.debug("Invoked launch command {}", this);
                 
-                if (!quiet) stdout.println(banner);
+                if (!quiet) {
+                    stdout.println(banner);
+                    stdout.println(productOneLineSummary);
+                    stdout.println();
+                }
     
                 if (verbose) {
                     if (app != null) {
@@ -679,14 +683,8 @@ public class Main extends AbstractMain {
                     String content = utils.getResourceAsString(app);
                     launcher.application(content);
                 } else {
-                    Object loadedApp = loadApplicationFromClasspathOrParse(utils, loader, app);
-                    if (loadedApp instanceof ApplicationBuilder) {
-                        launcher.application((ApplicationBuilder)loadedApp);
-                    } else if (loadedApp instanceof Application) {
-                        launcher.application((AbstractApplication)loadedApp);
-                    } else {
-                        throw new FatalConfigurationRuntimeException("Unexpected application type "+(loadedApp==null ? null : loadedApp.getClass())+", for app "+loadedApp);
-                    }
+                    ApplicationBuilder loadedApp = loadApplicationFromClasspathOrParse(utils, loader, app);
+                    launcher.application(loadedApp);
                 }
             }
         }
@@ -737,7 +735,7 @@ public class Main extends AbstractMain {
          * Guaranteed to be non-null result of one of those types (throwing exception if app not appropriate).
          */
         @SuppressWarnings("unchecked")
-        protected Object loadApplicationFromClasspathOrParse(ResourceUtils utils, GroovyClassLoader loader, String app)
+        protected ApplicationBuilder loadApplicationFromClasspathOrParse(ResourceUtils utils, GroovyClassLoader loader, String app)
                 throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, InstantiationException {
             
             Class<?> tempclazz;
@@ -745,17 +743,15 @@ public class Main extends AbstractMain {
             try {
                 tempclazz = loader.loadClass(app, true, false);
             } catch (ClassNotFoundException cnfe) { // Not a class on the classpath
-                log.debug("Loading \"{}\" as class on classpath failed, now trying as .groovy source file", app);
-                String content = utils.getResourceAsString(app);
-                tempclazz = loader.parseClass(content);
-                log.warn("Use of --app with a groovy source file is deprecated");
+                throw new IllegalStateException("Unable to load app class '"+app+"'", cnfe);
             }
             final Class<?> clazz = tempclazz;
             
-            // Instantiate an app builder (wrapping app class in ApplicationBuilder, if necessary)
+            // Instantiate an app builder (wrapping app/entity class in ApplicationBuilder)
+            // TODO Should change to use EntitySpec
             if (ApplicationBuilder.class.isAssignableFrom(clazz)) {
                 Constructor<?> constructor = clazz.getConstructor();
-                return constructor.newInstance();
+                return (ApplicationBuilder) constructor.newInstance();
             } else if (StartableApplication.class.isAssignableFrom(clazz)) {
                 EntitySpec<? extends StartableApplication> appSpec;
                 if (tempclazz.isInterface())
@@ -765,12 +761,6 @@ public class Main extends AbstractMain {
                 return new ApplicationBuilder(appSpec) {
                     @Override protected void doBuild() {
                     }};
-            } else if (AbstractApplication.class.isAssignableFrom(clazz)) {
-                // TODO If this application overrides init() then in trouble, as that won't get called!
-                // TODO grr; what to do about non-startable applications?
-                // without this we could return ApplicationBuilder rather than Object
-                Constructor<?> constructor = clazz.getConstructor();
-                return constructor.newInstance();
             } else if (AbstractEntity.class.isAssignableFrom(clazz)) {
                 // TODO Should we really accept any entity type, and just wrap it in an app? That's not documented!
                 return new ApplicationBuilder() {
@@ -937,7 +927,11 @@ public class Main extends AbstractMain {
             try {
                 log.info("Retrieving and copying persisted state to "+destinationDir+(Strings.isBlank(destinationLocation) ? "" : " @ "+destinationLocation));
                 
-                if (!quiet) stdout.println(banner);
+                if (!quiet) {
+                    stdout.println(banner);
+                    stdout.println(productOneLineSummary);
+                    stdout.println();
+                }
     
                 PersistMode persistMode = PersistMode.AUTO;
                 HighAvailabilityMode highAvailabilityMode = HighAvailabilityMode.DISABLED;

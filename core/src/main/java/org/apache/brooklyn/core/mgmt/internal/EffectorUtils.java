@@ -20,14 +20,12 @@ package org.apache.brooklyn.core.mgmt.internal;
 
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
-import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.effector.ParameterType;
@@ -348,32 +346,6 @@ public class EffectorUtils {
         }
     }
 
-    /** @deprecated since 0.7.0, not used */
-    @Deprecated
-    public static Effector<?> findEffectorMatching(Entity entity, Method method) {
-        outer: for (Effector<?> effector : entity.getEntityType().getEffectors()) {
-            if (!effector.getName().equals(entity)) continue;
-            if (effector.getParameters().size() != method.getParameterTypes().length) continue;
-            for (int i = 0; i < effector.getParameters().size(); i++) {
-                if (effector.getParameters().get(i).getParameterClass() != method.getParameterTypes()[i]) continue outer;
-            }
-            return effector;
-        }
-        return null;
-    }
-
-    /** @deprecated since 0.7.0, expects parameters but does not use them! */
-    @Deprecated
-    public static Effector<?> findEffectorMatching(Set<Effector<?>> effectors, String effectorName, Map<String, ?> parameters) {
-        // TODO Support overloading: check parameters as well
-        for (Effector<?> effector : effectors) {
-            if (effector.getName().equals(effectorName)) {
-                return effector;
-            }
-        }
-        return null;
-    }
-
     /** matches effectors by name only (not parameters) */
     public static Maybe<Effector<?>> findEffector(Collection<? extends Effector<?>> effectors, String effectorName) {
         for (Effector<?> effector : effectors) {
@@ -389,12 +361,6 @@ public class EffectorUtils {
         return findEffector(entity.getEntityType().getEffectors(), effectorName);
     }
 
-    /** @deprecated since 0.7.0 use {@link #getTaskFlagsForEffectorInvocation(Entity, Effector, ConfigBag)} */
-    @Deprecated
-    public static Map<Object,Object> getTaskFlagsForEffectorInvocation(Entity entity, Effector<?> effector) {
-        return getTaskFlagsForEffectorInvocation(entity, effector, null);
-    }
-    
     /** returns a (mutable) map of the standard flags which should be placed on an effector */
     public static Map<Object,Object> getTaskFlagsForEffectorInvocation(Entity entity, Effector<?> effector, ConfigBag parameters) {
         List<Object> tags = MutableList.of(

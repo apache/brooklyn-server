@@ -20,22 +20,19 @@ package org.apache.brooklyn.policy.enricher;
 
 import static org.testng.Assert.assertEquals;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
-import org.apache.brooklyn.core.entity.AbstractApplication;
-import org.apache.brooklyn.core.entity.AbstractEntity;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
-import org.testng.annotations.AfterMethod;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class RollingMeanEnricherTest {
+public class RollingMeanEnricherTest extends BrooklynAppUnitTestSupport {
     
-    AbstractApplication app;
-    
-    EntityLocal producer;
+    Entity producer;
 
     Sensor<Integer> intSensor;
     AttributeSensor<Integer> deltaSensor;
@@ -43,11 +40,10 @@ public class RollingMeanEnricherTest {
     RollingMeanEnricher<Integer> averager;
 
     @BeforeMethod(alwaysRun=true)
-    public void before() {
-        app = new AbstractApplication() {};
-        producer = new AbstractEntity(app) {};
-        producer.setParent(app);
-        Entities.startManagement(app);
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        producer = app.addChild(EntitySpec.create(TestEntity.class));
 
         intSensor = new BasicAttributeSensor<Integer>(Integer.class, "int sensor");
         deltaSensor = new BasicAttributeSensor<Integer>(Integer.class, "delta sensor");
@@ -56,11 +52,6 @@ public class RollingMeanEnricherTest {
         producer.enrichers().add(new DeltaEnricher<Integer>(producer, intSensor, deltaSensor));
         averager = new RollingMeanEnricher<Integer>(producer, deltaSensor, avgSensor, 4);
         producer.enrichers().add(averager);
-    }
-
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
     }
 
     @Test

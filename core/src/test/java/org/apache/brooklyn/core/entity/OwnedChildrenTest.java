@@ -22,102 +22,62 @@ import static org.apache.brooklyn.test.Asserts.assertEqualsIgnoringOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
-import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.core.entity.AbstractApplication;
-import org.apache.brooklyn.core.entity.AbstractEntity;
-import org.apache.brooklyn.core.entity.Entities;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 
-public class OwnedChildrenTest {
+public class OwnedChildrenTest extends BrooklynAppUnitTestSupport {
 
-    private Application app;
-
-    @BeforeMethod(alwaysRun=true)
-    public void setUp() {
-        app = new AbstractApplication() {};
-    }
-
-    @AfterMethod(alwaysRun = true)
-    public void tearDown(){
-        if (app != null) Entities.destroyAll(app.getManagementContext());
-    }
-
-    // Tests that the deprecated "owner" still works
     @Test
-    public void testSetOwnerInConstructorMap() {
-        Entity e = new AbstractEntity(app) {};
+    public void testAddChildUsingSpec() {
+        Entity e = app.addChild(EntitySpec.create(TestEntity.class));
         
         assertEquals(e.getParent(), app);
-        assertEqualsIgnoringOrder(app.getChildren(), ImmutableList.of(e));
-        assertEquals(e.getApplication(), app);
+        assertEquals(app.getChildren(), ImmutableList.of(e));
     }
     
     @Test
-    public void testSetParentInConstructorMap() {
-        Entity e = new AbstractEntity(app) {};
-        
-        assertEquals(e.getParent(), app);
-        assertEqualsIgnoringOrder(app.getChildren(), ImmutableList.of(e));
-        assertEquals(e.getApplication(), app);
-    }
-    
-    @Test
-    public void testSetParentInConstructorArgument() {
-        Entity e = new AbstractEntity(app) {};
-        
-        assertEquals(e.getParent(), app);
-        assertEqualsIgnoringOrder(app.getChildren(), ImmutableList.of(e));
-        assertEquals(e.getApplication(), app);
-    }
-    
-    @Test
-    public void testSetParentInSetterMethod() {
-        Entity e = new AbstractEntity() {};
-        e.setParent(app);
-        
-        assertEquals(e.getParent(), app);
-        assertEqualsIgnoringOrder(app.getChildren(), ImmutableList.of(e));
-        assertEquals(e.getApplication(), app);
-    }
-
-    @Test
-    public void testAddChild() {
-        Entity e = new AbstractEntity() {};
-        app.addChild(e);
-        
-        assertEquals(e.getParent(), app);
-        assertEqualsIgnoringOrder(app.getChildren(), ImmutableList.of(e));
-        assertEquals(e.getApplication(), app);
-    }
-    
-    @Test
-    public void testSetParentWhenMatchesParentSetInConstructor() {
-        Entity e = new AbstractEntity(app) {};
-        e.setParent(app);
+    public void testSpecDeclaresParent() {
+        Entity e = mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class).parent(app));
         
         assertEquals(e.getParent(), app);
         assertEqualsIgnoringOrder(app.getChildren(), ImmutableList.of(e));
     }
     
-    @Test(expectedExceptions = UnsupportedOperationException.class)
-    public void testSetParentWhenDiffersFromParentSetInConstructor() {
-        Entity e = new AbstractEntity(app) {};
-        Entity e2 = new AbstractEntity() {};
-        e.setParent(e2);
-        fail();
+    @Test
+    public void testAddChildWhenMatchesParentSetInSpec() {
+        Entity e = app.addChild(EntitySpec.create(TestEntity.class).parent(app));
+        
+        assertEquals(e.getParent(), app);
+        assertEqualsIgnoringOrder(app.getChildren(), ImmutableList.of(e));
+    }
+    
+    @Test
+    public void testAddChildWhenDifferentParentSetInSpec() {
+        TestApplication app2 = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
+        try {
+            Entity e = app.addChild(EntitySpec.create(TestEntity.class).parent(app2));
+            Asserts.shouldHaveFailedPreviously("entity="+e);
+        } catch (Exception ex) {
+            Exception cause = Exceptions.getFirstThrowableOfType(ex, IllegalArgumentException.class);
+            if (cause == null || !cause.toString().contains("failed because spec has different parent")) {
+                throw ex;
+            }
+        }
     }
     
     @Test
     public void testParentCanHaveMultipleChildren() {
-        Entity e = new AbstractEntity(app) {};
-        Entity e2 = new AbstractEntity(app) {};
+        Entity e = app.addChild(EntitySpec.create(TestEntity.class));
+        Entity e2 = app.addChild(EntitySpec.create(TestEntity.class));
         
         assertEquals(e.getParent(), app);
         assertEquals(e2.getParent(), app);
@@ -126,9 +86,9 @@ public class OwnedChildrenTest {
     
     @Test
     public void testHierarchyOfOwners() {
-        Entity e = new AbstractEntity(app) {};
-        Entity e2 = new AbstractEntity(e) {};
-        Entity e3 = new AbstractEntity(e2) {};
+        Entity e = app.addChild(EntitySpec.create(TestEntity.class));
+        Entity e2 = e.addChild(EntitySpec.create(TestEntity.class));
+        Entity e3 = e2.addChild(EntitySpec.create(TestEntity.class));
         
         assertEquals(app.getParent(), null);
         assertEquals(e.getParent(), app);
@@ -141,73 +101,43 @@ public class OwnedChildrenTest {
         assertEqualsIgnoringOrder(e3.getChildren(), ImmutableList.of());
     }
     
-    @Test(enabled = false) // FIXME fails currently
-    public void testRemoveChild() {
-        Entity e = new AbstractEntity(app) {};
-        app.removeChild(e);
+    @Test
+    public void testUnmanageEntityRemovedAsChild() {
+        Entity e = app.addChild(EntitySpec.create(TestEntity.class));
+        Entities.unmanage(e);
         
         assertEqualsIgnoringOrder(app.getChildren(), ImmutableList.of());
         assertEquals(e.getParent(), null);
     }
     
     @Test
-    public void testParentalLoopForbiddenViaAddChild() {
-        Entity e = new AbstractEntity() {};
-        Entity e2 = new AbstractEntity(e) {};
-        try {
-            e2.addChild(e);
-            fail();
-        } catch (IllegalStateException ex) {
-            // success
-        }
+    public void testUnmanageParentRemovesChild() {
+        Entity e = app.addChild(EntitySpec.create(TestEntity.class));
+        Entities.unmanage(app);
         
-        assertEqualsIgnoringOrder(e.getChildren(), ImmutableList.of(e2));
-        assertEqualsIgnoringOrder(e2.getChildren(), ImmutableList.of());
-        assertEquals(e.getParent(), null);
-        assertEquals(e2.getParent(), e);
-    }
-    
-    @Test
-    public void testParentalLoopForbiddenViaSetParent() {
-        Entity e = new AbstractEntity() {};
-        Entity e2 = new AbstractEntity(e) {};
-        try {
-            e.setParent(e2);
-            fail();
-        } catch (IllegalStateException ex) {
-			ex.printStackTrace();
-            // success
-        }
-        assertEqualsIgnoringOrder(e.getChildren(), ImmutableList.of(e2));
-        assertEqualsIgnoringOrder(e2.getChildren(), ImmutableList.of());
-        assertEquals(e.getParent(), null);
-        assertEquals(e2.getParent(), e);
-    }
-    
-    @Test(expectedExceptions = IllegalStateException.class)
-    public void testParentingOneselfForbidden() {
-        AbstractEntity e = new AbstractEntity() {};
-        e.addChild(e);
-        fail();
+        assertFalse(Entities.isManaged(app));
+        assertFalse(Entities.isManaged(e));
     }
     
     @Test
     public void testIsAncestor() {
-        AbstractEntity e = new AbstractEntity(app) {};
-        AbstractEntity e2 = new AbstractEntity(e) {};
+        Entity e = app.addChild(EntitySpec.create(TestEntity.class));
+        Entity e2 = e.addChild(EntitySpec.create(TestEntity.class));
         
 		assertTrue(Entities.isAncestor(e2, app));
 		assertTrue(Entities.isAncestor(e2, e));
 		assertFalse(Entities.isAncestor(e2, e2));
+        assertFalse(Entities.isAncestor(e, e2));
     }
     
     @Test
     public void testIsDescendant() {
-        AbstractEntity e = new AbstractEntity(app) {};
-        AbstractEntity e2 = new AbstractEntity(e) {};
+        Entity e = app.addChild(EntitySpec.create(TestEntity.class));
+        Entity e2 = e.addChild(EntitySpec.create(TestEntity.class));
 
 		assertTrue(Entities.isDescendant(app, e));
 		assertTrue(Entities.isDescendant(app, e2));
 		assertFalse(Entities.isDescendant(e2, e));
+        assertFalse(Entities.isDescendant(e2, e2));
     }
 }

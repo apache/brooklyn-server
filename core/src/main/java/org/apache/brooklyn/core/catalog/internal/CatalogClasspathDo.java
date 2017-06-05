@@ -35,6 +35,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.policy.Policy;
+import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -166,9 +167,8 @@ public class CatalogClasspathDo {
         
         Stopwatch timer = Stopwatch.createStarted();
         ReflectionScanner scanner = null;
-        if (!catalog.isLocal()) {
-            log.warn("Scanning not supported for remote catalogs; ignoring scan request in "+catalog);
-        } else if (classpath.getEntries() == null || classpath.getEntries().isEmpty()) {
+        
+        if (classpath.getEntries() == null || classpath.getEntries().isEmpty()) {
             // scan default classpath:
             ClassLoader baseCL = null;
             Iterable<URL> baseCP = null;
@@ -226,6 +226,12 @@ public class CatalogClasspathDo {
                 Iterable<Class<? extends Policy>> policies = this.excludeInvalidClasses(scanner.getSubTypesOf(Policy.class));
                 for (Class<?> c: policies) {
                     addCatalogEntry(new CatalogPolicyItemDto(), c);
+                    count++;
+                }
+
+                Iterable<Class<? extends Enricher>> enrichers = this.excludeInvalidClasses(scanner.getSubTypesOf(Enricher.class));
+                for (Class<?> c: enrichers) {
+                    addCatalogEntry(new CatalogEnricherItemDto(), c);
                     count++;
                 }
                 
@@ -293,6 +299,7 @@ public class CatalogClasspathDo {
         if (ApplicationBuilder.class.isAssignableFrom(c)) return addCatalogEntry(new CatalogTemplateItemDto(), c);
         if (Entity.class.isAssignableFrom(c)) return addCatalogEntry(new CatalogEntityItemDto(), c);
         if (Policy.class.isAssignableFrom(c)) return addCatalogEntry(new CatalogPolicyItemDto(), c);
+        if (Enricher.class.isAssignableFrom(c)) return addCatalogEntry(new CatalogEnricherItemDto(), c);
         if (Location.class.isAssignableFrom(c)) return addCatalogEntry(new CatalogLocationItemDto(), c);
         throw new IllegalStateException("Cannot add "+c+" to catalog: unsupported type "+c.getName());
     }

@@ -34,7 +34,7 @@ public class PlanInterpretationContext {
 
     public PlanInterpretationContext(Map<String,?> originalDeploymentPlan, List<PlanInterpreter> interpreters) {
         super();
-        this.originalDeploymentPlan = MutableMap.copyOf(originalDeploymentPlan).asUnmodifiable();
+        this.originalDeploymentPlan = MutableMap.<String, Object>copyOf(originalDeploymentPlan).asUnmodifiable();
         this.interpreters = ImmutableList.copyOf(interpreters);
         this.allInterpreter = new PlanInterpreter() {
             @Override

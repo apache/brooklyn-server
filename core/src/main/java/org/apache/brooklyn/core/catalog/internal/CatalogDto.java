@@ -18,21 +18,15 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
-import java.io.InputStream;
-import java.io.StringReader;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.ResourceUtils;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
-import org.apache.brooklyn.util.stream.Streams;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
@@ -42,11 +36,10 @@ import com.google.common.collect.Lists;
 @Beta
 public class CatalogDto {
 
+    @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(CatalogDto.class);
 
     String id;
-    String url;
-    String contents;
     String contentsDescription;
     String name;
     String description;
@@ -62,36 +55,6 @@ public class CatalogDto {
                 newNamedInstance("Local Scanned Catalog", "All annotated Brooklyn entities detected in the default classpath", "scanning-local-classpath") );
         result.setClasspathScanForEntities(scanMode);
         return result.dto;
-    }
-
-    /** @deprecated since 0.7.0 use {@link #newDtoFromXmlUrl(String)} if you must, but note the xml format itself is deprecated */
-    @Deprecated
-    public static CatalogDto newDtoFromUrl(String url) {
-        return newDtoFromXmlUrl(url);
-    }
-    
-    /** @deprecated since 0.7.0 the xml format is deprecated; use YAML parse routines on BasicBrooklynCatalog */
-    @Deprecated
-    public static CatalogDto newDtoFromXmlUrl(String url) {
-        if (LOG.isDebugEnabled()) LOG.debug("Retrieving catalog from: {}", url);
-        try {
-            InputStream source = ResourceUtils.create().getResourceFromUrl(url);
-            String contents = Streams.readFullyStringAndClose(source);
-            return newDtoFromXmlContents(contents, url);
-        } catch (Throwable t) {
-            Exceptions.propagateIfFatal(t);
-            throw new PropagatedRuntimeException("Unable to retrieve catalog from " + url + ": " + t, t);
-        }
-    }
-
-    /** @deprecated since 0.7.0 the xml format is deprecated; use YAML parse routines on BasicBrooklynCatalog */
-    @Deprecated
-    public static CatalogDto newDtoFromXmlContents(String xmlContents, String originDescription) {
-        CatalogDto result = (CatalogDto) new CatalogXmlSerializer().deserialize(new StringReader(xmlContents));
-        result.contentsDescription = originDescription;
-
-        if (LOG.isDebugEnabled()) LOG.debug("Retrieved catalog from: {}", originDescription);
-        return result;
     }
 
     /**
@@ -122,13 +85,6 @@ public class CatalogDto {
         return result;
     }
 
-    public static CatalogDto newLinkedInstance(String url) {
-        CatalogDto result = new CatalogDto();
-        result.contentsDescription = url;
-        result.contents = ResourceUtils.create().getResourceAsString(url);
-        return result;
-    }
-
     /** @deprecated since 0.7.0 use {@link #newDtoFromCatalogItems(Collection, String)}, supplying a description for tracking */
     @Deprecated
     public static CatalogDto newDtoFromCatalogItems(Collection<CatalogItem<?, ?>> entries) {
@@ -147,46 +103,6 @@ public class CatalogDto {
         return result;
     }
     
-    void populate() {
-        if (contents==null) {
-            if (url != null) {
-                contents = ResourceUtils.create().getResourceAsString(url);
-                contentsDescription = url;
-            } else if (contentsDescription==null) {
-                LOG.debug("Catalog DTO has no contents and no description; ignoring call to populate it. Description should be set to suppress this message.");
-                return;
-            } else {
-                LOG.trace("Nothing needs doing (no contents or URL) for catalog with contents described as "+contentsDescription+".");
-                return;
-            }
-        }
-        
-        CatalogDto remoteDto = newDtoFromXmlContents(contents, contentsDescription);
-        try {
-            copyFrom(remoteDto, true);
-        } catch (Exception e) {
-            Exceptions.propagate(e);
-        }
-    }        
-
-    /**
-     * @throws NullPointerException If source is null (and !skipNulls)
-     */
-    void copyFrom(CatalogDto source, boolean skipNulls) throws IllegalAccessException {
-        if (source==null) {
-            if (skipNulls) return;
-            throw new NullPointerException("source DTO is null, when copying to "+this);
-        }
-        
-        if (!skipNulls || source.id != null) id = source.id;
-        if (!skipNulls || source.contentsDescription != null) contentsDescription = source.contentsDescription;
-        if (!skipNulls || source.contents != null) contents = source.contents;
-        if (!skipNulls || source.name != null) name = source.name;
-        if (!skipNulls || source.description != null) description = source.description;
-        if (!skipNulls || source.classpath != null) classpath = source.classpath;
-        if (!skipNulls || source.entries != null) entries = source.entries;
-    }
-
     @Override
     public String toString() {
         return Objects.toStringHelper(this)

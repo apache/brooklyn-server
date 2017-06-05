@@ -60,11 +60,10 @@ public class CatalogInitialization implements ManagementContextInjectable {
     A4) go to B1
 
     B1) look for --catalog-initial, if so read it, then go to C1
-    B2) look for BrooklynServerConfig.BROOKLYN_CATALOG_URL, if so, read it, supporting YAML or XML (warning if XML), then go to C1
+    B2) look for BrooklynServerConfig.BROOKLYN_CATALOG_URL, if so, read it, supporting YAML, then go to C1
     B3) look for ~/.brooklyn/catalog.bom, if exists, read it then go to C1
-    B4) look for ~/.brooklyn/brooklyn.xml, if exists, warn, read it then go to C1
-    B5) read all classpath://brooklyn/default.catalog.bom items, if they exist (and for now they will)
-    B6) go to C1
+    B4) read all classpath://brooklyn/default.catalog.bom items, if they exist (and for now they will)
+    B5) go to C1
 
     C1) if --catalog-add, read and add those items
 
@@ -238,8 +237,6 @@ public class CatalogInitialization implements ManagementContextInjectable {
         }
     }
 
-    private enum PopulateMode { YAML, XML, AUTODETECT }
-    
     protected void populateInitial(BasicBrooklynCatalog catalog) {
         if (disallowLocal) {
             if (!hasRunFinalInitialization()) {
@@ -249,35 +246,28 @@ public class CatalogInitialization implements ManagementContextInjectable {
         }
 
 //        B1) look for --catalog-initial, if so read it, then go to C1
-//        B2) look for BrooklynServerConfig.BROOKLYN_CATALOG_URL, if so, read it, supporting YAML or XML (warning if XML), then go to C1
+//        B2) look for BrooklynServerConfig.BROOKLYN_CATALOG_URL, if so, read it, supporting YAML, then go to C1
 //        B3) look for ~/.brooklyn/catalog.bom, if exists, read it then go to C1
-//        B4) look for ~/.brooklyn/brooklyn.xml, if exists, warn, read it then go to C1
-//        B5) read all classpath://brooklyn/default.catalog.bom items, if they exist (and for now they will)
-//        B6) go to C1
+//        B4) read all classpath://brooklyn/default.catalog.bom items, if they exist (and for now they will)
+//        B5) go to C1
 
         if (initialUri!=null) {
-            populateInitialFromUri(catalog, initialUri, PopulateMode.AUTODETECT);
+            populateInitialFromUri(catalog, initialUri);
             return;
         }
         
         String catalogUrl = managementContext.getConfig().getConfig(BrooklynServerConfig.BROOKLYN_CATALOG_URL);
         if (Strings.isNonBlank(catalogUrl)) {
-            populateInitialFromUri(catalog, catalogUrl, PopulateMode.AUTODETECT);
+            populateInitialFromUri(catalog, catalogUrl);
             return;
         }
         
         catalogUrl = Os.mergePaths(BrooklynServerConfig.getMgmtBaseDir( managementContext.getConfig() ), "catalog.bom");
         if (new File(catalogUrl).exists()) {
-            populateInitialFromUri(catalog, new File(catalogUrl).toURI().toString(), PopulateMode.YAML);
+            populateInitialFromUri(catalog, new File(catalogUrl).toURI().toString());
             return;
         }
         
-        catalogUrl = Os.mergePaths(BrooklynServerConfig.getMgmtBaseDir( managementContext.getConfig() ), "catalog.xml");
-        if (new File(catalogUrl).exists()) {
-            populateInitialFromUri(catalog, new File(catalogUrl).toURI().toString(), PopulateMode.XML);
-            return;
-        }
-
         // otherwise look for for classpath:/brooklyn/default.catalog.bom --
         // there is one on the classpath which says to scan, and provides a few templates;
         // if one is supplied by user in the conf/ dir that will override the item from the classpath
@@ -285,7 +275,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
         
         catalogUrl = "classpath:/brooklyn/default.catalog.bom";
         if (new ResourceUtils(this).doesUrlExist(catalogUrl)) {
-            populateInitialFromUri(catalog, catalogUrl, PopulateMode.YAML);
+            populateInitialFromUri(catalog, catalogUrl);
             return;
         }
         
@@ -293,59 +283,20 @@ public class CatalogInitialization implements ManagementContextInjectable {
         return;
     }
     
-    private void populateInitialFromUri(BasicBrooklynCatalog catalog, String catalogUrl, PopulateMode mode) {
+    private void populateInitialFromUri(BasicBrooklynCatalog catalog, String catalogUrl) {
         log.debug("Loading initial catalog from {}", catalogUrl);
 
-        Exception problem = null;
-        Object result = null;
-        
-        String contents = null;
         try {
-            contents = new ResourceUtils(this).getResourceAsString(catalogUrl);
+            String contents = new ResourceUtils(this).getResourceAsString(catalogUrl);
+
+            catalog.reset(MutableList.<CatalogItem<?,?>>of());
+            Object result = catalog.addItems(contents);
+            
+            log.debug("Loaded initial catalog from {}: {}", catalogUrl, result);
+            
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            if (problem==null) problem = e;
-        }
-
-        if (contents!=null && (mode==PopulateMode.YAML || mode==PopulateMode.AUTODETECT)) {
-            // try YAML first
-            try {
-                catalog.reset(MutableList.<CatalogItem<?,?>>of());
-                result = catalog.addItems(contents);
-            } catch (Exception e) {
-                Exceptions.propagateIfFatal(e);
-                if (problem==null) problem = e;
-            }
-        }
-        
-        if (result==null && contents!=null && (mode==PopulateMode.XML || mode==PopulateMode.AUTODETECT)) {
-            // then try XML
-            try {
-                populateInitialFromUriXml(catalog, catalogUrl, contents);
-                // clear YAML problem
-                problem = null;
-            } catch (Exception e) {
-                Exceptions.propagateIfFatal(e);
-                if (problem==null) problem = e;
-            }
-        }
-        
-        if (result!=null) {
-            log.debug("Loaded initial catalog from {}: {}", catalogUrl, result);
-        }
-        if (problem!=null) {
-            log.warn("Error importing catalog from " + catalogUrl + ": " + problem, problem);
-            // TODO inform mgmt of error
-        }
-
-    }
-
-    // deprecated XML format
-    @SuppressWarnings("deprecation")
-    private void populateInitialFromUriXml(BasicBrooklynCatalog catalog, String catalogUrl, String contents) {
-        CatalogDto dto = CatalogDto.newDtoFromXmlContents(contents, catalogUrl);
-        if (dto!=null) {
-            catalog.reset(dto);
+            log.warn("Error importing catalog from " + catalogUrl + ": " + e, e);
         }
     }
 

@@ -25,38 +25,26 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
-import org.apache.brooklyn.core.internal.storage.DataGrid;
 import org.apache.brooklyn.core.internal.storage.Reference;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
 public class BrooklynStorageImpl implements BrooklynStorage {
 
-    private final DataGrid datagrid;
+    private final InmemoryDatagrid datagrid;
     private final ConcurrentMap<String, Object> refsMap;
     private final ConcurrentMap<String, Object> listsMap;
     private final ConcurrentMap<String, WeakReference<Reference<?>>> refsCache;
     private final ConcurrentMap<String, WeakReference<Reference<?>>> listRefsCache;
     
-    public BrooklynStorageImpl(DataGrid datagrid) {
-        this.datagrid = datagrid;
+    public BrooklynStorageImpl() {
+        this.datagrid = new InmemoryDatagrid();
         this.refsMap = datagrid.getMap("refs");
         this.listsMap = datagrid.getMap("lists");
         this.refsCache = Maps.newConcurrentMap();
         this.listRefsCache = Maps.newConcurrentMap();
-    }
-
-    /**
-     * Returns the DataGrid used by this  BrooklynStorageImpl
-     *
-     * @return the DataGrid.
-     */
-    @VisibleForTesting
-    public DataGrid getDataGrid() {
-        return datagrid;
     }
 
     @Override

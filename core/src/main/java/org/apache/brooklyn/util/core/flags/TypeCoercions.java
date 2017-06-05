@@ -18,9 +18,6 @@
  */
 package org.apache.brooklyn.util.core.flags;
 
-import groovy.lang.Closure;
-import groovy.time.TimeDuration;
-
 import java.lang.reflect.Constructor;
 import java.util.Map;
 
@@ -40,18 +37,24 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.javalang.coerce.CommonAdaptorTryCoercions;
 import org.apache.brooklyn.util.javalang.coerce.CommonAdaptorTypeCoercions;
 import org.apache.brooklyn.util.javalang.coerce.EnumTypeCoercions;
 import org.apache.brooklyn.util.javalang.coerce.PrimitiveStringTypeCoercions;
+import org.apache.brooklyn.util.javalang.coerce.TryCoercer;
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercerExtensible;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
+
+import groovy.lang.Closure;
+import groovy.time.TimeDuration;
 
 /** Static class providing a shared {@link TypeCoercer} for all of Brooklyn */
 public class TypeCoercions {
@@ -72,6 +75,7 @@ public class TypeCoercions {
     
     public static void initStandardAdapters() {
         new BrooklynCommonAdaptorTypeCoercions(coercer).registerAllAdapters();
+        new CommonAdaptorTryCoercions(coercer).registerAllAdapters();
         registerDeprecatedBrooklynAdapters();
         registerBrooklynAdapters();
         registerGroovyAdapters();
@@ -84,6 +88,11 @@ public class TypeCoercions {
 
     public static <A,B> Function<? super A,B> registerAdapter(Class<A> sourceType, Class<B> targetType, Function<? super A,B> fn) {
         return coercer.registerAdapter(sourceType, targetType, fn);
+    }
+    
+    @Beta
+    public static void registerAdapter(TryCoercer fn) {
+        coercer.registerAdapter(fn);
     }
     
     public static <T> Function<Object, T> function(final Class<T> type) {

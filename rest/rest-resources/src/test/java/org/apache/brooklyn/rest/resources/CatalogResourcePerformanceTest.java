@@ -28,7 +28,9 @@ import javax.ws.rs.core.GenericType;
 
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.qa.performance.AbstractPerformanceTest;
+import org.apache.brooklyn.enricher.stock.Aggregator;
 import org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy;
+import org.apache.brooklyn.rest.domain.CatalogEnricherSummary;
 import org.apache.brooklyn.rest.domain.CatalogEntitySummary;
 import org.apache.brooklyn.rest.domain.CatalogItemSummary;
 import org.apache.brooklyn.rest.domain.CatalogLocationSummary;
@@ -96,7 +98,13 @@ public class CatalogResourcePerformanceTest extends BrooklynRestResourcePerforma
                     "    name: My Catalog Policy " + i,
                     "    description: My description",
                     "    item:",
-                    "      type: " + AutoScalerPolicy.class.getName());
+                    "      type: " + AutoScalerPolicy.class.getName(),
+                    "  - id: myenricher-" + i,
+                    "    itemType: enricher",
+                    "    name: My Catalog Enricher " + i,
+                    "    description: My description",
+                    "    item:",
+                    "      type: " + Aggregator.class.getName());
             getManagementContext().getCatalog().addItems(yaml, false);
         }
     }
@@ -114,6 +122,11 @@ public class CatalogResourcePerformanceTest extends BrooklynRestResourcePerforma
     @Test(groups={"Integration"})
     public void testListAllPolicies() {
         runListAllPerformanceTest("testListAllPolicicies", "/catalog/policies", new GenericType<List<CatalogPolicySummary>>() {});
+    }
+
+    @Test(groups={"Integration"})
+    public void testListAllEnrichers() {
+        runListAllPerformanceTest("testListAllEnrichers", "/catalog/enrichers", new GenericType<List<CatalogEnricherSummary>>() {});
     }
     
     @Test(groups={"Integration"})

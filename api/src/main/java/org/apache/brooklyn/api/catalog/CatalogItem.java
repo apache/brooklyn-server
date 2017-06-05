@@ -35,6 +35,8 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
+import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 
 import com.google.common.annotations.Beta;
@@ -46,11 +48,13 @@ public interface CatalogItem<T,SpecT> extends BrooklynObject, Rebindable {
         TEMPLATE, 
         ENTITY, 
         POLICY,
+        ENRICHER,
         LOCATION;
         
         public static CatalogItemType ofSpecClass(Class<? extends AbstractBrooklynObjectSpec<?, ?>> type) {
             if (type==null) return null;
             if (PolicySpec.class.isAssignableFrom(type)) return POLICY;
+            if (EnricherSpec.class.isAssignableFrom(type)) return ENRICHER;
             if (LocationSpec.class.isAssignableFrom(type)) return LOCATION;
             if (EntitySpec.class.isAssignableFrom(type)) return ENTITY;
             return null;
@@ -58,6 +62,7 @@ public interface CatalogItem<T,SpecT> extends BrooklynObject, Rebindable {
         public static CatalogItemType ofTargetClass(Class<? extends BrooklynObject> type) {
             if (type==null) return null;
             if (Policy.class.isAssignableFrom(type)) return POLICY;
+            if (Enricher.class.isAssignableFrom(type)) return ENRICHER;
             if (Location.class.isAssignableFrom(type)) return LOCATION;
             if (Application.class.isAssignableFrom(type)) return TEMPLATE;
             if (Entity.class.isAssignableFrom(type)) return ENTITY;
@@ -127,8 +132,6 @@ public interface CatalogItem<T,SpecT> extends BrooklynObject, Rebindable {
     public String getVersion();
 
     public Collection<CatalogBundle> getLibraries();
-
-    public String toXmlString();
 
     /** @return The underlying YAML for this item, if known; 
      * currently including `services:` or `brooklyn.policies:` prefix (but this will likely be removed) */

@@ -20,6 +20,7 @@ package org.apache.brooklyn.enricher.stock;
 
 import java.util.Map;
 
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -39,7 +40,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.reflect.TypeToken;
 
-//@Catalog(name="Transformer", description="Transforms attributes of an entity; see Enrichers.builder().transforming(...)")
+@Catalog(name="Joiner", description="Joins entity's sensors into another one, i.e. creates a comma separated string from a list")
 @SuppressWarnings("serial")
 public class Joiner<T> extends AbstractEnricher implements SensorEventListener<T> {
 

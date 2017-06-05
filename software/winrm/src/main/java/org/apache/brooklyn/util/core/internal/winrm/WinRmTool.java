@@ -86,6 +86,10 @@ public interface WinRmTool {
             "Size of file chunks (in bytes) to be used when copying a file to the remote server", 
             1024);
 
+    ConfigKey<String> ADDITIONAL_CONNECTION_METADATA = newStringConfigKey("additional.connection.metadata",
+            "Can be used to pass additional custom data to the WinrmTool, which is especially useful " +
+                    "if writing a bespoke tool implementation");
+
     /**
      * @deprecated since 0.9.0; use {@link #executeCommand(List)} to avoid ambiguity between native command and power shell.
      */
