@@ -280,16 +280,16 @@ class OsgiArchiveInstaller {
             if (result.getMetadata()!=null) {
                 // already have a managed bundle - check if this is using a new/different URL
                 if (suppliedKnownBundleMetadata!=null && suppliedKnownBundleMetadata.getUrl()!=null) {
-                    String knownIdForThisUrl = osgiManager.managedBundlesByUrl.get(suppliedKnownBundleMetadata.getUrl());
+                    String knownIdForThisUrl = osgiManager.managedBundlesRecord.getManagedBundleIdFromUrl(suppliedKnownBundleMetadata.getUrl());
                     if (knownIdForThisUrl==null) {
                         // it's a new URL, but a bundle we already know about
                         log.warn("Request to install from "+suppliedKnownBundleMetadata.getUrl()+" which is not recognized but "+
                             "appears to match "+result.getMetadata()+"; now associating with the latter");
-                        osgiManager.managedBundlesByUrl.put(suppliedKnownBundleMetadata.getUrl(), result.getMetadata().getId());
+                        osgiManager.managedBundlesRecord.setManagedBundleUrl(suppliedKnownBundleMetadata.getUrl(), result.getMetadata().getId());
                     } else if (!knownIdForThisUrl.equals(result.getMetadata().getId())) {
                         log.warn("Request to install from "+suppliedKnownBundleMetadata.getUrl()+" which is associated to "+knownIdForThisUrl+" but "+
                             "appears to match "+result.getMetadata()+"; now associating with the latter");
-                        osgiManager.managedBundlesByUrl.put(suppliedKnownBundleMetadata.getUrl(), result.getMetadata().getId());
+                        osgiManager.managedBundlesRecord.setManagedBundleUrl(suppliedKnownBundleMetadata.getUrl(), result.getMetadata().getId());
                     }
                 }
                 if (canUpdate()) { 
@@ -333,13 +333,7 @@ class OsgiArchiveInstaller {
             zipFile = null; // don't close/delete it here, we'll use it for uploading, then it will delete it
             
             if (!updating) { 
-                synchronized (osgiManager.managedBundles) {
-                    osgiManager.managedBundles.put(result.getMetadata().getId(), result.getMetadata());
-                    osgiManager.managedBundlesByName.put(result.getMetadata().getVersionedName(), result.getMetadata().getId());
-                    if (Strings.isNonBlank(result.getMetadata().getUrl())) {
-                        osgiManager.managedBundlesByUrl.put(result.getMetadata().getUrl(), result.getMetadata().getId());
-                    }
-                }
+                osgiManager.managedBundlesRecord.addManagedBundle(result);
                 result.code = OsgiBundleInstallationResult.ResultCode.INSTALLED_NEW_BUNDLE;
                 result.message = "Installed "+result.getMetadata().getVersionedName()+" with ID "+result.getMetadata().getId();
                 mgmt().getRebindManager().getChangeListener().onManaged(result.getMetadata());

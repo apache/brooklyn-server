@@ -102,9 +102,47 @@ public class OsgiManager {
     private boolean reuseFramework;
     private Set<Bundle> bundlesAtStartup;
     private File osgiCacheDir;
-    Map<String, ManagedBundle> managedBundles = MutableMap.of();
-    Map<VersionedName, String> managedBundlesByName = MutableMap.of();
-    Map<String, String> managedBundlesByUrl = MutableMap.of();
+    final ManagedBundlesRecord managedBundlesRecord = new ManagedBundlesRecord();
+    
+    static class ManagedBundlesRecord {
+        private Map<String, ManagedBundle> managedBundles = MutableMap.of();
+        private Map<VersionedName, String> managedBundlesByName = MutableMap.of();
+        private Map<String, String> managedBundlesByUrl = MutableMap.of();
+        
+        synchronized Map<String, ManagedBundle> getManagedBundles() {
+            return ImmutableMap.copyOf(managedBundles);
+        }
+
+        synchronized String getManagedBundleId(VersionedName vn) {
+            return managedBundlesByName.get(vn);
+        }
+
+        synchronized ManagedBundle getManagedBundle(VersionedName vn) {
+            return managedBundles.get(managedBundlesByName.get(vn));
+        }
+        
+        synchronized String getManagedBundleIdFromUrl(String url) {
+            return managedBundlesByUrl.get(url);
+        }
+        
+        synchronized ManagedBundle getManagedBundleFromUrl(String url) {
+            String id = getManagedBundleIdFromUrl(url);
+            if (id==null) return null;
+            return managedBundles.get(id);
+        }
+
+        synchronized void setManagedBundleUrl(String url, String id) {
+            managedBundlesByUrl.put(url, id);    
+        }
+        
+        synchronized void addManagedBundle(OsgiBundleInstallationResult result) {
+            managedBundles.put(result.getMetadata().getId(), result.getMetadata());
+            managedBundlesByName.put(result.getMetadata().getVersionedName(), result.getMetadata().getId());
+            if (Strings.isNonBlank(result.getMetadata().getUrl())) {
+                managedBundlesByUrl.put(result.getMetadata().getUrl(), result.getMetadata().getId());
+            }
+        }
+    }
     
     private static AtomicInteger numberOfReusableFrameworksCreated = new AtomicInteger();
     private static final List<Framework> OSGI_FRAMEWORK_CONTAINERS_FOR_REUSE = MutableList.of();
@@ -213,30 +251,20 @@ public class OsgiManager {
     }
 
     public Map<String, ManagedBundle> getManagedBundles() {
-        synchronized (managedBundles) {
-            return ImmutableMap.copyOf(managedBundles);
-        }
+        return managedBundlesRecord.getManagedBundles();
     }
 
     public String getManagedBundleId(VersionedName vn) {
-        synchronized (managedBundles) {
-            return managedBundlesByName.get(vn);
-        }
+        return managedBundlesRecord.getManagedBundleId(vn);
     }
     
     public ManagedBundle getManagedBundle(VersionedName vn) {
-        synchronized (managedBundles) {
-            return managedBundles.get(managedBundlesByName.get(vn));
-        }
+        return managedBundlesRecord.getManagedBundle(vn);
     }
 
     /** For bundles which are installed by a URL, see whether a bundle has been installed from that URL */
     public ManagedBundle getManagedBundleFromUrl(String url) {
-        synchronized (managedBundles) {
-            String id = managedBundlesByUrl.get(url);
-            if (id==null) return null;
-            return managedBundles.get(id);
-        }
+        return managedBundlesRecord.getManagedBundleFromUrl(url);
     }
     
     /** See {@link OsgiArchiveInstaller#install()}, using default values */
@@ -277,13 +305,13 @@ public class OsgiManager {
      * Callers should typically fail if anything from this bundle is in use.
      */
     public void uninstallUploadedBundle(ManagedBundle bundleMetadata) {
-        synchronized (managedBundles) {
-            ManagedBundle metadata = managedBundles.remove(bundleMetadata.getId());
+        synchronized (managedBundlesRecord) {
+            ManagedBundle metadata = managedBundlesRecord.managedBundles.remove(bundleMetadata.getId());
             if (metadata==null) {
                 throw new IllegalStateException("No such bundle registered: "+bundleMetadata);
             }
-            managedBundlesByName.remove(bundleMetadata.getVersionedName());
-            managedBundlesByUrl.remove(bundleMetadata.getUrl());
+            managedBundlesRecord.managedBundlesByName.remove(bundleMetadata.getVersionedName());
+            managedBundlesRecord.managedBundlesByUrl.remove(bundleMetadata.getUrl());
         }
         mgmt.getRebindManager().getChangeListener().onUnmanaged(bundleMetadata);
 
@@ -569,5 +597,4 @@ public class OsgiManager {
     public Framework getFramework() {
         return framework;
     }
-
 }
