@@ -38,6 +38,9 @@ public interface RegisteredType extends Identifiable {
     String getSymbolicName();
     String getVersion();
     /** Bundle in symbolicname:id format where this type is defined */
+    // TODO would prefer this to be VersionedName if/when everything comes from OSGi bundles
+    // unrevert 7260bf9cf3f3ebaaa790693e1b7217a81bef78a7 to start that, and adjust serialization
+    // as described in that commit message (supporting String in xstream serialization for VN)
     String getContainingBundle();
 
     Collection<OsgiBundleWithUrl> getLibraries();
