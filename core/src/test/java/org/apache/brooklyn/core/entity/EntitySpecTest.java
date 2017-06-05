@@ -149,7 +149,7 @@ public class EntitySpecTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testCallsConfigureAfterConstruction() throws Exception {
-        AbstractEntityLegacyTest.MyEntity entity = app.createAndManageChild(EntitySpec.create(AbstractEntityLegacyTest.MyEntity.class));
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
         assertEquals(entity.getConfigureCount(), 1);
         assertEquals(entity.getConfigureDuringConstructionCount(), 0);

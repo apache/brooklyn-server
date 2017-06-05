@@ -27,6 +27,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,7 +82,7 @@ public class MockItemEntityImpl extends AbstractEntity implements MockItemEntity
                 _lock.lock();
                 try {
                     if (stopped) throw new IllegalStateException("Item "+this+" is stopped; cannot move to "+destination);
-                    if (currentContainer != null) currentContainer.removeItem(MockItemEntityImpl.this);
+                    if (currentContainer != null && Entities.isManaged(currentContainer)) currentContainer.removeItem(MockItemEntityImpl.this);
                     currentContainer = destination;
                     destination.addItem(MockItemEntityImpl.this);
                     sensors().set(CONTAINER, currentContainer);
@@ -97,7 +98,7 @@ public class MockItemEntityImpl extends AbstractEntity implements MockItemEntity
         if (LOG.isDebugEnabled()) LOG.debug("Mocks: stopping item {} (was in container {})", this, currentContainer);
         _lock.lock();
         try {
-            if (currentContainer != null) currentContainer.removeItem(this);
+            if (currentContainer != null && Entities.isManaged(currentContainer)) currentContainer.removeItem(this);
             currentContainer = null;
             stopped = true;
         } finally {

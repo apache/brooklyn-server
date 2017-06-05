@@ -21,20 +21,17 @@ package org.apache.brooklyn.entity.group;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
-import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.entity.stock.DelegateEntity;
-import org.apache.brooklyn.util.collections.SetFromLiveMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,31 +60,9 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
 
     private Set<Entity> members = Sets.newLinkedHashSet();
 
-    public AbstractGroupImpl() {
-    }
-
-    @Deprecated
-    public AbstractGroupImpl(@SuppressWarnings("rawtypes") Map flags, Entity parent) {
-        super(flags, parent);
-    }
-
     @Override
     public void setManagementContext(ManagementContextInternal managementContext) {
         super.setManagementContext(managementContext);
-
-        if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_USE_BROOKLYN_LIVE_OBJECTS_DATAGRID_STORAGE)) {
-            Set<Entity> oldMembers = members;
-            
-            members = SetFromLiveMap.create(managementContext.getStorage().<Entity,Boolean>getMap(getId()+"-members"));
-
-            // Only override stored defaults if we have actual values. We might be in setManagementContext
-            // because we are reconstituting an existing entity in a new brooklyn management-node (in which
-            // case believe what is already in the storage), or we might be in the middle of creating a new
-            // entity. Normally for a new entity (using EntitySpec creation approach), this will get called
-            // before setting the parent etc. However, for backwards compatibility we still support some
-            // things calling the entity's constructor directly.
-            if (oldMembers.size() > 0) members.addAll(oldMembers);
-        }
     }
 
     @Override

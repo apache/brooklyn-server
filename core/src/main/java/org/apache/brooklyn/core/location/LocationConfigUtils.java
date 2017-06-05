@@ -44,15 +44,11 @@ import org.apache.brooklyn.util.core.crypto.SecureKeys.PassphraseProblem;
 import org.apache.brooklyn.util.crypto.AuthorizedKeysParser;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.text.StringFunctions;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 public class LocationConfigUtils {
@@ -367,40 +363,6 @@ public class LocationConfigUtils {
         }
     }
 
-    /** @deprecated since 0.7.0, use #getOsCredential(ConfigBag) */ @Deprecated
-    public static String getPrivateKeyData(ConfigBag config) {
-        return getKeyData(config, LocationConfigKeys.PRIVATE_KEY_DATA, LocationConfigKeys.PRIVATE_KEY_FILE);
-    }
-    
-    /** @deprecated since 0.7.0, use #getOsCredential(ConfigBag) */ @Deprecated
-    public static String getPublicKeyData(ConfigBag config) {
-        String data = getKeyData(config, LocationConfigKeys.PUBLIC_KEY_DATA, LocationConfigKeys.PUBLIC_KEY_FILE);
-        if (groovyTruth(data)) return data;
-        
-        String privateKeyFile = config.get(LocationConfigKeys.PRIVATE_KEY_FILE);
-        if (groovyTruth(privateKeyFile)) {
-            List<String> privateKeyFiles = Arrays.asList(privateKeyFile.split(File.pathSeparator));
-            List<String> publicKeyFiles = ImmutableList.copyOf(Iterables.transform(privateKeyFiles, StringFunctions.append(".pub")));
-            List<String> publicKeyFilesTidied = tidyFilePaths(publicKeyFiles);
-            
-            String fileData = getFileContents(publicKeyFilesTidied);
-            if (groovyTruth(fileData)) {
-                if (log.isDebugEnabled()) log.debug("Loaded "+LocationConfigKeys.PUBLIC_KEY_DATA.getName()+" from inferred files, based on "+LocationConfigKeys.PRIVATE_KEY_FILE.getName() + ": used " + publicKeyFilesTidied + " for "+config.getDescription());
-                config.put(LocationConfigKeys.PUBLIC_KEY_DATA, fileData);
-                return fileData;
-            } else {
-                log.info("Not able to load "+LocationConfigKeys.PUBLIC_KEY_DATA.getName()+" from inferred files, based on "+LocationConfigKeys.PRIVATE_KEY_FILE.getName() + ": tried " + publicKeyFilesTidied + " for "+config.getDescription());
-            }
-        }
-        
-        return null;
-    }
-
-    /** @deprecated since 0.7.0, use #getOsCredential(ConfigBag) */ @Deprecated
-    public static String getKeyData(ConfigBag config, ConfigKey<String> dataKey, ConfigKey<String> fileKey) {
-        return getKeyDataFromDataKeyOrFileKey(config, dataKey, fileKey);
-    }
-    
     private static String getKeyDataFromDataKeyOrFileKey(ConfigBag config, ConfigKey<String> dataKey, ConfigKey<String> fileKey) {
         boolean unused = config.isUnused(dataKey);
         String data = config.get(dataKey);
@@ -461,70 +423,6 @@ public class LocationConfigUtils {
             result.add(Os.tidyPath(file));
         }
         return result;
-    }
-
-    /** @deprecated since 0.6.0 use configBag.getWithDeprecation */
-    @Deprecated
-    @SuppressWarnings("unchecked")
-    public static <T> T getConfigCheckingDeprecatedAlternatives(ConfigBag configBag, ConfigKey<T> preferredKey,
-            ConfigKey<?> ...deprecatedKeys) {
-        T value1 = (T) configBag.getWithDeprecation(preferredKey, deprecatedKeys);
-        T value2 = getConfigCheckingDeprecatedAlternativesInternal(configBag, preferredKey, deprecatedKeys);
-        if (!Objects.equal(value1, value2)) {
-            // points to a bug in one of the get-with-deprecation methods
-            log.warn("Deprecated getConfig with deprecated keys "+Arrays.toString(deprecatedKeys)+" gets different value with " +
-                    "new strategy "+preferredKey+" ("+value1+") and old ("+value2+"); preferring old value for now, but this behaviour will change");
-            return value2;
-        }
-        return value1;
-    }
-    
-    @SuppressWarnings("unchecked")
-    private static <T> T getConfigCheckingDeprecatedAlternativesInternal(ConfigBag configBag, ConfigKey<T> preferredKey,
-            ConfigKey<?> ...deprecatedKeys) {
-        ConfigKey<?> keyProvidingValue = null;
-        T value = null;
-        boolean found = false;
-        if (configBag.containsKey(preferredKey)) {
-            value = configBag.get(preferredKey);
-            found = true;
-            keyProvidingValue = preferredKey;
-        }
-        
-        for (ConfigKey<?> deprecatedKey: deprecatedKeys) {
-            T altValue = null;
-            boolean altFound = false;
-            if (configBag.containsKey(deprecatedKey)) {
-                altValue = (T) configBag.get(deprecatedKey);
-                altFound = true;
-                
-                if (altFound) {
-                    if (found) {
-                        if (Objects.equal(value, altValue)) {
-                            // fine -- nothing
-                        } else {
-                            log.warn("Detected deprecated key "+deprecatedKey+" with value "+altValue+" used in addition to "+keyProvidingValue+" " +
-                                    "with value "+value+" for "+configBag.getDescription()+"; ignoring");
-                            configBag.remove(deprecatedKey);
-                        }
-                    } else {
-                        log.warn("Detected deprecated key "+deprecatedKey+" with value "+altValue+" used instead of recommended "+preferredKey+"; " +
-                                "promoting to preferred key status; will not be supported in future versions");
-                        configBag.put(preferredKey, altValue);
-                        configBag.remove(deprecatedKey);
-                        value = altValue;
-                        found = true;
-                        keyProvidingValue = deprecatedKey;
-                    }
-                }
-            }
-        }
-        
-        if (found) {
-            return value;
-        } else {
-            return configBag.get(preferredKey); // get the default
-        }
     }
 
     public static Map<ConfigKey<String>,String> finalAndOriginalSpecs(String finalSpec, Object ...sourcesForOriginalSpec) {

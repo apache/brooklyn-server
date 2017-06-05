@@ -50,7 +50,11 @@ public class JcloudsLocationResolver implements LocationResolver {
             // from http://docs.amazonwebservices.com/general/latest/gr/rande.html as of Apr 2012.
             // it is suggested not to maintain this list here, instead to require aws-ec2 explicitly named.
             "eu-west-1","us-east-1","us-west-1","us-west-2","ap-southeast-1","ap-northeast-1","sa-east-1");
-         
+    
+    static {
+        JcloudsTypeCoercions.init();
+    }
+
     private ManagementContext managementContext;
 
     @Override

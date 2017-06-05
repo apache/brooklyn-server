@@ -18,7 +18,9 @@
  */
 package org.apache.brooklyn.test.framework;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -47,26 +49,27 @@ public class LoopOverGroupMembersTestCaseImpl extends TargetableTestComponentImp
         Maybe<Entity> target = tryResolveTarget();
         if (!target.isPresent()) {
             logger.debug("Tasks NOT successfully run. LoopOverGroupMembersTestCaseImpl group not set");
-            setServiceState(false, Lifecycle.ON_FIRE);
+            setUpAndRunState(false, Lifecycle.ON_FIRE);
             return;
         }
 
         if (!(target.get() instanceof Group)) {
             logger.debug("Tasks NOT successfully run. LoopOverGroupMembersTestCaseImpl target is not a group");
-            setServiceState(false, Lifecycle.ON_FIRE);
+            setUpAndRunState(false, Lifecycle.ON_FIRE);
             return;
         }
 
         EntitySpec<? extends TargetableTestComponent> testSpec = config().get(TEST_SPEC);
         if (testSpec == null) {
             logger.debug("Tasks NOT successfully run. LoopOverGroupMembersTestCaseImpl test spec not set");
-            setServiceState(false, Lifecycle.ON_FIRE);
+            setUpAndRunState(false, Lifecycle.ON_FIRE);
             return;
         }
 
         // Create the child-assertions (one per group-member)
         Group group = (Group) target.get();
         Collection<Entity> members = group.getMembers();
+        List<Throwable> exceptions = new ArrayList<>();
         boolean allSuccesful = true;
         for (Entity member : members) {
             EntitySpec<? extends TargetableTestComponent> testSpecCopy = EntitySpec.create(testSpec)
@@ -84,6 +87,7 @@ public class LoopOverGroupMembersTestCaseImpl extends TargetableTestComponentImp
             } catch (Throwable t) {
                 Exceptions.propagateIfFatal(t);
                 logger.warn("Problem in child test-case of "+this+", targetting "+member, t);
+                exceptions.add(t);
                 allSuccesful = false;
             }
         }
@@ -91,11 +95,13 @@ public class LoopOverGroupMembersTestCaseImpl extends TargetableTestComponentImp
         if (allSuccesful) {
             // Let everyone know we've started up successfully (changes the icon in the GUI).
             logger.debug("Tasks successfully run. Update state of {} to RUNNING.", this);
-            setServiceState(true, Lifecycle.RUNNING);
+            setUpAndRunState(true, Lifecycle.RUNNING);
         } else {
-            // Let everyone know we've npt started up successfully (changes the icon in the GUI).
+            // Let everyone know we've not started up successfully (changes the icon in the GUI).
+            // Important to fail the start() method, so that parent TestCase entity also reports failure.
             logger.debug("Tasks NOT successfully run. Update state of {} to ON_FIRE.", this);
-            setServiceState(false, Lifecycle.ON_FIRE);
+            setUpAndRunState(false, Lifecycle.ON_FIRE);
+            throw Exceptions.propagate("Test failed on group member(s)", exceptions);
         }
 
     }
@@ -112,10 +118,10 @@ public class LoopOverGroupMembersTestCaseImpl extends TargetableTestComponentImp
 
             // Let everyone know we've stopped successfully (changes the icon in the GUI).
             logger.debug("Tasks successfully run. Update state of {} to STOPPED.", this);
-            setServiceState(false, Lifecycle.STOPPED);
+            setUpAndRunState(false, Lifecycle.STOPPED);
         } catch (Throwable t) {
             logger.debug("Tasks NOT successfully run. Update state of {} to ON_FIRE.", this);
-            setServiceState(false, Lifecycle.ON_FIRE);
+            setUpAndRunState(false, Lifecycle.ON_FIRE);
             throw Exceptions.propagate(t);
         }
     }
@@ -125,16 +131,5 @@ public class LoopOverGroupMembersTestCaseImpl extends TargetableTestComponentImp
         final Collection<Location> locations = Lists.newArrayList(getLocations());
         stop();
         start(locations);
-    }
-
-    /**
-     * Sets the state of the Entity. Useful so that the GUI shows the correct icon.
-     *
-     * @param serviceUpState     Whether or not the entity is up.
-     * @param serviceStateActual The actual state of the entity.
-     */
-    private void setServiceState(final boolean serviceUpState, final Lifecycle serviceStateActual) {
-        sensors().set(SERVICE_UP, serviceUpState);
-        sensors().set(Attributes.SERVICE_STATE_ACTUAL, serviceStateActual);
     }
 }

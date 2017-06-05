@@ -61,10 +61,6 @@ public class CommonAdaptorTypeCoercions {
         this.coercer = coercer;
     }
 
-    public TypeCoercerExtensible getCoercer() {
-        return coercer;
-    }
-    
     public CommonAdaptorTypeCoercions registerAllAdapters() {
         registerStandardAdapters();
         registerRecursiveIterableAdapters();

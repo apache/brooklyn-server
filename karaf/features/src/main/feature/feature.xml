@@ -16,10 +16,10 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<features xmlns="http://karaf.apache.org/xmlns/features/v1.2.0"
+<features xmlns="http://karaf.apache.org/xmlns/features/v1.4.0"
           name="org.apache.brooklyn-${project.version}"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="http://karaf.apache.org/xmlns/features/v1.2.0">
+          xsi:noNamespaceSchemaLocation="http://karaf.apache.org/xmlns/features/v1.4.0">
 
     <repository>mvn:org.apache.karaf.features/standard/${karaf.version}/xml/features</repository>
     <repository>mvn:org.apache.jclouds.karaf/jclouds-karaf/${jclouds.version}/xml/features</repository>
@@ -267,9 +267,7 @@
         <!--<bundle dependency="true">mvn:org.apache.jclouds.labs/abiquo/${jclouds.version}</bundle>--> <!-- jclouds abstraction not implemented -->
         <bundle dependency="true">mvn:org.apache.jclouds.api/docker/${jclouds.version}</bundle>
 
-        <bundle dependency="true">mvn:org.apache.jclouds.provider/google-compute-engine/${jclouds.version}</bundle>
-        <bundle dependency="true">mvn:org.apache.jclouds.api/oauth/${jclouds.version}</bundle>
-
+        <bundle>mvn:org.apache.jclouds/jclouds-loadbalancer/${jclouds.version}</bundle>
         <feature>jclouds-services</feature>
         <bundle dependency="true">wrap:mvn:com.jcraft/jsch.agentproxy.sshj/0.0.9$Bundle-Name=wrap%20%3A%3A%20jsch.agentproxy.sshj</bundle>
 
@@ -310,6 +308,9 @@
     <feature name="brooklyn-locations-jclouds-labs" version="${project.version}" description="Brooklyn JClouds Labs Location Targets">
         <bundle>mvn:org.apache.jclouds.labs/azurecompute/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds.labs/azurecompute-arm/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/oauth/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.common/googlecloud/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/google-compute-engine/${jclouds.version}</bundle>
     </feature>
 
     <feature name="brooklyn-test-framework" version="${project.version}" description="Brooklyn Test Framework" >

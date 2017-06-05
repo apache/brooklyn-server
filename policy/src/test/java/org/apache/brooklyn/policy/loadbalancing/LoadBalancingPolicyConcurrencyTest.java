@@ -51,16 +51,16 @@ public class LoadBalancingPolicyConcurrencyTest extends AbstractLoadBalancingPol
 
     @BeforeMethod(alwaysRun=true)
     @Override
-    public void before() {
+    public void setUp() throws Exception {
         scheduledExecutor = Executors.newScheduledThreadPool(10);
-        super.before();
+        super.setUp();
     }
     
     @AfterMethod(alwaysRun=true)
     @Override
-    public void after() {
+    public void tearDown() throws Exception {
         if (scheduledExecutor != null) scheduledExecutor.shutdownNow();
-        super.after();
+        super.tearDown();
     }
     
     /**

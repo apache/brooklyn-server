@@ -19,20 +19,16 @@
 package org.apache.brooklyn.core.entity;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 
 import org.apache.brooklyn.api.effector.Effector;
-import org.apache.brooklyn.api.effector.ParameterType;
 import org.apache.brooklyn.api.entity.EntityType;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.objs.BrooklynTypeSnapshot;
 import org.apache.brooklyn.util.guava.Maybe;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
@@ -73,28 +69,6 @@ public class EntityTypeSnapshot extends BrooklynTypeSnapshot implements EntityTy
         return Maybe.<Effector<?>>absent("No effector matching '" + name + "'");
     }
     
-    @Override
-    public Effector<?> getEffector(String name, Class<?>... parameterTypes) {
-        // TODO Could index for more efficient lookup (e.g. by name in a MultiMap, or using name+parameterTypes as a key)
-        // TODO Looks for exact match; could go for what would be valid to call (i.e. if parameterType is sub-class of ParameterType.getParameterClass then ok)
-        // TODO Could take into account ParameterType.getDefaultValue() for what can be omitted
-        
-        effectorLoop : for (Effector<?> contender : effectors) {
-            if (name.equals(contender.getName())) {
-                List<ParameterType<?>> contenderParameters = contender.getParameters();
-                if (parameterTypes.length == contenderParameters.size()) {
-                    for (int i = 0; i < parameterTypes.length; i++) {
-                        if (parameterTypes[i] != contenderParameters.get(i).getParameterClass()) {
-                            continue effectorLoop;
-                        }
-                    }
-                    return contender;
-                }
-            }
-        }
-        throw new NoSuchElementException("No matching effector "+name+"("+Joiner.on(", ").join(parameterTypes)+") on entity "+getName());
-    }
-
     @Override
     public Sensor<?> getSensor(String name) {
         return sensors.get(name);

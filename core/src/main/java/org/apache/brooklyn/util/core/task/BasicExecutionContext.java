@@ -72,7 +72,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     /**
      * Supported flags are {@code tag} and {@code tags}
      * 
-     * @see ExecutionManager#submit(Map, Task)
+     * @see ExecutionManager#submit(Map, TaskAdaptable)
      */
     public BasicExecutionContext(Map<?, ?> flags, ExecutionManager executionManager) {
         this.executionManager = executionManager;
@@ -213,16 +213,13 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             } else {
                 // as above, but here we are definitely not a child (what we are submitting isn't even a task)
                 // (will only come here if properties defines tags including a target entity, which probably never happens) 
-                submit(Tasks.<T>builder().displayName("Cross-context execution").dynamic(true).body(new Callable<T>() {
-                    @Override
-                    public T call() {
-                        if (task instanceof Callable) {
-                            return DynamicTasks.queue( Tasks.<T>builder().dynamic(false).body((Callable<T>)task).build() ).getUnchecked();
-                        } else if (task instanceof Runnable) {
-                            return DynamicTasks.queue( Tasks.<T>builder().dynamic(false).body((Runnable)task).build() ).getUnchecked();
-                        } else {
-                            throw new IllegalArgumentException("Unhandled task type: "+task+"; type="+(task!=null ? task.getClass() : "null"));
-                        }
+                submit(Tasks.<T>builder().displayName("Cross-context execution").dynamic(true).body(() -> {
+                    if (task instanceof Callable) {
+                        return DynamicTasks.queue( Tasks.<T>builder().dynamic(false).body((Callable<T>)task).build() ).getUnchecked();
+                    } else if (task instanceof Runnable) {
+                        return DynamicTasks.queue( Tasks.<T>builder().dynamic(false).body((Runnable)task).build() ).getUnchecked();
+                    } else {
+                        throw new IllegalArgumentException("Unhandled task type: "+task+"; type="+(task!=null ? task.getClass() : "null"));
                     }
                 }).build());
             }

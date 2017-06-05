@@ -18,46 +18,48 @@
  */
 package org.apache.brooklyn.core.entity.drivers;
 
-import org.apache.brooklyn.location.paas.PaasLocation;
-import org.apache.brooklyn.location.paas.TestPaasLocation;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.util.collections.MutableMap;
+import static org.testng.Assert.assertTrue;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.entity.drivers.DriverDependentEntity;
 import org.apache.brooklyn.api.entity.drivers.EntityDriver;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.AbstractEntity;
-import org.apache.brooklyn.core.entity.drivers.ReflectiveEntityDriverFactory;
-import org.testng.annotations.AfterMethod;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.location.paas.PaasLocation;
+import org.apache.brooklyn.location.paas.TestPaasLocation;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertTrue;
+import com.google.common.reflect.TypeToken;
 
-public class ReflectiveEntityDriverFactoryTest {
+public class ReflectiveEntityDriverFactoryTest extends BrooklynAppUnitTestSupport {
 
     private ReflectiveEntityDriverFactory factory;
     private SshMachineLocation sshLocation;
     private PaasLocation paasLocation;
-    private DriverDependentEntity<MyDriver> entity;
+    private MyDriverDependentEntity entity;
     
     @BeforeMethod
     public void setUp() throws Exception {
+        super.setUp();
+        sshLocation = mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
+                .configure("address", "localhost"));
+        paasLocation = mgmt.getLocationManager().createLocation(LocationSpec.create(TestPaasLocation.class));
         factory = new ReflectiveEntityDriverFactory();
-        sshLocation = new SshMachineLocation(MutableMap.of("address", "localhost"));
-        entity = new MyDriverDependentEntity<MyDriver>(MyDriver.class);
-
-        paasLocation = new TestPaasLocation();
+        entity = app.addChild(EntitySpec.create(MyDriverDependentEntity.class)
+                .configure(MyDriverDependentEntity.DRIVER_CLASS, MyDriver.class));
     }
 
-    @AfterMethod
-    public void tearDown() {
-        // nothing to tear down; no management context created
-    }
-    
     protected void assertDriverIs(Class<?> clazz, Location location) {
-        MyDriver driver = factory.build(entity, location);
+        MyDriver driver = (MyDriver) factory.build(entity, location);
         assertTrue(driver.getClass().equals(clazz), "driver="+driver+"; should be "+clazz);
     }
     
@@ -109,21 +111,24 @@ public class ReflectiveEntityDriverFactoryTest {
         factory.addClassSimpleNameMapping(MyDriver.class.getSimpleName()+"X", MyCustomDriver.class.getSimpleName());
         assertDriverIs(MySshDriver.class, sshLocation);
     }
-    
-    public static class MyDriverDependentEntity<D extends EntityDriver> extends AbstractEntity implements DriverDependentEntity<D> {
-        private final Class<D> clazz;
 
-        public MyDriverDependentEntity(Class<D> clazz) {
-            this.clazz = clazz;
+    @ImplementedBy(MyDriverDependentEntityImpl.class)
+    public static interface MyDriverDependentEntity extends Entity, DriverDependentEntity<EntityDriver> {
+        @SuppressWarnings("serial")
+        ConfigKey<Class<? extends EntityDriver>> DRIVER_CLASS = ConfigKeys.newConfigKey(
+                new TypeToken<Class<? extends EntityDriver>>() {}, 
+                "driverClass");
+    }
+    
+    public static class MyDriverDependentEntityImpl extends AbstractEntity implements MyDriverDependentEntity {
+        @Override
+        @SuppressWarnings("unchecked")
+        public Class<EntityDriver> getDriverInterface() {
+            return (Class<EntityDriver>) config().get(DRIVER_CLASS);
         }
         
         @Override
-        public Class<D> getDriverInterface() {
-            return clazz;
-        }
-        
-        @Override
-        public D getDriver() {
+        public EntityDriver getDriver() {
             throw new UnsupportedOperationException();
         }
     }

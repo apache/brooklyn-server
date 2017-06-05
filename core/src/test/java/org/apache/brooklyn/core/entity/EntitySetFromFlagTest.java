@@ -23,54 +23,59 @@ import static org.testng.Assert.assertEquals;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.PortRange;
-import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.location.PortRanges;
-import org.testng.annotations.Test;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.testng.annotations.Test;
 
-public class EntitySetFromFlagTest {
+import com.google.common.collect.ImmutableMap;
+
+public class EntitySetFromFlagTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testSetFromFlagUsingFieldName() {
-        MyEntity entity = new MyEntity(MutableMap.of("str1", "myval"));
+        MyEntity entity = newDeproxiedEntity(MutableMap.of("str1", "myval"));
         assertEquals(entity.str1, "myval");
     }
     
     @Test
     public void testSetFromFlagUsingOverridenName() {
-        MyEntity entity = new MyEntity(MutableMap.of("altStr2", "myval"));
+        MyEntity entity = newDeproxiedEntity(MutableMap.of("altStr2", "myval"));
         assertEquals(entity.str2, "myval");
     }
     
     @Test
     public void testSetFromFlagWhenNoDefaultIsNull() {
-        MyEntity entity = new MyEntity();
+        MyEntity entity = newDeproxiedEntity();
         assertEquals(entity.str1, null);
     }
     
     @Test
     public void testSetFromFlagUsesDefault() {
-        MyEntity entity = new MyEntity();
+        MyEntity entity = newDeproxiedEntity();
         assertEquals(entity.str3, "default str3");
     }
     
     @Test
     public void testSetFromFlagOverridingDefault() {
-        MyEntity entity = new MyEntity(MutableMap.of("str3", "overridden str3"));
+        MyEntity entity = newDeproxiedEntity(MutableMap.of("str3", "overridden str3"));
         assertEquals(entity.str3, "overridden str3");
     }
 
     @Test
     public void testSetFromFlagCastsPrimitives() {
-        MyEntity entity = new MyEntity(MutableMap.of("double1", 1f));
+        MyEntity entity = newDeproxiedEntity(MutableMap.of("double1", 1f));
         assertEquals(entity.double1, 1d);
     }
 
     @Test
     public void testSetFromFlagCastsDefault() {
-        MyEntity entity = new MyEntity();
+        MyEntity entity = newDeproxiedEntity();
         assertEquals(entity.byte1, (byte)1);
         assertEquals(entity.short1, (short)2);
         assertEquals(entity.int1, 3);
@@ -92,44 +97,60 @@ public class EntitySetFromFlagTest {
     
     @Test
     public void testSetFromFlagCoercesDefaultToPortRange() {
-        MyEntity entity = new MyEntity();
+        MyEntity entity = newDeproxiedEntity();
         assertEquals(entity.portRange1, PortRanges.fromInteger(1234));
     }
     
     @Test
     public void testSetFromFlagCoercesStringValueToPortRange() {
-        MyEntity entity = new MyEntity(MutableMap.of("portRange1", "1-3"));
+        MyEntity entity = newDeproxiedEntity(MutableMap.of("portRange1", "1-3"));
         assertEquals(entity.portRange1, new PortRanges.LinearPortRange(1, 3));
     }
     
     @Test
     public void testSetFromFlagCoercesStringValueToInt() {
-        MyEntity entity = new MyEntity(MutableMap.of("int1", "123"));
+        MyEntity entity = newDeproxiedEntity(MutableMap.of("int1", "123"));
         assertEquals(entity.int1, 123);
     }
 
     @Test
     public void testSetIconUrl() {
-        MyEntity entity = new MyEntity(MutableMap.of("iconUrl", "/img/myicon.gif"));
+        MyEntity entity = newDeproxiedEntity(MutableMap.of("iconUrl", "/img/myicon.gif"));
         assertEquals(entity.getIconUrl(), "/img/myicon.gif");
     }
 
-    @Test(expectedExceptions=IllegalArgumentException.class)
-    public void testFailsFastOnInvalidCoercion() {;
-        new MyEntity(MutableMap.of("int1", "thisisnotanint"));
+    @Test
+    public void testFailsFastOnInvalidCoercion() {
+        try {
+            newDeproxiedEntity(MutableMap.of("int1", "thisisnotanint"));
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            if (Exceptions.getFirstThrowableOfType(e, IllegalArgumentException.class) == null) {
+                throw e;
+            }
+        }
     }
     
-    // Fails because configure being called from inside constructor; so field is set after configure called
-    @Test(enabled=false) 
+    @Test
     public void testSetFromFlagWithFieldThatIsExplicitySet() {
-        MyEntity entity = new MyEntity(MutableMap.of("str4", "myval"));
+        MyEntity entity = newDeproxiedEntity(MutableMap.of("str4", "myval"));
         assertEquals(entity.str4, "myval");
         
-        MyEntity entity2 = new MyEntity();
+        MyEntity entity2 = newDeproxiedEntity();
         assertEquals(entity2.str4, "explicit str4");
     }
     
-    private static class MyEntity extends AbstractEntity {
+    private MyEntity newDeproxiedEntity() {
+        return newDeproxiedEntity(ImmutableMap.of());
+    }
+    
+    private MyEntity newDeproxiedEntity(Map<?, ?> config) {
+        Entity result = app.addChild(EntitySpec.create(Entity.class).impl(MyEntity.class)
+                .configure(config));
+        return (MyEntity) Entities.deproxy(result);
+    }
+    
+    public static class MyEntity extends AbstractEntity {
 
         @SetFromFlag(defaultVal="1234")
         PortRange portRange1;
@@ -193,21 +214,5 @@ public class EntitySetFromFlagTest {
 
         @SetFromFlag(defaultVal="true")
         Boolean bool2;
-
-        MyEntity() {
-            super(MutableMap.of(), null);
-        }
-        
-        MyEntity(Map flags) {
-            super(flags, null);
-        }
-        
-        MyEntity(Entity parent) {
-            super(MutableMap.of(), parent);
-        }
-        
-        MyEntity(Map flags, Entity parent) {
-            super(flags, parent);
-        }
     }
 }

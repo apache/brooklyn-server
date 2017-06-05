@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.util.javalang.coerce;
 
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Collection;
@@ -28,17 +26,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
-import org.apache.brooklyn.util.javalang.JavaClassNames;
-import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.HashBasedTable;
@@ -77,7 +74,10 @@ public class TypeCoercerExtensible implements TypeCoercer {
     /** has all the strategies (primitives, collections, etc) 
      * and all the adapters from {@link CommonAdaptorTypeCoercions} */
     public static TypeCoercerExtensible newDefault() {
-        return new CommonAdaptorTypeCoercions(newEmpty()).registerAllAdapters().getCoercer();
+        TypeCoercerExtensible result = newEmpty();
+        new CommonAdaptorTypeCoercions(result).registerAllAdapters();
+        new CommonAdaptorTryCoercions(result).registerAllAdapters();
+        return result;
     }
 
     /** has all the strategies (primitives, collections, etc) but no adapters, 
@@ -87,7 +87,10 @@ public class TypeCoercerExtensible implements TypeCoercer {
     }
 
     /** Store the coercion {@link Function functions} in a {@link Table table}. */
-    private Table<Class<?>, Class<?>, Function<?,?>> registry = HashBasedTable.create();
+    private final Table<Class<?>, Class<?>, Function<?,?>> registry = HashBasedTable.create();
+
+    /** Store the generic coercers. */
+    private final List<TryCoercer> genericCoercers = Lists.newCopyOnWriteArrayList();
 
     @Override
     public <T> T coerce(Object value, Class<T> targetType) {
@@ -118,11 +121,20 @@ public class TypeCoercerExtensible implements TypeCoercer {
 
         //recursive coercion of parameterized collections and map entries
         if (targetTypeToken.getType() instanceof ParameterizedType) {
-            if (value instanceof Collection && Collection.class.isAssignableFrom(targetType)) {
-                result = tryCoerceCollection(value, targetTypeToken, targetType);
+            if (value instanceof Iterable && Iterable.class.isAssignableFrom(targetType)) {
+                result = tryCoerceIterable(value, targetTypeToken, targetType);
                 
                 if (result != null && result.isAbsent() && targetType.isInstance(value)) {
-                    log.warn("Failed to coerce collection from " + value.getClass().getName() + " to " + targetTypeToken  
+                    log.warn("Failed to coerce iterable from " + value.getClass().getName() + " to " + targetTypeToken  
+                            + "; returning uncoerced result to preserve (deprecated) backwards compatibility", 
+                            Maybe.getException(result));
+                }
+                
+            } else if (value.getClass().isArray() && Iterable.class.isAssignableFrom(targetType)) {
+                result = tryCoerceArray(value, targetTypeToken, targetType);
+                
+                if (result != null && result.isAbsent() && targetType.isInstance(value)) {
+                    log.warn("Failed to coerce array from " + value.getClass().getName() + " to " + targetTypeToken  
                             + "; returning uncoerced result to preserve (deprecated) backwards compatibility", 
                             Maybe.getException(result));
                 }
@@ -142,13 +154,11 @@ public class TypeCoercerExtensible implements TypeCoercer {
         
         if (targetType.isInstance(value)) return Maybe.of( (T) value );
 
-        result = PrimitiveStringTypeCoercions.tryCoerce(value, targetType);
-        if (result!=null && result.isPresent()) return result;
-        if (result!=null && firstError==null) firstError = result;
-        
-        result = tryCoerceWithFromMethod(value, targetType);
-        if (result!=null && result.isPresent()) return result;
-        if (result!=null && firstError==null) firstError = result;
+        for (TryCoercer coercer : genericCoercers) {
+            result = coercer.tryCoerce(value, targetTypeToken);
+            if (result!=null && result.isPresent()) return result;
+            if (result!=null && firstError==null) firstError = result;
+        }
         
         //ENHANCEMENT could look in type hierarchy of both types for a conversion method...
         
@@ -165,13 +175,6 @@ public class TypeCoercerExtensible implements TypeCoercer {
             }
         }
         
-        //for enums call valueOf with the string representation of the value
-        if (targetType.isEnum()) {
-            result = EnumTypeCoercions.tryCoerceUntyped(Strings.toString(value), (Class<T>)targetType);
-            if (result!=null && result.isPresent()) return result;
-            if (result!=null && firstError==null) firstError = result;
-        }
-
         //now look in registry
         synchronized (registry) {
             Map<Class<?>, Function<?,?>> adapters = registry.row(targetType);
@@ -212,42 +215,6 @@ public class TypeCoercerExtensible implements TypeCoercer {
         return Maybe.absent(new ClassCoercionException("Cannot coerce type "+value.getClass().getCanonicalName()+" to "+targetType.getCanonicalName()+" ("+value+"): no adapter known"));
     }
 
-    /**
-     * The meaning of the return value is:
-     * <ul>
-     *   <li>null - no errors, continue with fallbacks (i.e. not found).
-     *   <li>absent - had some kind of exception, continue with fallbacks (but can report this error if
-     *       other fallbacks fail).
-     *   <li>present - coercion successful, return value.
-     * </ul>
-     */
-    @SuppressWarnings("unchecked")
-    protected <T> Maybe<T> tryCoerceWithFromMethod(Object value, Class<? super T> targetType) {
-        List<ClassCoercionException> exceptions = Lists.newArrayList();
-        //now look for static TargetType.fromType(Type t) where value instanceof Type  
-        for (Method m: targetType.getMethods()) {
-            if (((m.getModifiers()&Modifier.STATIC)==Modifier.STATIC) && 
-                    m.getName().startsWith("from") && m.getParameterTypes().length==1 &&
-                    m.getParameterTypes()[0].isInstance(value)) {
-                if (m.getName().equals("from"+JavaClassNames.verySimpleClassName(m.getParameterTypes()[0]))) {
-                    try {
-                        return Maybe.of((T) m.invoke(null, value));
-                    } catch (Exception e) {
-                        exceptions.add(new ClassCoercionException("Cannot coerce type "+value.getClass()+" to "+targetType.getCanonicalName()+" ("+value+"): "+m.getName()+" adapting failed", e));
-                    }
-                }
-            }
-        }
-        if (exceptions.isEmpty()) {
-            return null;
-        } else if (exceptions.size() == 1) {
-            return Maybe.absent(exceptions.get(0));
-        } else {
-            String errMsg = "Failed coercing type "+value.getClass()+" to "+targetType.getCanonicalName();
-            return Maybe.absent(new CompoundRuntimeException(errMsg, exceptions));
-        }
-    }
-
     @SuppressWarnings("unchecked")
     protected <T> Maybe<T> tryCoerceMap(Object value, TypeToken<T> targetTypeToken) {
         if (!(value instanceof Map) || !(Map.class.isAssignableFrom(targetTypeToken.getRawType()))) return null;
@@ -277,15 +244,20 @@ public class TypeCoercerExtensible implements TypeCoercer {
         return Maybe.of((T) Maps.newLinkedHashMap(coerced));
     }
 
+    protected <T> Maybe<T> tryCoerceArray(Object value, TypeToken<T> targetTypeToken, Class<? super T> targetType) {
+       List<?> listValue = Reflections.arrayToList(value);
+       return tryCoerceIterable(listValue, targetTypeToken, targetType);
+    }
+    
     /** tries to coerce a list;
      * returns null if it just doesn't apply, a {@link Maybe.Present} if it succeeded,
      * or {@link Maybe.Absent} with a good exception if it should have applied but couldn't */
     @SuppressWarnings("unchecked")
-    protected <T> Maybe<T> tryCoerceCollection(Object value, TypeToken<T> targetTypeToken, Class<? super T> targetType) {
+    protected <T> Maybe<T> tryCoerceIterable(Object value, TypeToken<T> targetTypeToken, Class<? super T> targetType) {
         if (!(value instanceof Iterable) || !(Iterable.class.isAssignableFrom(targetTypeToken.getRawType()))) return null;
         Type[] arguments = ((ParameterizedType) targetTypeToken.getType()).getActualTypeArguments();
         if (arguments.length != 1) {
-            return Maybe.absent(new IllegalStateException("Unexpected number of parameters in collection type: " + arguments));
+            return Maybe.absent(new IllegalStateException("Unexpected number of parameters in iterable type: " + arguments));
         }
         Collection<Object> coerced = Lists.newLinkedList();
         TypeToken<?> listEntryType = TypeToken.of(arguments[0]);
@@ -324,4 +296,9 @@ public class TypeCoercerExtensible implements TypeCoercer {
         return (Function<? super A,B>) registry.put(targetType, sourceType, fn);
     }
     
+    /** Registers a generic adapter for use with type coercion. */
+    @Beta
+    public synchronized void registerAdapter(TryCoercer fn) {
+        genericCoercers.add(fn);
+    }
 }
