@@ -372,12 +372,11 @@ public class OsgiManager {
     // possibly remove that other capability, so that bundles with BOMs _have_ to be installed via this method.
     // (load order gets confusing with auto-scanning...)
     public List<? extends CatalogItem<?,?>> loadCatalogBom(Bundle bundle) {
-        List<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
-        loadCatalogBom(mgmt, bundle, catalogItems);
-        return catalogItems;
+        return MutableList.copyOf(loadCatalogBom(mgmt, bundle));
     }
     
-    private static Iterable<? extends CatalogItem<?, ?>> loadCatalogBom(ManagementContext mgmt, Bundle bundle, Iterable<? extends CatalogItem<?, ?>> catalogItems) {
+    private static Iterable<? extends CatalogItem<?, ?>> loadCatalogBom(ManagementContext mgmt, Bundle bundle) {
+        Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
         if (!BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM)) {
             // if the above feature is not enabled, let's do it manually (as a contract of this method)
             try {

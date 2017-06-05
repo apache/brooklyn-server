@@ -45,7 +45,6 @@ import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
-import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemComparator;
@@ -130,7 +129,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             return createFromYaml(new String(item));
         }
         
-        return createFromArchive(item);
+        return createFromArchive(item, false);
     }
     
     @Override
@@ -159,7 +158,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         // as Osgi result, but without bundle, and with maps of catalog items installed
         
         String message;
-        ManagedBundle metadata;
+        String bundle;
         OsgiBundleInstallationResult.ResultCode code;
         
         Map<String,Object> types;
@@ -172,7 +171,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         public static BundleInstallationRestResult of(OsgiBundleInstallationResult in, ManagementContext mgmt, BrooklynRestResourceUtils brooklynU, UriInfo ui) {
             BundleInstallationRestResult result = new BundleInstallationRestResult();
             result.message = in.getMessage();
-            result.metadata = in.getMetadata();
+            result.bundle = in.getMetadata().getVersionedName().toString();
             result.code = in.getCode();
             if (in.getCatalogItemsInstalled()!=null) {
                 result.types = MutableMap.of();
@@ -191,7 +190,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     
     @Override
     @Beta
-    public Response createFromArchive(byte[] zipInput) {
+    public Response createFromArchive(byte[] zipInput, boolean detail) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ROOT, null)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item",
                 Entitlements.getEntitlementContext().user());
@@ -205,7 +204,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 .data(BundleInstallationRestResult.of(result.getWithoutError(), mgmt(), brooklyn(), ui)).build().asJsonResponse();
         }
 
-        return Response.status(Status.CREATED).entity( BundleInstallationRestResult.of(result.get(), mgmt(), brooklyn(), ui) ).build();
+        BundleInstallationRestResult resultR = BundleInstallationRestResult.of(result.get(), mgmt(), brooklyn(), ui);
+        return Response.status(Status.CREATED).entity( detail ? resultR : resultR.types ).build();
     }
 
     private Response buildCreateResponse(Iterable<? extends CatalogItem<?, ?>> catalogItems) {
