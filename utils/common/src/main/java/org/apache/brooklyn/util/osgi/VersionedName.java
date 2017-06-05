@@ -76,4 +76,11 @@ public class VersionedName {
         return Objects.equal(symbolicName, o.symbolicName) && Objects.equal(version, o.version);
     }
 
+    public static VersionedName fromString(String nameOptionalColonVersion) {
+        if (nameOptionalColonVersion==null) return null;
+        int colon = nameOptionalColonVersion.indexOf(':');
+        if (colon<0) throw new IllegalArgumentException("Versioned name '"+nameOptionalColonVersion+"' must be of form 'name:version'");
+        return new VersionedName(nameOptionalColonVersion.substring(0, colon), Version.parseVersion(nameOptionalColonVersion.substring(colon+1)));
+    }
+
 }
