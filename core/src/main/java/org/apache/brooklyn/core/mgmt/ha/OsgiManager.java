@@ -103,7 +103,7 @@ public class OsgiManager {
     private Set<Bundle> bundlesAtStartup;
     private File osgiCacheDir;
     Map<String, ManagedBundle> managedBundles = MutableMap.of();
-    Map<VersionedName, String> managedBundlesByNam = MutableMap.of();
+    Map<VersionedName, String> managedBundlesByName = MutableMap.of();
     Map<String, String> managedBundlesByUrl = MutableMap.of();
     
     private static AtomicInteger numberOfReusableFrameworksCreated = new AtomicInteger();
@@ -220,13 +220,13 @@ public class OsgiManager {
 
     public String getManagedBundleId(VersionedName vn) {
         synchronized (managedBundles) {
-            return managedBundlesByNam.get(vn);
+            return managedBundlesByName.get(vn);
         }
     }
     
     public ManagedBundle getManagedBundle(VersionedName vn) {
         synchronized (managedBundles) {
-            return managedBundles.get(managedBundlesByNam.get(vn));
+            return managedBundles.get(managedBundlesByName.get(vn));
         }
     }
 
@@ -282,7 +282,7 @@ public class OsgiManager {
             if (metadata==null) {
                 throw new IllegalStateException("No such bundle registered: "+bundleMetadata);
             }
-            managedBundlesByNam.remove(bundleMetadata.getVersionedName());
+            managedBundlesByName.remove(bundleMetadata.getVersionedName());
             managedBundlesByUrl.remove(bundleMetadata.getUrl());
         }
         mgmt.getRebindManager().getChangeListener().onUnmanaged(bundleMetadata);

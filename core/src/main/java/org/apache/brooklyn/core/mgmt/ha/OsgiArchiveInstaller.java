@@ -58,6 +58,10 @@ class OsgiArchiveInstaller {
 
     private static final Logger log = LoggerFactory.getLogger(OsgiArchiveInstaller.class);
     
+    // must be 1.0; see bottom of
+    // http://www.eclipse.org/virgo/documentation/virgo-documentation-3.7.0.M01/docs/virgo-user-guide/html/ch02s02.html
+    private static final String OSGI_MANIFEST_VERSION_VALUE = "1.0";
+
     final private OsgiManager osgiManager;
     private ManagedBundle suppliedKnownBundleMetadata;
     private InputStream zipIn;
@@ -161,11 +165,9 @@ class OsgiArchiveInstaller {
         }
         
         zipFile = Os.newTempFile("brooklyn-bundle-transient-"+suppliedKnownBundleMetadata, "zip");
-        try {
-            FileOutputStream fos = new FileOutputStream(zipFile);
+        try (FileOutputStream fos = new FileOutputStream(zipFile)) {
             Streams.copy(zipIn, fos);
             zipIn.close();
-            fos.close();
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         } finally {
@@ -228,7 +230,7 @@ class OsgiArchiveInstaller {
             throw new IllegalArgumentException("Missing bundle version in BOM or MANIFEST");
         }
         if (discoveredManifest.getMainAttributes().getValue(Attributes.Name.MANIFEST_VERSION)==null) {
-            discoveredManifest.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), "1.0");
+            discoveredManifest.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), OSGI_MANIFEST_VERSION_VALUE);
             manifestNeedsUpdating = true;                
         }
         if (manifestNeedsUpdating) {
@@ -333,7 +335,7 @@ class OsgiArchiveInstaller {
             if (!updating) { 
                 synchronized (osgiManager.managedBundles) {
                     osgiManager.managedBundles.put(result.getMetadata().getId(), result.getMetadata());
-                    osgiManager.managedBundlesByNam.put(result.getMetadata().getVersionedName(), result.getMetadata().getId());
+                    osgiManager.managedBundlesByName.put(result.getMetadata().getVersionedName(), result.getMetadata().getId());
                     if (Strings.isNonBlank(result.getMetadata().getUrl())) {
                         osgiManager.managedBundlesByUrl.put(result.getMetadata().getUrl(), result.getMetadata().getId());
                     }
@@ -346,6 +348,8 @@ class OsgiArchiveInstaller {
                 result.message = "Updated "+result.getMetadata().getVersionedName()+" as existing ID "+result.getMetadata().getId();
                 mgmt().getRebindManager().getChangeListener().onChanged(result.getMetadata());
             }
+            log.info(result.message);
+            
             // setting the above before the code below means if there is a problem starting or loading catalog items
             // a user has to remove then add again, or forcibly reinstall;
             // that seems fine and probably better than allowing bundles to start and catalog items to be installed 

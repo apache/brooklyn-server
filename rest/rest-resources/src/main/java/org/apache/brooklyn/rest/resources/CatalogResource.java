@@ -181,7 +181,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                     //RegisteredType ci = mgmt.getTypeRegistry().get(id);
                     
                     CatalogItem<?, ?> ci = CatalogUtils.getCatalogItemOptionalVersion(mgmt, id);
-                    CatalogTransformer.catalogItemSummary(brooklynU, ci, ui.getBaseUriBuilder());
+                    CatalogItemSummary summary = CatalogTransformer.catalogItemSummary(brooklynU, ci, ui.getBaseUriBuilder());
+                    result.types.put(id, summary);
                 }
             }
             return result;
