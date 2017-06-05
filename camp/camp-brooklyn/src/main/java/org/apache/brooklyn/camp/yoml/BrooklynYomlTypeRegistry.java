@@ -209,7 +209,7 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
                 // the create call will attach the loader of typeR
                 nextContext.loader(null);
                 
-                return Maybe.of(registry().create(typeR, nextContext.build(), null));
+                return Maybe.of((Object) registry().create(typeR, nextContext.build(), null));
                 
             } else {
                 // circular reference means load java, below

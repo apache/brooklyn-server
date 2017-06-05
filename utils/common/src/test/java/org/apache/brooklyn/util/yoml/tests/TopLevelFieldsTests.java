@@ -172,7 +172,7 @@ public class TopLevelFieldsTests {
     protected static YomlTestFixture extended0TopLevelFieldFixture(List<? extends YomlSerializer> extras) {
         return commonTopLevelFieldFixtureKeyNameAlias(", defaultValue: { type: string, value: bob }").
             addType("shape-with-size", "{ type: \"java:"+ShapeWithSize.class.getName()+"\", interfaceTypes: [ shape ] }", 
-                MutableList.copyOf(extras).append(topLevelFieldSerializer("{ fieldName: size, alias: shape-size }")) );
+                MutableList.<YomlSerializer>copyOf(extras).append(topLevelFieldSerializer("{ fieldName: size, alias: shape-size }")) );
     }
     
     protected static YomlTestFixture extended1TopLevelFieldFixture() {
