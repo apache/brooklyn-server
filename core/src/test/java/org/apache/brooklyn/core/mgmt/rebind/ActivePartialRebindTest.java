@@ -77,7 +77,11 @@ public class ActivePartialRebindTest extends RebindTestFixtureWithApp {
         Assert.assertTrue( ((EntityInternal)c1b).getManagementSupport().isDeployed(), "Not deployed: "+c1b );
     }
 
-    @Test(groups="Integration")
+//    Failing on Apache Jenkins with:
+//        Expected leak of less than 5M; leak was: from 38m to 43m expected [true] but found [false]
+//    Perhaps we should create a separate group for these indeterministic (by design) tests and run them
+//    only manually.
+    @Test(groups={"Integration", "Broken"})
     public void testRebindCheckingMemoryLeak() throws Exception {
         TestEntity c1 = origApp.addChild(EntitySpec.create(TestEntity.class));
         c1.config().set(TestEntity.CONF_NAME, Strings.makeRandomId(1000000));

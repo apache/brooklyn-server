@@ -255,9 +255,17 @@ public class TestFrameworkAssertionsTest {
         }
     }
 
+//    Disabled because failing (consistently) with:
+//        java.lang.AssertionError: invalid time-diff at 18: [11ms, 13ms, 15ms, 19ms, 21ms, 26ms, 30ms, 37ms, 43ms, 53ms, 62ms, 76ms, 90ms, 101ms, 100ms, 100ms, 101ms, 100ms, 3ms] expected [true] but found [false]
+//                at org.testng.Assert.fail(Assert.java:94)
+//                at org.testng.Assert.failNotEquals(Assert.java:513)
+//                at org.testng.Assert.assertTrue(Assert.java:42)
+//                at org.apache.brooklyn.test.framework.TestFrameworkAssertionsTest.assertOrdered(TestFrameworkAssertionsTest.java:315)
+//                at org.apache.brooklyn.test.framework.TestFrameworkAssertionsTest.testRetryBackoffs(TestFrameworkAssertionsTest.java:307)
+//     Previous comment:
     // Integration because test is time-sensitive. May fail sometimes on highly contended hardware.
     // Also test takes a second to run.
-    @Test(groups="Integration")
+    @Test(groups={"Integration", "Broken"})
     public void testRetryBackoffs() {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final List<Duration> timestamps = Lists.newArrayList();

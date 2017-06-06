@@ -202,7 +202,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     private static final int NOTES_MAX_LENGTH = 1000;
 
     @VisibleForTesting
-    static final String AWS_VPC_HELP_URL = "http://brooklyn.apache.org/v/latest/ops/locations/index.html#ec2-classic-problems-with-vpc-only-hardware-instance-types";
+    static final String AWS_VPC_HELP_URL = "http://brooklyn.apache.org/v/latest/locations/#ec2-classic-problems-with-vpc-only-hardware-instance-types";
 
     private final AtomicBoolean listedAvailableTemplatesOnNoSuchTemplate = new AtomicBoolean(false);
 
