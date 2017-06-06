@@ -24,6 +24,7 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.policy.Policy;
@@ -31,12 +32,15 @@ import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlRebindTest;
 import org.apache.brooklyn.core.effector.Effectors;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.StartableApplication;
+import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiVersionMoreEntityTest;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
@@ -52,6 +56,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -310,5 +315,50 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
             "HO ERIC FROM V2 EVIL TWIN");
     }
     
+    @Test
+    public void testClusterWithEntitySpecFromOsgi() throws Exception {
+        // install dependencies
+        ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
+            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_OSGI_ENTITIES_URL) ).checkNoError();
+        ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
+            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V2_URL) ).get();
+        
+        RegisteredType ci = Preconditions.checkNotNull( mgmt().getTypeRegistry().get(BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY) );
+        EntitySpec<DynamicCluster> clusterSpec = EntitySpec.create(DynamicCluster.class)
+            .configure(DynamicCluster.INITIAL_SIZE, 1)
+            .configure(DynamicCluster.MEMBER_SPEC, origManagementContext.getTypeRegistry().createSpec(ci, null, EntitySpec.class));
+        
+        final Entity app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class).child(clusterSpec));
+        app.invoke(Startable.START, MutableMap.of()).get();
+        
+        rebind();
+    }
+
+    @Test
+    public void testClusterWithEntitySpecDescendedFromOsgi() throws Exception {
+        // install dependencies
+        ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
+            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_OSGI_ENTITIES_URL) ).checkNoError();
+        ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
+            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V2_URL) ).get();
+        
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  id: wrapped-more-entity",
+            "  version: 1.0",
+            "  item:",
+            "    services:",
+            "    - type: " + BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
+        
+        RegisteredType ci = Preconditions.checkNotNull( mgmt().getTypeRegistry().get("wrapped-more-entity") );
+        EntitySpec<DynamicCluster> clusterSpec = EntitySpec.create(DynamicCluster.class)
+            .configure(DynamicCluster.INITIAL_SIZE, 1)
+            .configure(DynamicCluster.MEMBER_SPEC, origManagementContext.getTypeRegistry().createSpec(ci, null, EntitySpec.class));
+        
+        final Entity app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class).child(clusterSpec));
+        app.invoke(Startable.START, MutableMap.of()).get();
+        
+        rebind();
+    }
 
 }
