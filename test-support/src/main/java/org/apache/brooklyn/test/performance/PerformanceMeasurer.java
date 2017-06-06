@@ -86,6 +86,8 @@ public class PerformanceMeasurer {
         }
         warmupWatch.stop();
         
+        if (options.postWarmup != null) options.postWarmup.run();
+        
         // Run the actual test (for the given duration / iterations); then wait for completionLatch (if supplied).
         nextLogTime = (options.logInterval == null) ? Long.MAX_VALUE : options.logInterval.toMilliseconds();
         int counter = 0;

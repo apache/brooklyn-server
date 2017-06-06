@@ -60,6 +60,7 @@ public class PerformanceTestDescriptor {
     public Runnable job;
     public Runnable preJob;
     public Runnable postJob;
+    public Runnable postWarmup;
     public CountDownLatch completionLatch;
     public Duration completionLatchTimeout = Duration.FIVE_MINUTES;
     public Double minAcceptablePerSecond;
@@ -164,6 +165,14 @@ public class PerformanceTestDescriptor {
     public PerformanceTestDescriptor postJob(Runnable val) {
         if (sealed) throw new IllegalStateException("Should not modify after sealed (e.g. after use)");
         this.postJob = val; return this;
+    }
+    
+    /**
+     * To be run once, after the warmup.
+     */
+    public PerformanceTestDescriptor postWarmup(Runnable val) {
+        if (sealed) throw new IllegalStateException("Should not modify after sealed (e.g. after use)");
+        this.postWarmup = val; return this;
     }
     
     /**
