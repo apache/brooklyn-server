@@ -103,85 +103,86 @@ public class PerformanceMeasurer {
         if (numConcurrentJobs > 1) {
             executorService = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(numConcurrentJobs));
         }
+        
+        PerformanceTestResult result = null;
         try {
             long preCpuTime = PerformanceTestUtils.getProcessCpuTime();
             Stopwatch watch = Stopwatch.createStarted();
             
-            while ((options.duration != null) ? options.duration.isLongerThan(watch) : counter < options.iterations) {
-                if (watch.elapsed(TimeUnit.MILLISECONDS) >= nextLogTime) {
-                    LOG.info(options.summary+" iteration="+counter+" at "+Time.makeTimeStringRounded(watch));
-                    nextLogTime += options.logInterval.toMilliseconds();
-                }
-                
-                if (options.preJob != null) {
-                    watch.stop();
-                    options.preJob.run();
-                    watch.start();
-                }
-
-                long before = watch.elapsed(TimeUnit.NANOSECONDS);
-                if (numConcurrentJobs > 1) {
-                    runConcurrentAndBlock(executorService, options.job, numConcurrentJobs);
-                } else {
-                    options.job.run();
-                }
-                if (options.histogram) {
-                    histogram.add(watch.elapsed(TimeUnit.NANOSECONDS) - before, TimeUnit.NANOSECONDS);
-                }
-                counter++;
-                
-                if (options.postJob != null) {
-                    watch.stop();
-                    options.postJob.run();
-                    watch.start();
-                }
-            }
-            
-            if (options.completionLatch != null) {
-                try {
-                    boolean success = options.completionLatch.await(options.completionLatchTimeout.toMilliseconds(), TimeUnit.MILLISECONDS);
-                    if (!success) {
-                        fail("Timeout waiting for completionLatch: test="+options+"; counter="+counter);
+            try {
+                while ((options.duration != null) ? options.duration.isLongerThan(watch) : counter < options.iterations) {
+                    if (watch.elapsed(TimeUnit.MILLISECONDS) >= nextLogTime) {
+                        LOG.info(options.summary+" iteration="+counter+" at "+Time.makeTimeStringRounded(watch));
+                        nextLogTime += options.logInterval.toMilliseconds();
                     }
-                } catch (InterruptedException e) {
-                    throw Exceptions.propagate(e);
-                } 
-            }
-            watch.stop();
-            long postCpuTime = PerformanceTestUtils.getProcessCpuTime();
-
-            // Generate the results
-            PerformanceTestResult result = new PerformanceTestResult();
-            result.warmup = Duration.of(warmupWatch);
-            result.warmupIterations = warmupCounter;
-            result.duration = Duration.of(watch);
-            result.iterations = counter;
-            result.ratePerSecond = (((double)counter) / watch.elapsed(TimeUnit.MILLISECONDS)) * 1000;
-            result.cpuTotalFraction = (watch.elapsed(TimeUnit.NANOSECONDS) > 0 && preCpuTime >= 0) 
-                    ? ((double)postCpuTime-preCpuTime) / watch.elapsed(TimeUnit.NANOSECONDS) 
-                    : -1;
-            if (options.histogram) {
-                result.histogram = histogram;
-            }
-            if (options.sampleCpuInterval != null) {
-                result.cpuSampleFractions = cpuSampleFractions;
-            }
-            result.minAcceptablePerSecond = options.minAcceptablePerSecond;
-            
-            // Persist the results
-            if (options.persister != null) {
-                options.persister.persist(new Date(), options, result);
-            }
+                    
+                    if (options.preJob != null) {
+                        watch.stop();
+                        options.preJob.run();
+                        watch.start();
+                    }
     
-            // Fail if we didn't meet the minimum performance requirements
-            if (options.minAcceptablePerSecond != null && options.minAcceptablePerSecond > result.ratePerSecond) {
-                fail("Performance too low: test="+options+"; result="+result);
+                    long before = watch.elapsed(TimeUnit.NANOSECONDS);
+                    if (numConcurrentJobs > 1) {
+                        runConcurrentAndBlock(executorService, options.job, numConcurrentJobs);
+                    } else {
+                        options.job.run();
+                    }
+                    Duration iterationDuration = Duration.of(watch.elapsed(TimeUnit.NANOSECONDS) - before, TimeUnit.NANOSECONDS);
+                    
+                    if (options.histogram) {
+                        histogram.add(iterationDuration);
+                    }
+                    counter++;
+                    
+                    if (options.postJob != null) {
+                        watch.stop();
+                        options.postJob.run();
+                        watch.start();
+                    }
+                    
+                    if (options.abortIfIterationLongerThan != null && options.abortIfIterationLongerThan.isShorterThan(iterationDuration)) {
+                        fail("Iteration "+(counter-1)+" took "+iterationDuration+", which is longer than max permitted "+options.abortIfIterationLongerThan+" for "+options);
+                    }
+                }
+                
+                if (options.completionLatch != null) {
+                    try {
+                        boolean success = options.completionLatch.await(options.completionLatchTimeout.toMilliseconds(), TimeUnit.MILLISECONDS);
+                        if (!success) {
+                            fail("Timeout waiting for completionLatch: test="+options+"; counter="+counter);
+                        }
+                    } catch (InterruptedException e) {
+                        throw Exceptions.propagate(e);
+                    } 
+                }
+            } finally {
+                watch.stop();
+                long postCpuTime = PerformanceTestUtils.getProcessCpuTime();
+    
+                // Generate the results
+                result = new PerformanceTestResult();
+                result.warmup = Duration.of(warmupWatch);
+                result.warmupIterations = warmupCounter;
+                result.duration = Duration.of(watch);
+                result.iterations = counter;
+                result.ratePerSecond = (((double)counter) / watch.elapsed(TimeUnit.MILLISECONDS)) * 1000;
+                result.cpuTotalFraction = (watch.elapsed(TimeUnit.NANOSECONDS) > 0 && preCpuTime >= 0) 
+                        ? ((double)postCpuTime-preCpuTime) / watch.elapsed(TimeUnit.NANOSECONDS) 
+                        : -1;
+                if (options.histogram) {
+                    result.histogram = histogram;
+                }
+                if (options.sampleCpuInterval != null) {
+                    result.cpuSampleFractions = cpuSampleFractions;
+                }
+                result.minAcceptablePerSecond = options.minAcceptablePerSecond;
             }
             
-            return result;
-
-        } catch (InterruptedException | ExecutionException e) {
-            throw Exceptions.propagate(e);
+        } catch (Throwable t) {
+            LOG.warn("Test failed; partial results before failure: test="+options+"; result="+result);
+            throw Exceptions.propagate(t);
+            
         } finally {
             if (executorService != null) {
                 executorService.shutdownNow();
@@ -190,6 +191,18 @@ public class PerformanceMeasurer {
                 sampleCpuFuture.cancel(true);
             }
         }
+        
+        // Persist the results
+        if (options.persister != null) {
+            options.persister.persist(new Date(), options, result);
+        }
+
+        // Fail if we didn't meet the minimum performance requirements
+        if (options.minAcceptablePerSecond != null && options.minAcceptablePerSecond > result.ratePerSecond) {
+            fail("Performance too low: test="+options+"; result="+result);
+        }
+        
+        return result;
     }
     
     protected static void runConcurrentAndBlock(ListeningExecutorService executor, Runnable job, int numConcurrentJobs) throws InterruptedException, ExecutionException {

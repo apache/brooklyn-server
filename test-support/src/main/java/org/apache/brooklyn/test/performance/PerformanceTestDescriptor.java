@@ -18,11 +18,10 @@
  */
 package org.apache.brooklyn.test.performance;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
-
-import static com.google.common.base.Preconditions.checkArgument;
 
 import java.io.File;
 import java.util.concurrent.Callable;
@@ -33,7 +32,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.apache.commons.io.FileUtils;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 /**
  * For building up a description of what to measure.
@@ -57,6 +56,7 @@ public class PerformanceTestDescriptor {
     public Duration duration;
     public Integer iterations;
     public int numConcurrentJobs = 1;
+    public Duration abortIfIterationLongerThan;
     public Runnable job;
     public Runnable preJob;
     public Runnable postJob;
@@ -129,6 +129,11 @@ public class PerformanceTestDescriptor {
         this.numConcurrentJobs = val; return this;
     }
 
+    public PerformanceTestDescriptor abortIfIterationLongerThan(Duration val) {
+        if (sealed) throw new IllegalStateException("Should not modify after sealed (e.g. after use)");
+        this.abortIfIterationLongerThan = val; return this;
+    }
+    
     /**
      * The job to be repeatedly executed.
      */
@@ -249,7 +254,7 @@ public class PerformanceTestDescriptor {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .omitNullValues()
                 .add("summary", summary)
                 .add("duration", duration)
@@ -259,6 +264,8 @@ public class PerformanceTestDescriptor {
                 .add("job", job)
                 .add("completionLatch", completionLatch)
                 .add("minAcceptablePerSecond", minAcceptablePerSecond)
+                .add("abortIfIterationLongerThan", abortIfIterationLongerThan)
+                .add("numConcurrentJobs", numConcurrentJobs)
                 .toString();
     }
 }
