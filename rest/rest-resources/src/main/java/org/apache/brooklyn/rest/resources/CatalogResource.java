@@ -171,7 +171,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         public static BundleInstallationRestResult of(OsgiBundleInstallationResult in, ManagementContext mgmt, BrooklynRestResourceUtils brooklynU, UriInfo ui) {
             BundleInstallationRestResult result = new BundleInstallationRestResult();
             result.message = in.getMessage();
-            result.bundle = in.getMetadata().getVersionedName().toString();
+            result.bundle = in.getVersionedName() != null ? in.getVersionedName().toString() : "";
             result.code = in.getCode();
             if (in.getCatalogItemsInstalled()!=null) {
                 result.types = MutableMap.of();
