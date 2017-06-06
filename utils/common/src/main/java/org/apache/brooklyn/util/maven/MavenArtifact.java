@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.text.VersionComparator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,7 +101,7 @@ public class MavenArtifact {
     }
 
     public boolean isSnapshot() {
-        return getVersion().toUpperCase().contains("SNAPSHOT");
+        return VersionComparator.isSnapshot(getVersion());
     }
     
     /** @see #customFileNameAfterArtifactMarker */

@@ -19,8 +19,6 @@
 package org.apache.brooklyn.core.mgmt.ha;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.Arrays;
@@ -33,11 +31,14 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynVersion;
@@ -46,7 +47,6 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.mgmt.persist.OsgiClassPrefixer;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
-import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -54,12 +54,13 @@ import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.core.osgi.Osgis.BundleFinder;
 import org.apache.brooklyn.util.core.osgi.SystemFrameworkLoader;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.os.Os.DeletionResult;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.repeat.Repeater;
-import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.osgi.framework.Bundle;
@@ -73,6 +74,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -93,17 +95,57 @@ public class OsgiManager {
     
     /* see `Osgis` class for info on starting framework etc */
     
-    protected final ManagementContext mgmt;
-    protected final OsgiClassPrefixer osgiClassPrefixer;
-    protected Framework framework;
-    protected boolean reuseFramework;
-    private Set<Bundle> bundlesAtStartup;
-    protected File osgiCacheDir;
-    protected Map<String, ManagedBundle> managedBundles = MutableMap.of();
-    protected AtomicInteger numberOfReusableFrameworksCreated = new AtomicInteger();
-
+    final ManagementContext mgmt;
+    final OsgiClassPrefixer osgiClassPrefixer;
+    Framework framework;
     
-    protected static final List<Framework> OSGI_FRAMEWORK_CONTAINERS_FOR_REUSE = MutableList.of();
+    private boolean reuseFramework;
+    private Set<Bundle> bundlesAtStartup;
+    private File osgiCacheDir;
+    final ManagedBundlesRecord managedBundlesRecord = new ManagedBundlesRecord();
+    
+    static class ManagedBundlesRecord {
+        private Map<String, ManagedBundle> managedBundles = MutableMap.of();
+        private Map<VersionedName, String> managedBundlesByName = MutableMap.of();
+        private Map<String, String> managedBundlesByUrl = MutableMap.of();
+        
+        synchronized Map<String, ManagedBundle> getManagedBundles() {
+            return ImmutableMap.copyOf(managedBundles);
+        }
+
+        synchronized String getManagedBundleId(VersionedName vn) {
+            return managedBundlesByName.get(vn);
+        }
+
+        synchronized ManagedBundle getManagedBundle(VersionedName vn) {
+            return managedBundles.get(managedBundlesByName.get(vn));
+        }
+        
+        synchronized String getManagedBundleIdFromUrl(String url) {
+            return managedBundlesByUrl.get(url);
+        }
+        
+        synchronized ManagedBundle getManagedBundleFromUrl(String url) {
+            String id = getManagedBundleIdFromUrl(url);
+            if (id==null) return null;
+            return managedBundles.get(id);
+        }
+
+        synchronized void setManagedBundleUrl(String url, String id) {
+            managedBundlesByUrl.put(url, id);    
+        }
+        
+        synchronized void addManagedBundle(OsgiBundleInstallationResult result) {
+            managedBundles.put(result.getMetadata().getId(), result.getMetadata());
+            managedBundlesByName.put(result.getMetadata().getVersionedName(), result.getMetadata().getId());
+            if (Strings.isNonBlank(result.getMetadata().getUrl())) {
+                managedBundlesByUrl.put(result.getMetadata().getUrl(), result.getMetadata().getId());
+            }
+        }
+    }
+    
+    private static AtomicInteger numberOfReusableFrameworksCreated = new AtomicInteger();
+    private static final List<Framework> OSGI_FRAMEWORK_CONTAINERS_FOR_REUSE = MutableList.of();
     
     public OsgiManager(ManagementContext mgmt) {
         this.mgmt = mgmt;
@@ -209,54 +251,104 @@ public class OsgiManager {
     }
 
     public Map<String, ManagedBundle> getManagedBundles() {
-        return ImmutableMap.copyOf(managedBundles);
+        return managedBundlesRecord.getManagedBundles();
+    }
+
+    public String getManagedBundleId(VersionedName vn) {
+        return managedBundlesRecord.getManagedBundleId(vn);
     }
     
-    public Bundle installUploadedBundle(ManagedBundle bundleMetadata, InputStream zipIn, boolean loadCatalogBom) {
+    public ManagedBundle getManagedBundle(VersionedName vn) {
+        return managedBundlesRecord.getManagedBundle(vn);
+    }
+
+    /** For bundles which are installed by a URL, see whether a bundle has been installed from that URL */
+    public ManagedBundle getManagedBundleFromUrl(String url) {
+        return managedBundlesRecord.getManagedBundleFromUrl(url);
+    }
+    
+    /** See {@link OsgiArchiveInstaller#install()}, using default values */
+    public ReferenceWithError<OsgiBundleInstallationResult> install(InputStream zipIn) {
+        return new OsgiArchiveInstaller(this, null, zipIn).install();
+    }
+
+    /** See {@link OsgiArchiveInstaller#install()}, but deferring the start and catalog load */
+    public ReferenceWithError<OsgiBundleInstallationResult> installDeferredStart(@Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream zipIn) {
+        OsgiArchiveInstaller installer = new OsgiArchiveInstaller(this, knownBundleMetadata, zipIn);
+        installer.setDeferredStart(true);
+        
+        return installer.install();
+    }
+    
+    /** See {@link OsgiArchiveInstaller#install()} - this exposes custom options */
+    @Beta
+    public ReferenceWithError<OsgiBundleInstallationResult> install(@Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream zipIn,
+            boolean start, boolean loadCatalogBom, boolean forceUpdateOfNonSnapshots) {
+        
+        OsgiArchiveInstaller installer = new OsgiArchiveInstaller(this, knownBundleMetadata, zipIn);
+        installer.setStart(start);
+        installer.setLoadCatalogBom(loadCatalogBom);
+        installer.setForce(forceUpdateOfNonSnapshots);
+        
+        return installer.install();
+    }
+    
+    /**
+     * Removes this bundle from Brooklyn management, 
+     * removes all catalog items it defined,
+     * and then uninstalls the bundle from OSGi.
+     * <p>
+     * No checking is done whether anything is using the bundle;
+     * behaviour of such things is not guaranteed. They will work for many things
+     * but attempts to load new classes may fail.
+     * <p>
+     * Callers should typically fail if anything from this bundle is in use.
+     */
+    public void uninstallUploadedBundle(ManagedBundle bundleMetadata) {
+        synchronized (managedBundlesRecord) {
+            ManagedBundle metadata = managedBundlesRecord.managedBundles.remove(bundleMetadata.getId());
+            if (metadata==null) {
+                throw new IllegalStateException("No such bundle registered: "+bundleMetadata);
+            }
+            managedBundlesRecord.managedBundlesByName.remove(bundleMetadata.getVersionedName());
+            managedBundlesRecord.managedBundlesByUrl.remove(bundleMetadata.getUrl());
+        }
+        mgmt.getRebindManager().getChangeListener().onUnmanaged(bundleMetadata);
+
+        uninstallCatalogItemsFromBundle( bundleMetadata.getVersionedName() );
+        
+        Bundle bundle = framework.getBundleContext().getBundle(bundleMetadata.getOsgiUniqueUrl());
+        if (bundle==null) {
+            throw new IllegalStateException("No such bundle installed: "+bundleMetadata);
+        }
         try {
-            Bundle alreadyBundle = checkBundleInstalledThrowIfInconsistent(bundleMetadata, false);
-            if (alreadyBundle!=null) {
-                return alreadyBundle;
-            }
-
-            File zipF = Os.newTempFile("brooklyn-bundle-transient-"+bundleMetadata, "zip");
-            FileOutputStream fos = new FileOutputStream(zipF);
-            Streams.copy(zipIn, fos);
-            zipIn.close();
-            fos.close();
-            
-            Bundle bundleInstalled = framework.getBundleContext().installBundle(bundleMetadata.getOsgiUniqueUrl(), 
-                new FileInputStream(zipF));
-            checkCorrectlyInstalled(bundleMetadata, bundleInstalled);
-            if (!bundleMetadata.isNameResolved()) {
-                ((BasicManagedBundle)bundleMetadata).setSymbolicName(bundleInstalled.getSymbolicName());
-                ((BasicManagedBundle)bundleMetadata).setVersion(bundleInstalled.getVersion().toString());
-            }
-            ((BasicManagedBundle)bundleMetadata).setTempLocalFileWhenJustUploaded(zipF);
-            
-            synchronized (managedBundles) {
-                managedBundles.put(bundleMetadata.getId(), bundleMetadata);
-            }
-            mgmt.getRebindManager().getChangeListener().onChanged(bundleMetadata);
-            
-            // starting here  flags wiring issues earlier
-            // but may break some things running from the IDE
-            bundleInstalled.start();
-
-            if (loadCatalogBom) {
-                loadCatalogBom(bundleInstalled);
-            }
-            
-            return bundleInstalled;
-        } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
-            throw new IllegalStateException("Bundle "+bundleMetadata+" failed to install: " + Exceptions.collapseText(e), e);
+            bundle.stop();
+            bundle.uninstall();
+        } catch (BundleException e) {
+            throw Exceptions.propagate(e);
         }
     }
+
+    @Beta
+    public void uninstallCatalogItemsFromBundle(VersionedName bundle) {
+        List<RegisteredType> thingsFromHere = ImmutableList.copyOf(getTypesFromBundle( bundle ));
+        for (RegisteredType t: thingsFromHere) {
+            mgmt.getCatalog().deleteCatalogItem(t.getSymbolicName(), t.getVersion());
+        }
+    }
+
+    protected Iterable<RegisteredType> getTypesFromBundle(final VersionedName vn) {
+        final String bundleId = vn.toString();
+        return mgmt.getTypeRegistry().getMatching(new Predicate<RegisteredType>() {
+            @Override
+            public boolean apply(RegisteredType input) {
+                return bundleId.equals(input.getContainingBundle());
+            }
+        });
+    }
     
-    // TODO uninstall bundle, and call change listener onRemoved ?
-    // TODO on snapshot install, uninstall old equivalent snapshots (items in use might stay in use though?)
-    
+    /** @deprecated since 0.12.0 use {@link #install(ManagedBundle, InputStream, boolean, boolean)} */
+    @Deprecated
     public synchronized Bundle registerBundle(CatalogBundle bundleMetadata) {
         try {
             Bundle alreadyBundle = checkBundleInstalledThrowIfInconsistent(bundleMetadata, true);
@@ -280,12 +372,11 @@ public class OsgiManager {
     // possibly remove that other capability, so that bundles with BOMs _have_ to be installed via this method.
     // (load order gets confusing with auto-scanning...)
     public List<? extends CatalogItem<?,?>> loadCatalogBom(Bundle bundle) {
-        List<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
-        loadCatalogBom(mgmt, bundle, catalogItems);
-        return catalogItems;
+        return MutableList.copyOf(loadCatalogBom(mgmt, bundle));
     }
     
-    private static Iterable<? extends CatalogItem<?, ?>> loadCatalogBom(ManagementContext mgmt, Bundle bundle, Iterable<? extends CatalogItem<?, ?>> catalogItems) {
+    private static Iterable<? extends CatalogItem<?, ?>> loadCatalogBom(ManagementContext mgmt, Bundle bundle) {
+        Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
         if (!BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM)) {
             // if the above feature is not enabled, let's do it manually (as a contract of this method)
             try {
@@ -296,18 +387,21 @@ public class OsgiManager {
 
                 catalogItems = new CatalogBundleLoader(applicationsPermitted, mgmt).scanForCatalog(bundle);
             } catch (RuntimeException ex) {
-                try {
-                    bundle.uninstall();
-                } catch (BundleException e) {
-                    log.error("Cannot uninstall bundle " + bundle.getSymbolicName() + ":" + bundle.getVersion(), e);
-                }
+                // TODO confirm -- as of May 2017 we no longer uninstall the bundle if install of catalog items fails;
+                // caller needs to upgrade, or uninstall then reinstall
+                // (this uninstall wouldn't have unmanaged it in brooklyn in any case)
+//                try {
+//                    bundle.uninstall();
+//                } catch (BundleException e) {
+//                    log.error("Cannot uninstall bundle " + bundle.getSymbolicName() + ":" + bundle.getVersion()+" (after error installing catalog items)", e);
+//                }
                 throw new IllegalArgumentException("Error installing catalog items", ex);
             }
         }
         return catalogItems;
     }
     
-    private void checkCorrectlyInstalled(OsgiBundleWithUrl bundle, Bundle b) {
+    void checkCorrectlyInstalled(OsgiBundleWithUrl bundle, Bundle b) {
         String nv = b.getSymbolicName()+":"+b.getVersion().toString();
 
         if (!isBundleNameEqualOrAbsent(bundle, b)) {
@@ -427,21 +521,39 @@ public class OsgiManager {
     }
 
     public Maybe<Bundle> findBundle(OsgiBundleWithUrl catalogBundle) {
-        //Either fail at install time when the user supplied name:version is different
-        //from the one reported from the bundle
-        //or
-        //Ignore user supplied name:version when URL is supplied to be able to find the
-        //bundle even if it's with a different version.
-        //
-        //For now we just log a warning if there's a version discrepancy at install time,
-        //so prefer URL if supplied.
-        BundleFinder bundleFinder = Osgis.bundleFinder(framework);
+        // Prefer OSGi Location as URL or the managed bundle recorded URL,
+        // not bothering to check name:version if supplied here (eg to forgive snapshot version discrepancies);
+        // but fall back to name/version if URL is not known.
+        // Version checking may be stricter at install time.
+        Maybe<Bundle> result = null;
         if (catalogBundle.getUrl() != null) {
+            BundleFinder bundleFinder = Osgis.bundleFinder(framework);
             bundleFinder.requiringFromUrl(catalogBundle.getUrl());
-        } else {
-            bundleFinder.symbolicName(catalogBundle.getSymbolicName()).version(catalogBundle.getVersion());
+            result = bundleFinder.find();
+            if (result.isPresent()) {
+                return result;
+            }
+            
+            ManagedBundle mb = getManagedBundleFromUrl(catalogBundle.getUrl());
+            if (mb!=null) {
+                bundleFinder.requiringFromUrl(null);
+                bundleFinder.symbolicName(mb.getSymbolicName()).version(mb.getVersion());
+                result = bundleFinder.find();
+                if (result.isPresent()) {
+                    return result;
+                }
+            }
         }
-        return bundleFinder.find();
+
+        if (catalogBundle.getSymbolicName()!=null) {
+            BundleFinder bundleFinder = Osgis.bundleFinder(framework);
+            bundleFinder.symbolicName(catalogBundle.getSymbolicName()).version(catalogBundle.getVersion());
+            return bundleFinder.find();
+        }
+        if (result!=null) {
+            return result;
+        }
+        return Maybe.absent("Insufficient information in "+catalogBundle+" to find bundle");
     }
 
     /**
@@ -484,5 +596,4 @@ public class OsgiManager {
     public Framework getFramework() {
         return framework;
     }
-
 }

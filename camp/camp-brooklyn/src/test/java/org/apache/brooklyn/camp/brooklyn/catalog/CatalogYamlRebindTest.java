@@ -175,6 +175,10 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
                         for (BrooklynObjectType type : BrooklynObjectType.values()) {
                             final List<String> contents = objectStore.listContentsWithSubPath(type.getSubPathName());
                             for (String path : contents) {
+                                if (path.endsWith(".jar")) {
+                                    // don't apply transformers to JARs
+                                    continue;
+                                }
                                 StoreObjectAccessor accessor = objectStore.newAccessor(path);
                                 String memento = checkNotNull(accessor.get(), path);
                                 String replacement = transformed.getObjectsOfType(type).get(idFromPath(type, path));

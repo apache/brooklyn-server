@@ -39,6 +39,7 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
@@ -224,9 +225,9 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
                 "    version: " + nonExistentVersion,
                 "  item:",
                 "    type: " + SIMPLE_ENTITY_TYPE);
-            fail();
+            Asserts.shouldHaveFailedPreviously();
         } catch (IllegalStateException e) {
-            Assert.assertEquals(e.getMessage(), "Bundle from null failed to install: Bundle CatalogBundleDto{symbolicName=" + nonExistentId + ", version=" + nonExistentVersion + ", url=null} not previously registered, but URL is empty.");
+            Asserts.expectedFailureContainsIgnoreCase(e, nonExistentId, nonExistentVersion, "no input stream", "no URL");
         }
     }
 
@@ -305,13 +306,11 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
                 "",
                 "  item:",
                 "    type: " + SIMPLE_ENTITY_TYPE);
-            fail();
+            Asserts.shouldHaveFailedPreviously();
         } catch (IllegalStateException e) {
-            assertEquals(e.getMessage(), "Bundle from " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL + " failed to install: " +
-                    "Bundle already installed as " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_NAME + ":" +
-                    OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_VERSION + " but user explicitly requested " +
-                    "CatalogBundleDto{symbolicName=" + nonExistentId + ", version=" + nonExistentVersion + ", url=" +
-                    OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL + "}");
+            Asserts.expectedFailureContainsIgnoreCase(e, nonExistentId, nonExistentVersion,
+                "symbolic name mismatch", OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_NAME,
+                OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL);
         }
     }
 

@@ -17,6 +17,10 @@ package org.apache.brooklyn.util.core.osgi;
 
 import java.io.File;
 import java.io.IOException;
+
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.commons.io.FileUtils;
 import org.osgi.framework.BundleException;
@@ -50,6 +54,20 @@ public class OsgiTestBase {
         if (storageTempDir != null) {
             FileUtils.deleteDirectory(storageTempDir);
             storageTempDir = null;
+        }
+    }
+
+    public static void preinstallLibrariesLowLevelToPreventCatalogBomParsing(ManagementContext mgmt, String ...libraries) {
+        // catalog BOM CAMP syntax not available in core; need to pre-install
+        // to prevent Brooklyn from installing BOMs in those libraries
+        for (String lib: libraries) {
+            // install libs manually to prevent catalog BOM loading
+            // (could do OsgiManager.installDeferredStart also, then just ignore the start)
+            try {
+                Osgis.install(((ManagementContextInternal)mgmt).getOsgiManager().get().getFramework(), lib);
+            } catch (BundleException e) {
+                throw Exceptions.propagate(e);
+            }
         }
     }
 

@@ -39,6 +39,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.CatalogClasspathDo.CatalogScanningModes;
 import org.apache.brooklyn.core.location.BasicLocationRegistry;
@@ -425,17 +426,25 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return getFirstAsMap(itemDef, "brooklyn.catalog").orNull();        
     }
     
+    /** @deprecated since 0.12.0 - use {@link #getVersionedName(Map, boolean)} */
+    @Deprecated
     public static VersionedName getVersionedName(Map<?,?> catalogMetadata) {
+        return getVersionedName(catalogMetadata, true);
+    }
+    
+    public static VersionedName getVersionedName(Map<?,?> catalogMetadata, boolean required) {
         String version = getFirstAs(catalogMetadata, String.class, "version").orNull();
         String bundle = getFirstAs(catalogMetadata, String.class, "bundle").orNull();
         if (Strings.isBlank(bundle) && Strings.isBlank(version)) {
+            if (!required) return null;
             throw new IllegalStateException("Catalog BOM must define bundle and version");
         }
         if (Strings.isBlank(bundle)) {
+            if (!required) return null;
             throw new IllegalStateException("Catalog BOM must define bundle");
         }
         if (Strings.isBlank(version)) {
-            throw new IllegalStateException("Catalog BOM must define version");
+            throw new IllegalStateException("Catalog BOM must define version if bundle is defined");
         }
         return new VersionedName(bundle, Version.valueOf(version));
     }
@@ -574,7 +583,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
         PlanInterpreterGuessingType planInterpreter = new PlanInterpreterGuessingType(null, item, sourceYaml, itemType, libraryBundles, result).reconstruct();
         if (!planInterpreter.isResolved()) {
-            throw Exceptions.create("Could not resolve item"
+            throw Exceptions.create("Could not resolve definition of item"
                 + (Strings.isNonBlank(id) ? " '"+id+"'" : Strings.isNonBlank(symbolicName) ? " '"+symbolicName+"'" : Strings.isNonBlank(name) ? " '"+name+"'" : "")
                 // better not to show yaml, takes up lots of space, and with multiple plan transformers there might be multiple errors; 
                 // some of the errors themselves may reproduce it
@@ -982,7 +991,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
     @Override
     public List<? extends CatalogItem<?,?>> addItems(String yaml) {
-        return addItems(yaml, false);
+        return addItems(yaml, null);
+    }
+    
+    @Override
+    public List<? extends CatalogItem<?, ?>> addItems(String yaml, ManagedBundle bundle) {
+        return addItems(yaml, bundle, false);
     }
 
     @Override
@@ -992,12 +1006,19 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     
     @Override
     public List<? extends CatalogItem<?,?>> addItems(String yaml, boolean forceUpdate) {
+        return addItems(yaml, null, forceUpdate);
+    }
+    
+    private List<? extends CatalogItem<?,?>> addItems(String yaml, ManagedBundle bundle, boolean forceUpdate) {
         log.debug("Adding manual catalog item to "+mgmt+": "+yaml);
         checkNotNull(yaml, "yaml");
         List<CatalogItemDtoAbstract<?, ?>> result = collectCatalogItems(yaml);
 
         // do this at the end for atomic updates; if there are intra-yaml references, we handle them specially
         for (CatalogItemDtoAbstract<?, ?> item: result) {
+            if (bundle!=null && bundle.getVersionedName()!=null) {
+                item.setContainingBundle(bundle.getVersionedName());
+            }
             addItemDto(item, forceUpdate);
         }
         return result;

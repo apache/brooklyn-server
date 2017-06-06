@@ -38,6 +38,7 @@ brooklyn.catalog:
     - id: org.apache.brooklyn.test.osgi.entities.more.MoreTemplate
       itemType: template
       item:
-        type: org.apache.brooklyn.test.osgi.entities.more.MoreTemplate
-        name: More Template
-        description: Cataliog item OSGi test template
+        services:
+        - type: org.apache.brooklyn.test.osgi.entities.more.MoreTemplate
+          name: More Template
+          description: Catalog item OSGi test template

@@ -33,10 +33,11 @@ import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynEntityMatcher;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiVersionMoreEntityTest;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
-import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.Asserts;
@@ -44,7 +45,6 @@ import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.text.Strings;
-import org.osgi.framework.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -69,19 +69,19 @@ public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest implement
 
     @Test
     public void testBrooklynManagedBundleInstall() throws Exception {
-        BasicManagedBundle mb = new BasicManagedBundle();
-        Bundle b = ((ManagementContextInternal)mgmt()).getOsgiManager().get().installUploadedBundle(mb, 
-            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V1_URL), true);
-        Assert.assertEquals(mb.getSymbolicName(), b.getSymbolicName());
+        OsgiBundleInstallationResult br = ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
+            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V1_URL) ).get();
+        Assert.assertEquals(br.getVersionedName().toString(), BROOKLYN_TEST_MORE_ENTITIES_SYMBOLIC_NAME_FULL+":"+"0.1.0");
         
         // bundle installed
         Map<String, ManagedBundle> bundles = ((ManagementContextInternal)mgmt()).getOsgiManager().get().getManagedBundles();
         Asserts.assertSize(bundles.keySet(), 1);
-        Assert.assertEquals(mb.getId(), Iterables.getOnlyElement( bundles.keySet() ));
+        Assert.assertEquals(br.getMetadata().getId(), Iterables.getOnlyElement( bundles.keySet() ));
         
         // types installed
         RegisteredType t = mgmt().getTypeRegistry().get(BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
         Assert.assertNotNull(t);
+        Assert.assertEquals(t.getContainingBundle(), br.getVersionedName().toString());
         
         // can deploy
         createAndStartApplication("services: [ { type: "+BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY+" } ]");
@@ -181,7 +181,8 @@ public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest implement
         OsgiVersionMoreEntityTest.assertV2MethodCall(moreEntity);
     }
 
-    @Test
+    @Test(groups="Broken")  // won't work until search path is based on bundles instead of registered types
+    // (though it would work if we set versions properly in the OSGi bundles, but brooklyn types there all declare brooklyn version)
     public void testMoreEntityBothV1AndV2() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), "/brooklyn/osgi/brooklyn-test-osgi-more-entities_0.1.0.jar");
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), "/brooklyn/osgi/brooklyn-test-osgi-more-entities_0.2.0.jar");

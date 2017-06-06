@@ -21,7 +21,11 @@ package org.apache.brooklyn.api.catalog;
 import java.util.Collection;
 import java.util.NoSuchElementException;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 
@@ -111,12 +115,17 @@ public interface BrooklynCatalog {
     CatalogItem<?,?> addItem(String yaml, boolean forceUpdate);
     
     /**
-     * Adds items (represented in yaml) to the catalog.
-     * Fails if the same version exists in catalog.
+     * As {@link #addItemsFromBundle(String, ManagedBundle)} with a null bundle.
+     */
+    Iterable<? extends CatalogItem<?,?>> addItems(String yaml);
+    
+    /**
+     * Adds items (represented in yaml) to the catalog coming from the indicated managed bundle.
+     * Fails if the same version exists in catalog (unless snapshot).
      *
      * @throws IllegalArgumentException if the yaml was invalid
      */
-    Iterable<? extends CatalogItem<?,?>> addItems(String yaml);
+    Iterable<? extends CatalogItem<?,?>> addItems(String yaml, @Nullable ManagedBundle definingBundle);
     
     /**
      * Adds items (represented in yaml) to the catalog.
