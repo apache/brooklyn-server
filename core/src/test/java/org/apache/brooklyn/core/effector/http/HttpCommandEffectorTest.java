@@ -261,12 +261,15 @@ public class HttpCommandEffectorTest extends BrooklynAppUnitTestSupport {
       );
       assertNotNull(httpCommandEffector);
       TestEntity testEntity = app.createAndManageChild(buildEntitySpec(httpCommandEffector));
-      Object output = testEntity.invoke(EFFECTOR_HTTP_COMMAND, ImmutableMap.of()).getUnchecked(Duration.seconds(1));
+      Object output = testEntity.invoke(EFFECTOR_HTTP_COMMAND, ImmutableMap.of()).getUnchecked(Duration.seconds(5));
       assertEquals(output, "{\"key\", \"%3Cimg%3E\"}");
       
       assertEquals(server.getRequestCount(), 1);
-      assertSent(server, "POST", "/post");
-   }
+      RecordedRequest recordedRequest = assertSent(server, "POST", "/post");
+      assertEquals("POST", recordedRequest.getMethod());
+      assertEquals("key=%3Cimg%3E", recordedRequest.getUtf8Body());
+      assertEquals("13", recordedRequest.getHeader("Content-Length"));
+      assertEquals(HttpCommandEffector.APPLICATION_X_WWW_FORM_URLENCODE, recordedRequest.getHeader("Content-Type"));   }
    
    @Test
    public void testHappyPath() throws InterruptedException {

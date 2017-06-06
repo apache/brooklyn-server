@@ -42,6 +42,7 @@ import org.apache.brooklyn.core.effector.AddEffector;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.Effectors.EffectorBuilder;
 import org.apache.brooklyn.core.entity.EntityInitializers;
+import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -75,7 +76,6 @@ import com.jayway.jsonpath.JsonPath;
  * In the latter case, a map payload will be URLEncoded in a single string
  * 
  * With optional JSON_PATH config key, the effector will extract a section of the json response. 
- * Notice if both JSON_PATH and JSON_PATHS_AND_SENSORS are both defined, JSON_PATH will take precedence. 
  * 
  * Using JSON_PATHS_AND_SENSORS, it is possible to extract one or more values from a json response, and publish them in sensors
  */
@@ -91,9 +91,13 @@ public final class HttpCommandEffector extends AddEffector {
     public static final ConfigKey<Map<String, String>> EFFECTOR_HTTP_HEADERS = new MapConfigKey(String.class, "headers");
     public static final ConfigKey<Object> EFFECTOR_HTTP_PAYLOAD = ConfigKeys.newConfigKey(Object.class, "httpPayload");
     public static final ConfigKey<String> JSON_PATH = ConfigKeys.newStringConfigKey("jsonPath", "JSON path to select in HTTP response");
-    @Deprecated 
+    public static final ConfigKey<Map<String, String>> JSON_PATHS_AND_SENSORS = new MapConfigKey(String.class, "jsonPathAndSensors", "json path selector and corresponding sensor name that will publish the json path extracted value");
+
+    /**
+     * @deprecated since 0.12.0
+     */
+    @Deprecated
     public static final ConfigKey<String> PUBLISH_SENSOR = ConfigKeys.newStringConfigKey("publishSensor", "Sensor name where to store json path extracted value");
-    public static final ConfigKey<Map<String, String>> JSON_PATHS_AND_SENSORS = new MapConfigKey(String.class, "jsonPathAndSensors", "json path selector and correspondant sensor name that will publish the json path extracted value");
 
     public static final String APPLICATION_JSON = "application/json";
     public static final String APPLICATION_X_WWW_FORM_URLENCODE = "application/x-www-form-urlencoded";
