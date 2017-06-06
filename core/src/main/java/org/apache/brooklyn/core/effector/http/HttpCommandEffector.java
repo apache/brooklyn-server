@@ -53,6 +53,7 @@ import org.apache.brooklyn.util.http.executor.HttpRequest;
 import org.apache.brooklyn.util.http.executor.HttpResponse;
 import org.apache.brooklyn.util.http.executor.UsernamePassword;
 import org.apache.brooklyn.util.http.executor.apacheclient.HttpExecutorImpl;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,6 +61,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Enums;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Throwables;
 import com.google.common.io.ByteStreams;
 import com.google.common.net.HttpHeaders;
 import com.jayway.jsonpath.JsonPath;
@@ -72,7 +74,8 @@ import com.jayway.jsonpath.JsonPath;
  * It deals with some {@link HttpHeaders.CONTENT_TYPE} namely 'application/json' (as default) and 'application/x-www-form-urlencoded'. 
  * In the latter case, a map payload will be URLEncoded in a single string
  * 
- * With optional JSON_PATH config key, the effector will extract a section of the json response.
+ * With optional JSON_PATH config key, the effector will extract a section of the json response. 
+ * Notice if both JSON_PATH and JSON_PATHS_AND_SENSORS are both defined, JSON_PATH will take precedence. 
  * 
  * Using JSON_PATHS_AND_SENSORS, it is possible to extract one or more values from a json response, and publish them in sensors
  */
@@ -88,7 +91,9 @@ public final class HttpCommandEffector extends AddEffector {
     public static final ConfigKey<Map<String, String>> EFFECTOR_HTTP_HEADERS = new MapConfigKey(String.class, "headers");
     public static final ConfigKey<Object> EFFECTOR_HTTP_PAYLOAD = ConfigKeys.newConfigKey(Object.class, "httpPayload");
     public static final ConfigKey<String> JSON_PATH = ConfigKeys.newStringConfigKey("jsonPath", "JSON path to select in HTTP response");
-    public static final ConfigKey<Map<String, String>> JSON_PATHS_AND_SENSORS = new MapConfigKey(String.class, "jsonPathAndSensors", "json path selector and correspondant sensor name tha will publish the json path extracted value");
+    @Deprecated 
+    public static final ConfigKey<String> PUBLISH_SENSOR = ConfigKeys.newStringConfigKey("publishSensor", "Sensor name where to store json path extracted value");
+    public static final ConfigKey<Map<String, String>> JSON_PATHS_AND_SENSORS = new MapConfigKey(String.class, "jsonPathAndSensors", "json path selector and correspondant sensor name that will publish the json path extracted value");
 
     public static final String APPLICATION_JSON = "application/json";
     public static final String APPLICATION_X_WWW_FORM_URLENCODE = "application/x-www-form-urlencoded";
@@ -128,7 +133,12 @@ public final class HttpCommandEffector extends AddEffector {
             final Map<String, String> headers = EntityInitializers.resolve(allConfig, EFFECTOR_HTTP_HEADERS);
             final Object payload = EntityInitializers.resolve(allConfig, EFFECTOR_HTTP_PAYLOAD);
             final String jsonPath = EntityInitializers.resolve(allConfig, JSON_PATH);
+            final String publishSensor = EntityInitializers.resolve(allConfig, PUBLISH_SENSOR);
             final Map<String, String> pathsAndSensors = EntityInitializers.resolve(allConfig, JSON_PATHS_AND_SENSORS);
+            
+            if(!Strings.isEmpty(jsonPath) && !pathsAndSensors.isEmpty()) {
+                throw new IllegalArgumentException("Both jsonPath and pathsAndSensors are defined, please pick just one to resolve the ambiguity");
+            }
             final HttpExecutor httpExecutor = HttpExecutorImpl.newInstance();
 
             final HttpRequest request = buildHttpRequest(httpVerb, uri, headers, httpUsername, httpPassword, payload);
@@ -148,12 +158,17 @@ public final class HttpCommandEffector extends AddEffector {
             }).build();
 
             String responseBody = (String) queue(t).getUnchecked();
-            
-            if (jsonPath == null && pathsAndSensors.isEmpty()) return responseBody;
 
             if (jsonPath != null) {
-                return JsonPath.parse(responseBody).read(jsonPath, String.class);
-            } else if (!pathsAndSensors.isEmpty()) {
+                String extractedValue = JsonPath.parse(responseBody).read(jsonPath, String.class);
+                if (publishSensor != null) {
+                    LOG.warn("`publishSensor` configuration key is deprecated. PLease prefer `pathsAndSensors`, instead");
+                    entity().sensors().set(Sensors.newStringSensor(publishSensor), extractedValue);
+                }
+                return extractedValue;
+            }
+            
+            if (!pathsAndSensors.isEmpty()) {
                 for (String path : pathsAndSensors.keySet()) {
                     String jsonPathValue = JsonPath.parse(responseBody).read(path, String.class);
                     entity().sensors().set(Sensors.newStringSensor(pathsAndSensors.get(path)), jsonPathValue);
@@ -211,7 +226,7 @@ public final class HttpCommandEffector extends AddEffector {
                                 if (!body.equals("")) body += "&";
                                 body += URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8.toString()) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8.toString());
                             } catch (UnsupportedEncodingException e) {
-                                e.printStackTrace();
+                                throw Throwables.propagate(e);
                             }
 
                         }

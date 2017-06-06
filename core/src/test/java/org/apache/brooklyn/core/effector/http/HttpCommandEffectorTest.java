@@ -248,6 +248,27 @@ public class HttpCommandEffectorTest extends BrooklynAppUnitTestSupport {
    }
 
    @Test
+   public void testPayloadWithContentTypeFormUrlEncoded() throws InterruptedException {
+      server.enqueue(jsonResponse("url-encoded-response.json"));
+
+      httpCommandEffector = new HttpCommandEffector(ConfigBag.newInstance()
+              .configure(HttpCommandEffector.EFFECTOR_NAME, EFFECTOR_HTTP_COMMAND.getName())
+              .configure(HttpCommandEffector.EFFECTOR_URI, url("/post"))
+              .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "POST")
+              .configure(HttpCommandEffector.EFFECTOR_HTTP_PAYLOAD, ImmutableMap.of("key", "<img>"))
+              .configure(HttpCommandEffector.EFFECTOR_HTTP_HEADERS, ImmutableMap.of(HttpHeaders.CONTENT_TYPE, HttpCommandEffector.APPLICATION_X_WWW_FORM_URLENCODE))
+              .configure(HttpCommandEffector.JSON_PATH, "$.data")
+      );
+      assertNotNull(httpCommandEffector);
+      TestEntity testEntity = app.createAndManageChild(buildEntitySpec(httpCommandEffector));
+      Object output = testEntity.invoke(EFFECTOR_HTTP_COMMAND, ImmutableMap.of()).getUnchecked(Duration.seconds(1));
+      assertEquals(output, "{\"key\", \"%3Cimg%3E\"}");
+      
+      assertEquals(server.getRequestCount(), 1);
+      assertSent(server, "POST", "/post");
+   }
+   
+   @Test
    public void testHappyPath() throws InterruptedException {
       server.enqueue(jsonResponse("login.json"));
 
