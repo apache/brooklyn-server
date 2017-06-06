@@ -22,9 +22,13 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import java.io.File;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.commons.io.FileUtils;
 
@@ -52,6 +56,7 @@ public class PerformanceTestDescriptor {
     public Integer warmupIterations;
     public Duration duration;
     public Integer iterations;
+    public int numConcurrentJobs = 1;
     public Runnable job;
     public Runnable preJob;
     public Runnable postJob;
@@ -112,13 +117,37 @@ public class PerformanceTestDescriptor {
         if (sealed) throw new IllegalStateException("Should not modify after sealed (e.g. after use)");
         this.iterations = val; return this;
     }
-    
+
+    /**
+     * The number of concurrent jobs to execute. If used with {@link #preJob(Runnable)} or {@link #postJob(Runnable)},
+     * then those pre/post hooks will be called before/after the concurrent jobs are all done.
+     */
+    public PerformanceTestDescriptor numConcurrentJobs(int val) {
+        if (sealed) throw new IllegalStateException("Should not modify after sealed (e.g. after use)");
+        checkArgument(val >= 1, "val (%s) must be one or more", val);
+        this.numConcurrentJobs = val; return this;
+    }
+
     /**
      * The job to be repeatedly executed.
      */
     public PerformanceTestDescriptor job(Runnable val) {
         if (sealed) throw new IllegalStateException("Should not modify after sealed (e.g. after use)");
         this.job = val; return this;
+    }
+    
+    /**
+     * See {@link #job(Runnable)}
+     */
+    public PerformanceTestDescriptor job(Callable<?> val) {
+        return job(new Runnable() {
+            public void run() {
+                try {
+                    val.call();
+                } catch (Exception e) {
+                    throw Exceptions.propagate(e);
+                }
+            }});
     }
     
     /**

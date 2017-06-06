@@ -20,8 +20,11 @@ package org.apache.brooklyn.test.performance;
 
 import static org.testng.Assert.fail;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
@@ -34,6 +37,10 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 
 /**
  * For running simplistic performance tests, to measure the number of operations per second.
@@ -89,12 +96,17 @@ public class PerformanceMeasurer {
             sampleCpuFuture = PerformanceTestUtils.sampleProcessCpuTime(options.sampleCpuInterval, options.summary, cpuSampleFractions);
         }
         
+        int numConcurrentJobs = options.numConcurrentJobs;
+        ListeningExecutorService executorService = null;
+        if (numConcurrentJobs > 1) {
+            executorService = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(numConcurrentJobs));
+        }
         try {
             long preCpuTime = PerformanceTestUtils.getProcessCpuTime();
             Stopwatch watch = Stopwatch.createStarted();
             
             while ((options.duration != null) ? options.duration.isLongerThan(watch) : counter < options.iterations) {
-                if (warmupWatch.elapsed(TimeUnit.MILLISECONDS) >= nextLogTime) {
+                if (watch.elapsed(TimeUnit.MILLISECONDS) >= nextLogTime) {
                     LOG.info(options.summary+" iteration="+counter+" at "+Time.makeTimeStringRounded(watch));
                     nextLogTime += options.logInterval.toMilliseconds();
                 }
@@ -106,7 +118,11 @@ public class PerformanceMeasurer {
                 }
 
                 long before = watch.elapsed(TimeUnit.NANOSECONDS);
-                options.job.run();
+                if (numConcurrentJobs > 1) {
+                    runConcurrentAndBlock(executorService, options.job, numConcurrentJobs);
+                } else {
+                    options.job.run();
+                }
                 if (options.histogram) {
                     histogram.add(watch.elapsed(TimeUnit.NANOSECONDS) - before, TimeUnit.NANOSECONDS);
                 }
@@ -162,10 +178,24 @@ public class PerformanceMeasurer {
             
             return result;
 
+        } catch (InterruptedException | ExecutionException e) {
+            throw Exceptions.propagate(e);
         } finally {
+            if (executorService != null) {
+                executorService.shutdownNow();
+            }
             if (sampleCpuFuture != null) {
                 sampleCpuFuture.cancel(true);
             }
+        }
+    }
+    
+    protected static void runConcurrentAndBlock(ListeningExecutorService executor, Runnable job, int numConcurrentJobs) throws InterruptedException, ExecutionException {
+        List<ListenableFuture<?>> futures = new ArrayList<ListenableFuture<?>>(numConcurrentJobs);
+        for (int i = 0; i < numConcurrentJobs; i++) {
+            ListenableFuture<?> future = executor.submit(job);
+            futures.add(future);
+            Futures.allAsList(futures).get();
         }
     }
 }
