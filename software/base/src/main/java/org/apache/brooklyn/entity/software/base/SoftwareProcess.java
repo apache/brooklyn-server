@@ -24,6 +24,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.annotation.Effector;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
