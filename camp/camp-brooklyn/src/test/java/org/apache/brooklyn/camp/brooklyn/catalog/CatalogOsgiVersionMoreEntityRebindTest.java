@@ -27,12 +27,13 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlRebindTest;
+import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.effector.Effectors;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.trait.Startable;
@@ -334,14 +335,11 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
         rebind();
     }
 
-    @Test
-    public void testClusterWithEntitySpecDescendedFromOsgi() throws Exception {
-        // install dependencies
+    protected RegisteredType installWrappedMoreEntity() {
         ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
             new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_OSGI_ENTITIES_URL) ).checkNoError();
         ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
             new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V2_URL) ).get();
-        
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: wrapped-more-entity",
@@ -351,6 +349,12 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
             "    - type: " + BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
         
         RegisteredType ci = Preconditions.checkNotNull( mgmt().getTypeRegistry().get("wrapped-more-entity") );
+        return ci;
+    }
+    
+    @Test
+    public void testRebindsClusterWithEntitySpecWrappingOsgi() throws Exception {
+        RegisteredType ci = installWrappedMoreEntity();
         EntitySpec<DynamicCluster> clusterSpec = EntitySpec.create(DynamicCluster.class)
             .configure(DynamicCluster.INITIAL_SIZE, 1)
             .configure(DynamicCluster.MEMBER_SPEC, origManagementContext.getTypeRegistry().createSpec(ci, null, EntitySpec.class));
@@ -361,4 +365,26 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
         rebind();
     }
 
+    /** Does the class loader for the wrapped-more-entity type inherit more-entity's class loader?
+     * Was tempting to say yes but the implementation is hard as we need to add API methods to find the
+     * supertype (or supertypes).  We might do that at which point we could change these semantics if we wished.
+     * However there is also an argument that the instantiation engine determines where inherited loaders
+     * behave transitively and where they don't, so we shouldn't have a blanket rule that you can always
+     * see someone else's loaders just by extending them. In any case the "compelling use case" for 
+     * considering this (and noticing it, and adding comments to {@link RegisteredType#getLibraries()})
+     * is xml deserialization of entity specs in persisted state, and: 
+     * (a) there are other ways to do that, and 
+     * (b) we'd like to move away from that and use the same yaml-based instantiation engine used for initial construction. */
+    @Test
+    public void testWrappedEntityClassLoaderDoesntHaveAncestorClassLoader() throws Exception {
+        RegisteredType ci = installWrappedMoreEntity();
+        BrooklynClassLoadingContext clc = CatalogUtils.newClassLoadingContext(mgmt(), ci);
+        try {
+            clc.loadClass(BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "unable to load", BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
+        }
+    }
+    
 }
