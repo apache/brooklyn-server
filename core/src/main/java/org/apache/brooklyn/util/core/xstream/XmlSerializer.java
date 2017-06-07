@@ -115,7 +115,9 @@ public class XmlSerializer<T> {
                 return xstream.getClassLoaderReference().getReference();
             }
         };
-        return new ClassRenamingMapper(result, deserializingClassRenames, classLoaderSupplier);
+        result = new ClassRenamingMapper(result, deserializingClassRenames, classLoaderSupplier);
+//        result = new OsgiClassnameMapper(xstream, result);
+        return result;
     }
     /** Extension point where sub-classes can add mappers wanted when instances of a class are serialized, 
      * including {@link #wrapMapperForAllLowLevelMentions(Mapper)}, plus any usual domain mappings. */

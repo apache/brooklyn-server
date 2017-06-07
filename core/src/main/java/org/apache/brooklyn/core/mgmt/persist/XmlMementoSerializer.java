@@ -69,6 +69,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
+import com.thoughtworks.xstream.XStream;
 import com.thoughtworks.xstream.converters.Converter;
 import com.thoughtworks.xstream.converters.MarshallingContext;
 import com.thoughtworks.xstream.converters.SingleValueConverter;
@@ -140,10 +141,11 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
     }
     
     // Warning: this is called in the super-class constructor, so before this constructor!
+    // xstream will be set, but other firelds might not be
     @Override
     protected MapperWrapper wrapMapperForNormalUsage(Mapper next) {
         MapperWrapper mapper = super.wrapMapperForNormalUsage(next);
-        mapper = new OsgiClassnameMapper(mapper);
+        mapper = new OsgiClassnameMapper(xstream, mapper);
         mapper = new CustomMapper(mapper, Entity.class, "entityProxy");
         mapper = new CustomMapper(mapper, Location.class, "locationProxy");
         mapper = new UnwantedStateLoggingMapper(mapper);
@@ -177,7 +179,7 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
      * 
      * @author aled
      */
-    public class CustomMapper extends MapperWrapper {
+    public static class CustomMapper extends MapperWrapper {
         private final Class<?> clazz;
         private final String alias;
 
@@ -399,11 +401,13 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         }
     }
 
-    public class OsgiClassnameMapper extends MapperWrapper {
+    public static class OsgiClassnameMapper extends MapperWrapper {
         private final OsgiClassPrefixer prefixer;
+        private final XStream xstream;
         
-        OsgiClassnameMapper(MapperWrapper mapper) {
+        OsgiClassnameMapper(XStream xstream, MapperWrapper mapper) {
             super(mapper);
+            this.xstream = xstream;
             prefixer = new OsgiClassPrefixer();
         }
         
