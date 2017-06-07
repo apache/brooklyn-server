@@ -20,7 +20,6 @@ package org.apache.brooklyn.core.catalog.internal;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -28,13 +27,10 @@ import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
-import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
-import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.BrooklynLogging;
@@ -53,10 +49,7 @@ import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableSet;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Time;
 import org.osgi.framework.Bundle;
@@ -79,61 +72,11 @@ public class CatalogUtils {
         if (item.getLibraries() == null) {
             log.debug("CatalogItemDtoAbstract.getLibraries() is null.", new Exception("Trace for null CatalogItemDtoAbstract.getLibraries()"));
         }
-        return newClassLoadingContext(mgmt, item.getId(), getLibraries(mgmt, RegisteredTypes.of(item)));
+        return newClassLoadingContext(mgmt, item.getId(), item.getLibraries());
     }
     
-    /** Returns libraries on the item and any ancestor references we can find, for instance by instantiating specs and looking at those */
-    public static Collection<OsgiBundleWithUrl> getLibraries(ManagementContext mgmt, RegisteredType item) {
-        Set<OsgiBundleWithUrl> result = MutableSet.of();
-        collectLibraries(result, mgmt, item, MutableSet.<String>of());
-        return result;
-    }
-    
-    private static void collectLibraries(Set<OsgiBundleWithUrl> result, ManagementContext mgmt, RegisteredType item, Set<String> visited) {
-        if (item==null || !visited.add(item.getId())) return;
-        
-        result.addAll(item.getLibraries());
-        
-//        if (item.getKind()==RegisteredTypeKind.SPEC) {
-//            try {
-//                // TODO this does not work because attempts to create the spec need to get the class loading context
-//                AbstractBrooklynObjectSpec<?, ?> spec = mgmt.getTypeRegistry().createSpec(item, null, null);
-//                for (String path: spec.getCatalogItemIdSearchPath()) {
-//                    addBundleOrItemLibraries(mgmt, result, path, visited, spec);
-//                }
-//            } catch (Exception e) {
-//                log.warn("Unable to instantiate spec for library class-loading purposes, falling back to declared libraries: "+Exceptions.collapseText(e), e);
-//            }
-//        }
-    }
-    
-    private static void addBundleOrItemLibraries(ManagementContext mgmt, Set<OsgiBundleWithUrl> result, String path, Set<String> visited, AbstractBrooklynObjectSpec<?, ?> specContext) {
-        if (path==null || !visited.add(path)) return;
-        Maybe<OsgiManager> osgi = ((ManagementContextInternal)mgmt).getOsgiManager();
-        if (osgi.isPresent()) {
-            try {
-                ManagedBundle bundle = osgi.get().getManagedBundle(VersionedName.fromString(path));
-                result.add(bundle);
-                return;
-            } catch (Exception e) {
-                Exceptions.propagateIfFatal(e);
-                if (log.isTraceEnabled()) log.trace("Ignoring potential bundle reference error to "+path+", probably it isn't a bundle: "+e);
-                // probably not a bundle, ignore for now, as search path supports catalog items also, for now (June 2017)
-            }
-        }
-        
-        // not a bundle, check if it's an item
-        Maybe<RegisteredType> item = mgmt.getTypeRegistry().getMaybe(path, null);
-        if (item.isPresent()) {
-            collectLibraries(result, mgmt, item.get(), visited);
-            return;
-        }
-        
-        log.warn("Unrecognised item "+path+" in search path of "+specContext);
-    }
-
     public static BrooklynClassLoadingContext newClassLoadingContext(ManagementContext mgmt, RegisteredType item) {
-        return newClassLoadingContext(mgmt, item.getId(), getLibraries(mgmt, item), null);
+        return newClassLoadingContext(mgmt, item.getId(), item.getLibraries(), null);
     }
     
     /** made @Beta in 0.9.0 because we're not sure to what extent to support stacking loaders; 
@@ -141,7 +84,7 @@ public class CatalogUtils {
      * and life gets hard if we support complex stacking! */
     @Beta 
     public static BrooklynClassLoadingContext newClassLoadingContext(ManagementContext mgmt, RegisteredType item, BrooklynClassLoadingContext loader) {
-        return newClassLoadingContext(mgmt, item.getId(), getLibraries(mgmt, item), loader);
+        return newClassLoadingContext(mgmt, item.getId(), item.getLibraries(), loader);
     }
     
     public static BrooklynClassLoadingContext getClassLoadingContext(Entity entity) {
@@ -153,7 +96,6 @@ public class CatalogUtils {
             log.warn("Cannot load "+catId+" to get classloader for "+entity+"; will try with standard loader, but might fail subsequently");
             return JavaBrooklynClassLoadingContext.create(mgmt);
         }
-        // TODO use entity search path, plus catalog item ID
         return newClassLoadingContext(mgmt, cat.get());
     }
 
