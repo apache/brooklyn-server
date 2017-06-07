@@ -163,7 +163,7 @@ public class CatalogBundleLoader {
         try (final InputStream ins = bom.openStream()) {
             return Streams.readFullyString(ins);
         } catch (IOException e) {
-            throw Exceptions.propagate("Error loading Catalog BOM from " + bom, e);
+            throw Exceptions.propagateAnnotated("Error loading Catalog BOM from " + bom, e);
         }
     }
 

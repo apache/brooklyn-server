@@ -130,17 +130,30 @@ public class Exceptions {
     }
 
     /**
+     * Convenience for {@link #propagateAnnotateIfWrapping(String, Throwable)}.
+     * 
+     * @deprecated since 0.12.0 behaviour will change (default should be to always wrap and annotate);
+     * for now users should review and switch to either 
+     * {@link #propagateAnnotated(String, Throwable)} or {@link #propagateAnnotateIfWrapping(String, Throwable)} as appropriate.
+     */
+    @Deprecated
+    public static RuntimeException propagate(String msg, Throwable throwable) {
+        return propagate(msg, throwable, false);
+    }
+
+    /**
      * See {@link #propagate(Throwable)}.
      * <p>
      * The given message is included <b>only</b> if the given {@link Throwable}
      * needs to be wrapped; otherwise the message is not used.
      * To always include the message, use {@link #propagateAnnotated(String, Throwable)}.
      */
-    public static RuntimeException propagate(String msg, Throwable throwable) {
+    public static RuntimeException propagateAnnotateIfWrapping(String msg, Throwable throwable) {
         return propagate(msg, throwable, false);
     }
 
-    /** As {@link #propagate(String, Throwable)} but always re-wraps including the given message. */
+    /** As {@link #propagate(String)} but always re-wraps including the given message. 
+     * See {@link #propagateAnnotateIfWrapping(String, Throwable)} if the message is optional. */
     public static RuntimeException propagateAnnotated(String msg, Throwable throwable) {
         return propagate(msg, throwable, true);
     }

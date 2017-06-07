@@ -396,7 +396,7 @@ public class CatalogUtils {
 
         if (!didSomething) {
             // TODO review what to do here
-            log.warn("Can't find catalog item " + itemId);
+            log.warn("Can't find catalog item " + itemId+"; ignoring, but a search path may be incomplete and other errors may follow");
         }
     }
 

@@ -114,7 +114,7 @@ public class BundleMaker {
             return f;
             
         } catch (Exception e) {
-            throw Exceptions.propagate("Error creating ZIP from classpath spec "+path, e);
+            throw Exceptions.propagateAnnotated("Error creating ZIP from classpath spec "+path, e);
             
         } finally {
             Streams.closeQuietly(zout);
@@ -136,7 +136,7 @@ public class BundleMaker {
             jf = new JarFile(f);
             return jf.getManifest();
         } catch (IOException e) {
-            throw Exceptions.propagate("Unable to read "+f+" when looking for manifest", e);
+            throw Exceptions.propagateAnnotated("Unable to read "+f+" when looking for manifest", e);
         } finally {
             Streams.closeQuietly(jf);
         }
@@ -164,7 +164,7 @@ public class BundleMaker {
             zout = new JarOutputStream(new FileOutputStream(f2), mf);
             writeZipEntriesFromFile(zout, f, Predicates.not(Predicates.equalTo(MANIFEST_PATH)));
         } catch (IOException e) {
-            throw Exceptions.propagate("Unable to read "+f+" when looking for manifest", e);
+            throw Exceptions.propagateAnnotated("Unable to read "+f+" when looking for manifest", e);
         } finally {
             Streams.closeQuietly(zf);
             Streams.closeQuietly(zout);
@@ -226,7 +226,7 @@ public class BundleMaker {
 
             return f2;
         } catch (IOException e) {
-            throw Exceptions.propagate("Unable to read "+f+" when looking for manifest", e);
+            throw Exceptions.propagateAnnotated("Unable to read "+f+" when looking for manifest", e);
         } finally {
             Streams.closeQuietly(zf);
             Streams.closeQuietly(zout);
@@ -285,7 +285,7 @@ public class BundleMaker {
             return b;
             
         } catch (Exception e) {
-            throw Exceptions.propagate("Error starting bundle from "+f, e);
+            throw Exceptions.propagateAnnotated("Error starting bundle from "+f, e);
         }
     }
     

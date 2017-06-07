@@ -2392,10 +2392,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 try {
                     return pollForFirstReachableHostAndPortPredicate = predicateType.newInstance();
                 } catch (IllegalAccessException | InstantiationException newInstanceException) {
-                    throw Exceptions.propagate("Failed to instantiate " + predicateType, newInstanceException);
+                    throw Exceptions.propagateAnnotated("Failed to instantiate " + predicateType, newInstanceException);
                 }
             } catch (InvocationTargetException | InstantiationException e) {
-                throw Exceptions.propagate("Failed to instantiate " + predicateType + " with Map constructor", e);
+                throw Exceptions.propagateAnnotated("Failed to instantiate " + predicateType + " with Map constructor", e);
             }
         }
     }

@@ -1063,7 +1063,7 @@ public abstract class RebindIteration {
                         reboundSearchPath.add(fixedSearchItemId);
                     } else {
                         LOG.warn("Unable to load catalog item "+ searchItemId
-                            +" for search path of "+contextSuchAsId + " (" + bType.getSimpleName()+"); attempting load nevertheless");
+                            + " for search path of "+contextSuchAsId + " (" + bType.getSimpleName()+"); attempting to load "+jType+" nevertheless");
                     }
                 }
             }
@@ -1091,7 +1091,7 @@ public abstract class RebindIteration {
                         return new LoadedClass<T>(loader.loadClass(jType, bType), transformedCatalogItemId, reboundSearchPath);
                     } catch (Exception e) {
                         Exceptions.propagateIfFatal(e);
-                        LOG.warn("Unable to load "+jType+" using loader; will try reflections");
+                        LOG.warn("Unable to load class "+jType+" needed for "+catalogItemId+" for "+contextSuchAsId+", via "+transformedCatalogItemId+" loader (will try reflections)");
                     }
                 } else {
                     LOG.warn("Unable to load catalog item "+catalogItemId+" ("+bType+") for " + contextSuchAsId +
@@ -1103,12 +1103,12 @@ public abstract class RebindIteration {
                 return new LoadedClass<T>((Class<T>)loadClass(jType), catalogItemId, reboundSearchPath);
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
-                LOG.warn("Unable to load "+jType+" using reflections; will try standard context");
+                LOG.warn("Unable to load class "+jType+" needed for "+catalogItemId+" for "+contextSuchAsId+", via reflections (may try others, will throw if fails)");
             }
 
             if (catalogItemId != null) {
-                throw new IllegalStateException("Unable to load catalog item " + catalogItemId + " for " +
-                    contextSuchAsId + ", or load class from classpath");
+                throw new IllegalStateException("Unable to load "+jType+" for catalog item " + catalogItemId + " for " + contextSuchAsId);
+                
             } else if (BrooklynFeatureEnablement.isEnabled(FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND)) {
                 //Try loading from whichever catalog bundle succeeds.
                 BrooklynCatalog catalog = managementContext.getCatalog();

@@ -58,7 +58,7 @@ public class FileBasedStoreObjectAccessor implements PersistenceObjectStore.Stor
             if (!exists()) return null;
             return Files.asCharSource(file, Charsets.UTF_8).read();
         } catch (IOException e) {
-            throw Exceptions.propagate("Problem reading String contents of file "+file, e);
+            throw Exceptions.propagateAnnotated("Problem reading String contents of file "+file, e);
         }
     }
 
@@ -68,7 +68,7 @@ public class FileBasedStoreObjectAccessor implements PersistenceObjectStore.Stor
             if (!exists()) return null;
             return Files.asByteSource(file).read();
         } catch (IOException e) {
-            throw Exceptions.propagate("Problem reading bytes of file "+file, e);
+            throw Exceptions.propagateAnnotated("Problem reading bytes of file "+file, e);
         }
     }
 
@@ -90,7 +90,7 @@ public class FileBasedStoreObjectAccessor implements PersistenceObjectStore.Stor
             Streams.copyClose(bytes.openStream(), new FileOutputStream(tmpFile));
             FileBasedObjectStore.moveFile(tmpFile, file);
         } catch (IOException e) {
-            throw Exceptions.propagate("Problem writing data to file "+file+" (via temporary file "+tmpFile+")", e);
+            throw Exceptions.propagateAnnotated("Problem writing data to file "+file+" (via temporary file "+tmpFile+")", e);
         } catch (InterruptedException e) {
             throw Exceptions.propagate(e);
         }
@@ -105,7 +105,7 @@ public class FileBasedStoreObjectAccessor implements PersistenceObjectStore.Stor
             Files.append(val, file, Charsets.UTF_8);
             
         } catch (IOException e) {
-            throw Exceptions.propagate("Problem appending to file "+file, e);
+            throw Exceptions.propagateAnnotated("Problem appending to file "+file, e);
         }
     }
 
