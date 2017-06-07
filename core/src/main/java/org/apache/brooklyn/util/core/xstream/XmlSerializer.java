@@ -104,10 +104,14 @@ public class XmlSerializer<T> {
         return new JavaClassConverter(wrapMapperForAllLowLevelMentions(new DefaultMapper(xstream.getClassLoaderReference()))) {};
     }
     
-    /** Adds mappers needed for *any* reference to a class, e.g. when names are used for inner classes, or classes are renamed;
-     * this *excludes* basic mentions, however, because most rewrites should *not* be applied at this deep level;
-     * mappers which effect aliases or intercept references to entities are usually NOT be invoked in this low-level pathway.
-     * See {@link #newCustomJavaClassConverter()}. */
+    /** Adds mappers needed for *any* reference to a class, both "normal" usage (when xstream wants a mapper)
+     * and class conversion (when xstream needs to make a class name and doesn't have an alias).
+     * <p>
+     * This should apply when nice names are used for inner classes, or classes are renamed;
+     * however mappers which affect aliases or intercept references to entities are usually 
+     * NOT be invoked in this low-level pathway. See {@link #newCustomJavaClassConverter()}. */
+    // Developer note - this is called by the xstream subclass constructor in the constructor of this class,
+    // so very few fields are populated
     protected MapperWrapper wrapMapperForAllLowLevelMentions(Mapper next) {
         MapperWrapper result = new CompilerIndependentOuterClassFieldMapper(next);
         Supplier<ClassLoader> classLoaderSupplier = new Supplier<ClassLoader>() {
@@ -116,7 +120,8 @@ public class XmlSerializer<T> {
             }
         };
         result = new ClassRenamingMapper(result, deserializingClassRenames, classLoaderSupplier);
-//        result = new OsgiClassnameMapper(xstream, result);
+        result = new OsgiClassnameMapper(new Supplier<XStream>() {
+            @Override public XStream get() { return xstream; } }, result);
         return result;
     }
     /** Extension point where sub-classes can add mappers wanted when instances of a class are serialized, 

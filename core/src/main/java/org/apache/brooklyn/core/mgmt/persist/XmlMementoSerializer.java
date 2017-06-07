@@ -68,8 +68,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
-import com.thoughtworks.xstream.XStream;
 import com.thoughtworks.xstream.converters.Converter;
 import com.thoughtworks.xstream.converters.MarshallingContext;
 import com.thoughtworks.xstream.converters.SingleValueConverter;
@@ -79,7 +77,6 @@ import com.thoughtworks.xstream.core.ReferencingMarshallingContext;
 import com.thoughtworks.xstream.io.HierarchicalStreamReader;
 import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
 import com.thoughtworks.xstream.io.path.PathTrackingReader;
-import com.thoughtworks.xstream.mapper.CannotResolveClassException;
 import com.thoughtworks.xstream.mapper.Mapper;
 import com.thoughtworks.xstream.mapper.MapperWrapper;
 
@@ -140,12 +137,11 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         xstream.registerLocalConverter(BasicCatalogItemMemento.class, "libraries", new CatalogItemLibrariesConverter());
     }
     
-    // Warning: this is called in the super-class constructor, so before this constructor!
-    // xstream will be set, but other firelds might not be
+    // Warning: this is called in the super-class constructor, so before this constructor -
+    // most fields will not be set, including "xstream" (use a supplier if you need to)
     @Override
     protected MapperWrapper wrapMapperForNormalUsage(Mapper next) {
         MapperWrapper mapper = super.wrapMapperForNormalUsage(next);
-        mapper = new OsgiClassnameMapper(xstream, mapper);
         mapper = new CustomMapper(mapper, Entity.class, "entityProxy");
         mapper = new CustomMapper(mapper, Location.class, "locationProxy");
         mapper = new UnwantedStateLoggingMapper(mapper);
@@ -401,49 +397,6 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         }
     }
 
-    public static class OsgiClassnameMapper extends MapperWrapper {
-        private final OsgiClassPrefixer prefixer;
-        private final XStream xstream;
-        
-        OsgiClassnameMapper(XStream xstream, MapperWrapper mapper) {
-            super(mapper);
-            this.xstream = xstream;
-            prefixer = new OsgiClassPrefixer();
-        }
-        
-        @Override
-        public String serializedClass(Class type) {
-            // TODO What if previous stages have already renamed it?
-            // For example the "outer class renaming stuff"?!
-            String superResult = super.serializedClass(type);
-            if (type != null && type.getName().equals(superResult)) {
-                Optional<String> prefix = prefixer.getPrefix(type);
-                if (prefix.isPresent()) {
-                    return prefix.get() + superResult;
-                }
-            }
-            return superResult;
-        }
-        
-        @Override
-        public Class realClass(String elementName) {
-            CannotResolveClassException tothrow;
-            try {
-                return super.realClass(elementName);
-            } catch (CannotResolveClassException e) {
-                tothrow = e;
-            }
-
-            // Class.forName(elementName, false, classLader) does not seem to like us returned a 
-            // class whose name does not match that passed in. Therefore fallback to using loadClass.
-            try {
-                return xstream.getClassLoaderReference().getReference().loadClass(elementName);
-            } catch (ClassNotFoundException e) {
-                throw new CannotResolveClassException(elementName + " via loadClass", tothrow);
-            }
-        }
-    }
-    
     /** When reading/writing specs, it checks whether there is a catalog item id set and uses it to load */
     public class SpecConverter extends ReflectionConverter {
         SpecConverter() {
