@@ -50,13 +50,20 @@ public class XmlSerializer<T> {
     }
     
     public XmlSerializer(Map<String, String> deserializingClassRenames) {
+        this(null, deserializingClassRenames);
+    }
+    
+    public XmlSerializer(ClassLoader loader, Map<String, String> deserializingClassRenames) {
         this.deserializingClassRenames = deserializingClassRenames;
-        this.xstream = new XStream() {
+        xstream = new XStream() {
             @Override
             protected MapperWrapper wrapMapper(MapperWrapper next) {
                 return XmlSerializer.this.wrapMapperForNormalUsage( super.wrapMapper(next) );
             }
         };
+        if (loader!=null) {
+            xstream.setClassLoader(loader);
+        }
         
         xstream.registerConverter(newCustomJavaClassConverter(), XStream.PRIORITY_NORMAL);
         
@@ -89,15 +96,18 @@ public class XmlSerializer<T> {
     }
 
     /**
-     * JCC is used when class names are serialized/deserialized and no alias is defined;
-     * it is configured in XStream *without* access to the XStream mapper.
+     * JCC is used when Class instances are serialized/deserialized as a value 
+     * (not as tags) and there are no aliases configured for that type.
+     * It is configured in XStream default *without* access to the XStream mapper,
+     * which is meant to apply when serializing the type name for instances of that type.
+     * <p>
      * However we need a few selected mappers (see {@link #wrapMapperForAllLowLevelMentions(Mapper)} )
-     * in order to effect renames at the low level, but many of the mappers must NOT be used,
+     * to apply to all class renames, but many of the mappers must NOT be used,
      * e.g. because some might intercept all Class<? extends Entity> references
      * (and that interception is only wanted when serializing <i>instances</i>,
      * as in {@link #wrapMapperForNormalUsage(Mapper)}).
      * <p>
-     * This can typically be done simply by registering our own instance (due to order guarantee of PrioritizedList),
+     * This can typically be done simply by registering our own instance of this (due to order guarantee of PrioritizedList),
      * after the instance added by XStream.setupConverters()
      */
     private JavaClassConverter newCustomJavaClassConverter() {
@@ -105,7 +115,7 @@ public class XmlSerializer<T> {
     }
     
     /** Adds mappers needed for *any* reference to a class, both "normal" usage (when xstream wants a mapper)
-     * and class conversion (when xstream needs to make a class name and doesn't have an alias).
+     * and Class conversion (when xstream needs to serialize an instance of Class and doesn't have an alias).
      * <p>
      * This should apply when nice names are used for inner classes, or classes are renamed;
      * however mappers which affect aliases or intercept references to entities are usually 
@@ -114,6 +124,7 @@ public class XmlSerializer<T> {
     // so very few fields are populated
     protected MapperWrapper wrapMapperForAllLowLevelMentions(Mapper next) {
         MapperWrapper result = new CompilerIndependentOuterClassFieldMapper(next);
+        
         Supplier<ClassLoader> classLoaderSupplier = new Supplier<ClassLoader>() {
             @Override public ClassLoader get() {
                 return xstream.getClassLoaderReference().getReference();
@@ -122,6 +133,11 @@ public class XmlSerializer<T> {
         result = new ClassRenamingMapper(result, deserializingClassRenames, classLoaderSupplier);
         result = new OsgiClassnameMapper(new Supplier<XStream>() {
             @Override public XStream get() { return xstream; } }, result);
+        // TODO as noted in ClassRenamingMapper that class can be simplified if 
+        // we swap the order of the above calls, because it _will_ be able to rely on
+        // OsgiClassnameMapper to attempt to load with the xstream reference stack
+        // (not doing it just now because close to a release)
+        
         return result;
     }
     /** Extension point where sub-classes can add mappers wanted when instances of a class are serialized, 

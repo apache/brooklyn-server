@@ -24,6 +24,20 @@ import com.thoughtworks.xstream.XStream;
 import com.thoughtworks.xstream.mapper.CannotResolveClassException;
 import com.thoughtworks.xstream.mapper.MapperWrapper;
 
+/** Attaches a prefix to _all_ classes written out.
+ * Ensures the xstream class loader is used to read 
+ * (because that's where we set the OSGi-prefix-aware code).
+ * <p>
+ * We also have the context in that loader so if we wanted to optimize
+ * we could scan that for bundles and suppress bundles if it's in scope.
+ * However if we plan to move to referring to RegisteredTypes for anything
+ * serialized that's irrelevant.
+ * <p>
+ * We could have code that uses the search path from that loader
+ * to prefers types in local bundles, ignoring the bundle name
+ * if the class is found there (either always, or just if the bundle is not found / deprecated).
+ */
+// TODO above, and also see discussion at https://github.com/apache/brooklyn-server/pull/718
 public class OsgiClassnameMapper extends MapperWrapper {
     private final OsgiClassPrefixer prefixer;
     private final Supplier<XStream> xstream;

@@ -90,9 +90,8 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
     }
     
     public XmlMementoSerializer(ClassLoader classLoader, Map<String, String> deserializingClassRenames) {
-        super(deserializingClassRenames);
-        this.delegatingClassLoader = new ClassLoaderFromStackOfBrooklynClassLoadingContext(classLoader);
-        xstream.setClassLoader(this.delegatingClassLoader);
+        super(new ClassLoaderFromStackOfBrooklynClassLoadingContext(classLoader), deserializingClassRenames);
+        this.delegatingClassLoader = (ClassLoaderFromStackOfBrooklynClassLoadingContext) xstream.getClassLoader();
         
         xstream.alias("entity", BasicEntityMemento.class);
         xstream.alias("location", BasicLocationMemento.class);
@@ -128,6 +127,11 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
     
         //For compatibility with existing persistence stores content.
         xstream.aliasField("registeredTypeName", BasicCatalogItemMemento.class, "symbolicName");
+        configureXstreamWithDeprecatedItems();
+    }
+
+    @SuppressWarnings("deprecation")
+    private void configureXstreamWithDeprecatedItems() {
         xstream.registerLocalConverter(BasicCatalogItemMemento.class, "libraries", new CatalogItemLibrariesConverter());
     }
     
@@ -353,9 +357,9 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
     // Perhaps context.getRequiredType(); can be used instead?
     // Other users of xstream (e.g. jenkinsci) manually check for resoved-to and class attributes
     //   for compatibility with older versions of xstream
-    private static Class readClassType(HierarchicalStreamReader reader, Mapper mapper) {
+    private static Class<?> readClassType(HierarchicalStreamReader reader, Mapper mapper) {
         String classAttribute = readClassAttribute(reader, mapper);
-        Class type;
+        Class<?> type;
         if (classAttribute == null) {
             type = mapper.realClass(reader.getNodeName());
         } else {

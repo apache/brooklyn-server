@@ -62,6 +62,11 @@ public class ClassLoaderFromStackOfBrooklynClassLoadingContext extends ClassLoad
     protected Class<?> findClass(String name) throws ClassNotFoundException {
         return currentLoader.get().loadClass(name);
     }
+    
+    @Override
+    protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+        return findClass(name);
+    }
 
     /** Must be accompanied by a corresponding {@link #popClassLoadingContext()} when finished. */
     @SuppressWarnings("deprecation")
