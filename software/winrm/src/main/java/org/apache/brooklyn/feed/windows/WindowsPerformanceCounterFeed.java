@@ -191,6 +191,7 @@ public class WindowsPerformanceCounterFeed extends AbstractFeed {
         }
         
         Iterable<String> allParams = ImmutableList.<String>builder()
+                .add("$ProgressPreference = \"SilentlyContinue\";")
                 .add("(Get-Counter")
                 .add("-Counter")
                 .add(JOINER_ON_COMMA.join(Iterables.transform(performanceCounterNames, QuoteStringFunction.INSTANCE)))
