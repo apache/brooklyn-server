@@ -48,22 +48,22 @@ import com.google.common.reflect.TypeToken;
  * and will be removed when the entity is no longer running.
  */
 public class CreateLocationPolicy extends AbstractPolicy {
-    
+
     private static final Logger LOG = LoggerFactory.getLogger(CreateLocationPolicy.class);
 
     public static Builder builder() {
         return new Builder();
     }
-    
+
     public static class Builder {
         private String id;
         private String name;
         private AttributeSensor<Boolean> status;
         private Map<String,AttributeSensor<?>> configuration;
         private String catalogId;
+        private String displayName;
         private Class<? extends Location> type;
         private Set<String> tags;
-        private String displayName;
 
         public Builder id(String val) {
             this.id = val; return this;
@@ -80,14 +80,14 @@ public class CreateLocationPolicy extends AbstractPolicy {
         public Builder catalogId(String val) {
             this.catalogId = val; return this;
         }
+        public Builder displayName(String val) {
+            this.displayName = val; return this;
+        }
         public Builder type(Class<? extends Location> val) {
             this.type = val; return this;
         }
         public Builder tags(Set<String> val) {
             this.tags = val; return this;
-        }
-        public Builder displayName(String val) {
-            this.displayName = val; return this;
         }
         public CreateLocationPolicy build() {
             return new CreateLocationPolicy(toFlags());
@@ -101,11 +101,11 @@ public class CreateLocationPolicy extends AbstractPolicy {
                     .putIfNotNull("id", id)
                     .putIfNotNull("name", name)
                     .putIfNotNull("location.status", status)
-                    .putIfNotNull("location.configuration", configuration)
+                    .putIfNotNull("location.config", configuration)
                     .putIfNotNull("location.catalogId", catalogId)
+                    .putIfNotNull("location.displayName", displayName)
                     .putIfNotNull("location.type", type)
                     .putIfNotNull("location.tags", tags)
-                    .putIfNotNull("location.displayName", displayName)
                     .build();
         }
     }
@@ -124,15 +124,15 @@ public class CreateLocationPolicy extends AbstractPolicy {
             .defaultValue(ImmutableMap.of())
             .build();
 
-    public static final ConfigKey<String> LOCATION_DISPLAY_NAME = ConfigKeys.builder(String.class)
-            .name("location.displayName")
-            .description("The display name for the created location")
-            .constraint(Predicates.notNull())
-            .build();
-
     public static final ConfigKey<String> LOCATION_CATALOG_ID = ConfigKeys.builder(String.class)
             .name("location.catalogId")
             .description("The catalog item ID to use for the created location")
+            .constraint(Predicates.notNull())
+            .build();
+
+    public static final ConfigKey<String> LOCATION_DISPLAY_NAME = ConfigKeys.builder(String.class)
+            .name("location.displayName")
+            .description("The display name for the created location")
             .constraint(Predicates.notNull())
             .build();
 
@@ -162,18 +162,8 @@ public class CreateLocationPolicy extends AbstractPolicy {
         super(props);
     }
 
-    @Override
-    public void init() { }
-
-    @Override
-    public void rebind() { }
-
     protected AttributeSensor<Boolean> getStatusSensor() {
         return config().get(LOCATION_STATUS);
-    }
-
-    protected Class<? extends Location> getLocationType() {
-        return config().get(LOCATION_TYPE);
     }
 
     protected Map<String,AttributeSensor<?>> getLocationConfiguration() {
@@ -186,6 +176,10 @@ public class CreateLocationPolicy extends AbstractPolicy {
 
     protected String getLocationDisplayName() {
         return config().get(LOCATION_DISPLAY_NAME);
+    }
+
+    protected Class<? extends Location> getLocationType() {
+        return config().get(LOCATION_TYPE);
     }
 
     protected Set<String> getLocationTags() {
@@ -204,6 +198,7 @@ public class CreateLocationPolicy extends AbstractPolicy {
                 Boolean status = event.getValue();
                 if (status) {
                     if (created.compareAndSet(false, true)) {
+                        LOG.info("Creating new location {} of type {}", getLocationCatalogItemId(), getLocationType().getSimpleName());
                         LocationSpec spec = LocationSpec.create(getLocationType());
                         Map<String,AttributeSensor<?>> configuration = getLocationConfiguration();
                         for (String configKey : configuration.keySet()) {
@@ -219,6 +214,7 @@ public class CreateLocationPolicy extends AbstractPolicy {
                     }
                 } else {
                     if (created.compareAndSet(true, false) && location != null) {
+                        LOG.info("Deleting location {} (id {})", getLocationCatalogItemId(), location.getId());
                         getManagementContext().getLocationManager().unmanage(location);
                         location = null;
                     }
