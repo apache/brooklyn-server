@@ -54,6 +54,10 @@ public interface DynamicFabric extends AbstractGroup, Startable, Fabric {
     ConfigKey<EntitySpec<?>> MEMBER_SPEC = ConfigKeys.newConfigKey(
             new TypeToken<EntitySpec<?>>() {}, "dynamiccfabric.memberspec", "entity spec for creating new cluster members", null);
 
+    @SetFromFlag("firstMemberSpec")
+    ConfigKey<EntitySpec<?>> FIRST_MEMBER_SPEC = ConfigKeys.newConfigKey(
+            new TypeToken<EntitySpec<?>>() {}, "dynamiccfabric.firstmemberspec", "entity spec for creating new cluster members", null);
+
     @SetFromFlag("displayNamePrefix")
     ConfigKey<String> DISPLAY_NAME_PREFIX = ConfigKeys.newStringConfigKey(
             "dynamicfabric.displayNamePrefix", "Display name prefix, for created children");

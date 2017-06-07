@@ -78,6 +78,10 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
         sensors().set(SERVICE_UP, false);
     }
     
+    protected EntitySpec<?> getFirstMemberSpec() {
+        return getConfig(FIRST_MEMBER_SPEC);
+    }
+
     protected EntitySpec<?> getMemberSpec() {
         return getConfig(MEMBER_SPEC);
     }
@@ -272,10 +276,15 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
     }
     
     protected Entity createCluster(Location location, Map flags) {
-        EntitySpec<?> memberSpec = getMemberSpec();
+        EntitySpec<?> memberSpec = null;
+        if (getMembers().isEmpty()) memberSpec = getFirstMemberSpec();
+        if (memberSpec == null) memberSpec = getMemberSpec();
+
         if (memberSpec == null) {
             throw new IllegalStateException("No member spec nor entity factory supplied for dynamic fabric "+this);
         }
-        return addChild(EntitySpec.create(memberSpec).configure(flags));
+        EntitySpec<?> specConfigured = EntitySpec.create(memberSpec).configure(flags);
+        if (location!=null) specConfigured.location(location);
+        return addChild(specConfigured);
     }
 }
