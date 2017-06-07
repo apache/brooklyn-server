@@ -90,12 +90,7 @@ public class ClassRenamingMapper extends MapperWrapper {
     public ClassRenamingMapper(Mapper wrapped, Map<String, String> nameToType, Supplier<? extends ClassLoader> classLoaderSupplier) {
         super(wrapped);
         this.nameToType = checkNotNull(nameToType, "nameToType");
-        /*
-         * NB: wanted to pass xstream, rather than Supplier<ClassLoader>, in constructor. However, 
-         * this caused NPE because of how this is constructed from inside 
-         * XmlMementoSerializer.wrapMapperForNormalUsage, called from within an anonymous subclass of XStream!
-         * (Similar as for OsgiClassnameMapper.)
-         */
+        // supplier, rather than instance, used for reasons noted at XmlSerializer.wrapMapperForNormalUsage 
         this.classLoaderSupplier = checkNotNull(classLoaderSupplier, "classLoaderSupplier");
     }
     

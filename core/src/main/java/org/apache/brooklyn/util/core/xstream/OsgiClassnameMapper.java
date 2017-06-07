@@ -44,7 +44,9 @@ public class OsgiClassnameMapper extends MapperWrapper {
     
     public OsgiClassnameMapper(Supplier<XStream> xstream, MapperWrapper mapper) {
         super(mapper);
+        // supplier, rather than instance, used for reasons noted at XmlSerializer.wrapMapperForNormalUsage 
         this.xstream = xstream;
+        
         prefixer = new OsgiClassPrefixer();
     }
     

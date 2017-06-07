@@ -137,6 +137,7 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
     
     // Warning: this is called in the super-class constructor, so before this constructor -
     // most fields will not be set, including "xstream" (use a supplier if you need to)
+    // See comment on superclass method.
     @Override
     protected MapperWrapper wrapMapperForNormalUsage(Mapper next) {
         MapperWrapper mapper = super.wrapMapperForNormalUsage(next);

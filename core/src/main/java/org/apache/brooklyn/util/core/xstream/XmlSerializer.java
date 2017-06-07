@@ -101,7 +101,7 @@ public class XmlSerializer<T> {
      * It is configured in XStream default *without* access to the XStream mapper,
      * which is meant to apply when serializing the type name for instances of that type.
      * <p>
-     * However we need a few selected mappers (see {@link #wrapMapperForAllLowLevelMentions(Mapper)} )
+     * However we need a few selected mappers (see {@link #wrapMapperForHandlingClasses(Mapper)} )
      * to apply to all class renames, but many of the mappers must NOT be used,
      * e.g. because some might intercept all Class<? extends Entity> references
      * (and that interception is only wanted when serializing <i>instances</i>,
@@ -111,18 +111,21 @@ public class XmlSerializer<T> {
      * after the instance added by XStream.setupConverters()
      */
     private JavaClassConverter newCustomJavaClassConverter() {
-        return new JavaClassConverter(wrapMapperForAllLowLevelMentions(new DefaultMapper(xstream.getClassLoaderReference()))) {};
+        return new JavaClassConverter(wrapMapperForHandlingClasses(new DefaultMapper(xstream.getClassLoaderReference()))) {};
     }
     
-    /** Adds mappers needed for *any* reference to a class, both "normal" usage (when xstream wants a mapper)
-     * and Class conversion (when xstream needs to serialize an instance of Class and doesn't have an alias).
+    /** Extension point where sub-classes can add mappers needed for handling class names.
+     * This is used by {@link #wrapMapperForNormalUsage(Mapper)} and also to set up the {@link JavaClassConverter}
+     * (see {@link #newCustomJavaClassConverter()} for what that does).
      * <p>
      * This should apply when nice names are used for inner classes, or classes are renamed;
-     * however mappers which affect aliases or intercept references to entities are usually 
-     * NOT be invoked in this low-level pathway. See {@link #newCustomJavaClassConverter()}. */
-    // Developer note - this is called by the xstream subclass constructor in the constructor of this class,
-    // so very few fields are populated
-    protected MapperWrapper wrapMapperForAllLowLevelMentions(Mapper next) {
+     * however mappers which affect field aliases or intercept references to entities are not
+     * wanted in the {@link JavaClassConverter} and so should be added by {@link #wrapMapperForNormalUsage(Mapper)}
+     * instead of this.
+     * <p>
+     * Developers note this is called from the constructor; be careful when overriding and 
+     * see comment on {@link #wrapMapperForNormalUsage(Mapper)} about field availability. */
+    protected MapperWrapper wrapMapperForHandlingClasses(Mapper next) {
         MapperWrapper result = new CompilerIndependentOuterClassFieldMapper(next);
         
         Supplier<ClassLoader> classLoaderSupplier = new Supplier<ClassLoader>() {
@@ -140,10 +143,19 @@ public class XmlSerializer<T> {
         
         return result;
     }
-    /** Extension point where sub-classes can add mappers wanted when instances of a class are serialized, 
-     * including {@link #wrapMapperForAllLowLevelMentions(Mapper)}, plus any usual domain mappings. */
+    /** Extension point where sub-classes can add mappers to set up the main {@link Mapper} given to XStream.
+     * This includes all of {@link #wrapMapperForHandlingClasses(Mapper)} plus anything wanted for normal usage.
+     * <p>
+     * Typically any non-class-name mappers wanted should be added in a subclass by overriding this field,
+     * calling this superclass method, then wrapping the result.
+     * <p>
+     * Developers note this is called from the constructor; be careful when overriding 
+     * because most fields won't be available.  In particular in a subclass, 
+     * this method in the subclass will be invoked very early in its constructor.
+     * Fields like {@link #xstream} (and <i>anything</i> set in the subclass) won't
+     * yet be available. For this reason some mappers will need to be given a {@link Supplier} for late resolution. */
     protected MapperWrapper wrapMapperForNormalUsage(Mapper next) {
-        return wrapMapperForAllLowLevelMentions(next);
+        return wrapMapperForHandlingClasses(next);
     }
 
     public void serialize(Object object, Writer writer) {

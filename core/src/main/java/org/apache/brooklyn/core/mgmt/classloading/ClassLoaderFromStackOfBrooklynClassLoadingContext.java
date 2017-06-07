@@ -68,7 +68,15 @@ public class ClassLoaderFromStackOfBrooklynClassLoadingContext extends ClassLoad
         return findClass(name);
     }
 
-    /** Must be accompanied by a corresponding {@link #popClassLoadingContext()} when finished. */
+    /** Must be accompanied by a corresponding {@link #popClassLoadingContext()} when finished.
+     * <p>
+     * This class enforces a requirement that the pop be done by the same thread that pushed.
+     * This is to help ensure a consumer does not accidentally have two threads 
+     * pushing and popping for different purposes as that would completely break the stack. 
+     * We were uncertain whether xstream might parallelise things so wanted this to throw 
+     * if a cross-thread pop happened; there is no deeper reason.  If there is a compelling 
+     * use case for a single logical push-pop chain to be done by different threads we could drop this requirement.
+     */
     @SuppressWarnings("deprecation")
     public void pushClassLoadingContext(BrooklynClassLoadingContext clcNew) {
         acquireLock();
@@ -88,7 +96,7 @@ public class ClassLoaderFromStackOfBrooklynClassLoadingContext extends ClassLoad
 
     public void popClassLoadingContext() {
         synchronized (lockOwner) {
-            releaseXstreamLock();
+            releaseLock();
             setCurrentClassLoader(cls.pop());
             contexts.pop();
         }
@@ -120,7 +128,7 @@ public class ClassLoaderFromStackOfBrooklynClassLoadingContext extends ClassLoad
         }
     }
 
-    protected void releaseXstreamLock() {
+    protected void releaseLock() {
         synchronized (lockOwner) {
             if (lockCount<=0) {
                 throw new IllegalStateException("not locked");
