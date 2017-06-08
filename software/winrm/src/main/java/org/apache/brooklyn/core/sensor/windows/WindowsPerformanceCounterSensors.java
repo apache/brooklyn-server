@@ -83,6 +83,6 @@ public class WindowsPerformanceCounterSensors implements EntityInitializer {
             }
             builder.addSensor(sensorConfig.get("counter"), Sensors.newSensor(clazz, name, sensorConfig.get("description")));
         }
-        builder.build();
+        entity.addFeed(builder.build());
     }
 }
