@@ -19,10 +19,10 @@
 package org.apache.brooklyn.feed.windows;
 
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
-import org.apache.brooklyn.core.mgmt.rebind.RebindAbstractCommandFeedTest;
+import org.apache.brooklyn.core.mgmt.rebind.AbstractRebindHistoricTest;
 import org.testng.annotations.Test;
 
-public class RebindWinrmCmdFeedTest extends RebindAbstractCommandFeedTest {
+public class RebindWinrmCmdFeedTest extends AbstractRebindHistoricTest {
 
     @Test
     public void testWinrmCmdFeed_2017_04() throws Exception {

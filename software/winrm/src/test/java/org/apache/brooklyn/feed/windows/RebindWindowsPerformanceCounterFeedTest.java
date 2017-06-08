@@ -19,10 +19,10 @@
 package org.apache.brooklyn.feed.windows;
 
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
-import org.apache.brooklyn.core.mgmt.rebind.RebindAbstractCommandFeedTest;
+import org.apache.brooklyn.core.mgmt.rebind.AbstractRebindHistoricTest;
 import org.testng.annotations.Test;
 
-public class RebindWindowsPerformanceCounterFeedTest extends RebindAbstractCommandFeedTest {
+public class RebindWindowsPerformanceCounterFeedTest extends AbstractRebindHistoricTest {
 
     @Test
     public void testWindowsPerformanceCounterFeed_2017_06() throws Exception {

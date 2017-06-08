@@ -28,7 +28,7 @@ import org.apache.brooklyn.util.stream.Streams;
 
 import java.io.File;
 
-public abstract class RebindAbstractCommandFeedTest extends RebindTestFixtureWithApp {
+public abstract class AbstractRebindHistoricTest extends RebindTestFixtureWithApp {
 
     @Override
     protected TestApplication rebind() throws Exception {
@@ -53,7 +53,12 @@ public abstract class RebindAbstractCommandFeedTest extends RebindTestFixtureWit
     protected File getPersistanceFile(BrooklynObjectType type, String id) {
         String dir;
         switch (type) {
+            case ENTITY: dir = "entities"; break;
+            case LOCATION: dir = "locations"; break;
+            case POLICY: dir = "policies"; break;
+            case ENRICHER: dir = "enrichers"; break;
             case FEED: dir = "feeds"; break;
+            case CATALOG_ITEM: dir = "catalog"; break;
             default: throw new UnsupportedOperationException("type="+type);
         }
         return new File(mementoDir, Os.mergePaths(dir, id));
