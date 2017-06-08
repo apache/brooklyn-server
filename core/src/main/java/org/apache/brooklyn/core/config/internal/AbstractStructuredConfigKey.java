@@ -36,6 +36,11 @@ public abstract class AbstractStructuredConfigKey<T,RawT,V> extends BasicConfigK
 
     protected final Class<V> subType;
 
+    protected AbstractStructuredConfigKey(BasicConfigKey.Builder<T,?> builder, Class<V> subType) {
+        super(builder);
+        this.subType = subType;
+    }
+
     public AbstractStructuredConfigKey(Class<T> type, Class<V> subType, String name, String description, T defaultValue) {
         super(type, name, description, defaultValue);
         this.subType = subType;
