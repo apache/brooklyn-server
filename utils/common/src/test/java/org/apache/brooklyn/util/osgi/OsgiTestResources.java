@@ -33,7 +33,8 @@ public interface OsgiTestResources {
      * defines TestA which has a "times" method and a static multiplier field;
      * we set the multiplier to determine when we are sharing versions and when not
      */
-    public static final String BROOKLYN_OSGI_TEST_A_0_1_0_PATH = "/brooklyn/osgi/brooklyn-osgi-test-a_0.1.0.jar";
+    public static final String BROOKLYN_OSGI_TEST_A_SYMBOLIC_NAME = "brooklyn-osgi-test-a";
+    public static final String BROOKLYN_OSGI_TEST_A_0_1_0_PATH = "/brooklyn/osgi/" + BROOKLYN_OSGI_TEST_A_SYMBOLIC_NAME + "_0.1.0.jar";
 
     /**
      * brooklyn-test-osgi-entities (v 0.1.0) -
