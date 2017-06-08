@@ -36,6 +36,20 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Supplier;
 
+/**
+ * A ComputeServiceRegistry that can infer credentials from the AWS EC2 instance profile.
+ *
+ * This only works if Brooklyn is running on an EC2 instance that has an IAM Role attached with e.g the AmazonEC2FullAccess
+ * policy set.
+ *
+ * usage:
+ *
+ * {@code
+ * jclouds.computeServiceRegistry:
+ *   $brooklyn:object:
+ *     type: org.apache.brooklyn.location.jclouds.AwsEc2SessionAwareComputeServiceRegistry
+ *  }
+ */
 public class AwsEc2SessionAwareComputeServiceRegistry extends AbstractComputeServiceRegistry implements ComputeServiceRegistry, AwsEc2SessionAwareLocationConfig {
 
     public static final String ACCESS_KEY_ID = "AccessKeyId";
@@ -45,7 +59,9 @@ public class AwsEc2SessionAwareComputeServiceRegistry extends AbstractComputeSer
     public static final String AWS_SECURITY_CREDENTIAL_URL = "http://169.254.169.254/latest/meta-data/iam/security-credentials";
     public static final String AWS_EXPIRATION_DATE_FORMAT = "yyyy-MM-dd'T'HH:mm:ss'Z'";
 
-    public AwsEc2SessionAwareComputeServiceRegistry(){}
+    public AwsEc2SessionAwareComputeServiceRegistry(){
+        // empty constructor required
+    }
 
     @Override
     public ComputeService findComputeService(ConfigBag conf, boolean allowReuse) {
