@@ -22,17 +22,17 @@ import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.core.mgmt.rebind.RebindAbstractCommandFeedTest;
 import org.testng.annotations.Test;
 
-public class RebindWinrmCmdFeedTest extends RebindAbstractCommandFeedTest {
+public class RebindWindowsPerformanceCounterFeedTest extends RebindAbstractCommandFeedTest {
 
     @Test
-    public void testWinrmCmdFeed_2017_04() throws Exception {
-        addMemento(BrooklynObjectType.FEED, "winrm-cmd-feed", "a8pno3muco");
+    public void testWindowsPerformanceCounterFeed_2017_06() throws Exception {
+        addMemento(BrooklynObjectType.FEED, "windows-performance-counter-feed", "tu4kk0xvf8");
         rebind();
     }
 
     @Test
-    public void testWinrmCmdFeed_2017_04_withoutBundlePrefixes() throws Exception {
-        addMemento(BrooklynObjectType.FEED, "winrm-cmd-feed-no-bundle-prefixes", "akc24nlh2k");
+    public void testWindowsPerformanceCounterFeed_2017_06_withoutBundlePrefixes() throws Exception {
+        addMemento(BrooklynObjectType.FEED, "windows-performance-counter-feed-no-bundle-prefixies", "ueauyeu41d");
         rebind();
     }
 }
