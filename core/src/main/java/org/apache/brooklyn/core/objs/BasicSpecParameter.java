@@ -253,6 +253,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                 throw new IllegalArgumentException("Catalog input definition expected to be a map, but is " + obj.getClass() + " instead: " + obj);
             }
             String name = (String)inputDef.get("name");
+            Collection<String> deprecatedNames = (Collection<String>)inputDef.get("deprecatedNames");
             String label = (String)inputDef.get("label");
             String description = (String)inputDef.get("description");
             String type = (String)inputDef.get("type");
@@ -296,6 +297,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
 
             Builder builder = BasicConfigKey.builder(typeToken)
                     .name(name)
+                    .deprecatedNames((deprecatedNames == null) ? ImmutableList.of() : deprecatedNames)
                     .description(description)
                     .defaultValue(immutableDefaultValue)
                     .constraint(constraint)

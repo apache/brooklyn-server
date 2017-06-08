@@ -272,7 +272,7 @@ public class FlagUtils {
         FlagConfigKeyAndValueRecord result = new FlagConfigKeyAndValueRecord(); 
         result.configKey = key;
         if (key!=null && input.containsKey(key))
-            result.configKeyValue = Maybe.<Object>of(input.getStringKey(key.getName()));
+            result.configKeyValue = input.getObjKeyMaybe(key);
         if (f != null) {
             SetFromFlag flag = f.getAnnotation(SetFromFlag.class);
             if (flag!=null) {
@@ -408,7 +408,7 @@ public class FlagUtils {
         // first check whether it is a key
         ConfigKey<?> key = getFieldAsConfigKey(o, f);
         if (key!=null && bag.containsKey(key)) {
-            Object uncoercedValue = bag.getStringKey(key.getName());
+            Object uncoercedValue = bag.getObjKeyMaybe(key).get();
             setField(o, f, uncoercedValue, optionalAnnotation);
             return;
         }

@@ -40,12 +40,14 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.core.mgmt.internal.SubscriptionTracker;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
@@ -150,6 +152,19 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
                 }
             }
         }
+
+        // Allow config keys to be set by name (or deprecated name).
+        //
+        // Aled thinks it would be sensible to remove the consumed flags below (i.e. flags = ...).
+        // However, that causes PolicyConfigTest.testConfigFlagsPassedInAtConstructionIsAvailable to fail.
+        // However, tht looks mad - do we really need to support it?!
+        // The policy is defined with one key using a name in SetFromFlag, and another key using the same name.
+        // It expects both of the config keys to have been set.
+        //     @SetFromFlag("strKey")
+        //     public static final ConfigKey<String> STR_KEY = new BasicConfigKey<String>(String.class, "akey", "a key");
+        //     public static final ConfigKey<String> STR_KEY_WITH_DEFAULT = new BasicConfigKey<String>(String.class, "strKey", "str key", "str key default");
+        // I've preserved that behaviour (for now).
+        ConfigUtilsInternal.setAllConfigKeys(flags, getAdjunctType().getConfigKeys(), this);
 
         ConfigBag bag = new ConfigBag().putAll(flags);
         FlagUtils.setFieldsFromFlags(this, bag, isFirstTime);

@@ -330,7 +330,14 @@ public class ConfigBag {
     }
 
     public boolean containsKey(ConfigKey<?> key) {
-        return containsKey(key.getName());
+        boolean found = containsKey(key.getName());
+        if (!found) {
+            for (String deprecatedName : key.getDeprecatedNames()) {
+                found = containsKey(deprecatedName);
+                if (found) break;
+            }
+        }
+        return found;
     }
 
     public synchronized boolean containsKey(String key) {
@@ -357,8 +364,9 @@ public class ConfigBag {
     @Beta
     public Maybe<Object> getObjKeyMaybe(Object key) {
         if (key instanceof HasConfigKey<?>) key = ((HasConfigKey<?>)key).getConfigKey();
-        if (key instanceof ConfigKey<?>) key = ((ConfigKey<?>)key).getName();
-        if (key instanceof String) {
+        if (key instanceof ConfigKey<?>) {
+            return getKeyMaybe((ConfigKey<?>)key, true);
+        } else if (key instanceof String) {
             return getStringKeyMaybe((String)key, true);
         } else {
             logInvalidKey(key);
@@ -370,8 +378,9 @@ public class ConfigBag {
     @Beta
     private Maybe<Object> getRawObjKeyMaybe(Object key) {
         if (key instanceof HasConfigKey<?>) key = ((HasConfigKey<?>)key).getConfigKey();
-        if (key instanceof ConfigKey<?>) key = ((ConfigKey<?>)key).getName();
-        if (key instanceof String) {
+        if (key instanceof ConfigKey<?>) {
+            return this.getRawKeyMaybe((ConfigKey<?>)key, true);
+        } else if (key instanceof String) {
             return this.getRawStringKeyMaybe((String)key, true);
         } else {
             logInvalidKey(key);
@@ -398,7 +407,7 @@ public class ConfigBag {
     @Beta
     @SuppressWarnings("unchecked")
     public <T> ConfigBag copyKeyAs(ConfigBag source, ConfigKey<T> sourceKey, ConfigKey<T> targetKey) {
-        Maybe<Object> sourceValue = source.getRawObjKeyMaybe(sourceKey);
+        Maybe<Object> sourceValue = source.getRawKeyMaybe(sourceKey, true);
         if (sourceValue.isPresent()) {
             put(targetKey, (T) sourceValue.get());
         }
@@ -421,14 +430,22 @@ public class ConfigBag {
         return get(preferredKey);
     }
 
-    /** convenience for @see #getWithDeprecation(ConfigKey[], ConfigKey...) */
+    /**
+     * Convenience for @see #getWithDeprecation(ConfigKey[], ConfigKey...).
+     * 
+     * @deprecated since 0.12.0; instead define deprecated names on key, see {@link ConfigKey#getDeprecatedNames()}
+     */
     public Object getWithDeprecation(ConfigKey<?> key, ConfigKey<?> ...deprecatedKeys) {
         return getWithDeprecation(new ConfigKey[] { key }, deprecatedKeys);
     }
 
-    /** returns the value for the first key in the list for which a value is set,
+    /**
+     * Returns the value for the first key in the list for which a value is set,
      * warning if any of the deprecated keys have a value which is different to that set on the first set current key
-     * (including warning if a deprecated key has a value but no current key does) */
+     * (including warning if a deprecated key has a value but no current key does).
+     * 
+     * @deprecated since 0.12.0; instead define deprecated names on key, see {@link ConfigKey#getDeprecatedNames()}
+     */
     public synchronized Object getWithDeprecation(ConfigKey<?>[] currentKeysInOrderOfPreference, ConfigKey<?> ...deprecatedKeys) {
         // Get preferred key (or null)
         ConfigKey<?> preferredKeyProvidingValue = null;
@@ -492,8 +509,9 @@ public class ConfigBag {
     protected <T> T get(ConfigKey<T> key, boolean markUsed) {
         // TODO for now, no evaluation -- maps / closure content / other smart (self-extracting) keys are NOT supported
         // (need a clean way to inject that behaviour, as well as desired TypeCoercions)
-        // this method, and the coercion, is not synchronized, nor does it need to be, because the "get" is synchronized. 
-        return coerceFirstNonNullKeyValue(key, getStringKey(key.getName(), markUsed));
+        // this method, and the coercion, is not synchronized, nor does it need to be, because the "get" is synchronized.
+        Maybe<Object> val = getKeyMaybe(key, markUsed);
+        return coerceFirstNonNullKeyValue(key, val.orNull());
     }
 
     /** returns the first non-null value to be the type indicated by the key, or the keys default value if no non-null values are supplied */
@@ -507,12 +525,90 @@ public class ConfigBag {
         return getStringKeyMaybe(key, markUsed).orNull();
     }
 
+    private synchronized Maybe<Object> getRawKeyMaybe(ConfigKey<?> key, boolean markUsed) {
+        Maybe<Object> val = getRawStringKeyMaybe(key.getName(), markUsed);
+        
+        String firstDeprecatedName = null;
+        Maybe<Object> firstDeprecatedVal = null;
+        for (String deprecatedName : key.getDeprecatedNames()) {
+            Maybe<Object> deprecatedVal = getRawStringKeyMaybe(deprecatedName, markUsed);
+            if (deprecatedVal.isPresent()) {
+                if (val.isPresent()) {
+                    if (!Objects.equal(val.get(), deprecatedVal.get())) {
+                        log.warn("Conflicting value for key "+key+" from deprecated name '"+deprecatedName+"'; "
+                                + "using value from preferred name "+key.getName());
+                    } else {
+                        log.warn("Duplicate value for key "+key+" from deprecated name '"+deprecatedName+"'; "
+                                + "using same value from preferred name "+key.getName());
+                    }
+                } else if (firstDeprecatedVal.isPresent()) {
+                    if (!Objects.equal(firstDeprecatedVal.get(), deprecatedVal.get())) {
+                        log.warn("Conflicting value for key "+key+" from deprecated name '"+deprecatedName+"'; "
+                                + "using earlier deprecated name "+firstDeprecatedName);
+                    } else {
+                        log.warn("Duplicate value for key "+key+" from deprecated name '"+deprecatedName+"'; "
+                                + "using same value from earlier depreated name "+key.getName());
+                    }
+                } else {
+                    // new value, from deprecated name
+                    log.warn("Value for key "+key+" found with deprecated name '"+deprecatedName+"'; "
+                            + "recommend changing to preferred name '"+key.getName()+"'; this will not be supported in future versions");
+                    firstDeprecatedName = deprecatedName;
+                    firstDeprecatedVal = deprecatedVal;
+                }
+            }
+        }
+        
+
+        return val.isPresent() ? val : (firstDeprecatedVal != null && firstDeprecatedVal.isPresent() ? firstDeprecatedVal : val);
+    }
+
     private synchronized Maybe<Object> getRawStringKeyMaybe(String key, boolean markUsed) {
         if (config.containsKey(key)) {
             if (markUsed) markUsed(key);
             return Maybe.of(config.get(key));
         }
         return Maybe.absent();
+    }
+
+    /**
+     * @return Unresolved configuration value. May be overridden to provide resolution - @see {@link ResolvingConfigBag#getStringKeyMaybe(String, boolean)}
+     */
+    protected synchronized Maybe<Object> getKeyMaybe(ConfigKey<?> key, boolean markUsed) {
+        Maybe<Object> val = getStringKeyMaybe(key.getName(), markUsed);
+        
+        String firstDeprecatedName = null;
+        Maybe<Object> firstDeprecatedVal = null;
+        for (String deprecatedName : key.getDeprecatedNames()) {
+            Maybe<Object> deprecatedVal = getStringKeyMaybe(deprecatedName, markUsed);
+            if (deprecatedVal.isPresent()) {
+                if (val.isPresent()) {
+                    if (!Objects.equal(val.get(), deprecatedVal.get())) {
+                        log.warn("Conflicting value for key "+key+" from deprecated name '"+deprecatedName+"'; "
+                                + "using value from preferred name "+key.getName());
+                    } else {
+                        log.warn("Duplicate value for key "+key+" from deprecated name '"+deprecatedName+"'; "
+                                + "using same value from preferred name "+key.getName());
+                    }
+                } else if (firstDeprecatedVal != null) {
+                    if (!Objects.equal(firstDeprecatedVal.get(), deprecatedVal.get())) {
+                        log.warn("Conflicting value for key "+key+" from deprecated name '"+deprecatedName+"'; "
+                                + "using earlier deprecated name "+firstDeprecatedName);
+                    } else {
+                        log.warn("Duplicate value for key "+key+" from deprecated name '"+deprecatedName+"'; "
+                                + "using same value from earlier depreated name "+key.getName());
+                    }
+                } else {
+                    // new value, from deprecated name
+                    log.warn("Value for key "+key+" found with deprecated name '"+deprecatedName+"'; "
+                            + "recommend changing to preferred name '"+key.getName()+"'; this will not be supported in future versions");
+                    firstDeprecatedName = deprecatedName;
+                    firstDeprecatedVal = deprecatedVal;
+                }
+            }
+        }
+        
+        return val.isPresent() ? val : (firstDeprecatedVal != null && firstDeprecatedVal.isPresent() ? firstDeprecatedVal : val);
     }
 
     /**

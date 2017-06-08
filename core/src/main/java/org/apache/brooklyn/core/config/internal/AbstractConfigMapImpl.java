@@ -226,7 +226,19 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
     @Override @Deprecated
     public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited) {
         // does not currently respect inheritance modes
-        if (ownConfig.containsKey(key)) return Maybe.of(ownConfig.get(key));
+        if (ownConfig.containsKey(key)) {
+            return Maybe.of(ownConfig.get(key));
+        }
+        for (String deprecatedName : key.getDeprecatedNames()) {
+            // Unfortunately `config.putAll(map.of(string, val))` (for dynamic config keys, 
+            // i.e. where the key is not pre-defined on the entity). Unfortunately that
+            // means subsequent lookup must synthesise keys for each deprecated name.
+            ConfigKey<?> deprecatedKey = ConfigKeys.newConfigKeyRenamed(deprecatedName, key);
+            if (ownConfig.containsKey(deprecatedKey)) {
+                LOG.warn("Retrieving value with deprecated config key name '"+deprecatedName+"' for key "+key);
+                return Maybe.of(ownConfig.get(deprecatedKey));
+            }
+        }
         if (!includeInherited || getParent()==null) return Maybe.absent();
         return getParentInternal().config().getInternalConfigMap().getConfigRaw(key, includeInherited);
     }
@@ -305,6 +317,23 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
      * <p>
      * this does not do any resolution with respect to ancestors. */
     protected Maybe<Object> resolveRawValueFromContainer(TContainer container, ConfigKey<?> key, Maybe<Object> value) {
+        Maybe<Object> result = resolveRawValueFromContainerIgnoringDeprecatedNames(container, key, value);
+        if (result.isPresent()) return result;
+        
+        // See AbstractconfigMapImpl.getConfigRaw(ConfigKey<?> key, boolean includeInherited) for how/why it
+        // handles deprecated names
+        for (String deprecatedName : key.getDeprecatedNames()) {
+            ConfigKey<?> deprecatedKey = ConfigKeys.newConfigKeyRenamed(deprecatedName, key);
+            result = resolveRawValueFromContainerIgnoringDeprecatedNames(container, deprecatedKey, value);
+            if (result.isPresent()) {
+                LOG.warn("Retrieving value with deprecated config key name '"+deprecatedName+"' for key "+key);
+                return result;
+            }
+        }
+        return result;
+    }
+    
+    private Maybe<Object> resolveRawValueFromContainerIgnoringDeprecatedNames(TContainer container, ConfigKey<?> key, Maybe<Object> value) {
         Map<ConfigKey<?>, Object> oc = ((AbstractConfigMapImpl<?>) ((BrooklynObjectInternal)container).config().getInternalConfigMap()).ownConfig;
         if (key instanceof ConfigKeySelfExtracting) {
             if (((ConfigKeySelfExtracting<?>)key).isSet(oc)) {

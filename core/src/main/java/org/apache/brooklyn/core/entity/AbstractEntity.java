@@ -64,6 +64,7 @@ import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
+import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.core.entity.internal.EntityConfigMap;
 import org.apache.brooklyn.core.entity.lifecycle.PolicyDescriptor;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
@@ -393,11 +394,16 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             // shouldn't be used; CAMP parser leaves it as a top-level attribute which is converted to a tag
             tags().addTag(BrooklynTags.newIconUrlTag((String) flags.remove(BrooklynConfigKeys.ICON_URL.getName())));
         }
-        
+
+        // allow config keys to be set by name (or deprecated name)
+        flags = ConfigUtilsInternal.setAllConfigKeys(flags, getEntityType().getConfigKeys(), this);
+
         // allow config keys, and fields, to be set from these flags if they have a SetFromFlag annotation
         // TODO the default values on flags are not used? (we should remove that support, since ConfigKeys gives a better way)
-        FlagUtils.setFieldsFromFlags(flags, this);
-        flags = FlagUtils.setAllConfigKeys(flags, this, false);
+        if (flags.size() > 0) {
+            FlagUtils.setFieldsFromFlags(flags, this);
+            flags = FlagUtils.setAllConfigKeys(flags, this, false);
+        }
         
         // finally all config keys specified in map should be set as config
         // TODO use a config bag and remove the ones set above in the code below

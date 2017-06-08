@@ -18,8 +18,13 @@
  */
 package org.apache.brooklyn.core.mgmt.rebind;
 
+import java.util.Collection;
+import java.util.Map;
+
 import org.apache.brooklyn.api.mgmt.rebind.RebindContext;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.PolicyMemento;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
@@ -37,11 +42,20 @@ public class BasicPolicyRebindSupport extends AbstractBrooklynObjectRebindSuppor
     protected void addConfig(RebindContext rebindContext, PolicyMemento memento) {
         // TODO entity does config-lookup differently; the memento contains the config keys.
         // BasicEntityMemento.postDeserialize uses the injectTypeClass to call EntityTypes.getDefinedConfigKeys(clazz)
-        // 
-        // Note that the flags may have been set in the constructor; but some policies have no-arg constructors
-        ConfigBag configBag = ConfigBag.newInstance(memento.getConfig());
-        FlagUtils.setFieldsFromFlags(policy, configBag);
-        FlagUtils.setAllConfigKeys(policy, configBag, false);
+        
+        Collection<ConfigKey<?>> configKeys = policy.getAdjunctType().getConfigKeys();
+        
+        Map<?, ?> flags = memento.getConfig();
+        
+        // First set the config keys that are known explicitly (including with deprecated names).
+        flags = ConfigUtilsInternal.setAllConfigKeys(flags, configKeys, policy);
+
+        // Note that the flags may have been set in the constructor; but non-legacy policies should have no-arg constructors
+        if (!flags.isEmpty()) {
+            ConfigBag configBag = ConfigBag.newInstance(flags);
+            FlagUtils.setFieldsFromFlags(policy, configBag);
+            FlagUtils.setAllConfigKeys(policy, configBag, false);
+        }
     }
 
     @Override

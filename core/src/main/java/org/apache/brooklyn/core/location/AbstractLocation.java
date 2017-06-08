@@ -47,6 +47,7 @@ import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
+import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
 import org.apache.brooklyn.core.internal.storage.Reference;
 import org.apache.brooklyn.core.internal.storage.impl.BasicReference;
@@ -214,6 +215,16 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
             // don't include parentLocation in configBag, as breaks rebind
             config().removeKey(PARENT_LOCATION);
         }
+
+        // allow config keys to be set by name (or deprecated name)
+        //
+        // Aled thinks it would be sensible to remove the consumed flags below (i.e. properties = ...).
+        // However, that caused ClockerDynamicLocationPatternTest to fail because there is a field of 
+        // StubContainerLocation annotated with `@SetFromFlag("owner")`, as well as a config key with 
+        // name "owner" (and with `@SetFromFlag("owner")`) in the super-type (DynamicLocation).
+        // However, that looks mad - do we really need to support it?!
+        // I've preserved that behaviour (for now).
+        ConfigUtilsInternal.setAllConfigKeys(properties, getLocationTypeInternal().getConfigKeys().values(), this);
 
         // NB: flag-setting done here must also be done in BasicLocationRebindSupport
         ConfigBag configBag = ConfigBag.newInstance(properties);

@@ -18,12 +18,15 @@
  */
 package org.apache.brooklyn.core.objs;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.api.objs.BrooklynType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.MoreObjects.ToStringHelper;
@@ -34,15 +37,32 @@ import com.google.common.collect.ImmutableSet;
 public class BrooklynTypeSnapshot implements BrooklynType {
     private static final long serialVersionUID = 4670930188951106009L;
     
+    private static final Logger LOG = LoggerFactory.getLogger(BrooklynTypeSnapshot.class);
+
     private final String name;
     private transient volatile String simpleName;
     private final Map<String, ConfigKey<?>> configKeys;
+    private final Map<String, ConfigKey<?>> configKeysByDeprecatedName;
+    
     private final Set<ConfigKey<?>> configKeysSet;
 
     protected BrooklynTypeSnapshot(String name, Map<String, ConfigKey<?>> configKeys) {
         this.name = name;
         this.configKeys = ImmutableMap.copyOf(configKeys);
         this.configKeysSet = ImmutableSet.copyOf(this.configKeys.values());
+        
+        this.configKeysByDeprecatedName = new LinkedHashMap<>();
+        for (ConfigKey<?> key : configKeysSet) {
+            for (String deprecatedName : key.getDeprecatedNames()) {
+                if (configKeys.containsKey(deprecatedName)) {
+                    LOG.warn("Conflicting config key name '"+deprecatedName+"' used in "+configKeys.get(deprecatedName)+" and as deprecated name of "+key+"; will prefer "+key+" but may cause problems");
+                } else if (configKeysByDeprecatedName.containsKey(deprecatedName)) {
+                    LOG.warn("Conflicting config key name '"+deprecatedName+"' used as deprecated name in both "+configKeysByDeprecatedName.get(deprecatedName)+" and "+key+"; may cause problems");
+                } else {
+                    configKeysByDeprecatedName.put(deprecatedName, key);
+                }
+            }
+        }
     }
 
     @Override
@@ -73,7 +93,9 @@ public class BrooklynTypeSnapshot implements BrooklynType {
     
     @Override
     public ConfigKey<?> getConfigKey(String name) {
-        return configKeys.get(name);
+        ConfigKey<?> result = configKeys.get(name);
+        if (result == null) result = configKeysByDeprecatedName.get(name);
+        return result;
     }
     
     @Override
