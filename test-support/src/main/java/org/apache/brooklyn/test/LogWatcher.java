@@ -152,6 +152,14 @@ public class LogWatcher implements Closeable {
         assertFalse(events.isEmpty());
     }
 
+    public List<ILoggingEvent> assertHasEvent(final Predicate<? super ILoggingEvent> filter) {
+        synchronized (events) {
+            Iterable<ILoggingEvent> filtered = Iterables.filter(events, filter);
+            assertFalse(Iterables.isEmpty(filtered), "events="+events);
+            return ImmutableList.copyOf(filtered);
+        }
+    }
+
     public List<ILoggingEvent> assertHasEventEventually() {
         Asserts.succeedsEventually(new Runnable() {
             @Override
@@ -166,11 +174,7 @@ public class LogWatcher implements Closeable {
         Asserts.succeedsEventually(new Runnable() {
             @Override
             public void run() {
-                synchronized (events) {
-                    Iterable<ILoggingEvent> filtered = Iterables.filter(events, filter);
-                    assertFalse(Iterables.isEmpty(filtered));
-                    result.set(ImmutableList.copyOf(filtered));
-                }
+                result.set(assertHasEvent(filter));
             }});
         return result.get();
     }

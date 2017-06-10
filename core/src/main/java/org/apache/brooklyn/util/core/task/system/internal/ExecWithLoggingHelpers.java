@@ -18,14 +18,10 @@
  */
 package org.apache.brooklyn.util.core.task.system.internal;
 
-import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
 import java.util.List;
 import java.util.Map;
 
-import org.slf4j.Logger;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
@@ -35,12 +31,11 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.internal.ssh.ShellAbstractTool;
 import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.stream.StreamGobbler;
-import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.stream.LoggingOutputStream;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
 
 import com.google.common.base.Function;
-import com.google.common.base.Throwables;
 
 public abstract class ExecWithLoggingHelpers {
 
@@ -106,7 +101,6 @@ public abstract class ExecWithLoggingHelpers {
         return execWithLogging(props, summaryForLogging, commands, env, null, execCommand);
     }
     
-    @SuppressWarnings("resource")
     public int execWithLogging(Map<String,?> props, final String summaryForLogging, final List<String> commands,
             final Map<String,?> env, String expectedCommandHeaders, final ExecRunner execCommand) {
         if (commandLogger!=null && commandLogger.isDebugEnabled()) {
@@ -129,73 +123,47 @@ public abstract class ExecWithLoggingHelpers {
 
         execFlags.configure(ShellTool.PROP_SUMMARY, summaryForLogging);
         
-        PipedOutputStream outO = null;
-        PipedOutputStream outE = null;
-        StreamGobbler gO=null, gE=null;
-        try {
-            preExecChecks();
-            
-            String logPrefix = execFlags.get(LOG_PREFIX);
-            if (logPrefix==null) logPrefix = constructDefaultLoggingPrefix(execFlags);
+        preExecChecks();
+        
+        String logPrefix = execFlags.get(LOG_PREFIX);
+        if (logPrefix==null) logPrefix = constructDefaultLoggingPrefix(execFlags);
 
-            if (!execFlags.get(NO_STDOUT_LOGGING)) {
-                PipedInputStream insO = new PipedInputStream();
-                outO = new PipedOutputStream(insO);
+        if (!execFlags.get(NO_STDOUT_LOGGING)) {
+            String stdoutLogPrefix = "["+(logPrefix != null ? logPrefix+":stdout" : "stdout")+"] ";
+            OutputStream outO = LoggingOutputStream.builder()
+                    .outputStream(execFlags.get(STDOUT))
+                    .logger(commandLogger)
+                    .logPrefix(stdoutLogPrefix)
+                    .build();
 
-                String stdoutLogPrefix = "["+(logPrefix != null ? logPrefix+":stdout" : "stdout")+"] ";
-                gO = new StreamGobbler(insO, execFlags.get(STDOUT), commandLogger).setLogPrefix(stdoutLogPrefix);
-                gO.start();
-
-                execFlags.put(STDOUT, outO);
-            }
-
-            if (!execFlags.get(NO_STDERR_LOGGING)) {
-                PipedInputStream insE = new PipedInputStream();
-                outE = new PipedOutputStream(insE);
-
-                String stderrLogPrefix = "["+(logPrefix != null ? logPrefix+":stderr" : "stderr")+"] ";
-                gE = new StreamGobbler(insE, execFlags.get(STDERR), commandLogger).setLogPrefix(stderrLogPrefix);
-                gE.start();
-
-                execFlags.put(STDERR, outE);
-            }
-
-            Tasks.setBlockingDetails(shortName+" executing, "+summaryForLogging);
-            try {
-                return execWithTool(MutableMap.copyOf(toolFlags.getAllConfig()), new Function<ShellTool, Integer>() {
-                    @Override
-                    public Integer apply(ShellTool tool) {
-                        int result = execCommand.exec(tool, MutableMap.copyOf(execFlags.getAllConfig()), commands, env);
-                        if (commandLogger!=null && commandLogger.isDebugEnabled()) 
-                            commandLogger.debug("{}, on machine {}, completed: return status {}",
-                                    new Object[] {summaryForLogging, getTargetName(), result});
-                        return result;
-                    }});
-
-            } finally {
-                Tasks.setBlockingDetails(null);
-            }
-
-        } catch (IOException e) {
-            if (commandLogger!=null && commandLogger.isDebugEnabled()) 
-                commandLogger.debug("{}, on machine {}, failed: {}", new Object[] {summaryForLogging, getTargetName(), e});
-            throw Throwables.propagate(e);
-        } finally {
-            // Must close the pipedOutStreams, otherwise input will never read -1 so StreamGobbler thread would never die
-            if (outO!=null) try { outO.flush(); } catch (IOException e) {}
-            if (outE!=null) try { outE.flush(); } catch (IOException e) {}
-            Streams.closeQuietly(outO);
-            Streams.closeQuietly(outE);
-
-            try {
-                if (gE!=null) { gE.join(); }
-                if (gO!=null) { gO.join(); }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                Throwables.propagate(e);
-            }
+            execFlags.put(STDOUT, outO);
         }
 
+        if (!execFlags.get(NO_STDERR_LOGGING)) {
+            String stderrLogPrefix = "["+(logPrefix != null ? logPrefix+":stderr" : "stderr")+"] ";
+            OutputStream outE = LoggingOutputStream.builder()
+                    .outputStream(execFlags.get(STDERR))
+                    .logger(commandLogger)
+                    .logPrefix(stderrLogPrefix)
+                    .build();
+            execFlags.put(STDERR, outE);
+        }
+
+        Tasks.setBlockingDetails(shortName+" executing, "+summaryForLogging);
+        try {
+            return execWithTool(MutableMap.copyOf(toolFlags.getAllConfig()), new Function<ShellTool, Integer>() {
+                @Override
+                public Integer apply(ShellTool tool) {
+                    int result = execCommand.exec(tool, MutableMap.copyOf(execFlags.getAllConfig()), commands, env);
+                    if (commandLogger!=null && commandLogger.isDebugEnabled()) 
+                        commandLogger.debug("{}, on machine {}, completed: return status {}",
+                                new Object[] {summaryForLogging, getTargetName(), result});
+                    return result;
+                }});
+
+        } finally {
+            Tasks.setBlockingDetails(null);
+        }
     }
 
 }
