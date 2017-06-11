@@ -18,11 +18,10 @@
  */
 package org.apache.brooklyn.policy.enricher;
 
-import groovy.lang.Closure;
-
 import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.enricher.stock.AbstractTypeTransformingEnricher;
@@ -37,6 +36,8 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+
+import groovy.lang.Closure;
 
 /**
  * Converts an absolute sensor into a delta sensor (i.e. the diff between the current and previous value),
@@ -68,6 +69,10 @@ public class TimeWeightedDeltaEnricher<T extends Number> extends AbstractTypeTra
     @SetFromFlag
     Function<Double,Double> postProcessor;
     
+    /**
+     * @deprecated since 0.12.0; use {@link EnricherSpec}
+     */
+    @Deprecated
     // default 1 second
     public static <T extends Number> TimeWeightedDeltaEnricher<T> getPerSecondDeltaEnricher(Entity producer, Sensor<T> source, Sensor<Double> target) {
         return new TimeWeightedDeltaEnricher<T>(producer, source, target, 1000);
@@ -76,18 +81,26 @@ public class TimeWeightedDeltaEnricher<T extends Number> extends AbstractTypeTra
     public TimeWeightedDeltaEnricher() { // for rebind
     }
     
+    /**
+     * @deprecated since 0.12.0; use {@link EnricherSpec}
+     */
+    @Deprecated
     public TimeWeightedDeltaEnricher(Entity producer, Sensor<T> source, Sensor<Double> target, int unitMillis) {
         this(producer, source, target, unitMillis, Functions.<Double>identity());
     }
     
     /**
-     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
+     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted; also use {@link EnricherSpec}
      */
     @Deprecated
     public TimeWeightedDeltaEnricher(Entity producer, Sensor<T> source, Sensor<Double> target, int unitMillis, Closure<Double> postProcessor) {
         this(producer, source, target, unitMillis, GroovyJavaMethods.<Double,Double>functionFromClosure(postProcessor));
     }
     
+    /**
+     * @deprecated since 0.12.0; use {@link EnricherSpec}
+     */
+    @Deprecated
     public TimeWeightedDeltaEnricher(Entity producer, Sensor<T> source, Sensor<Double> target, int unitMillis, Function<Double,Double> postProcessor) {
         super(producer, source, target);
         this.unitMillis = unitMillis;
@@ -97,6 +110,15 @@ public class TimeWeightedDeltaEnricher<T extends Number> extends AbstractTypeTra
             this.uniqueTag = JavaClassNames.simpleClassName(getClass())+":"+source.getName()+"/"+Duration.millis(unitMillis)+"->"+target.getName();
     }
     
+    @Override
+    public void init() {
+        super.init();
+        
+        if (uniqueTag == null && source != null && target != null) {
+            uniqueTag = JavaClassNames.simpleClassName(getClass())+":"+source.getName()+"/"+Duration.millis(unitMillis)+"->"+target.getName();
+        }
+    }
+
     @Override
     public void onEvent(SensorEvent<T> event) {
         onEvent(event, event.getTimestamp());
@@ -109,7 +131,7 @@ public class TimeWeightedDeltaEnricher<T extends Number> extends AbstractTypeTra
             // Can't compute a delta; 
             // don't assume current=zero because then things like requestCount->requestsPerSecond is negative!
             // instead assume same as last time, so delta == 0
-            double deltaPostProcessed = postProcessor.apply(0d);
+            double deltaPostProcessed = getPostProcessor().apply(0d);
             entity.sensors().set((AttributeSensor<Double>)target, deltaPostProcessed);
             if (LOG.isTraceEnabled()) LOG.trace("set {} to {}, {} -> {} at {}", new Object[] {this, deltaPostProcessed, lastValue, current, eventTime});
             return;
@@ -123,7 +145,7 @@ public class TimeWeightedDeltaEnricher<T extends Number> extends AbstractTypeTra
                 double duration = (lastTime < 0) ? unitMillis : eventTime - lastTime;
                 if (eventTime == lastTime) duration = 0.1; // 0.1 of a millisecond is a relatively small number: 
                 double delta = (current.doubleValue() - lastValue.doubleValue()) / (duration / unitMillis);
-                double deltaPostProcessed = postProcessor.apply(delta);
+                double deltaPostProcessed = getPostProcessor().apply(delta);
                 entity.sensors().set((AttributeSensor<Double>)target, deltaPostProcessed);
                 if (LOG.isTraceEnabled()) LOG.trace("set {} to {}, {} -> {} at {}", new Object[] {this, deltaPostProcessed, lastValue, current, eventTime}); 
             }
@@ -133,5 +155,9 @@ public class TimeWeightedDeltaEnricher<T extends Number> extends AbstractTypeTra
             lastValue = current;
             lastTime = -1;
         }
+    }
+    
+    private Function<Double, Double> getPostProcessor() {
+        return (postProcessor != null) ? postProcessor : Functions.<Double>identity();
     }
 }

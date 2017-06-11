@@ -23,11 +23,13 @@ import static org.testng.Assert.assertEquals;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher.ConfidenceQualifiedNumber;
+import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -46,6 +48,7 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
     private final long timePeriod = 1000;
     
     @BeforeMethod(alwaysRun=true)
+    @SuppressWarnings("unchecked")
     @Override
     public void setUp() throws Exception {
         super.setUp();
@@ -55,9 +58,15 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
         deltaSensor = new BasicAttributeSensor<Integer>(Integer.class, "delta sensor");
         avgSensor = new BasicAttributeSensor<Double>(Double.class, "avg sensor");
         
-        producer.enrichers().add(new DeltaEnricher<Integer>(producer, intSensor, deltaSensor));
-        averager = new RollingTimeWindowMeanEnricher<Integer>(producer, deltaSensor, avgSensor, timePeriod);
-        producer.enrichers().add(averager);
+        producer.enrichers().add(EnricherSpec.create(DeltaEnricher.class)
+                .configure("producer", producer)
+                .configure("source", intSensor)
+                .configure("target", deltaSensor));
+        averager = producer.enrichers().add(EnricherSpec.create(RollingTimeWindowMeanEnricher.class)
+                .configure("producer", producer)
+                .configure("source", deltaSensor)
+                .configure("target", avgSensor)
+                .configure("timePeriod", timePeriod));
     }
 
     @Test

@@ -24,6 +24,7 @@ import java.net.URL;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
@@ -57,7 +58,10 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
     
     @Test
     public void testDeltaEnricher() throws Exception {
-        origApp.enrichers().add(new DeltaEnricher<Integer>(origApp, INT_METRIC, INT_METRIC2));
+        origApp.enrichers().add(EnricherSpec.create(DeltaEnricher.class)
+                .configure("producer", origApp)
+                .configure("source", INT_METRIC)
+                .configure("target", INT_METRIC2));
         
         TestApplication newApp = rebind();
 
@@ -93,7 +97,11 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
 
     @Test
     public void testRollingMeanEnricher() throws Exception {
-        origApp.enrichers().add(new RollingMeanEnricher<Integer>(origApp, INT_METRIC, DOUBLE_METRIC, 2));
+        origApp.enrichers().add(EnricherSpec.create(RollingMeanEnricher.class)
+                .configure("producer", origApp)
+                .configure("source", INT_METRIC)
+                .configure("target", DOUBLE_METRIC)
+                .configure("windowSize", 2));
         
         TestApplication newApp = rebind();
 
@@ -103,7 +111,11 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
 
     @Test
     public void testRollingTimeWindowMeanEnricher() throws Exception {
-        origApp.enrichers().add(new RollingTimeWindowMeanEnricher<Integer>(origApp, INT_METRIC, DOUBLE_METRIC, Duration.of(10, TimeUnit.MILLISECONDS)));
+        origApp.enrichers().add(EnricherSpec.create(RollingTimeWindowMeanEnricher.class)
+                .configure("producer", origApp)
+                .configure("source", INT_METRIC)
+                .configure("target", DOUBLE_METRIC)
+                .configure("timePeriod", Duration.millis(10)));
         
         TestApplication newApp = rebind();
 
@@ -115,7 +127,11 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
     
     @Test
     public void testTimeFractionDeltaEnricher() throws Exception {
-        origApp.enrichers().add(new TimeFractionDeltaEnricher<Integer>(origApp, INT_METRIC, DOUBLE_METRIC, TimeUnit.MILLISECONDS));
+        origApp.enrichers().add(EnricherSpec.create(TimeFractionDeltaEnricher.class)
+                .configure("producer", origApp)
+                .configure("source", INT_METRIC)
+                .configure("target", DOUBLE_METRIC)
+                .configure("durationPerOrigUnit", Duration.millis(1)));
         
         final TestApplication newApp = rebind();
 
@@ -132,7 +148,11 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
     
     @Test
     public void testTimeWeightedDeltaEnricher() throws Exception {
-        origApp.enrichers().add(new TimeWeightedDeltaEnricher<Integer>(origApp, INT_METRIC, DOUBLE_METRIC, 1000));
+        origApp.enrichers().add(EnricherSpec.create(TimeWeightedDeltaEnricher.class)
+                .configure("producer", origApp)
+                .configure("source", INT_METRIC)
+                .configure("target", DOUBLE_METRIC)
+                .configure("unitMillis", 1000));
         
         final TestApplication newApp = rebind();
 
