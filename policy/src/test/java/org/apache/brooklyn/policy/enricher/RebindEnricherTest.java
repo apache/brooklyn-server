@@ -79,7 +79,7 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
                 .rollup(Duration.of(50, TimeUnit.MILLISECONDS))
                 .period(Duration.of(10, TimeUnit.MILLISECONDS))
                 .url(baseUrl)
-                .build());
+                .buildSpec());
         origApp.sensors().set(Attributes.SERVICE_UP, true);
         
         TestApplication newApp = rebind();
