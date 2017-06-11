@@ -24,7 +24,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal.ConfigurationSupportInternal;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -141,6 +143,13 @@ public abstract class BrooklynYamlTypeInstantiator {
                 result = Reflections.invokeConstructorFromArgs(type);
                 if (result.isPresent()) 
                     return result.get();
+            } else if (Configurable.class.isAssignableFrom(type)) {
+                result = Reflections.invokeConstructorFromArgs(type);
+                if (result.isPresent()) {
+                    ConfigurationSupportInternal configSupport = (ConfigurationSupportInternal) ((Configurable)result.get()).config();
+                    configSupport.putAll(cfg);
+                    return result.get();
+                }
             }
             
             throw new IllegalStateException("No known mechanism for constructing type "+type+" in "+factory.contextForLogging);
