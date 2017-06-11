@@ -71,8 +71,8 @@ public class ServiceRestarterTest extends BrooklynAppUnitTestSupport {
     
     @Test
     public void testRestartsOnFailure() throws Exception {
-        policy = new ServiceRestarter(new ConfigBag().configure(ServiceRestarter.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED));
-        e1.policies().add(policy);
+        policy = e1.policies().add(PolicySpec.create(ServiceRestarter.class)
+                .configure(ServiceRestarter.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED));
         
         e1.sensors().emit(HASensors.ENTITY_FAILED, new FailureDescriptor(e1, "simulate failure"));
         
@@ -84,8 +84,8 @@ public class ServiceRestarterTest extends BrooklynAppUnitTestSupport {
     
     @Test(groups="Integration") // Has a 1 second wait
     public void testDoesNotRestartsWhenHealthy() throws Exception {
-        policy = new ServiceRestarter(new ConfigBag().configure(ServiceRestarter.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED));
-        e1.policies().add(policy);
+        policy = e1.policies().add(PolicySpec.create(ServiceRestarter.class)
+                .configure(ServiceRestarter.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED));
         
         e1.sensors().emit(HASensors.ENTITY_RECOVERED, new FailureDescriptor(e1, "not a failure"));
         
@@ -101,8 +101,8 @@ public class ServiceRestarterTest extends BrooklynAppUnitTestSupport {
                 .configure(FailingEntity.FAIL_ON_RESTART, true));
         app.subscriptions().subscribe(e2, ServiceRestarter.ENTITY_RESTART_FAILED, eventListener);
 
-        policy = new ServiceRestarter(new ConfigBag().configure(ServiceRestarter.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED));
-        e2.policies().add(policy);
+        policy = e2.policies().add(PolicySpec.create(ServiceRestarter.class)
+                .configure(ServiceRestarter.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED));
 
         e2.sensors().emit(HASensors.ENTITY_FAILED, new FailureDescriptor(e2, "simulate failure"));
         
@@ -123,10 +123,9 @@ public class ServiceRestarterTest extends BrooklynAppUnitTestSupport {
                 .configure(FailingEntity.FAIL_ON_RESTART, true));
         app.subscriptions().subscribe(e2, ServiceRestarter.ENTITY_RESTART_FAILED, eventListener);
 
-        policy = new ServiceRestarter(new ConfigBag()
+        policy = e2.policies().add(PolicySpec.create(ServiceRestarter.class)
                 .configure(ServiceRestarter.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED)
                 .configure(ServiceRestarter.SET_ON_FIRE_ON_FAILURE, false));
-        e2.policies().add(policy);
 
         e2.sensors().emit(HASensors.ENTITY_FAILED, new FailureDescriptor(e2, "simulate failure"));
         

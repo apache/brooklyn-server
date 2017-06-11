@@ -69,8 +69,11 @@ public class AutoScalerPolicyMetricTest {
     public void testIncrementsSizeIffUpperBoundExceeded() {
         tc.resize(1);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE).metricLowerBound(50).metricUpperBound(100).build();
-        tc.policies().add(policy);
+        tc.policies().add(AutoScalerPolicy.builder()
+                .metric(MY_ATTRIBUTE)
+                .metricLowerBound(50)
+                .metricUpperBound(100)
+                .buildSpec());
 
         tc.sensors().set(MY_ATTRIBUTE, 100);
         Asserts.succeedsContinually(ImmutableMap.of("timeout", SHORT_WAIT_MS), currentSizeAsserter(tc, 1));
@@ -83,8 +86,11 @@ public class AutoScalerPolicyMetricTest {
     public void testDecrementsSizeIffLowerBoundExceeded() {
         tc.resize(2);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE).metricLowerBound(50).metricUpperBound(100).build();
-        tc.policies().add(policy);
+        tc.policies().add(AutoScalerPolicy.builder()
+                .metric(MY_ATTRIBUTE)
+                .metricLowerBound(50)
+                .metricUpperBound(100)
+                .buildSpec());
 
         tc.sensors().set(MY_ATTRIBUTE, 50);
         Asserts.succeedsContinually(ImmutableMap.of("timeout", SHORT_WAIT_MS), currentSizeAsserter(tc, 2));
@@ -97,8 +103,11 @@ public class AutoScalerPolicyMetricTest {
     public void testIncrementsSizeInProportionToMetric() {
         tc.resize(5);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE).metricLowerBound(50).metricUpperBound(100).build();
-        tc.policies().add(policy);
+        tc.policies().add(AutoScalerPolicy.builder()
+                .metric(MY_ATTRIBUTE)
+                .metricLowerBound(50)
+                .metricUpperBound(100)
+                .buildSpec());
         
         // workload 200 so requires doubling size to 10 to handle: (200*5)/100 = 10
         tc.sensors().set(MY_ATTRIBUTE, 200);
@@ -113,8 +122,11 @@ public class AutoScalerPolicyMetricTest {
     public void testDecrementsSizeInProportionToMetric() {
         tc.resize(5);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE).metricLowerBound(50).metricUpperBound(100).build();
-        tc.policies().add(policy);
+        tc.policies().add(AutoScalerPolicy.builder()
+                .metric(MY_ATTRIBUTE)
+                .metricLowerBound(50)
+                .metricUpperBound(100)
+                .buildSpec());
         
         // workload can be handled by 4 servers, within its valid range: (49*5)/50 = 4.9
         tc.sensors().set(MY_ATTRIBUTE, 49);
@@ -132,11 +144,12 @@ public class AutoScalerPolicyMetricTest {
     public void testObeysMinAndMaxSize() {
         tc.resize(4);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE)
-                .metricLowerBound(50).metricUpperBound(100)
+        AutoScalerPolicy policy = tc.policies().add(AutoScalerPolicy.builder()
+                .metric(MY_ATTRIBUTE)
+                .metricLowerBound(50)
+                .metricUpperBound(100)
                 .minPoolSize(2).maxPoolSize(6)
-                .build();
-        tc.policies().add(policy);
+                .buildSpec());
 
         // Decreases to min-size only
         tc.sensors().set(MY_ATTRIBUTE, 0);
@@ -159,12 +172,13 @@ public class AutoScalerPolicyMetricTest {
                     maxReachedEvents.add(event.getValue());
                 }});
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE)
-                .metricLowerBound(50).metricUpperBound(100)
+        tc.policies().add(AutoScalerPolicy.builder()
+                .metric(MY_ATTRIBUTE)
+                .metricLowerBound(50)
+                .metricUpperBound(100)
                 .maxPoolSize(6)
                 .maxSizeReachedSensor(maxSizeReachedSensor)
-                .build();
-        tc.policies().add(policy);
+                .buildSpec());
 
         // workload can be handled by 6 servers, so no need to notify: 6 <= (100*6)/50
         tc.sensors().set(MY_ATTRIBUTE, 600);
@@ -196,8 +210,11 @@ public class AutoScalerPolicyMetricTest {
     public void testDestructionState() {
         tc.resize(1);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE).metricLowerBound(50).metricUpperBound(100).build();
-        tc.policies().add(policy);
+        AutoScalerPolicy policy = tc.policies().add(AutoScalerPolicy.builder()
+                .metric(MY_ATTRIBUTE)
+                .metricLowerBound(50)
+                .metricUpperBound(100)
+                .buildSpec());
 
         policy.destroy();
         assertTrue(policy.isDestroyed());
@@ -212,8 +229,11 @@ public class AutoScalerPolicyMetricTest {
     
     @Test
     public void testSuspendState() {
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE).metricLowerBound(50).metricUpperBound(100).build();
-        tc.policies().add(policy);
+        AutoScalerPolicy policy = tc.policies().add(AutoScalerPolicy.builder()
+                .metric(MY_ATTRIBUTE)
+                .metricLowerBound(50)
+                .metricUpperBound(100)
+                .buildSpec());
         
         policy.suspend();
         assertFalse(policy.isRunning());
@@ -228,8 +248,11 @@ public class AutoScalerPolicyMetricTest {
     public void testPostSuspendActions() {
         tc.resize(1);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE).metricLowerBound(50).metricUpperBound(100).build();
-        tc.policies().add(policy);
+        AutoScalerPolicy policy = tc.policies().add(AutoScalerPolicy.builder()
+                .metric(MY_ATTRIBUTE)
+                .metricLowerBound(50)
+                .metricUpperBound(100)
+                .buildSpec());
 
         policy.suspend();
         
@@ -241,8 +264,11 @@ public class AutoScalerPolicyMetricTest {
     public void testPostResumeActions() {
         tc.resize(1);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE).metricLowerBound(50).metricUpperBound(100).build();
-        tc.policies().add(policy);
+        AutoScalerPolicy policy = tc.policies().add(AutoScalerPolicy.builder()
+                .metric(MY_ATTRIBUTE)
+                .metricLowerBound(50)
+                .metricUpperBound(100)
+                .buildSpec());
         
         policy.suspend();
         policy.resume();
@@ -256,13 +282,12 @@ public class AutoScalerPolicyMetricTest {
         
         tc.resize(1);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder()
+        tc.policies().add(AutoScalerPolicy.builder()
                 .metric(TestEntity.SEQUENCE)
                 .entityWithMetric(entityWithMetric)
                 .metricLowerBound(50)
                 .metricUpperBound(100)
-                .build();
-        tc.policies().add(policy);
+                .buildSpec());
 
         // First confirm that tc is not being listened to for this entity
         tc.sensors().set(TestEntity.SEQUENCE, 101);

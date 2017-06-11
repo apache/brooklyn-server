@@ -103,8 +103,8 @@ public class ServiceReplacerTest {
                 .configure(DynamicCluster.INITIAL_SIZE, 3));
         app.start(ImmutableList.<Location>of(loc));
 
-        ServiceReplacer policy = new ServiceReplacer(new ConfigBag().configure(ServiceReplacer.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED));
-        cluster.policies().add(policy);
+        cluster.policies().add(PolicySpec.create(ServiceReplacer.class)
+                .configure(ServiceReplacer.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED));
 
         final Set<Entity> initialMembers = ImmutableSet.copyOf(cluster.getMembers());
         final TestEntity e1 = (TestEntity) Iterables.get(initialMembers, 1);
@@ -150,8 +150,8 @@ public class ServiceReplacerTest {
         
         log.info("started "+app+" for "+JavaClassNames.niceClassAndMethod());
         
-        ServiceReplacer policy = new ServiceReplacer(new ConfigBag().configure(ServiceReplacer.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED));
-        cluster.policies().add(policy);
+        cluster.policies().add(PolicySpec.create(ServiceReplacer.class)
+                .configure(ServiceReplacer.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED));
         
         final Set<Entity> initialMembers = ImmutableSet.copyOf(cluster.getMembers());
         final TestEntity e1 = (TestEntity) Iterables.get(initialMembers, 0);
@@ -200,10 +200,9 @@ public class ServiceReplacerTest {
                 .configure(DynamicCluster.QUARANTINE_FAILED_ENTITIES, true));
         app.start(ImmutableList.<Location>of(loc));
         
-        ServiceReplacer policy = new ServiceReplacer(new ConfigBag()
+        cluster.policies().add(PolicySpec.create(ServiceReplacer.class)
                 .configure(ServiceReplacer.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED)
                 .configure(ServiceReplacer.SET_ON_FIRE_ON_FAILURE, false));
-        cluster.policies().add(policy);
         
         final Set<Entity> initialMembers = ImmutableSet.copyOf(cluster.getMembers());
         final TestEntity e1 = (TestEntity) Iterables.get(initialMembers, 0);
@@ -289,10 +288,9 @@ public class ServiceReplacerTest {
                 .configure(DynamicCluster.QUARANTINE_FAILED_ENTITIES, true));
         app.start(ImmutableList.<Location>of(loc));
         
-        ServiceReplacer policy = new ServiceReplacer(new ConfigBag()
+        cluster.policies().add(PolicySpec.create(ServiceReplacer.class)
                 .configure(ServiceReplacer.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED)
                 .configure(ServiceReplacer.FAIL_ON_NUM_RECURRING_FAILURES, 3));
-        cluster.policies().add(policy);
 
         final Set<Entity> initialMembers = ImmutableSet.copyOf(cluster.getMembers());
         for (int i = 0; i < 5; i++) {
