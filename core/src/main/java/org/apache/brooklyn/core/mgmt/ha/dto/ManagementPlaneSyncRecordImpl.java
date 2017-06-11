@@ -28,7 +28,7 @@ import org.apache.brooklyn.api.mgmt.ha.ManagementNodeSyncRecord;
 import org.apache.brooklyn.api.mgmt.ha.ManagementPlaneSyncRecord;
 import org.apache.brooklyn.util.collections.MutableMap;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
@@ -97,7 +97,7 @@ public class ManagementPlaneSyncRecordImpl implements ManagementPlaneSyncRecord,
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("masterNodeId", masterNodeId)
                 .add("nodes", managementNodes.keySet())
                 .toString();

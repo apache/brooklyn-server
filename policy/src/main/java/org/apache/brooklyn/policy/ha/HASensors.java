@@ -20,7 +20,7 @@ package org.apache.brooklyn.policy.ha;
 
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 public class HASensors {
 
@@ -56,7 +56,7 @@ public class HASensors {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this).add("component", component).add("description", description).toString();
+            return MoreObjects.toStringHelper(this).add("component", component).add("description", description).toString();
         }
     }
 }

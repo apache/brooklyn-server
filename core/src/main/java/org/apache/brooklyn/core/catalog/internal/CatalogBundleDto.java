@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
@@ -68,7 +69,7 @@ public class CatalogBundleDto implements CatalogBundle {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("symbolicName", symbolicName)
                 .add("version", version)
                 .add("url", url)

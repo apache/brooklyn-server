@@ -25,7 +25,7 @@ import org.apache.brooklyn.util.collections.TimeWindowedList;
 import org.apache.brooklyn.util.collections.TimestampedValue;
 import org.apache.brooklyn.util.time.Duration;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 /**
  * Using a {@link TimeWindowedList}, tracks the recent history of values to allow a summary of 
@@ -61,7 +61,7 @@ public class SizeHistory {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this).add("latest", latest).add("min", min).add("max", max)
+            return MoreObjects.toStringHelper(this).add("latest", latest).add("min", min).add("max", max)
                     .add("stableForGrowth", stableForGrowth).add("stableForShrinking", stableForShrinking).toString();
         }
     }

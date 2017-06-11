@@ -27,7 +27,7 @@ import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.util.time.Time;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 /**
  * Represents the state of a management node within the Brooklyn management plane
@@ -165,14 +165,14 @@ public class BasicManagementNodeSyncRecord implements ManagementNodeSyncRecord, 
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("nodeId", getNodeId())
                 .add("status", getStatus()).toString();
     }
     
     @Override
     public String toVerboseString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .omitNullValues()
                 .add("brooklynVersion", getBrooklynVersion())
                 .add("nodeId", getNodeId())

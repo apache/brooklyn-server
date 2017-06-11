@@ -160,6 +160,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -286,7 +287,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     @Override
     public String toVerboseString() {
-        return Objects.toStringHelper(this).omitNullValues()
+        return MoreObjects.toStringHelper(this).omitNullValues()
                 .add("id", getId()).add("name", getDisplayName()).add("identity", getIdentity())
                 .add("description", config().getLocalBag().getDescription()).add("provider", getProvider())
                 .add("region", getRegion()).add("endpoint", getEndpoint())

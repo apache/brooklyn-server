@@ -50,7 +50,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.CharMatcher;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Maps;
@@ -192,7 +192,7 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
             @Override
             @SuppressWarnings("deprecation")
             public String toString() {
-                return Objects.toStringHelper(this)
+                return MoreObjects.toStringHelper(this)
                         .omitNullValues()
                         .add("originalProperties", originalProperties)
                         .add("defaultLocationMetadataUrl", defaultLocationMetadataUrl)

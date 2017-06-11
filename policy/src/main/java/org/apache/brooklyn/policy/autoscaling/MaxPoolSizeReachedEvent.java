@@ -20,7 +20,7 @@ package org.apache.brooklyn.policy.autoscaling;
 
 import java.io.Serializable;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 public class MaxPoolSizeReachedEvent implements Serializable {
     private static final long serialVersionUID = 1602627701360505190L;
@@ -96,7 +96,7 @@ public class MaxPoolSizeReachedEvent implements Serializable {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("maxAllowed", maxAllowed).add("currentPoolSize", currentPoolSize)
+        return MoreObjects.toStringHelper(this).add("maxAllowed", maxAllowed).add("currentPoolSize", currentPoolSize)
                 .add("currentUnbounded", currentUnbounded).add("maxUnbounded", maxUnbounded)
                 .add("timeWindow", timeWindow).toString();
     }

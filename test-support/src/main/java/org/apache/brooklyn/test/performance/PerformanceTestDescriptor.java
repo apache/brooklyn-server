@@ -29,7 +29,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.apache.commons.io.FileUtils;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 /**
  * For building up a description of what to measure.
@@ -211,7 +211,7 @@ public class PerformanceTestDescriptor {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .omitNullValues()
                 .add("summary", summary)
                 .add("duration", duration)

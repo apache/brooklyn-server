@@ -27,14 +27,13 @@ import java.util.Set;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.Sanitizer;
+import org.apache.brooklyn.util.collections.MutableList;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
-import org.apache.brooklyn.util.collections.MutableList;
 
 public abstract class AbstractMemento implements Memento, Serializable {
 
@@ -201,7 +200,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("type", getType()).add("id", getId()).toString();
+        return MoreObjects.toStringHelper(this).add("type", getType()).add("id", getId()).toString();
     }
     
     @Override

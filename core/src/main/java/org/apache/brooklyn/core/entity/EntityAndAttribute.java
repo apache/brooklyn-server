@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Supplier;
 
@@ -84,7 +85,7 @@ public class EntityAndAttribute<T> implements Supplier<T> {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("entity", entity)
                 .add("attribute", attribute)
                 .toString();

@@ -32,7 +32,7 @@ import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.stream.Streams;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -71,7 +71,7 @@ public class AggregatingMachineProvisioningLocation<T extends MachineLocation> e
     
     @Override
     public String toVerboseString() {
-        return Objects.toStringHelper(this).omitNullValues()
+        return MoreObjects.toStringHelper(this).omitNullValues()
                 .add("id", getId()).add("name", getDisplayName())
                 .add("provisioners", provisioners)
                 .toString();
