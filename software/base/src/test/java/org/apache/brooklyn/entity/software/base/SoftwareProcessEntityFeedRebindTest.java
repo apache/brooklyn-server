@@ -38,7 +38,6 @@ import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityRebindTest.MyProvisioningLocation;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest.SimulatedDriver;
 import org.apache.brooklyn.feed.function.FunctionFeed;
@@ -107,7 +106,7 @@ public class SoftwareProcessEntityFeedRebindTest extends RebindTestFixtureWithAp
         for (Entity child : origApp.getChildren()) {
             EntityAsserts.assertAttributeEquals(child, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
             EntityAsserts.assertAttributeEquals(child, Attributes.SERVICE_UP, Boolean.TRUE);
-            EntityAsserts.assertAttributeEquals(child, SoftwareProcess.SERVICE_PROCESS_IS_RUNNING, Boolean.TRUE);
+            EntityAsserts.assertAttributeEqualsEventually(child, SoftwareProcess.SERVICE_PROCESS_IS_RUNNING, Boolean.TRUE);
         }
 
         LOG.info("Rebinding "+numEntities+" entities");
