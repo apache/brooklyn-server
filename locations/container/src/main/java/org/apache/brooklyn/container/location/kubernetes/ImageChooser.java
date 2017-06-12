@@ -33,9 +33,9 @@ public class ImageChooser {
 
     private static final Logger LOG = LoggerFactory.getLogger(ImageChooser.class);
     private static final List<ImageMetadata> DEFAULT_IMAGES = ImmutableList.of(
-            new ImageMetadata(OsFamily.CENTOS, "7", "cloudsoft/centos:7"),
-            new ImageMetadata(OsFamily.UBUNTU, "14.04", "cloudsoft/ubuntu:14.04"),
-            new ImageMetadata(OsFamily.UBUNTU, "16.04", "cloudsoft/ubuntu:16.04"));
+            new ImageMetadata(OsFamily.CENTOS, "7", "brooklyncentral/centos:7"),
+            new ImageMetadata(OsFamily.UBUNTU, "14.04", "brooklyncentral/ubuntu:14.04"),
+            new ImageMetadata(OsFamily.UBUNTU, "16.04", "brooklyncentral/ubuntu:16.04"));
     private final List<ImageMetadata> images;
 
     public ImageChooser() {

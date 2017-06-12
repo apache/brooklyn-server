@@ -53,13 +53,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 /**
  * For provisioning docker containers, using the jclouds-docker integration.
  * <p>
- * This adds special support for default Cloudsoft images. If the image description matches our
- * cloudsoft regexes, then auto-generate a password and pass that in as
- * {@code CLOUDSOFT_ROOT_PASSWORD} when launching the container. That will then be used as the
+ * This adds special support for default Docker images. If the image description matches our
+ * image regexes, then auto-generate a password and pass that in as
+ * {@code BROOKLYN_ROOT_PASSWORD} when launching the container. That will then be used as the
  * {@link DockerTemplateOptions#getLoginPassword()}.
  * <p>
- * Also, if no image is specified then this will set the default to "cloudsoft/centos:7"
- * (see https://hub.docker.com/r/cloudsoft/centos/).
+ * Also, if no image is specified then this will set the default to "brooklyncentral/centos:7"
+ * (see https://hub.docker.com/r/brooklyncentral/centos/).
  */
 public class DockerJcloudsLocation extends JcloudsLocation {
 
@@ -70,19 +70,19 @@ public class DockerJcloudsLocation extends JcloudsLocation {
     public static final ConfigKey<String> DEFAULT_IMAGE_DESCRIPTION_REGEX = ConfigKeys.newStringConfigKey(
             "defaultImageDescriptionRegex",
             "The default image description to use, if no other image preferences are supplied",
-            "cloudsoft/centos:7");
+            "brooklyncentral/centos:7");
     private static final Logger LOG = LoggerFactory.getLogger(DockerJcloudsLocation.class);
     /**
      * The regex for the image descriptions that support us injecting login credentials.
      */
     private static final List<String> IMAGE_DESCRIPTION_REGEXES_REQUIRING_INJECTED_LOGIN_CREDS = ImmutableList.of(
-            "cloudsoft/centos.*",
-            "cloudsoft/ubuntu.*");
+            "brooklyncentral/centos.*",
+            "brooklyncentral/ubuntu.*");
 
     private static final List<ImageMetadata> DEFAULT_IMAGES = ImmutableList.of(
-            new ImageMetadata(OsFamily.CENTOS, "7", "cloudsoft/centos:7"),
-            new ImageMetadata(OsFamily.UBUNTU, "14.04", "cloudsoft/ubuntu:14.04"),
-            new ImageMetadata(OsFamily.UBUNTU, "16.04", "cloudsoft/ubuntu:16.04"));
+            new ImageMetadata(OsFamily.CENTOS, "7", "brooklyncentral/centos:7"),
+            new ImageMetadata(OsFamily.UBUNTU, "14.04", "brooklyncentral/ubuntu:14.04"),
+            new ImageMetadata(OsFamily.UBUNTU, "16.04", "brooklyncentral/ubuntu:16.04"));
 
     @Override
     protected MachineLocation obtainOnce(ConfigBag setup) throws NoMachinesAvailableException {
@@ -149,7 +149,7 @@ public class DockerJcloudsLocation extends JcloudsLocation {
                 templateOptions.overrideLoginUser(loginUser);
                 templateOptions.overrideLoginPassword(loginPassword);
 
-                env.add("CLOUDSOFT_ROOT_PASSWORD=" + loginPassword);
+                env.add("BROOKLYN_ROOT_PASSWORD=" + loginPassword);
             }
         }
 

@@ -134,7 +134,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
      *  - Does not create a user, so behaves differently from things that use
      *    JcloudsLocation.
      *  - Does not use ssh keys only passwords.
-     *  - The 'cloudsoft/*' images use root which is discouraged.
+     *  - The 'brooklyncentral/*' images use root which is discouraged.
      *  - Error handling needs revisited. For example, if provisioning fails then
      *    it waits for five minutes and then fails without a reason why.
      *    e.g. try launching a container with an incorrect image name.
@@ -153,12 +153,12 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
      * The regex for the image descriptions that support us injecting login credentials.
      */
     public static final List<String> IMAGE_DESCRIPTION_REGEXES_REQUIRING_INJECTED_LOGIN_CREDS = ImmutableList.of(
-            "cloudsoft/centos.*",
-            "cloudsoft/ubuntu.*");
+            "brooklyncentral/centos.*",
+            "brooklyncentral/ubuntu.*");
     /**
      * The environment variable for injecting login credentials.
      */
-    public static final String CLOUDSOFT_ROOT_PASSWORD = "CLOUDSOFT_ROOT_PASSWORD";
+    public static final String BROOKLYN_ROOT_PASSWORD = "BROOKLYN_ROOT_PASSWORD";
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesLocation.class);
     private KubernetesClient client;
 
@@ -892,7 +892,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     /**
-     * Sets the {@code CLOUDSOFT_ROOT_PASSWORD} variable in the container environment if appropriate.
+     * Sets the {@code BROOKLYN_ROOT_PASSWORD} variable in the container environment if appropriate.
      * This is (approximately) the same behaviour as the {@link DockerJcloudsLocation} used for
      * Swarm.
      * <p>
@@ -926,7 +926,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     setup.configure(LOGIN_USER_PASSWORD, loginPassword);
                 }
 
-                injections.put(CLOUDSOFT_ROOT_PASSWORD, loginPassword);
+                injections.put(BROOKLYN_ROOT_PASSWORD, loginPassword);
             }
         }
 

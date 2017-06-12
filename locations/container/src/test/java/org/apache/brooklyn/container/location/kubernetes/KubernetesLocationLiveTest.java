@@ -95,7 +95,7 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
 
     @Test(groups = {"Live"})
     public void testDefault() throws Exception {
-        // Default is "cloudsoft/centos:7"
+        // Default is "brooklyncentral/centos:7"
         runImage(ImmutableMap.<String, Object>of(), "centos", "7");
     }
 
@@ -126,18 +126,18 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
     }
 
     @Test(groups = {"Live"})
-    public void testCloudsoftCentos7() throws Exception {
-        runImage(ImmutableMap.of(KubernetesLocationConfig.IMAGE.getName(), "cloudsoft/centos:7"), "centos", "7");
+    public void testCentos7Image() throws Exception {
+        runImage(ImmutableMap.of(KubernetesLocationConfig.IMAGE.getName(), "brooklyncentral/centos:7"), "centos", "7");
     }
 
     @Test(groups = {"Live"})
-    public void testCloudsoftUbuntu14() throws Exception {
-        runImage(ImmutableMap.of(KubernetesLocationConfig.IMAGE.getName(), "cloudsoft/ubuntu:14.04"), "ubuntu", "14.04");
+    public void testUbuntu14Image() throws Exception {
+        runImage(ImmutableMap.of(KubernetesLocationConfig.IMAGE.getName(), "brooklyncentral/ubuntu:14.04"), "ubuntu", "14.04");
     }
 
     @Test(groups = {"Live"})
-    public void testCloudsoftUbuntu16() throws Exception {
-        runImage(ImmutableMap.of(KubernetesLocationConfig.IMAGE.getName(), "cloudsoft/ubuntu:16.04"), "ubuntu", "16.04");
+    public void testUbuntu16Image() throws Exception {
+        runImage(ImmutableMap.of(KubernetesLocationConfig.IMAGE.getName(), "brooklyncentral/ubuntu:16.04"), "ubuntu", "16.04");
     }
 
     @Test(groups = {"Live"})
@@ -166,7 +166,7 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
 
     @Test(groups = {"Live"})
     protected void testUsesSuppliedLoginPassword() throws Exception {
-        // Because defaulting to "cloudsoft/centos:7", it knows to set the loginUserPassword
+        // Because defaulting to "brooklyncentral/centos:7", it knows to set the loginUserPassword
         // on container creation.
         String password = "myCustomP4ssword";
         loc = newKubernetesLocation(ImmutableMap.<String, Object>of());
@@ -184,7 +184,7 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
         List<Integer> inboundPorts = ImmutableList.of(22, 443, 8000, 8081);
         loc = newKubernetesLocation(ImmutableMap.<String, Object>of());
         SshMachineLocation machine = newContainerMachine(loc, ImmutableMap.<String, Object>builder()
-                .put(KubernetesLocationConfig.IMAGE.getName(), "cloudsoft/centos:7")
+                .put(KubernetesLocationConfig.IMAGE.getName(), "brooklyncentral/centos:7")
                 .put(KubernetesLocationConfig.LOGIN_USER_PASSWORD.getName(), "p4ssw0rd")
                 .put(KubernetesLocationConfig.INBOUND_PORTS.getName(), inboundPorts)
                 .put(LocationConfigKeys.CALLER_CONTEXT.getName(), app)
