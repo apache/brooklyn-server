@@ -20,28 +20,26 @@ package org.apache.brooklyn.core.policy.basic;
 
 import static org.testng.Assert.assertEquals;
 
+import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.policy.PolicyType;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
-import org.testng.annotations.AfterMethod;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableSet;
 
-public class PolicyTypeTest {
+public class PolicyTypeTest extends BrooklynAppUnitTestSupport {
     private MyPolicy policy;
     
     @BeforeMethod(alwaysRun=true)
-    public void setUpTestEntity() throws Exception{
-        policy = new MyPolicy();
+    @Override
+    public void setUp() throws Exception{
+        super.setUp();
+        policy = app.policies().add(PolicySpec.create(MyPolicy.class));
     }
 
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        // nothing to tear down; no management context not started
-    }
-    
     @Test
     public void testGetConfig() throws Exception {
         PolicyType policyType = policy.getPolicyType();

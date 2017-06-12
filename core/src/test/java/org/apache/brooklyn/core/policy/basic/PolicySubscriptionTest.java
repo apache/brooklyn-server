@@ -22,6 +22,7 @@ import static org.testng.Assert.assertEquals;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
+import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
@@ -44,7 +45,7 @@ public class PolicySubscriptionTest extends BrooklynAppUnitTestSupport {
     private SimulatedLocation loc;
     private TestEntity entity;
     private TestEntity otherEntity;
-    private AbstractPolicy policy;
+    private MyPolicy policy;
     private RecordingSensorEventListener<Object> listener;
     
     @BeforeMethod(alwaysRun=true)
@@ -55,8 +56,7 @@ public class PolicySubscriptionTest extends BrooklynAppUnitTestSupport {
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         otherEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         listener = new RecordingSensorEventListener<>();
-        policy = new AbstractPolicy() {};
-        entity.policies().add(policy);
+        policy = entity.policies().add(PolicySpec.create(MyPolicy.class));
         app.start(ImmutableList.of(loc));
     }
 
@@ -149,5 +149,8 @@ public class PolicySubscriptionTest extends BrooklynAppUnitTestSupport {
             @Override public void run() {
                 assertEquals(listener.getEvents(), ImmutableList.of());
             }});
+    }
+    
+    public static class MyPolicy extends AbstractPolicy {
     }
 }

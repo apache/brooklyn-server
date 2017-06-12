@@ -18,11 +18,8 @@
  */
 package org.apache.brooklyn.policy.ha;
 
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.Sensor;
@@ -39,11 +36,12 @@ import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 
@@ -80,23 +78,10 @@ public class ServiceRestarter extends AbstractPolicy {
     protected final AtomicReference<Long> lastFailureTime = new AtomicReference<Long>();
 
     public ServiceRestarter() {
-        this(new ConfigBag());
+        super();
+        if (uniqueTag == null) uniqueTag = JavaClassNames.simpleClassName(getClass())+":"+getConfig(FAILURE_SENSOR_TO_MONITOR).getName();
     }
     
-    public ServiceRestarter(Map<String,?> flags) {
-        this(new ConfigBag().putAll(flags));
-    }
-    
-    public ServiceRestarter(ConfigBag configBag) {
-        // TODO hierarchy should use ConfigBag, and not change flags
-        super(configBag.getAllConfigMutable());
-        uniqueTag = JavaClassNames.simpleClassName(getClass())+":"+getConfig(FAILURE_SENSOR_TO_MONITOR).getName();
-    }
-    
-    public ServiceRestarter(Sensor<?> failureSensorToMonitor) {
-        this(new ConfigBag().configure(FAILURE_SENSOR_TO_MONITOR, failureSensorToMonitor));
-    }
-
     @Override
     public void setEntity(final EntityLocal entity) {
         Preconditions.checkArgument(entity instanceof Startable, "Restarter must take a Startable, not "+entity);
