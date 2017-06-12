@@ -278,7 +278,6 @@ public class ServiceStateLogic {
         private final AtomicInteger warnCounter = new AtomicInteger();
 
         public ComputeServiceState() {}
-        public ComputeServiceState(Map<?,?> flags) { super(flags); }
 
         @Override
         public void init() {

@@ -21,16 +21,17 @@ package org.apache.brooklyn.policy.enricher;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.catalog.Catalog;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.enricher.stock.AbstractTypeTransformingEnricher;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Converts an absolute measure of time into a fraction of time, based on the delta between consecutive values 
@@ -46,8 +47,16 @@ import org.apache.brooklyn.util.time.Duration;
 public class TimeFractionDeltaEnricher<T extends Number> extends AbstractTypeTransformingEnricher<T,Double> {
     private static final Logger LOG = LoggerFactory.getLogger(TimeFractionDeltaEnricher.class);
     
+    /**
+     * @deprecated since 0.12.0; use {@link #durationPerOrigUnit}
+     */
+    //Kept for backwards compatibility with persisted state.
     @SetFromFlag
-    private long nanosPerOrigUnit;
+    @Deprecated
+    private Long nanosPerOrigUnit;
+    
+    @SetFromFlag
+    private Duration durationPerOrigUnit;
     
     protected Number lastValue;
     protected long lastTimestamp = -1;
@@ -55,16 +64,55 @@ public class TimeFractionDeltaEnricher<T extends Number> extends AbstractTypeTra
     public TimeFractionDeltaEnricher() { // for rebinding
     }
     
+    /**
+     * @deprecated since 0.12.0; use {@link EnricherSpec}
+     */
+    @Deprecated
     public TimeFractionDeltaEnricher(Entity producer, Sensor<T> source, Sensor<Double> target, TimeUnit origUnits) {
         this(producer, source, target, origUnits.toNanos(1));
     }
     
+    /**
+     * @deprecated since 0.12.0; use {@link EnricherSpec}
+     */
+    @Deprecated
     public TimeFractionDeltaEnricher(Entity producer, Sensor<T> source, Sensor<Double> target, long nanosPerOrigUnit) {
         super(producer, source, target);
         this.nanosPerOrigUnit = nanosPerOrigUnit;
         
         if (source!=null && target!=null)
             this.uniqueTag = JavaClassNames.simpleClassName(getClass())+":"+source.getName()+"*"+Duration.nanos(nanosPerOrigUnit)+"->"+target.getName();
+    }
+    
+    @Override
+    public void init() {
+        super.init();
+        if (durationPerOrigUnit == null) {
+            if (nanosPerOrigUnit != null) {
+                durationPerOrigUnit = Duration.nanos(nanosPerOrigUnit);
+            } else {
+                durationPerOrigUnit = Duration.nanos(1);
+            }
+        }
+        nanosPerOrigUnit = null;
+        
+        if (uniqueTag == null && source != null && target != null) {
+            uniqueTag = JavaClassNames.simpleClassName(getClass())+":"+source.getName()+"*"+durationPerOrigUnit+"->"+target.getName();
+        }
+    }
+    
+    @Override
+    public void rebind() {
+        super.rebind();
+        
+        if (durationPerOrigUnit == null) {
+            if (nanosPerOrigUnit != null) {
+                durationPerOrigUnit = Duration.nanos(nanosPerOrigUnit);
+            } else {
+                durationPerOrigUnit = Duration.nanos(1);
+            }
+        }
+        nanosPerOrigUnit = null;
     }
     
     @Override
@@ -93,7 +141,7 @@ public class TimeFractionDeltaEnricher<T extends Number> extends AbstractTypeTra
                         new Object[] {this, lastValue, lastTimestamp, current, eventTimestamp});
             } else {
                 long duration = eventTimestamp - lastTimestamp;
-                double fraction = toNanos(current.doubleValue() - lastValue.doubleValue(), nanosPerOrigUnit) / TimeUnit.MILLISECONDS.toNanos(duration);
+                double fraction = toNanos(current.doubleValue() - lastValue.doubleValue(), durationPerOrigUnit.nanos()) / TimeUnit.MILLISECONDS.toNanos(duration);
                 entity.sensors().set((AttributeSensor<Double>)target, fraction);
                 if (LOG.isTraceEnabled()) LOG.trace("set {} to {}, {} -> {} at {} (previous at {})", 
                         new Object[] {this, fraction, lastValue, current, eventTimestamp, lastTimestamp}); 

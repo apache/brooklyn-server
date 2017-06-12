@@ -20,52 +20,48 @@ package org.apache.brooklyn.policy.enricher;
 
 import static org.testng.Assert.assertEquals;
 
-import java.util.concurrent.TimeUnit;
-
-import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.SubscriptionContext;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Sensor;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.sensor.BasicSensorEvent;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.policy.enricher.TimeFractionDeltaEnricher;
-import org.testng.annotations.AfterMethod;
+import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class TimeFractionDeltaEnricherTest {
+public class TimeFractionDeltaEnricherTest extends BrooklynAppUnitTestSupport {
 
     private static final double PRECISION = 0.000001;
     
-    private TestApplication app;
-    private EntityLocal producer;
+    private Entity producer;
 
     Sensor<Integer> intSensor;
     AttributeSensor<Double> fractionSensor;
     SubscriptionContext subscription;
     
     @BeforeMethod(alwaysRun=true)
-    public void before() {
-        app = TestApplication.Factory.newManagedInstanceForTests();
-        producer = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        producer = app.addChild(EntitySpec.create(TestEntity.class));
         
         intSensor = Sensors.newIntegerSensor("int sensor");
         fractionSensor = Sensors.newDoubleSensor("fraction sensor");
     }
 
-    @AfterMethod(alwaysRun=true)
-    public void after() {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
-    }
-
     @Test
     public void testCalculatesFractions() {
-        TimeFractionDeltaEnricher<Integer> enricher = new TimeFractionDeltaEnricher<Integer>(producer, intSensor, fractionSensor, TimeUnit.MILLISECONDS);
-        producer.enrichers().add(enricher);
+        @SuppressWarnings("unchecked")
+        TimeFractionDeltaEnricher<Integer> enricher = producer.enrichers().add(EnricherSpec.create(TimeFractionDeltaEnricher.class)
+                .configure("producer", producer)
+                .configure("source", intSensor)
+                .configure("target", fractionSensor)
+                .configure("durationPerOrigUnit", Duration.millis(1)));
         
         enricher.onEvent(new BasicSensorEvent<Integer>(intSensor, producer, 0, 1000000L));
         enricher.onEvent(new BasicSensorEvent<Integer>(intSensor, producer, 0, 1001000L));
@@ -83,8 +79,12 @@ public class TimeFractionDeltaEnricherTest {
     
     @Test
     public void testConvertsTimeUnits() {
-        TimeFractionDeltaEnricher<Integer> enricher = new TimeFractionDeltaEnricher<Integer>(producer, intSensor, fractionSensor, TimeUnit.MICROSECONDS);
-        producer.enrichers().add(enricher);
+        @SuppressWarnings("unchecked")
+        TimeFractionDeltaEnricher<Integer> enricher = producer.enrichers().add(EnricherSpec.create(TimeFractionDeltaEnricher.class)
+                .configure("producer", producer)
+                .configure("source", intSensor)
+                .configure("target", fractionSensor)
+                .configure("durationPerOrigUnit", Duration.micros(1)));
         
         enricher.onEvent(new BasicSensorEvent<Integer>(intSensor, producer, 0, 1000000L));
         enricher.onEvent(new BasicSensorEvent<Integer>(intSensor, producer, 1000000, 1001000L));
@@ -93,8 +93,12 @@ public class TimeFractionDeltaEnricherTest {
     
     @Test
     public void testConverts100NanosTimeBlocks() {
-        TimeFractionDeltaEnricher<Integer> enricher = new TimeFractionDeltaEnricher<Integer>(producer, intSensor, fractionSensor, 100);
-        producer.enrichers().add(enricher);
+        @SuppressWarnings("unchecked")
+        TimeFractionDeltaEnricher<Integer> enricher = producer.enrichers().add(EnricherSpec.create(TimeFractionDeltaEnricher.class)
+                .configure("producer", producer)
+                .configure("source", intSensor)
+                .configure("target", fractionSensor)
+                .configure("durationPerOrigUnit", Duration.nanos(100)));
         
         enricher.onEvent(new BasicSensorEvent<Integer>(intSensor, producer, 0, 1000000L));
         enricher.onEvent(new BasicSensorEvent<Integer>(intSensor, producer, 10000000, 1001000L));
