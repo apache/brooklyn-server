@@ -18,6 +18,11 @@
  */
 package org.apache.brooklyn.container.location.kubernetes;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+
+import java.util.Map;
+
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
@@ -25,11 +30,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import java.util.Map;
-
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class KubernetesLocationResolverTest extends BrooklynMgmtUnitTestSupport {
 

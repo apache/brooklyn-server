@@ -18,12 +18,12 @@
  */
 package org.apache.brooklyn.container.location.kubernetes;
 
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import com.google.common.base.Charsets;
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
-import com.google.common.io.Files;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+
+import java.io.File;
+import java.util.List;
+
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.LogWatcher;
 import org.apache.brooklyn.test.LogWatcher.EventPredicates;
@@ -33,11 +33,13 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.util.List;
+import com.google.common.base.Charsets;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
+import com.google.common.io.Files;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import ch.qos.logback.classic.spi.ILoggingEvent;
 
 public class KubernetesCertsTest {
 

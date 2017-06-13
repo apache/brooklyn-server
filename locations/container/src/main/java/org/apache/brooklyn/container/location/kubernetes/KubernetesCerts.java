@@ -18,7 +18,15 @@
  */
 package org.apache.brooklyn.container.location.kubernetes;
 
-import com.google.common.base.Optional;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.CA_CERT_DATA;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.CA_CERT_FILE;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.CLIENT_CERT_DATA;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.CLIENT_CERT_FILE;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.CLIENT_KEY_ALGO;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.CLIENT_KEY_DATA;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.CLIENT_KEY_FILE;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.CLIENT_KEY_PASSPHRASE;
+
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -26,7 +34,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationConfig.*;
+import com.google.common.base.Optional;
 
 class KubernetesCerts {
 

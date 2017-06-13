@@ -18,10 +18,13 @@
  */
 package org.apache.brooklyn.container.location.kubernetes;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
-import com.google.common.net.HostAndPort;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
+
+import java.util.List;
+import java.util.Map;
+
 import org.apache.brooklyn.api.location.MachineDetails;
 import org.apache.brooklyn.api.location.OsDetails;
 import org.apache.brooklyn.container.location.kubernetes.machine.KubernetesMachineLocation;
@@ -40,10 +43,10 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.List;
-import java.util.Map;
-
-import static org.testng.Assert.*;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
+import com.google.common.net.HostAndPort;
 
 /**
  * /**

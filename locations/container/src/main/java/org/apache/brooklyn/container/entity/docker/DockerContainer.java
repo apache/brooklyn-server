@@ -18,14 +18,15 @@
  */
 package org.apache.brooklyn.container.entity.docker;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.TypeToken;
 
 /**
  * The DockerContainer type is for easily deploying any docker image from the

@@ -18,16 +18,18 @@
  */
 package org.apache.brooklyn.container.location.kubernetes;
 
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import java.util.List;
+
+import javax.annotation.Nullable;
+
 import org.jclouds.compute.domain.OsFamily;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
-import java.util.List;
-
-import static com.google.common.base.Preconditions.checkNotNull;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 
 public class ImageChooser {
 

@@ -18,16 +18,17 @@
  */
 package org.apache.brooklyn.container.location.kubernetes;
 
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.reflect.TypeToken;
+import java.util.Map;
+
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.util.time.Duration;
 
-import java.util.Map;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.TypeToken;
 
 public interface KubernetesLocationConfig extends CloudLocationConfig {
 
@@ -129,8 +130,7 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .build();
 
     @SuppressWarnings("serial")
-    ConfigKey<Map<String, ?>> ENV = ConfigKeys.builder(new TypeToken<Map<String, ?>>() {
-    })
+    ConfigKey<Map<String, ?>> ENV = ConfigKeys.builder(new TypeToken<Map<String, ?>>() { })
             .name("env")
             .description("Environment variables to inject when starting the container")
             .defaultValue(ImmutableMap.<String, Object>of())

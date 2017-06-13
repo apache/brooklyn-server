@@ -18,15 +18,16 @@
  */
 package org.apache.brooklyn.container.location.kubernetes.machine;
 
-import com.google.common.collect.ImmutableSet;
+import java.net.InetAddress;
+import java.util.Set;
+
 import org.apache.brooklyn.api.location.MachineDetails;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.OsDetails;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.net.Networking;
 
-import java.net.InetAddress;
-import java.util.Set;
+import com.google.common.collect.ImmutableSet;
 
 /**
  * A {@link MachineLocation} represemnting a Kubernetes resource that does not support SSH access.

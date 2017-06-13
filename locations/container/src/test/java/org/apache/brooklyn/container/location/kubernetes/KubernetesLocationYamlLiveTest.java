@@ -18,12 +18,26 @@
  */
 package org.apache.brooklyn.container.location.kubernetes;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.net.HostAndPort;
-import io.fabric8.kubernetes.api.model.Pod;
-import io.fabric8.kubernetes.client.KubernetesClient;
+import static com.google.common.base.Predicates.and;
+import static com.google.common.base.Predicates.equalTo;
+import static com.google.common.base.Predicates.not;
+import static com.google.common.base.Predicates.notNull;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationLiveTest.CREDENTIAL;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationLiveTest.IDENTITY;
+import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationLiveTest.KUBERNETES_ENDPOINT;
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEquals;
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEqualsEventually;
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEventually;
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEventuallyNonNull;
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertEntityHealthy;
+import static org.apache.brooklyn.test.Asserts.succeedsEventually;
+import static org.apache.brooklyn.util.http.HttpAsserts.assertHttpStatusCodeEventuallyEquals;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+
+import java.util.List;
+import java.util.Map;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
@@ -49,16 +63,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.List;
-import java.util.Map;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.net.HostAndPort;
 
-import static com.google.common.base.Predicates.*;
-import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationLiveTest.*;
-import static org.apache.brooklyn.core.entity.EntityAsserts.*;
-import static org.apache.brooklyn.test.Asserts.succeedsEventually;
-import static org.apache.brooklyn.util.http.HttpAsserts.assertHttpStatusCodeEventuallyEquals;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.client.KubernetesClient;
 
 /**
  * Live tests for deploying simple blueprints. Particularly useful during dev, but not so useful

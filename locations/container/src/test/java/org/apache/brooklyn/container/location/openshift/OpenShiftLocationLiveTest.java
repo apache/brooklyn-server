@@ -18,13 +18,13 @@
  */
 package org.apache.brooklyn.container.location.openshift;
 
+import java.util.Map;
+
 import org.apache.brooklyn.container.location.kubernetes.KubernetesLocationLiveTest;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.os.Os;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Map;
 
 /**
  * Tests deploying containers via the {@code openshift} location, to an OpenShift endpoint.

@@ -18,7 +18,12 @@
  */
 package org.apache.brooklyn.container.location.openshift;
 
-import com.google.common.base.Joiner;
+import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.CA_CERT_FILE;
+import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.CLIENT_CERT_FILE;
+import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.CLIENT_KEY_FILE;
+import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.NAMESPACE;
+import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.OPENSHIFT_ENDPOINT;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.container.entity.openshift.OpenShiftPod;
 import org.apache.brooklyn.container.entity.openshift.OpenShiftResource;
@@ -26,7 +31,7 @@ import org.apache.brooklyn.container.location.kubernetes.KubernetesLocationYamlL
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static org.apache.brooklyn.container.location.openshift.OpenShiftLocationLiveTest.*;
+import com.google.common.base.Joiner;
 
 /**
  * Tests YAML apps via the {@code openshift} location, to an OpenShift endpoint.

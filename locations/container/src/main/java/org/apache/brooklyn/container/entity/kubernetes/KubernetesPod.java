@@ -18,8 +18,9 @@
  */
 package org.apache.brooklyn.container.entity.kubernetes;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.reflect.TypeToken;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
@@ -31,8 +32,8 @@ import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.math.MathPredicates;
 
-import java.util.List;
-import java.util.Map;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.TypeToken;
 
 @ImplementedBy(KubernetesPodImpl.class)
 public interface KubernetesPod extends DockerContainer {

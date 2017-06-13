@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.container.location.docker;
 
+import java.util.Map;
+
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationResolver;
 import org.apache.brooklyn.core.location.AbstractLocationResolver;
@@ -27,8 +29,6 @@ import org.apache.brooklyn.location.jclouds.JcloudsPropertiesFromBrooklynPropert
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Map;
 
 /**
  * Locations starting with the given prefix (@code "docker") will use this resolver, to instantiate

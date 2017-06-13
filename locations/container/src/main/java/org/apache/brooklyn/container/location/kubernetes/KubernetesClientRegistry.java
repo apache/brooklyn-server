@@ -18,8 +18,9 @@
  */
 package org.apache.brooklyn.container.location.kubernetes;
 
-import io.fabric8.kubernetes.client.KubernetesClient;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+
+import io.fabric8.kubernetes.client.KubernetesClient;
 
 public interface KubernetesClientRegistry {
 

@@ -18,8 +18,9 @@
  */
 package org.apache.brooklyn.container.entity.docker;
 
-import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableSet;
+import java.util.Iterator;
+import java.util.List;
+
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.entity.Attributes;
@@ -30,8 +31,8 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessImpl;
 import org.apache.brooklyn.util.collections.MutableList;
 
-import java.util.Iterator;
-import java.util.List;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
 
 public class DockerContainerImpl extends EmptySoftwareProcessImpl implements DockerContainer {
 
