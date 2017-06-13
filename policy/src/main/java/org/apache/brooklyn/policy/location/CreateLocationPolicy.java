@@ -225,6 +225,7 @@ public class CreateLocationPolicy extends AbstractPolicy {
 
     @Override
     public void setEntity(EntityLocal entity) {
+        super.setEntity(entity);
         subscriptions().subscribe(entity, getStatusSensor(), lifecycleEventHandler);
     }
 }
