@@ -20,7 +20,6 @@ package org.apache.brooklyn.launcher.command.support;
 
 import java.io.InputStream;
 import java.io.PrintStream;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,6 +31,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.location.jclouds.BlobStoreContextFactoryImpl;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.location.jclouds.JcloudsLocationCustomizer;
+import org.apache.brooklyn.location.jclouds.LocationCustomizerDelegate;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.FatalConfigurationRuntimeException;
 import org.apache.brooklyn.util.stream.Streams;
@@ -273,9 +273,9 @@ public abstract class CloudExplorerSupport implements Callable<Void> {
 
             ComputeService computeService = loc.getComputeService();
             ConfigBag setup = loc.config().getBag();
-            Collection<JcloudsLocationCustomizer> customizers = loc.getCustomizers(setup);
-
-            Template template = loc.buildTemplate(computeService, setup, customizers);
+            
+            JcloudsLocationCustomizer customizersDelegate = LocationCustomizerDelegate.newInstance(loc.getManagementContext(), setup);
+            Template template = loc.buildTemplate(computeService, setup, customizersDelegate);
             Image image = template.getImage();
             Hardware hardware = template.getHardware();
             org.jclouds.domain.Location location = template.getLocation();
