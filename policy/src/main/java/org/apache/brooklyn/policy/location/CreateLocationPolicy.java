@@ -22,9 +22,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
@@ -37,15 +37,31 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 
 /**
  * Policy that is attached to an entity to create a location configured
  * using its sensor data. The created lifecycle is added to the catalog
  * and will be removed when the entity is no longer running.
+ * 
+ *
+ * in YAML blueprints:
+ * <pre>{@code
+ * name: My App
+ * brooklyn.policies:
+ * - type: org.apache.brooklyn.policy.location.CreateLocationPolicy
+ *   brooklyn.config:
+ *     location.catalogId: my-cloud
+ *     location.displayName: My Cloud
+ *     location.type: jclouds:aws-ec2
+ * }</pre>
+ *
  */
 public class CreateLocationPolicy extends AbstractPolicy {
 
@@ -137,9 +153,9 @@ public class CreateLocationPolicy extends AbstractPolicy {
             .build();
 
     @SuppressWarnings("serial")
-    public static final ConfigKey<Class<? extends Location>> LOCATION_TYPE = ConfigKeys.builder(new TypeToken<Class<? extends Location>>() {})
+    public static final ConfigKey<String> LOCATION_TYPE = ConfigKeys.builder(String.class)
             .name("location.type")
-            .description("The type of location to create")
+            .description("The type of location to create, i.e.: 'jclouds:aws-ec2'")
             .constraint(Predicates.notNull())
             .build();
 
@@ -151,8 +167,8 @@ public class CreateLocationPolicy extends AbstractPolicy {
             .build();
 
     private AtomicBoolean created = new AtomicBoolean(false);
-    private Location location;
     private Object mutex = new Object[0];
+    private Iterable<? extends CatalogItem<?, ?>> catalogItems;
 
     public CreateLocationPolicy() {
         this(MutableMap.<String,Object>of());
@@ -178,7 +194,7 @@ public class CreateLocationPolicy extends AbstractPolicy {
         return config().get(LOCATION_DISPLAY_NAME);
     }
 
-    protected Class<? extends Location> getLocationType() {
+    protected String getLocationType() {
         return config().get(LOCATION_TYPE);
     }
 
@@ -198,25 +214,35 @@ public class CreateLocationPolicy extends AbstractPolicy {
                 Boolean status = event.getValue();
                 if (status) {
                     if (created.compareAndSet(false, true)) {
-                        LOG.info("Creating new location {} of type {}", getLocationCatalogItemId(), getLocationType().getSimpleName());
-                        LocationSpec spec = LocationSpec.create(getLocationType());
-                        Map<String,AttributeSensor<?>> configuration = getLocationConfiguration();
-                        for (String configKey : configuration.keySet()) {
-                            AttributeSensor<?> sensor = configuration.get(configKey);
-                            Object value = entity.sensors().get(sensor);
-                            spec.configure(configKey, value);
-                        }
-                        spec.catalogItemId(getLocationCatalogItemId());
-                        spec.displayName(getLocationDisplayName());
-                        spec.tags(getLocationTags());
+                        LOG.info("Creating new location {} of type {}", getLocationCatalogItemId(), getLocationType());
 
-                        location = getManagementContext().getLocationManager().createLocation(spec);
+                        ImmutableList.Builder<String> builder = ImmutableList.<String>builder().add(
+                                "brooklyn.catalog:",
+                                "  id: " + getLocationCatalogItemId(),
+                                "  itemType: location",
+                                "  item:",
+                                "    type: " + getLocationType(),
+                                "    brooklyn.config:",
+                                "      displayName: " + getDisplayName());
+
+                        if (getLocationConfiguration().size() > 0) {
+                            for (Map.Entry<String, AttributeSensor<?>> entry : getLocationConfiguration().entrySet()) {
+                                AttributeSensor<?> sensor = getLocationConfiguration().get(entry.getKey());
+                                Object value = entity.sensors().get(sensor);
+                                builder.add("      " + entry.getKey() + ": " + value);
+                            }
+                        }
+                        String locationBlueprint = Joiner.on("\n").join(builder.build());
+                        catalogItems = getManagementContext().getCatalog().addItems(locationBlueprint);
+
                     }
                 } else {
-                    if (created.compareAndSet(true, false) && location != null) {
-                        LOG.info("Deleting location {} (id {})", getLocationCatalogItemId(), location.getId());
-                        getManagementContext().getLocationManager().unmanage(location);
-                        location = null;
+                    if (created.compareAndSet(true, false) && !Iterables.isEmpty(catalogItems)) {
+                        CatalogItem catalogItem = Iterables.getOnlyElement(catalogItems);
+                        LOG.info("Deleting location {} (id {})", getLocationCatalogItemId(), catalogItem.getId());
+                        String symbolicName = catalogItem.getSymbolicName();
+                        String version = catalogItem.getVersion();
+                        getManagementContext().getCatalog().deleteCatalogItem(symbolicName, version);
                     }
                 }
             }
