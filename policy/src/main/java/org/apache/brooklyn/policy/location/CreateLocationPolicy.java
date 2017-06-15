@@ -37,6 +37,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -63,6 +64,7 @@ import com.google.common.reflect.TypeToken;
  * }</pre>
  *
  */
+@Beta
 public class CreateLocationPolicy extends AbstractPolicy {
 
     private static final Logger LOG = LoggerFactory.getLogger(CreateLocationPolicy.class);
