@@ -21,7 +21,7 @@ package org.apache.brooklyn.entity.group.zoneaware;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.util.time.Duration;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Ticker;
 
 public class ProportionalZoneFailureDetector extends AbstractZoneFailureDetector {
@@ -60,7 +60,7 @@ public class ProportionalZoneFailureDetector extends AbstractZoneFailureDetector
 
     @Override
     public String toString(){
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("minDatapoints", minDatapoints)
                 .add("timeToConsider",  timeToConsider)
                 .add("maxProportionFailures", maxProportionFailures)

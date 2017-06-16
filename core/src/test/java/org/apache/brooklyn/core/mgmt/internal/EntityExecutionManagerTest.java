@@ -59,7 +59,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -445,7 +445,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
     }
 
     private String taskToVerboseString(Task<?> t) {
-        return Objects.toStringHelper(t)
+        return MoreObjects.toStringHelper(t)
                 .add("id", t.getId())
                 .add("displayName", t.getDisplayName())
                 .add("submitTime", t.getSubmitTimeUtc())

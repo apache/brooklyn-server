@@ -18,9 +18,10 @@
  */
 package org.apache.brooklyn.core.location;
 
-import com.google.common.base.Objects;
-
 import org.apache.brooklyn.api.location.MachineManagementMixins;
+
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 
 public class BasicMachineMetadata implements MachineManagementMixins.MachineMetadata {
 
@@ -83,7 +84,7 @@ public class BasicMachineMetadata implements MachineManagementMixins.MachineMeta
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("id", id).add("name", name).add("originalMetadata", originalMetadata).toString();
+        return MoreObjects.toStringHelper(this).add("id", id).add("name", name).add("originalMetadata", originalMetadata).toString();
     }
     
 }

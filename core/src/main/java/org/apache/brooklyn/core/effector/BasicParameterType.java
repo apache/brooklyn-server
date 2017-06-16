@@ -23,6 +23,7 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.effector.ParameterType;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
 public class BasicParameterType<T> implements ParameterType<T> {
@@ -94,7 +95,7 @@ public class BasicParameterType<T> implements ParameterType<T> {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).omitNullValues()
+        return MoreObjects.toStringHelper(this).omitNullValues()
                 .add("name", name).add("description", description).add("type", getParameterClassName())
                 .add("defaultValue", defaultValue)
                 .toString();

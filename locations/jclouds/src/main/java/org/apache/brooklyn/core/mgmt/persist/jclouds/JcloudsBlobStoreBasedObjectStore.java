@@ -38,7 +38,7 @@ import org.apache.brooklyn.util.exceptions.FatalConfigurationRuntimeException;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
 
@@ -186,7 +186,7 @@ public class JcloudsBlobStoreBasedObjectStore implements PersistenceObjectStore 
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("blobStoreContext", context)
                 .add("basedir", containerNameFirstPart)
                 .toString();

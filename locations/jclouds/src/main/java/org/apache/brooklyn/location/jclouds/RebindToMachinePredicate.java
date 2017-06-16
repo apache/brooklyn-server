@@ -23,7 +23,7 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.jclouds.compute.domain.ComputeMetadata;
 import org.jclouds.compute.domain.NodeMetadata;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicate;
 
 /**
@@ -75,7 +75,7 @@ class RebindToMachinePredicate implements Predicate<ComputeMetadata> {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .omitNullValues()
                 .add("id", rawId)
                 .add("hostname", rawHostname)

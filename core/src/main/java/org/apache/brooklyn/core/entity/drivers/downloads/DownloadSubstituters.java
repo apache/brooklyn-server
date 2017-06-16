@@ -37,7 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 import freemarker.cache.StringTemplateLoader;
 import freemarker.template.Configuration;
@@ -166,7 +166,7 @@ public class DownloadSubstituters {
         }
         
         @Override public String toString() {
-            return Objects.toStringHelper(this).add("basevalue", basevalueProducer).add("subs", subsProducer).toString();
+            return MoreObjects.toStringHelper(this).add("basevalue", basevalueProducer).add("subs", subsProducer).toString();
         }
     }
 }

@@ -23,7 +23,7 @@ import java.util.List;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 /**
  * The results of a performance test.
@@ -45,7 +45,7 @@ public class PerformanceTestResult {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .omitNullValues()
                 .add("summary", summary)
                 .add("duration", duration)

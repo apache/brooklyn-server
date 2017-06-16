@@ -21,6 +21,7 @@ package org.apache.brooklyn.camp.server.dto;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
@@ -110,7 +111,7 @@ public class ApiErrorDto {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("message", message)
                 .add("details", details)
                 .toString();

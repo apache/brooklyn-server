@@ -25,6 +25,7 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.location.Location;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.net.HostAndPort;
 
@@ -75,7 +76,7 @@ public class PortMapping {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("publicIpId", publicIpId+":"+publicPort)
                 .add("publicEndpoint", (publicEndpoint == null ? publicPort : publicEndpoint))
                 .add("targetLocation", target)

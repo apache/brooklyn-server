@@ -29,7 +29,7 @@ import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.util.concurrent.ExecutionList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -156,7 +156,7 @@ public interface TaskInternal<T> extends Task<T> {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this).add("interruptTask", allowedToInterruptTask)
+            return MoreObjects.toStringHelper(this).add("interruptTask", allowedToInterruptTask)
                 .add("interruptDependentSubmitted", allowedToInterruptDependentSubmittedTasks)
                 .add("interruptAllSubmitted", allowedToInterruptAllSubmittedTasks)
                 .toString();
