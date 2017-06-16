@@ -22,7 +22,6 @@ import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynComponentTemplateResolver;
-import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.util.text.Strings;
 
 @SuppressWarnings("deprecation")
@@ -43,7 +42,8 @@ public class TestServiceTypeResolver implements ServiceTypeResolver {
     @SuppressWarnings("unchecked")
     @Override
     public CatalogItem<Entity, EntitySpec<?>> getCatalogItem(BrooklynComponentTemplateResolver resolver, String serviceType) {
-        return (CatalogItem<Entity, EntitySpec<?>>) CatalogUtils.getCatalogItemOptionalVersion(resolver.getManagementContext(), getBrooklynType(serviceType));
+        return (CatalogItem<Entity, EntitySpec<?>>) 
+            resolver.getManagementContext().getCatalog().getCatalogItem(getBrooklynType(serviceType), null);
     }
 
     @Override

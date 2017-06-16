@@ -236,6 +236,7 @@ public class CatalogUtils {
     /** @deprecated since 0.12.0 - the "version starts with number" test this does is hokey; use 
      * either {@link RegisteredTypeNaming#isUsableTypeColonVersion(String)} for weak enforcement
      * or {@link RegisteredTypeNaming#isGoodTypeColonVersion(String)} for OSGi enforcement. */
+    // several references, but all deprecated, most safe to remove after a cycle or two and bad verisons have been warned
     @Deprecated
     public static boolean looksLikeVersionedId(String versionedId) {
         if (versionedId==null) return false;
@@ -287,7 +288,7 @@ public class CatalogUtils {
     }
 
     /** @deprecated since 0.9.0 use {@link BrooklynTypeRegistry#get(String, org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind, Class)} */
-    // only a handful of items remaining, and those require a CatalogItem
+    // only a handful of items remaining, requiring a CatalogItem:  two in REST, one in rebind, and one in ClassLoaderUtils
     @Deprecated
     public static CatalogItem<?, ?> getCatalogItemOptionalVersion(ManagementContext mgmt, String versionedId) {
         if (versionedId == null) return null;
@@ -308,7 +309,7 @@ public class CatalogUtils {
     }
 
     /** @deprecated since 0.9.0 use {@link BrooklynTypeRegistry#get(String, org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind, Class)} */
-    // only a handful of items remaining, and those require a CatalogItem
+    // only one item left, in deprecated service resolver
     @Deprecated
     public static <T,SpecT> CatalogItem<T, SpecT> getCatalogItemOptionalVersion(ManagementContext mgmt, Class<T> type, String versionedId) {
         if (looksLikeVersionedId(versionedId)) {

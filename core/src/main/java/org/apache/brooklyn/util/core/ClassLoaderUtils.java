@@ -253,6 +253,17 @@ public class ClassLoaderUtils {
         if (entity != null && mgmt != null) {
             String catalogItemId = entity.getCatalogItemId();
             if (catalogItemId != null) {
+//                RegisteredType type = mgmt.getTypeRegistry().get(catalogItemId);
+//                if (type != null) {
+//                    BrooklynClassLoadingContextSequential loader = new BrooklynClassLoadingContextSequential(mgmt);
+//                    loader.add(newClassLoadingContextForCatalogItems(mgmt, type.getId(),
+//                        type.getContainingBundle() + type.getLibraries() ?);
+//                    cls = dispatcher.tryLoadFrom(loader, className);
+//                    if (cls.isPresent()) {
+//                        return cls;
+//                    }
+                // TODO prefer above to below, but need to reconcile item.searchPath with RegisteredType?
+                // or use entity search path ?
                 CatalogItem<?, ?> item = CatalogUtils.getCatalogItemOptionalVersion(mgmt, catalogItemId);
                 if (item != null) {
                     BrooklynClassLoadingContextSequential loader = new BrooklynClassLoadingContextSequential(mgmt);
@@ -262,6 +273,7 @@ public class ClassLoaderUtils {
                     if (cls.isPresent()) {
                         return cls;
                     }
+                    
                 } else {
                     log.warn("Entity " + entity + " refers to non-existent catalog item " + catalogItemId +
                         ". Trying to load class " + name);
