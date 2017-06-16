@@ -24,7 +24,7 @@ package org.apache.brooklyn.core.typereg;
  * osgi.core-4.3.0 spec (https://www.osgi.org/release-4-version-4-3-download/). */
 public class RegisteredTypeNaming {
 
-    private static final String USABLE_REGEX = "[^:\\s]+";
+    private static final String USABLE_REGEX = "[^:\\s/\\\\]+";
 
     private final static String DOT = "\\.";
     
@@ -47,7 +47,8 @@ public class RegisteredTypeNaming {
     }
     
     /** 
-     * For type names we currently work with any non-empty string that does not contain a ':' or whitespace.
+     * For type names we currently work with any non-empty string that does not contain 
+     * a ':' or whitespace or forward slash or backslash.
      * However we discourage things that are not OSGi symbolic names; see {@link #isValidTypeName(String)}. 
      * In some places (eg bundles) the use of OSGi symbolic names may be enforced.  
      */
