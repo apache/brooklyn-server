@@ -19,12 +19,13 @@
 package org.apache.brooklyn.policy.location;
 
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.EntityLocal;
-import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
@@ -48,19 +49,28 @@ import com.google.common.reflect.TypeToken;
 
 /**
  * Policy that is attached to an entity to create a location configured
- * using its sensor data. The created lifecycle is added to the catalog
- * and will be removed when the entity is no longer running.
- * 
- *
- * in YAML blueprints:
+ * using its sensor data. The created location is added to the catalog
+ * and will be removed when the entity is no longer running, based on
+ * the entity {@link Startable#SERVICE_UP} sensor status.
+ * <p>
+ * The policy definition includes configuration for the id, name and
+ * type of the location, as well as the {@link #LOCATION_CONFIG} map
+ * of config keys and the sensors used to define them.
+ * <p>
+ * The YAML below shows a policy that creates a {@code jclouds:aws-ec2}
+ * location with the region defined by a sensor on the entity it is
+ * attached to:
  * <pre>{@code
  * name: My App
  * brooklyn.policies:
- * - type: org.apache.brooklyn.policy.location.CreateLocationPolicy
- *   brooklyn.config:
- *     location.catalogId: my-cloud
- *     location.displayName: My Cloud
- *     location.type: jclouds:aws-ec2
+ *   - type: org.apache.brooklyn.policy.location.CreateLocationPolicy
+ *     id: create-my-cloud-location
+ *     brooklyn.config:
+ *       location.catalogId: my-cloud
+ *       location.displayName: "My Cloud"
+ *       location.type: jclouds:aws-ec2
+ *       location.config:
+ *         region: $brooklyn:sensor("aws.region")
  * }</pre>
  *
  */
@@ -80,7 +90,7 @@ public class CreateLocationPolicy extends AbstractPolicy {
         private Map<String,AttributeSensor<?>> configuration;
         private String catalogId;
         private String displayName;
-        private Class<? extends Location> type;
+        private String type;
         private Set<String> tags;
 
         public Builder id(String val) {
@@ -101,7 +111,7 @@ public class CreateLocationPolicy extends AbstractPolicy {
         public Builder displayName(String val) {
             this.displayName = val; return this;
         }
-        public Builder type(Class<? extends Location> val) {
+        public Builder type(String val) {
             this.type = val; return this;
         }
         public Builder tags(Set<String> val) {
@@ -154,10 +164,9 @@ public class CreateLocationPolicy extends AbstractPolicy {
             .constraint(Predicates.notNull())
             .build();
 
-    @SuppressWarnings("serial")
     public static final ConfigKey<String> LOCATION_TYPE = ConfigKeys.builder(String.class)
             .name("location.type")
-            .description("The type of location to create, i.e.: 'jclouds:aws-ec2'")
+            .description("The type of location to create, i.e. 'jclouds:aws-ec2'")
             .constraint(Predicates.notNull())
             .build();
 
@@ -170,7 +179,8 @@ public class CreateLocationPolicy extends AbstractPolicy {
 
     private AtomicBoolean created = new AtomicBoolean(false);
     private Object mutex = new Object[0];
-    private Iterable<? extends CatalogItem<?, ?>> catalogItems;
+    private CatalogItem<?,?> catalogItem;
+    private AtomicInteger version = new AtomicInteger(0);
 
     public CreateLocationPolicy() {
         this(MutableMap.<String,Object>of());
@@ -221,30 +231,49 @@ public class CreateLocationPolicy extends AbstractPolicy {
                         ImmutableList.Builder<String> builder = ImmutableList.<String>builder().add(
                                 "brooklyn.catalog:",
                                 "  id: " + getLocationCatalogItemId(),
+                                "  version: " + version.incrementAndGet(),
                                 "  itemType: location",
                                 "  item:",
                                 "    type: " + getLocationType(),
                                 "    brooklyn.config:",
-                                "      displayName: " + getDisplayName());
+                                "      displayName: " + getLocationDisplayName());
 
-                        if (getLocationConfiguration().size() > 0) {
-                            for (Map.Entry<String, AttributeSensor<?>> entry : getLocationConfiguration().entrySet()) {
-                                AttributeSensor<?> sensor = getLocationConfiguration().get(entry.getKey());
-                                Object value = entity.sensors().get(sensor);
-                                builder.add("      " + entry.getKey() + ": " + value);
+                        for (Map.Entry<String, AttributeSensor<?>> entry : getLocationConfiguration().entrySet()) {
+                            AttributeSensor<?> sensor = getLocationConfiguration().get(entry.getKey());
+                            Object value = entity.sensors().get(sensor);
+                            builder.add("      " + entry.getKey() + ": " + value);
+                        }
+                        if (getLocationTags().size() > 0) {
+                            builder.add("      tags:");
+                            for (String tag : getLocationTags()) {
+                                builder.add("        - " + tag);
                             }
                         }
-                        String locationBlueprint = Joiner.on("\n").join(builder.build());
-                        catalogItems = getManagementContext().getCatalog().addItems(locationBlueprint);
+                        String blueprint = Joiner.on("\n").join(builder.build());
+                        LOG.debug("Creating location {} from YAML\n{}", getLocationCatalogItemId(), blueprint);
 
+                        Iterable<? extends CatalogItem<?,?>> catalogItems = getManagementContext().getCatalog().addItems(blueprint, true);
+                        int items = Iterables.size(catalogItems);
+                        if (items > 1) {
+                            LOG.warn("Got {} catalog items for location {}, using first: {}",
+                                    new Object[] { items, getLocationCatalogItemId(), Iterables.transform(catalogItems, item -> item.getCatalogItemId()) });
+                        } else if (items == 0) {
+                            throw new IllegalStateException("No catalog items returned for location: " + getLocationCatalogItemId());
+                        }
+                        catalogItem = Iterables.get(catalogItems, 0);
                     }
                 } else {
-                    if (created.compareAndSet(true, false) && !Iterables.isEmpty(catalogItems)) {
-                        CatalogItem catalogItem = Iterables.getOnlyElement(catalogItems);
-                        LOG.info("Deleting location {} (id {})", getLocationCatalogItemId(), catalogItem.getId());
+                    if (created.compareAndSet(true, false) && catalogItem != null) {
                         String symbolicName = catalogItem.getSymbolicName();
-                        String version = catalogItem.getVersion();
-                        getManagementContext().getCatalog().deleteCatalogItem(symbolicName, version);
+                        String catalogVersion = catalogItem.getVersion();
+                        try {
+                            LOG.info("Deleting location id {}: {}:{}",
+                                    new Object[] { catalogItem.getId(), symbolicName, catalogVersion });
+                            getManagementContext().getCatalog().deleteCatalogItem(symbolicName, catalogVersion);
+                        } catch (NoSuchElementException nsee) {
+                            LOG.warn("Could not find location {}:{} in catalog to delete", symbolicName, catalogVersion);
+                        }
+                        catalogItem = null;
                     }
                 }
             }
