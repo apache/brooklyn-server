@@ -27,27 +27,6 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class VersionComparatorTest {
-
-    @Test
-    public void testStaticHelpers() {
-        Assert.assertEquals(VersionComparator.splitOnDot("a.b.cc"), new String[] { "a", ".", "b", ".", "cc" });
-        Assert.assertEquals(VersionComparator.splitOnDot("a..b-c"), new String[] { "a", ".", ".", "b-c" });
-
-        Assert.assertEquals(VersionComparator.splitOnNonWordChar("a1-b__cc9c"), new String[] { 
-            "a1", "-", "b", "_", "_", "cc9c" });
-
-        Assert.assertEquals(VersionComparator.isNumberInFirstChar("1a"), true);
-        Assert.assertEquals(VersionComparator.isNumberInFirstChar("a1"), false);
-        Assert.assertEquals(VersionComparator.isNumberInFirstChar(""), false);
-        Assert.assertEquals(VersionComparator.isNumberInFirstChar(null), false);
-        
-        Assert.assertEquals(VersionComparator.isNumber("1"), true);
-        Assert.assertEquals(VersionComparator.isNumber("1111"), true);
-        Assert.assertEquals(VersionComparator.isNumber("1a"), false);
-        Assert.assertEquals(VersionComparator.isNumber("a1"), false);
-        Assert.assertEquals(VersionComparator.isNumber(""), false);
-        Assert.assertEquals(VersionComparator.isNumber(null), false);
-    }
     
     @Test
     public void testSnapshotSuffixComparison() {
