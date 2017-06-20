@@ -33,7 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 
@@ -128,7 +128,7 @@ public class JcloudsWinRmMachineLocation extends WinRmMachineLocation implements
     
     @Override
     public String toVerboseString() {
-        return Objects.toStringHelper(this).omitNullValues()
+        return MoreObjects.toStringHelper(this).omitNullValues()
                 .add("id", getId()).add("name", getDisplayName())
                 .add("user", getUser())
                 .add("address", getAddress())

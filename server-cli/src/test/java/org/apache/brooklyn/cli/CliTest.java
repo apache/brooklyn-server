@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
+import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
@@ -58,7 +59,6 @@ import org.apache.brooklyn.core.entity.AbstractApplication;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.objs.proxy.EntityProxy;
@@ -100,7 +100,8 @@ public class CliTest {
     public static final AtomicBoolean GROOVY_INVOKED = new AtomicBoolean(false);
 
     private ExecutorService executor;
-    private StartableApplication app;
+    private Application app;
+    private ManagementContext mgmt;
     private List<File> filesToDelete;
 
     private static volatile ExampleEntity exampleEntity;
@@ -123,6 +124,7 @@ public class CliTest {
     public void tearDown() throws Exception {
         if (executor != null) executor.shutdownNow();
         if (app != null) Entities.destroyAll(app.getManagementContext());
+        if (mgmt != null && mgmt.isRunning()) Entities.destroyAll(mgmt);
         if (exampleEntity != null && exampleEntity.getApplication() != null) Entities.destroyAll(exampleEntity.getApplication().getManagementContext());
         if (filesToDelete != null) {
             for (File file : filesToDelete) {
@@ -135,25 +137,21 @@ public class CliTest {
     @Test
     public void testLoadApplicationFromClasspath() throws Exception {
         String appName = ExampleApp.class.getName();
-        Object appBuilder = loadApplicationFromClasspathOrParse(appName);
-        assertTrue(appBuilder instanceof ApplicationBuilder, "app="+appBuilder);
-        assertAppWrappedInBuilder((ApplicationBuilder)appBuilder, ExampleApp.class.getCanonicalName());
-    }
-
-    @Test
-    public void testLoadApplicationBuilderFromClasspath() throws Exception {
-        String appName = ExampleAppBuilder.class.getName();
-        Object appBuilder = loadApplicationFromClasspathOrParse(appName);
-        assertTrue(appBuilder instanceof ExampleAppBuilder, "app="+appBuilder);
+        Object appSpec = loadApplicationFromClasspathOrParse(appName);
+        assertTrue(appSpec instanceof EntitySpec, "app="+appSpec);
+        
+        assertEquals(((EntitySpec<?>)appSpec).getImplementation(), ExampleApp.class);
     }
 
     @Test
     public void testLoadEntityFromClasspath() throws Exception {
         String entityName = ExampleEntity.class.getName();
-        Object appBuilder = loadApplicationFromClasspathOrParse(entityName);
-        assertTrue(appBuilder instanceof ApplicationBuilder, "app="+appBuilder);
+        Object appSpec = loadApplicationFromClasspathOrParse(entityName);
+        assertTrue(appSpec instanceof EntitySpec, "app="+appSpec);
         
-        app = ((ApplicationBuilder)appBuilder).manage();
+        mgmt = LocalManagementContextForTests.newInstance();
+        app = (Application) mgmt.getEntityManager().createEntity((EntitySpec<?>)appSpec);
+
         Collection<Entity> entities = app.getChildren();
         assertEquals(entities.size(), 1, "entities="+entities);
         assertTrue(Iterables.getOnlyElement(entities) instanceof ExampleEntity, "entities="+entities+"; ifs="+Iterables.getOnlyElement(entities).getClass().getInterfaces());
@@ -164,10 +162,12 @@ public class CliTest {
     @Test
     public void testLoadEntityImplFromClasspath() throws Exception {
         String entityName = ExampleEntityImpl.class.getName();
-        Object appBuilder = loadApplicationFromClasspathOrParse(entityName);
-        assertTrue(appBuilder instanceof ApplicationBuilder, "app="+appBuilder);
+        Object appSpec = loadApplicationFromClasspathOrParse(entityName);
+        assertTrue(appSpec instanceof EntitySpec, "app="+appSpec);
         
-        app = ((ApplicationBuilder)appBuilder).manage();
+        mgmt = LocalManagementContextForTests.newInstance();
+        app = (Application) mgmt.getEntityManager().createEntity((EntitySpec<?>)appSpec);
+        
         Collection<Entity> entities = app.getChildren();
         assertEquals(entities.size(), 1, "entities="+entities);
         assertEquals(Iterables.getOnlyElement(entities).getEntityType().getName(), ExampleEntity.class.getCanonicalName(), "entities="+entities);
@@ -179,16 +179,6 @@ public class CliTest {
         ResourceUtils resourceUtils = ResourceUtils.create(this);
         GroovyClassLoader loader = new GroovyClassLoader(CliTest.class.getClassLoader());
         return launchCommand.loadApplicationFromClasspathOrParse(resourceUtils, loader, appName);
-    }
-    
-    private void assertAppWrappedInBuilder(ApplicationBuilder builder, String expectedAppTypeName) {
-        StartableApplication app = builder.manage();
-        try {
-            String typeName = app.getEntityType().getName();
-            assertEquals(typeName, expectedAppTypeName, "app="+app+"; typeName="+typeName);
-        } finally {
-            Entities.destroyAll(app.getManagementContext());
-        }
     }
     
     @Test
@@ -754,13 +744,6 @@ public class CliTest {
             exampleEntityRunning = false;
         }
         @Override public void restart() {
-        }
-    }
-
-    // An empty app builder to be used for testing
-    public static class ExampleAppBuilder extends ApplicationBuilder {
-        @Override protected void doBuild() {
-            // no-op
         }
     }
 }

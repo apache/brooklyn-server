@@ -219,10 +219,6 @@ public class BrooklynRestResourceUtilsTest {
     }
     
     public static class MyPolicy extends AbstractPolicy {
-        public MyPolicy() {
-        }
-        public MyPolicy(Map<String, ?> flags) {
-            super(flags);
-        }
+        public MyPolicy() {}
     }
 }

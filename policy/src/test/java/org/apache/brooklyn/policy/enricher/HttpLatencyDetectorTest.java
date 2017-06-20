@@ -81,7 +81,7 @@ public class HttpLatencyDetectorTest {
                 .url(baseUrl)
                 .rollup(500, TimeUnit.MILLISECONDS)
                 .period(100, TimeUnit.MILLISECONDS)
-                .build());
+                .buildSpec());
         
         assertLatencyAttributesNonNull(entity);
     }
@@ -93,7 +93,7 @@ public class HttpLatencyDetectorTest {
                 .noServiceUp()
                 .rollup(500, TimeUnit.MILLISECONDS)
                 .period(100, TimeUnit.MILLISECONDS)
-                .build());
+                .buildSpec());
         
         // nothing until url is set
         EntityAsserts.assertAttributeEqualsContinually(
@@ -114,7 +114,7 @@ public class HttpLatencyDetectorTest {
                 .noServiceUp()
                 .rollup(500, TimeUnit.MILLISECONDS)
                 .period(100, TimeUnit.MILLISECONDS)
-                .build());
+                .buildSpec());
         
         assertLatencyAttributesNonNull(entity);
     }
@@ -126,7 +126,7 @@ public class HttpLatencyDetectorTest {
         entity.enrichers().add(HttpLatencyDetector.builder()
                 .url(baseUrl)
                 .period(100, TimeUnit.MILLISECONDS)
-                .build());
+                .buildSpec());
         
         // nothing until url is set
         EntityAsserts.assertAttributeEqualsContinually(

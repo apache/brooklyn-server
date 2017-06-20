@@ -36,7 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 
@@ -183,7 +183,7 @@ public interface BrooklynProperties extends StringConfigMap {
             @Override
             @SuppressWarnings("deprecation")
             public String toString() {
-                return Objects.toStringHelper(this)
+                return MoreObjects.toStringHelper(this)
                         .omitNullValues()
                         .add("originalProperties", originalProperties)
                         .add("defaultLocationMetadataUrl", defaultLocationMetadataUrl)

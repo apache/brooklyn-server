@@ -24,45 +24,39 @@ import static org.testng.Assert.fail;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.entity.ImplementedBy;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.entity.trait.Resizable;
 import org.apache.brooklyn.core.location.SimulatedLocation;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.entity.group.AbstractGroup;
 import org.apache.brooklyn.entity.group.AbstractGroupImpl;
 import org.apache.brooklyn.entity.group.DynamicGroup;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 
-public class BalanceableWorkerPoolTest {
+public class BalanceableWorkerPoolTest extends BrooklynAppUnitTestSupport {
 
-    private static final Logger LOG = LoggerFactory.getLogger(BalanceableWorkerPoolTest.class);
-    
     protected static final long TIMEOUT_MS = 10*1000;
     protected static final long SHORT_WAIT_MS = 250;
     
     protected static final long CONTAINER_STARTUP_DELAY_MS = 100;
     
-    protected TestApplication app;
     protected SimulatedLocation loc;
     protected BalanceableWorkerPool pool;
     protected Group containerGroup;
     protected Group itemGroup;
     
     @BeforeMethod(alwaysRun=true)
-    public void before() {
-        loc = new SimulatedLocation(MutableMap.of("name", "loc"));
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        loc = mgmt.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class)
+                .configure("name", "loc"));
         
-        app = ApplicationBuilder.newManagedApp(TestApplication.class);
         containerGroup = app.createAndManageChild(EntitySpec.create(DynamicGroup.class)
                 .displayName("containerGroup")
                 .configure(DynamicGroup.ENTITY_FILTER, Predicates.instanceOf(MockContainerEntity.class)));
@@ -73,11 +67,6 @@ public class BalanceableWorkerPoolTest {
         pool.setContents(containerGroup, itemGroup);
         
         app.start(ImmutableList.of(loc));
-    }
-    
-    @AfterMethod(alwaysRun=true)
-    public void after() {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
     }
     
     @Test

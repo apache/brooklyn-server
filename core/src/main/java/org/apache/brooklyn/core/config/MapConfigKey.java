@@ -77,13 +77,11 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
             this.subType = checkNotNull(subType, "subType");
         }
         public Builder(MapConfigKey<V> key) {
-            super(checkNotNull(key.getTypeToken(), "type"), checkNotNull(key.getName(), "name"));
-            description(key.getDescription());
-            defaultValue(key.getDefaultValue());
-            reconfigurable(key.isReconfigurable());
-            runtimeInheritance(key.getParentInheritance());
-            typeInheritance(key.getTypeInheritance());
-            constraint(key.getConstraint());
+            this(key.getName(), key);
+        }
+        public Builder(String newName, MapConfigKey<V> key) {
+            super(newName, key);
+            subType = key.subType;
         }
         @Override
         public Builder<V> self() {
@@ -108,30 +106,10 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
         public MapConfigKey<V> build() {
             return new MapConfigKey<V>(this);
         }
-        
-        @Override
-        public String getName() {
-            return name;
-        }
-        @Override
-        public String getDescription() {
-            return description;
-        }
     }
 
     protected MapConfigKey(Builder<V> builder) {
-        super((Class)Map.class,
-                checkNotNull(builder.subType, "subType"),
-                checkNotNull(builder.name, "name"),
-                builder.description,
-                builder.defaultValue);
-        this.reconfigurable = builder.reconfigurable;
-        this.runtimeInheritance = builder.runtimeInheritance;
-        this.typeInheritance = builder.typeInheritance;
-        // Note: it's intentionally possible to have default values that are not valid
-        // per the configured constraint. If validity were checked here any class that
-        // contained a weirdly-defined config key would fail to initialise.
-        this.constraint = checkNotNull(builder.constraint, "constraint");
+        super(builder, builder.subType);
     }
 
     public MapConfigKey(Class<V> subType, String name) {

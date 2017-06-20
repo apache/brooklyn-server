@@ -23,6 +23,7 @@ import java.util.LinkedList;
 import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.enricher.stock.AbstractTypeTransformingEnricher;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
@@ -41,15 +42,27 @@ public class RollingMeanEnricher<T extends Number> extends AbstractTypeTransform
     @SetFromFlag
     int windowSize;
 
-    public RollingMeanEnricher() { // for rebinding
+    public RollingMeanEnricher() { // for EnricherSpec and rebinding
     }
     
+    /**
+     * @deprecated since 0.12.0; use {@link EnricherSpec}
+     */
+    @Deprecated
     public RollingMeanEnricher(Entity producer, AttributeSensor<T> source, AttributeSensor<Double> target,
             int windowSize) {
         super(producer, source, target);
         this.windowSize = windowSize;
         if (source!=null && target!=null)
             this.uniqueTag = JavaClassNames.simpleClassName(getClass())+":"+source.getName()+"->"+target.getName();
+    }
+    
+    @Override
+    public void init() {
+        super.init();
+        if (uniqueTag == null && source != null && target != null) {
+            uniqueTag = JavaClassNames.simpleClassName(getClass())+":"+source.getName()+"->"+target.getName();
+        }
     }
     
     /** @returns null when no data has been received or windowSize is 0 */

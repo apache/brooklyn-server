@@ -33,6 +33,7 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -66,7 +67,7 @@ public class RecordingSshTool implements SshTool {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("constructorProps", constructorProps)
                     .add("props", props)
                     .add("commands", commands)
@@ -120,7 +121,7 @@ public class RecordingSshTool implements SshTool {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("summaryForLogging", summaryForLogging)
                     .add("commands", commands)
                     .add("env", env)

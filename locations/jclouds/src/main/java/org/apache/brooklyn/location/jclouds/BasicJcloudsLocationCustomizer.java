@@ -22,6 +22,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -29,10 +31,8 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
-import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.objs.BasicConfigurableObject;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.task.Tasks;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.Template;
@@ -121,6 +121,16 @@ public class BasicJcloudsLocationCustomizer extends BasicConfigurableObject impl
 
     @Override
     public void postRelease(JcloudsMachineLocation machine) {
+        // no-op
+    }
+
+    @Override
+    public void preReleaseOnObtainError(JcloudsLocation jcloudsLocation, @Nullable JcloudsMachineLocation machineLocation, Exception cause) {
+        // no-op
+    }
+
+    @Override
+    public void postReleaseOnObtainError(JcloudsLocation jcloudsLocation, @Nullable JcloudsMachineLocation machineLocation, Exception cause) {
         // no-op
     }
 

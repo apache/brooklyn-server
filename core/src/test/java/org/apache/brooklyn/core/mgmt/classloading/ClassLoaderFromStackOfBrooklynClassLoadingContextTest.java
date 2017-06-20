@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.mgmt.persist;
+package org.apache.brooklyn.core.mgmt.classloading;
 
 import static org.testng.Assert.assertEquals;
 
@@ -24,11 +24,11 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.mgmt.classloading.ClassLoaderFromStackOfBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
-import org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializer.OsgiClassLoader;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.osgi.Osgis;
@@ -42,7 +42,7 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Optional;
 
-public class XmlMementoSerializerDelegatingClassLoaderTest {
+public class ClassLoaderFromStackOfBrooklynClassLoadingContextTest {
 
     private LocalManagementContext mgmt;
 
@@ -97,7 +97,7 @@ public class XmlMementoSerializerDelegatingClassLoaderTest {
             }
         };
         
-        OsgiClassLoader ocl = new XmlMementoSerializer.OsgiClassLoader(classLoader);
+        ClassLoaderFromStackOfBrooklynClassLoadingContext ocl = new ClassLoaderFromStackOfBrooklynClassLoadingContext(classLoader);
         ocl.setManagementContext(mgmt);
         assertEquals(ocl.loadClass(specialClassName), Entity.class);
         
@@ -106,7 +106,7 @@ public class XmlMementoSerializerDelegatingClassLoaderTest {
     }
     
     private void assertLoads(ClassLoader delegateClassLoader, Class<?> clazz, Optional<Bundle> bundle) throws Exception {
-        OsgiClassLoader ocl = new XmlMementoSerializer.OsgiClassLoader(delegateClassLoader);
+        ClassLoaderFromStackOfBrooklynClassLoadingContext ocl = new ClassLoaderFromStackOfBrooklynClassLoadingContext(delegateClassLoader);
         ocl.setManagementContext(mgmt);
         String classname = (bundle.isPresent() ? bundle.get().getSymbolicName() + ":" : "") + clazz.getName();
         assertEquals(ocl.loadClass(classname), clazz);
@@ -117,7 +117,7 @@ public class XmlMementoSerializerDelegatingClassLoaderTest {
     }
 
     private void assertLoads(ClassLoader delegateClassLoader, String clazz, Optional<Bundle> bundle) throws Exception {
-        OsgiClassLoader ocl = new XmlMementoSerializer.OsgiClassLoader(delegateClassLoader);
+        ClassLoaderFromStackOfBrooklynClassLoadingContext ocl = new ClassLoaderFromStackOfBrooklynClassLoadingContext(delegateClassLoader);
         ocl.setManagementContext(mgmt);
         String classname = (bundle.isPresent() ? bundle.get().getSymbolicName() + ":" : "") + clazz;
         assertEquals(ocl.loadClass(classname).getName(), clazz);

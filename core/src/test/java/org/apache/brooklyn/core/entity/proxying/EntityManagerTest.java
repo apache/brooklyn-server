@@ -33,7 +33,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.mgmt.internal.LocalEntityManager;
 import org.apache.brooklyn.core.objs.proxy.EntityProxy;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
@@ -105,7 +104,7 @@ public class EntityManagerTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testGetEntities() {
-        TestApplication app2 = ApplicationBuilder.newManagedApp(TestApplication.class, mgmt);
+        TestApplication app2 = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         TestEntity child = entity.createAndManageChild(EntitySpec.create(TestEntity.class));
         

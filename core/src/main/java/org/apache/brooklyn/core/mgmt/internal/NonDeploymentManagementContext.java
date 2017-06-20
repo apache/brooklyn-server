@@ -75,7 +75,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -153,7 +153,7 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("entity", entity.getId()).add("mode", mode).toString();
+        return MoreObjects.toStringHelper(this).add("entity", entity.getId()).add("mode", mode).toString();
     }
     
     public void setMode(NonDeploymentManagementContextMode mode) {

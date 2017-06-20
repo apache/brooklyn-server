@@ -187,6 +187,10 @@ public class AutoScalerPolicy extends AbstractPolicy {
         public Builder maxReachedNotificationDelay(Duration val) {
             this.maxReachedNotificationDelay = val; return this;
         }
+        /**
+         * @deprecated since 0.12.0; use {@link #buildSpec()}, or use {@link PolicySpec} directly
+         */
+        @Deprecated
         public AutoScalerPolicy build() {
             return new AutoScalerPolicy(toFlags());
         }
@@ -455,13 +459,16 @@ public class AutoScalerPolicy extends AbstractPolicy {
     };
 
     public AutoScalerPolicy() {
-        this(MutableMap.<String,Object>of());
     }
     
+    /**
+     * @deprecated since 0.12.0; use {@link PolicySpec}
+     */
+    @Deprecated
     public AutoScalerPolicy(Map<String,?> props) {
         super(props);
     }
-
+    
     @Override
     public void init() {
         doInit();

@@ -23,7 +23,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicate;
 import com.google.common.net.HostAndPort;
 
@@ -85,7 +85,7 @@ public interface PortForwardManager extends Location {
 
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("publicIpId", publicIpId)
                     .add("publicEndpoint", publicEndpoint)
                     .add("location", location)

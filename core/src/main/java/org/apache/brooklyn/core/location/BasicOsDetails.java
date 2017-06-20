@@ -23,9 +23,9 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
-import com.google.common.base.Objects;
-
 import org.apache.brooklyn.api.location.OsDetails;
+
+import com.google.common.base.MoreObjects;
 
 @Immutable
 public class BasicOsDetails implements OsDetails {
@@ -87,7 +87,7 @@ public class BasicOsDetails implements OsDetails {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(OsDetails.class)
+        return MoreObjects.toStringHelper(OsDetails.class)
                 .omitNullValues()
                 .add("name", name)
                 .add("version", version)

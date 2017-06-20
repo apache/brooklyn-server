@@ -19,17 +19,22 @@
 package org.apache.brooklyn.core.policy.basic;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import java.util.Map;
 
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.testng.annotations.Test;
+
+import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
 
 /**
  * Test that policy can be created and accessed, by construction and by spec
@@ -44,6 +49,9 @@ public class BasicPolicyTest extends BrooklynAppUnitTestSupport {
         public static final ConfigKey<String> STR_KEY = new BasicConfigKey<String>(String.class, "akey", "a key");
         public static final ConfigKey<Integer> INT_KEY_WITH_DEFAULT = new BasicConfigKey<Integer>(Integer.class, "ckey", "c key", 1);
         public static final ConfigKey<String> STR_KEY_WITH_DEFAULT = new BasicConfigKey<String>(String.class, "strKey", "str key", "str key default");
+        public static final ConfigKey<String> RECONFIGURABLE_KEY = ConfigKeys.builder(String.class, "reconfigurableKey")
+                .reconfigurable(true)
+                .build();
         
         MyPolicy(Map<?,?> flags) {
             super(flags);
@@ -52,6 +60,16 @@ public class BasicPolicyTest extends BrooklynAppUnitTestSupport {
         public MyPolicy() {
             super();
         }
+        
+        @Override
+        protected <T> void doReconfigureConfig(ConfigKey<T> key, T val) {
+            if (key.equals(RECONFIGURABLE_KEY)) {
+                // allowed
+            } else {
+                super.doReconfigureConfig(key, val);
+            }
+        }
+
     }
     
     @Test
@@ -60,7 +78,9 @@ public class BasicPolicyTest extends BrooklynAppUnitTestSupport {
         policy.setDisplayName("Bob");
         policy.config().set(MyPolicy.STR_KEY, "aval");
         policy.config().set(MyPolicy.INT_KEY, 2);
+        
         app.policies().add(policy);
+        assertTrue(Iterables.tryFind(app.policies(), Predicates.equalTo(policy)).isPresent());
         
         assertEquals(policy.getDisplayName(), "Bob");
         assertEquals(policy.getConfig(MyPolicy.STR_KEY), "aval");

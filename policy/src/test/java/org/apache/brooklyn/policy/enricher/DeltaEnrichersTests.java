@@ -24,10 +24,12 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.SubscriptionContext;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -52,9 +54,12 @@ public class DeltaEnrichersTests extends BrooklynAppUnitTestSupport {
     @Test
     public void testDeltaEnricher() {
         AttributeSensor<Integer> deltaSensor = new BasicAttributeSensor<Integer>(Integer.class, "delta sensor");
-        DeltaEnricher<Integer> delta = new DeltaEnricher<Integer>(producer, intSensor, deltaSensor);
-        producer.enrichers().add(delta);
-        
+        @SuppressWarnings("unchecked")
+        DeltaEnricher<Integer> delta = producer.enrichers().add(EnricherSpec.create(DeltaEnricher.class)
+                .configure("producer", producer)
+                .configure("source", intSensor)
+                .configure("target", deltaSensor));
+
         delta.onEvent(intSensor.newEvent(producer, 0));
         delta.onEvent(intSensor.newEvent(producer, 0));
         assertEquals(producer.getAttribute(deltaSensor), (Integer)0);
@@ -69,9 +74,12 @@ public class DeltaEnrichersTests extends BrooklynAppUnitTestSupport {
     @Test
     public void testMonospaceTimeWeightedDeltaEnricher() {
         AttributeSensor<Double> deltaSensor = new BasicAttributeSensor<Double>(Double.class, "per second delta delta sensor");
-        TimeWeightedDeltaEnricher<Integer> delta =
-            TimeWeightedDeltaEnricher.<Integer>getPerSecondDeltaEnricher(producer, intSensor, deltaSensor);
-        producer.enrichers().add(delta);
+        @SuppressWarnings("unchecked")
+        TimeWeightedDeltaEnricher<Integer> delta = producer.enrichers().add(EnricherSpec.create(TimeWeightedDeltaEnricher.class)
+                .configure("producer", producer)
+                .configure("source", intSensor)
+                .configure("target", deltaSensor)
+                .configure("unitMillis", 1000));
         
         // Don't start with timestamp=0: that may be treated special 
         delta.onEvent(intSensor.newEvent(producer, 0), 1000);
@@ -89,9 +97,12 @@ public class DeltaEnrichersTests extends BrooklynAppUnitTestSupport {
     @Test
     public void testVariableTimeWeightedDeltaEnricher() {
         AttributeSensor<Double> deltaSensor = new BasicAttributeSensor<Double>(Double.class, "per second delta delta sensor");
-        TimeWeightedDeltaEnricher<Integer> delta =
-            TimeWeightedDeltaEnricher.<Integer>getPerSecondDeltaEnricher(producer, intSensor, deltaSensor);
-        producer.enrichers().add(delta);
+        @SuppressWarnings("unchecked")
+        TimeWeightedDeltaEnricher<Integer> delta = producer.enrichers().add(EnricherSpec.create(TimeWeightedDeltaEnricher.class)
+                .configure("producer", producer)
+                .configure("source", intSensor)
+                .configure("target", deltaSensor)
+                .configure("unitMillis", 1000));
         
         delta.onEvent(intSensor.newEvent(producer, 0), 1000);
         delta.onEvent(intSensor.newEvent(producer, 0), 3000);
@@ -109,8 +120,13 @@ public class DeltaEnrichersTests extends BrooklynAppUnitTestSupport {
     @Test
     public void testPostProcessorCalledForDeltaEnricher() {
         AttributeSensor<Double> deltaSensor = new BasicAttributeSensor<Double>(Double.class, "per second delta delta sensor");
-        TimeWeightedDeltaEnricher<Integer> delta = new TimeWeightedDeltaEnricher<Integer>(producer, intSensor, deltaSensor, 1000, new AddConstant(123d));
-        producer.enrichers().add(delta);
+        @SuppressWarnings("unchecked")
+        TimeWeightedDeltaEnricher<Integer> delta = producer.enrichers().add(EnricherSpec.create(TimeWeightedDeltaEnricher.class)
+                .configure("producer", producer)
+                .configure("source", intSensor)
+                .configure("target", deltaSensor)
+                .configure("unitMillis", 1000)
+                .configure("postProcessor", new AddConstant(123d)));
         
         delta.onEvent(intSensor.newEvent(producer, 0), 1000);
         delta.onEvent(intSensor.newEvent(producer, 0), 2000);

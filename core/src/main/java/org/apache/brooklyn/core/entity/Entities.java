@@ -879,6 +879,8 @@ public class Entities {
      * Apps will be stopped+destroyed+unmanaged concurrently, waiting for all to complete.
      */
     public static void destroyAll(final ManagementContext mgmt) {
+        final int MAX_THREADS = 100;
+        
         if (mgmt instanceof NonDeploymentManagementContext) {
             // log here because it is easy for tests to destroyAll(app.getMgmtContext())
             // which will *not* destroy the mgmt context if the app has been stopped!
@@ -889,7 +891,7 @@ public class Entities {
         }
         if (!mgmt.isRunning()) return;
         
-        ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
+        ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(MAX_THREADS));
         List<ListenableFuture<?>> futures = Lists.newArrayList();
         final AtomicReference<Exception> error = Atomics.newReference();
         try {

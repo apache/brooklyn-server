@@ -29,10 +29,10 @@ import org.apache.brooklyn.api.sensor.Sensor;
 @Deprecated
 public abstract class AbstractTransformingEnricher<T> extends AbstractTypeTransformingEnricher<T,T> {
 
-    public AbstractTransformingEnricher() { // for rebinding
+    protected AbstractTransformingEnricher() { // for EnricherSpec and rebinding
     }
     
-    public AbstractTransformingEnricher(Entity producer, Sensor<T> source, Sensor<T> target) {
+    protected AbstractTransformingEnricher(Entity producer, Sensor<T> source, Sensor<T> target) {
         super(producer, source, target);
     }
     

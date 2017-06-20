@@ -37,7 +37,6 @@ import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindContextImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
@@ -81,7 +80,7 @@ public abstract class BrooklynMementoPersisterTestFixture {
         }
         EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class)
                 .location(LocationSpec.create(SshMachineLocation.class).configure("address", "localhost"));
-        app = ApplicationBuilder.newManagedApp(appSpec, localManagementContext);
+        app = localManagementContext.getEntityManager().createEntity(appSpec);
         location = Iterables.getOnlyElement( app.getLocations() );
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         enricher = app.enrichers().add(Enrichers.builder().propagatingAll().from(entity).build());

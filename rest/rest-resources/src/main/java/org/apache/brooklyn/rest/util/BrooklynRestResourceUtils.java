@@ -21,7 +21,6 @@ package org.apache.brooklyn.rest.util;
 import static com.google.common.collect.Iterables.transform;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.notFound;
 
-import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -234,7 +233,6 @@ public class BrooklynRestResourceUtils {
         }
     }
     
-    @SuppressWarnings({ "deprecation" })
     public Application create(ApplicationSpec spec) {
         log.warn("Using deprecated functionality (as of 0.9.0), ApplicationSpec style (pre CAMP plans). " +
                     "Transition to actively supported spec plans.");
@@ -266,21 +264,7 @@ public class BrooklynRestResourceUtils {
         }
 
         try {
-            if (org.apache.brooklyn.core.entity.factory.ApplicationBuilder.class.isAssignableFrom(itemAndClass.clazz)) {
-                // warning only added in 0.9.0
-                log.warn("Using deprecated ApplicationBuilder "+itemAndClass.clazz+"; callers must migrate to use of Application");
-                Constructor<?> constructor = itemAndClass.clazz.getConstructor();
-                org.apache.brooklyn.core.entity.factory.ApplicationBuilder appBuilder = (org.apache.brooklyn.core.entity.factory.ApplicationBuilder) constructor.newInstance();
-                if (!Strings.isEmpty(name)) appBuilder.appDisplayName(name);
-                if (entities.size() > 0)
-                    log.warn("Cannot supply additional entities when using an ApplicationBuilder; ignoring in spec {}", spec);
-
-                log.info("REST placing '{}' under management", spec.getName());
-                appBuilder.configure(convertFlagsToKeys(appBuilder.getType(), configO));
-                configureRenderingMetadata(spec, appBuilder);
-                instance = appBuilder.manage(mgmt);
-
-            } else if (Application.class.isAssignableFrom(itemAndClass.clazz)) {
+            if (Application.class.isAssignableFrom(itemAndClass.clazz)) {
                 org.apache.brooklyn.api.entity.EntitySpec<?> coreSpec = toCoreEntitySpec(itemAndClass.clazz, name, configO, itemAndClass.catalogItemId);
                 configureRenderingMetadata(spec, coreSpec);
                 for (EntitySpec entitySpec : entities) {
@@ -366,11 +350,6 @@ public class BrooklynRestResourceUtils {
         return result;
     }
     
-    @SuppressWarnings("deprecation")
-    protected void configureRenderingMetadata(ApplicationSpec spec, org.apache.brooklyn.core.entity.factory.ApplicationBuilder appBuilder) {
-        appBuilder.configure(getRenderingConfigurationFor(spec.getType()));
-    }
-
     protected void configureRenderingMetadata(ApplicationSpec input, org.apache.brooklyn.api.entity.EntitySpec<?> entity) {
         entity.configure(getRenderingConfigurationFor(input.getType()));
     }

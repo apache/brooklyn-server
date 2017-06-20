@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.entity.lifecycle;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
 /** Emitted as part of {@link AbstractEntity#POLICY_ADDED} and {@link AbstractEntity#POLICY_REMOVED} */
@@ -63,6 +64,6 @@ public class PolicyDescriptor {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("id", id).add("type", type).add("name",  name).omitNullValues().toString();
+        return MoreObjects.toStringHelper(this).add("id", id).add("type", type).add("name",  name).omitNullValues().toString();
     }
 }

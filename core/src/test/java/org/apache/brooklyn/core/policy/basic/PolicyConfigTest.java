@@ -25,6 +25,7 @@ import static org.testng.Assert.fail;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 
+import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.policy.basic.BasicPolicyTest.MyPolicy;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
@@ -86,26 +87,28 @@ public class PolicyConfigTest extends BrooklynAppUnitTestSupport {
     
     @Test
     public void testConfigSetToGroovyTruthFalseIsAvailable() throws Exception {
-        MyPolicy policy = new MyPolicy(MutableMap.builder()
-                .put(MyPolicy.INT_KEY_WITH_DEFAULT, 0)
-                .build());
-        app.policies().add(policy);
+        MyPolicy policy = app.policies().add(PolicySpec.create(MyPolicy.class)
+                .configure(MyPolicy.INT_KEY_WITH_DEFAULT, 0));
+        MyPolicy policy2 = app.policies().add(PolicySpec.create(MyPolicy.class)
+                .configure(MyPolicy.INT_KEY_WITH_DEFAULT.getName(), 0));
         
         assertEquals(policy.getConfig(MyPolicy.INT_KEY_WITH_DEFAULT), (Integer)0);
+        assertEquals(policy2.getConfig(MyPolicy.INT_KEY_WITH_DEFAULT), (Integer)0);
     }
     
     @Test
     public void testConfigSetToNullIsAvailable() throws Exception {
-        MyPolicy policy = new MyPolicy(MutableMap.builder()
-                .put(MyPolicy.STR_KEY_WITH_DEFAULT, null)
-                .build());
-        app.policies().add(policy);
+        MyPolicy policy = app.policies().add(PolicySpec.create(MyPolicy.class)
+                .configure(MyPolicy.STR_KEY_WITH_DEFAULT, (String)null));
+        MyPolicy policy2 = app.policies().add(PolicySpec.create(MyPolicy.class)
+                .configure(MyPolicy.STR_KEY_WITH_DEFAULT.getName(), null));
         
         assertEquals(policy.getConfig(MyPolicy.STR_KEY_WITH_DEFAULT), null);
+        assertEquals(policy2.getConfig(MyPolicy.STR_KEY_WITH_DEFAULT), null);
     }
     
     @Test
-    public void testConfigCanBeSetOnPolicy() throws Exception {
+    public void testConfigCanBeSetOnPolicyBeforeAddedToEntity() throws Exception {
         MyPolicy policy = new MyPolicy();
         policy.config().set(MyPolicy.STR_KEY, "aval");
         policy.config().set(MyPolicy.INT_KEY, 2);
@@ -128,13 +131,11 @@ public class PolicyConfigTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testConfigCannotBeSetAfterApplicationIsStarted() throws Exception {
-        MyPolicy policy = new MyPolicy(MutableMap.builder()
-                .put(MyPolicy.STR_KEY, "origval")
-                .build());
-        app.policies().add(policy);
+        MyPolicy policy = app.policies().add(PolicySpec.create(MyPolicy.class)
+                .configure(MyPolicy.STR_KEY, "origval"));
         
         try {
-            policy.config().set(MyPolicy.STR_KEY,"newval");
+            policy.config().set(MyPolicy.STR_KEY, "newval");
             fail();
         } catch (UnsupportedOperationException e) {
             // success
@@ -144,30 +145,34 @@ public class PolicyConfigTest extends BrooklynAppUnitTestSupport {
     }
     
     @Test
+    public void testConfigSetterForReconfigurableKey() throws Exception {
+        MyPolicy policy = app.policies().add(PolicySpec.create(MyPolicy.class)
+                .configure(MyPolicy.RECONFIGURABLE_KEY, "origval"));
+        policy.config().set(MyPolicy.RECONFIGURABLE_KEY, "diffval");
+        
+        assertEquals(policy.getConfig(MyPolicy.RECONFIGURABLE_KEY), "diffval");
+    }
+
+    @Test
     public void testConfigReturnsDefaultValueIfNotSet() throws Exception {
-        MyPolicy policy = new MyPolicy();
-        app.policies().add(policy);
+        MyPolicy policy = app.policies().add(PolicySpec.create(MyPolicy.class));
         
         assertEquals(policy.getConfig(MyPolicy.STR_KEY_WITH_DEFAULT), "str key default");
     }
     
-    // FIXME Should we support this now?
-    @Test(enabled=false)
+    @Test
     public void testGetFutureConfigWhenReady() throws Exception {
-        MyPolicy policy = new MyPolicy(MutableMap.builder()
-                .put(TestEntity.CONF_NAME, DependentConfiguration.whenDone(Callables.returning("aval")))
-                .build());
-        app.policies().add(policy);
+        MyPolicy policy = app.policies().add(PolicySpec.create(MyPolicy.class)
+                .configure(TestEntity.CONF_NAME, DependentConfiguration.whenDone(Callables.returning("aval"))));
         
-        assertEquals(policy.getConfig(TestEntity.CONF_NAME), "aval");
+        assertEquals(policy.config().get(TestEntity.CONF_NAME), "aval");
     }
     
-    // FIXME Should we support this now?
-    @Test(enabled=false)
+    @Test
     public void testGetFutureConfigBlocksUntilReady() throws Exception {
         final CountDownLatch latch = new CountDownLatch(1);
-        MyPolicy policy = new MyPolicy(MutableMap.builder()
-                .put(TestEntity.CONF_NAME, DependentConfiguration.whenDone(new Callable<String>() {
+        MyPolicy policy = app.policies().add(PolicySpec.create(MyPolicy.class)
+                .configure(TestEntity.CONF_NAME, DependentConfiguration.whenDone(new Callable<String>() {
                         @Override
                         public String call() {
                             try {
@@ -175,15 +180,14 @@ public class PolicyConfigTest extends BrooklynAppUnitTestSupport {
                             } catch (InterruptedException e) {
                                 throw Exceptions.propagate(e);
                             }
-                        }}))
-                .build());
-        app.policies().add(policy);
+                        }})));
         
         Thread t = new Thread(new Runnable() {
                 @Override
                 public void run() {
                     try {
-                        Thread.sleep(10+EARLY_RETURN_GRACE); latch.countDown();
+                        Thread.sleep(10+EARLY_RETURN_GRACE);
+                        latch.countDown();
                     } catch (InterruptedException e) {
                         throw Exceptions.propagate(e);
                     }
@@ -191,7 +195,7 @@ public class PolicyConfigTest extends BrooklynAppUnitTestSupport {
         try {
             long starttime = System.currentTimeMillis();
             t.start();
-            assertEquals(policy.getConfig(TestEntity.CONF_NAME), "aval");
+            assertEquals(policy.config().get(TestEntity.CONF_NAME), "aval");
             long endtime = System.currentTimeMillis();
             
             assertTrue((endtime - starttime) >= 10, "starttime="+starttime+"; endtime="+endtime);

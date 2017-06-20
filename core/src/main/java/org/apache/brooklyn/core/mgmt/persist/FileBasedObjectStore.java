@@ -40,7 +40,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -173,7 +173,7 @@ public class FileBasedObjectStore implements PersistenceObjectStore {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("basedir", basedir).toString();
+        return MoreObjects.toStringHelper(this).add("basedir", basedir).toString();
     }
 
     @Override

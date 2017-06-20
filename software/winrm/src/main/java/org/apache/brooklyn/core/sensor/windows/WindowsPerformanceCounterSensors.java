@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.sensor.windows;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.annotations.Beta;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
@@ -36,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.reflect.TypeToken;
 
+@Beta
 public class WindowsPerformanceCounterSensors implements EntityInitializer {
 
     private static final Logger LOG = LoggerFactory.getLogger(WindowsPerformanceCounterSensors.class);
@@ -81,6 +83,6 @@ public class WindowsPerformanceCounterSensors implements EntityInitializer {
             }
             builder.addSensor(sensorConfig.get("counter"), Sensors.newSensor(clazz, name, sensorConfig.get("description")));
         }
-        builder.build();
+        entity.addFeed(builder.build());
     }
 }

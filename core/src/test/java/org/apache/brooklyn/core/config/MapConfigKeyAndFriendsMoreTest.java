@@ -18,9 +18,14 @@
  */
 package org.apache.brooklyn.core.config;
 
+import static org.testng.Assert.assertEquals;
+
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
 import org.apache.brooklyn.core.config.ListConfigKey.ListModifications;
 import org.apache.brooklyn.core.config.MapConfigKey.MapModifications;
 import org.apache.brooklyn.core.config.SetConfigKey.SetModifications;
@@ -36,6 +41,8 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -59,6 +66,75 @@ public class MapConfigKeyAndFriendsMoreTest extends BrooklynAppUnitTestSupport {
     public void setUp() throws Exception {
         super.setUp();
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+    }
+    
+    @Test
+    public void testMapConfigKeyBuilder() throws Exception {
+        Map<String, String> defaultVal = ImmutableMap.of("defaultKey", "defaultVal");
+        Predicate<Object> constraint = Predicates.instanceOf(Map.class);
+        
+        MapConfigKey<String> key = new MapConfigKey.Builder<>(String.class, "myname")
+                .description("my description")
+                .defaultValue(defaultVal)
+                .constraint(constraint)
+                .reconfigurable(true)
+                .runtimeInheritance(BasicConfigInheritance.NEVER_INHERITED)
+                .typeInheritance(BasicConfigInheritance.OVERWRITE)
+                .build();
+        
+        assertEquals(key.getName(), "myname");
+        assertEquals(key.getDescription(), "my description");
+        assertEquals(key.getDefaultValue(), defaultVal);
+        assertEquals(key.getConstraint(), constraint);
+        assertEquals(key.isReconfigurable(), true);
+        assertEquals(key.getInheritanceByContext(InheritanceContext.RUNTIME_MANAGEMENT), BasicConfigInheritance.NEVER_INHERITED);
+        assertEquals(key.getInheritanceByContext(InheritanceContext.TYPE_DEFINITION), BasicConfigInheritance.OVERWRITE);
+    }
+
+    @Test
+    public void testSetConfigKeyBuilder() throws Exception {
+        Set<String> defaultVal = ImmutableSet.of("defaultVal");
+        Predicate<Object> constraint = Predicates.instanceOf(Set.class);
+        
+        SetConfigKey<String> key = new SetConfigKey.Builder<>(String.class, "myname")
+                .description("my description")
+                .defaultValue(defaultVal)
+                .constraint(constraint)
+                .reconfigurable(true)
+                .runtimeInheritance(BasicConfigInheritance.NEVER_INHERITED)
+                .typeInheritance(BasicConfigInheritance.OVERWRITE)
+                .build();
+        
+        assertEquals(key.getName(), "myname");
+        assertEquals(key.getDescription(), "my description");
+        assertEquals(key.getDefaultValue(), defaultVal);
+        assertEquals(key.getConstraint(), constraint);
+        assertEquals(key.isReconfigurable(), true);
+        assertEquals(key.getInheritanceByContext(InheritanceContext.RUNTIME_MANAGEMENT), BasicConfigInheritance.NEVER_INHERITED);
+        assertEquals(key.getInheritanceByContext(InheritanceContext.TYPE_DEFINITION), BasicConfigInheritance.OVERWRITE);
+    }
+
+    @Test
+    public void testListConfigKeyBuilder() throws Exception {
+        List<String> defaultVal = ImmutableList.of("defaultVal");
+        Predicate<Object> constraint = Predicates.instanceOf(List.class);
+        
+        ListConfigKey<String> key = new ListConfigKey.Builder<>(String.class, "myname")
+                .description("my description")
+                .defaultValue(defaultVal)
+                .constraint(constraint)
+                .reconfigurable(true)
+                .runtimeInheritance(BasicConfigInheritance.NEVER_INHERITED)
+                .typeInheritance(BasicConfigInheritance.OVERWRITE)
+                .build();
+        
+        assertEquals(key.getName(), "myname");
+        assertEquals(key.getDescription(), "my description");
+        assertEquals(key.getDefaultValue(), defaultVal);
+        assertEquals(key.getConstraint(), constraint);
+        assertEquals(key.isReconfigurable(), true);
+        assertEquals(key.getInheritanceByContext(InheritanceContext.RUNTIME_MANAGEMENT), BasicConfigInheritance.NEVER_INHERITED);
+        assertEquals(key.getInheritanceByContext(InheritanceContext.TYPE_DEFINITION), BasicConfigInheritance.OVERWRITE);
     }
 
     public void testMapModUsage() throws Exception {

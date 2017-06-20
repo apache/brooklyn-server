@@ -28,15 +28,11 @@ import java.net.ServerSocket;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -55,26 +51,23 @@ import com.google.common.net.HostAndPort;
 // at least one report of *test* failures, as in no events coming in;
 // log unavailable but the test has been passing everywhere else so we
 // suspect some environments don't support this test
-public class ConnectionFailureDetectorTest {
+public class ConnectionFailureDetectorTest extends BrooklynAppUnitTestSupport {
 
     private static final int TIMEOUT_MS = 30*1000;
     private static final int OVERHEAD = 250;
     private static final int POLL_PERIOD = 100;
 
-    private ManagementContext managementContext;
-    private TestApplication app;
-    
     private List<SensorEvent<FailureDescriptor>> events;
     
     private ServerSocket serverSocket;
     private HostAndPort serverSocketAddress;
     
     @BeforeMethod(alwaysRun=true)
+    @Override
     public void setUp() throws Exception {
-        events = new CopyOnWriteArrayList<SensorEvent<FailureDescriptor>>();
+        super.setUp();
         
-        managementContext = new LocalManagementContextForTests();
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, managementContext);
+        events = new CopyOnWriteArrayList<SensorEvent<FailureDescriptor>>();
         
         app.getManagementContext().getSubscriptionManager().subscribe(
                 app, 
@@ -98,8 +91,11 @@ public class ConnectionFailureDetectorTest {
     
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
-        stopServerSocket();
-        if (managementContext != null) Entities.destroyAll(managementContext);
+        try {
+            stopServerSocket();
+        } finally {
+            super.tearDown();
+        }
     }
     
     private HostAndPort startServerSocket() throws Exception {
@@ -195,7 +191,23 @@ public class ConnectionFailureDetectorTest {
         assertHasEventEventually(HASensors.CONNECTION_FAILED, Predicates.<Object>equalTo(app), null);
     }
     
-    @Test(groups="Integration") // Because slow
+//    Fails on Apache Jenkins with:
+//    Message: events=[Application[4ciretla].Sensor: ha.connectionRecovered (org.apache.brooklyn.policy.ha.HASensors$FailureDescriptor)=FailureDescriptor{component=Application[4ciretla], description=endpoint=0.0.0.0:40099; healthy=true; timeNow=2017-06-06 10:51:34.075; lastUp=2017-06-06 10:51:33.069; lastDown=2017-06-06 10:51:33.069; lastPublished=FAILED; currentFailurePeriod=2.01s (stabilization 0ms); currentRecoveryPeriod=1.01s (stabilization 1s)} @ 1496746294076] expected [true] but found [false]
+//
+//            Stacktrace:
+//
+//            at org.testng.Assert.fail(Assert.java:94)
+//            at org.testng.Assert.failNotEquals(Assert.java:513)
+//            at org.testng.Assert.assertTrue(Assert.java:42)
+//            at org.apache.brooklyn.policy.ha.ConnectionFailureDetectorTest$4.run(ConnectionFailureDetectorTest.java:297)
+//            at org.apache.brooklyn.test.Asserts$RunnableAdapter.call(Asserts.java:1366)
+//            at org.apache.brooklyn.test.Asserts.succeedsContinually(Asserts.java:1042)
+//            at org.apache.brooklyn.test.Asserts.succeedsContinually(Asserts.java:1021)
+//            at org.apache.brooklyn.policy.ha.ConnectionFailureDetectorTest.assertNoEventsContinually(ConnectionFailureDetectorTest.java:295)
+//            at org.apache.brooklyn.policy.ha.ConnectionFailureDetectorTest.testRecoversThenDownUpResetsStabilisationCount(ConnectionFailureDetectorTest.java:271)
+//
+//  Fails in the same way with FEATURE_JITTER_THREADS enabled.
+    @Test(groups={"Integration", "Broken"}) // Because slow
     public void testFailuresThenUpDownResetsStabilisationCount() throws Exception {
         final long stabilisationDelay = 1000;
         

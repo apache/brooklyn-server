@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.enricher;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import java.util.Map;
 
@@ -27,9 +28,7 @@ import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
-import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestApplicationNoEnrichersImpl;
@@ -38,6 +37,7 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 /**
@@ -52,7 +52,7 @@ public class BasicEnricherTest extends BrooklynAppUnitTestSupport {
     protected void setUpApp() {
         EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class, TestApplicationNoEnrichersImpl.class)
                 .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, shouldSkipOnBoxBaseDirResolution());
-        app = ApplicationBuilder.newManagedApp(appSpec, mgmt);
+        app = mgmt.getEntityManager().createEntity(appSpec);
     }
 
     public static class MyEnricher extends AbstractEnricher {
@@ -79,7 +79,9 @@ public class BasicEnricherTest extends BrooklynAppUnitTestSupport {
         enricher.setDisplayName("Bob");
         enricher.config().set(MyEnricher.STR_KEY, "aval");
         enricher.config().set(MyEnricher.INT_KEY, 2);
+        
         app.enrichers().add(enricher);
+        assertTrue(app.enrichers().asList().contains(enricher), "enrichers="+app.enrichers());
         
         assertEquals(enricher.getDisplayName(), "Bob");
         assertEquals(enricher.getConfig(MyEnricher.STR_KEY), "aval");
@@ -91,6 +93,7 @@ public class BasicEnricherTest extends BrooklynAppUnitTestSupport {
         MyEnricher enricher = app.enrichers().add(EnricherSpec.create(MyEnricher.class)
             .displayName("Bob")
             .configure(MyEnricher.STR_KEY, "aval").configure(MyEnricher.INT_KEY, 2));
+        assertTrue(app.enrichers().asList().contains(enricher), "enrichers="+app.enrichers());
         
         assertEquals(enricher.getDisplayName(), "Bob");
         assertEquals(enricher.getConfig(MyEnricher.STR_KEY), "aval");
@@ -107,11 +110,12 @@ public class BasicEnricherTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testSameUniqueTagEnricherNotAddedTwice() throws Exception {
-        app.enrichers().add(EnricherSpec.create(MyEnricher.class).tag(99).uniqueTag("x"));
-        app.enrichers().add(EnricherSpec.create(MyEnricher.class).tag(94).uniqueTag("x"));
+        MyEnricher enricher1 = app.enrichers().add(EnricherSpec.create(MyEnricher.class).tag(99).uniqueTag("x"));
+        MyEnricher enricher2 = app.enrichers().add(EnricherSpec.create(MyEnricher.class).tag(94).uniqueTag("x"));
         
-        assertEquals(app.getEnrichers().size(), 1);
         // the more recent one should dominate
+        assertEquals(app.enrichers().asList(), ImmutableList.of(enricher2));
+        
         Enricher enricher = Iterables.getOnlyElement(app.enrichers());
         Assert.assertTrue(enricher.tags().containsTag(94));
         Assert.assertFalse(enricher.tags().containsTag(99));

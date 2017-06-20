@@ -45,9 +45,6 @@ public class OsgiStandaloneTest extends OsgiTestBase {
 
     private static final Logger log = LoggerFactory.getLogger(OsgiStandaloneTest.class);
 
-    public static final String BROOKLYN_OSGI_TEST_A_0_1_0_PATH = OsgiTestResources.BROOKLYN_OSGI_TEST_A_0_1_0_PATH;
-    public static final String BROOKLYN_OSGI_TEST_A_0_1_0_URL = "classpath:"+BROOKLYN_OSGI_TEST_A_0_1_0_PATH;
-
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_PATH = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FULL = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FULL;
     public static final String BROOKLYN_TEST_OSGI_MORE_ENTITIES_0_1_0_PATH = OsgiTestResources.BROOKLYN_TEST_OSGI_MORE_ENTITIES_0_1_0_PATH;
@@ -55,24 +52,6 @@ public class OsgiStandaloneTest extends OsgiTestBase {
     public static final String BROOKLYN_TEST_OSGI_MORE_ENTITIES_0_1_0_URL = "classpath:"+BROOKLYN_TEST_OSGI_MORE_ENTITIES_0_1_0_PATH;
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_NAME = "org.apache.brooklyn.test.resources.osgi.brooklyn-test-osgi-entities";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_VERSION = "0.1.0";
-
-
-    protected Bundle install(String url) throws BundleException {
-        try {
-            return Osgis.install(framework, url);
-        } catch (Exception e) {
-            throw new IllegalStateException("test resources not available; may be an IDE issue, so try a mvn rebuild of this project", e);
-        }
-    }
-
-    protected Bundle installFromClasspath(String resourceName) throws BundleException {
-        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), resourceName);
-        try {
-            return Osgis.install(framework, String.format("classpath:%s", resourceName));
-        } catch (Exception e) {
-            throw Exceptions.propagate(e);
-        }
-    }
 
     @Test
     public void testInstallBundle() throws Exception {

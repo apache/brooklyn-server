@@ -58,11 +58,12 @@ public class AutoScalerPolicyReconfigurationTest {
     public void testIncreaseMinPoolSizeCausesImmediateGrowth() {
         tc.resize(2);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE)
-                .metricLowerBound(50).metricUpperBound(100)
+        AutoScalerPolicy policy = tc.policies().add(AutoScalerPolicy.builder()
+                .metric(MY_ATTRIBUTE)
+                .metricLowerBound(50)
+                .metricUpperBound(100)
                 .minPoolSize(2)
-                .build();
-        tc.policies().add(policy);
+                .buildSpec());
 
         policy.config().set(AutoScalerPolicy.MIN_POOL_SIZE, 3);
         
@@ -73,11 +74,10 @@ public class AutoScalerPolicyReconfigurationTest {
     public void testDecreaseMinPoolSizeAllowsSubsequentShrink() {
         tc.resize(4);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE)
+        AutoScalerPolicy policy = tc.policies().add(AutoScalerPolicy.builder().metric(MY_ATTRIBUTE)
                 .metricLowerBound(50).metricUpperBound(100)
                 .minPoolSize(2)
-                .build();
-        tc.policies().add(policy);
+                .buildSpec());
         
         // 25*4 = 100 -> 2 nodes at 50 each
         tc.sensors().set(MY_ATTRIBUTE, 25);
@@ -93,11 +93,10 @@ public class AutoScalerPolicyReconfigurationTest {
     public void testDecreaseMaxPoolSizeCausesImmediateShrink() {
         tc.resize(6);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE)
+        AutoScalerPolicy policy = tc.policies().add(AutoScalerPolicy.builder().metric(MY_ATTRIBUTE)
                 .metricLowerBound(50).metricUpperBound(100)
                 .maxPoolSize(6)
-                .build();
-        tc.policies().add(policy);
+                .buildSpec());
 
         policy.config().set(AutoScalerPolicy.MAX_POOL_SIZE, 4);
         
@@ -108,11 +107,11 @@ public class AutoScalerPolicyReconfigurationTest {
     public void testIncreaseMaxPoolSizeAllowsSubsequentGrowth() {
         tc.resize(3);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE)
+        AutoScalerPolicy policy = tc.policies().add(AutoScalerPolicy.builder()
+                .metric(MY_ATTRIBUTE)
                 .metricLowerBound(50).metricUpperBound(100)
                 .maxPoolSize(6)
-                .build();
-        tc.policies().add(policy);
+                .buildSpec());
 
         // 200*3 = 600 -> 6 nodes at 100 each
         tc.sensors().set(MY_ATTRIBUTE, 200);
@@ -129,10 +128,11 @@ public class AutoScalerPolicyReconfigurationTest {
     public void testReconfigureMetricLowerBound() {
         tc.resize(2);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE)
-                .metricLowerBound(50).metricUpperBound(100)
-                .build();
-        tc.policies().add(policy);
+        AutoScalerPolicy policy = tc.policies().add(AutoScalerPolicy.builder()
+                .metric(MY_ATTRIBUTE)
+                .metricLowerBound(50)
+                .metricUpperBound(100)
+                .buildSpec());
 
         policy.config().set(AutoScalerPolicy.METRIC_LOWER_BOUND, 51);
 
@@ -144,10 +144,11 @@ public class AutoScalerPolicyReconfigurationTest {
     public void testReconfigureMetricUpperBound() {
         tc.resize(1);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE)
-                .metricLowerBound(50).metricUpperBound(100)
-                .build();
-        tc.policies().add(policy);
+        AutoScalerPolicy policy = tc.policies().add(AutoScalerPolicy.builder()
+                .metric(MY_ATTRIBUTE)
+                .metricLowerBound(50)
+                .metricUpperBound(100)
+                .buildSpec());
 
         policy.config().set(AutoScalerPolicy.METRIC_UPPER_BOUND, 99);
 
@@ -159,11 +160,12 @@ public class AutoScalerPolicyReconfigurationTest {
     public void testReconfigureResizeUpStabilizationDelay() {
         tc.resize(1);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE)
-                .metricLowerBound(50).metricUpperBound(100)
+        AutoScalerPolicy policy = tc.policies().add(AutoScalerPolicy.builder()
+                .metric(MY_ATTRIBUTE)
+                .metricLowerBound(50)
+                .metricUpperBound(100)
                 .resizeUpStabilizationDelay(Duration.TWO_MINUTES)
-                .build();
-        tc.policies().add(policy);
+                .buildSpec());
 
         policy.config().set(AutoScalerPolicy.RESIZE_UP_STABILIZATION_DELAY, Duration.ZERO);
 
@@ -175,11 +177,12 @@ public class AutoScalerPolicyReconfigurationTest {
     public void testReconfigureResizeDownStabilizationDelay() {
         tc.resize(2);
         
-        AutoScalerPolicy policy = new AutoScalerPolicy.Builder().metric(MY_ATTRIBUTE)
-                .metricLowerBound(50).metricUpperBound(100)
+        AutoScalerPolicy policy = tc.policies().add(AutoScalerPolicy.builder()
+                .metric(MY_ATTRIBUTE)
+                .metricLowerBound(50)
+                .metricUpperBound(100)
                 .resizeDownStabilizationDelay(Duration.TWO_MINUTES)
-                .build();
-        tc.policies().add(policy);
+                .buildSpec());
 
         policy.config().set(AutoScalerPolicy.RESIZE_DOWN_STABILIZATION_DELAY, Duration.ZERO);
 

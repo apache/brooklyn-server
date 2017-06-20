@@ -107,7 +107,10 @@ public class SoftwareProcessEntityFeedRebindTest extends RebindTestFixtureWithAp
         for (Entity child : origApp.getChildren()) {
             EntityAsserts.assertAttributeEquals(child, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
             EntityAsserts.assertAttributeEquals(child, Attributes.SERVICE_UP, Boolean.TRUE);
-            EntityAsserts.assertAttributeEquals(child, SoftwareProcess.SERVICE_PROCESS_IS_RUNNING, Boolean.TRUE);
+            // start() waits on driver.isRunning() directly, not through SERVICE_PROCESS_IS_RUNNING
+            // It could happen that driver.isRunning() returns true, but the feed for SERVICE_PROCESS_IS_RUNNING
+            // still didn't have the chance to execute so the sensor is still null.
+            EntityAsserts.assertAttributeEqualsEventually(child, SoftwareProcess.SERVICE_PROCESS_IS_RUNNING, Boolean.TRUE);
         }
 
         LOG.info("Rebinding "+numEntities+" entities");

@@ -21,7 +21,6 @@ package org.apache.brooklyn.camp.brooklyn;
 import static org.testng.Assert.assertEquals;
 
 import java.net.URI;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -142,9 +141,9 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
         public final List<ConfigBag> templateConfigs = Lists.newCopyOnWriteArrayList();
         
         @Override
-        public Template buildTemplate(ComputeService computeService, ConfigBag config, Collection<JcloudsLocationCustomizer> customizers) {
+        public Template buildTemplate(ComputeService computeService, ConfigBag config, JcloudsLocationCustomizer customizersDelegate) {
             templateConfigs.add(config);
-            return super.buildTemplate(computeService, config, customizers);
+            return super.buildTemplate(computeService, config, customizersDelegate);
         }
     }
 

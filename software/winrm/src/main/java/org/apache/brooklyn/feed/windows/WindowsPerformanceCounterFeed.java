@@ -44,12 +44,13 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.feed.AbstractFeed;
 import org.apache.brooklyn.core.feed.PollHandler;
 import org.apache.brooklyn.core.feed.Poller;
+import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.feed.windows.WindowsPerformanceCounterPollConfig;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -191,6 +192,7 @@ public class WindowsPerformanceCounterFeed extends AbstractFeed {
         }
         
         Iterable<String> allParams = ImmutableList.<String>builder()
+                .add("$ProgressPreference = \"SilentlyContinue\";")
                 .add("(Get-Counter")
                 .add("-Counter")
                 .add(JOINER_ON_COMMA.join(Iterables.transform(performanceCounterNames, QuoteStringFunction.INSTANCE)))
@@ -229,6 +231,10 @@ public class WindowsPerformanceCounterFeed extends AbstractFeed {
         @Override
         @SuppressWarnings("unchecked")
         public T call() throws Exception {
+            Maybe<WinRmMachineLocation> machineLocationMaybe = Machines.findUniqueMachineLocation(entity.getLocations(), WinRmMachineLocation.class);
+            if (machineLocationMaybe.isAbsent()) {
+                return null;
+            }
             WinRmMachineLocation machine = EffectorTasks.getMachine(entity, WinRmMachineLocation.class);
             WinRmToolResponse response = machine.executePsScript(command);
             return (T)response;
@@ -281,7 +287,7 @@ public class WindowsPerformanceCounterFeed extends AbstractFeed {
             // TODO not just using statusCode; also looking at absence of stderr.
             // Status code is (empirically) unreliable: it returns 0 sometimes even when failed 
             // (but never returns non-zero on success).
-            if (val.getStatusCode() != 0) return false;
+            if (val == null || val.getStatusCode() != 0) return false;
             String stderr = val.getStdErr();
             if (stderr == null || stderr.length() != 0) return false;
             String out = val.getStdOut();
@@ -322,6 +328,10 @@ public class WindowsPerformanceCounterFeed extends AbstractFeed {
 
         @Override
         public void onFailure(WinRmToolResponse val) {
+            if (val == null) {
+                log.trace("Windows Performance Counter not executed since there is still now WinRmMachineLocation");
+                return;
+            }
             log.error("Windows Performance Counter query did not respond as expected. exitcode={} stdout={} stderr={}",
                     new Object[]{val.getStatusCode(), val.getStdOut(), val.getStdErr()});
             for (WindowsPerformanceCounterPollConfig<?> config : polls) {
