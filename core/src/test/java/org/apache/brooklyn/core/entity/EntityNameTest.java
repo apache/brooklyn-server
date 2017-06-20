@@ -20,17 +20,17 @@ package org.apache.brooklyn.core.entity;
 
 import static org.testng.Assert.assertEquals;
 
-import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.testng.annotations.Test;
+
+import com.google.common.collect.Iterables;
 
 public class EntityNameTest extends BrooklynAppUnitTestSupport {
 
@@ -78,7 +78,7 @@ public class EntityNameTest extends BrooklynAppUnitTestSupport {
     public void testAppUsesDefaultDisplayName() {
         EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class)
                 .configure(AbstractApplication.DEFAULT_DISPLAY_NAME, "myDefaultName");
-        TestApplication app2 = ApplicationBuilder.newManagedApp(appSpec, mgmt);
+        TestApplication app2 = mgmt.getEntityManager().createEntity(EntitySpec.create(appSpec));
 
         assertEquals(app2.getDisplayName(), "myDefaultName");
     }
@@ -87,7 +87,7 @@ public class EntityNameTest extends BrooklynAppUnitTestSupport {
     public void testAppUsesEntityName() {
         EntitySpec<BasicApplication> appSpec = EntitySpec.create(BasicApplication.class)
                 .configure(AbstractApplication.DEFAULT_DISPLAY_NAME, "myDefaultName").child(EntitySpec.create(TestApplication.class));
-        BasicApplication app2 = ApplicationBuilder.newManagedApp(appSpec, mgmt);
+        BasicApplication app2 = mgmt.getEntityManager().createEntity(EntitySpec.create(appSpec));
 
         assertEquals(app2.getDisplayName(), "myDefaultName");
         Entity childEntity = Iterables.getFirst(app2.getChildren(), null);
@@ -99,7 +99,7 @@ public class EntityNameTest extends BrooklynAppUnitTestSupport {
         EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class)
                 .displayName("myName")
                 .configure(AbstractApplication.DEFAULT_DISPLAY_NAME, "myDefaultName");
-        TestApplication app2 = ApplicationBuilder.newManagedApp(appSpec, mgmt);
+        TestApplication app2 = mgmt.getEntityManager().createEntity(EntitySpec.create(appSpec));
         
         assertEquals(app2.getDisplayName(), "myName");
     }

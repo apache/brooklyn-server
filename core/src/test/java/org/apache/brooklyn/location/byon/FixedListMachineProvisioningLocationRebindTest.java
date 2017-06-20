@@ -20,23 +20,16 @@ package org.apache.brooklyn.location.byon;
 
 import static org.testng.Assert.assertEquals;
 
-import java.io.File;
 import java.util.Set;
 
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
-import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
+import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableSet;
-import org.apache.brooklyn.util.os.Os;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -44,19 +37,13 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-public class FixedListMachineProvisioningLocationRebindTest {
+public class FixedListMachineProvisioningLocationRebindTest extends RebindTestFixtureWithApp {
 
     private FixedListMachineProvisioningLocation<SshMachineLocation> origLoc;
-    private ClassLoader classLoader = getClass().getClassLoader();
-    private ManagementContext origManagementContext;
-    private TestApplication origApp;
-    private TestApplication newApp;
-    private File mementoDir;
     
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
-        mementoDir = Os.newTempDir(getClass());
-        origManagementContext = RebindTestUtils.newPersistingManagementContext(mementoDir, classLoader, 1);
+        super.setUp();
         
         origLoc = new FixedListMachineProvisioningLocation.Builder(origManagementContext.getLocationManager())
                 .addAddresses("localhost", "127.0.0.1")
@@ -65,17 +52,9 @@ public class FixedListMachineProvisioningLocationRebindTest {
                 .keyData("myKeyData")
                 .keyPassphrase("myKeyPassphrase")
                 .build();
-        origApp = ApplicationBuilder.newManagedApp(TestApplication.class, origManagementContext);
         origApp.start(ImmutableList.of(origLoc));
     }
 
-    @AfterMethod(alwaysRun = true)
-    public void tearDown() throws Exception {
-        if (origManagementContext != null) Entities.destroyAll(origManagementContext);
-        if (newApp != null) Entities.destroyAll(newApp.getManagementContext());
-        if (mementoDir != null) RebindTestUtils.deleteMementoDir(mementoDir);
-    }
-    
     @Test
     public void testRebindPreservesConfig() throws Exception {
         newApp = rebind();
@@ -112,11 +91,6 @@ public class FixedListMachineProvisioningLocationRebindTest {
         assertLocationIdsEqual(newLoc.getAvailable(), origLoc.getAvailable());
     }
 
-    private TestApplication rebind() throws Exception {
-        RebindTestUtils.stopPersistence(origApp);
-        return (TestApplication) RebindTestUtils.rebind(mementoDir, getClass().getClassLoader());
-    }
-    
     private void assertLocationIdsEqual(Iterable<? extends Location> actual, Iterable<? extends Location> expected) {
         Function<Location, String> locationIdFunction = new Function<Location, String>() {
             @Override public String apply(@Nullable Location input) {

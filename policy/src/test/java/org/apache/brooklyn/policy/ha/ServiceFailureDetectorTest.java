@@ -26,50 +26,46 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.Attributes;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceProblemsLogic;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 
-public class ServiceFailureDetectorTest {
+public class ServiceFailureDetectorTest extends BrooklynAppUnitTestSupport {
     private static final Logger log = LoggerFactory.getLogger(ServiceFailureDetectorTest.class);
 
     private static final int TIMEOUT_MS = 10*1000;
 
-    private ManagementContext managementContext;
-    private TestApplication app;
     private TestEntity e1;
     
     private List<SensorEvent<FailureDescriptor>> events;
     private SensorEventListener<FailureDescriptor> eventListener;
     
     @BeforeMethod(alwaysRun=true)
+    @Override
     public void setUp() throws Exception {
+        super.setUp();
+        
         events = new CopyOnWriteArrayList<SensorEvent<FailureDescriptor>>();
         eventListener = new SensorEventListener<FailureDescriptor>() {
             @Override public void onEvent(SensorEvent<FailureDescriptor> event) {
@@ -77,18 +73,11 @@ public class ServiceFailureDetectorTest {
             }
         };
         
-        managementContext = new LocalManagementContextForTests();
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, managementContext);
         e1 = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         e1.enrichers().add(ServiceStateLogic.newEnricherForServiceStateFromProblemsAndUp());
         
         app.getManagementContext().getSubscriptionManager().subscribe(e1, HASensors.ENTITY_FAILED, eventListener);
         app.getManagementContext().getSubscriptionManager().subscribe(e1, HASensors.ENTITY_RECOVERED, eventListener);
-    }
-    
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (managementContext != null) Entities.destroyAll(managementContext);
     }
     
     @Test(groups="Integration") // Has a 1 second wait

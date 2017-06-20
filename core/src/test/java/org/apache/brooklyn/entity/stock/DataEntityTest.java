@@ -24,19 +24,14 @@ import static org.testng.Assert.assertTrue;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -44,11 +39,9 @@ import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 
-public class DataEntityTest {
+public class DataEntityTest extends BrooklynAppUnitTestSupport {
 
-    private ManagementContext managementContext;
     private SimulatedLocation loc;
-    private TestApplication app;
     private DataEntity entity;
     private AttributeSensor<String>  stringSensor = Sensors.newStringSensor("string", "String sensor");
     private AttributeSensor<Long>  longSensor = Sensors.newLongSensor("long", "Long sensor");
@@ -62,16 +55,10 @@ public class DataEntityTest {
     
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
-        managementContext = new LocalManagementContextForTests();
-        loc = managementContext.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class));
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, managementContext);
+        super.setUp();
+        loc = app.newSimulatedLocation();
     }
     
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (managementContext != null) Entities.destroyAllCatching(managementContext);
-    }
-
     @Test
     public void testSupplierSetsAttribute() throws Exception {
         entity = app.createAndManageChild(EntitySpec.create(DataEntity.class)

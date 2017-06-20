@@ -26,12 +26,8 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
-import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.util.core.task.TaskPredicates;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.slf4j.Logger;
@@ -47,25 +43,18 @@ public class SoftwareProcessOpenIptablesStreamsLiveTest extends BrooklynAppLiveT
 
     private static final Logger LOG = LoggerFactory.getLogger(SoftwareProcessOpenIptablesStreamsLiveTest.class);
 
-    protected BrooklynProperties brooklynProperties;
-
     protected Location jcloudsLocation;
-
-    protected TestApplication app;
 
     @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
-
-        mgmt = new LocalManagementContextForTests(BrooklynProperties.Factory.newDefault());
+        super.setUp();
 
         jcloudsLocation = mgmt.getLocationRegistry().getLocationManaged("jclouds:aws-ec2:us-west-1", ImmutableMap.<String, Object>builder()
                 .put("osFamily", "centos")
                 .put("osVersionRegex", "6\\..*")
                 .put("inboundPorts", ImmutableList.of(22, 31880, 31001, 8080, 8443, 1099))
                 .build());
-
-        app = ApplicationBuilder.newManagedApp(newAppSpec(), mgmt);
     }
 
     @Test(groups = "Live")

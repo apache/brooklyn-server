@@ -31,9 +31,6 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.AbstractEntity;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.StartableApplication;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.objs.proxy.EntityProxy;
@@ -145,23 +142,6 @@ public class EntityProxyTest extends BrooklynAppUnitTestSupport {
         TestEntity entity2 = app.createAndManageChild(EntitySpec.create(TestEntity.class).
                 configure(MutableMap.of("confName", "baz")));
         assertEquals(entity2.getConfig(TestEntity.CONF_NAME), "baz");
-    }
-
-    @Test
-    public void testCreateInAppWithClassAndMap() {
-        StartableApplication app2 = null;
-        try {
-            ApplicationBuilder appB = new ApplicationBuilder() {
-                @Override
-                protected void doBuild() {
-                    addChild(MutableMap.of("confName", "faz"), TestEntity.class);
-                }
-            };
-            app2 = appB.manage();
-            assertEquals(Iterables.getOnlyElement(app2.getChildren()).getConfig(TestEntity.CONF_NAME), "faz");
-        } finally {
-            if (app2 != null) Entities.destroyAll(app2.getManagementContext());
-        }
     }
 
     private void assertIsProxy(Entity e) {

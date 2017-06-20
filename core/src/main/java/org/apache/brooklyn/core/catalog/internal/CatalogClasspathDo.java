@@ -36,7 +36,6 @@ import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -212,10 +211,9 @@ public class CatalogClasspathDo {
                                 // not sure why we have to look for sub-types of Application, 
                                 // they should be picked up as sub-types of Entity, but in maven builds (only!)
                                 // they are not -- i presume a bug in scanner
-                                scanner.getSubTypesOf(Application.class), 
-                                scanner.getSubTypesOf(ApplicationBuilder.class)));
+                                scanner.getSubTypesOf(Application.class)));
                 for (Class<?> c: entities) {
-                    if (Application.class.isAssignableFrom(c) || ApplicationBuilder.class.isAssignableFrom(c)) {
+                    if (Application.class.isAssignableFrom(c)) {
                         addCatalogEntry(new CatalogTemplateItemDto(), c);
                         countApps++;
                     } else {
@@ -296,7 +294,6 @@ public class CatalogClasspathDo {
     @Deprecated
     public CatalogItem<?,?> addCatalogEntry(Class<?> c) {
         if (Application.class.isAssignableFrom(c)) return addCatalogEntry(new CatalogTemplateItemDto(), c);
-        if (ApplicationBuilder.class.isAssignableFrom(c)) return addCatalogEntry(new CatalogTemplateItemDto(), c);
         if (Entity.class.isAssignableFrom(c)) return addCatalogEntry(new CatalogEntityItemDto(), c);
         if (Policy.class.isAssignableFrom(c)) return addCatalogEntry(new CatalogPolicyItemDto(), c);
         if (Enricher.class.isAssignableFrom(c)) return addCatalogEntry(new CatalogEnricherItemDto(), c);

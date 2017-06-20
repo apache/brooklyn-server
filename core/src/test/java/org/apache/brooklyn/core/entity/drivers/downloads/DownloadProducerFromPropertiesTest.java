@@ -27,52 +27,43 @@ import org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolverManager.
 import org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolverManager.DownloadTargets;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.drivers.downloads.BasicDownloadRequirement;
-import org.apache.brooklyn.core.entity.drivers.downloads.DownloadProducerFromLocalRepo;
-import org.apache.brooklyn.core.entity.drivers.downloads.DownloadProducerFromProperties;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.location.SimulatedLocation;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-public class DownloadProducerFromPropertiesTest {
+public class DownloadProducerFromPropertiesTest extends BrooklynAppUnitTestSupport {
 
     private BrooklynProperties brooklynProperties;
-    private LocalManagementContext managementContext;
     private Location loc;
-    private TestApplication app;
     private TestEntity entity;
     private MyEntityDriver driver;
     private DownloadProducerFromProperties resolver;
 
     @BeforeMethod(alwaysRun=true)
+    @Override
     public void setUp() throws Exception {
-        brooklynProperties = BrooklynProperties.Factory.newEmpty();
-        brooklynProperties.put(DownloadProducerFromLocalRepo.LOCAL_REPO_ENABLED, false);
-        managementContext = new LocalManagementContext(brooklynProperties);
+        super.setUp();
         
-        loc = new SimulatedLocation();
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, managementContext);
+        brooklynProperties = mgmt.getBrooklynProperties();
+        loc = app.newSimulatedLocation();
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         driver = new MyEntityDriver(entity, loc);
         
         resolver = new DownloadProducerFromProperties(brooklynProperties);
     }
     
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
+    @Override
+    protected BrooklynProperties getBrooklynProperties() {
+        BrooklynProperties result = BrooklynProperties.Factory.newEmpty();
+        result.put(DownloadProducerFromLocalRepo.LOCAL_REPO_ENABLED, false);
+        return result;
     }
-
+    
     @Test
     public void testReturnsEmptyWhenEmpty() throws Exception {
         assertResolves(ImmutableList.<String>of(), ImmutableList.<String>of());

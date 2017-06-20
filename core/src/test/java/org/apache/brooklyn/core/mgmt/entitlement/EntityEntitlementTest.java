@@ -23,10 +23,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
-import org.apache.brooklyn.core.mgmt.entitlement.NotEntitledException;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.EntityAndItem;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
@@ -51,7 +48,7 @@ public class EntityEntitlementTest {
     
     public void setup(ConfigBag cfg) {
         mgmt = new LocalManagementContextForTests(BrooklynProperties.Factory.newEmpty().addFrom(cfg));
-        app = ApplicationBuilder.newManagedApp(EntitySpec.create(BasicApplication.class), mgmt);
+        app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
     }
     
     @AfterMethod(alwaysRun=true)

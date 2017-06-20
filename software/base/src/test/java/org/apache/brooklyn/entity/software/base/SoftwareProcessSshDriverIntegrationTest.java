@@ -35,11 +35,8 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.entity.trait.Startable;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -61,36 +58,40 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.Files;
 
 
-public class SoftwareProcessSshDriverIntegrationTest {
+// TODO Does it really need to be a live test? When converting from ApplicationBuilder, preserved
+// existing behaviour of using the live BrooklynProperties.
+public class SoftwareProcessSshDriverIntegrationTest extends BrooklynAppLiveTestSupport {
 
-    private LocalManagementContext managementContext;
     private LocalhostMachineProvisioningLocation localhost;
     private SshMachineLocation machine127;
-    private TestApplication app;
     private File tempDataDir;
     
     @BeforeMethod(alwaysRun=true)
+    @Override
     public void setUp() throws Exception {
+        super.setUp();
         tempDataDir = Files.createTempDir();
-        managementContext = new LocalManagementContext();
         
-        localhost = managementContext.getLocationManager().createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class));
-        machine127 = managementContext.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
+        localhost = app.newLocalhostProvisioningLocation();
+        machine127 = mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
                 .configure("address", "localhost"));
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, managementContext);
     }
 
     @AfterMethod(alwaysRun=true)
+    @Override
     public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
-        if (tempDataDir != null) Os.deleteRecursively(tempDataDir);
+        try {
+            super.tearDown();
+        } finally {
+            if (tempDataDir != null) Os.deleteRecursively(tempDataDir);
+        }
     }
 
     // Integration test because requires ssh'ing (and takes about 5 seconds)
     // See also SoftwareProcessEntityTest.testCustomInstallDirX for a lot more mocked variants
     @Test(groups="Integration")
     public void testCanInstallMultipleVersionsOnSameMachine() throws Exception {
-        managementContext.getBrooklynProperties().put(BrooklynConfigKeys.ONBOX_BASE_DIR, tempDataDir.getAbsolutePath());
+        mgmt.getBrooklynProperties().put(BrooklynConfigKeys.ONBOX_BASE_DIR, tempDataDir.getAbsolutePath());
 
         MyService entity = app.createAndManageChild(EntitySpec.create(MyService.class)
                 .configure(SoftwareProcess.SUGGESTED_VERSION, "0.1.0"));
@@ -140,7 +141,7 @@ public class SoftwareProcessSshDriverIntegrationTest {
     @Test(groups="Integration")
     @Deprecated
     public void testMachineInCustomFromDataDir() throws Exception {
-        managementContext.getBrooklynProperties().put(BrooklynConfigKeys.BROOKLYN_DATA_DIR, tempDataDir.getAbsolutePath());
+        mgmt.getBrooklynProperties().put(BrooklynConfigKeys.BROOKLYN_DATA_DIR, tempDataDir.getAbsolutePath());
 
         MyService entity = app.createAndManageChild(EntitySpec.create(MyService.class));
         app.start(ImmutableList.of(machine127));

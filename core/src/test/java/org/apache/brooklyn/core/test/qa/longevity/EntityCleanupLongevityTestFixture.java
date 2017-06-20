@@ -29,7 +29,6 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.mgmt.internal.AbstractManagementContext;
@@ -164,8 +163,8 @@ public abstract class EntityCleanupLongevityTestFixture {
     }
 
     protected TestApplication newApp() {
-        final TestApplication result = ApplicationBuilder.newManagedApp(TestApplication.class, managementContext);
-        weakApps.put(app, null);
+        final TestApplication result = managementContext.getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
+        weakApps.put(result, null);
         TestEntity entity = result.createAndManageChild(EntitySpec.create(TestEntity.class));
         result.subscriptions().subscribe(entity, TestEntity.NAME, new SensorEventListener<String>() {
             @Override public void onEvent(SensorEvent<String> event) {

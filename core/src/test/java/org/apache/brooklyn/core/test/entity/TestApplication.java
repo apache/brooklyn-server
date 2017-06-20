@@ -28,7 +28,6 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.StartableApplication;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
@@ -57,7 +56,7 @@ public interface TestApplication extends StartableApplication, EntityInternal {
 
     public static class Factory {
         public static TestApplication newManagedInstanceForTests(ManagementContext mgmt) {
-            return ApplicationBuilder.newManagedApp(TestApplication.class, mgmt);
+            return mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
         }
         public static TestApplication newManagedInstanceForTests() {
             return newManagedInstanceForTests(new LocalManagementContextForTests());
