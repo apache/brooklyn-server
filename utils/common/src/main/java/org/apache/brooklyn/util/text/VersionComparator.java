@@ -22,23 +22,23 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Objects;
 
 /**
  * {@link Comparator} for version strings.
  * <p>
- * SNAPSHOT items always lowest rated, 
- * then splitting on dots,
- * using natural order comparator (so "9" < "10" and "4u8" < "4u20"),
- * and preferring segments without qualifiers ("4" > "4beta").
+ * SNAPSHOT items always lowest rated, then looking for no qualifier, then doing natural order comparison.
+ * This gives the desired semantics for our recommended version syntax.
  * <p>
  * Impossible to follow semantics for all versioning schemes but 
- * does the obvious right thing for normal schemes
- * and pretty well in fringe cases.
+ * does the obvious right thing for normal schemes and pretty well in fringe cases.
  * <p>
  * See test case for lots of examples.
  */
@@ -56,24 +56,80 @@ public class VersionComparator implements Comparator<String> {
         if (version==null) return false;
         return version.toUpperCase().contains(SNAPSHOT);
     }
+
     
-    @Override
-    public int compare(String v1, String v2) {
-        if (v1==null && v2==null) return 0;
-        if (v1==null) return -1;
-        if (v2==null) return 1;
-        
-        boolean isV1Snapshot = isSnapshot(v1);
-        boolean isV2Snapshot = isSnapshot(v2);
-        if (isV1Snapshot == isV2Snapshot) {
-            // if snapshot status is the same, look at dot-split parts first
-            return compareDotSplitParts(splitOnDot(v1), splitOnDot(v2));
-        } else {
-            // snapshot goes first
-            return isV1Snapshot ? -1 : 1;
+    @SuppressWarnings("unused")
+    private static class TwoBooleans {
+        private final boolean b1, b2;
+        public TwoBooleans(boolean b1, boolean b2) { this.b1 = b1; this.b2 = b2; }
+        boolean bothTrue() { return b1 && b2; }
+        boolean eitherTrue() { return b1 || b2; }
+        boolean bothFalse() { return !eitherTrue(); }
+        boolean same() { return b1==b2; }
+        boolean different() { return b1!=b2; }
+        int compare(boolean trueIsLess) { return same() ? 0 : b1==trueIsLess ? -1 : 1; }
+        public static TwoBooleans of(boolean v1, boolean v2) {
+            return new TwoBooleans(v1, v2);
         }
     }
+    @Override
+    public int compare(String v1, String v2) {
+        if (Objects.equal(v1, v2)) return 0;
+        
+        TwoBooleans nulls = TwoBooleans.of(v1==null, v2==null);
+        if (nulls.eitherTrue()) return nulls.compare(true);
 
+        TwoBooleans snapshots = TwoBooleans.of(isSnapshot(v1), isSnapshot(v2));
+        if (snapshots.different()) return snapshots.compare(true);
+
+        String u1 = versionWithQualifier(v1);
+        String u2 = versionWithQualifier(v2);
+        int uq = NaturalOrderComparator.INSTANCE.compare(u1, u2);
+        if (uq!=0) return uq;
+        
+        // qualified items are lower than unqualified items
+        TwoBooleans no_qualifier = TwoBooleans.of(u1.equals(v1), u2.equals(v2));
+        if (no_qualifier.different()) return no_qualifier.compare(false);
+
+        // now compare qualifiers
+        
+        // allow -, ., and _ as qualifier offsets; if used, compare qualifer without that
+        String q1 = v1.substring(u1.length());
+        String q2 = v2.substring(u2.length());
+        
+        String qq1 = q1, qq2 = q2;
+        if (q1.startsWith("-") || q1.startsWith(".") || q1.startsWith("_")) q1 = q1.substring(1);
+        if (q2.startsWith("-") || q2.startsWith(".") || q2.startsWith("_")) q2 = q2.substring(1);
+        uq = NaturalOrderComparator.INSTANCE.compare(q1, q2);
+        if (uq!=0) return uq;
+        
+        // if qualifiers the same, look at qualifier separator char
+        int sep1 = qq1.startsWith("-") ? 3 : qq1.startsWith(".") ? 2 : qq1.startsWith("_") ? 1 : 0;
+        int sep2 = qq2.startsWith("-") ? 3 : qq2.startsWith(".") ? 2 : qq2.startsWith("_") ? 1 : 0;
+        uq = Integer.compare(sep1, sep2);
+        if (uq!=0) return uq;
+        
+        // finally, do normal comparison if both have qualifier or both unqualified (in case leading 0's are used)
+        return NaturalOrderComparator.INSTANCE.compare(v1, v2);
+        
+        // (previously we did this but don't think we need any of that complexity)
+        //return compareDotSplitParts(splitOnDot(v1), splitOnDot(v2));
+    }
+
+    private String versionWithQualifier(String v1) {
+        Matcher q = Pattern.compile("([0-9]+(\\.[0-9]+(\\.[0-9])?)?)(.*)").matcher(v1);
+        return q.matches() ? q.group(1) : "";
+    }
+
+    private boolean isQualifiedAndUnqualifiedVariantOfSameVersion(String v1, String v2) {
+        Matcher q = Pattern.compile("([0-9]+(\\.[0-9]+(\\.[0-9])?)?)(.*)").matcher(v1);
+        return (q.matches() && q.group(1).equals(v2));
+    }
+
+    private static boolean hasQualifier(String v) {
+        return !v.matches("[0-9]+(\\.[0-9]+(\\.[0-9])?)?");
+    }
+    
     @VisibleForTesting
     static String[] splitOnDot(String v) {
         return v.split("(?<=\\.)|(?=\\.)");
