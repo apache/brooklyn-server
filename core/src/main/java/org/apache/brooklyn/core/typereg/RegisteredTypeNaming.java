@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.typereg;
 
+import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
+
 /**
  * Methods for testing validity of names and decomposing them. 
  * Mostly based on OSGi, specifically sections 1.3.2 and 3.2.5 of 
@@ -31,16 +33,6 @@ public class RegisteredTypeNaming {
     public final static String OSGI_TOKEN_CHARS = "A-Za-z0-9_-";
     public final static String OSGI_TOKEN_REGEX = "[" + OSGI_TOKEN_CHARS + "]+";
     public final static String OSGI_SYMBOLIC_NAME_REGEX = OSGI_TOKEN_REGEX + "(" + DOT + OSGI_TOKEN_REGEX + ")*";
-    public final static String NUMBER = "[0-9]+";
-    public final static String QUALIFIER = OSGI_TOKEN_REGEX;
-    public final static String VERSION_REGEX = 
-        NUMBER + 
-            "(" + "\\." + NUMBER +  
-                "(" + "\\." + NUMBER +  
-                    "(" + "\\." + QUALIFIER +  
-                    ")?" +
-                ")?" +
-            ")?";
 
     private static boolean isUsable(String candidate) {
         return candidate!=null && candidate.matches(USABLE_REGEX);
@@ -71,22 +63,19 @@ public class RegisteredTypeNaming {
         return isUsable(candidate) && candidate.matches(OSGI_SYMBOLIC_NAME_REGEX);
     }
 
-    /** 
-     * For versions we currently work with any non-empty string that does not contain a ':' or whitespace.
-     * However we discourage things that are not OSGi versions; see {@link #isOsgiLegalVersion(String)}. 
-     * In some places (eg bundles) the use of OSGi version syntax may be enforced.  
-     */
+    /** @see BrooklynVersionSyntax#isUsableVersion(String) */
     public static boolean isUsableVersion(String candidate) {
-        return isUsable(candidate);
+        return BrooklynVersionSyntax.isUsableVersion(candidate);
     }
     
-    /** True if the argument matches the OSGi version spec, of the form 
-     * <code>MAJOR.MINOR.POINT.QUALIFIER</code> or part thereof (not ending in a period though),
-     * where the first three are whole numbers and the final piece is any valid OSGi token
-     * (something satisfying {@link #isGoodTypeName(String)} with no periods).
-     */
-    public static boolean isOsgiLegalVersion(String candidate) {
-        return candidate!=null && candidate.matches(VERSION_REGEX);
+    /** @see BrooklynVersionSyntax#isGoodBrooklynVersion(String) */
+    public static boolean isGoodBrooklynVersion(String candidate) {
+        return BrooklynVersionSyntax.isGoodBrooklynVersion(candidate);
+    }
+    
+    /** @see BrooklynVersionSyntax#isValidOsgiVersion(String) */
+    public static boolean isValidOsgiVersion(String candidate) {
+        return BrooklynVersionSyntax.isValidOsgiVersion(candidate);
     }
 
     /** True if the argument has exactly one colon, and the part before
@@ -98,14 +87,25 @@ public class RegisteredTypeNaming {
 
     /** True if the argument has exactly one colon, and the part before
      * satisfies {@link #isGoodTypeName(String)} and the part after 
-     * {@link #isOsgiLegalVersion(String)}. */
-    public static boolean isGoodTypeColonVersion(String candidate) {
+     * {@link #isGoodBrooklynVersion(String)}. */
+    public static boolean isGoodBrooklynTypeColonVersion(String candidate) {
         if (candidate==null) return false;
         int idx = candidate.indexOf(':');
         if (idx<=0) return false;
         if (!isGoodTypeName(candidate.substring(0, idx))) return false;
-        if (!isOsgiLegalVersion(candidate.substring(idx+1))) return false;
+        if (!isGoodBrooklynVersion(candidate.substring(idx+1))) return false;
         return true;
     }
 
+    /** True if the argument has exactly one colon, and the part before
+     * satisfies {@link #isGoodTypeName(String)} and the part after 
+     * {@link #isValidOsgiVersion(String)}. */
+    public static boolean isValidOsgiTypeColonVersion(String candidate) {
+        if (candidate==null) return false;
+        int idx = candidate.indexOf(':');
+        if (idx<=0) return false;
+        if (!isGoodTypeName(candidate.substring(0, idx))) return false;
+        if (!isValidOsgiVersion(candidate.substring(idx+1))) return false;
+        return true;
+    }
 }

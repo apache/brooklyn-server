@@ -62,7 +62,7 @@ public class OsgiClassPrefixerTest {
     public void testGetPrefixWithWhitelistedBundle() throws Exception {
         final Bundle bundle = Mockito.mock(Bundle.class);
         Mockito.when(bundle.getSymbolicName()).thenReturn("org.apache.brooklyn.my-bundle");
-        Mockito.when(bundle.getVersion()).thenReturn(Version.valueOf(OsgiUtils.toOsgiVersion(BrooklynVersion.get())));
+        Mockito.when(bundle.getVersion()).thenReturn(Version.valueOf(BrooklynVersion.getOsgiVersion()));
         
         Function<Class<?>, Optional<Bundle>> bundleRetriever = new Function<Class<?>, Optional<Bundle>>() {
             @Override public Optional<Bundle> apply(Class<?> input) {

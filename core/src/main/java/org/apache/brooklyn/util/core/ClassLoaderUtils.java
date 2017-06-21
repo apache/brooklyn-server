@@ -40,6 +40,7 @@ import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.OsgiUtils;
+import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
@@ -65,7 +66,7 @@ public class ClassLoaderUtils {
     static final String WHITE_LIST_KEY = "org.apache.brooklyn.classloader.fallback.bundles";
     static final String CLASS_NAME_DELIMITER = ":";
     private static final String WHITE_LIST_DEFAULT =
-        "org\\.apache\\.brooklyn\\..*:" + OsgiUtils.toOsgiVersion(BrooklynVersion.get());
+        "org\\.apache\\.brooklyn\\..*:" + BrooklynVersion.getOsgiVersion();
 
     // Class.forName gets the class loader from the calling class.
     // We don't have access to the same reflection API so need to pass it explicitly.
@@ -307,7 +308,7 @@ public class ClassLoaderUtils {
         if (framework != null) {
             Maybe<Bundle> bundle = Osgis.bundleFinder(framework)
                 .symbolicName(symbolicName)
-                .version(OsgiUtils.toOsgiVersion(version))
+                .version(version)
                 .find();
             if (bundle.isAbsent()) {
                 throw new IllegalStateException("Bundle " + toBundleString(symbolicName, version)

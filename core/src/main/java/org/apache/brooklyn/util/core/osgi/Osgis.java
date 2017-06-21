@@ -39,6 +39,7 @@ import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiUtils;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
@@ -98,6 +99,7 @@ public class Osgis {
             return this;
         }
 
+        /** Accepts non-osgi version syntax, converting to OSGi version syntax */
         public BundleFinder version(String version) {
             this.version = version;
             return this;
@@ -174,12 +176,26 @@ public class Osgis {
         }
         
         /** Finds all matching bundles, in decreasing version order. */
+        @SuppressWarnings("deprecation")
         public List<Bundle> findAll() {
             boolean urlMatched = false;
             List<Bundle> result = MutableList.of();
+            String v=null, vDep = null;
+            if (version!=null) {
+                v = BrooklynVersionSyntax.toValidOsgiVersion(version);
+                vDep = OsgiUtils.toOsgiVersion(version);
+            }
             for (Bundle b: framework.getBundleContext().getBundles()) {
                 if (symbolicName!=null && !symbolicName.equals(b.getSymbolicName())) continue;
-                if (version!=null && !Version.parseVersion(version).equals(b.getVersion())) continue;
+                if (version!=null) {
+                    String bv = b.getVersion().toString();
+                    if (!v.equals(bv)) {
+                        if (!vDep.equals(bv)) {
+                            continue;
+                        }
+                        LOG.warn("Legacy inferred OSGi version string '"+vDep+"' found to match "+symbolicName+":"+version+"; switch to '"+v+"' format to avoid issues with deprecated version syntax");
+                    }
+                }
                 if (!Predicates.and(predicates).apply(b)) continue;
 
                 // check url last, because if it isn't mandatory we should only clear if we find a url

@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.util.text;
 
-import org.apache.brooklyn.util.text.ComparableVersion;
-import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -27,22 +25,32 @@ public class NaturalOrderComparatorTest {
 
     public static final NaturalOrderComparator noc = new NaturalOrderComparator();
     
-    ComparableVersion v = new ComparableVersion("10.5.8");
-    ComparableVersion v_rc2 = new ComparableVersion("10.5.8-rc2");
-    
     @Test
     public void testNoc() {
-        Assert.assertEquals(noc.compare("0a", "1"), -1);
-        
         Assert.assertEquals(noc.compare("0", "1"), -1);
         Assert.assertEquals(noc.compare("1", "10"), -1);
         Assert.assertEquals(noc.compare("9", "10"), -1);
         Assert.assertEquals(noc.compare("a", "b"), -1);
         Assert.assertEquals(noc.compare("a9", "a10"), -1);
         
+        Assert.assertEquals(noc.compare("1", "02"), -1);
+        Assert.assertEquals(noc.compare("02", "3"), -1);
+        Assert.assertEquals(noc.compare("02", "2"), -1);
+        
+        Assert.assertEquals(noc.compare("1.b", "02.a"), -1);
+        Assert.assertEquals(noc.compare("02.b", "3.a"), -1);
+        // leading zero considered _after_ remainder of string
+        Assert.assertEquals(noc.compare("02.a", "2.b"), -1);
+        
         Assert.assertEquals(noc.compare("0.9", "0.91"), -1);
         Assert.assertEquals(noc.compare("0.90", "0.91"), -1);
         Assert.assertEquals(noc.compare("1.2.x", "1.09.x"), -1);
+        Assert.assertEquals(noc.compare("2", "2.1"), -1);
+        Assert.assertEquals(noc.compare("2", "2.01"), -1);
+        Assert.assertEquals(noc.compare("2.01", "2.1"), -1);
+        Assert.assertEquals(noc.compare("2.1", "2.02"), -1);
+        Assert.assertEquals(noc.compare("2", "02.1"), -1);
+        Assert.assertEquals(noc.compare("2", "02.01"), -1);
         
         Assert.assertEquals(noc.compare("0", "1a"), -1);
         Assert.assertEquals(noc.compare("0a", "1"), -1);
@@ -66,25 +74,40 @@ public class NaturalOrderComparatorTest {
 
     @Test
     public void testVersionNumbers() {
-        Assert.assertEquals(0, noc.compare("10.5.8", "10.5.8"));
+        Assert.assertEquals(noc.compare("10.5.8", "10.5.8"), 0);
         Assert.assertTrue(noc.compare("10.5", "9.9") > 0);
         Assert.assertTrue(noc.compare("10.5.1", "10.5") > 0);
         Assert.assertTrue(noc.compare("10.5.1", "10.6") < 0);
         Assert.assertTrue(noc.compare("10.5.1-1", "10.5.1-0") > 0);
     }
 
-    @Test(groups="WIP", enabled=false)
-    public void testUnderscoreDoesNotChangeMeaningOfNumberInNoc() {
-        // why??
-        Assert.assertTrue(noc.compare("0.0.0_SNAPSHOT", "0.0.1-SNAPSHOT-20141111114709760") < 0);
-
-        Assert.assertTrue(v.isGreaterThanAndNotEqualTo(v_rc2.version));
-        Assert.assertTrue(v_rc2.isLessThanAndNotEqualTo(v.version));
-    }
-    
-    @Test(groups="WIP", enabled=false)
-    public void testUnderscoreDoesNotChangeMeaningOfNumberInOurWorld() {
-        Assert.assertTrue(new ComparableVersion("0.0.0_SNAPSHOT").isLessThanAndNotEqualTo("0.0.1-SNAPSHOT-20141111114709760"));
+    @Test
+    public void testWordsNumsPunctuation() {
+        // it's basically ascii except for where we're comparing numbers in the same place
+        
+        Assert.assertTrue(noc.compare("1", "") > 0);
+        Assert.assertTrue(noc.compare("one", "1") > 0);
+        Assert.assertTrue(noc.compare("some1", "some") > 0);
+        Assert.assertTrue(noc.compare("someone", "some") > 0);
+        Assert.assertTrue(noc.compare("someone", "some1") > 0);
+        Assert.assertTrue(noc.compare("someone", "some0") > 0);
+        Assert.assertTrue(noc.compare("some-one", "some-1") > 0);
+        
+        Assert.assertTrue(noc.compare("a1", "aa1") < 0);
+        Assert.assertTrue(noc.compare("a", "aa") < 0);
+        Assert.assertTrue(noc.compare("a", "a-") < 0);
+        Assert.assertTrue(noc.compare("a-", "a.") < 0);
+        Assert.assertTrue(noc.compare("a-", "a1") < 0);
+        Assert.assertTrue(noc.compare("a-", "aa") < 0);
+        Assert.assertTrue(noc.compare("a1", "aa") < 0);
+        Assert.assertTrue(noc.compare("aA", "a_") < 0);
+        Assert.assertTrue(noc.compare("a_", "aa") < 0);
+        Assert.assertTrue(noc.compare("a-1", "a1") < 0);
+        Assert.assertTrue(noc.compare("a0", "a-1") < 0);
+        Assert.assertTrue(noc.compare("a0", "aa0") < 0);
+        Assert.assertTrue(noc.compare("a-9", "a-10") < 0);
+        Assert.assertTrue(noc.compare("a-0", "a-01") < 0);
+        Assert.assertTrue(noc.compare("a-01", "a-1") < 0);
     }
 
 }

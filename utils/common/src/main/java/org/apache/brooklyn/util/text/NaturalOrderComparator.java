@@ -53,17 +53,24 @@ import java.util.Comparator;
 /** comparator which takes two strings and puts them in an order 
  * with special rules for numbers (whole number) to be placed in numeric order;
  * e.g. "10">"9", including when those numbers occur in the midst of equal text; e.g. "a10" > "a9";
- * but not if the text differs; e.g. "a10" < "b9"
+ * but not if the text differs; e.g. "a10" < "b9".
+ * leading zeroes are slightly lower than the same number without the leading zero, so "8" < "09" < "9",
+ * but after considering the remainder of the string, so "09.b" > "9.a".
+ * decimals are treated like a word-split, not a decimal point, i.e. "1.9" < "1.10".
  * <p>
- * class is thread-safe. nulls not supported. (to support nulls, wrap in guava:
+ * class is thread-safe.
+ * <p>
+ * nulls not supported. to support nulls, wrap in guava:
  * <code>Ordering.from(NaturalOrderComparator.INSTANCE).nullsFirst()</code>)
  * <p>
- * NOTE: decimals are treated like a word-split, not a decimal point, i.e. 1.9 < 1.10 
+ * <p>
+ * Based on https://github.com/paour/natorder 
  */
 public class NaturalOrderComparator implements Comparator<String> {
     
     public static final NaturalOrderComparator INSTANCE = new NaturalOrderComparator();
     
+    /** compares a string of digits once 0's have been skipped, stopping when the digits finish */
     int compareRight(String a, String b)
     {
         int bias = 0;
@@ -140,6 +147,32 @@ public class NaturalOrderComparator implements Comparator<String> {
                 if ((result = compareRight(a.substring(ia), b.substring(ib))) != 0) {
                     return result;
                 }
+                // numeric portion is the same; previously we incremented and checked again
+                // which is inefficient (we keep checking remaining numbers here);
+                // also if we want to compare on 0's after comparing remainder of string
+                // we need to recurse here after skipping the digits we just checked above
+                do {
+                    ia++; ib++;
+                    boolean aDigitsDone = ia >= a.length() || !Character.isDigit(charAt(a, ia));
+                    boolean bDigitsDone = ib >= b.length() || !Character.isDigit(charAt(b, ib));
+                    if (aDigitsDone != bDigitsDone) {
+                        // sanity check
+                        throw new IllegalStateException("Digit sequence lengths should have matched, '"+a+"' v '"+b+"'");
+                    }
+                    if (aDigitsDone) break;
+                } while (true);
+                if (ia < a.length() || ib < b.length()) {
+                    if (ia >= a.length()) return -1;  // only b has more chars
+                    if (ib >= b.length()) return 1;  // only a has more chars
+                    // both have remaining chars; neither is numeric due to compareRight; recurse into remaining
+                    if ((result = compare(a.substring(ia), b.substring(ib))) != 0) {
+                        return result;
+                    }
+                }
+                // numbers are equal value, remaining string compares identical; 
+                // comes down to whether there are any leading zeroes here
+                return nzb-nza;
+                
             } else if ((Character.isDigit(ca) || nza>0) && (Character.isDigit(cb) || nzb>0)) {
                 // both sides are numbers, but at least one is a sequence of zeros
                 if (nza==0) {
