@@ -27,11 +27,18 @@ import com.google.common.base.Objects;
 /**
  * {@link Comparator} for version strings.
  * <p>
- * SNAPSHOT items always lowest rated, then looking for no qualifier, then doing natural order comparison.
- * This gives the desired semantics for our recommended version syntax.
+ * This gives the desired semantics for our recommended version syntax,
+ * following <code>major.minor.patch-qualifier</code> syntax, 
+ * doing numeric order of major/minor/patch (1.10 > 1.9),
+ * treating anything with a qualifier lower than the corresponding without but higher than items before
+ * (1.2 > 1.2-rc > 1.1),
+ * SNAPSHOT items always lowest rated (1.0 > 2-SNAPSHOT), and 
+ * qualifier sorting follows {@link NaturalOrderComparator} (1-M10 > 1-M9).
  * <p>
  * Impossible to follow semantics for all versioning schemes but 
  * does the obvious right thing for normal schemes and pretty well in fringe cases.
+ * Probably the most surprising fringe behaviours will be
+ * 1.2.3.4 < 1.2.3 (the ".4" is considered a qualifier).
  * <p>
  * See test case for lots of examples.
  */

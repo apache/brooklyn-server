@@ -602,11 +602,14 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         // if symname not set, infer from: id, then name, then item id, then item name
         if (Strings.isBlank(symbolicName)) {
             if (Strings.isNonBlank(id)) {
-                if (RegisteredTypeNaming.isGoodTypeColonVersion(id)) {
+                if (RegisteredTypeNaming.isGoodBrooklynTypeColonVersion(id)) {
                     symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(id);
+                } else if (RegisteredTypeNaming.isValidOsgiTypeColonVersion(id)) {
+                    symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(id);
+                    log.warn("Discouraged version syntax in id '"+id+"'; version should comply with brooklyn recommendation (#.#.#-qualifier or portion) or specify symbolic name and version explicitly, not OSGi version syntax");
                 } else if (CatalogUtils.looksLikeVersionedId(id)) {
                     // use of above method is deprecated in 0.12; this block can be removed in 0.13
-                    log.warn("Discouraged version syntax in id '"+id+"'; version should comply with OSGi specs (#.#.#.qualifier or portion) or specify symbolic name and version explicitly");
+                    log.warn("Discouraged version syntax in id '"+id+"'; version should comply with brooklyn recommendation (#.#.#-qualifier or portion) or specify symbolic name and version explicitly");
                     symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(id);
                 } else if (RegisteredTypeNaming.isUsableTypeColonVersion(id)) {
                     log.warn("Deprecated type naming syntax in id '"+id+"'; colons not allowed in type name as it is used to indicate version");
@@ -618,7 +621,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                     symbolicName = id;
                 }
             } else if (Strings.isNonBlank(name)) {
-                if (RegisteredTypeNaming.isGoodTypeColonVersion(name)) {
+                if (RegisteredTypeNaming.isGoodBrooklynTypeColonVersion(name) || RegisteredTypeNaming.isValidOsgiTypeColonVersion(name)) {
                     log.warn("Deprecated use of 'name' key to define '"+name+"'; version should be specified within 'id' key or with 'version' key, not this tag");
                     // deprecated in 0.12; remove in 0.13
                     symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(name);
@@ -646,10 +649,13 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         }
 
         String versionFromId = null;
-        if (RegisteredTypeNaming.isGoodTypeColonVersion(id)) {
+        if (RegisteredTypeNaming.isGoodBrooklynTypeColonVersion(id)) {
             versionFromId = CatalogUtils.getVersionFromVersionedId(id);
+        } else if (RegisteredTypeNaming.isValidOsgiTypeColonVersion(id)) {
+            versionFromId = CatalogUtils.getVersionFromVersionedId(id);
+            log.warn("Discouraged version syntax in id '"+id+"'; version should comply with Brooklyn recommended version syntax (#.#.#-qualifier or portion) or specify symbolic name and version explicitly, not OSGi");
         } else if (CatalogUtils.looksLikeVersionedId(id)) {
-            log.warn("Discouraged version syntax in id '"+id+"'; version should comply with OSGi specs (#.#.#.qualifier or portion) or specify symbolic name and version explicitly");
+            log.warn("Discouraged version syntax in id '"+id+"'; version should comply with Brooklyn recommended version syntax (#.#.#-qualifier or portion) or specify symbolic name and version explicitly");
             // remove in 0.13
             versionFromId = CatalogUtils.getVersionFromVersionedId(id);
         } else if (RegisteredTypeNaming.isUsableTypeColonVersion(id)) {
