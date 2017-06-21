@@ -37,6 +37,8 @@ import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.collect.ImmutableMap;
+
 import org.jclouds.azurecompute.arm.AzureComputeApi;
 import org.jclouds.azurecompute.arm.domain.Subnet;
 import org.jclouds.azurecompute.arm.features.ResourceGroupApi;
@@ -124,6 +126,45 @@ public class DefaultAzureArmNetworkCreatorTest {
         verify(azureComputeApi).getVirtualNetworkApi(TEST_RESOURCE_GROUP);
 
         Map<String, Object> templateOptions = configBag.get(TEMPLATE_OPTIONS);
+        Map<String, Object> ipOptions = (Map<String, Object>)templateOptions.get("ipOptions");
+        assertEquals(ipOptions.get("subnet"), TEST_SUBNET_ID);
+        assertEquals(ipOptions.get("allocateNewPublicIp"), true);
+    }
+
+    @Test
+    public void testVanillaWhereTemplateOptionsAlreadySpecified() {
+        //Setup config bag
+        ConfigBag configBag = ConfigBag.newInstance();
+        configBag.put(CLOUD_REGION_ID, TEST_LOCATION);
+        configBag.put(TEMPLATE_OPTIONS, ImmutableMap.of("unrelated-key", "unrelated-value"));
+
+        //Setup mocks
+        when(computeService.getContext().unwrapApi(AzureComputeApi.class)).thenReturn(azureComputeApi);
+        when(azureComputeApi.getSubnetApi(TEST_RESOURCE_GROUP, TEST_NETWORK_NAME)).thenReturn(subnetApi);
+        when(subnetApi.get(TEST_SUBNET_NAME)).thenReturn(null).thenReturn(subnet); //null first time, subnet next
+        when(subnet.id()).thenReturn(TEST_SUBNET_ID);
+
+        when(azureComputeApi.getResourceGroupApi()).thenReturn(resourceGroupApi);
+        when(resourceGroupApi.get(TEST_RESOURCE_GROUP)).thenReturn(null);
+
+        when(azureComputeApi.getVirtualNetworkApi(TEST_RESOURCE_GROUP)).thenReturn(virtualNetworkApi);
+
+
+        //Test
+        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
+
+        //verify
+        verify(subnetApi, times(2)).get(TEST_SUBNET_NAME);
+        verify(subnet).id();
+        verify(azureComputeApi, times(2)).getSubnetApi(TEST_RESOURCE_GROUP, TEST_NETWORK_NAME);
+
+        verify(azureComputeApi, times(2)).getResourceGroupApi();
+        verify(resourceGroupApi).get(TEST_RESOURCE_GROUP);
+        verify(azureComputeApi).getVirtualNetworkApi(TEST_RESOURCE_GROUP);
+
+        Map<String, Object> templateOptions = configBag.get(TEMPLATE_OPTIONS);
+        assertEquals(templateOptions.get("unrelated-key"), "unrelated-value");
+
         Map<String, Object> ipOptions = (Map<String, Object>)templateOptions.get("ipOptions");
         assertEquals(ipOptions.get("subnet"), TEST_SUBNET_ID);
         assertEquals(ipOptions.get("allocateNewPublicIp"), true);
