@@ -21,6 +21,7 @@ package org.apache.brooklyn.location.jclouds.networking.creator;
 import static org.apache.brooklyn.core.location.cloud.CloudLocationConfig.CLOUD_REGION_ID;
 import static org.apache.brooklyn.location.jclouds.api.JcloudsLocationConfigPublic.NETWORK_NAME;
 import static org.apache.brooklyn.location.jclouds.api.JcloudsLocationConfigPublic.TEMPLATE_OPTIONS;
+import static org.apache.brooklyn.location.jclouds.networking.creator.DefaultAzureArmNetworkCreator.AZURE_ARM_DEFAULT_NETWORK_ENABLED;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -79,7 +80,7 @@ public class DefaultAzureArmNetworkCreatorTest {
         when(subnet.id()).thenReturn(TEST_SUBNET_ID);
 
         //Test
-        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptions(computeService, configBag);
+        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
 
         //verify
         verify(subnetApi).get(TEST_SUBNET_NAME);
@@ -111,7 +112,7 @@ public class DefaultAzureArmNetworkCreatorTest {
 
 
         //Test
-        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptions(computeService, configBag);
+        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
 
         //verify
         verify(subnetApi, times(2)).get(TEST_SUBNET_NAME);
@@ -136,7 +137,7 @@ public class DefaultAzureArmNetworkCreatorTest {
 
         Map<String, Object> configCopy = configBag.getAllConfig();
 
-        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptions(computeService, configBag);
+        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
 
         //Ensure nothing changed, and no calls were made to the compute service
         assertEquals(configCopy, configBag.getAllConfig());
@@ -154,7 +155,7 @@ public class DefaultAzureArmNetworkCreatorTest {
 
         Map<String, Object> configCopy = configBag.getAllConfig();
 
-        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptions(computeService, configBag);
+        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
 
         //Ensure nothing changed, and no calls were made to the compute service
         assertEquals(configCopy, configBag.getAllConfig());
@@ -172,7 +173,22 @@ public class DefaultAzureArmNetworkCreatorTest {
 
         Map<String, Object> configCopy = configBag.getAllConfig();
 
-        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptions(computeService, configBag);
+        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
+
+        //Ensure nothing changed, and no calls were made to the compute service
+        assertEquals(configCopy, configBag.getAllConfig());
+        Mockito.verifyZeroInteractions(computeService);
+    }
+
+    @Test
+    public void testConfigDisabled() {
+        ConfigBag configBag = ConfigBag.newInstance();
+        configBag.put(CLOUD_REGION_ID, TEST_LOCATION);
+        configBag.put(AZURE_ARM_DEFAULT_NETWORK_ENABLED, false);
+
+        Map<String, Object> configCopy = configBag.getAllConfig();
+
+        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
 
         //Ensure nothing changed, and no calls were made to the compute service
         assertEquals(configCopy, configBag.getAllConfig());

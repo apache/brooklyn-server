@@ -670,7 +670,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             try {
                 // Create default network for Azure ARM if necessary
                 if ("azurecompute-arm".equals(this.getProvider())) {
-                    DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptions(computeService, setup);
+                    DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, setup);
                 }
 
                 // Setup the template
