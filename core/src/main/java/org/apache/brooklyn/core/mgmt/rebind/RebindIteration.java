@@ -99,6 +99,7 @@ import org.apache.brooklyn.core.objs.proxy.InternalLocationFactory;
 import org.apache.brooklyn.core.objs.proxy.InternalPolicyFactory;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
+import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
@@ -1086,7 +1087,9 @@ public abstract class RebindIteration {
                     // See https://issues.apache.org/jira/browse/BROOKLYN-149
                     // This is a dangling reference to the catalog item (which will have been logged by lookupCatalogItem).
                     // Try loading as any version.
-                    if (CatalogUtils.looksLikeVersionedId(catalogItemId)) {
+                    if (RegisteredTypeNaming.isUsableTypeColonVersion(catalogItemId) ||
+                            // included through 0.12 so legacy type names are accepted (with warning)
+                            CatalogUtils.looksLikeVersionedId(catalogItemId)) {
                         String symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(catalogItemId);
                         catalogItem = rebindContext.lookup().lookupCatalogItem(symbolicName);
 

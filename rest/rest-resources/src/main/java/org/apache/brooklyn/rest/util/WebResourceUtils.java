@@ -30,6 +30,7 @@ import javax.ws.rs.core.UriBuilder;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
+import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -175,7 +176,7 @@ public class WebResourceUtils {
     }
 
     public static String getPathFromVersionedId(String versionedId) {
-        if (CatalogUtils.looksLikeVersionedId(versionedId)) {
+        if (RegisteredTypeNaming.isUsableTypeColonVersion(versionedId)) {
             String symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(versionedId);
             String version = CatalogUtils.getVersionFromVersionedId(versionedId);
             return Urls.encode(symbolicName) + "/" + Urls.encode(version);
