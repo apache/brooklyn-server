@@ -88,9 +88,5 @@ public class RegisteredTypeNamingTest {
         Assert.assertEquals(RegisteredTypeNaming.isValidOsgiTypeColonVersion(candidate), isOsgi, "osgi name:version '"+candidate+"'");
         Assert.assertEquals(RegisteredTypeNaming.isGoodBrooklynTypeColonVersion(candidate), isGood, "good name:version '"+candidate+"'");
     }
-
-    public void testConvertToOsgiVersion() {
-        Assert.assertEquals(OsgiUtils.toOsgiVersion("1-foo"), "1.0.0.foo");
-        Assert.assertEquals(OsgiUtils.toOsgiVersion("1"), "1.0.0");
-    }
+    
 }

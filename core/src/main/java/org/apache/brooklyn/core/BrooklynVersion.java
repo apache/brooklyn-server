@@ -45,6 +45,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.OsgiUtil;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.VersionComparator;
 import org.osgi.framework.Bundle;
@@ -457,5 +458,9 @@ public class BrooklynVersion implements BrooklynVersionService {
             }
             return true;
         }
+    }
+
+    public static String getOsgiVersion() {
+        return BrooklynVersionSyntax.toValidOsgiVersion(get());
     }
 }

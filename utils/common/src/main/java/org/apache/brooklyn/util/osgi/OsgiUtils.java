@@ -25,6 +25,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.Constants;
@@ -101,6 +102,9 @@ public class OsgiUtils {
         return Maybe.of(new VersionedName(parts[0], v));
     }
 
+    /** @deprecated since 0.12.0 use {@link BrooklynVersionSyntax#toValidOsgiVersion(String)};
+     * but note it has slightly different semantics in some odd cases, e.g. this maps "1x" to "0.0.0.1x" whereas
+     * the new method maps to "1.0.0.x" */
     public static String toOsgiVersion(String version) {
         if (version != null) {
             return DefaultMaven2OsgiConverter.cleanupVersion(version);
