@@ -80,6 +80,7 @@ import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.jclouds.JcloudsBlobStoreBasedObjectStore;
 import org.apache.brooklyn.location.jclouds.api.JcloudsLocationPublic;
 import org.apache.brooklyn.location.jclouds.networking.JcloudsPortForwarderExtension;
+import org.apache.brooklyn.location.jclouds.networking.creator.DefaultAzureArmNetworkCreator;
 import org.apache.brooklyn.location.jclouds.templates.PortableTemplateBuilder;
 import org.apache.brooklyn.location.jclouds.templates.customize.TemplateBuilderCustomizer;
 import org.apache.brooklyn.location.jclouds.templates.customize.TemplateBuilderCustomizers;
@@ -667,6 +668,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             Template template;
 
             try {
+                // Create default network for Azure ARM if necessary
+                if ("azurecompute-arm".equals(this.getProvider())) {
+                    DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, setup);
+                }
+
                 // Setup the template
                 template = buildTemplate(computeService, setup, ImmutableList.of(customizersDelegate));
                 boolean expectWindows = isWindows(template, setup);
