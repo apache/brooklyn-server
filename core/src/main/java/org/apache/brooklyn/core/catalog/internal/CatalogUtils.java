@@ -46,6 +46,7 @@ import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl.RebindTracker;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
+import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -232,6 +233,11 @@ public class CatalogUtils {
             log.debug(message, args);
     }
 
+    /** @deprecated since 0.12.0 - the "version starts with number" test this does is hokey; use 
+     * either {@link RegisteredTypeNaming#isUsableTypeColonVersion(String)} for weak enforcement
+     * or {@link RegisteredTypeNaming#isGoodTypeColonVersion(String)} for OSGi enforcement. */
+    // several references, but all deprecated, most safe to remove after a cycle or two and bad verisons have been warned
+    @Deprecated
     public static boolean looksLikeVersionedId(String versionedId) {
         if (versionedId==null) return false;
         int fi = versionedId.indexOf(VERSION_DELIMITER);
@@ -248,16 +254,14 @@ public class CatalogUtils {
             // e.g.  foo:1  or foo:1.1  or foo:1_SNAPSHOT all supported, but not e.g. foo:bar (or chef:cookbook or docker:my/image)
             return false;
         }
+        if (!RegisteredTypeNaming.isUsableTypeColonVersion(versionedId)) {
+            // arguments that contain / or whitespace will pass here but calling code will likely be changed not to support it 
+            log.warn("Reference '"+versionedId+"' is being treated as a versioned type but it "
+                + "contains deprecated characters (slashes or whitespace); likely to be unsupported in future versions.");
+        }
         return true;
     }
 
-    /** @deprecated since 0.9.0 use {@link #getSymbolicNameFromVersionedId(String)} */
-    // all uses removed
-    @Deprecated
-    public static String getIdFromVersionedId(String versionedId) {
-        return getSymbolicNameFromVersionedId(versionedId);
-    }
-    
     public static String getSymbolicNameFromVersionedId(String versionedId) {
         if (versionedId == null) return null;
         int versionDelimiterPos = versionedId.lastIndexOf(VERSION_DELIMITER);
@@ -284,7 +288,7 @@ public class CatalogUtils {
     }
 
     /** @deprecated since 0.9.0 use {@link BrooklynTypeRegistry#get(String, org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind, Class)} */
-    // only a handful of items remaining, and those require a CatalogItem
+    // only a handful of items remaining, requiring a CatalogItem:  two in REST, one in rebind, and one in ClassLoaderUtils
     @Deprecated
     public static CatalogItem<?, ?> getCatalogItemOptionalVersion(ManagementContext mgmt, String versionedId) {
         if (versionedId == null) return null;
@@ -305,7 +309,7 @@ public class CatalogUtils {
     }
 
     /** @deprecated since 0.9.0 use {@link BrooklynTypeRegistry#get(String, org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind, Class)} */
-    // only a handful of items remaining, and those require a CatalogItem
+    // only one item left, in deprecated service resolver
     @Deprecated
     public static <T,SpecT> CatalogItem<T, SpecT> getCatalogItemOptionalVersion(ManagementContext mgmt, Class<T> type, String versionedId) {
         if (looksLikeVersionedId(versionedId)) {
