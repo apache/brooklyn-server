@@ -69,6 +69,7 @@ public class CatalogVersioningTest {
         assertLegacyVersionParsesAs("http://foo:8080", null, null);
     }
 
+    @SuppressWarnings("deprecation")
     private static void assertLegacyVersionParsesAs(String versionedId, String id, String version) {
         if (version==null) {
             Assert.assertFalse(CatalogUtils.looksLikeVersionedId(versionedId));

@@ -16,6 +16,7 @@
 package org.apache.brooklyn.util.osgi;
 
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercerExtensible;
+import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.osgi.framework.Version;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -37,7 +38,7 @@ public class VersionedNameTest {
     @Test
     public void testManuallyCorrectingVersion() {
         Assert.assertEquals(new VersionedName("foo", new Version("1.0.0.alpha")), VersionedName.fromString("foo:"+
-            OsgiUtils.toOsgiVersion("1.0-alpha")));
+            BrooklynVersionSyntax.toValidOsgiVersion("1.0-alpha")));
     }
 
 }
