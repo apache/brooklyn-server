@@ -19,7 +19,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
+import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.Version;
 
@@ -126,11 +128,36 @@ public class VersionedName {
         return Objects.equal(name, o.name) && Objects.equal(getOsgiVersion(), o.getOsgiVersion());        
     }
 
-    public static VersionedName fromString(String nameOptionalColonVersion) {
-        if (nameOptionalColonVersion==null) return null;
-        int colon = nameOptionalColonVersion.indexOf(':');
-        if (colon<0) throw new IllegalArgumentException("Versioned name '"+nameOptionalColonVersion+"' must be of form 'name:version'");
-        return new VersionedName(nameOptionalColonVersion.substring(0, colon), nameOptionalColonVersion.substring(colon+1));
+    /** Returns a {@link VersionedName} instance where {@link #getVersionString()} complies with OSGi syntax (or is null), 
+     * even if the input does not. 
+     * Typically used to convert from Brooklyn-recommended <code>1.0-SNAPSHOT</code> syntax to 
+     * OSGi-mandated <code>1.0.0.SNAPSHOT</code> syntax. */
+    public static VersionedName toOsgiVersionedName(VersionedName vn) {
+        if (vn==null) return null;
+        return new VersionedName(vn.getSymbolicName(), vn.getOsgiVersion());
+    }
+
+    /** As {@link #parseMaybe(String)} but throwing if invalid; allows null version */
+    public static VersionedName fromString(String vn) {
+        return parseMaybe(vn, false).get();
+    }
+    
+    /** Takes a string which might be of the form "symbolic-name" or "symbolic-name:version" (or something else entirely)
+     * and returns a VersionedName. The versionedName.getVersion() will be null if if there was no version in the input
+     * and the second argument is false, versions not required.
+     * Returns a {@link Maybe#absent()} with a suitable message if not valid. */
+    public static Maybe<VersionedName> parseMaybe(String symbolicNameWithVersion, boolean versionRequired) {
+        if (Strings.isBlank(symbolicNameWithVersion)) {
+            return Maybe.absent("Identifier is blank");
+        }
+        String[] parts = symbolicNameWithVersion.split(":");
+        if (versionRequired && parts.length!=2) {
+            return Maybe.absent("Identifier '"+symbolicNameWithVersion+"' must be of 'name:version' syntax");
+        }
+        if (parts.length > 2) {
+            return Maybe.absent("Identifier '"+symbolicNameWithVersion+"' has too many parts; max one ':' symbol");
+        }
+        return Maybe.of(new VersionedName(parts[0], parts.length == 2 ? parts[1] : null));
     }
 
 }

@@ -38,6 +38,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiUtils;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Strings;
@@ -49,7 +50,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -64,23 +64,6 @@ import com.google.common.base.Predicates;
 @Beta
 public class Osgis {
     private static final Logger LOG = LoggerFactory.getLogger(Osgis.class);
-
-    /** @deprecated since 0.9.0, replaced with {@link org.apache.brooklyn.util.osgi.VersionedName} */
-    @Deprecated
-    public static class VersionedName extends org.apache.brooklyn.util.osgi.VersionedName {
-
-        private VersionedName(org.apache.brooklyn.util.osgi.VersionedName src) {
-            super(src.getSymbolicName(), src.getVersion());
-        }
-
-        public VersionedName(Bundle b) {
-            super(b);
-        }
-
-        public VersionedName(String symbolicName, Version version) {
-            super(symbolicName, version);
-        }
-    }
 
     public static class BundleFinder {
         protected final Framework framework;
@@ -109,17 +92,14 @@ public class Osgis {
             if (Strings.isBlank(symbolicNameOptionallyWithVersion))
                 return this;
             
-            Maybe<org.apache.brooklyn.util.osgi.VersionedName> nv = OsgiUtils.parseOsgiIdentifier(symbolicNameOptionallyWithVersion);
-            if (nv.isAbsent())
-                throw new IllegalArgumentException("Cannot parse symbolic-name:version string '"+symbolicNameOptionallyWithVersion+"'");
-
+            Maybe<VersionedName> nv = VersionedName.parseMaybe(symbolicNameOptionallyWithVersion, false);
             return id(nv.get());
         }
 
-        private BundleFinder id(org.apache.brooklyn.util.osgi.VersionedName nv) {
+        private BundleFinder id(VersionedName nv) {
             symbolicName(nv.getSymbolicName());
-            if (nv.getVersion() != null) {
-                version(nv.getVersion().toString());
+            if (nv.getVersionString() != null) {
+                version(nv.getVersionString());
             }
             return this;
         }
@@ -127,7 +107,7 @@ public class Osgis {
         public BundleFinder bundle(CatalogBundle bundle) {
             if (bundle.isNameResolved()) {
                 symbolicName(bundle.getSymbolicName());
-                version(bundle.getVersion());
+                version(bundle.getSuppliedVersionString());
             }
             if (bundle.getUrl() != null) {
                 requiringFromUrl(bundle.getUrl());
@@ -441,18 +421,6 @@ public class Osgis {
     @Deprecated
     public static boolean isExtensionBundle(Bundle bundle) {
         return SystemFrameworkLoader.get().isSystemBundle(bundle);
-    }
-
-    /** @deprecated since 0.9.0, replaced with {@link OsgiUtils#parseOsgiIdentifier(java.lang.String) } */
-    @Deprecated
-    public static Maybe<VersionedName> parseOsgiIdentifier(String symbolicNameOptionalWithVersion) {
-        final Maybe<org.apache.brooklyn.util.osgi.VersionedName> original = OsgiUtils.parseOsgiIdentifier(symbolicNameOptionalWithVersion);
-        return original.transform(new Function<org.apache.brooklyn.util.osgi.VersionedName, VersionedName>() {
-            @Override
-            public VersionedName apply(org.apache.brooklyn.util.osgi.VersionedName input) {
-                return new VersionedName(input);
-            }
-        });
     }
 
     @Beta

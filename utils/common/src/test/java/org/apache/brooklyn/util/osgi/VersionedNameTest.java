@@ -15,8 +15,11 @@
  */
 package org.apache.brooklyn.util.osgi;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercerExtensible;
-import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.osgi.framework.Version;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -25,20 +28,36 @@ public class VersionedNameTest {
     
     @Test
     public void testVersionedNameFromString() {
-        VersionedName foo1 = new VersionedName("foo", new Version("1.0"));
+        VersionedName foo1 = new VersionedName("foo", "1.0");
         Assert.assertEquals(foo1, VersionedName.fromString("foo:1.0"));
         Assert.assertEquals(foo1, TypeCoercerExtensible.newDefault().coerce("foo:1.0", VersionedName.class));
     }
-    
-    @Test(expectedExceptions=IllegalArgumentException.class)
-    public void testDoesNotAcceptInvalidVersions() {
-        Assert.assertEquals(new VersionedName("foo", new Version("1.0.0.alpha")), VersionedName.fromString("foo:1.0-alpha"));
+    @Test
+    public void testVersionedNameFromVersion() {
+        VersionedName foo1 = new VersionedName("foo", new Version("1"));
+        Assert.assertEquals(foo1, VersionedName.fromString("foo:1.0.0"));
     }
     
     @Test
-    public void testManuallyCorrectingVersion() {
-        Assert.assertEquals(new VersionedName("foo", new Version("1.0.0.alpha")), VersionedName.fromString("foo:"+
-            BrooklynVersionSyntax.toValidOsgiVersion("1.0-alpha")));
+    public void testAcceptsAndConvertsNonOsgiVersions() {
+        Assert.assertEquals(new VersionedName("foo", new Version("1.0.0.alpha")), 
+            VersionedName.toOsgiVersionedName(VersionedName.fromString("foo:1.0-alpha")));
     }
-
+    
+    @Test
+    public void testParse() throws Exception {
+        assertEquals(VersionedName.parseMaybe("a.b", false).get(), new VersionedName("a.b", (String)null));
+        try {
+            assertEquals(VersionedName.parseMaybe("a.b", true).get(), new VersionedName("a.b", (String)null));
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "a.b", "version");
+        }
+        assertEquals(VersionedName.fromString("a.b:0.1.2"), new VersionedName("a.b", "0.1.2"));
+        assertEquals(VersionedName.fromString("a.b:0.0.0.SNAPSHOT"), new VersionedName("a.b", "0.0.0.SNAPSHOT"));
+        assertEquals(VersionedName.fromString("a.b:0.0.0_SNAPSHOT"), new VersionedName("a.b", "0.0.0_SNAPSHOT"));
+        assertFalse(VersionedName.parseMaybe("a.b:0.1.2:3.4.5", false).isPresent());
+        assertFalse(VersionedName.parseMaybe("", false).isPresent());
+    }
+    
 }

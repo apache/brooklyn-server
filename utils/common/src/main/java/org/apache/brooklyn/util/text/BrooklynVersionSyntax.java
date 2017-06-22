@@ -185,4 +185,10 @@ public class BrooklynVersionSyntax {
         return result.toString();
     }
 
+    /** Returns true if the given strings are equal when mapped according to {@link #toValidOsgiVersion(String)} */
+    public static boolean equalAsOsgiVersions(String v1, String v2) {
+        if (v1==null || v2==null) return (v1==null && v2==null);
+        return toValidOsgiVersion(v1).equals(toValidOsgiVersion(v2));
+    }
+
 }

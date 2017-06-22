@@ -776,7 +776,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         Assert.assertNull(lib.getUrl());
 
         assertEquals(lib.getSymbolicName(), "org.apache.brooklyn.test.resources.osgi.brooklyn-test-osgi-entities");
-        assertEquals(lib.getVersion(), version);
+        assertEquals(lib.getSuppliedVersionString(), version);
 
         // now let's check other things on the item
         URI expectedIconUrl = URI.create(getEndpointAddress() + "/catalog/icon/" + symbolicName + "/" + entityItem.getVersion()).normalize();
@@ -852,7 +852,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         Assert.assertNull(lib.getUrl());
 
         assertEquals(lib.getSymbolicName(), symbolicName);
-        assertEquals(lib.getVersion(), version);
+        assertEquals(lib.getSuppliedVersionString(), version);
 
         // now let's check other things on the item
         URI expectedIconUrl = URI.create(getEndpointAddress() + "/catalog/icon/" + symbolicName + "/" + entityItem.getVersion()).normalize();

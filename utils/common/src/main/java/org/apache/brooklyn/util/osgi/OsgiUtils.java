@@ -80,10 +80,16 @@ public class OsgiUtils {
         return b.getSymbolicName() + ":" + b.getVersion();
     }
 
-    /** Takes a string which might be of the form "symbolic-name" or "symbolic-name:version" (or something else entirely)
+    /** Like {@link VersionedName#parseMaybe(String, boolean)} but enforces OSGi syntax for the input version.
+     * <p> 
+     * Takes a string which might be of the form "symbolic-name" or "symbolic-name:version" (or something else entirely)
      * and returns a VersionedName. The versionedName.getVersion() will be null if if there was no version in the input
-     * (or returning {@link Maybe#absent()} if not valid, with a suitable error message). */
+     * (or returning {@link Maybe#absent()} if not valid, with a suitable error message). 
+     * @deprecated since 0.12.0 use {@link VersionedName#parseMaybe(String, boolean)}; check OSGi version compatibility manually if needed 
+     * (but usually not wanted, we let it convert to OSGi syntax as needed) */
+    @Deprecated // all usages except for tests removed
     public static Maybe<VersionedName> parseOsgiIdentifier(String symbolicNameOptionalWithVersion) {
+        // TODO deprecate?
         if (Strings.isBlank(symbolicNameOptionalWithVersion)) {
             return Maybe.absent("OSGi identifier is blank");
         }

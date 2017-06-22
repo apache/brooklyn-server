@@ -60,13 +60,11 @@ import org.apache.brooklyn.util.javalang.AggregateClassLoader;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.LoadedClassLoader;
 import org.apache.brooklyn.util.osgi.VersionedName;
-import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.brooklyn.util.yaml.Yamls.YamlExtract;
-import org.osgi.framework.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
@@ -448,7 +446,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (Strings.isBlank(version)) {
             throw new IllegalStateException("Catalog BOM must define version if bundle is defined");
         }
-        return new VersionedName(bundle, Version.valueOf(BrooklynVersionSyntax.toValidOsgiVersion(version)));
+        return new VersionedName(bundle, version);
     }
 
     private void collectCatalogItems(String yaml, List<CatalogItemDtoAbstract<?, ?>> result, Map<?, ?> parentMeta) {

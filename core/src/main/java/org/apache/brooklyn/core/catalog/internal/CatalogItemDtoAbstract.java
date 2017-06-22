@@ -444,8 +444,6 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
                     url = inlineRef;
                 }
 
-                // TODO
-//                version = RegisteredTypeNaming.toOsgiVersion(version, "library reference "+name+":"+version);
                 dto.add(new CatalogBundleDto(name, version, url));
             } else {
                 LOG.debug("Unexpected entry in libraries list neither string nor map: " + object);
