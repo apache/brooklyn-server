@@ -22,6 +22,9 @@ import static org.apache.brooklyn.core.location.cloud.CloudLocationConfig.CLOUD_
 import static org.apache.brooklyn.location.jclouds.api.JcloudsLocationConfigPublic.NETWORK_NAME;
 import static org.apache.brooklyn.location.jclouds.api.JcloudsLocationConfigPublic.TEMPLATE_OPTIONS;
 import static org.apache.brooklyn.location.jclouds.networking.creator.DefaultAzureArmNetworkCreator.AZURE_ARM_DEFAULT_NETWORK_ENABLED;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,7 +33,15 @@ import static org.testng.Assert.assertEquals;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.mockito.Answers;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.jclouds.azurecompute.arm.AzureComputeApi;
+import org.jclouds.azurecompute.arm.domain.ResourceGroup;
+import org.jclouds.azurecompute.arm.domain.Subnet;
+import org.jclouds.azurecompute.arm.features.ResourceGroupApi;
+import org.jclouds.azurecompute.arm.features.SubnetApi;
+import org.jclouds.azurecompute.arm.features.VirtualNetworkApi;
+import org.jclouds.compute.ComputeService;
+import org.jclouds.compute.ComputeServiceContext;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -39,47 +50,46 @@ import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableMap;
 
-import org.jclouds.azurecompute.arm.AzureComputeApi;
-import org.jclouds.azurecompute.arm.domain.Subnet;
-import org.jclouds.azurecompute.arm.features.ResourceGroupApi;
-import org.jclouds.azurecompute.arm.features.SubnetApi;
-import org.jclouds.azurecompute.arm.features.VirtualNetworkApi;
-import org.jclouds.compute.ComputeService;
-
-import org.apache.brooklyn.util.core.config.ConfigBag;
-
 public class DefaultAzureArmNetworkCreatorTest {
 
-    @Mock(answer = Answers.RETURNS_DEEP_STUBS) ComputeService computeService;
-    @Mock(answer = Answers.RETURNS_DEEP_STUBS) AzureComputeApi azureComputeApi;
-    @Mock(answer = Answers.RETURNS_DEEP_STUBS) ResourceGroupApi resourceGroupApi;
-    @Mock(answer = Answers.RETURNS_DEEP_STUBS) VirtualNetworkApi virtualNetworkApi;
-    @Mock(answer = Answers.RETURNS_DEEP_STUBS) SubnetApi subnetApi;
+    @Mock ComputeService computeService;
+    @Mock ComputeServiceContext computeServiceContext;
+    @Mock AzureComputeApi azureComputeApi;
+    @Mock ResourceGroupApi resourceGroupApi;
+    @Mock VirtualNetworkApi virtualNetworkApi;
+    @Mock SubnetApi subnetApi;
 
+    @Mock ResourceGroup resourceGroup;
     @Mock Subnet subnet;
 
-    final String TEST_RESOURCE_GROUP = "brooklyn-default-resource-group-test-loc";
-    final String TEST_NETWORK_NAME = "brooklyn-default-network-test-loc";
-    final String TEST_SUBNET_NAME = "brooklyn-default-subnet-test-loc";
-    final String TEST_SUBNET_ID = "/test/resource/id";
     final String TEST_LOCATION = "test-loc";
+    final String TEST_RESOURCE_GROUP = "brooklyn-default-resource-group-" + TEST_LOCATION;
+    final String TEST_NETWORK_NAME = "brooklyn-default-network-" + TEST_LOCATION;
+    final String TEST_SUBNET_NAME = "brooklyn-default-subnet-" + TEST_LOCATION;
+    final String TEST_SUBNET_ID = "/test/resource/id";
 
-    @BeforeMethod
-    public void setUp() {
+    @BeforeMethod(alwaysRun=true)
+    public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
+        
+        // stock mock responses
+        when(computeService.getContext()).thenReturn(computeServiceContext);
+        when(computeServiceContext.unwrapApi(AzureComputeApi.class)).thenReturn(azureComputeApi);
+        when(azureComputeApi.getResourceGroupApi()).thenReturn(resourceGroupApi);
+        when(azureComputeApi.getSubnetApi(TEST_RESOURCE_GROUP, TEST_NETWORK_NAME)).thenReturn(subnetApi);
+        when(azureComputeApi.getVirtualNetworkApi(TEST_RESOURCE_GROUP)).thenReturn(virtualNetworkApi);
+        when(subnet.id()).thenReturn(TEST_SUBNET_ID);
     }
 
     @Test
-    public void testPreExisting() {
+    public void testPreExisting() throws Exception {
         //Setup config bag
         ConfigBag configBag = ConfigBag.newInstance();
         configBag.put(CLOUD_REGION_ID, TEST_LOCATION);
 
         //Setup mocks
-        when(computeService.getContext().unwrapApi(AzureComputeApi.class)).thenReturn(azureComputeApi);
-        when(azureComputeApi.getSubnetApi(TEST_RESOURCE_GROUP, TEST_NETWORK_NAME)).thenReturn(subnetApi);
         when(subnetApi.get(TEST_SUBNET_NAME)).thenReturn(subnet);
-        when(subnet.id()).thenReturn(TEST_SUBNET_ID);
+        
 
         //Test
         DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
@@ -87,106 +97,102 @@ public class DefaultAzureArmNetworkCreatorTest {
         //verify
         verify(subnetApi).get(TEST_SUBNET_NAME);
         verify(subnet).id();
-        verify(azureComputeApi).getSubnetApi(TEST_RESOURCE_GROUP, TEST_NETWORK_NAME);
 
+        //verify templateOptions updated to include defaults
         Map<String, Object> templateOptions = configBag.get(TEMPLATE_OPTIONS);
-        Map<String, Object> ipOptions = (Map<String, Object>)templateOptions.get("ipOptions");
+        Map<?, ?> ipOptions = (Map<?, ?>)templateOptions.get("ipOptions");
         assertEquals(ipOptions.get("subnet"), TEST_SUBNET_ID);
         assertEquals(ipOptions.get("allocateNewPublicIp"), true);
     }
 
     @Test
-    public void testVanilla() {
-        //Setup config bag
-        ConfigBag configBag = ConfigBag.newInstance();
-        configBag.put(CLOUD_REGION_ID, TEST_LOCATION);
-
-        //Setup mocks
-        when(computeService.getContext().unwrapApi(AzureComputeApi.class)).thenReturn(azureComputeApi);
-        when(azureComputeApi.getSubnetApi(TEST_RESOURCE_GROUP, TEST_NETWORK_NAME)).thenReturn(subnetApi);
-        when(subnetApi.get(TEST_SUBNET_NAME)).thenReturn(null).thenReturn(subnet); //null first time, subnet next
-        when(subnet.id()).thenReturn(TEST_SUBNET_ID);
-
-        when(azureComputeApi.getResourceGroupApi()).thenReturn(resourceGroupApi);
-        when(resourceGroupApi.get(TEST_RESOURCE_GROUP)).thenReturn(null);
-
-        when(azureComputeApi.getVirtualNetworkApi(TEST_RESOURCE_GROUP)).thenReturn(virtualNetworkApi);
-
-
-        //Test
-        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
-
-        //verify
-        verify(subnetApi, times(2)).get(TEST_SUBNET_NAME);
-        verify(subnet).id();
-        verify(azureComputeApi, times(2)).getSubnetApi(TEST_RESOURCE_GROUP, TEST_NETWORK_NAME);
-
-        verify(azureComputeApi, times(2)).getResourceGroupApi();
-        verify(resourceGroupApi).get(TEST_RESOURCE_GROUP);
-        verify(azureComputeApi).getVirtualNetworkApi(TEST_RESOURCE_GROUP);
-
-        Map<String, Object> templateOptions = configBag.get(TEMPLATE_OPTIONS);
-        Map<String, Object> ipOptions = (Map<String, Object>)templateOptions.get("ipOptions");
-        assertEquals(ipOptions.get("subnet"), TEST_SUBNET_ID);
-        assertEquals(ipOptions.get("allocateNewPublicIp"), true);
+    public void testVanillaWhereNoResourceGroup() throws Exception {
+        runVanilla(ImmutableMap.of());
     }
-
+    
     @Test
-    public void testVanillaWhereTemplateOptionsAlreadySpecified() {
-        //Setup config bag
-        ConfigBag configBag = ConfigBag.newInstance();
-        configBag.put(CLOUD_REGION_ID, TEST_LOCATION);
-        configBag.put(TEMPLATE_OPTIONS, ImmutableMap.of("unrelated-key", "unrelated-value"));
-
-        //Setup mocks
-        when(computeService.getContext().unwrapApi(AzureComputeApi.class)).thenReturn(azureComputeApi);
-        when(azureComputeApi.getSubnetApi(TEST_RESOURCE_GROUP, TEST_NETWORK_NAME)).thenReturn(subnetApi);
-        when(subnetApi.get(TEST_SUBNET_NAME)).thenReturn(null).thenReturn(subnet); //null first time, subnet next
-        when(subnet.id()).thenReturn(TEST_SUBNET_ID);
-
-        when(azureComputeApi.getResourceGroupApi()).thenReturn(resourceGroupApi);
-        when(resourceGroupApi.get(TEST_RESOURCE_GROUP)).thenReturn(null);
-
-        when(azureComputeApi.getVirtualNetworkApi(TEST_RESOURCE_GROUP)).thenReturn(virtualNetworkApi);
-
-
-        //Test
-        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
-
-        //verify
-        verify(subnetApi, times(2)).get(TEST_SUBNET_NAME);
-        verify(subnet).id();
-        verify(azureComputeApi, times(2)).getSubnetApi(TEST_RESOURCE_GROUP, TEST_NETWORK_NAME);
-
-        verify(azureComputeApi, times(2)).getResourceGroupApi();
-        verify(resourceGroupApi).get(TEST_RESOURCE_GROUP);
-        verify(azureComputeApi).getVirtualNetworkApi(TEST_RESOURCE_GROUP);
-
-        Map<String, Object> templateOptions = configBag.get(TEMPLATE_OPTIONS);
+    public void testVanillaWhereTemplateOptionsAlreadySpecified() throws Exception {
+        ImmutableMap<?, ?> additionalConfig = ImmutableMap.of(TEMPLATE_OPTIONS, ImmutableMap.of("unrelated-key", "unrelated-value"));
+        ConfigBag result = runVanilla(additionalConfig);
+        Map<String, ?> templateOptions = result.get(TEMPLATE_OPTIONS);
         assertEquals(templateOptions.get("unrelated-key"), "unrelated-value");
+    }
 
-        Map<String, Object> ipOptions = (Map<String, Object>)templateOptions.get("ipOptions");
+    protected ConfigBag runVanilla(Map<?, ?> additionalConfig) throws Exception {
+        //Setup config bag
+        ConfigBag configBag = ConfigBag.newInstance();
+        configBag.put(CLOUD_REGION_ID, TEST_LOCATION);
+        configBag.putAll(additionalConfig);
+        
+        //Setup mocks
+        when(subnetApi.get(TEST_SUBNET_NAME)).thenReturn(null).thenReturn(subnet); //null first time, subnet next
+
+        when(resourceGroupApi.get(TEST_RESOURCE_GROUP)).thenReturn(null);
+
+
+        //Test
+        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
+
+        //verify calls made
+        verify(subnetApi, times(2)).get(TEST_SUBNET_NAME);
+        verify(subnet).id();
+
+        verify(resourceGroupApi).get(TEST_RESOURCE_GROUP);
+        verify(resourceGroupApi).create(eq(TEST_RESOURCE_GROUP), eq(TEST_LOCATION), any());
+
+        verify(virtualNetworkApi).createOrUpdate(eq(TEST_NETWORK_NAME), eq(TEST_LOCATION), any());
+
+        //verify templateOptions updated to include defaults
+        Map<String, Object> templateOptions = configBag.get(TEMPLATE_OPTIONS);
+        Map<?, ?> ipOptions = (Map<?, ?>)templateOptions.get("ipOptions");
+        assertEquals(ipOptions.get("subnet"), TEST_SUBNET_ID);
+        assertEquals(ipOptions.get("allocateNewPublicIp"), true);
+        
+        return configBag;
+    }
+
+    @Test
+    public void testVanillaWhereExistingResourceGroup() throws Exception {
+        //Setup config bag
+        ConfigBag configBag = ConfigBag.newInstance();
+        configBag.put(CLOUD_REGION_ID, TEST_LOCATION);
+        
+        //Setup mocks
+        when(subnetApi.get(TEST_SUBNET_NAME)).thenReturn(null).thenReturn(subnet); //null first time, subnet next
+
+        when(resourceGroupApi.get(TEST_RESOURCE_GROUP)).thenReturn(resourceGroup);
+
+
+        //Test
+        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
+
+        //verify
+        verify(subnetApi, times(2)).get(TEST_SUBNET_NAME);
+        verify(subnet).id();
+
+        verify(resourceGroupApi).get(TEST_RESOURCE_GROUP);
+        verify(resourceGroupApi, never()).create(any(), any(), any());
+
+        verify(virtualNetworkApi).createOrUpdate(eq(TEST_NETWORK_NAME), eq(TEST_LOCATION), any());
+
+        //verify templateOptions updated to include defaults
+        Map<String, Object> templateOptions = configBag.get(TEMPLATE_OPTIONS);
+        Map<?, ?> ipOptions = (Map<?, ?>)templateOptions.get("ipOptions");
         assertEquals(ipOptions.get("subnet"), TEST_SUBNET_ID);
         assertEquals(ipOptions.get("allocateNewPublicIp"), true);
     }
 
     @Test
-    public void testNetworkInConfig() {
+    public void testNetworkInConfig() throws Exception {
         ConfigBag configBag = ConfigBag.newInstance();
         configBag.put(CLOUD_REGION_ID, TEST_LOCATION);
         configBag.put(NETWORK_NAME, TEST_NETWORK_NAME);
 
-        Map<String, Object> configCopy = configBag.getAllConfig();
-
-        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
-
-        //Ensure nothing changed, and no calls were made to the compute service
-        assertEquals(configCopy, configBag.getAllConfig());
-        Mockito.verifyZeroInteractions(computeService);
+        runAssertingNoIteractions(configBag);
     }
 
     @Test
-    public void testNetworkInTemplate() {
+    public void testNetworkInTemplate() throws Exception {
         HashMap<String, Object> templateOptions = new HashMap<>();
         templateOptions.put(NETWORK_NAME.getName(), TEST_NETWORK_NAME);
 
@@ -194,17 +200,11 @@ public class DefaultAzureArmNetworkCreatorTest {
         configBag.put(CLOUD_REGION_ID, TEST_LOCATION);
         configBag.put(TEMPLATE_OPTIONS, templateOptions);
 
-        Map<String, Object> configCopy = configBag.getAllConfig();
-
-        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
-
-        //Ensure nothing changed, and no calls were made to the compute service
-        assertEquals(configCopy, configBag.getAllConfig());
-        Mockito.verifyZeroInteractions(computeService);
+        runAssertingNoIteractions(configBag);
     }
 
     @Test
-    public void testIpOptionsInTemplate() {
+    public void testIpOptionsInTemplate() throws Exception {
         HashMap<String, Object> templateOptions = new HashMap<>();
         templateOptions.put("ipOptions", TEST_NETWORK_NAME);
 
@@ -212,21 +212,19 @@ public class DefaultAzureArmNetworkCreatorTest {
         configBag.put(CLOUD_REGION_ID, TEST_LOCATION);
         configBag.put(TEMPLATE_OPTIONS, templateOptions);
 
-        Map<String, Object> configCopy = configBag.getAllConfig();
-
-        DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
-
-        //Ensure nothing changed, and no calls were made to the compute service
-        assertEquals(configCopy, configBag.getAllConfig());
-        Mockito.verifyZeroInteractions(computeService);
+        runAssertingNoIteractions(configBag);
     }
 
     @Test
-    public void testConfigDisabled() {
+    public void testConfigDisabled() throws Exception {
         ConfigBag configBag = ConfigBag.newInstance();
         configBag.put(CLOUD_REGION_ID, TEST_LOCATION);
         configBag.put(AZURE_ARM_DEFAULT_NETWORK_ENABLED, false);
 
+        runAssertingNoIteractions(configBag);
+    }
+    
+    protected void runAssertingNoIteractions(ConfigBag configBag) throws Exception {
         Map<String, Object> configCopy = configBag.getAllConfig();
 
         DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
