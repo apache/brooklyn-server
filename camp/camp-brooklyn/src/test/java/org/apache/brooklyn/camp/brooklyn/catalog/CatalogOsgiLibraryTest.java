@@ -25,6 +25,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
@@ -58,7 +59,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.io.BaseEncoding;
 
 public class CatalogOsgiLibraryTest extends AbstractYamlTest {
@@ -421,7 +421,12 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
     }
     
     protected void assertCatalogLibraryUrl(CatalogItem<?,?> item, String expectedUrl) {
-        CatalogBundle library = Iterables.getOnlyElement(item.getLibraries());
-        assertEquals(library.getUrl(), expectedUrl);
+        for (CatalogBundle b: item.getLibraries()) {
+            if (Objects.equals(b.getUrl(), expectedUrl)) {
+                return;
+            }
+        }
+        Assert.fail("No library found with URL "+expectedUrl);
     }
+    
 }

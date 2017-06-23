@@ -121,6 +121,7 @@ public class CatalogBundleLoader {
         }
     }
 
+    // TODO remove; now that the bundle is passed through we can add it in the catalog
     private String addLibraryDetails(Bundle bundle, String bomText) {
         @SuppressWarnings("unchecked")
         final Map<String, Object> bom = (Map<String, Object>) Iterables.getOnlyElement(Yamls.parseAll(bomText));
@@ -142,7 +143,12 @@ public class CatalogBundleLoader {
 
     private void addLibraryDetails(Bundle bundle, Map<String, Object> catalog) {
         if (!catalog.containsKey(CatalogBundleLoader.BROOKLYN_LIBRARIES)) {
-            catalog.put(CatalogBundleLoader.BROOKLYN_LIBRARIES, MutableList.of());
+            if (catalog.containsKey("libraries")) {
+                // legacy name
+                catalog.put(CatalogBundleLoader.BROOKLYN_LIBRARIES, catalog.remove("libraries"));
+            } else {
+                catalog.put(CatalogBundleLoader.BROOKLYN_LIBRARIES, MutableList.of());
+            }
         }
         final Object librarySpec = catalog.get(CatalogBundleLoader.BROOKLYN_LIBRARIES);
         if (!(librarySpec instanceof List)) {

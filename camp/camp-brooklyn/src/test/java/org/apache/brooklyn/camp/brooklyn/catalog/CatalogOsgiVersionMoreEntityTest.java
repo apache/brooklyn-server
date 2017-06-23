@@ -28,12 +28,14 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
+import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynEntityMatcher;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiVersionMoreEntityTest;
@@ -75,8 +77,8 @@ public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest implement
         
         // bundle installed
         Map<String, ManagedBundle> bundles = ((ManagementContextInternal)mgmt()).getOsgiManager().get().getManagedBundles();
-        Asserts.assertSize(bundles.keySet(), 1);
-        Assert.assertEquals(br.getMetadata().getId(), Iterables.getOnlyElement( bundles.keySet() ));
+        Asserts.assertSize(bundles.keySet(), 1 + (BasicBrooklynCatalog.AUTO_WRAP_CATALOG_YAML_AS_BUNDLE ? 1 : 0));
+        Assert.assertTrue(bundles.keySet().contains( br.getMetadata().getId() ));
         
         // types installed
         RegisteredType t = mgmt().getTypeRegistry().get(BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
@@ -96,7 +98,7 @@ public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest implement
         Assert.assertNotNull(item);
         Assert.assertEquals(item.getVersion(), "1.0");
         Assert.assertTrue(RegisteredTypePredicates.IS_ENTITY.apply(item));
-        Assert.assertEquals(item.getLibraries().size(), 1);
+        Assert.assertEquals(item.getLibraries().size(), 1 + (BasicBrooklynCatalog.AUTO_WRAP_CATALOG_YAML_AS_BUNDLE ? 1 : 0));
         
         Entity app = createAndStartApplication("services: [ { type: 'more-entity:1.0' } ]");
         Entity moreEntity = Iterables.getOnlyElement(app.getChildren());
@@ -220,7 +222,7 @@ public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest implement
         // this refers to the java item, where the libraries are defined
         item = mgmt().getTypeRegistry().get("org.apache.brooklyn.test.osgi.entities.more.MoreEntity");
         Assert.assertEquals(item.getVersion(), "2.0.test_java");
-        Assert.assertEquals(item.getLibraries().size(), 2);
+        Assert.assertEquals(item.getLibraries().size(), 2 + (BasicBrooklynCatalog.AUTO_WRAP_CATALOG_YAML_AS_BUNDLE ? 1 : 0));
         
         Entity app = createAndStartApplication("services: [ { type: 'more-entity:2.0.test' } ]");
         Entity moreEntity = Iterables.getOnlyElement(app.getChildren());
@@ -247,7 +249,7 @@ public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest implement
         // this refers to the java item, where the libraries are defined
         item = mgmt().getTypeRegistry().get("org.apache.brooklyn.test.osgi.entities.more.MorePolicy");
         Assert.assertEquals(item.getVersion(), "2.0.test_java");
-        Assert.assertEquals(item.getLibraries().size(), 2);
+        Assert.assertEquals(item.getLibraries().size(), 2 + (BasicBrooklynCatalog.AUTO_WRAP_CATALOG_YAML_AS_BUNDLE ? 1 : 0));
         
         Entity app = createAndStartApplication(
                 "services: ",

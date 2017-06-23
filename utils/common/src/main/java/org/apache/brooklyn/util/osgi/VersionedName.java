@@ -96,6 +96,13 @@ public class VersionedName {
     }
 
     @Nullable
+    public String getOsgiVersionString() {
+        Version ov = getOsgiVersion();
+        if (ov==null) return null;
+        return ov.toString();
+    }
+
+    @Nullable
     public String getVersionString() {
         return v;
     }

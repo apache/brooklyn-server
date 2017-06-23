@@ -21,12 +21,20 @@ package org.apache.brooklyn.core.catalog.internal;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.jar.Attributes;
+import java.util.jar.Manifest;
+import java.util.zip.ZipEntry;
 
 import javax.annotation.Nullable;
 
@@ -40,9 +48,13 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.CatalogClasspathDo.CatalogScanningModes;
 import org.apache.brooklyn.core.location.BasicLocationRegistry;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.CampYamlParser;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer;
@@ -52,6 +64,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
@@ -60,15 +73,18 @@ import org.apache.brooklyn.util.javalang.AggregateClassLoader;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.LoadedClassLoader;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.brooklyn.util.yaml.Yamls.YamlExtract;
+import org.osgi.framework.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -86,8 +102,19 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     public static final String POLICIES_KEY = "brooklyn.policies";
     public static final String ENRICHERS_KEY = "brooklyn.enrichers";
     public static final String LOCATIONS_KEY = "brooklyn.locations";
-    public static final String NO_VERSION = "0.0.0.SNAPSHOT";
+    public static final String NO_VERSION = "0.0.0-SNAPSHOT";
 
+    public static final String CATALOG_BOM = "catalog.bom";
+    // should always be 1.0; see bottom of
+    // http://www.eclipse.org/virgo/documentation/virgo-documentation-3.7.0.M01/docs/virgo-user-guide/html/ch02s02.html
+    // (some things talk of 2.0, but haven't investigated that)
+    public static final String OSGI_MANIFEST_VERSION_VALUE = "1.0";
+
+    /** Header on bundle indicating it is a wrapped BOM with no other resources */
+    public static final String BROOKLYN_WRAPPED_BOM_BUNDLE = "Brooklyn-Wrapped-BOM";
+    @VisibleForTesting
+    public static final boolean AUTO_WRAP_CATALOG_YAML_AS_BUNDLE = true;
+    
     private static final Logger log = LoggerFactory.getLogger(BasicBrooklynCatalog.class);
 
     public static class BrooklynLoaderTracker {
@@ -415,9 +442,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return (Maybe) getFirstAs(map, Map.class, firstKey, otherKeys);
     }
 
-    private List<CatalogItemDtoAbstract<?,?>> collectCatalogItems(String yaml) {
+    private List<CatalogItemDtoAbstract<?,?>> collectCatalogItems(String yaml, ManagedBundle containingBundle) {
         List<CatalogItemDtoAbstract<?, ?>> result = MutableList.of();
-        collectCatalogItems(yaml, result, ImmutableMap.of());
+        collectCatalogItems(yaml, containingBundle, result, ImmutableMap.of());
         return result;
     }
 
@@ -449,7 +476,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return new VersionedName(bundle, version);
     }
 
-    private void collectCatalogItems(String yaml, List<CatalogItemDtoAbstract<?, ?>> result, Map<?, ?> parentMeta) {
+    private void collectCatalogItems(String yaml, ManagedBundle containingBundle, List<CatalogItemDtoAbstract<?, ?>> result, Map<?, ?> parentMeta) {
         Map<?,?> itemDef = Yamls.getAs(Yamls.parseAll(yaml), Map.class);
         Map<?,?> catalogMetadata = getFirstAsMap(itemDef, "brooklyn.catalog").orNull();
         if (catalogMetadata==null)
@@ -457,7 +484,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         catalogMetadata = MutableMap.copyOf(catalogMetadata);
 
         collectCatalogItems(Yamls.getTextOfYamlAtPath(yaml, "brooklyn.catalog").getMatchedYamlTextOrWarn(), 
-            catalogMetadata, result, parentMeta);
+            containingBundle, catalogMetadata, result, parentMeta, 0);
         
         itemDef.remove("brooklyn.catalog");
         catalogMetadata.remove("item");
@@ -472,12 +499,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 if (rootItemYaml.startsWith(match)) rootItemYaml = Strings.removeFromStart(rootItemYaml, match);
                 else rootItemYaml = Strings.replaceAllNonRegex(rootItemYaml, "\n"+match, "");
             }
-            collectCatalogItems("item:\n"+makeAsIndentedObject(rootItemYaml), rootItem, result, catalogMetadata);
+            collectCatalogItems("item:\n"+makeAsIndentedObject(rootItemYaml), containingBundle, rootItem, result, catalogMetadata, 1);
         }
     }
 
     @SuppressWarnings("unchecked")
-    private void collectCatalogItems(String sourceYaml, Map<?,?> itemMetadata, List<CatalogItemDtoAbstract<?, ?>> result, Map<?,?> parentMetadata) {
+    private void collectCatalogItems(String sourceYaml, ManagedBundle containingBundle, Map<?,?> itemMetadata, List<CatalogItemDtoAbstract<?, ?>> result, Map<?,?> parentMetadata, int depth) {
 
         if (sourceYaml==null) sourceYaml = new Yaml().dump(itemMetadata);
 
@@ -528,13 +555,35 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (scanJavaAnnotations==null || !scanJavaAnnotations) {
             // don't scan
         } else {
-            // scan for annotations: if libraries here, scan them; if inherited libraries error; else scan classpath
-            if (!libraryBundlesNew.isEmpty()) {
-                result.addAll(scanAnnotationsFromBundles(mgmt, libraryBundlesNew, catalogMetadata));
-            } else if (libraryBundles.isEmpty()) {
-                result.addAll(scanAnnotationsFromLocal(mgmt, catalogMetadata));
+            if (isNoBundleOrSimpleWrappingBundle(containingBundle)) {
+                // BOMs wrapped in JARs, or without JARs, have special treatment
+                if (isLibrariesMoreThanJustContainingBundle(libraryBundlesNew, containingBundle)) {
+                    // legacy mode, since 0.12.0, scan libraries referenced in a legacy non-bundle BOM
+                    log.warn("Deprecated use of scanJavaAnnotations to scan other libraries ("+libraryBundlesNew+"); libraries should declare they scan themselves");
+                    result.addAll(scanAnnotationsFromBundles(mgmt, libraryBundlesNew, catalogMetadata));
+                } else if (!isLibrariesMoreThanJustContainingBundle(libraryBundles, containingBundle)) {
+                    // for default catalog, no libraries declared, we want to scan local classpath
+                    // bundle should be named "brooklyn-default-catalog"
+                    if (containingBundle!=null && !containingBundle.getSymbolicName().contains("brooklyn-default-catalog")) {
+                        // a user uplaoded a BOM trying to tell us to do a local java scan; previously supported but becoming unsupported
+                        log.warn("Deprecated use of scanJavaAnnotations in non-Java BOM outwith the default catalog setup"); 
+                    } else if (depth>0) {
+                        // since 0.12.0, require this to be right next to where libraries are defined, or at root
+                        log.warn("Deprecated use of scanJavaAnnotations declared in item; should be declared at the top level of the BOM");
+                    }
+                    result.addAll(scanAnnotationsFromLocal(mgmt, catalogMetadata));
+                } else {
+                    throw new IllegalStateException("Cannot scan for Java catalog items when libraries declared on an ancestor; scanJavaAnnotations should be specified alongside brooklyn.libraries (or ideally those libraries should specify to scan)");
+                }
             } else {
-                throw new IllegalStateException("Cannot scan catalog node no local bundles, and with inherited bundles we will not scan the classpath");
+                if (depth>0) {
+                    // since 0.12.0, require this to be right next to where libraries are defined, or at root
+                    log.warn("Deprecated use of scanJavaAnnotations declared in item; should be declared at the top level of the BOM");
+                }
+                // normal JAR install, only scan that bundle (the one containing the catalog.bom)
+                result.addAll(scanAnnotationsFromBundles(mgmt, MutableList.of(containingBundle), catalogMetadata));
+                // TODO above (scanning a ZIP uploaded) won't work yet because scan routines need a URL
+                // TODO are libraries installed properly, such that they are now managed and their catalog.bom's are scanned ?
             }
         }
         
@@ -546,18 +595,18 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             int count = 0;
             for (Object ii: checkType(items, "items", List.class)) {
                 if (ii instanceof String) {
-                    collectUrlReferencedCatalogItems((String) ii, result, catalogMetadata);
+                    collectUrlReferencedCatalogItems((String) ii, containingBundle, result, catalogMetadata);
                 } else {
                     Map<?,?> i = checkType(ii, "entry in items list", Map.class);
                     collectCatalogItems(Yamls.getTextOfYamlAtPath(sourceYaml, "items", count).getMatchedYamlTextOrWarn(),
-                            i, result, catalogMetadata);
+                            containingBundle, i, result, catalogMetadata, depth+1);
                 }
                 count++;
             }
         }
 
         if (url != null) {
-            collectUrlReferencedCatalogItems(checkType(url, "include in catalog meta", String.class), result, catalogMetadata);
+            collectUrlReferencedCatalogItems(checkType(url, "include in catalog meta", String.class), containingBundle, result, catalogMetadata);
         }
 
         if (item==null) return;
@@ -594,7 +643,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         itemType = planInterpreter.getCatalogItemType();
         Map<?, ?> itemAsMap = planInterpreter.getItem();
         // the "plan yaml" includes the services: ... or brooklyn.policies: ... outer key,
-        // as opposed to the rawer { type: xxx } map without that outer key which is valid as item input
+        // as opposed to the rawer { type: foo } map without that outer key which is valid as item input
         // TODO this plan yaml is needed for subsequent reconstruction; would be nicer if it weren't! 
 
         // if symname not set, infer from: id, then name, then item id, then item name
@@ -738,7 +787,21 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         result.add(dto);
     }
 
-    private void collectUrlReferencedCatalogItems(String url, List<CatalogItemDtoAbstract<?, ?>> result, Map<Object, Object> parentMeta) {
+    private boolean isLibrariesMoreThanJustContainingBundle(Collection<CatalogBundle> library, ManagedBundle containingBundle) {
+        if (library==null) return false;
+        if (containingBundle==null) return !library.isEmpty();
+        if (library.size()>1) return true;
+        CatalogBundle li = Iterables.getOnlyElement(library);
+        return !containingBundle.getVersionedName().equalsOsgi(li.getVersionedName());
+    }
+
+    private boolean isNoBundleOrSimpleWrappingBundle(ManagedBundle b) {
+        if (b==null) return true;
+        String wrapped = ((ManagementContextInternal)mgmt).getOsgiManager().get().findBundle(b).get().getHeaders().get(BROOKLYN_WRAPPED_BOM_BUNDLE);
+        return wrapped!=null && wrapped.equalsIgnoreCase("true");
+    }
+
+    private void collectUrlReferencedCatalogItems(String url, ManagedBundle containingBundle, List<CatalogItemDtoAbstract<?, ?>> result, Map<Object, Object> parentMeta) {
         @SuppressWarnings("unchecked")
         List<?> parentLibrariesRaw = MutableList.copyOf(getFirstAs(parentMeta, List.class, "brooklyn.libraries", "libraries").orNull());
         Collection<CatalogBundle> parentLibraries = CatalogItemDtoAbstract.parseLibraries(parentLibrariesRaw);
@@ -750,7 +813,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             Exceptions.propagateIfFatal(e);
             throw new IllegalStateException("Remote catalog url " + url + " can't be fetched.", e);
         }
-        collectCatalogItems(yaml, result, parentMeta);
+        collectCatalogItems(yaml, containingBundle, result, parentMeta);
     }
 
     @SuppressWarnings("unchecked")
@@ -774,14 +837,16 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return scanAnnotationsInternal(mgmt, new CatalogDo(dto), catalogMetadata);
     }
     
-    private Collection<CatalogItemDtoAbstract<?, ?>> scanAnnotationsFromBundles(ManagementContext mgmt, Collection<CatalogBundle> libraries, Map<?, ?> catalogMetadata) {
+    private Collection<CatalogItemDtoAbstract<?, ?>> scanAnnotationsFromBundles(ManagementContext mgmt, Collection<? extends OsgiBundleWithUrl> libraries, Map<?, ?> catalogMetadata) {
         CatalogDto dto = CatalogDto.newNamedInstance("Bundles Scanned Catalog", "All annotated Brooklyn entities detected in bundles", "scanning-bundles-classpath-"+libraries.hashCode());
         List<String> urls = MutableList.of();
-        for (CatalogBundle b: libraries) {
+        for (OsgiBundleWithUrl b: libraries) {
             // TODO currently does not support pre-installed bundles identified by name:version 
             // (ie where URL not supplied)
             if (Strings.isNonBlank(b.getUrl())) {
                 urls.add(b.getUrl());
+            } else {
+                log.warn("scanJavaAnnotations does not apply to pre-installed bundles; skipping "+b);
             }
         }
         
@@ -1060,14 +1125,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
     @Override
     public List<? extends CatalogItem<?,?>> addItems(String yaml) {
-        return addItems(yaml, null);
+        return addItems(yaml, false);
     }
     
-    @Override
-    public List<? extends CatalogItem<?, ?>> addItems(String yaml, ManagedBundle bundle) {
-        return addItems(yaml, bundle, false);
-    }
-
     @Override
     public CatalogItem<?,?> addItem(String yaml, boolean forceUpdate) {
         return Iterables.getOnlyElement(addItems(yaml, forceUpdate));
@@ -1075,13 +1135,74 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     
     @Override
     public List<? extends CatalogItem<?,?>> addItems(String yaml, boolean forceUpdate) {
+        Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager();
+        if (osgiManager.isPresent() && AUTO_WRAP_CATALOG_YAML_AS_BUNDLE) {
+            // TODO wrap in a bundle to be managed; need to get bundle and version from yaml
+            Map<?, ?> cm = BasicBrooklynCatalog.getCatalogMetadata(yaml);
+            VersionedName vn = BasicBrooklynCatalog.getVersionedName( cm, false );
+            if (vn==null) {
+                // for better legacy compatibiity, if id specified at root use that
+                String id = (String) cm.get("id");
+                if (Strings.isNonBlank(id)) {
+                    vn = VersionedName.fromString(id);
+                }
+                vn = new VersionedName(vn!=null && Strings.isNonBlank(vn.getSymbolicName()) ? vn.getSymbolicName() : "brooklyn-catalog-bom-"+Identifiers.makeRandomId(8), 
+                    vn!=null && vn.getVersionString()!=null ? vn.getVersionString() : getFirstAs(cm, String.class, "version").or(NO_VERSION));
+            }
+            Manifest mf = new Manifest();
+            mf.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, vn.getSymbolicName());
+            mf.getMainAttributes().putValue(Constants.BUNDLE_VERSION, vn.getOsgiVersionString() );
+            mf.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), OSGI_MANIFEST_VERSION_VALUE);
+            mf.getMainAttributes().putValue(BROOKLYN_WRAPPED_BOM_BUNDLE, Boolean.TRUE.toString());
+            
+            BundleMaker bm = new BundleMaker(mgmt);
+            File bf = bm.createTempBundle(vn.getSymbolicName(), mf, MutableMap.of(
+                new ZipEntry(CATALOG_BOM), (InputStream) new ByteArrayInputStream(yaml.getBytes())) );
+
+            OsgiBundleInstallationResult result = null;
+            try {
+                result = osgiManager.get().install(null, new FileInputStream(bf), true, true, forceUpdate).get();
+            } catch (FileNotFoundException e) {
+                throw Exceptions.propagate(e);
+            }
+            bf.delete();
+            if (result.getCode().isError() || result.getCode()==ResultCode.IGNORING_BUNDLE_AREADY_INSTALLED) {
+                // if we're wrapping YAML then we don't allow equivalent YAML to be pasted
+                // TODO remove this once we have better bundle equivalence checks
+                throw new IllegalStateException(result.getMessage());
+            }
+            return toItems(result.getCatalogItemsInstalled());
+            
+            // TODO check if we've overridden all items pertaining to an older anonymous catalog.bom bundle
+            // we could remove references to that anonymous bundle; 
+            // without this currently we leak bundles as bom's are replaced
+            // (because we persist each item as well as the bundle, and we use the item XML on rebind, 
+            // rather than rereading the catalog.bom from the bundle, there isn't currently a risk of loading
+            // any of those overwritten items; however probably wise in future to require a bundle ID)
+        }
+        // fallback to non-OSGi for tests and other environments
         return addItems(yaml, null, forceUpdate);
+    }
+    
+    @SuppressWarnings("deprecation")
+    private List<CatalogItem<?,?>> toItems(Iterable<String> itemIds) {
+        List<CatalogItem<?,?>> result = MutableList.of();
+        for (String id: itemIds) {
+            // TODO prefer to use RegisteredType, but that's an API change here
+            result.add(CatalogUtils.getCatalogItemOptionalVersion(mgmt, id));
+        }
+        return result;
+    }
+    
+    @Override
+    public List<? extends CatalogItem<?, ?>> addItems(String yaml, ManagedBundle bundle) {
+        return addItems(yaml, bundle, false);
     }
     
     private List<? extends CatalogItem<?,?>> addItems(String yaml, ManagedBundle bundle, boolean forceUpdate) {
         log.debug("Adding manual catalog item to "+mgmt+": "+yaml);
         checkNotNull(yaml, "yaml");
-        List<CatalogItemDtoAbstract<?, ?>> result = collectCatalogItems(yaml);
+        List<CatalogItemDtoAbstract<?, ?>> result = collectCatalogItems(yaml, bundle);
 
         // do this at the end for atomic updates; if there are intra-yaml references, we handle them specially
         for (CatalogItemDtoAbstract<?, ?> item: result) {

@@ -29,6 +29,7 @@ import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
+import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
@@ -39,6 +40,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 public class SpecParameterParsingOsgiTest extends AbstractYamlTest {
 
@@ -82,16 +84,34 @@ public class SpecParameterParsingOsgiTest extends AbstractYamlTest {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_V2_PATH);
 
         addCatalogItems("brooklyn.catalog:",
+            "    bundle: test-items",
+            "    version: 2.0-test_java",
             "    items:",
             "    - scanJavaAnnotations: true",
-            "      version: 2.0.test_java",
+            "      item:",
+            "        id: here-item",
+            "        type: "+OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY,
             "      libraries:",
             "      - classpath://" + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH,
             "      - classpath://" + OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_V2_PATH);
 
+        RegisteredType hereItem = mgmt().getTypeRegistry().get("here-item");
+        assertEquals(hereItem.getVersion(), "2.0-test_java");
+        assertEquals(hereItem.getLibraries().size(), 3);
+        assertEquals(hereItem.getContainingBundle(), "test-items:2.0-test_java");
+        
         RegisteredType item = mgmt().getTypeRegistry().get(OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
-        assertEquals(item.getVersion(), "2.0.test_java");
-        assertEquals(item.getLibraries().size(), 2);
+        // since 0.12.0 items now installed with version from bundle, not inherited from the version here
+        assertEquals(item.getVersion(), BrooklynVersion.get());
+        // since 0.12.0 library bundles (correctly) don't inherit libraries from caller
+        assertEquals(item.getLibraries().size(), 1);
+        assertEquals(Iterables.getOnlyElement(item.getLibraries()).getVersionedName().toString(), 
+            OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_SYMBOLIC_NAME_FULL+":"+"0.2.0");
+        
+        assertEquals(item.getContainingBundle(), OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_SYMBOLIC_NAME_FULL+":"+"0.2.0");
+        
+        // TODO assertions above should be in separate test
+        
         AbstractBrooklynObjectSpec<?,?> spec = createSpec(item);
         List<SpecParameter<?>> inputs = spec.getParameters();
         if (inputs.isEmpty()) Assert.fail("no inputs (if you're in the IDE, mvn clean install may need to be run to rebuild osgi test JARs)");

@@ -23,6 +23,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 
 public class CatalogBundleDto implements CatalogBundle {
@@ -67,7 +68,13 @@ public class CatalogBundleDto implements CatalogBundle {
     public String getOsgiVersionString() {
         return version==null ? version : BrooklynVersionSyntax.toValidOsgiVersion(version);
     }
-
+    
+    @Override
+    public VersionedName getVersionedName() {
+        if (!isNameResolved()) return null;
+        return new VersionedName(getSymbolicName(), getSuppliedVersionString());
+    }
+    
     @Override
     public String getUrl() {
         return url;

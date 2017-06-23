@@ -55,8 +55,6 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
             Preconditions.checkNotNull(name, "Either a URL or both name and version are required");
             Preconditions.checkNotNull(version, "Either a URL or both name and version are required");
         }
-        Version.parseVersion(version);
-        
         this.symbolicName = name;
         this.version = version;
         this.url = url;

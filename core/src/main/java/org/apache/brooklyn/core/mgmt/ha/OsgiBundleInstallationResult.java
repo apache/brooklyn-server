@@ -37,11 +37,17 @@ public class OsgiBundleInstallationResult {
     Runnable deferredStart;
     
     public enum ResultCode { 
-        INSTALLED_NEW_BUNDLE,
-        UPDATED_EXISTING_BUNDLE, 
-        IGNORING_BUNDLE_AREADY_INSTALLED, 
-        ERROR_PREPARING_BUNDLE,
-        ERROR_INSTALLING_BUNDLE 
+        INSTALLED_NEW_BUNDLE(false),
+        UPDATED_EXISTING_BUNDLE(false),
+        // TODO if bundle installed is different to bundle supplied we should flag an error
+        IGNORING_BUNDLE_AREADY_INSTALLED(false), 
+        ERROR_PREPARING_BUNDLE(true),
+        ERROR_INSTALLING_BUNDLE(true);
+        
+        final boolean isError;
+        ResultCode(boolean isError) { this.isError = isError; }
+        
+        public boolean isError() { return isError; }
     }
     final List<String> catalogItemsInstalled = MutableList.of();
     

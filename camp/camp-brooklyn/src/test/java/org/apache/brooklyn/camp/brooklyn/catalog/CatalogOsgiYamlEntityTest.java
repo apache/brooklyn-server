@@ -243,9 +243,9 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
                 "  - name: io.brooklyn.brooklyn-test-osgi-entities",
                 "  item:",
                 "    type: " + SIMPLE_ENTITY_TYPE);
-            fail();
-        } catch (NullPointerException e) {
-            Assert.assertEquals(e.getMessage(), "both name and version are required");
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "both name and version are required");
         }
         try {
             addCatalogItems(
@@ -257,9 +257,9 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
                 "  - version: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_VERSION,
                 "  item:",
                 "    type: " + SIMPLE_ENTITY_TYPE);
-            fail();
-        } catch (NullPointerException e) {
-            Assert.assertEquals(e.getMessage(), "both name and version are required");
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "both name and version are required");
         }
     }
 

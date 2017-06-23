@@ -59,10 +59,6 @@ class OsgiArchiveInstaller {
 
     private static final Logger log = LoggerFactory.getLogger(OsgiArchiveInstaller.class);
     
-    // must be 1.0; see bottom of
-    // http://www.eclipse.org/virgo/documentation/virgo-documentation-3.7.0.M01/docs/virgo-user-guide/html/ch02s02.html
-    private static final String OSGI_MANIFEST_VERSION_VALUE = "1.0";
-
     final private OsgiManager osgiManager;
     private ManagedBundle suppliedKnownBundleMetadata;
     private InputStream zipIn;
@@ -185,9 +181,9 @@ class OsgiArchiveInstaller {
             } catch (IOException e) {
                 throw new IllegalArgumentException("Invalid ZIP/JAR archive: "+e);
             }
-            ZipEntry bom = zf.getEntry("catalog.bom");
+            ZipEntry bom = zf.getEntry(BasicBrooklynCatalog.CATALOG_BOM);
             if (bom==null) {
-                bom = zf.getEntry("/catalog.bom");
+                bom = zf.getEntry("/"+BasicBrooklynCatalog.CATALOG_BOM);
             }
             if (bom==null) {
                 if (isCatalogBomRequired) {
@@ -231,7 +227,7 @@ class OsgiArchiveInstaller {
             throw new IllegalArgumentException("Missing bundle version in BOM or MANIFEST");
         }
         if (discoveredManifest.getMainAttributes().getValue(Attributes.Name.MANIFEST_VERSION)==null) {
-            discoveredManifest.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), OSGI_MANIFEST_VERSION_VALUE);
+            discoveredManifest.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), BasicBrooklynCatalog.OSGI_MANIFEST_VERSION_VALUE);
             manifestNeedsUpdating = true;                
         }
         if (manifestNeedsUpdating) {
