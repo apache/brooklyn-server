@@ -67,7 +67,9 @@ public interface CatalogApi {
             @ApiResponse(code = 400, message = "Error processing the given YAML"),
             @ApiResponse(code = 201, message = "Catalog items added successfully")
     })
-    public Response create(String yaml, @QueryParam("forceUpdate") @DefaultValue("false") boolean forceUpdate);
+    public Response create(String yaml,
+            @ApiParam(name="forceUpdate", value="Force update of catalog item (overwriting existing catalog items with same name and version)")
+            @QueryParam("forceUpdate") @DefaultValue("false") boolean forceUpdate);
 
     @POST
     @Consumes({MediaType.APPLICATION_JSON, "application/x-yaml",
@@ -86,6 +88,7 @@ public interface CatalogApi {
     public Response createFromYaml(
             @ApiParam(name = "yaml", value = "YAML descriptor of catalog item", required = true)
             @Valid String yaml,
+            @ApiParam(name="forceUpdate", value="Force update of catalog item (overwriting existing catalog items with same name and version)")
             @QueryParam("forceUpdate") @DefaultValue("false")
             boolean forceUpdate);
 
@@ -121,6 +124,7 @@ public interface CatalogApi {
             @ApiParam(name="detail", value="Provide a wrapping details map", required=false)
             @QueryParam("detail") @DefaultValue("false")
             boolean detail,
+            @ApiParam(name="forceUpdate", value="Force update of catalog item (overwriting existing catalog items with same name and version)")
             @QueryParam("forceUpdate") @DefaultValue("false")
             boolean forceUpdate);
 
@@ -145,6 +149,7 @@ public interface CatalogApi {
                     value = "Item to install, as JAR/ZIP or Catalog YAML (autodetected)",
                     required = true)
                     byte[] item,
+            @ApiParam(name="forceUpdate", value="Force update of catalog item (overwriting existing catalog items with same name and version)")
             @QueryParam("forceUpdate") @DefaultValue("false")
                     boolean forceUpdate);
     
