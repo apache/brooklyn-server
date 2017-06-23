@@ -115,7 +115,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
 
     @Override
     @Beta
-    public Response createFromUpload(byte[] item) {
+    public Response createFromUpload(byte[] item, boolean forceUpdate) {
         Throwable yamlException = null;
         try {
             MutableList.copyOf( Yamls.parseAll(new InputStreamReader(new ByteArrayInputStream(item))) );
@@ -126,27 +126,27 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         
         if (yamlException==null) {
             // treat as yaml if it parsed
-            return createFromYaml(new String(item));
+            return createFromYaml(new String(item), forceUpdate);
         }
         
-        return createFromArchive(item, false);
+        return createFromArchive(item, false, forceUpdate);
     }
     
     @Override
     @Deprecated
-    public Response create(String yaml) {
-        return createFromYaml(yaml);
+    public Response create(String yaml, boolean forceUpdate) {
+        return createFromYaml(yaml, forceUpdate);
     }
     
     @Override
-    public Response createFromYaml(String yaml) {
+    public Response createFromYaml(String yaml, boolean forceUpdate) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_CATALOG_ITEM, yaml)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item",
                 Entitlements.getEntitlementContext().user());
         }
 
         try {
-            final Iterable<? extends CatalogItem<?, ?>> items = brooklyn().getCatalog().addItems(yaml);
+            final Iterable<? extends CatalogItem<?, ?>> items = brooklyn().getCatalog().addItems(yaml, forceUpdate);
             return buildCreateResponse(items);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
@@ -190,14 +190,22 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     
     @Override
     @Beta
-    public Response createFromArchive(byte[] zipInput, boolean detail) {
+    public Response createFromArchive(byte[] zipInput, boolean detail, boolean forceUpdate) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ROOT, null)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item",
                 Entitlements.getEntitlementContext().user());
         }
 
         ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
-            .install(new ByteArrayInputStream(zipInput));
+            .install(null, new ByteArrayInputStream(zipInput), true, true, forceUpdate);
+
+        if (OsgiBundleInstallationResult.ResultCode.IGNORING_BUNDLE_AREADY_INSTALLED.equals(result.getWithoutError().getCode())) {
+            result = ReferenceWithError.newInstanceThrowingError(result.getWithoutError(), new IllegalStateException(
+                    "Updating existing catalog entries is forbidden: " +
+                    result.getWithoutError().getMetadata().getSymbolicName() + ":" +
+                    result.getWithoutError().getMetadata().getVersion() +
+                    ". Use forceUpdate argument to override."));
+        }
         
         if (result.hasError()) {
             return ApiError.builder().errorCode(Status.BAD_REQUEST).message(result.getWithoutError().getMessage())

@@ -67,7 +67,7 @@ public interface CatalogApi {
             @ApiResponse(code = 400, message = "Error processing the given YAML"),
             @ApiResponse(code = 201, message = "Catalog items added successfully")
     })
-    public Response create(String yaml);
+    public Response create(String yaml, @QueryParam("forceUpdate") @DefaultValue("false") boolean forceUpdate);
 
     @POST
     @Consumes({MediaType.APPLICATION_JSON, "application/x-yaml",
@@ -85,7 +85,9 @@ public interface CatalogApi {
     })
     public Response createFromYaml(
             @ApiParam(name = "yaml", value = "YAML descriptor of catalog item", required = true)
-            @Valid String yaml);
+            @Valid String yaml,
+            @QueryParam("forceUpdate") @DefaultValue("false")
+            boolean forceUpdate);
 
     @Beta
     /* TODO the polymorphic return type dependent on 'detail' is ugly, 
@@ -118,7 +120,9 @@ public interface CatalogApi {
             byte[] archive,
             @ApiParam(name="detail", value="Provide a wrapping details map", required=false)
             @QueryParam("detail") @DefaultValue("false")
-            boolean detail);
+            boolean detail,
+            @QueryParam("forceUpdate") @DefaultValue("false")
+            boolean forceUpdate);
 
     @Beta
     @POST
@@ -140,7 +144,9 @@ public interface CatalogApi {
                     name = "item",
                     value = "Item to install, as JAR/ZIP or Catalog YAML (autodetected)",
                     required = true)
-                    byte[] item);
+                    byte[] item,
+            @QueryParam("forceUpdate") @DefaultValue("false")
+                    boolean forceUpdate);
     
     @DELETE
     @Path("/applications/{symbolicName}/{version}")
