@@ -149,9 +149,9 @@ public class MembershipTrackingPolicyTest extends BrooklynAppUnitTestSupport {
     
     @Test
     public void testDeprecatedSetGroupWorks() throws Exception {
-        RecordingMembershipTrackingPolicy policy2 = new RecordingMembershipTrackingPolicy(MutableMap.of("sensorsToTrack", ImmutableSet.of(TestEntity.NAME)));
-        group.policies().add(policy2);
-        policy2.setGroup(group);
+        RecordingMembershipTrackingPolicy policy2 = group.policies().add(PolicySpec.create(RecordingMembershipTrackingPolicy.class)
+                .configure(RecordingMembershipTrackingPolicy.GROUP, group)
+                .configure("sensorsToTrack", ImmutableSet.of(TestEntity.NAME)));
 
         TestEntity e1 = createAndManageChildOf(group);
         e1.sensors().set(TestEntity.NAME, "myname");
@@ -255,14 +255,8 @@ public class MembershipTrackingPolicyTest extends BrooklynAppUnitTestSupport {
     public static class RecordingMembershipTrackingPolicy extends AbstractMembershipTrackingPolicy {
         final List<Record> records = new CopyOnWriteArrayList<Record>();
 
-        public RecordingMembershipTrackingPolicy() {
-            super();
-        }
+        public RecordingMembershipTrackingPolicy() {}
         
-        public RecordingMembershipTrackingPolicy(MutableMap<String, ?> flags) {
-            super(flags);
-        }
-
         @Override protected void onEntityChange(Entity member) {
             records.add(Record.newChanged(member));
         }

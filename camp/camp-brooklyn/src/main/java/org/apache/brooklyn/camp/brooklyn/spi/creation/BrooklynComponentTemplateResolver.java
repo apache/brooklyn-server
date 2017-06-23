@@ -174,6 +174,8 @@ public class BrooklynComponentTemplateResolver {
                     // TODO propagate exception so we can provide better error messages
                     msgDetails = "The reference " + type + " looks like a URL (running the CAMP Brooklyn assembly-template instantiator) but couldn't load it (missing or invalid syntax?). " +
                             "It's also neither a catalog item nor a java type.";
+                } else if ("brooklyn".equals(proto)){
+                    msgDetails = "The reference " + type + " is not a registered catalog item nor a java type.";
                 } else {
                     msgDetails = "The reference " + type + " looks like a URL (running the CAMP Brooklyn assembly-template instantiator) but the protocol " +
                             proto + " isn't white listed (" + BrooklynCampConstants.YAML_URL_PROTOCOL_WHITELIST + "). " +

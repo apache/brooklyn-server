@@ -23,6 +23,7 @@ import static org.testng.Assert.assertEquals;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
@@ -40,6 +41,7 @@ public class RollingMeanEnricherTest extends BrooklynAppUnitTestSupport {
     RollingMeanEnricher<Integer> averager;
 
     @BeforeMethod(alwaysRun=true)
+    @SuppressWarnings("unchecked")
     @Override
     public void setUp() throws Exception {
         super.setUp();
@@ -49,9 +51,15 @@ public class RollingMeanEnricherTest extends BrooklynAppUnitTestSupport {
         deltaSensor = new BasicAttributeSensor<Integer>(Integer.class, "delta sensor");
         avgSensor = new BasicAttributeSensor<Double>(Double.class, "avg sensor");
         
-        producer.enrichers().add(new DeltaEnricher<Integer>(producer, intSensor, deltaSensor));
-        averager = new RollingMeanEnricher<Integer>(producer, deltaSensor, avgSensor, 4);
-        producer.enrichers().add(averager);
+        producer.enrichers().add(EnricherSpec.create(DeltaEnricher.class)
+                .configure("producer", producer)
+                .configure("source", intSensor)
+                .configure("target", deltaSensor));
+        averager = producer.enrichers().add(EnricherSpec.create(RollingMeanEnricher.class)
+                .configure("producer", producer)
+                .configure("source", intSensor)
+                .configure("target", deltaSensor)
+                .configure("windowSize", 4));
     }
 
     @Test
@@ -60,9 +68,13 @@ public class RollingMeanEnricherTest extends BrooklynAppUnitTestSupport {
     }
     
     @Test
+    @SuppressWarnings("unchecked")
     public void testZeroWindowSize() {
-        averager = new RollingMeanEnricher<Integer>(producer, deltaSensor, avgSensor, 0);
-        producer.enrichers().add(averager);
+        averager = producer.enrichers().add(EnricherSpec.create(RollingMeanEnricher.class)
+                .configure("producer", producer)
+                .configure("source", deltaSensor)
+                .configure("target", avgSensor)
+                .configure("windowSize", 0));
         
         averager.onEvent(intSensor.newEvent(producer, 10));
         assertEquals(averager.getAverage(), null);

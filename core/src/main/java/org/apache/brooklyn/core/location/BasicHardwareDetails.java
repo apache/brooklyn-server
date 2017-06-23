@@ -20,9 +20,9 @@ package org.apache.brooklyn.core.location;
 
 import javax.annotation.concurrent.Immutable;
 
-import com.google.common.base.Objects;
-
 import org.apache.brooklyn.api.location.HardwareDetails;
+
+import com.google.common.base.MoreObjects;
 
 @Immutable
 public class BasicHardwareDetails implements HardwareDetails {
@@ -47,7 +47,7 @@ public class BasicHardwareDetails implements HardwareDetails {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(HardwareDetails.class)
+        return MoreObjects.toStringHelper(HardwareDetails.class)
                 .omitNullValues()
                 .add("cpuCount", cpuCount)
                 .add("ram", ram)

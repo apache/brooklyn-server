@@ -92,6 +92,13 @@ public class VersionComparatorTest {
         assertVersionOrder("0.10.0-SNAPSHOT", "0.10.0.SNAPSHOT", "0.10.0-GA", "0.10.0.GA", "0.10.0");
     }
     
+    @Test
+    public void testIsSnapshot() {
+        Assert.assertTrue(VersionComparator.isSnapshot("0.10.0-SNAPSHOT"));
+        Assert.assertTrue(VersionComparator.isSnapshot("0.10.0.snapshot"));
+        Assert.assertFalse(VersionComparator.isSnapshot("0.10.0"));
+    }
+    
     private static void assertVersionOrder(String v1, String v2, String ...otherVersions) {
         List<String> versions = MutableList.<String>of().append(v1, v2, otherVersions);
         

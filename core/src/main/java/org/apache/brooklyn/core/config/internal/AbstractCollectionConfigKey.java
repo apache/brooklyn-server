@@ -25,6 +25,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.SubElementConfigKey;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -39,7 +40,11 @@ public abstract class AbstractCollectionConfigKey<T, RawT extends Collection<Obj
     private static final long serialVersionUID = 8225955960120637643L;
     private static final Logger log = LoggerFactory.getLogger(AbstractCollectionConfigKey.class);
     
-    public AbstractCollectionConfigKey(Class<T> type, Class<V> subType, String name, String description, T defaultValue) {
+    protected AbstractCollectionConfigKey(BasicConfigKey.Builder<T,?> builder, Class<V> subType) {
+        super(builder, subType);
+    }
+
+    protected AbstractCollectionConfigKey(Class<T> type, Class<V> subType, String name, String description, T defaultValue) {
         super(type, subType, name, description, defaultValue);
     }
 

@@ -43,13 +43,8 @@ public class TestPolicy extends AbstractPolicy {
         .build();
     
     public TestPolicy() {
-        this(Collections.emptyMap());
     }
     
-    public TestPolicy(Map<?, ?> properties) {
-        super(properties);
-    }
-
     public Map<?, ?> getLeftoverProperties() {
         return Collections.unmodifiableMap(leftoverProperties);
     }

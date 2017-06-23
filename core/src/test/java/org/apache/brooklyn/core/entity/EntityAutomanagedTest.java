@@ -39,6 +39,7 @@ import org.apache.brooklyn.test.Asserts;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -299,7 +300,7 @@ public class EntityAutomanagedTest extends BrooklynAppUnitTestSupport {
             
             @Override
             public String toString() {
-                return Objects.toStringHelper(this).add("type", type).add("entity", entity).toString();
+                return MoreObjects.toStringHelper(this).add("type", type).add("entity", entity).toString();
             }
         }
         

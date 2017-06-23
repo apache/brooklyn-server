@@ -19,40 +19,30 @@
 package org.apache.brooklyn.core.location.cloud;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
-import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.location.cloud.names.CustomMachineNamer;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableMap;
 
-public class CustomMachineNamerTest {
+public class CustomMachineNamerTest extends BrooklynAppUnitTestSupport {
     
-    private TestApplication app;
     private TestEntity child;
     private ConfigBag config;
     
     @BeforeMethod(alwaysRun=true)
-    public void setUp() {
-        app = ApplicationBuilder.newManagedApp(EntitySpec.create(TestApplication.class).displayName("TestApp"), LocalManagementContextForTests.newInstance());
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
         child = app.createAndManageChild(EntitySpec.create(TestEntity.class).displayName("TestEnt"));
         config = new ConfigBag()
             .configure(CloudLocationConfig.CALLER_CONTEXT, child);
     }
     
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
-    }
-
     @Test
     public void testMachineNameNoConfig() {
         config.configure(CloudLocationConfig.CALLER_CONTEXT, child);

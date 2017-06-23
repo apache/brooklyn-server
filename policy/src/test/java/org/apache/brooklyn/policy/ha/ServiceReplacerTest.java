@@ -31,7 +31,6 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
@@ -39,15 +38,14 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServiceIndicatorsFromChildrenAndMembers;
 import org.apache.brooklyn.core.entity.trait.FailingEntity;
 import org.apache.brooklyn.core.location.SimulatedLocation;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.group.DynamicCluster;
+import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -55,10 +53,8 @@ import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -68,32 +64,25 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
-public class ServiceReplacerTest {
+public class ServiceReplacerTest extends BrooklynAppUnitTestSupport {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceReplacerTest.class);
     
-    private ManagementContext managementContext;
-    private TestApplication app;
     private SimulatedLocation loc;
     private SensorEventListener<Object> eventListener;
     private List<SensorEvent<?>> events;
     
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
-        managementContext = new LocalManagementContextForTests();
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, managementContext);
-        loc = managementContext.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class));
+        super.setUp();
+        
+        loc = app.newSimulatedLocation();
         events = Lists.newCopyOnWriteArrayList();
         eventListener = new SensorEventListener<Object>() {
             @Override public void onEvent(SensorEvent<Object> event) {
                 events.add(event);
             }
         };
-    }
-    
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (managementContext != null) Entities.destroyAll(managementContext);
     }
     
     @Test
@@ -103,8 +92,8 @@ public class ServiceReplacerTest {
                 .configure(DynamicCluster.INITIAL_SIZE, 3));
         app.start(ImmutableList.<Location>of(loc));
 
-        ServiceReplacer policy = new ServiceReplacer(new ConfigBag().configure(ServiceReplacer.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED));
-        cluster.policies().add(policy);
+        cluster.policies().add(PolicySpec.create(ServiceReplacer.class)
+                .configure(ServiceReplacer.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED));
 
         final Set<Entity> initialMembers = ImmutableSet.copyOf(cluster.getMembers());
         final TestEntity e1 = (TestEntity) Iterables.get(initialMembers, 1);
@@ -150,8 +139,8 @@ public class ServiceReplacerTest {
         
         log.info("started "+app+" for "+JavaClassNames.niceClassAndMethod());
         
-        ServiceReplacer policy = new ServiceReplacer(new ConfigBag().configure(ServiceReplacer.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED));
-        cluster.policies().add(policy);
+        cluster.policies().add(PolicySpec.create(ServiceReplacer.class)
+                .configure(ServiceReplacer.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED));
         
         final Set<Entity> initialMembers = ImmutableSet.copyOf(cluster.getMembers());
         final TestEntity e1 = (TestEntity) Iterables.get(initialMembers, 0);
@@ -165,7 +154,7 @@ public class ServiceReplacerTest {
 
         // Expect to have the second failed entity still kicking around as proof (in quarantine)
         // The cluster should NOT go on fire until after the 2nd failure
-        Iterable<Entity> members = Iterables.filter(managementContext.getEntityManager().getEntities(), Predicates.instanceOf(FailingEntity.class));
+        Iterable<Entity> members = Iterables.filter(mgmt.getEntityManager().getEntities(), Predicates.instanceOf(FailingEntity.class));
         assertEquals(Iterables.size(members), 2);
 
         // e2 failed to start, so it won't have called stop on e1
@@ -200,10 +189,9 @@ public class ServiceReplacerTest {
                 .configure(DynamicCluster.QUARANTINE_FAILED_ENTITIES, true));
         app.start(ImmutableList.<Location>of(loc));
         
-        ServiceReplacer policy = new ServiceReplacer(new ConfigBag()
+        cluster.policies().add(PolicySpec.create(ServiceReplacer.class)
                 .configure(ServiceReplacer.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED)
                 .configure(ServiceReplacer.SET_ON_FIRE_ON_FAILURE, false));
-        cluster.policies().add(policy);
         
         final Set<Entity> initialMembers = ImmutableSet.copyOf(cluster.getMembers());
         final TestEntity e1 = (TestEntity) Iterables.get(initialMembers, 0);
@@ -289,10 +277,9 @@ public class ServiceReplacerTest {
                 .configure(DynamicCluster.QUARANTINE_FAILED_ENTITIES, true));
         app.start(ImmutableList.<Location>of(loc));
         
-        ServiceReplacer policy = new ServiceReplacer(new ConfigBag()
+        cluster.policies().add(PolicySpec.create(ServiceReplacer.class)
                 .configure(ServiceReplacer.FAILURE_SENSOR_TO_MONITOR, HASensors.ENTITY_FAILED)
                 .configure(ServiceReplacer.FAIL_ON_NUM_RECURRING_FAILURES, 3));
-        cluster.policies().add(policy);
 
         final Set<Entity> initialMembers = ImmutableSet.copyOf(cluster.getMembers());
         for (int i = 0; i < 5; i++) {
@@ -302,7 +289,7 @@ public class ServiceReplacerTest {
             if (i <= 3) {
                 Asserts.succeedsEventually(new Runnable() {
                     @Override public void run() {
-                        Set<FailingEntity> all = ImmutableSet.copyOf(Iterables.filter(managementContext.getEntityManager().getEntities(), FailingEntity.class));
+                        Set<FailingEntity> all = ImmutableSet.copyOf(Iterables.filter(mgmt.getEntityManager().getEntities(), FailingEntity.class));
                         Set<FailingEntity> replacements = Sets.difference(all, initialMembers);
                         Set<?> replacementMembers = Sets.intersection(ImmutableSet.of(cluster.getMembers()), replacements);
                         assertTrue(replacementMembers.isEmpty());
@@ -311,7 +298,7 @@ public class ServiceReplacerTest {
             } else {
                 Asserts.succeedsContinually(new Runnable() {
                     @Override public void run() {
-                        Set<FailingEntity> all = ImmutableSet.copyOf(Iterables.filter(managementContext.getEntityManager().getEntities(), FailingEntity.class));
+                        Set<FailingEntity> all = ImmutableSet.copyOf(Iterables.filter(mgmt.getEntityManager().getEntities(), FailingEntity.class));
                         Set<FailingEntity> replacements = Sets.difference(all, initialMembers);
                         assertEquals(replacements.size(), 4);
                     }});

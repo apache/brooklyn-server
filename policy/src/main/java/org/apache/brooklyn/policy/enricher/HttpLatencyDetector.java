@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
@@ -203,9 +204,11 @@ public class HttpLatencyDetector extends AbstractEnricher implements Enricher {
     protected void activateAdditionalEnrichers(EntityLocal entity) {
         Duration rollupWindowSize = getConfig(ROLLUP_WINDOW_SIZE);
         if (rollupWindowSize!=null) {
-            entity.enrichers().add(new RollingTimeWindowMeanEnricher<Double>(entity,
-                REQUEST_LATENCY_IN_SECONDS_MOST_RECENT, REQUEST_LATENCY_IN_SECONDS_IN_WINDOW,
-                rollupWindowSize));
+            entity.enrichers().add(EnricherSpec.create(RollingTimeWindowMeanEnricher.class)
+                    .configure("producer", entity)
+                    .configure("source", REQUEST_LATENCY_IN_SECONDS_MOST_RECENT)
+                    .configure("target", REQUEST_LATENCY_IN_SECONDS_IN_WINDOW)
+                    .configure("timePeriod", rollupWindowSize));
         }
     }
 
@@ -305,8 +308,13 @@ public class HttpLatencyDetector extends AbstractEnricher implements Enricher {
             return this;
         }
 
-        /** returns the detector. note that callers should then add this to the entity,
-         * typically using {@link Entity#addEnricher(Enricher)} */
+        /**
+         * Returns the detector. note that callers should then add this to the entity,
+         * typically using {@link Entity#addEnricher(Enricher)}.
+         * 
+         * @deprecated since 0.12.0; instead use {@link #buildSpec()} or directly use {@link EnricherSpec}
+         */
+        @Deprecated
         public HttpLatencyDetector build() {
             return new HttpLatencyDetector(MutableMap.builder()
                     .putIfNotNull(PERIOD, period)
@@ -316,6 +324,22 @@ public class HttpLatencyDetector extends AbstractEnricher implements Enricher {
                     .putIfNotNull(URL_SENSOR, urlSensor)
                     .putIfNotNull(URL_POST_PROCESSING, urlPostProcessing)
                     .build());
+        }
+        
+        /**
+         * Returns the detector. note that callers should then add this to the entity,
+         * typically using {@link Entity#addEnricher(EnricherSpec)}
+         * 
+         * @see {@link EnricherSpec}
+         */
+        public EnricherSpec<HttpLatencyDetector> buildSpec() {
+            return EnricherSpec.create(HttpLatencyDetector.class)
+                    .configureIfNotNull(PERIOD, period)
+                    .configureIfNotNull(ROLLUP_WINDOW_SIZE, rollupWindowSize)
+                    .configureIfNotNull(REQUIRE_SERVICE_UP, requireServiceUp)
+                    .configureIfNotNull((ConfigKey<Object>)URL, url)
+                    .configureIfNotNull(URL_SENSOR, urlSensor)
+                    .configureIfNotNull(URL_POST_PROCESSING, urlPostProcessing);
         }
     }
 }

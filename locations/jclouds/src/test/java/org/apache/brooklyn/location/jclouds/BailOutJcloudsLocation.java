@@ -74,13 +74,13 @@ public class BailOutJcloudsLocation extends JcloudsLocation {
     }
 
     @Override
-    public Template buildTemplate(ComputeService computeService, ConfigBag config, Collection<JcloudsLocationCustomizer> customizers) {
+    public Template buildTemplate(ComputeService computeService, ConfigBag config, JcloudsLocationCustomizer customizersDelegate) {
         lastConfigBag = config;
         if (getConfig(BUILD_TEMPLATE_INTERCEPTOR) != null) {
             getConfig(BUILD_TEMPLATE_INTERCEPTOR).apply(config);
         }
         if (Boolean.TRUE.equals(getConfig(BUILD_TEMPLATE))) {
-            template = super.buildTemplate(computeService, config, customizers);
+            template = super.buildTemplate(computeService, config, customizersDelegate);
         }
         throw new RuntimeException(BAIL_OUT_FOR_TESTING);
     }
@@ -150,9 +150,9 @@ public class BailOutJcloudsLocation extends JcloudsLocation {
     public static class CountingBailOutJcloudsLocation extends BailOutJcloudsLocation {
         int buildTemplateCount = 0;
         @Override
-        public Template buildTemplate(ComputeService computeService, ConfigBag config, Collection<JcloudsLocationCustomizer> customizers) {
+        public Template buildTemplate(ComputeService computeService, ConfigBag config, JcloudsLocationCustomizer customizersDelegate) {
             buildTemplateCount++;
-            return super.buildTemplate(computeService, config, customizers);
+            return super.buildTemplate(computeService, config, customizersDelegate);
         }
     }
 

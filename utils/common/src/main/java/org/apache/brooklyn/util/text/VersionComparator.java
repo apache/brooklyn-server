@@ -52,14 +52,19 @@ public class VersionComparator implements Comparator<String> {
         return INSTANCE;
     }
 
+    public static boolean isSnapshot(String version) {
+        if (version==null) return false;
+        return version.toUpperCase().contains(SNAPSHOT);
+    }
+    
     @Override
     public int compare(String v1, String v2) {
         if (v1==null && v2==null) return 0;
         if (v1==null) return -1;
         if (v2==null) return 1;
         
-        boolean isV1Snapshot = v1.toUpperCase().contains(SNAPSHOT);
-        boolean isV2Snapshot = v2.toUpperCase().contains(SNAPSHOT);
+        boolean isV1Snapshot = isSnapshot(v1);
+        boolean isV2Snapshot = isSnapshot(v2);
         if (isV1Snapshot == isV2Snapshot) {
             // if snapshot status is the same, look at dot-split parts first
             return compareDotSplitParts(splitOnDot(v1), splitOnDot(v2));

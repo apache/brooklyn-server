@@ -34,11 +34,8 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServiceState;
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
@@ -46,6 +43,8 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** 
  * Emits {@link HASensors#ENTITY_FAILED} whenever the parent's default logic ({@link ComputeServiceState}) would detect a problem,
@@ -153,16 +152,6 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
     }
     
     public ServiceFailureDetector() {
-        this(new ConfigBag());
-    }
-    
-    public ServiceFailureDetector(Map<String,?> flags) {
-        this(new ConfigBag().putAll(flags));
-    }
-    
-    public ServiceFailureDetector(ConfigBag configBag) {
-        // TODO hierarchy should use ConfigBag, and not change flags
-        super(configBag.getAllConfigMutable());
     }
     
     @Override

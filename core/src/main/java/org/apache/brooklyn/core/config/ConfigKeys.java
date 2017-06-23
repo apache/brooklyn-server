@@ -161,8 +161,17 @@ public class ConfigKeys {
         return new PortAttributeSensorAndConfigKey(parent, defaultValue);
     }
 
+    @SuppressWarnings("unchecked")
     public static <T> ConfigKey<T> newConfigKeyRenamed(String newName, ConfigKey<T> key) {
-        return new BasicConfigKey<T>(key.getTypeToken(), newName, key.getDescription(), key.getDefaultValue());
+        if (key instanceof MapConfigKey) {
+            return (ConfigKey<T>) new MapConfigKey.Builder<>(newName, (MapConfigKey<?>)key).build();
+        } else if (key instanceof SetConfigKey) {
+            return (ConfigKey<T>) new SetConfigKey.Builder<>(newName, (SetConfigKey<?>)key).build();
+        } else if (key instanceof ListConfigKey) {
+            return (ConfigKey<T>) new ListConfigKey.Builder<>(newName, (ListConfigKey<?>)key).build();
+        } else {
+            return BasicConfigKey.builder(newName, key).build();
+        }
     }
 
     public static <T> ConfigKey<T> newConfigKeyWithPrefix(String prefix, ConfigKey<T> key) {

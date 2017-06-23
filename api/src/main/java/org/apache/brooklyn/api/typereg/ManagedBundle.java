@@ -20,6 +20,7 @@ package org.apache.brooklyn.api.typereg;
 
 import org.apache.brooklyn.api.mgmt.rebind.Rebindable;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.util.osgi.VersionedName;
 
 /** Describes an OSGi bundle which Brooklyn manages, including persisting */
 public interface ManagedBundle extends BrooklynObject, Rebindable, OsgiBundleWithUrl {
@@ -28,5 +29,7 @@ public interface ManagedBundle extends BrooklynObject, Rebindable, OsgiBundleWit
      * to uniquely identify this bundle-instance.
      * This typically includes the unique {@link #getId()} of this item. */
     String getOsgiUniqueUrl();
+
+    VersionedName getVersionedName();
 
 }

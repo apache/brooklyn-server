@@ -28,12 +28,9 @@ public class StubContainerLocation extends SshMachineLocation implements Dynamic
     @SetFromFlag("machine")
     private SshMachineLocation machine;
 
-    @SetFromFlag("owner")
-    private StubContainer owner;
-
     @Override
     public StubContainer getOwner() {
-        return owner;
+        return (StubContainer) config().get(OWNER);
     }
 
     public SshMachineLocation getMachine() {

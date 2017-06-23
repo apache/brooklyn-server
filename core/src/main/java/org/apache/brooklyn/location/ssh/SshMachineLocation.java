@@ -105,7 +105,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -950,7 +950,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
 
     @Override
     public String toVerboseString() {
-        return Objects.toStringHelper(this).omitNullValues()
+        return MoreObjects.toStringHelper(this).omitNullValues()
                 .add("id", getId()).add("name", getDisplayName())
                 .add("user", getUser()).add("address", getAddress()).add("port", getPort())
                 .add("parentLocation", getParent())

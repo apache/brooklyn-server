@@ -32,8 +32,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 
 public final class BrooklynClassLoadingContextSequential extends AbstractBrooklynClassLoadingContext {
 

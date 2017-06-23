@@ -68,10 +68,6 @@ public abstract class AbstractMembershipTrackingPolicy extends AbstractPolicy {
 
     private ConcurrentMap<String,Map<Sensor<Object>, Object>> entitySensorCache = new ConcurrentHashMap<String, Map<Sensor<Object>, Object>>();
     
-    public AbstractMembershipTrackingPolicy(Map<?,?> flags) {
-        super(flags);
-    }
-    
     public AbstractMembershipTrackingPolicy() {
         super();
     }

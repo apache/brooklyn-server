@@ -59,7 +59,6 @@ import org.apache.brooklyn.core.entity.AbstractApplication;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
@@ -67,6 +66,7 @@ import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
+import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.launcher.BrooklynLauncher;
 import org.apache.brooklyn.launcher.BrooklynServerDetails;
 import org.apache.brooklyn.launcher.config.StopWhichAppsOnShutdown;
@@ -78,6 +78,7 @@ import org.apache.brooklyn.util.exceptions.FatalRuntimeException;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Enums;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
@@ -683,8 +684,8 @@ public class Main extends AbstractMain {
                     String content = utils.getResourceAsString(app);
                     launcher.application(content);
                 } else {
-                    ApplicationBuilder loadedApp = loadApplicationFromClasspathOrParse(utils, loader, app);
-                    launcher.application(loadedApp);
+                    EntitySpec<? extends Application> appSpec = loadApplicationFromClasspathOrParse(utils, loader, app);
+                    launcher.application(appSpec);
                 }
             }
         }
@@ -731,49 +732,46 @@ public class Main extends AbstractMain {
         }
 
         /**
-         * Helper method that gets an instance of a brooklyn {@link AbstractApplication} or an {@link ApplicationBuilder}.
-         * Guaranteed to be non-null result of one of those types (throwing exception if app not appropriate).
+         * Helper method that gets an instance of a brooklyn {@link EntitySpec}.
+         * Guaranteed to be non-null result (throwing exception if app not appropriate).
+         * 
+         * @throws FatalConfigurationRuntimeException if class is not an {@link Application} or {@link Entity}
          */
         @SuppressWarnings("unchecked")
-        protected ApplicationBuilder loadApplicationFromClasspathOrParse(ResourceUtils utils, GroovyClassLoader loader, String app)
+        protected EntitySpec<? extends Application> loadApplicationFromClasspathOrParse(ResourceUtils utils, GroovyClassLoader loader, String app)
                 throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, InstantiationException {
             
-            Class<?> tempclazz;
+            Class<?> clazz;
             log.debug("Loading application as class on classpath: {}", app);
             try {
-                tempclazz = loader.loadClass(app, true, false);
+                clazz = loader.loadClass(app, true, false);
             } catch (ClassNotFoundException cnfe) { // Not a class on the classpath
                 throw new IllegalStateException("Unable to load app class '"+app+"'", cnfe);
             }
-            final Class<?> clazz = tempclazz;
             
-            // Instantiate an app builder (wrapping app/entity class in ApplicationBuilder)
-            // TODO Should change to use EntitySpec
-            if (ApplicationBuilder.class.isAssignableFrom(clazz)) {
-                Constructor<?> constructor = clazz.getConstructor();
-                return (ApplicationBuilder) constructor.newInstance();
-            } else if (StartableApplication.class.isAssignableFrom(clazz)) {
-                EntitySpec<? extends StartableApplication> appSpec;
-                if (tempclazz.isInterface())
-                    appSpec = EntitySpec.create((Class<? extends StartableApplication>) clazz);
-                else
-                    appSpec = EntitySpec.create(StartableApplication.class, (Class<? extends StartableApplication>) clazz);
-                return new ApplicationBuilder(appSpec) {
-                    @Override protected void doBuild() {
-                    }};
-            } else if (AbstractEntity.class.isAssignableFrom(clazz)) {
-                // TODO Should we really accept any entity type, and just wrap it in an app? That's not documented!
-                return new ApplicationBuilder() {
-                    @Override protected void doBuild() {
-                        addChild(EntitySpec.create(Entity.class).impl((Class<? extends AbstractEntity>)clazz).additionalInterfaces(clazz.getInterfaces()));
-                    }};
+            if (Application.class.isAssignableFrom(clazz)) {
+                if (clazz.isInterface()) {
+                    return EntitySpec.create((Class<? extends Application>)clazz);
+                } else {
+                    return EntitySpec.create(Application.class)
+                            .impl((Class<? extends Application>) clazz)
+                            .additionalInterfaces(Reflections.getAllInterfaces(clazz));
+                }
+                
             } else if (Entity.class.isAssignableFrom(clazz)) {
-                return new ApplicationBuilder() {
-                    @Override protected void doBuild() {
-                        addChild(EntitySpec.create((Class<? extends Entity>)clazz));
-                    }};
+                // TODO Should we really accept any entity type, and just wrap it in an app? That's not documented!
+                EntitySpec<?> childSpec;
+                if (clazz.isInterface()) {
+                    childSpec = EntitySpec.create((Class<? extends Entity>)clazz);
+                } else {
+                    childSpec = EntitySpec.create(Entity.class)
+                            .impl((Class<? extends Application>) clazz)
+                            .additionalInterfaces(Reflections.getAllInterfaces(clazz));
+                }
+                return EntitySpec.create(BasicApplication.class).child(childSpec);
+                
             } else {
-                throw new FatalConfigurationRuntimeException("Application class "+clazz+" must extend one of ApplicationBuilder or AbstractApplication");
+                throw new FatalConfigurationRuntimeException("Application class "+clazz+" must be an Application or Entity");
             }
         }
 

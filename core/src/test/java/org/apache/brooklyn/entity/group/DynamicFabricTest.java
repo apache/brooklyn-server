@@ -35,6 +35,8 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.location.SimulatedLocation;
@@ -45,6 +47,7 @@ import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +60,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-public class DynamicFabricTest extends BrooklynAppUnitTestSupport {
+public class DynamicFabricTest extends AbstractDynamicClusterOrFabricTest {
     private static final Logger log = LoggerFactory.getLogger(DynamicFabricTest.class);
 
     private static final int TIMEOUT_MS = 5*1000;
@@ -363,6 +366,25 @@ public class DynamicFabricTest extends BrooklynAppUnitTestSupport {
     private Entity getGrandchild(Entity entity, int childIndex, int grandchildIndex) {
         Entity child = getChild(entity, childIndex);
         return Iterables.get(child.getChildren(), grandchildIndex);
+    }
+
+    @Test
+    public void testDifferentFirstMemberSpec() throws Exception {
+        DynamicFabric fabric = app.createAndManageChild(EntitySpec.create(DynamicFabric.class)
+                .configure(DynamicFabric.FIRST_MEMBER_SPEC,
+                        EntitySpec.create(BasicEntity.class).configure(TestEntity.CONF_NAME, "first"))
+                .configure(DynamicFabric.MEMBER_SPEC,
+                        EntitySpec.create(BasicEntity.class).configure(TestEntity.CONF_NAME, "non-first"))
+                .configure(DynamicFabric.UP_QUORUM_CHECK, QuorumCheck.QuorumChecks.alwaysTrue()));
+        List<Location> locs = ImmutableList.of(loc1, loc2, loc3);
+        fabric.start(locs);
+
+        EntityAsserts.assertAttributeEqualsEventually(fabric, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        assertTrue(fabric.getAttribute(Attributes.SERVICE_UP));
+
+        assertEquals(fabric.getMembers().size(), 3);
+
+        assertFirstAndNonFirstCounts(fabric.getMembers(), 1, 2);
     }
 
     private Entity getChild(Entity entity, int childIndex) {

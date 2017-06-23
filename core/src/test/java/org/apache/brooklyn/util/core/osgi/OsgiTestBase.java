@@ -17,8 +17,15 @@ package org.apache.brooklyn.util.core.osgi;
 
 import java.io.File;
 import java.io.IOException;
+
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.test.support.TestResourceUnavailableException;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.commons.io.FileUtils;
+import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.launch.Framework;
 import org.testng.annotations.AfterMethod;
@@ -29,6 +36,26 @@ import org.testng.annotations.BeforeMethod;
  * @author Ciprian Ciubotariu <cheepeero@gmx.net>
  */
 public class OsgiTestBase {
+
+    public static final String BROOKLYN_OSGI_TEST_A_0_1_0_PATH = OsgiTestResources.BROOKLYN_OSGI_TEST_A_0_1_0_PATH;
+    public static final String BROOKLYN_OSGI_TEST_A_0_1_0_URL = "classpath:"+BROOKLYN_OSGI_TEST_A_0_1_0_PATH;
+
+    protected Bundle install(String url) throws BundleException {
+        try {
+            return Osgis.install(framework, url);
+        } catch (Exception e) {
+            throw new IllegalStateException("test resources not available; may be an IDE issue, so try a mvn rebuild of this project", e);
+        }
+    }
+
+    protected Bundle installFromClasspath(String resourceName) throws BundleException {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), resourceName);
+        try {
+            return Osgis.install(framework, String.format("classpath:%s", resourceName));
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
+    }
 
     protected Framework framework = null;
     private File storageTempDir;
@@ -50,6 +77,20 @@ public class OsgiTestBase {
         if (storageTempDir != null) {
             FileUtils.deleteDirectory(storageTempDir);
             storageTempDir = null;
+        }
+    }
+
+    public static void preinstallLibrariesLowLevelToPreventCatalogBomParsing(ManagementContext mgmt, String ...libraries) {
+        // catalog BOM CAMP syntax not available in core; need to pre-install
+        // to prevent Brooklyn from installing BOMs in those libraries
+        for (String lib: libraries) {
+            // install libs manually to prevent catalog BOM loading
+            // (could do OsgiManager.installDeferredStart also, then just ignore the start)
+            try {
+                Osgis.install(((ManagementContextInternal)mgmt).getOsgiManager().get().getFramework(), lib);
+            } catch (BundleException e) {
+                throw Exceptions.propagate(e);
+            }
         }
     }
 

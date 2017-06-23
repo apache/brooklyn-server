@@ -22,7 +22,7 @@ import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class RebindHistoricSshFeedTest extends RebindAbstractCommandFeedTest {
+public class RebindHistoricSshFeedTest extends AbstractRebindHistoricTest {
     @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {

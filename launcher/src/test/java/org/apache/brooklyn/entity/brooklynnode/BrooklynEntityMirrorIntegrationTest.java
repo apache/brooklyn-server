@@ -37,7 +37,6 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.launcher.BrooklynWebServer;
@@ -90,7 +89,7 @@ public class BrooklynEntityMirrorIntegrationTest {
             server.start();
             
             serverMgmt.getHighAvailabilityManager().disabled();
-            serverApp = ApplicationBuilder.newManagedApp(TestApplication.class, serverMgmt);
+            serverApp = TestApplication.Factory.newManagedInstanceForTests(serverMgmt);
             
             ((LocalManagementContextForTests)serverMgmt).noteStartupComplete();
         } catch (Exception e) {

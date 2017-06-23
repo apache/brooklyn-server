@@ -27,6 +27,7 @@ import java.util.Map;
 
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -80,7 +81,7 @@ public class ApplicationUsage {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this).add("date", date).add("state", state).add("entitlementContext", user).toString();
+            return MoreObjects.toStringHelper(this).add("date", date).add("state", state).add("entitlementContext", user).toString();
         }
     }
     

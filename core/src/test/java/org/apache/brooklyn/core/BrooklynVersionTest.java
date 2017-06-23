@@ -29,9 +29,10 @@ import org.apache.brooklyn.core.catalog.internal.CatalogEntityItemDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemDtoAbstract;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
+import org.apache.brooklyn.util.core.osgi.OsgiTestBase;
+import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,6 +102,7 @@ public class BrooklynVersionTest {
         String version = "0.1.0";
         String type = "brooklyn.osgi.tests.SimpleEntity";
         List<String> libraries = Lists.newArrayList("classpath:" + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+        OsgiTestBase.preinstallLibrariesLowLevelToPreventCatalogBomParsing(mgmt, libraries.toArray(new String[1]));
 
         CatalogEntityItemDto c1 = CatalogItemBuilder.newEntity(symName, version)
                 .javaType(type)

@@ -178,9 +178,8 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
                     "    - type: " + BasicApplication.class.getName());
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
-            if (!e.toString().contains("Bundle from " + wrongUrl + " failed to install")) {
-                throw e;
-            }
+            Asserts.expectedFailureContains(e, wrongUrl);
+            Asserts.expectedFailureContainsIgnoreCase(e, "not found");
         }
     }
 
@@ -199,9 +198,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
                     "    - type: " + BasicApplication.class.getName());
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
-            if (!e.toString().contains("not a jar file")) {
-                throw e;
-            }
+            Asserts.expectedFailureContainsIgnoreCase(e, "opening zip");
         }
     }
 

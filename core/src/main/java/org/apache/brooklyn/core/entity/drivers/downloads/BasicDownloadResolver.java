@@ -24,7 +24,7 @@ import java.util.List;
 
 import org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolver;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 
 public class BasicDownloadResolver implements DownloadResolver {
@@ -60,7 +60,7 @@ public class BasicDownloadResolver implements DownloadResolver {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("targets", targets).add("filename", filename)
+        return MoreObjects.toStringHelper(this).add("targets", targets).add("filename", filename)
                 .add("unpackDirName", unpackDirectoryName).omitNullValues().toString();
     }
 }

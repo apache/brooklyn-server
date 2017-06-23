@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.enricher;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.enricher.BasicEnricherTest.MyEnricher;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
@@ -79,22 +80,24 @@ public class EnricherConfigTest extends BrooklynAppUnitTestSupport {
     
     @Test
     public void testConfigSetToGroovyTruthFalseIsAvailable() throws Exception {
-        MyEnricher enricher = new MyEnricher(MutableMap.builder()
-                .put(MyEnricher.INT_KEY_WITH_DEFAULT, 0)
-                .build());
-        app.enrichers().add(enricher);
+        MyEnricher enricher = app.enrichers().add(EnricherSpec.create(MyEnricher.class)
+                .configure(MyEnricher.INT_KEY_WITH_DEFAULT, 0));
+        MyEnricher enricher2 = app.enrichers().add(EnricherSpec.create(MyEnricher.class)
+                .configure(MyEnricher.INT_KEY_WITH_DEFAULT.getName(), 0));
         
         assertEquals(enricher.getConfig(MyEnricher.INT_KEY_WITH_DEFAULT), (Integer)0);
+        assertEquals(enricher2.getConfig(MyEnricher.INT_KEY_WITH_DEFAULT), (Integer)0);
     }
     
     @Test
     public void testConfigSetToNullIsAvailable() throws Exception {
-        MyEnricher enricher = new MyEnricher(MutableMap.builder()
-                .put(MyEnricher.STR_KEY_WITH_DEFAULT, null)
-                .build());
-        app.enrichers().add(enricher);
+        MyEnricher enricher = app.enrichers().add(EnricherSpec.create(MyEnricher.class)
+                .configure(MyEnricher.STR_KEY_WITH_DEFAULT, (String)null));
+        MyEnricher enricher2 = app.enrichers().add(EnricherSpec.create(MyEnricher.class)
+                .configure(MyEnricher.STR_KEY_WITH_DEFAULT.getName(), null));
         
         assertEquals(enricher.getConfig(MyEnricher.STR_KEY_WITH_DEFAULT), null);
+        assertEquals(enricher2.getConfig(MyEnricher.STR_KEY_WITH_DEFAULT), null);
     }
     
     @Test
@@ -121,10 +124,8 @@ public class EnricherConfigTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testConfigCannotBeSetAfterApplicationIsStarted() throws Exception {
-        MyEnricher enricher = new MyEnricher(MutableMap.builder()
-                .put(MyEnricher.STR_KEY, "origval")
-                .build());
-        app.enrichers().add(enricher);
+        MyEnricher enricher = app.enrichers().add(EnricherSpec.create(MyEnricher.class)
+                .configure(MyEnricher.STR_KEY, "origval"));
         
         try {
             enricher.config().set(MyEnricher.STR_KEY,"newval");
@@ -138,8 +139,7 @@ public class EnricherConfigTest extends BrooklynAppUnitTestSupport {
     
     @Test
     public void testConfigReturnsDefaultValueIfNotSet() throws Exception {
-        MyEnricher enricher = new MyEnricher();
-        app.enrichers().add(enricher);
+        MyEnricher enricher = app.enrichers().add(EnricherSpec.create(MyEnricher.class));
         
         assertEquals(enricher.getConfig(MyEnricher.STR_KEY_WITH_DEFAULT), "str key default");
     }

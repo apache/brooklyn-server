@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.rest.testing.mocks;
 
-import java.util.Map;
-
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
@@ -34,11 +32,6 @@ public class RestMockSimplePolicy extends AbstractPolicy {
 
     public RestMockSimplePolicy() {
         super();
-    }
-
-    @SuppressWarnings("rawtypes")
-    public RestMockSimplePolicy(Map flags) {
-        super(flags);
     }
 
     @SetFromFlag("sampleConfig")

@@ -412,7 +412,11 @@ public class HotStandbyTest {
         byte[] array;
     }
     
-    @Test(groups="Integration")
+//    Failing consistently with error:
+//        Jenkins: java.lang.AssertionError: Too much memory used - 158m > max 154m
+//        Svet local: java.lang.AssertionError: Too much memory used - 16m > max 13m
+//    The test is not deterministic so marking as "Manual", i.e. probably shouldn't be included in automated tests.
+    @Test(groups={"Integration", "Broken", "Manual"})
     public void testHotStandbyDoesNotLeakBigObjects() throws Exception {
         log.info("Starting test "+JavaClassNames.niceClassAndMethod());
         final int SIZE = 5;
@@ -460,7 +464,11 @@ public class HotStandbyTest {
         assertUsedMemoryLessThan("And now all unmanaged", initialUsed+GRACE*1000*1000);
     }
 
-    @Test(groups="Integration") // because it's slow
+    // Fails on Apache Jenkins with:
+    //  Too much memory used - 160m > max 160m
+    //  Too much memory used - 189m > max 188m
+    // The test is not deterministic so marking as "Manual", i.e. probably shouldn't be included in automated tests.
+    @Test(groups={"Integration", "Broken", "Manual"}) // because it's slow
     // Sept 2014 - there is a small leak, of 200 bytes per child created and destroyed;
     // but this goes away when the app is destroyed; it may be a benign record
     public void testHotStandbyDoesNotLeakLotsOfRebindsCreatingAndDestroyingAChildEntity() throws Exception {

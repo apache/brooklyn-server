@@ -39,15 +39,15 @@ public abstract class AbstractTypeTransformingEnricher<T,U> extends AbstractEnri
     private Entity producer;
     
     @SetFromFlag
-    private Sensor<T> source;
+    protected Sensor<T> source;
     
     @SetFromFlag
     protected Sensor<U> target;
 
-    public AbstractTypeTransformingEnricher() { // for rebind
+    protected AbstractTypeTransformingEnricher() { // for EnricherSpec and rebind
     }
     
-    public AbstractTypeTransformingEnricher(Entity producer, Sensor<T> source, Sensor<U> target) {
+    protected AbstractTypeTransformingEnricher(Entity producer, Sensor<T> source, Sensor<U> target) {
         this.producer = producer;
         this.source = source;
         this.target = target;

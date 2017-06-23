@@ -22,15 +22,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.CaseFormat;
@@ -40,7 +34,7 @@ import com.google.common.collect.ImmutableMap;
 /**
  * Runs a test with many different distros and versions.
  */
-public abstract class AbstractGoogleComputeLiveTest {
+public abstract class AbstractGoogleComputeLiveTest extends BrooklynAppLiveTestSupport {
     
     // TODO See todos in AbstractEc2LiveTest
     
@@ -50,39 +44,28 @@ public abstract class AbstractGoogleComputeLiveTest {
     public static final String STANDARD_HARDWARE_ID = "us-central1-b/n1-standard-1-d";
     private static final int MAX_TAG_LENGTH = 63;
 
-    protected BrooklynProperties brooklynProperties;
-    protected ManagementContext ctx;
-    
-    protected TestApplication app;
     protected Location jcloudsLocation;
     
-    @BeforeMethod(alwaysRun=true)
-    public void setUp() throws Exception {
+    @Override
+    protected BrooklynProperties getBrooklynProperties() {
+        // Don't let any defaults from brooklyn.properties (except credentials) interfere with test
         List<String> propsToRemove = ImmutableList.of("imageId", "imageDescriptionRegex", "imageNameRegex", "inboundPorts", "hardwareId", "minRam");
-        
-     // Don't let any defaults from brooklyn.properties (except credentials) interfere with test
-        brooklynProperties = BrooklynProperties.Factory.newDefault();
+        BrooklynProperties result = BrooklynProperties.Factory.newDefault();
         for (String propToRemove : propsToRemove) {
             for (String propVariant : ImmutableList.of(propToRemove, CaseFormat.LOWER_CAMEL.to(CaseFormat.LOWER_HYPHEN, propToRemove))) {
-                brooklynProperties.remove("brooklyn.locations.jclouds."+PROVIDER+"."+propVariant);
-                brooklynProperties.remove("brooklyn.locations."+propVariant);
-                brooklynProperties.remove("brooklyn.jclouds."+PROVIDER+"."+propVariant);
-                brooklynProperties.remove("brooklyn.jclouds."+propVariant);
+                result.remove("brooklyn.locations.jclouds."+PROVIDER+"."+propVariant);
+                result.remove("brooklyn.locations."+propVariant);
+                result.remove("brooklyn.jclouds."+PROVIDER+"."+propVariant);
+                result.remove("brooklyn.jclouds."+propVariant);
             }
         }
 
         // Also removes scriptHeader (e.g. if doing `. ~/.bashrc` and `. ~/.profile`, then that can cause "stdin: is not a tty")
-        brooklynProperties.remove("brooklyn.ssh.config.scriptHeader");
+        result.remove("brooklyn.ssh.config.scriptHeader");
         
-        ctx = new LocalManagementContext(brooklynProperties);
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, ctx);
+        return result;
     }
-
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAllCatching(app.getManagementContext());
-    }
-
+    
     @Test(groups = {"Live"})
     public void test_DefaultImage() throws Exception {
         runTest(ImmutableMap.<String,String>of());
@@ -128,7 +111,7 @@ public abstract class AbstractGoogleComputeLiveTest {
                 .put("tags", ImmutableList.of(tag))
                 .putAll(flags)
                 .build();
-        jcloudsLocation = ctx.getLocationRegistry().getLocationManaged(LOCATION_SPEC, allFlags);
+        jcloudsLocation = mgmt.getLocationRegistry().getLocationManaged(LOCATION_SPEC, allFlags);
 
         doTest(jcloudsLocation);
     }

@@ -29,13 +29,19 @@ import java.util.Set;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.mgmt.LocationManager;
+import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -46,19 +52,22 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
-public class DynamicRegionsFabricTest extends BrooklynAppUnitTestSupport {
+public class DynamicRegionsFabricTest extends AbstractDynamicClusterOrFabricTest {
 
     DynamicRegionsFabric fabric;
     private Location loc1;
     private Location loc2;
-    
+    private Location loc3;
+
     @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        loc1 = new SimulatedLocation();
-        loc2 = new SimulatedLocation();
-        
+        final LocationManager lm = mgmt.getLocationManager();
+        loc1 = lm.createLocation(LocationSpec.create(SimulatedLocation.class).configure("displayName", "newloc1"));
+        loc2 = lm.createLocation(LocationSpec.create(SimulatedLocation.class).configure("displayName", "newloc2"));
+        loc3 = lm.createLocation(LocationSpec.create(SimulatedLocation.class).configure("displayName", "newloc3"));
+
         fabric = app.createAndManageChild(EntitySpec.create(DynamicRegionsFabric.class)
                 .configure("memberSpec", EntitySpec.create(TestEntity.class)));
     }
@@ -240,7 +249,48 @@ public class DynamicRegionsFabricTest extends BrooklynAppUnitTestSupport {
             if (cause == null && !e.toString().contains("No entity found")) throw e;
         }
     }
-    
+
+    @Test
+    public void testDifferentFirstMemberSpec() throws Exception {
+        DynamicRegionsFabric fabric = app.createAndManageChild(EntitySpec.create(DynamicRegionsFabric.class)
+                .configure(DynamicRegionsFabric.FIRST_MEMBER_SPEC,
+                        EntitySpec.create(BasicEntity.class).configure(TestEntity.CONF_NAME, "first"))
+                .configure(DynamicRegionsFabric.MEMBER_SPEC,
+                        EntitySpec.create(BasicEntity.class).configure(TestEntity.CONF_NAME, "non-first"))
+                .configure(DynamicRegionsFabric.UP_QUORUM_CHECK, QuorumCheck.QuorumChecks.alwaysTrue()));
+        List<Location> locs = ImmutableList.of(loc1, loc2, loc3);
+        fabric.start(locs);
+
+        EntityAsserts.assertAttributeEqualsEventually(fabric, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        assertTrue(fabric.getAttribute(Attributes.SERVICE_UP));
+
+        assertEquals(fabric.getMembers().size(), 3);
+
+        assertFirstAndNonFirstCounts(fabric.getMembers(), 1, 2);
+
+        // and after re-size
+        fabric.addRegion("localhost:(name=newloc4)");
+        assertFirstAndNonFirstCounts(fabric.getMembers(), 1, 3);
+
+        // and re-size to 1
+        for(Entity r : Iterables.skip(ImmutableSet.copyOf(fabric.getChildren()), 1)) { // skip 'first', remove the remaining ones
+            fabric.removeRegion(r.getId());
+        }
+        assertFirstAndNonFirstCounts(fabric.getMembers(), 1, 0);
+
+        // and re-size to 0
+        for(Entity r : ImmutableSet.copyOf(fabric.getChildren())) {
+            fabric.removeRegion(r.getId());
+        }
+        assertFirstAndNonFirstCounts(fabric.getMembers(), 0, 0);
+
+        // and back to 3
+        fabric.addRegion("localhost:(name=newloc1)");
+        fabric.addRegion("localhost:(name=newloc2)");
+        fabric.addRegion("localhost:(name=newloc3)");
+        assertFirstAndNonFirstCounts(fabric.getMembers(), 1, 2);
+    }
+
     private List<Location> getLocationsOfChildren(DynamicRegionsFabric fabric) {
         return getLocationsOf(fabric.getChildren());
     }

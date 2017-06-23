@@ -20,6 +20,8 @@ package org.apache.brooklyn.core.config;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -57,12 +59,60 @@ import com.google.common.reflect.TypeToken;
  */
 //TODO Create interface
 @Deprecated
-public class ListConfigKey<V> extends AbstractCollectionConfigKey<List<? extends V>,List<Object>,V> {
+public class ListConfigKey<V> extends AbstractCollectionConfigKey<List<V>,List<Object>,V> {
 
     private static final long serialVersionUID = 751024268729803210L;
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ListConfigKey.class);
     
+    public static class Builder<V> extends BasicConfigKey.Builder<List<V>,Builder<V>> {
+        protected Class<V> subType;
+        
+        @SuppressWarnings("unchecked")
+        public Builder(TypeToken<V> subType, String name) {
+            super(typeTokenListWithSubtype((Class<V>)subType.getRawType()), name);
+            this.subType = (Class<V>) subType.getRawType();
+        }
+        public Builder(Class<V> subType, String name) {
+            super(typeTokenListWithSubtype(subType), name);
+            this.subType = checkNotNull(subType, "subType");
+        }
+        public Builder(ListConfigKey<V> key) {
+            this(key.getName(), key);
+        }
+        public Builder(String newName, ListConfigKey<V> key) {
+            super(newName, key);
+            subType = key.subType;
+        }
+        @Override
+        public Builder<V> self() {
+            return this;
+        }
+        @Override
+        @Deprecated
+        public Builder<V> name(String val) {
+            throw new UnsupportedOperationException("Builder must be constructed with name");
+        }
+        @Override
+        @Deprecated
+        public Builder<V> type(Class<List<V>> val) {
+            throw new UnsupportedOperationException("Builder must be constructed with type");
+        }
+        @Override
+        @Deprecated
+        public Builder<V> type(TypeToken<List<V>> val) {
+            throw new UnsupportedOperationException("Builder must be constructed with type");
+        }
+        @Override
+        public ListConfigKey<V> build() {
+            return new ListConfigKey<V>(this);
+        }
+    }
+
+    public ListConfigKey(Builder<V> builder) {
+        super(builder, builder.subType);
+    }
+
     public ListConfigKey(Class<V> subType, String name) {
         this(subType, name, name, null);
     }
@@ -71,13 +121,14 @@ public class ListConfigKey<V> extends AbstractCollectionConfigKey<List<? extends
         this(subType, name, description, null);
     }
 
+    @SuppressWarnings("unchecked")
     public ListConfigKey(Class<V> subType, String name, String description, List<? extends V> defaultValue) {
-        super(typeTokenListWithSubtype(subType), subType, name, description, defaultValue);
+        super(typeTokenListWithSubtype(subType), subType, name, description, (List<V>) defaultValue);
     }
 
     @SuppressWarnings("unchecked")
-    private static <V> TypeToken<List<? extends V>> typeTokenListWithSubtype(final Class<V> subType) {
-        return (TypeToken<List<? extends V>>) TypeToken.of(new ParameterizedType() {
+    private static <X> TypeToken<List<X>> typeTokenListWithSubtype(final Class<X> subType) {
+        return (TypeToken<List<X>>) TypeToken.of(new ParameterizedType() {
             @Override
             public Type getRawType() {
                 return List.class;

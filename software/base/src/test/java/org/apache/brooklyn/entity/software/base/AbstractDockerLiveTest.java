@@ -23,15 +23,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -40,44 +34,34 @@ import java.util.Map;
 /**
  * Runs a test with many different distros and versions.
  */
-public abstract class AbstractDockerLiveTest {
+public abstract class AbstractDockerLiveTest extends BrooklynAppLiveTestSupport {
     
     public static final String PROVIDER = "docker";
 
-    protected BrooklynProperties brooklynProperties;
-    protected ManagementContext ctx;
-    
-    protected TestApplication app;
     protected Location jcloudsLocation;
     
-    @BeforeMethod(alwaysRun=true)
-    public void setUp() throws Exception {
+    @Override
+    protected BrooklynProperties getBrooklynProperties() {
+        // Don't let any defaults from brooklyn.properties (except credentials) interfere with test
         List<String> propsToRemove = ImmutableList.of("imageDescriptionRegex", "imageNameRegex", "inboundPorts",
                 "hardwareId", "minRam");
-        
-     // Don't let any defaults from brooklyn.properties (except credentials) interfere with test
-        brooklynProperties = BrooklynProperties.Factory.newDefault();
+
+        BrooklynProperties result = BrooklynProperties.Factory.newDefault();
         for (String propToRemove : propsToRemove) {
             for (String propVariant : ImmutableList.of(propToRemove, CaseFormat.LOWER_CAMEL.to(CaseFormat.LOWER_HYPHEN, propToRemove))) {
-                brooklynProperties.remove("brooklyn.locations.jclouds."+PROVIDER+"."+propVariant);
-                brooklynProperties.remove("brooklyn.locations."+propVariant);
-                brooklynProperties.remove("brooklyn.jclouds."+PROVIDER+"."+propVariant);
-                brooklynProperties.remove("brooklyn.jclouds."+propVariant);
+                result.remove("brooklyn.locations.jclouds."+PROVIDER+"."+propVariant);
+                result.remove("brooklyn.locations."+propVariant);
+                result.remove("brooklyn.jclouds."+PROVIDER+"."+propVariant);
+                result.remove("brooklyn.jclouds."+propVariant);
             }
         }
 
         // Also removes scriptHeader (e.g. if doing `. ~/.bashrc` and `. ~/.profile`, then that can cause "stdin: is not a tty")
-        brooklynProperties.remove("brooklyn.ssh.config.scriptHeader");
-        
-        ctx = new LocalManagementContext(brooklynProperties);
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, ctx);
-    }
+        result.remove("brooklyn.ssh.config.scriptHeader");
 
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAllCatching(app.getManagementContext());
+        return result;
     }
-
+    
     @Test(groups={"Live", "WIP"})
     public void test_Ubuntu_13_10() throws Exception {
           runTest(ImmutableMap.of("imageId", "7fe2ec2ff748c411cf0d6833120741778c00e1b07a83c4104296b6258b5331c4",
@@ -91,7 +75,7 @@ public abstract class AbstractDockerLiveTest {
                 .put("tags", ImmutableList.of(tag))
                 .putAll(flags)
                 .build();
-        jcloudsLocation = ctx.getLocationRegistry().getLocationManaged(PROVIDER, allFlags);
+        jcloudsLocation = mgmt.getLocationRegistry().getLocationManaged(PROVIDER, allFlags);
         doTest(jcloudsLocation);
     }
 

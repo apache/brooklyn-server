@@ -67,27 +67,24 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
         return new Builder<V>(key);
     }
 
-    @SuppressWarnings("serial")
     public static class Builder<V> extends BasicConfigKey.Builder<Map<String, V>,Builder<V>> {
         protected Class<V> subType;
         
         @SuppressWarnings("unchecked")
         public Builder(TypeToken<V> subType, String name) {
-            super(new TypeToken<Map<String, V>>() {}, name);
+            super(typeTokenMapWithSubtype( (Class<V>) subType.getRawType() ), name);
             this.subType = (Class<V>) subType.getRawType();
         }
         public Builder(Class<V> subType, String name) {
-            super(new TypeToken<Map<String, V>>() {}, name);
+            super(typeTokenMapWithSubtype(subType), name);
             this.subType = checkNotNull(subType, "subType");
         }
         public Builder(MapConfigKey<V> key) {
-            super(checkNotNull(key.getTypeToken(), "type"), checkNotNull(key.getName(), "name"));
-            description(key.getDescription());
-            defaultValue(key.getDefaultValue());
-            reconfigurable(key.isReconfigurable());
-            runtimeInheritance(key.getParentInheritance());
-            typeInheritance(key.getTypeInheritance());
-            constraint(key.getConstraint());
+            this(key.getName(), key);
+        }
+        public Builder(String newName, MapConfigKey<V> key) {
+            super(newName, key);
+            subType = key.subType;
         }
         @Override
         public Builder<V> self() {
@@ -112,30 +109,10 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
         public MapConfigKey<V> build() {
             return new MapConfigKey<V>(this);
         }
-        
-        @Override
-        public String getName() {
-            return name;
-        }
-        @Override
-        public String getDescription() {
-            return description;
-        }
     }
 
     protected MapConfigKey(Builder<V> builder) {
-        super(typeTokenMapWithSubtype(builder.subType),
-                checkNotNull(builder.subType, "subType"),
-                checkNotNull(builder.name, "name"),
-                builder.description,
-                builder.defaultValue);
-        this.reconfigurable = builder.reconfigurable;
-        this.runtimeInheritance = builder.runtimeInheritance;
-        this.typeInheritance = builder.typeInheritance;
-        // Note: it's intentionally possible to have default values that are not valid
-        // per the configured constraint. If validity were checked here any class that
-        // contained a weirdly-defined config key would fail to initialise.
-        this.constraint = checkNotNull(builder.constraint, "constraint");
+        super(builder, builder.subType);
     }
 
     @SuppressWarnings("unchecked")
@@ -169,9 +146,8 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
     // TODO it isn't clear whether defaultValue is an initialValue, or a value to use when map is empty
     // probably the latter, currently ... but maybe better to say that map configs are never null, 
     // and defaultValue is really an initial value?
-    @SuppressWarnings({ "unchecked", "rawtypes" })
     public MapConfigKey(Class<V> subType, String name, String description, Map<String, V> defaultValue) {
-        super((Class)Map.class, subType, name, description, defaultValue);
+        super(typeTokenMapWithSubtype(subType), subType, name, description, defaultValue);
     }
 
     @Override
