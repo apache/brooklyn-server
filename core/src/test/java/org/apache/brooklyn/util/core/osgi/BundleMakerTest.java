@@ -26,8 +26,7 @@ import static org.apache.brooklyn.test.Asserts.assertTrue;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.util.Enumeration;
-import java.util.List;
+import java.util.Collections;
 import java.util.Map;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
@@ -38,6 +37,8 @@ import java.util.zip.ZipOutputStream;
 
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.stream.Streams;
 import org.osgi.framework.Bundle;
@@ -50,7 +51,6 @@ import org.testng.annotations.Test;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 
 public class BundleMakerTest extends BrooklynMgmtUnitTestSupport {
 
@@ -81,21 +81,21 @@ public class BundleMakerTest extends BrooklynMgmtUnitTestSupport {
     @Test
     public void testCopyAdding() throws Exception {
         generatedJar = bundleMaker.copyAdding(emptyJar, ImmutableMap.of(new ZipEntry("myfile.txt"), new ByteArrayInputStream("mytext".getBytes())));
-        assertJarContents(generatedJar, ImmutableMap.of("myfile.txt", "mytext"));
+        assertJarContents(generatedJar, ImmutableMap.of("myfile.txt", "mytext"), false);
     }
     
     @Test
     public void testCopyAddingToNonEmpty() throws Exception {
         tempJar = bundleMaker.copyAdding(emptyJar, ImmutableMap.of(new ZipEntry("preExisting.txt"), new ByteArrayInputStream("myPreExisting".getBytes())));
         generatedJar = bundleMaker.copyAdding(tempJar, ImmutableMap.of(new ZipEntry("myfile.txt"), new ByteArrayInputStream("mytext".getBytes())));
-        assertJarContents(generatedJar, ImmutableMap.of("preExisting.txt", "myPreExisting", "myfile.txt", "mytext"));
+        assertJarContents(generatedJar, ImmutableMap.of("preExisting.txt", "myPreExisting", "myfile.txt", "mytext"), false);
     }
     
     @Test
     public void testCopyAddingOverwritesEntry() throws Exception {
         tempJar = bundleMaker.copyAdding(emptyJar, ImmutableMap.of(new ZipEntry("myfile.txt"), new ByteArrayInputStream("myPreExisting".getBytes())));
         generatedJar = bundleMaker.copyAdding(tempJar, ImmutableMap.of(new ZipEntry("myfile.txt"), new ByteArrayInputStream("mytext".getBytes())));
-        assertJarContents(generatedJar, ImmutableMap.of("myfile.txt", "mytext"));
+        assertJarContents(generatedJar, ImmutableMap.of("myfile.txt", "mytext"), false);
     }
     
     @Test
@@ -109,7 +109,7 @@ public class BundleMakerTest extends BrooklynMgmtUnitTestSupport {
                 "Manifest-Version: 1.2.3\r\n" + 
                 "mykey: myval\r\n" +
                 "\r\n";
-        assertJarContents(generatedJar, ImmutableMap.of(JarFile.MANIFEST_NAME, expectedManifest));
+        assertJarContents(generatedJar, ImmutableMap.of(JarFile.MANIFEST_NAME, expectedManifest), false);
     }
     
     @Test
@@ -121,7 +121,7 @@ public class BundleMakerTest extends BrooklynMgmtUnitTestSupport {
                 "Manifest-Version: 1.2.3\r\n" + 
                 "mykey: myval\r\n" +
                 "\r\n";
-        assertJarContents(generatedJar, ImmutableMap.of(JarFile.MANIFEST_NAME, expectedManifest));
+        assertJarContents(generatedJar, ImmutableMap.of(JarFile.MANIFEST_NAME, expectedManifest), false);
     }
     
     @Test
@@ -138,7 +138,7 @@ public class BundleMakerTest extends BrooklynMgmtUnitTestSupport {
                 "Manifest-Version: 1.2.3\r\n" + 
                 "mykey: myval\r\n" +
                 "\r\n";
-        assertJarContents(generatedJar, ImmutableMap.of(JarFile.MANIFEST_NAME, expectedManifest));
+        assertJarContents(generatedJar, ImmutableMap.of(JarFile.MANIFEST_NAME, expectedManifest), false);
     }
     
     @Test
@@ -147,7 +147,7 @@ public class BundleMakerTest extends BrooklynMgmtUnitTestSupport {
                 new ZipEntry("myfile.txt"), new ByteArrayInputStream("mytext".getBytes()),
                 new ZipEntry("myfile2.txt"), new ByteArrayInputStream("mytext2".getBytes())));
         generatedJar = bundleMaker.copyRemoving(tempJar, Predicates.equalTo("myfile.txt"));
-        assertJarContents(generatedJar, ImmutableMap.of("myfile.txt", "mytext"));
+        assertJarContents(generatedJar, ImmutableMap.of("myfile.txt", "mytext"), false);
     }
     
     @Test
@@ -156,7 +156,7 @@ public class BundleMakerTest extends BrooklynMgmtUnitTestSupport {
                 new ZipEntry("myfile.txt"), new ByteArrayInputStream("mytext".getBytes()),
                 new ZipEntry("myfile2.txt"), new ByteArrayInputStream("mytext2".getBytes())));
         generatedJar = bundleMaker.copyRemoving(tempJar, ImmutableSet.of("myfile.txt"));
-        assertJarContents(generatedJar, ImmutableMap.of("myfile2.txt", "mytext2"));
+        assertJarContents(generatedJar, ImmutableMap.of("myfile2.txt", "mytext2"), false);
     }
     
     // TODO Not supported - can't remove an entire directory like this
@@ -166,14 +166,14 @@ public class BundleMakerTest extends BrooklynMgmtUnitTestSupport {
                 new ZipEntry("mydir/myfile.txt"), new ByteArrayInputStream("mytext".getBytes()),
                 new ZipEntry("mydir2/myfile2.txt"), new ByteArrayInputStream("mytext2".getBytes())));
         generatedJar = bundleMaker.copyRemoving(tempJar, ImmutableSet.of("mydir"));
-        assertJarContents(generatedJar, ImmutableMap.of("mydir2/myfile2.txt", "mytext2"));
+        assertJarContents(generatedJar, ImmutableMap.of("mydir2/myfile2.txt", "mytext2"), false);
     }
     
     @Test
     public void testCopyRemovingItemsUnmatched() throws Exception {
         tempJar = bundleMaker.copyAdding(emptyJar, ImmutableMap.of(new ZipEntry("myfile.txt"), new ByteArrayInputStream("mytext".getBytes())));
         generatedJar = bundleMaker.copyRemoving(tempJar, ImmutableSet.of("wrong.txt"));
-        assertJarContents(generatedJar, ImmutableMap.of("myfile.txt", "mytext"));
+        assertJarContents(generatedJar, ImmutableMap.of("myfile.txt", "mytext"), false);
     }
     
     @Test
@@ -198,7 +198,7 @@ public class BundleMakerTest extends BrooklynMgmtUnitTestSupport {
     @Test
     public void testCreateJarFromClasspathDirNoManifest() throws Exception {
         generatedJar = bundleMaker.createJarFromClasspathDir("/org/apache/brooklyn/util/core/osgi/test/bundlemaker/nomanifest");
-        assertJarContents(generatedJar, ImmutableMap.of("myfile.txt", "mytext", "subdir/myfile2.txt", "mytext2"));
+        assertJarContents(generatedJar, ImmutableMap.of("myfile.txt", "mytext", "subdir/myfile2.txt", "mytext2"), false);
     }
     
     @Test
@@ -209,7 +209,7 @@ public class BundleMakerTest extends BrooklynMgmtUnitTestSupport {
                 "Manifest-Version: 1.2.3\r\n" + 
                 "mykey: myval\r\n" +
                 "\r\n";
-        assertJarContents(generatedJar, ImmutableMap.of(JarFile.MANIFEST_NAME, expectedManifest, "myfile.txt", "mytext", "subdir/myfile2.txt", "mytext2"));
+        assertJarContents(generatedJar, ImmutableMap.of(JarFile.MANIFEST_NAME, expectedManifest, "myfile.txt", "mytext", "subdir/myfile2.txt", "mytext2"), false);
     }
     
     @SuppressWarnings("deprecation")
@@ -233,6 +233,23 @@ public class BundleMakerTest extends BrooklynMgmtUnitTestSupport {
                 .get();
         assertEquals(bundle2, bundle);
     }
+    
+    @Test
+    public void testCreate() throws Exception {
+        Map<String, String> manifest = ImmutableMap.of(
+            Attributes.Name.MANIFEST_VERSION.toString(), "1.2.3", 
+            Constants.BUNDLE_VERSION, "4.5.6",
+            Constants.BUNDLE_SYMBOLICNAME, "myname");
+        
+        generatedJar = bundleMaker.createTempBundle("test", manifest,
+            ImmutableMap.of(new ZipEntry("myfile.txt"), new ByteArrayInputStream("mytext".getBytes())));
+        assertJarContents(generatedJar, ImmutableMap.of("myfile.txt", "mytext"), true);
+        
+        @SuppressWarnings("deprecation")
+        Bundle bundle = bundleMaker.installBundle(generatedJar, false);
+        assertEquals(bundle.getSymbolicName(), "myname");
+        assertEquals(bundle.getVersion(), new Version("4.5.6"));
+    }
 
     private File createEmptyJarFile() throws Exception {
         File result = Os.newTempFile("base", "jar");
@@ -241,29 +258,28 @@ public class BundleMakerTest extends BrooklynMgmtUnitTestSupport {
         return result;
     }
     
-    private void assertJarContents(File f, Map<String, String> expectedContents) throws Exception {
+    private void assertJarContents(File f, Map<String, String> expectedContents, boolean othersAllowed) throws Exception {
         ZipFile zipFile = new ZipFile(f);
-        String zipEntriesMsg = "entries="+enumerationToList(zipFile.entries());
+        expectedContents = MutableMap.copyOf(expectedContents);
         try {
-            for (Map.Entry<String, String> entry : expectedContents.entrySet()) {
-                ZipEntry zipEntry = zipFile.getEntry(entry.getKey());
-                assertNotNull(zipEntry, "No entry for "+entry.getKey()+"; "+zipEntriesMsg);
-                String entryContents = Streams.readFullyString(zipFile.getInputStream(zipEntry));
-                assertEquals(entryContents, entry.getValue());
+            for (ZipEntry zipEntry: Collections.list(zipFile.entries())) {
+                String expectedContent = expectedContents.remove(zipEntry.getName());
+                if (expectedContent==null) {
+                    if (!othersAllowed) {
+                        assertNotNull(expectedContent, "Unexpected item in ZIP: "+zipEntry.getName());
+                    }
+                } else {
+                    String entryContents = Streams.readFullyString(zipFile.getInputStream(zipEntry));
+                    assertEquals(entryContents, expectedContent, "Contents not eas expectd for "+zipEntry.getName());
+                }
             }
-            assertEquals(zipFile.size(), expectedContents.size(), zipEntriesMsg);
+            if (!expectedContents.isEmpty()) {
+                Asserts.fail("ZIP did not contain expected contents: "+expectedContents.keySet());
+            }
             
         } finally {
             zipFile.close();
         }
     }
     
-    private <T> List<T> enumerationToList(Enumeration<T> e) {
-        List<T> result = Lists.newArrayList();
-        while (e.hasMoreElements()) {
-            result.add(e.nextElement());
-        }
-        return result;
-        
-    }
 }
