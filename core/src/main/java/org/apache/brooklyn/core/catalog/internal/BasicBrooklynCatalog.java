@@ -25,6 +25,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.Collections;
@@ -57,6 +58,7 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.CampYamlParser;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -72,7 +74,9 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.AggregateClassLoader;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.LoadedClassLoader;
+import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -560,7 +564,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 if (isLibrariesMoreThanJustContainingBundle(libraryBundlesNew, containingBundle)) {
                     // legacy mode, since 0.12.0, scan libraries referenced in a legacy non-bundle BOM
                     log.warn("Deprecated use of scanJavaAnnotations to scan other libraries ("+libraryBundlesNew+"); libraries should declare they scan themselves");
-                    result.addAll(scanAnnotationsFromBundles(mgmt, libraryBundlesNew, catalogMetadata));
+                    result.addAll(scanAnnotationsLegacyInListOfLibraries(mgmt, libraryBundlesNew, catalogMetadata, containingBundle));
                 } else if (!isLibrariesMoreThanJustContainingBundle(libraryBundles, containingBundle)) {
                     // for default catalog, no libraries declared, we want to scan local classpath
                     // bundle should be named "brooklyn-default-catalog"
@@ -571,19 +575,21 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                         // since 0.12.0, require this to be right next to where libraries are defined, or at root
                         log.warn("Deprecated use of scanJavaAnnotations declared in item; should be declared at the top level of the BOM");
                     }
-                    result.addAll(scanAnnotationsFromLocal(mgmt, catalogMetadata));
+                    result.addAll(scanAnnotationsFromLocalNonBundleClasspath(mgmt, catalogMetadata, containingBundle));
                 } else {
                     throw new IllegalStateException("Cannot scan for Java catalog items when libraries declared on an ancestor; scanJavaAnnotations should be specified alongside brooklyn.libraries (or ideally those libraries should specify to scan)");
                 }
             } else {
-                if (depth>0) {
-                    // since 0.12.0, require this to be right next to where libraries are defined, or at root
-                    log.warn("Deprecated use of scanJavaAnnotations declared in item; should be declared at the top level of the BOM");
-                }
-                // normal JAR install, only scan that bundle (the one containing the catalog.bom)
-                result.addAll(scanAnnotationsFromBundles(mgmt, MutableList.of(containingBundle), catalogMetadata));
-                // TODO above (scanning a ZIP uploaded) won't work yet because scan routines need a URL
-                // TODO are libraries installed properly, such that they are now managed and their catalog.bom's are scanned ?
+                throw new IllegalArgumentException("Scanning for Java annotations is not supported in BOMs in bundles; "
+                    + "entries should be listed explicitly in the catalog.bom");
+                // see comments on scanAnnotationsInBundle
+//                if (depth>0) {
+//                    // since 0.12.0, require this to be right next to where libraries are defined, or at root
+//                    log.warn("Deprecated use of scanJavaAnnotations declared in item; should be declared at the top level of the BOM");
+//                }
+//                // normal JAR install, only scan that bundle (the one containing the catalog.bom)
+//                // note metadata not relevant here
+//                result.addAll(scanAnnotationsInBundle(mgmt, containingBundle));
             }
         }
         
@@ -832,12 +838,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return oldValue;
     }
 
-    private Collection<CatalogItemDtoAbstract<?, ?>> scanAnnotationsFromLocal(ManagementContext mgmt, Map<?, ?> catalogMetadata) {
+    private Collection<CatalogItemDtoAbstract<?, ?>> scanAnnotationsFromLocalNonBundleClasspath(ManagementContext mgmt, Map<?, ?> catalogMetadata, ManagedBundle containingBundle) {
         CatalogDto dto = CatalogDto.newNamedInstance("Local Scanned Catalog", "All annotated Brooklyn entities detected in the classpath", "scanning-local-classpath");
-        return scanAnnotationsInternal(mgmt, new CatalogDo(dto), catalogMetadata);
+        return scanAnnotationsInternal(mgmt, new CatalogDo(dto), catalogMetadata, containingBundle);
     }
     
-    private Collection<CatalogItemDtoAbstract<?, ?>> scanAnnotationsFromBundles(ManagementContext mgmt, Collection<? extends OsgiBundleWithUrl> libraries, Map<?, ?> catalogMetadata) {
+    private Collection<CatalogItemDtoAbstract<?, ?>> scanAnnotationsLegacyInListOfLibraries(ManagementContext mgmt, Collection<? extends OsgiBundleWithUrl> libraries, Map<?, ?> catalogMetadata, ManagedBundle containingBundle) {
         CatalogDto dto = CatalogDto.newNamedInstance("Bundles Scanned Catalog", "All annotated Brooklyn entities detected in bundles", "scanning-bundles-classpath-"+libraries.hashCode());
         List<String> urls = MutableList.of();
         for (OsgiBundleWithUrl b: libraries) {
@@ -857,22 +863,52 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         
         CatalogDo subCatalog = new CatalogDo(dto);
         subCatalog.addToClasspath(urls.toArray(new String[0]));
-        return scanAnnotationsInternal(mgmt, subCatalog, catalogMetadata);
+        return scanAnnotationsInternal(mgmt, subCatalog, catalogMetadata, containingBundle);
     }
     
-    private Collection<CatalogItemDtoAbstract<?, ?>> scanAnnotationsInternal(ManagementContext mgmt, CatalogDo subCatalog, Map<?, ?> catalogMetadata) {
-        // TODO this does java-scanning only;
-        // the call when scanning bundles should use the CatalogItem instead and use OSGi when loading for scanning
-        // (or another scanning mechanism).  see comments on CatalogClasspathDo.load
+    @SuppressWarnings("unused")  // keep during 0.12.0 until we are decided we won't support this; search for this method name
+    // note that it breaks after rebind since we don't have the JAR -- see notes below
+    private Collection<CatalogItemDtoAbstract<?, ?>> scanAnnotationsInBundle(ManagementContext mgmt, ManagedBundle containingBundle) {
+        CatalogDto dto = CatalogDto.newNamedInstance("Bundle "+containingBundle.getVersionedName().toOsgiString()+" Scanned Catalog", "All annotated Brooklyn entities detected in bundles", "scanning-bundle-"+containingBundle.getVersionedName().toOsgiString());
+        CatalogDo subCatalog = new CatalogDo(dto);
+        // need access to a JAR to scan this
+        String url = null;
+        if (containingBundle instanceof BasicManagedBundle) {
+            File f = ((BasicManagedBundle)containingBundle).getTempLocalFileWhenJustUploaded();
+            if (f!=null) {
+                url = "file:"+f.getAbsolutePath();
+            }
+        }
+        // type.getSubPathName(), type, id+".jar", com.google.common.io.Files.asByteSource(f), exceptionHandler);
+        if (url==null) {
+            url = containingBundle.getUrl();
+        }
+        if (url==null) {
+            // NOT available after persistence/rebind 
+            // as shown by test in CatalogOsgiVersionMoreEntityRebindTest
+            throw new IllegalArgumentException("Error prepaing to scan "+containingBundle.getVersionedName()+": no URL available");
+        }
+        // org.reflections requires the URL to be "file:" containg ".jar"
+        File fJar = Os.newTempFile(containingBundle.getVersionedName().toOsgiString(), ".jar");
+        try {
+            Streams.copy(ResourceUtils.create().getResourceFromUrl(url), new FileOutputStream(fJar));
+        } catch (FileNotFoundException e) {
+            throw Exceptions.propagate("Error extracting "+url+" to scan "+containingBundle.getVersionedName(), e);
+        }
+        subCatalog.addToClasspath(new String[] { "file:"+fJar.getAbsolutePath() });
+        Collection<CatalogItemDtoAbstract<?, ?>> result = scanAnnotationsInternal(mgmt, subCatalog, MutableMap.of("version", containingBundle.getSuppliedVersionString()), containingBundle);
+        fJar.delete();
+        return result;
+    }
+
+    private Collection<CatalogItemDtoAbstract<?, ?>> scanAnnotationsInternal(ManagementContext mgmt, CatalogDo subCatalog, Map<?, ?> catalogMetadata, ManagedBundle containingBundle) {
         subCatalog.mgmt = mgmt;
         subCatalog.setClasspathScanForEntities(CatalogScanningModes.ANNOTATIONS);
         subCatalog.load();
-        // TODO apply metadata?  (extract YAML from the items returned)
-        // also see doc .../catalog/index.md which says we might not apply metadata
         @SuppressWarnings({ "unchecked", "rawtypes" })
         Collection<CatalogItemDtoAbstract<?, ?>> result = (Collection)Collections2.transform(
                 (Collection<CatalogItemDo<Object,Object>>)(Collection)subCatalog.getIdCache().values(), 
-                itemDoToDtoAddingSelectedMetadataDuringScan(catalogMetadata));
+                itemDoToDtoAddingSelectedMetadataDuringScan(catalogMetadata, containingBundle));
         return result;
     }
 
@@ -1353,24 +1389,43 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         };
     }
     
-    private static <T,SpecT> Function<CatalogItemDo<T, SpecT>, CatalogItem<T,SpecT>> itemDoToDtoAddingSelectedMetadataDuringScan(final Map<?, ?> catalogMetadata) {
+    private static <T,SpecT> Function<CatalogItemDo<T, SpecT>, CatalogItem<T,SpecT>> itemDoToDtoAddingSelectedMetadataDuringScan(final Map<?, ?> catalogMetadata, ManagedBundle containingBundle) {
         return new Function<CatalogItemDo<T,SpecT>, CatalogItem<T,SpecT>>() {
             @Override
             public CatalogItem<T,SpecT> apply(@Nullable CatalogItemDo<T,SpecT> item) {
                 if (item==null) return null;
                 CatalogItemDtoAbstract<T, SpecT> dto = (CatalogItemDtoAbstract<T, SpecT>) item.getDto();
 
-                // when scanning we only allow version and libraries to be overwritten
+                // allow metadata to overwrite version and library bundles;
+                // however this should only be used for local classpath scanning and legacy external libraries;
+                // bundle scans should _not_ use this
                 
                 String version = getFirstAs(catalogMetadata, String.class, "version").orNull();
                 if (Strings.isNonBlank(version)) dto.setVersion(version);
                 
-                Object librariesCombined = catalogMetadata.get("brooklyn.libraries");
-                if (librariesCombined instanceof Collection) {
-                    // will be set by scan -- slightly longwinded way to retrieve, but scanning for osgi needs an overhaul in any case
-                    Collection<CatalogBundle> libraryBundles = CatalogItemDtoAbstract.parseLibraries((Collection<?>) librariesCombined);
-                    dto.setLibraries(libraryBundles);
+                Collection<CatalogBundle> libraryBundles = MutableSet.of(); 
+                if (containingBundle!=null) {
+                    libraryBundles.add(new CatalogBundleDto(containingBundle.getSymbolicName(), containingBundle.getSuppliedVersionString(), null));
                 }
+                libraryBundles.addAll(dto.getLibraries());
+                Object librariesInherited;
+                librariesInherited = catalogMetadata.get("brooklyn.libraries");
+                if (librariesInherited instanceof Collection) {
+                    // will be set by scan -- slightly longwinded way to retrieve, but scanning for osgi needs an overhaul in any case
+                    libraryBundles.addAll(CatalogItemDtoAbstract.parseLibraries((Collection<?>) librariesInherited));
+                }
+                librariesInherited = catalogMetadata.get("libraries");
+                if (librariesInherited instanceof Collection) {
+                    log.warn("Legacy 'libraries' encountered; use 'brooklyn.libraries'");
+                    // will be set by scan -- slightly longwinded way to retrieve, but scanning for osgi needs an overhaul in any case
+                    libraryBundles.addAll(CatalogItemDtoAbstract.parseLibraries((Collection<?>) librariesInherited));
+                }
+                dto.setLibraries(libraryBundles);
+                
+                if (containingBundle!=null && dto.getContainingBundle()==null) {
+                    dto.setContainingBundle(containingBundle.getVersionedName());
+                }
+                
                 // replace java type with plan yaml -- needed for libraries / catalog item to be picked up,
                 // but probably useful to transition away from javaType altogether
                 dto.setSymbolicName(dto.getJavaType());

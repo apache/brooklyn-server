@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -46,6 +47,7 @@ import org.apache.brooklyn.core.effector.AddChildrenEffector;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -208,11 +210,11 @@ public class CampYamlLiteTest {
                 "    type: " + MockWebPlatform.APPSERVER.getName());
     }
 
-    protected void installWithoutCatalogBom(LocalManagementContext mgmt, String bundleUrl) {
+    public static void installWithoutCatalogBom(ManagementContext mgmt, String bundleUrl) {
         // install bundle for class access but without loading its catalog.bom, 
         // since we only have mock matchers here
         // (if we don't do this, the default routines install it and try to process the catalog.bom, failing)
-        mgmt.getOsgiManager().get().installDeferredStart(new BasicManagedBundle(null, null, bundleUrl), null).get();
+        ((ManagementContextInternal)mgmt).getOsgiManager().get().installDeferredStart(new BasicManagedBundle(null, null, bundleUrl), null).get();
     }
 
     private void assertMgmtHasSampleMyCatalogApp(String symbolicName, String bundleUrl) {

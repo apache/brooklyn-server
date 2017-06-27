@@ -84,7 +84,7 @@ public class CatalogScanTest {
 
     private LocalManagementContext newManagementContext(BrooklynProperties props) {
         final LocalManagementContext localMgmt = LocalManagementContextForTests.builder(true)
-                .disableOsgi(disableOsgi())
+                .setOsgiEnablementAndReuse(disableOsgi(), true)
                 .useProperties(props)
                 .build();
         mgmts.add(localMgmt);

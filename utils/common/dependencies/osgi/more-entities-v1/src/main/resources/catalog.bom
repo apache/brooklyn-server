@@ -16,7 +16,6 @@
 # under the License.
 
 brooklyn.catalog:
-    version: "0.12.0-SNAPSHOT" # BROOKLYN_VERSION
     itemType: entity
     items:
     - id: org.apache.brooklyn.test.osgi.entities.more.MoreEntity

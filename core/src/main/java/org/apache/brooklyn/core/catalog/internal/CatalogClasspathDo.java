@@ -111,7 +111,9 @@ public class CatalogClasspathDo {
     
     /** causes all scanning-based classpaths to scan the classpaths
     * (but does _not_ load all JARs) */
-    // TODO this does a Java scan; we also need an OSGi scan which uses the OSGi classloaders when loading for scanning and resolving dependencies 
+    // NOTE this does a Java scan; we also need an OSGi scan which uses the OSGi classloaders when loading for scanning and resolving dependencies
+    // TODO AH thinks we should delete ALL this old catalog stuff and scanning and annotations; it's redundant now that we use bundles,
+    // and scanning doesn't fit with the OSGi way of doing things
     synchronized void load() {
         if (classpath == null || isLoaded) return;
 
