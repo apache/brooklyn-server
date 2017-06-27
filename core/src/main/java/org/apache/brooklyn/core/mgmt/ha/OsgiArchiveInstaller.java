@@ -271,6 +271,8 @@ class OsgiArchiveInstaller {
             updateManifestFromAllSourceInformation();
             if (result.code!=null) return ReferenceWithError.newInstanceWithoutError(result);
             assert inferredMetadata.isNameResolved() : "Should have resolved "+inferredMetadata;
+            assert inferredMetadata instanceof BasicManagedBundle : "Only BasicManagedBundles supported";
+            ((BasicManagedBundle)inferredMetadata).setChecksum(Streams.getMd5Checksum(new FileInputStream(zipFile)));
 
             final boolean updating;
             result.metadata = osgiManager.getManagedBundle(inferredMetadata.getVersionedName());
@@ -296,6 +298,12 @@ class OsgiArchiveInstaller {
                     }
                     updating = true;
                 } else {
+                    if (result.getMetadata().getChecksum()==null || inferredMetadata.getChecksum()==null) {
+                        log.warn("Missing bundle checksum data for "+result+"; assuming bundle replacement is permitted");
+                    } else if (!Objects.equal(result.getMetadata().getChecksum(), inferredMetadata.getChecksum())) {
+                        throw new IllegalArgumentException("Bundle "+result.getMetadata().getVersionedName()+" already installed; "
+                            + "cannot install a different bundle at a same non-snapshot version");                        
+                    }
                     result.setIgnoringAlreadyInstalled();
                     return ReferenceWithError.newInstanceWithoutError(result);
                 }

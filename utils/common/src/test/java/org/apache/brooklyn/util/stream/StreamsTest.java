@@ -16,42 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.api.mgmt.rebind.mementos;
+package org.apache.brooklyn.util.stream;
 
-import java.util.Collection;
-import java.util.List;
+import java.io.ByteArrayInputStream;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.api.objs.SpecParameter;
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
-public interface CatalogItemMemento extends Memento {
-
-    String getDescription();
-
-    String getSymbolicName();
-
-    String getContainingBundle();
+public class StreamsTest {
     
-    String getIconUrl();
+    @Test
+    public void testChecksum() {
+        Assert.assertEquals(Streams.getMd5Checksum(new ByteArrayInputStream("hello world".getBytes())),
+            // generated from 3rd party tool
+            "5EB63BBBE01EEED093CB22BB8F5ACDC3"
+            );
 
-    String getVersion();
-
-    String getPlanYaml();
-
-    String getJavaType();
-
-    List<SpecParameter<?>> getParameters();
-
-    Collection<CatalogItem.CatalogBundle> getLibraries();
-
-    CatalogItem.CatalogItemType getCatalogItemType();
-
-    Class<?> getCatalogItemJavaType();
-
-    Class<?> getSpecType();
-
-    boolean isDeprecated();
-
-    boolean isDisabled();
-    
+    }
 }

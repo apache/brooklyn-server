@@ -251,10 +251,12 @@ public class OsgiManager {
         framework = null;
     }
 
+    /** Map of bundles by UID */
     public Map<String, ManagedBundle> getManagedBundles() {
         return managedBundlesRecord.getManagedBundles();
     }
 
+    /** Gets UID given a name, or null */
     public String getManagedBundleId(VersionedName vn) {
         return managedBundlesRecord.getManagedBundleId(vn);
     }

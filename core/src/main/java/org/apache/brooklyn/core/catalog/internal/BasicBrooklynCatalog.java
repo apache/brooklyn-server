@@ -1173,7 +1173,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     public List<? extends CatalogItem<?,?>> addItems(String yaml, boolean forceUpdate) {
         Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager();
         if (osgiManager.isPresent() && AUTO_WRAP_CATALOG_YAML_AS_BUNDLE) {
-            // TODO wrap in a bundle to be managed; need to get bundle and version from yaml
+            // wrap in a bundle to be managed; need to get bundle and version from yaml
             Map<?, ?> cm = BasicBrooklynCatalog.getCatalogMetadata(yaml);
             VersionedName vn = BasicBrooklynCatalog.getVersionedName( cm, false );
             if (vn==null) {
@@ -1202,9 +1202,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 throw Exceptions.propagate(e);
             }
             bf.delete();
-            if (result.getCode().isError() || result.getCode()==ResultCode.IGNORING_BUNDLE_AREADY_INSTALLED) {
-                // if we're wrapping YAML then we don't allow equivalent YAML to be pasted
-                // TODO remove this once we have better bundle equivalence checks
+            if (result.getCode().isError()) {
                 throw new IllegalStateException(result.getMessage());
             }
             return toItems(result.getCatalogItemsInstalled());

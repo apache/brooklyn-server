@@ -15,4 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-brooklyn.catalog: {}
+brooklyn.catalog:
+  bundle: brooklyn-empty-catalog
+  version: 0.0.0-SNAPSHOT

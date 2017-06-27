@@ -27,9 +27,13 @@ public interface ManagedBundle extends BrooklynObject, Rebindable, OsgiBundleWit
 
     /** A URL-like thing that we can register with the OSGi framework
      * to uniquely identify this bundle-instance.
-     * This typically includes the unique {@link #getId()} of this item. */
+     * This typically includes the unique {@link #getId()} of this item. 
+     * This will not normally be a URL that can be loaded. */
     String getOsgiUniqueUrl();
 
     VersionedName getVersionedName();
 
+    /** MD5 checksum of the contents of bundle as installed to OSGi */
+    String getChecksum();
+    
 }

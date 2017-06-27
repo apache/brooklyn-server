@@ -39,7 +39,6 @@ public class OsgiBundleInstallationResult {
     public enum ResultCode { 
         INSTALLED_NEW_BUNDLE(false),
         UPDATED_EXISTING_BUNDLE(false),
-        // TODO if bundle installed is different to bundle supplied we should flag an error
         IGNORING_BUNDLE_AREADY_INSTALLED(false), 
         ERROR_PREPARING_BUNDLE(true),
         ERROR_INSTALLING_BUNDLE(true);

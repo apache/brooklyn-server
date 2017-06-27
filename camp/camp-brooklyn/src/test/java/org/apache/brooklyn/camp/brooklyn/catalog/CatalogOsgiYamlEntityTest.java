@@ -236,7 +236,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
         try {
             addCatalogItems(
                 "brooklyn.catalog:",
-                "  id: my.catalog.app.id.non_existing.ref",
+                "  id: my.catalog.app.id.non_existing.ref.1",
                 "  version: " + TEST_VERSION,
                 "  itemType: entity",
                 "  libraries:",
@@ -250,7 +250,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
         try {
             addCatalogItems(
                 "brooklyn.catalog:",
-                "  id: my.catalog.app.id.non_existing.ref",
+                "  id: my.catalog.app.id.non_existing.ref.2",
                 "  version: " + TEST_VERSION,
                 "  itemType: entity",
                 "  libraries:",
@@ -323,13 +323,18 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
         addCatalogOSGiEntity(id);
     }
     
-    @Test(expectedExceptions = IllegalStateException.class)
+    @Test
     public void testUpdatingItemFailsIfDifferent() {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
 
         String id = "my.catalog.app.id.duplicate";
         addCatalogOSGiEntity(id);
-        addCatalogOSGiEntity(id, SIMPLE_ENTITY_TYPE, true);
+        try {
+            addCatalogOSGiEntity(id, SIMPLE_ENTITY_TYPE, true);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, id, "already installed", "cannot install a different bundle at a same non-snapshot version");
+        }
     }
 
     @Test
