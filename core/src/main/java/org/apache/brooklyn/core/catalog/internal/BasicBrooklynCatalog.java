@@ -1233,7 +1233,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return addItems(yaml, bundle, false);
     }
     
-    private List<? extends CatalogItem<?,?>> addItems(String yaml, ManagedBundle bundle, boolean forceUpdate) {
+    @Override
+    public List<? extends CatalogItem<?,?>> addItems(String yaml, ManagedBundle bundle, boolean forceUpdate) {
         log.debug("Adding manual catalog item to "+mgmt+": "+yaml);
         checkNotNull(yaml, "yaml");
         List<CatalogItemDtoAbstract<?, ?>> result = collectCatalogItems(yaml, bundle);

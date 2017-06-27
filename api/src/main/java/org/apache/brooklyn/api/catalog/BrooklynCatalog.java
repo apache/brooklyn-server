@@ -19,6 +19,7 @@
 package org.apache.brooklyn.api.catalog;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.NoSuchElementException;
 
 import javax.annotation.Nullable;
@@ -136,6 +137,9 @@ public interface BrooklynCatalog {
      * @throws IllegalArgumentException if the yaml was invalid
      */
     Iterable<? extends CatalogItem<?,?>> addItems(String yaml, boolean forceUpdate);
+    
+    /** As {@link #addItems(String, ManagedBundle)} but exposing forcing option as per {@link #addItem(String, boolean)}. */
+    Iterable<? extends CatalogItem<?,?>> addItems(String yaml, ManagedBundle bundle, boolean forceUpdate);
     
     /**
      * adds an item to the 'manual' catalog;

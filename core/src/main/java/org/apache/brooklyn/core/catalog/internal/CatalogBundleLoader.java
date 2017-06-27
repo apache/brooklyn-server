@@ -72,6 +72,10 @@ public class CatalogBundleLoader {
      * @throws RuntimeException if the catalog items failed to be added to the catalog
      */
     public Iterable<? extends CatalogItem<?, ?>> scanForCatalog(Bundle bundle) {
+        return scanForCatalog(bundle, false);
+    }
+    
+    public Iterable<? extends CatalogItem<?, ?>> scanForCatalog(Bundle bundle, boolean force) {
         ManagedBundle mb = ((ManagementContextInternal)managementContext).getOsgiManager().get().getManagedBundle(
             new VersionedName(bundle));
 
@@ -82,7 +86,7 @@ public class CatalogBundleLoader {
             LOG.debug("Found catalog BOM in {} {} {}", CatalogUtils.bundleIds(bundle));
             String bomText = readBom(bom);
             String bomWithLibraryPath = addLibraryDetails(bundle, bomText);
-            catalogItems = this.managementContext.getCatalog().addItems(bomWithLibraryPath, mb);
+            catalogItems = this.managementContext.getCatalog().addItems(bomWithLibraryPath, mb, force);
             for (CatalogItem<?, ?> item : catalogItems) {
                 LOG.debug("Added to catalog: {}, {}", item.getSymbolicName(), item.getVersion());
             }

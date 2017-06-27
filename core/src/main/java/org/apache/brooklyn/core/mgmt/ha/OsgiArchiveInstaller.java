@@ -375,7 +375,7 @@ class OsgiArchiveInstaller {
                             osgiManager.uninstallCatalogItemsFromBundle( result.getVersionedName() );
                             // (ideally removal and addition would be atomic)
                         }
-                        for (CatalogItem<?,?> ci: osgiManager.loadCatalogBom(result.bundle)) {
+                        for (CatalogItem<?,?> ci: osgiManager.loadCatalogBom(result.bundle, force)) {
                             result.catalogItemsInstalled.add(ci.getId());
                         }
                     }

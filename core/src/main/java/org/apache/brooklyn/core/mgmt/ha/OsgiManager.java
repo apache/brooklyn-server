@@ -375,10 +375,15 @@ public class OsgiManager {
     // possibly remove that other capability, so that bundles with BOMs _have_ to be installed via this method.
     // (load order gets confusing with auto-scanning...)
     public List<? extends CatalogItem<?,?>> loadCatalogBom(Bundle bundle) {
-        return MutableList.copyOf(loadCatalogBom(mgmt, bundle));
+        return loadCatalogBom(bundle, false);
     }
     
-    private static Iterable<? extends CatalogItem<?, ?>> loadCatalogBom(ManagementContext mgmt, Bundle bundle) {
+    @Beta  // as above
+    public List<? extends CatalogItem<?,?>> loadCatalogBom(Bundle bundle, boolean force) {
+        return MutableList.copyOf(loadCatalogBom(mgmt, bundle, force));
+    }
+    
+    private static Iterable<? extends CatalogItem<?, ?>> loadCatalogBom(ManagementContext mgmt, Bundle bundle, boolean force) {
         Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
         if (!BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM)) {
             // if the above feature is not enabled, let's do it manually (as a contract of this method)
@@ -388,7 +393,7 @@ public class OsgiManager {
                 // here to get back the predicate from it.
                 final Predicate<Bundle> applicationsPermitted = Predicates.<Bundle>alwaysTrue();
 
-                catalogItems = new CatalogBundleLoader(applicationsPermitted, mgmt).scanForCatalog(bundle);
+                catalogItems = new CatalogBundleLoader(applicationsPermitted, mgmt).scanForCatalog(bundle, force);
             } catch (RuntimeException ex) {
                 // TODO confirm -- as of May 2017 we no longer uninstall the bundle if install of catalog items fails;
                 // caller needs to upgrade, or uninstall then reinstall
