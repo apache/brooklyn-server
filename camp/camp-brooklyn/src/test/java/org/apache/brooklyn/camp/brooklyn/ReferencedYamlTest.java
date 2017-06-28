@@ -133,7 +133,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
             "brooklyn.catalog:",
             "  itemType: entity",
             "  items:",
-            "  - id: yaml.standalone",
+            "  - id: yaml.basic",
             "    version: " + TEST_VERSION,
             "    item:",
             "      services:",
@@ -142,7 +142,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
             "    version: " + TEST_VERSION,
             "    item:",
             "      services:",
-            "      - type: classpath://yaml-ref-parent-catalog.yaml");
+            "      - type: classpath://yaml-ref-catalog.yaml");  // this references yaml.basic above
 
         String entityName = "YAML -> catalog item -> yaml url";
         Entity app = createAndStartApplication(
