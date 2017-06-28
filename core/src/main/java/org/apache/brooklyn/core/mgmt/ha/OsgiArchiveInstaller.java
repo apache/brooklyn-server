@@ -23,6 +23,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
@@ -34,6 +35,7 @@ import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.core.osgi.Osgis;
@@ -53,6 +55,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.Iterables;
 
 // package-private so we can move this one if/when we move OsgiManager
 class OsgiArchiveInstaller {
@@ -340,14 +343,14 @@ class OsgiArchiveInstaller {
             if (!updating) { 
                 osgiManager.managedBundlesRecord.addManagedBundle(result);
                 result.code = OsgiBundleInstallationResult.ResultCode.INSTALLED_NEW_BUNDLE;
-                result.message = "Installed "+result.getMetadata().getVersionedName()+" with ID "+result.getMetadata().getId();
+                result.message = "Installed Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" with ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
                 mgmt().getRebindManager().getChangeListener().onManaged(result.getMetadata());
             } else {
                 result.code = OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE;
-                result.message = "Updated "+result.getMetadata().getVersionedName()+" as existing ID "+result.getMetadata().getId();
+                result.message = "Updated Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" as existing ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
                 mgmt().getRebindManager().getChangeListener().onChanged(result.getMetadata());
             }
-            log.info(result.message);
+            log.debug(result.message + " (in osgi container)");
             
             // setting the above before the code below means if there is a problem starting or loading catalog items
             // a user has to remove then add again, or forcibly reinstall;
@@ -364,6 +367,7 @@ class OsgiArchiveInstaller {
                 public void run() {
                     if (start) {
                         try {
+                            log.debug("Starting bundle "+result.getVersionedName());
                             result.bundle.start();
                         } catch (BundleException e) {
                             throw Exceptions.propagate(e);
@@ -375,7 +379,9 @@ class OsgiArchiveInstaller {
                             osgiManager.uninstallCatalogItemsFromBundle( result.getVersionedName() );
                             // (ideally removal and addition would be atomic)
                         }
-                        for (CatalogItem<?,?> ci: osgiManager.loadCatalogBom(result.bundle, force)) {
+                        List<? extends CatalogItem<?, ?>> items = osgiManager.loadCatalogBom(result.bundle, force);
+                        log.debug("Adding items from bundle "+result.getVersionedName()+": "+items);
+                        for (CatalogItem<?,?> ci: items) {
                             result.catalogItemsInstalled.add(ci.getId());
                         }
                     }
@@ -383,8 +389,18 @@ class OsgiArchiveInstaller {
             };
             if (deferredStart) {
                 result.deferredStart = startRunnable;
+                log.debug(result.message+" (Brooklyn load deferred)");
             } else {
                 startRunnable.run();
+                if (!result.catalogItemsInstalled.isEmpty()) {
+                    // show fewer info messages, only for 'interesting' and non-deferred installations
+                    // (rebind is deferred, as are tests, but REST is not)
+                    MutableList<String> firstFive = MutableList.copyOf(Iterables.limit(result.catalogItemsInstalled, 5));
+                    log.info(result.message+", items: "+firstFive+
+                        (result.catalogItemsInstalled.size() > 5 ? " (and others, "+result.catalogItemsInstalled.size()+" total)" : "") );
+                } else {
+                    log.debug(result.message+" (into Brooklyn), with no catalog items");
+                }
             }
 
             return ReferenceWithError.newInstanceWithoutError(result);

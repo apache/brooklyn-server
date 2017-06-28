@@ -18,7 +18,12 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
+import java.util.Collection;
+
+import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.test.Asserts;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 /** As parent tests, but using OSGi, and some of the additions are stricter / different */ 
@@ -33,7 +38,8 @@ public class CatalogOsgiYamlVersioningTest extends CatalogYamlVersioningTest {
     @Test
     public void testAddSameVersionWithoutBundle() {
         try {
-            // parent test should fail in OSGi
+            // parent test should fail in OSGi - anonymous bundle is snapshot so updating is attempted
+            // but item version is not snapshot and containing bundle is different, so ultimately fails
             super.testAddSameVersionWithoutBundle();
             Asserts.shouldHaveFailedPreviously("Expected to fail because containing bundle will be different when using OSGi");
         } catch (Exception e) {
@@ -43,6 +49,16 @@ public class CatalogOsgiYamlVersioningTest extends CatalogYamlVersioningTest {
     }
     
     @Test
+    public void testAddSameVersionWithoutBundleWorksIfItemIsSnapshot() {
+        String symbolicName = "sampleId";
+        String version = "0.1.0-SNAPSHOT";
+        addCatalogEntityWithoutBundle(symbolicName, version);
+        // allowed because item is snapshot
+        addCatalogEntityWithoutBundle(symbolicName, version);
+        assertJustOneBundle();
+    }
+        
+    @Test
     public void testAddSameVersionWithoutBundleWorksIfForced() {
         String symbolicName = "sampleId";
         String version = "0.1.0";
@@ -50,7 +66,6 @@ public class CatalogOsgiYamlVersioningTest extends CatalogYamlVersioningTest {
         forceCatalogUpdate();
         addCatalogEntityWithoutBundle(symbolicName, version);
     }
-    
 
     @Override
     protected void checkAddSameVersionFailsWhenIconIsDifferent(Exception e) {
@@ -58,4 +73,31 @@ public class CatalogOsgiYamlVersioningTest extends CatalogYamlVersioningTest {
             "cannot install a different bundle at a same non-snapshot version");
         assertExpectedFailureIncludesSampleId(e);
     }
+    
+    @Test
+    public void testEmptyCatalogBundleIsRemoved() {
+        Collection<ManagedBundle> bundles = ((ManagementContextInternal)mgmt()).getOsgiManager().get().getManagedBundles().values();
+        Assert.assertTrue(bundles.isEmpty(), "Expected no bundles before starting; but had: "+bundles);
+    }
+    
+    @Override
+    @Test
+    public void testAddSameVersionWorksIfSame() {
+        // in OSGi, assert additionally that we aren't leaking bundles
+        super.testAddSameVersionWorksIfSame();
+        assertJustOneBundle();
+    }
+
+    protected void assertJustOneBundle() {
+        Collection<ManagedBundle> bundles = ((ManagementContextInternal)mgmt()).getOsgiManager().get().getManagedBundles().values();
+        Assert.assertTrue(bundles.size()==1, "Expected one bundle after installing the same; but had: "+bundles);
+    }
+    
+    @Override
+    @Test
+    public void testAddSameSnapshotVersionSucceedsWhenIconIsDifferent() {
+        super.testAddSameSnapshotVersionSucceedsWhenIconIsDifferent();
+        assertJustOneBundle();
+    }
+
 }

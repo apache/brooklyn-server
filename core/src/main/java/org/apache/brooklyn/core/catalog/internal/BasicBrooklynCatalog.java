@@ -50,6 +50,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.CatalogClasspathDo.CatalogScanningModes;
 import org.apache.brooklyn.core.location.BasicLocationRegistry;
@@ -1191,6 +1192,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 vn = new VersionedName(vn!=null && Strings.isNonBlank(vn.getSymbolicName()) ? vn.getSymbolicName() : "brooklyn-catalog-bom-"+Identifiers.makeRandomId(8), 
                     vn!=null && vn.getVersionString()!=null ? vn.getVersionString() : getFirstAs(cm, String.class, "version").or(NO_VERSION));
             }
+            log.debug("Wrapping supplied BOM as "+vn);
             Manifest mf = new Manifest();
             mf.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, vn.getSymbolicName());
             mf.getMainAttributes().putValue(Constants.BUNDLE_VERSION, vn.getOsgiVersionString() );
@@ -1208,6 +1210,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 throw Exceptions.propagate(e);
             }
             bf.delete();
+            uninstallEmptyWrapperBundles();
             if (result.getCode().isError()) {
                 throw new IllegalStateException(result.getMessage());
             }
@@ -1477,4 +1480,23 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             cache.put(itemId, spec);
         }
     }
+    
+    private Object uninstallingEmptyLock = new Object();
+    public void uninstallEmptyWrapperBundles() {
+        log.debug("uninstalling empty wrapper bundles");
+        synchronized (uninstallingEmptyLock) {
+            Maybe<OsgiManager> osgi = ((ManagementContextInternal)mgmt).getOsgiManager();
+            if (osgi.isAbsent()) return;
+            for (ManagedBundle b: osgi.get().getManagedBundles().values()) {
+                if (isNoBundleOrSimpleWrappingBundle(b)) {
+                    Iterable<RegisteredType> typesInBundle = osgi.get().getTypesFromBundle(b.getVersionedName());
+                    if (Iterables.isEmpty(typesInBundle)) {
+                        log.debug("uninstalling empty wrapper bundle "+b);
+                        osgi.get().uninstallUploadedBundle(b);
+                    }
+                }
+            }
+        }
+    }
+    
 }

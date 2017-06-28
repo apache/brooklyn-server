@@ -288,6 +288,8 @@ public class OsgiManager {
     public ReferenceWithError<OsgiBundleInstallationResult> install(@Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream zipIn,
             boolean start, boolean loadCatalogBom, boolean forceUpdateOfNonSnapshots) {
         
+        log.debug("Installing bundle from stream - known details: "+knownBundleMetadata);
+        
         OsgiArchiveInstaller installer = new OsgiArchiveInstaller(this, knownBundleMetadata, zipIn);
         installer.setStart(start);
         installer.setLoadCatalogBom(loadCatalogBom);
@@ -335,12 +337,14 @@ public class OsgiManager {
     @Beta
     public void uninstallCatalogItemsFromBundle(VersionedName bundle) {
         List<RegisteredType> thingsFromHere = ImmutableList.copyOf(getTypesFromBundle( bundle ));
+        log.debug("Uninstalling items from bundle "+bundle+": "+thingsFromHere);
         for (RegisteredType t: thingsFromHere) {
             mgmt.getCatalog().deleteCatalogItem(t.getSymbolicName(), t.getVersion());
         }
     }
 
-    protected Iterable<RegisteredType> getTypesFromBundle(final VersionedName vn) {
+    @Beta
+    public Iterable<RegisteredType> getTypesFromBundle(final VersionedName vn) {
         final String bundleId = vn.toString();
         return mgmt.getTypeRegistry().getMatching(new Predicate<RegisteredType>() {
             @Override

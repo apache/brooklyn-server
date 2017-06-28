@@ -126,8 +126,13 @@ public class VersionedName {
         return Objects.equal(name, o.name) && Objects.equal(v, o.v);
     }
     
-    /** As {@link #equals(Object)} but accepting the argument as equal if versions are identical when injected to OSGi-valid versions */
+    /** As {@link #equals(Object)} but accepting the argument as equal 
+     * if versions are identical when injected to OSGi-valid versions,
+     * and accepting strings as the other */
     public boolean equalsOsgi(Object other) {
+        if (other instanceof String) {
+            other = VersionedName.fromString((String)other);
+        }
         if (!(other instanceof VersionedName)) {
             return false;
         }
