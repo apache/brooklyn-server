@@ -91,4 +91,14 @@ public class LoggingOutputStreamTest {
         
         assertEquals(logs, ImmutableList.of("myprefix:line1", "myprefix:line2"));
     }
+    
+    @Test
+    public void testLogsUnicode() throws Exception {
+        LoggingOutputStream out = LoggingOutputStream.builder().logger(mockLogger).build();
+        String test = "Лорем.";
+        out.write((test+"\n").getBytes(StandardCharsets.UTF_8));
+        out.flush();
+
+        assertEquals(logs, ImmutableList.of(test));
+    }
 }

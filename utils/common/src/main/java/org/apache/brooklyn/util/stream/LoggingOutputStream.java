@@ -21,12 +21,17 @@ package org.apache.brooklyn.util.stream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.http.util.ByteArrayBuffer;
 import org.slf4j.Logger;
 
 /**
  * Wraps another output stream, intercepting the writes to log it.
+ * 
+ * This is <em>not</em> thread safe. It assumes that calls like write, flush and close 
+ * will be done by the same thread.
  */
 public class LoggingOutputStream extends FilterOutputStream {
 
@@ -68,7 +73,9 @@ public class LoggingOutputStream extends FilterOutputStream {
     protected final Logger log;
     protected final String logPrefix;
     private final AtomicBoolean running = new AtomicBoolean(true);
-    private final StringBuilder lineSoFar = new StringBuilder(16);
+    
+    // Uses byte array, rather than StringBuilder, to handle Unicode chars longer than one byte
+    private ByteArrayBuffer lineSoFar = new ByteArrayBuffer(16);
 
     private LoggingOutputStream(Builder builder) {
         super(builder.out != null ? builder.out : NOOP_OUTPUT_STREAM);
@@ -78,7 +85,7 @@ public class LoggingOutputStream extends FilterOutputStream {
 
     @Override
     public void write(int b) throws IOException {
-        if (running.get() && b >= 0) onChar(b);
+        if (running.get()) onChar(b);
         out.write(b);
     }
 
@@ -86,8 +93,8 @@ public class LoggingOutputStream extends FilterOutputStream {
     public void flush() throws IOException {
         try {
             if (lineSoFar.length() > 0) {
-                onLine(lineSoFar.toString());
-                lineSoFar.setLength(0);
+                onLine(lineSoFar.buffer(), lineSoFar.length());
+                clearLineSoFar();
             }
         } finally {
             super.flush();
@@ -100,8 +107,8 @@ public class LoggingOutputStream extends FilterOutputStream {
     @Override
     public void close() throws IOException {
         try {
-            onLine(lineSoFar.toString());
-            lineSoFar.setLength(0);
+            onLine(lineSoFar.buffer(), lineSoFar.length());
+            clearLineSoFar();
         } finally {
             out.close();
             running.set(false);
@@ -110,21 +117,37 @@ public class LoggingOutputStream extends FilterOutputStream {
     
     public void onChar(int c) {
         if (c=='\n' || c=='\r') {
-            if (lineSoFar.length()>0)
+            if (lineSoFar.length() > 0) {
                 //suppress blank lines, so that we can treat either newline char as a line separator
                 //(eg to show curl updates frequently)
-                onLine(lineSoFar.toString());
-            lineSoFar.setLength(0);
+                onLine(lineSoFar.buffer(), lineSoFar.length());
+                clearLineSoFar();
+            }
+            
         } else {
-            lineSoFar.append((char)c);
+            lineSoFar.append(c);
         }
+    }
+    
+    private void clearLineSoFar() {
+        lineSoFar.setLength(0);
+        
+        // Avoid keeping hold of a lot of memory for too long a time:
+        // if we'd constructed a huge buffer, then get rid of it.
+        if (lineSoFar.capacity() > 1024) {
+            lineSoFar = new ByteArrayBuffer(16);
+        }
+    }
+
+    public void onLine(byte[] line, int length) {
+        onLine(new String(line, 0, length, StandardCharsets.UTF_8));
     }
     
     public void onLine(String line) {
         //right trim, in case there is \r or other funnies
         while (line.length()>0 && Character.isWhitespace(line.charAt(line.length()-1)))
             line = line.substring(0, line.length()-1);
-        //right trim, in case there is \r or other funnies
+        //left trim, in case there is \r or other funnies
         while (line.length()>0 && (line.charAt(0)=='\n' || line.charAt(0)=='\r'))
             line = line.substring(1);
         if (!line.isEmpty()) {
