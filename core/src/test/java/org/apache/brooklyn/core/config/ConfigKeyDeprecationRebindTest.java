@@ -100,6 +100,18 @@ public class ConfigKeyDeprecationRebindTest extends AbstractRebindHistoricTest {
      *         .configure("oldFlagKey2", "myval"));
      * }
      * </pre>
+     * 
+     * Note that (with Brooklyn 0.11.0) the above code wrote the persisted state as "key2".
+     * That is, it switched the name used at configure-time for the actual key name, so that
+     * is what is in persisted state.
+     * 
+     * Therefore this test is a bit pointless! The persisted state does not contain the word
+     * "oldFlagKey2" so of course it won't contain that word after rebind.
+     * 
+     * The purpose of the test is to illustrate that we thought about and tested the code 
+     * path of someone having used the alias in an old Brooklyn version, and now is upgrading
+     * to a version where the alias annotation has been replaced by 
+     * {@code .deprecatedNames("oldFlagKey2")}.
      */
     @Test
     public void testEntityPersistedWithSetFromFlagNameOnKey() throws Exception {

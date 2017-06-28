@@ -216,17 +216,14 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
             config().removeKey(PARENT_LOCATION);
         }
 
-        // allow config keys to be set by name (or deprecated name)
+        // Allow config keys to be set by name (or deprecated name)
         //
-        // Aled thinks it would be sensible to remove the consumed flags below (i.e. properties = ...).
-        // However, that caused ClockerDynamicLocationPatternTest to fail because there is a field of 
-        // StubContainerLocation annotated with `@SetFromFlag("owner")`, as well as a config key with 
-        // name "owner" (and with `@SetFromFlag("owner")`) in the super-type (DynamicLocation).
-        // However, that looks mad - do we really need to support it?!
-        // I've preserved that behaviour (for now).
-        ConfigUtilsInternal.setAllConfigKeys(properties, getLocationTypeInternal().getConfigKeys().values(), this);
+        // The resulting `properties` will no longer contain the keys that we matched;
+        // we will not also use them to for `SetFromFlag` etc.
+        properties = ConfigUtilsInternal.setAllConfigKeys(properties, getLocationTypeInternal().getConfigKeys().values(), this);
 
         // NB: flag-setting done here must also be done in BasicLocationRebindSupport
+        // Must call setFieldsFromFlagsWithBag, even if properites is empty, so defaults are extracted from annotations
         ConfigBag configBag = ConfigBag.newInstance(properties);
         FlagUtils.setFieldsFromFlagsWithBag(this, properties, configBag, firstTime);
         FlagUtils.setAllConfigKeys(this, configBag, false);
@@ -252,7 +249,7 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
             } else {
                 codes = TypeCoercions.coerce(rawCodes, new TypeToken<Set<String>>() {});
             }
-            configBag.put(LocationConfigKeys.ISO_3166, codes);
+            config().set(LocationConfigKeys.ISO_3166, codes);
         }
         
         return this;

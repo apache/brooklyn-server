@@ -153,19 +153,13 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
             }
         }
 
-        // Allow config keys to be set by name (or deprecated name).
+        // Allow config keys to be set by name (or deprecated name)
         //
-        // Aled thinks it would be sensible to remove the consumed flags below (i.e. flags = ...).
-        // However, that causes PolicyConfigTest.testConfigFlagsPassedInAtConstructionIsAvailable to fail.
-        // However, tht looks mad - do we really need to support it?!
-        // The policy is defined with one key using a name in SetFromFlag, and another key using the same name.
-        // It expects both of the config keys to have been set.
-        //     @SetFromFlag("strKey")
-        //     public static final ConfigKey<String> STR_KEY = new BasicConfigKey<String>(String.class, "akey", "a key");
-        //     public static final ConfigKey<String> STR_KEY_WITH_DEFAULT = new BasicConfigKey<String>(String.class, "strKey", "str key", "str key default");
-        // I've preserved that behaviour (for now).
-        ConfigUtilsInternal.setAllConfigKeys(flags, getAdjunctType().getConfigKeys(), this);
+        // The resulting `flags` will no longer contain the keys that we matched;
+        // we will not also use them to for `SetFromFlag` etc.
+        flags = ConfigUtilsInternal.setAllConfigKeys(flags, getAdjunctType().getConfigKeys(), this);
 
+        // Must call setFieldsFromFlagsWithBag, even if properites is empty, so defaults are extracted from annotations
         ConfigBag bag = new ConfigBag().putAll(flags);
         FlagUtils.setFieldsFromFlags(this, bag, isFirstTime);
         FlagUtils.setAllConfigKeys(this, bag, false);

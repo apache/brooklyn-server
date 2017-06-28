@@ -435,6 +435,7 @@ public class ConfigBag {
      * 
      * @deprecated since 0.12.0; instead define deprecated names on key, see {@link ConfigKey#getDeprecatedNames()}
      */
+    @Deprecated
     public Object getWithDeprecation(ConfigKey<?> key, ConfigKey<?> ...deprecatedKeys) {
         return getWithDeprecation(new ConfigKey[] { key }, deprecatedKeys);
     }
@@ -446,6 +447,7 @@ public class ConfigBag {
      * 
      * @deprecated since 0.12.0; instead define deprecated names on key, see {@link ConfigKey#getDeprecatedNames()}
      */
+    @Deprecated
     public synchronized Object getWithDeprecation(ConfigKey<?>[] currentKeysInOrderOfPreference, ConfigKey<?> ...deprecatedKeys) {
         // Get preferred key (or null)
         ConfigKey<?> preferredKeyProvidingValue = null;
@@ -541,7 +543,7 @@ public class ConfigBag {
                         log.warn("Duplicate value for key "+key+" from deprecated name '"+deprecatedName+"'; "
                                 + "using same value from preferred name "+key.getName());
                     }
-                } else if (firstDeprecatedVal.isPresent()) {
+                } else if (firstDeprecatedVal != null && firstDeprecatedVal.isPresent()) {
                     if (!Objects.equal(firstDeprecatedVal.get(), deprecatedVal.get())) {
                         log.warn("Conflicting value for key "+key+" from deprecated name '"+deprecatedName+"'; "
                                 + "using earlier deprecated name "+firstDeprecatedName);
@@ -590,7 +592,7 @@ public class ConfigBag {
                         log.warn("Duplicate value for key "+key+" from deprecated name '"+deprecatedName+"'; "
                                 + "using same value from preferred name "+key.getName());
                     }
-                } else if (firstDeprecatedVal != null) {
+                } else if (firstDeprecatedVal != null && firstDeprecatedVal.isPresent()) {
                     if (!Objects.equal(firstDeprecatedVal.get(), deprecatedVal.get())) {
                         log.warn("Conflicting value for key "+key+" from deprecated name '"+deprecatedName+"'; "
                                 + "using earlier deprecated name "+firstDeprecatedName);

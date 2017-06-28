@@ -19,6 +19,7 @@
 package org.apache.brooklyn.util.core.config;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 import java.util.List;
 import java.util.Map;
@@ -29,14 +30,14 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.config.ConfigBagTest;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import com.google.common.collect.ImmutableMap;
 
 public class ConfigBagTest {
 
@@ -134,6 +135,83 @@ public class ConfigBagTest {
         // when extended, the difference is that parent is also marked
         assertEquals(bag1.getUnusedConfig().size(), 0);
     }
+
+    @Test
+    public void testCopyKey() throws InterruptedException {
+        ConfigBag bag = ConfigBag.newInstance();
+        bag.put(K1, "v1");
+        
+        ConfigBag bag2 = ConfigBag.newInstance();
+        bag2.copyKey(bag, K1);
+        
+        assertEquals(bag2.get(K1), "v1");
+    }
+    
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testCopyKeys() throws InterruptedException {
+        ConfigBag bag = ConfigBag.newInstance();
+        bag.put(K1, "v1");
+        bag.put(K2, "v2");
+        
+        ConfigBag bag2 = ConfigBag.newInstance();
+        bag2.copyKeys(bag, K1, K2, K3);
+        
+        assertEquals(bag2.get(K1), "v1");
+        assertEquals(bag2.get(K2), "v2");
+        assertFalse(bag2.containsKey(K3));
+    }
+    
+    @Test
+    public void testCopyKeyAs() throws InterruptedException {
+        ConfigBag bag = ConfigBag.newInstance();
+        bag.put(K1, "v1");
+        
+        ConfigBag bag2 = ConfigBag.newInstance();
+        bag2.copyKeyAs(bag, K1, K2);
+        
+        assertEquals(bag2.get(K2), "v1");
+        assertFalse(bag2.containsKey(K1));
+    }
+    
+    @Test
+    public void testCopyKeyWithDeprecatedNames() throws InterruptedException {
+        ConfigKey<String> k = ConfigKeys.builder(String.class, "k")
+                .deprecatedNames("kOld", "kOld2")
+                .build();
+        
+        {
+            ConfigBag bag = ConfigBag.newInstance().putAll(ImmutableMap.of("k", "v1"));
+            ConfigBag bag2 = ConfigBag.newInstance();
+            bag2.copyKey(bag, k);
+            assertEquals(bag2.getAllConfigRaw(), ImmutableMap.of("k", "v1"));
+        }
+        {
+            ConfigBag bag = ConfigBag.newInstance().putAll(ImmutableMap.of("kOld", "v1"));
+            ConfigBag bag2 = ConfigBag.newInstance();
+            bag2.copyKey(bag, k);
+            assertEquals(bag2.getAllConfigRaw(), ImmutableMap.of("k", "v1"));
+        }
+        {
+            ConfigBag bag = ConfigBag.newInstance().putAll(ImmutableMap.of("kOld", "v1", "kOld2", "v2"));
+            ConfigBag bag2 = ConfigBag.newInstance();
+            bag2.copyKey(bag, k);
+            assertEquals(bag2.getAllConfigRaw(), ImmutableMap.of("k", "v1"));
+        }
+        {
+            ConfigBag bag = ConfigBag.newInstance().putAll(ImmutableMap.of("k", "v1", "kOld", "v2"));
+            ConfigBag bag2 = ConfigBag.newInstance();
+            bag2.copyKey(bag, k);
+            assertEquals(bag2.getAllConfigRaw(), ImmutableMap.of("k", "v1"));
+        }
+        {
+            ConfigBag bag = ConfigBag.newInstance().putAll(ImmutableMap.of("k", "v1", "kOld", "v2", "kOld2", "v3"));
+            ConfigBag bag2 = ConfigBag.newInstance();
+            bag2.copyKey(bag, k);
+            assertEquals(bag2.getAllConfigRaw(), ImmutableMap.of("k", "v1"));
+        }
+    }
+    
 
     @Test
     public void testConcurrent() throws InterruptedException {

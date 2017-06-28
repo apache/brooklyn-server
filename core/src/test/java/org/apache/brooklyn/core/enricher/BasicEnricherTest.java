@@ -62,7 +62,7 @@ public class BasicEnricherTest extends BrooklynAppUnitTestSupport {
         @SetFromFlag("strKey")
         public static final ConfigKey<String> STR_KEY = new BasicConfigKey<String>(String.class, "akey", "a key");
         public static final ConfigKey<Integer> INT_KEY_WITH_DEFAULT = new BasicConfigKey<Integer>(Integer.class, "ckey", "c key", 1);
-        public static final ConfigKey<String> STR_KEY_WITH_DEFAULT = new BasicConfigKey<String>(String.class, "strKey", "str key", "str key default");
+        public static final ConfigKey<String> STR_KEY_WITH_DEFAULT = new BasicConfigKey<String>(String.class, "strKeyWithDefault", "str key", "strKeyDefaultVal");
         
         MyEnricher(Map<?,?> flags) {
             super(flags);

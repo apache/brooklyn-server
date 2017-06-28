@@ -48,8 +48,7 @@ public class EnricherConfigTest extends BrooklynAppUnitTestSupport {
         
         assertEquals(enricher.getConfig(MyEnricher.STR_KEY), "aval");
         assertEquals(enricher.getConfig(MyEnricher.INT_KEY), (Integer)2);
-        // this is set, because key name matches annotation on STR_KEY
-        assertEquals(enricher.getConfig(MyEnricher.STR_KEY_WITH_DEFAULT), "aval");
+        assertEquals(enricher.getConfig(MyEnricher.STR_KEY_WITH_DEFAULT), MyEnricher.STR_KEY_WITH_DEFAULT.getDefaultValue());
     }
     
     @Test
@@ -74,7 +73,6 @@ public class EnricherConfigTest extends BrooklynAppUnitTestSupport {
         
         assertEquals(enricher.getConfig(MyEnricher.STR_KEY), "aval");
         assertEquals(enricher.getConfig(MyEnricher.INT_KEY), (Integer)2);
-        // this is not set (contrast with above)
         assertEquals(enricher.getConfig(MyEnricher.STR_KEY_WITH_DEFAULT), MyEnricher.STR_KEY_WITH_DEFAULT.getDefaultValue());
     }
     
@@ -141,7 +139,7 @@ public class EnricherConfigTest extends BrooklynAppUnitTestSupport {
     public void testConfigReturnsDefaultValueIfNotSet() throws Exception {
         MyEnricher enricher = app.enrichers().add(EnricherSpec.create(MyEnricher.class));
         
-        assertEquals(enricher.getConfig(MyEnricher.STR_KEY_WITH_DEFAULT), "str key default");
+        assertEquals(enricher.getConfig(MyEnricher.STR_KEY_WITH_DEFAULT), MyEnricher.STR_KEY_WITH_DEFAULT.getDefaultValue());
     }
     
 }

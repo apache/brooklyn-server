@@ -396,6 +396,9 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         }
 
         // allow config keys to be set by name (or deprecated name)
+        //
+        // The resulting `flags` will no longer contain the keys that we matched;
+        // we will not also use them to for `SetFromFlag` etc.
         flags = ConfigUtilsInternal.setAllConfigKeys(flags, getEntityType().getConfigKeys(), this);
 
         // allow config keys, and fields, to be set from these flags if they have a SetFromFlag annotation

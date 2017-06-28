@@ -80,8 +80,8 @@ public class ConfigKeyDeprecationTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testPrefersFirstDeprecatedNameIfMultiple() throws Exception {
         EntityInternal entity = app.addChild(EntitySpec.create(MyBaseEntity.class)
-                .configure("oldSuperKey1", "myval1")
-                .configure("oldSuperKey1b", "myval2"));
+                .configure("oldSuperKey1b", "myval2")
+                .configure("oldSuperKey1", "myval1"));
         assertEquals(entity.config().get(MyBaseEntity.SUPER_KEY_1), "myval1");
     }
     
@@ -180,7 +180,7 @@ public class ConfigKeyDeprecationTest extends BrooklynAppUnitTestSupport {
     // Contrast this with EntityDynamicType.addSensorIfAbsent().
     //
      * However, it's (probably) not straight forward to just add and call a addConfigKeyIfAbsent. This
-     * is because config().set() is used for dynamic config declard in yaml, which the entity doesn't
+     * is because config().set() is used for dynamic config declared in yaml, which the entity doesn't
      * understand but that will be inherited by runtime children.
      */
     @Test(groups="Broken")
