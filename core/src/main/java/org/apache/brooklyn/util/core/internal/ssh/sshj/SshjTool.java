@@ -39,6 +39,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.ssh.BackoffLimitedRetryHandler;
 import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshAbstractTool;
@@ -106,6 +107,9 @@ public class SshjTool extends SshAbstractTool implements SshTool {
     protected final long sshTriesTimeout;
     protected final BackoffLimitedRetryHandler backoffLimitedRetryHandler;
 
+    protected boolean execAsync;
+    protected Duration execAsyncPollingTimeout;
+
     /** Terminal type name for {@code allocatePTY} option. */
     final static String TERM = "vt100"; // "dumb"
 
@@ -139,6 +143,8 @@ public class SshjTool extends SshAbstractTool implements SshTool {
         protected int sshTries = 4;  //allow 4 tries by default, much safer
         protected long sshTriesTimeout = 2*60*1000;  //allow 2 minutes by default (so if too slow trying sshTries times, abort anyway)
         protected long sshRetryDelay = 50L;
+        protected boolean execAsync;
+        protected Duration execAsyncPollingTimeout;
 
         @Override
         public B from(Map<String,?> props) {
@@ -148,6 +154,8 @@ public class SshjTool extends SshAbstractTool implements SshTool {
             sshRetryDelay = getOptionalVal(props, PROP_SSH_RETRY_DELAY);
             connectTimeout = getOptionalVal(props, PROP_CONNECT_TIMEOUT);
             sessionTimeout = getOptionalVal(props, PROP_SESSION_TIMEOUT);
+            execAsync = getOptionalVal(props, PROP_EXEC_ASYNC);
+            execAsyncPollingTimeout = getOptionalVal(props, PROP_EXEC_ASYNC_POLLING_TIMEOUT);
             return self();
         }
         public B connectTimeout(int val) {
@@ -182,6 +190,8 @@ public class SshjTool extends SshAbstractTool implements SshTool {
         sshTries = builder.sshTries;
         sshTriesTimeout = builder.sshTriesTimeout;
         backoffLimitedRetryHandler = new BackoffLimitedRetryHandler(sshTries, builder.sshRetryDelay);
+        execAsync = builder.execAsync;
+        execAsyncPollingTimeout = builder.execAsyncPollingTimeout;
 
         sshClientConnection = SshjClientConnection.builder()
                 .hostAndPort(HostAndPort.fromParts(host, port))
@@ -311,7 +321,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
      */
     @Override
     public int execScript(final Map<String,?> props, final List<String> commands, final Map<String,?> env) {
-        Boolean execAsync = getOptionalVal(props, PROP_EXEC_ASYNC);
+        Boolean execAsync = getOptionalVal(props, PROP_EXEC_ASYNC, this.execAsync);
         if (Boolean.TRUE.equals(execAsync) && BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_SSH_ASYNC_EXEC)) {
             return execScriptAsyncAndPoll(props, commands, env);
         } else {
@@ -352,7 +362,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
         return new ToolAbstractAsyncExecScript(props) {
             private int maxConsecutiveSshFailures = 3;
             private Duration maxDelayBetweenPolls = Duration.seconds(20);
-            private Duration pollTimeout = getOptionalVal(props, PROP_EXEC_ASYNC_POLLING_TIMEOUT, Duration.FIVE_MINUTES);
+            private Duration pollTimeout = SshjTool.this.execAsyncPollingTimeout != null ? SshjTool.this.execAsyncPollingTimeout : Duration.FIVE_MINUTES;
             private int iteration = 0;
             private int consecutiveSshFailures = 0;
             private int stdoutCount = 0;
@@ -572,7 +582,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
         }
 
         // If async is set, then do it as execScript
-        Boolean execAsync = getOptionalVal(props, PROP_EXEC_ASYNC);
+        Boolean execAsync = getOptionalVal(props, PROP_EXEC_ASYNC, this.execAsync);
         if (Boolean.TRUE.equals(execAsync) && BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_SSH_ASYNC_EXEC)) {
             return execScriptAsyncAndPoll(props, commands, env);
         }

@@ -35,6 +35,7 @@ import java.util.concurrent.Callable;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineDetails;
+import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
@@ -48,6 +49,7 @@ import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
 import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool.SshjToolBuilder;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.net.Urls;
@@ -78,8 +80,11 @@ public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
     
     @Override
     protected SshMachineLocation newHost() {
-        return mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
-                .configure("address", Networking.getLocalHost()));
+        try {
+            return ((LocalhostMachineProvisioningLocation) mgmt.getLocationRegistry().getLocationManaged("localhost")).obtain();
+        } catch (NoMachinesAvailableException e) {
+            throw Exceptions.propagate(e);
+        }
     }
 
     // Overridden just to make it integration (because `newHost()` returns a real ssh'ing host)
@@ -214,6 +219,7 @@ public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
     // For issue #230
     @Test(groups = "Integration")
     public void testOverridingPropertyOnExec() throws Exception {
+        // TODO check what that test does and its correctness
         SshMachineLocation host = new SshMachineLocation(MutableMap.of("address", Networking.getLocalHost(), "sshPrivateKeyData", "wrongdata"));
         
         OutputStream outStream = new ByteArrayOutputStream();
@@ -264,7 +270,7 @@ public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
         // For explanation of (some of) the magic behind this command, see http://stackoverflow.com/a/229606/68898
         final String command = "if [[ \"$0\" == \"/var/tmp/\"* ]]; then true; else false; fi";
 
-        LocalhostMachineProvisioningLocation lhp = mgmt.getLocationManager().createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class));
+        LocalhostMachineProvisioningLocation lhp = (LocalhostMachineProvisioningLocation)mgmt.getLocationRegistry().getLocationManaged("localhost");
         SshMachineLocation sm = lhp.obtain();
 
         Map<String, Object> props = ImmutableMap.<String, Object>builder()
@@ -283,9 +289,9 @@ public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
                 .put(SshMachineLocation.SCRIPT_DIR.getName(), "/var/tmp")
                 .build();
 
-        LocalhostMachineProvisioningLocation lhp = 
-            mgmt.getLocationManager().createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class)
-                .configure(locationConfig));
+        LocalhostMachineProvisioningLocation lhp =
+                ((LocalhostMachineProvisioningLocation)mgmt.getLocationRegistry().getLocationManaged("localhost"))
+                .configure(locationConfig);
         SshMachineLocation sm = lhp.obtain();
 
         int rc = sm.execScript("Test script directory execution", ImmutableList.of(command));
@@ -301,8 +307,8 @@ public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
                 .build();
 
         LocalhostMachineProvisioningLocation lhp = 
-            mgmt.getLocationManager().createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class)
-                .configure(locationConfig));
+                ((LocalhostMachineProvisioningLocation)mgmt.getLocationRegistry().getLocationManaged("localhost"))
+                .configure(locationConfig);
         SshMachineLocation sm = lhp.obtain();
 
         int rc = sm.execScript("Test script directory execution", ImmutableList.of(command));
