@@ -39,6 +39,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.camp.brooklyn.catalog.SpecParameterUnwrappingTest;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigPredicates;
@@ -908,14 +909,13 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         LOG.info("E1 keys: "+entity1.getEntityType().getConfigKeys());
         LOG.info("E2 keys: "+entity2.getEntityType().getConfigKeys());
         Assert.assertEquals(entity2.getEntityType().getConfigKeys(), entity1.getEntityType().getConfigKeys());
-        Assert.assertEquals(entity1.getCatalogItemId(), "test-entity:0.0.0.SNAPSHOT");
+        Assert.assertEquals(entity1.getCatalogItemId(), "test-entity:"+BasicBrooklynCatalog.NO_VERSION);
         
         // TODO currently the child has item ID set from CatalogUtils.setCatalogItemIdOnAddition
         // that should set a search path instead of setting the actual item
         // (ideally we'd assert null here)
-        Assert.assertEquals(entity2.getCatalogItemId(), "test-entity:0.0.0.SNAPSHOT");
+        Assert.assertEquals(entity2.getCatalogItemId(), "test-entity:"+BasicBrooklynCatalog.NO_VERSION);
     }
-    
 
     @Test
     public void testManuallyAddInTaskOfOtherEntity() throws Exception {
@@ -947,12 +947,12 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         LOG.info("E1 keys: "+entity1.getEntityType().getConfigKeys());
         LOG.info("E2 keys: "+entity2.getEntityType().getConfigKeys());
         Assert.assertEquals(entity2.getEntityType().getConfigKeys(), entity1.getEntityType().getConfigKeys());
-        Assert.assertEquals(entity1.getCatalogItemId(), "test-entity:0.0.0.SNAPSHOT");
+        Assert.assertEquals(entity1.getCatalogItemId(), "test-entity:"+BasicBrooklynCatalog.NO_VERSION);
         
         // TODO currently the child has item ID set from context in constructor of AbstractBrooklynObject;
         // that should set a search path instead of setting the actual item
         // (ideally we'd assert null here)
-        Assert.assertEquals(entity2.getCatalogItemId(), "test-entity:0.0.0.SNAPSHOT");
+        Assert.assertEquals(entity2.getCatalogItemId(), "test-entity:"+BasicBrooklynCatalog.NO_VERSION);
     }
     
     @Test

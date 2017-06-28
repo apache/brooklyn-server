@@ -39,8 +39,14 @@ public class OsgiBundleInstallationResult {
     public enum ResultCode { 
         INSTALLED_NEW_BUNDLE(false),
         UPDATED_EXISTING_BUNDLE(false),
-        IGNORING_BUNDLE_AREADY_INSTALLED(false), 
+        /** Bundle is already installed at exact same version and same contents; safely ignoring 
+         * (safe in that behaviour won't be different or dangerous; 
+         * could potentially be surprising, but ability to idempotently install things is nicer) */
+        IGNORING_BUNDLE_AREADY_INSTALLED(false),
+        /** bundle could not be made insto a state where it could be installed; bundle is not installed, even if forced */
         ERROR_PREPARING_BUNDLE(true),
+        /** bundle could be installed as OSGi but there was an item later, such as catalog items loading;
+         * bundle may be installed */  // TODO behaviour TBC
         ERROR_INSTALLING_BUNDLE(true);
         
         final boolean isError;

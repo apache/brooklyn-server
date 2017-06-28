@@ -19,7 +19,6 @@
 package org.apache.brooklyn.api.catalog;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.NoSuchElementException;
 
 import javax.annotation.Nullable;

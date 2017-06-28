@@ -412,4 +412,27 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
             }
         }
     }
+    
+    @Test
+    public void testLongReferenceSequence() throws Exception {
+        // adds a0, a1 extending a0, a2 extending a1, ... a9 extending a8
+        // osgi rebind of types can fail because bundles are restored in any order
+        // and dependencies might not yet be installed;
+        // ensure items are added first without validation, then validating
+        for (int i = 0; i<10; i++) {
+            addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: a" + i,
+                "  version: 1",
+                "  itemType: entity",
+                "  item:",
+                "    type: " + (i==0 ? BasicEntity.class.getName() : "a" + (i-1)));
+        }
+        origApp = (StartableApplication) createAndStartApplication("services: [ { type: a9 } ]");
+        rebind();
+        Entity child = Iterables.getOnlyElement( newApp.getChildren() );
+        Asserts.assertTrue(child instanceof BasicEntity);
+        Asserts.assertEquals(child.getCatalogItemId(), "a9:1");
+    }
+    
 }

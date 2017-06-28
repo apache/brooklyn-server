@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -124,8 +125,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             "  item:",
             "    type: "+ BasicEntity.class.getName());
         RegisteredType catalogItem = mgmt().getTypeRegistry().get(id, BrooklynCatalog.DEFAULT_VERSION);
-        assertEquals(catalogItem.getVersion(), "0.0.0.SNAPSHOT");
-        mgmt().getCatalog().deleteCatalogItem(id, "0.0.0.SNAPSHOT");
+        assertEquals(catalogItem.getVersion(), BasicBrooklynCatalog.NO_VERSION);
+        mgmt().getCatalog().deleteCatalogItem(id, BasicBrooklynCatalog.NO_VERSION);
+        Assert.assertNull(mgmt().getTypeRegistry().get(id));
     }
 
     // Legacy / backwards compatibility: should use id
