@@ -914,7 +914,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             }
             {
                 // legacy routine; should be the same as above code added in 0.12 because:
-                // if type is symbolic_name, the type will match below, and version will be null so any version allowed to match 
+                // if type is symbolic_name, the type will match above, and version will be null so any version allowed to match 
                 // if type is symbolic_name:version, the id will match, and the version will also have to match 
                 // SHOULD NEVER NEED THIS - remove during or after 0.13
                 String typeWithId = type;
@@ -928,7 +928,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                         if (candidateCiType == candidate.getCatalogItemType() &&
                                 (type.equals(candidate.getSymbolicName()) || type.equals(candidate.getId()))) {
                             if (version==null || version.equals(candidate.getVersion())) {
-                                log.warn("Lookup of '"+type+"' version '"+version+"' only worked using legacy routines; please advise Brooklyn community so they understand why");
+                                log.error("Lookup of '"+type+"' version '"+version+"' only worked using legacy routines; please advise Brooklyn community so they understand why");
                                 // matched - exit
                                 catalogItemType = candidateCiType;
                                 planYaml = candidateYaml;
