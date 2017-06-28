@@ -23,8 +23,13 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
+import org.osgi.framework.Bundle;
 
 public class CatalogBundleDto implements CatalogBundle {
     private String symbolicName;
@@ -106,5 +111,13 @@ public class CatalogBundleDto implements CatalogBundle {
         return true;
     }
     
+    public static Maybe<CatalogBundle> resolve(ManagementContext mgmt, CatalogBundle b) {
+        if (b.isNameResolved()) return Maybe.of(b);
+        OsgiManager osgi = ((ManagementContextInternal)mgmt).getOsgiManager().orNull();
+        if (osgi==null) return Maybe.absent("No OSGi manager");
+        Maybe<Bundle> b2 = osgi.findBundle(b);
+        if (b2.isAbsent()) return Maybe.absent("Nothing installed for "+b);
+        return Maybe.of(new CatalogBundleDto(b2.get().getSymbolicName(), b2.get().getVersion().toString(), b.getUrl()));
+    }
     
 }

@@ -67,6 +67,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
+import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
@@ -546,7 +547,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         Collection<CatalogBundle> librariesAddedHereBundles = CatalogItemDtoAbstract.parseLibraries(librariesAddedHereNames);
         
         MutableSet<Object> librariesCombinedNames = MutableSet.of();
-        if (!isNoBundleOrSimpleWrappingBundle(containingBundle)) {
+        if (!isNoBundleOrSimpleWrappingBundle(mgmt, containingBundle)) {
             // ensure containing bundle is declared, first, for search purposes
             librariesCombinedNames.add(containingBundle.getVersionedName().toOsgiString());
         }
@@ -561,12 +562,16 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         // but this load is required for resolving YAML in this BOM (and if java-scanning);
         // need to think through how we expect dependencies to be installed
         CatalogUtils.installLibraries(mgmt, librariesAddedHereBundles);
+        
+        // use resolved bundles
+        librariesAddedHereBundles = resolveWherePossible(mgmt, librariesAddedHereBundles);
+        libraryBundles = resolveWherePossible(mgmt, libraryBundles);
 
         Boolean scanJavaAnnotations = getFirstAs(itemMetadataWithoutItemDef, Boolean.class, "scanJavaAnnotations", "scan_java_annotations").orNull();
         if (scanJavaAnnotations==null || !scanJavaAnnotations) {
             // don't scan
         } else {
-            if (isNoBundleOrSimpleWrappingBundle(containingBundle)) {
+            if (isNoBundleOrSimpleWrappingBundle(mgmt, containingBundle)) {
                 // BOMs wrapped in JARs, or without JARs, have special treatment
                 if (isLibrariesMoreThanJustContainingBundle(librariesAddedHereBundles, containingBundle)) {
                     // legacy mode, since 0.12.0, scan libraries referenced in a legacy non-bundle BOM
@@ -800,7 +805,15 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         result.add(dto);
     }
 
-    private boolean isLibrariesMoreThanJustContainingBundle(Collection<CatalogBundle> library, ManagedBundle containingBundle) {
+    protected static Collection<CatalogBundle> resolveWherePossible(ManagementContext mgmt, Collection<CatalogBundle> libraryBundles) {
+        Collection<CatalogBundle> libraryBundlesResolved = MutableSet.of();
+        for (CatalogBundle b: libraryBundles) {
+            libraryBundlesResolved.add(CatalogBundleDto.resolve(mgmt, b).or(b));
+        }
+        return libraryBundlesResolved;
+    }
+
+    private static boolean isLibrariesMoreThanJustContainingBundle(Collection<CatalogBundle> library, ManagedBundle containingBundle) {
         if (library==null) return false;
         if (containingBundle==null) return !library.isEmpty();
         if (library.size()>1) return true;
@@ -808,7 +821,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return !containingBundle.getVersionedName().equalsOsgi(li.getVersionedName());
     }
 
-    private boolean isNoBundleOrSimpleWrappingBundle(ManagedBundle b) {
+    private static boolean isNoBundleOrSimpleWrappingBundle(ManagementContext mgmt, ManagedBundle b) {
         if (b==null) return true;
         String wrapped = ((ManagementContextInternal)mgmt).getOsgiManager().get().findBundle(b).get().getHeaders().get(BROOKLYN_WRAPPED_BOM_BUNDLE);
         return wrapped!=null && wrapped.equalsIgnoreCase("true");
@@ -915,7 +928,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         @SuppressWarnings({ "unchecked", "rawtypes" })
         Collection<CatalogItemDtoAbstract<?, ?>> result = (Collection)Collections2.transform(
                 (Collection<CatalogItemDo<Object,Object>>)(Collection)subCatalog.getIdCache().values(), 
-                itemDoToDtoAddingSelectedMetadataDuringScan(catalogMetadata, containingBundle));
+                itemDoToDtoAddingSelectedMetadataDuringScan(mgmt, catalogMetadata, containingBundle));
         return result;
     }
 
@@ -1397,7 +1410,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         };
     }
     
-    private static <T,SpecT> Function<CatalogItemDo<T, SpecT>, CatalogItem<T,SpecT>> itemDoToDtoAddingSelectedMetadataDuringScan(final Map<?, ?> catalogMetadata, ManagedBundle containingBundle) {
+    private static <T,SpecT> Function<CatalogItemDo<T, SpecT>, CatalogItem<T,SpecT>> itemDoToDtoAddingSelectedMetadataDuringScan(final ManagementContext mgmt, final Map<?, ?> catalogMetadata, ManagedBundle containingBundle) {
         return new Function<CatalogItemDo<T,SpecT>, CatalogItem<T,SpecT>>() {
             @Override
             public CatalogItem<T,SpecT> apply(@Nullable CatalogItemDo<T,SpecT> item) {
@@ -1412,21 +1425,21 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 if (Strings.isNonBlank(version)) dto.setVersion(version);
                 
                 Collection<CatalogBundle> libraryBundles = MutableSet.of(); 
-                if (containingBundle!=null) {
+                if (!isNoBundleOrSimpleWrappingBundle(mgmt, containingBundle)) {
                     libraryBundles.add(new CatalogBundleDto(containingBundle.getSymbolicName(), containingBundle.getSuppliedVersionString(), null));
                 }
                 libraryBundles.addAll(dto.getLibraries());
                 Object librariesInherited;
                 librariesInherited = catalogMetadata.get("brooklyn.libraries");
                 if (librariesInherited instanceof Collection) {
-                    // will be set by scan -- slightly longwinded way to retrieve, but scanning for osgi needs an overhaul in any case
-                    libraryBundles.addAll(CatalogItemDtoAbstract.parseLibraries((Collection<?>) librariesInherited));
+                    // will be set by scan -- slightly longwinded way to retrieve, but scanning java should be deprecated I think (AH)
+                    libraryBundles.addAll(resolveWherePossible(mgmt, CatalogItemDtoAbstract.parseLibraries((Collection<?>) librariesInherited)));
                 }
                 librariesInherited = catalogMetadata.get("libraries");
                 if (librariesInherited instanceof Collection) {
                     log.warn("Legacy 'libraries' encountered; use 'brooklyn.libraries'");
                     // will be set by scan -- slightly longwinded way to retrieve, but scanning for osgi needs an overhaul in any case
-                    libraryBundles.addAll(CatalogItemDtoAbstract.parseLibraries((Collection<?>) librariesInherited));
+                    libraryBundles.addAll(resolveWherePossible(mgmt, CatalogItemDtoAbstract.parseLibraries((Collection<?>) librariesInherited)));
                 }
                 dto.setLibraries(libraryBundles);
                 
@@ -1488,7 +1501,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             Maybe<OsgiManager> osgi = ((ManagementContextInternal)mgmt).getOsgiManager();
             if (osgi.isAbsent()) return;
             for (ManagedBundle b: osgi.get().getManagedBundles().values()) {
-                if (isNoBundleOrSimpleWrappingBundle(b)) {
+                if (isNoBundleOrSimpleWrappingBundle(mgmt, b)) {
                     Iterable<RegisteredType> typesInBundle = osgi.get().getTypesFromBundle(b.getVersionedName());
                     if (Iterables.isEmpty(typesInBundle)) {
                         log.debug("uninstalling empty wrapper bundle "+b);
