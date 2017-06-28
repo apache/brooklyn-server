@@ -127,22 +127,46 @@ public class ReferencedYamlTest extends AbstractYamlTest {
         checkChildEntitySpec(app, entityName);
     }
 
-    @Test(groups="WIP") //Not able to use caller provided catalog items when referencing entity specs (as opposed to catalog meta)
-    public void testYamlUrlReferencingCallerCatalogItem() throws Exception {
+    @Test
+    public void testYamlReferencingEarlierItemShortForm() throws Exception {
         addCatalogItems(
             "brooklyn.catalog:",
             "  itemType: entity",
             "  items:",
-            "  - id: yaml.standalone",
+            "  - id: yaml.basic",
+            "    version: " + TEST_VERSION,
+            "    item:",
+            "      type: org.apache.brooklyn.entity.stock.BasicEntity",
+            "  - id: yaml.reference",
+            "    version: " + TEST_VERSION,
+            "    item:",
+            "      type: yaml.basic");
+
+        String entityName = "YAML -> catalog item -> yaml url";
+        Entity app = createAndStartApplication(
+            "services:",
+            "- name: " + entityName,
+            "  type: " + ver("yaml.reference"));
+        
+        checkChildEntitySpec(app, entityName);
+    }
+    
+    @Test(groups="WIP") // references to earlier items only work with short form syntax
+    public void testYamlReferencingEarlierItemLongForm() throws Exception {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  itemType: entity",
+            "  items:",
+            "  - id: yaml.basic",
             "    version: " + TEST_VERSION,
             "    item:",
             "      services:",
-            "      - type: org.apache.brooklyn.entity.stock.BasicApplication",
+            "      - type: org.apache.brooklyn.entity.stock.BasicEntity",
             "  - id: yaml.reference",
             "    version: " + TEST_VERSION,
             "    item:",
             "      services:",
-            "      - type: classpath://yaml-ref-parent-catalog.yaml");
+            "      - type: yaml.basic");
 
         String entityName = "YAML -> catalog item -> yaml url";
         Entity app = createAndStartApplication(
@@ -153,6 +177,32 @@ public class ReferencedYamlTest extends AbstractYamlTest {
         checkChildEntitySpec(app, entityName);
     }
 
+    @Test(groups="WIP") //Not able to use caller provided catalog items when referencing entity specs (as opposed to catalog meta)
+    public void testYamlUrlReferencingCallerCatalogItem() throws Exception {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  itemType: entity",
+            "  items:",
+            "  - id: yaml.basic",
+            "    version: " + TEST_VERSION,
+            "    item:",
+            "      services:",
+            "      - type: org.apache.brooklyn.entity.stock.BasicApplication",
+            "  - id: yaml.reference",
+            "    version: " + TEST_VERSION,
+            "    item:",
+            "      services:",
+            "      - type: classpath://yaml-ref-catalog.yaml");  // this references yaml.basic above
+
+        String entityName = "YAML -> catalog item -> yaml url";
+        Entity app = createAndStartApplication(
+            "services:",
+            "- name: " + entityName,
+            "  type: " + ver("yaml.reference"));
+        
+        checkChildEntitySpec(app, entityName);
+    }
+    
     private void checkChildEntitySpec(Entity app, String entityName) {
         Collection<Entity> children = app.getChildren();
         Assert.assertEquals(children.size(), 1);
