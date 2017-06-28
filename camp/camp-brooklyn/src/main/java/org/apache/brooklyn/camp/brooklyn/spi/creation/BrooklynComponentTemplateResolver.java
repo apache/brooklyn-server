@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -97,12 +99,12 @@ public class BrooklynComponentTemplateResolver {
     private final EntitySpecResolver serviceSpecResolver;
 
     private BrooklynComponentTemplateResolver(BrooklynClassLoadingContext loader, ConfigBag attrs, AbstractResource optionalTemplate, String type) {
-        this.loader = loader;
+        this.loader = checkNotNull(loader, "loader");
         this.mgmt = loader.getManagementContext();
         this.attrs = ConfigBag.newInstanceCopying(attrs);
         this.template = Maybe.fromNullable(optionalTemplate);
         this.yamlLoader = new BrooklynYamlTypeInstantiator.Factory(loader, this);
-        this.type = type;
+        this.type = checkNotNull(type, "type");
         this.serviceSpecResolver = new CampServiceSpecResolver(mgmt, getServiceTypeResolverOverrides());
     }
 
@@ -130,6 +132,12 @@ public class BrooklynComponentTemplateResolver {
 
         private static BrooklynComponentTemplateResolver newInstance(BrooklynClassLoadingContext context, ConfigBag attrs, AbstractResource optionalTemplate) {
             String type = getDeclaredType(null, optionalTemplate, attrs);
+            if (Strings.isBlank(type)) {
+                String msg = "No type defined " 
+                        + (attrs == null ? ", no attributes supplied" : "in " + "[" + attrs.getAllConfigRaw() + "]")
+                        + (optionalTemplate == null ? "" : ", template " + optionalTemplate);
+                throw new IllegalArgumentException(msg);
+            }
             return new BrooklynComponentTemplateResolver(context, attrs, optionalTemplate, type);
         }
 
