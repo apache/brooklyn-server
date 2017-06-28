@@ -41,7 +41,8 @@ public class RegisteredTypeNaming {
     /** 
      * For type names we currently work with any non-empty string that does not contain 
      * a ':' or whitespace or forward slash or backslash.
-     * However we discourage things that are not OSGi symbolic names; see {@link #isValidTypeName(String)}. 
+     * However we discourage things that are not OSGi symbolic names; 
+     * see {@link #isGoodTypeName(String)}. 
      * In some places (eg bundles) the use of OSGi symbolic names may be enforced.  
      */
     public static boolean isUsableTypeName(String candidate) {

@@ -31,26 +31,27 @@ import com.google.common.base.Preconditions;
  */
 public class BrooklynVersionSyntax {
 
-    private static final String USABLE_REGEX = "[^:\\s/\\\\]+";
+    public static final String USABLE_REGEX = "[^:\\s/\\\\]+";
+    public static final String DOT = "\\.";
 
-    private final static String OSGI_TOKEN_CHARS = "A-Za-z0-9_-";
-    private final static String OSGI_TOKEN_REGEX = "[" + OSGI_TOKEN_CHARS + "]+";
-    private final static String NUMBER = "[0-9]+";
-    private final static String QUALIFIER = OSGI_TOKEN_REGEX;
+    public final static String OSGI_TOKEN_CHARS = "A-Za-z0-9_-";
+    public final static String OSGI_TOKEN_REGEX = "[" + OSGI_TOKEN_CHARS + "]+";
+    public final static String NUMBER = "[0-9]+";
+    public final static String QUALIFIER = OSGI_TOKEN_REGEX;
     
     public final static String VALID_OSGI_VERSION_REGEX = 
         NUMBER + 
-            "(" + "\\." + NUMBER +  
-                "(" + "\\." + NUMBER +  
-                    "(" + "\\." + QUALIFIER +  
+            "(" + DOT + NUMBER +  
+                "(" + DOT + NUMBER +  
+                    "(" + DOT + QUALIFIER +  
                     ")?" +
                 ")?" +
             ")?";
     
     public final static String GOOD_BROOKLYN_VERSION_REGEX = 
         NUMBER + 
-            "(" + "\\." + NUMBER +  
-                "(" + "\\." + NUMBER +  
+            "(" + DOT + NUMBER +  
+                "(" + DOT + NUMBER +  
                     "(" + "-" + QUALIFIER +  
                     ")?" +
                 ")?" +
@@ -72,7 +73,7 @@ public class BrooklynVersionSyntax {
     /** True if the argument matches the Brooklyn version syntax, 
      * <code>MAJOR.MINOR.POINT-QUALIFIER</code> or part thereof (not ending in a period though),
      * where the first three are whole numbers and the final piece is any valid OSGi token
-     * (something satisfying {@link #isGoodTypeName(String)} with no periods).
+     * (containing letters, numbers, _ and -; no full stops).
      * See also {@link #isValidOsgiVersion(String)} and note this _requires_ a different separator to OSGi.
      */
     public static boolean isGoodBrooklynVersion(String candidate) {
@@ -82,8 +83,8 @@ public class BrooklynVersionSyntax {
     /** True if the argument matches the OSGi version spec, of the form 
      * <code>MAJOR.MINOR.POINT.QUALIFIER</code> or part thereof (not ending in a period though),
      * where the first three are whole numbers and the final piece is any valid OSGi token
-     * (something satisfying {@link #isGoodTypeName(String)} with no periods).
-     * See also {@link #isGoodVersion(String)}.
+     * (containing letters, numbers, _ and -; no full stops).
+     * See also {@link #isGoodBrooklynVersion(String)}.
      */
     public static boolean isValidOsgiVersion(String candidate) {
         return candidate!=null && candidate.matches(VALID_OSGI_VERSION_REGEX);
@@ -118,7 +119,7 @@ public class BrooklynVersionSyntax {
     private static String toGoodVersion(String input, String qualifierSeparator, boolean requireMinorAndPatch) {
         Preconditions.checkNotNull(input);
         final String FUZZY_REGEX = 
-            "(" + NUMBER + "(" + "\\." + NUMBER + "(" + "\\." + NUMBER + ")?)?)?" +  
+            "(" + NUMBER + "(" + DOT + NUMBER + "(" + DOT + NUMBER + ")?)?)?" +  
             "(" + ".*)";
         Matcher m = Pattern.compile(FUZZY_REGEX).matcher(input);
         if (!m.matches()) {
