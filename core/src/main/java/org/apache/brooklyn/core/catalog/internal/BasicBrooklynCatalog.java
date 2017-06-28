@@ -54,7 +54,6 @@ import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.CatalogClasspathDo.CatalogScanningModes;
 import org.apache.brooklyn.core.location.BasicLocationRegistry;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
-import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.CampYamlParser;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -542,18 +541,25 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         // brooklyn.libraries we treat specially, to append the list, with the child's list preferred in classloading order
         // `libraries` is supported in some places as a legacy syntax; it should always be `brooklyn.libraries` for new apps
         // TODO in 0.8.0 require brooklyn.libraries, don't allow "libraries" on its own
-        List<?> librariesNew = MutableList.copyOf(getFirstAs(itemMetadataWithoutItemDef, List.class, "brooklyn.libraries", "libraries").orNull());
-        Collection<CatalogBundle> libraryBundlesNew = CatalogItemDtoAbstract.parseLibraries(librariesNew);
+        List<?> librariesAddedHereNames = MutableList.copyOf(getFirstAs(itemMetadataWithoutItemDef, List.class, "brooklyn.libraries", "libraries").orNull());
+        Collection<CatalogBundle> librariesAddedHereBundles = CatalogItemDtoAbstract.parseLibraries(librariesAddedHereNames);
+        
+        MutableSet<Object> librariesCombinedNames = MutableSet.of();
+        if (!isNoBundleOrSimpleWrappingBundle(containingBundle)) {
+            // ensure containing bundle is declared, first, for search purposes
+            librariesCombinedNames.add(containingBundle.getVersionedName().toOsgiString());
+        }
+        librariesCombinedNames.putAll(librariesAddedHereNames);
+        librariesCombinedNames.putAll(getFirstAs(parentMetadata, Collection.class, "brooklyn.libraries", "libraries").orNull());
+        if (!librariesCombinedNames.isEmpty()) {
+            catalogMetadata.put("brooklyn.libraries", librariesCombinedNames);
+        }
+        Collection<CatalogBundle> libraryBundles = CatalogItemDtoAbstract.parseLibraries(librariesCombinedNames);
 
-        List<?> librariesCombined = MutableList.copyOf(librariesNew)
-            .appendAll(getFirstAs(parentMetadata, List.class, "brooklyn.libraries", "libraries").orNull());
-        if (!librariesCombined.isEmpty())
-            catalogMetadata.put("brooklyn.libraries", librariesCombined);
-        Collection<CatalogBundle> libraryBundles = CatalogItemDtoAbstract.parseLibraries(librariesCombined);
-
-        // TODO as this may take a while if downloading, the REST call should be async
-        // (this load is required for the scan below and I think also for yaml resolution)
-        CatalogUtils.installLibraries(mgmt, libraryBundlesNew);
+        // TODO this may take a while if downloading; ideally the REST call would be async
+        // but this load is required for resolving YAML in this BOM (and if java-scanning);
+        // need to think through how we expect dependencies to be installed
+        CatalogUtils.installLibraries(mgmt, librariesAddedHereBundles);
 
         Boolean scanJavaAnnotations = getFirstAs(itemMetadataWithoutItemDef, Boolean.class, "scanJavaAnnotations", "scan_java_annotations").orNull();
         if (scanJavaAnnotations==null || !scanJavaAnnotations) {
@@ -561,10 +567,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         } else {
             if (isNoBundleOrSimpleWrappingBundle(containingBundle)) {
                 // BOMs wrapped in JARs, or without JARs, have special treatment
-                if (isLibrariesMoreThanJustContainingBundle(libraryBundlesNew, containingBundle)) {
+                if (isLibrariesMoreThanJustContainingBundle(librariesAddedHereBundles, containingBundle)) {
                     // legacy mode, since 0.12.0, scan libraries referenced in a legacy non-bundle BOM
-                    log.warn("Deprecated use of scanJavaAnnotations to scan other libraries ("+libraryBundlesNew+"); libraries should declare they scan themselves");
-                    result.addAll(scanAnnotationsLegacyInListOfLibraries(mgmt, libraryBundlesNew, catalogMetadata, containingBundle));
+                    log.warn("Deprecated use of scanJavaAnnotations to scan other libraries ("+librariesAddedHereBundles+"); libraries should declare they scan themselves");
+                    result.addAll(scanAnnotationsLegacyInListOfLibraries(mgmt, librariesAddedHereBundles, catalogMetadata, containingBundle));
                 } else if (!isLibrariesMoreThanJustContainingBundle(libraryBundles, containingBundle)) {
                     // for default catalog, no libraries declared, we want to scan local classpath
                     // bundle should be named "brooklyn-default-catalog"

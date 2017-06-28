@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -36,25 +35,18 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.yaml.Yamls;
 import org.osgi.framework.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.yaml.snakeyaml.DumperOptions;
-import org.yaml.snakeyaml.Yaml;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 
 @Beta
 public class CatalogBundleLoader {
 
     private static final Logger LOG = LoggerFactory.getLogger(CatalogBundleLoader.class);
     private static final String CATALOG_BOM_URL = "catalog.bom";
-    private static final String BROOKLYN_CATALOG = "brooklyn.catalog";
-    private static final String BROOKLYN_LIBRARIES = "brooklyn.libraries";
 
     private Predicate<Bundle> applicationsPermitted;
     private ManagementContext managementContext;
@@ -85,8 +77,7 @@ public class CatalogBundleLoader {
         if (null != bom) {
             LOG.debug("Found catalog BOM in {} {} {}", CatalogUtils.bundleIds(bundle));
             String bomText = readBom(bom);
-            String bomWithLibraryPath = addLibraryDetails(bundle, bomText);
-            catalogItems = this.managementContext.getCatalog().addItems(bomWithLibraryPath, mb, force);
+            catalogItems = this.managementContext.getCatalog().addItems(bomText, mb, force);
             for (CatalogItem<?, ?> item : catalogItems) {
                 LOG.debug("Added to catalog: {}, {}", item.getSymbolicName(), item.getVersion());
             }
@@ -95,7 +86,7 @@ public class CatalogBundleLoader {
         }
 
         if (!applicationsPermitted.apply(bundle)) {
-            catalogItems = removeAnyApplications(catalogItems);
+            catalogItems = removeApplications(catalogItems);
         }
 
         return catalogItems;
@@ -125,60 +116,7 @@ public class CatalogBundleLoader {
         }
     }
 
-    // TODO remove; now that the bundle is passed through we can add it in the catalog
-    private String addLibraryDetails(Bundle bundle, String bomText) {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> bom = (Map<String, Object>) Iterables.getOnlyElement(Yamls.parseAll(bomText));
-        final Object catalog = bom.get(CatalogBundleLoader.BROOKLYN_CATALOG);
-        if (null != catalog) {
-            if (catalog instanceof Map<?, ?>) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> catalogMap = (Map<String, Object>) catalog;
-                addLibraryDetails(bundle, catalogMap);
-            } else {
-                LOG.warn("Unexpected syntax for {} (expected Map, but got {}), ignoring",
-                    CatalogBundleLoader.BROOKLYN_CATALOG, catalog.getClass().getName());
-            }
-        }
-        final String updatedBom = backToYaml(bom);
-        LOG.trace("Updated catalog bom:\n{}", updatedBom);
-        return updatedBom;
-    }
-
-    private void addLibraryDetails(Bundle bundle, Map<String, Object> catalog) {
-        if (!catalog.containsKey(CatalogBundleLoader.BROOKLYN_LIBRARIES)) {
-            if (catalog.containsKey("libraries")) {
-                // legacy name
-                catalog.put(CatalogBundleLoader.BROOKLYN_LIBRARIES, catalog.remove("libraries"));
-            } else {
-                catalog.put(CatalogBundleLoader.BROOKLYN_LIBRARIES, MutableList.of());
-            }
-        }
-        final Object librarySpec = catalog.get(CatalogBundleLoader.BROOKLYN_LIBRARIES);
-        if (!(librarySpec instanceof List)) {
-            throw new RuntimeException("expected " + CatalogBundleLoader.BROOKLYN_LIBRARIES + " to be a list, but got "
-                    + (librarySpec == null ? "null" : librarySpec.getClass().getName()));
-        }
-        @SuppressWarnings("unchecked")
-        List<Map<String, String>> libraries = (List<Map<String, String>>) librarySpec;
-        if (bundle.getSymbolicName() == null || bundle.getVersion() == null) {
-            throw new IllegalStateException("Cannot scan " + bundle + " for catalog files: name or version is null");
-        }
-        libraries.add(ImmutableMap.of(
-                "name", bundle.getSymbolicName(),
-                "version", bundle.getVersion().toString()));
-        LOG.debug("library spec is {}", librarySpec);
-    }
-
-    private String backToYaml(Map<String, Object> bom) {
-        final DumperOptions options = new DumperOptions();
-        options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-        options.setPrettyFlow(true);
-        return new Yaml(options).dump(bom);
-    }
-
-    private Iterable<? extends CatalogItem<?, ?>> removeAnyApplications(
-            Iterable<? extends CatalogItem<?, ?>> catalogItems) {
+    private Iterable<? extends CatalogItem<?, ?>> removeApplications(Iterable<? extends CatalogItem<?, ?>> catalogItems) {
 
         List<CatalogItem<?, ?>> result = MutableList.of();
 
