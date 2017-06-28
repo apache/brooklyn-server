@@ -35,8 +35,13 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 
-/** Scans bundles being added, filtered by a whitelist and blacklist, and adds catalog.bom files to the catalog.
+/** Scans bundles being added to add their catalog.bom to Brooklyn, 
+ * filtering which bundles are allowed add _applications_ through a whitelist and blacklist.
+ * (All bundles are allowed to add other types.) 
  * See karaf blueprint.xml for configuration, and tests in dist project. */
+// TODO AH: i wonder if we can remove this or generalize it; disallowing just app/templates seems a little weird
+// (makes sense as those appear more prominently in some displays, but feels like there'd be a better way
+// to customize; intercepting at this particular point is surprising)
 @Beta
 public class CatalogBomScanner {
 
@@ -44,8 +49,9 @@ public class CatalogBomScanner {
 
     private static final Logger LOG = LoggerFactory.getLogger(CatalogBomScanner.class);
 
-    private List<String> whiteList = ImmutableList.of(ACCEPT_ALL_BY_DEFAULT);
-    private List<String> blackList = ImmutableList.of();
+    // configured by `brooklyn.catalog.osgi.application.{white,black}list`
+    private List<String> bundlesAllowedToAddAppsWhitelist = ImmutableList.of(ACCEPT_ALL_BY_DEFAULT);
+    private List<String> bundlesAllowedToAddAppsBlacklist = ImmutableList.of();
 
     private CatalogBundleTracker catalogBundleTracker;
 
@@ -57,7 +63,7 @@ public class CatalogBomScanner {
 
             final BundleContext bundleContext = mgmtContextReference.getBundle().getBundleContext();
             ManagementContext mgmt = bundleContext.getService(mgmtContextReference);
-            CatalogBundleLoader bundleLoader = new CatalogBundleLoader(new SymbolicNameAccessControl(), mgmt);
+            CatalogBundleLoader bundleLoader = new CatalogBundleLoader(new BundlesAllowedToAddAddsFilter(), mgmt);
 
             catalogBundleTracker = new CatalogBundleTracker(bundleContext, bundleLoader);
             catalogBundleTracker.open();
@@ -81,32 +87,32 @@ public class CatalogBomScanner {
     }
 
     public List<String> getWhiteList() {
-        return whiteList;
+        return bundlesAllowedToAddAppsWhitelist;
     }
 
     public void setWhiteList(List<String> whiteList) {
-        this.whiteList = whiteList;
+        this.bundlesAllowedToAddAppsWhitelist = whiteList;
     }
 
     public void setWhiteList(String whiteListText) {
         LOG.debug("Setting whiteList to ", whiteListText);
-        this.whiteList = Strings.parseCsv(whiteListText);
+        this.bundlesAllowedToAddAppsWhitelist = Strings.parseCsv(whiteListText);
     }
 
     public List<String> getBlackList() {
-        return blackList;
+        return bundlesAllowedToAddAppsBlacklist;
     }
 
     public void setBlackList(List<String> blackList) {
-        this.blackList = blackList;
+        this.bundlesAllowedToAddAppsBlacklist = blackList;
     }
 
     public void setBlackList(String blackListText) {
         LOG.debug("Setting blackList to ", blackListText);
-        this.blackList = Strings.parseCsv(blackListText);
+        this.bundlesAllowedToAddAppsBlacklist = Strings.parseCsv(blackListText);
     }
 
-    public class SymbolicNameAccessControl implements Predicate<Bundle> {
+    public class BundlesAllowedToAddAddsFilter implements Predicate<Bundle> {
         @Override
         public boolean apply(@Nullable Bundle input) {
             return passesWhiteAndBlacklists(input);
