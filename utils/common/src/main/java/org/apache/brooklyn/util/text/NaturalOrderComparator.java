@@ -58,6 +58,8 @@ import java.util.Comparator;
  * but after considering the remainder of the string, so "09.b" > "9.a".
  * decimals are treated like a word-split, not a decimal point, i.e. "1.9" < "1.10".
  * <p>
+ * this does not return anything as equal unless they are the same string.
+ * <p>
  * class is thread-safe.
  * <p>
  * nulls not supported. to support nulls, wrap in guava:
