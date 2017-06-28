@@ -82,8 +82,8 @@ public class VersionComparator implements Comparator<String> {
         TwoBooleans snapshots = TwoBooleans.of(isSnapshot(v1), isSnapshot(v2));
         if (snapshots.different()) return snapshots.compare(true);
 
-        String u1 = versionWithQualifier(v1);
-        String u2 = versionWithQualifier(v2);
+        String u1 = versionWithoutQualifier(v1);
+        String u2 = versionWithoutQualifier(v2);
         int uq = NaturalOrderComparator.INSTANCE.compare(u1, u2);
         if (uq!=0) return uq;
         
@@ -111,13 +111,12 @@ public class VersionComparator implements Comparator<String> {
         
         // finally, do normal comparison if both have qualifier or both unqualified (in case leading 0's are used)
         return NaturalOrderComparator.INSTANCE.compare(v1, v2);
-        
-        // (previously we did this but don't think we need any of that complexity)
-        //return compareDotSplitParts(splitOnDot(v1), splitOnDot(v2));
     }
 
-    private String versionWithQualifier(String v1) {
-        Matcher q = Pattern.compile("([0-9]+(\\.[0-9]+(\\.[0-9])?)?)(.*)").matcher(v1);
+    private String versionWithoutQualifier(String v1) {
+        Matcher q = Pattern.compile("("+BrooklynVersionSyntax.NUMBER+
+            "("+BrooklynVersionSyntax.DOT+BrooklynVersionSyntax.NUMBER+
+                "("+BrooklynVersionSyntax.DOT+BrooklynVersionSyntax.NUMBER+")?)?)(.*)").matcher(v1);
         return q.matches() ? q.group(1) : "";
     }
 

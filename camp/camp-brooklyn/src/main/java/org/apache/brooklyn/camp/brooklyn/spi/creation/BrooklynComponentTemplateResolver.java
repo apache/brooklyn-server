@@ -76,7 +76,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
 /**
- * This generates instances of a template resolver that use a {@link ServiceTypeResolver}
+ * This generates instances of a template resolver that use a {@link EntitySpecResolver}
  * to parse the {@code serviceType} line in the template.
  */
 public class BrooklynComponentTemplateResolver {
