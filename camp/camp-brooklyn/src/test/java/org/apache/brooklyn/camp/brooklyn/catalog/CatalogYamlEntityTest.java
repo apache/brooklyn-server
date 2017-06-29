@@ -694,11 +694,11 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         }
     }
     
-    private void addCatalogEntity(String symbolicName, String entityType) {
+    protected void addCatalogEntity(String symbolicName, String entityType) {
         addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION), entityType);
     }
 
-    private void addCatalogEntity(IdAndVersion idAndVersion, String serviceType) {
+    protected void addCatalogEntity(IdAndVersion idAndVersion, String serviceType) {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: " + idAndVersion.id,

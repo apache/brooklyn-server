@@ -169,7 +169,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
         checkChildEntitySpec(app, entityName);
     }
     
-    @Test(groups="WIP") // references to earlier items only work with short form syntax
+    @Test  // long form discouraged but references should now still work
     public void testYamlReferencingEarlierItemLongFormEntity() throws Exception {
         addCatalogItems(
             "brooklyn.catalog:",
@@ -222,7 +222,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
         checkChildEntitySpec(app, entityName);
     }
 
-    @Test(groups="WIP") //Not able to use caller provided catalog items when referencing entity specs (as opposed to catalog meta)
+    @Test  // references to co-bundled items work even in nested url yaml
     public void testYamlReferencingEarlierItemInUrl() throws Exception {
         addCatalogItems(
             "brooklyn.catalog:",
@@ -245,7 +245,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
         checkChildEntitySpec(app, entityName);
     }
     
-    @Test(groups="WIP") //Not able to use caller provided catalog items when referencing entity specs (as opposed to catalog meta)
+    @Test  // reference to co-bundled items work also in nested url yaml as a type
     public void testYamlReferencingEarlierItemInUrlAsType() throws Exception {
         addCatalogItems(
             "brooklyn.catalog:",

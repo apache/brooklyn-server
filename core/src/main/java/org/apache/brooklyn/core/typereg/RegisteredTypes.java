@@ -19,8 +19,10 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.lang.reflect.Method;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -28,6 +30,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
+import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -125,20 +128,34 @@ public class RegisteredTypes {
     }
     /** Convenience for {@link #bean(String, String, TypeImplementationPlan)} when there is a single known java signature/super type */
     public static RegisteredType bean(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan, @Nonnull Class<?> superType) {
-        if (superType==null) log.warn("Deprecated use of RegisteredTypes API passing null name/version", new Exception("Location of deprecated use, wrt "+symbolicName+":"+version+" "+plan));
+        if (superType==null) log.warn("Deprecated use of RegisteredTypes API passing null supertype", new Exception("Location of deprecated use, wrt "+symbolicName+":"+version+" "+plan));
         return addSuperType(bean(symbolicName, version, plan), superType);
     }
     
     /** Preferred mechanism for defining a spec {@link RegisteredType}.
      * Callers should also {@link #addSuperTypes(RegisteredType, Iterable)} on the result.*/
     public static RegisteredType spec(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan) {
-        if (symbolicName==null || version==null) log.warn("Deprecated use of RegisteredTypes API passing null name/version", new Exception("Location of deprecated use, wrt "+plan));
+        if (symbolicName==null || version==null) log.warn("Deprecated use of RegisteredTypes API passing null supertype", new Exception("Location of deprecated use, wrt "+plan));
         return new BasicRegisteredType(RegisteredTypeKind.SPEC, symbolicName, version, plan);
     }
-    /** Convenience for {@link #cpec(String, String, TypeImplementationPlan)} when there is a single known java signature/super type */
+    /** Convenience for {@link #spec(String, String, TypeImplementationPlan)} when there is a single known java signature/super type */
     public static RegisteredType spec(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan, @Nonnull Class<?> superType) {
-        if (superType==null) log.warn("Deprecated use of RegisteredTypes API passing null name/version", new Exception("Location of deprecated use, wrt "+symbolicName+":"+version+" "+plan));
+        if (superType==null) log.warn("Deprecated use of RegisteredTypes API passing null supertype", new Exception("Location of deprecated use, wrt "+symbolicName+":"+version+" "+plan));
         return addSuperType(spec(symbolicName, version, plan), superType);
+    }
+    public static RegisteredType newInstance(@Nonnull RegisteredTypeKind kind, @Nonnull String symbolicName, @Nonnull String version, 
+            @Nonnull TypeImplementationPlan plan, @Nonnull List<Class<?>> superTypes, 
+            ManagedBundle containingBundle, Collection<CatalogBundle> libraryBundles, 
+            String displayName, String description, String catalogIconUrl, boolean catalogDeprecated) {
+        BasicRegisteredType result = new BasicRegisteredType(kind, symbolicName, version, plan);
+        addSuperTypes(result, superTypes);
+        result.containingBundle = containingBundle.getVersionedName().toString();
+        result.bundles.addAll(libraryBundles);
+        result.displayName = displayName;
+        result.description = description;
+        result.iconUrl = catalogIconUrl;
+        result.deprecated = catalogDeprecated;
+        return result;
     }
 
     /** Creates an anonymous {@link RegisteredType} for plan-instantiation-only use. */
@@ -306,6 +323,7 @@ public class RegisteredTypes {
      * Queries recursively the given types (either {@link Class} or {@link RegisteredType}) 
      * to see whether any inherit from the given {@link Class} */
     public static boolean isAnyTypeSubtypeOf(Set<Object> candidateTypes, Class<?> superType) {
+        if (superType == Object.class) return true;
         return isAnyTypeOrSuperSatisfying(candidateTypes, Predicates.assignableFrom(superType));
     }
 
@@ -480,4 +498,5 @@ public class RegisteredTypes {
         if (item==null) return null;
         return item.getIconUrl();
     }
+
 }

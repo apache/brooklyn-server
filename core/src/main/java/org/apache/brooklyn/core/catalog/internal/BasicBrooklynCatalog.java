@@ -48,6 +48,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -58,16 +59,19 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.CampYamlParser;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
+import org.apache.brooklyn.core.typereg.BasicRegisteredType;
+import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
-import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
@@ -89,6 +93,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 
+import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -281,8 +286,22 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return itemDo.getDto();
     }
     
+    private static ThreadLocal<Boolean> deletingCatalogItem = new ThreadLocal<>();
     @Override
     public void deleteCatalogItem(String symbolicName, String version) {
+        if (!Boolean.TRUE.equals(deletingCatalogItem.get())) {
+            // while we switch from catalog to type registry, make sure deletion covers both;
+            // thread local lets us call to other once then he calls us and we do other code path
+            deletingCatalogItem.set(true);
+            try {
+                ((BasicBrooklynTypeRegistry) mgmt.getTypeRegistry()).delete(
+                    mgmt.getTypeRegistry().get(symbolicName, version) );
+                return;
+            } finally {
+                deletingCatalogItem.remove();
+            }
+        }
+        
         log.debug("Deleting manual catalog item from "+mgmt+": "+symbolicName + ":" + version);
         checkNotNull(symbolicName, "id");
         checkNotNull(version, "version");
@@ -447,12 +466,6 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return (Maybe) getFirstAs(map, Map.class, firstKey, otherKeys);
     }
 
-    private List<CatalogItemDtoAbstract<?,?>> collectCatalogItems(String yaml, ManagedBundle containingBundle) {
-        List<CatalogItemDtoAbstract<?, ?>> result = MutableList.of();
-        collectCatalogItems(yaml, containingBundle, result, ImmutableMap.of());
-        return result;
-    }
-
     public static Map<?,?> getCatalogMetadata(String yaml) {
         Map<?,?> itemDef = Yamls.getAs(Yamls.parseAll(yaml), Map.class);
         return getFirstAsMap(itemDef, "brooklyn.catalog").orNull();        
@@ -481,15 +494,17 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return new VersionedName(bundle, version);
     }
 
-    private void collectCatalogItems(String yaml, ManagedBundle containingBundle, List<CatalogItemDtoAbstract<?, ?>> result, Map<?, ?> parentMeta) {
+    /** See comments on {@link #collectCatalogItemsFromItemMetadataBlock(String, ManagedBundle, Map, List, boolean, Map, int, boolean)};
+     * this is a shell around that that parses the `brooklyn.catalog` header on the BOM YAML file */
+    private void collectCatalogItemsFromCatalogBomRoot(String yaml, ManagedBundle containingBundle, List<CatalogItemDtoAbstract<?, ?>> result, boolean requireValidation, Map<?, ?> parentMeta, int depth, boolean force) {
         Map<?,?> itemDef = Yamls.getAs(Yamls.parseAll(yaml), Map.class);
         Map<?,?> catalogMetadata = getFirstAsMap(itemDef, "brooklyn.catalog").orNull();
         if (catalogMetadata==null)
             log.warn("No `brooklyn.catalog` supplied in catalog request; using legacy mode for "+itemDef);
         catalogMetadata = MutableMap.copyOf(catalogMetadata);
 
-        collectCatalogItems(Yamls.getTextOfYamlAtPath(yaml, "brooklyn.catalog").getMatchedYamlTextOrWarn(), 
-            containingBundle, catalogMetadata, result, parentMeta, 0);
+        collectCatalogItemsFromItemMetadataBlock(Yamls.getTextOfYamlAtPath(yaml, "brooklyn.catalog").getMatchedYamlTextOrWarn(), 
+            containingBundle, catalogMetadata, result, requireValidation, parentMeta, 0, force);
         
         itemDef.remove("brooklyn.catalog");
         catalogMetadata.remove("item");
@@ -504,12 +519,46 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 if (rootItemYaml.startsWith(match)) rootItemYaml = Strings.removeFromStart(rootItemYaml, match);
                 else rootItemYaml = Strings.replaceAllNonRegex(rootItemYaml, "\n"+match, "");
             }
-            collectCatalogItems("item:\n"+makeAsIndentedObject(rootItemYaml), containingBundle, rootItem, result, catalogMetadata, 1);
+            collectCatalogItemsFromItemMetadataBlock("item:\n"+makeAsIndentedObject(rootItemYaml), containingBundle, rootItem, result, requireValidation, catalogMetadata, 1, force);
         }
     }
 
+    /**
+     * Expects item metadata, containing an `item` containing the definition,
+     * and/or `items` containing a list of item metadata (recursing with depth).
+     * 
+     * Supports two modes:
+     * 
+     * * CatalogItems validated and returned, but not added to catalog here;
+     *   caller does that, and CI instances are persisted and loaded directly after rebind
+     *   
+     * * RegisteredTypes added to (unpersisted) type registry;
+     *   caller than validates, optionally removes broken ones,
+     *   given the ability to add multiple interdependent BOMs/bundles and then validate;
+     *   bundles with BOMs are persisted instead of catalog items
+     * 
+     * I (Alex) think the first one should be considered legacy, and removed once we do
+     * everything with bundles. (At that point we can kill nearly ALL the code in this package,
+     * needing just a subset of the parsing and validation routines in this class which can
+     * be tidied up a lot.)
+     * 
+     * Parameters suggest other combinations besides the above, but they aren't guaranteed to work.
+     * This is a private method and expect to clean it up a lot as per above.
+     *  
+     * @param sourceYaml - metadata source for reference
+     * @param containingBundle - bundle where this is being loaded, or null
+     * @param itemMetadata - map of this item metadata reap
+     * @param result - list where items should be added, or add to type registry if null
+     * @param requireValidation - whether to require items to be validated; if false items might not be valid,
+     *     and/or their catalog item types might not be set correctly yet; caller should normally validate later
+     *     (useful if we have to load a bunch of things before they can all be validated) 
+     * @param parentMetadata - inherited metadata
+     * @param depth - depth this is running in
+     * @param force - whether to force the catalog addition (only applies if result is null)
+     */
     @SuppressWarnings("unchecked")
-    private void collectCatalogItems(String sourceYaml, ManagedBundle containingBundle, Map<?,?> itemMetadata, List<CatalogItemDtoAbstract<?, ?>> result, Map<?,?> parentMetadata, int depth) {
+    private void collectCatalogItemsFromItemMetadataBlock(String sourceYaml, ManagedBundle containingBundle, Map<?,?> itemMetadata, List<CatalogItemDtoAbstract<?, ?>> result, boolean requireValidation, 
+            Map<?,?> parentMetadata, int depth, boolean force) {
 
         if (sourceYaml==null) sourceYaml = new Yaml().dump(itemMetadata);
 
@@ -613,18 +662,18 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             int count = 0;
             for (Object ii: checkType(items, "items", List.class)) {
                 if (ii instanceof String) {
-                    collectUrlReferencedCatalogItems((String) ii, containingBundle, result, catalogMetadata);
+                    collectUrlReferencedCatalogItems((String) ii, containingBundle, result, requireValidation, catalogMetadata, depth+1, force);
                 } else {
                     Map<?,?> i = checkType(ii, "entry in items list", Map.class);
-                    collectCatalogItems(Yamls.getTextOfYamlAtPath(sourceYaml, "items", count).getMatchedYamlTextOrWarn(),
-                            containingBundle, i, result, catalogMetadata, depth+1);
+                    collectCatalogItemsFromItemMetadataBlock(Yamls.getTextOfYamlAtPath(sourceYaml, "items", count).getMatchedYamlTextOrWarn(),
+                            containingBundle, i, result, requireValidation, catalogMetadata, depth+1, force);
                 }
                 count++;
             }
         }
 
         if (url != null) {
-            collectUrlReferencedCatalogItems(checkType(url, "include in catalog meta", String.class), containingBundle, result, catalogMetadata);
+            collectUrlReferencedCatalogItems(checkType(url, "include in catalog meta", String.class), containingBundle, result, requireValidation, catalogMetadata, depth+1, force);
         }
 
         if (item==null) return;
@@ -649,8 +698,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         }
 
         PlanInterpreterGuessingType planInterpreter = new PlanInterpreterGuessingType(null, item, sourceYaml, itemType, libraryBundles, result).reconstruct();
+        Exception resolutionError = null;
         if (!planInterpreter.isResolved()) {
-            throw Exceptions.create("Could not resolve definition of item"
+            // don't throw yet, we may be able to add it in an unresolved state
+            resolutionError = Exceptions.create("Could not resolve definition of item"
                 + (Strings.isNonBlank(id) ? " '"+id+"'" : Strings.isNonBlank(symbolicName) ? " '"+symbolicName+"'" : Strings.isNonBlank(name) ? " '"+name+"'" : "")
                 // better not to show yaml, takes up lots of space, and with multiple plan transformers there might be multiple errors; 
                 // some of the errors themselves may reproduce it
@@ -658,7 +709,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 //                + ":\n"+sourceYaml
                 , planInterpreter.getErrors());
         }
+        // now allowed to be null here
         itemType = planInterpreter.getCatalogItemType();
+        
         Map<?, ?> itemAsMap = planInterpreter.getItem();
         // the "plan yaml" includes the services: ... or brooklyn.policies: ... outer key,
         // as opposed to the rawer { type: foo } map without that outer key which is valid as item input
@@ -785,24 +838,59 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         final String deprecated = getFirstAs(catalogMetadata, String.class, "deprecated").orNull();
         final Boolean catalogDeprecated = Boolean.valueOf(deprecated);
 
-        // run again now that we know the ID
+        // run again now that we know the ID to catch recursive definitions and possibly other mistakes (itemType inconsistency?)
         planInterpreter = new PlanInterpreterGuessingType(id, item, sourceYaml, itemType, libraryBundles, result).reconstruct();
-        if (!planInterpreter.isResolved()) {
-            throw new IllegalStateException("Could not resolve plan once id and itemType are known (recursive reference?): "+sourceYaml);
+        if (resolutionError==null && !planInterpreter.isResolved()) {
+            resolutionError = new IllegalStateException("Plan resolution breaks after id and itemType are set; is there a recursive reference or other type inconsistency?\n"+sourceYaml);
         }
         String sourcePlanYaml = planInterpreter.getPlanYaml();
 
-        CatalogItemDtoAbstract<?, ?> dto = createItemBuilder(itemType, symbolicName, version)
-            .libraries(libraryBundles)
-            .displayName(displayName)
-            .description(description)
-            .deprecated(catalogDeprecated)
-            .iconUrl(catalogIconUrl)
-            .plan(sourcePlanYaml)
-            .build();
-
-        dto.setManagementContext((ManagementContextInternal) mgmt);
-        result.add(dto);
+        if (result==null) {
+            // horrible API but basically if `result` is null then add to local unpersisted registry instead,
+            // without forcing resolution and ignoring errors; this lets us deal with forward references, but
+            // we'll have to do a validation step subsequently.  (already we let bundles deal with persistence,
+            // just need TODO to make sure we delete previously-persisted things which now come through this path.)  
+            // NB: when everything is a bundle and we've removed all scanning then this can be the _only_ path
+            // and code can be massively simpler
+            
+            if (resolutionError!=null) {
+                if (requireValidation) {
+                    throw Exceptions.propagate(resolutionError);
+                }
+                // warn? add as "unresolved" ? just do nothing?
+            }
+            String format = null; // could support specifying format
+            // TODO bean? or spec??
+            // TODO learn supertypes, or find later
+            Class<?> javaType = null;  
+            List<Class<?>> superTypes = MutableList.<Class<?>>of().appendIfNotNull(javaType);
+            BasicRegisteredType type = (BasicRegisteredType) RegisteredTypes.newInstance(
+                RegisteredTypeKind.SPEC,
+                symbolicName, version, new BasicTypeImplementationPlan(format, sourcePlanYaml),
+                superTypes, containingBundle, libraryBundles, 
+                displayName, description, catalogIconUrl, catalogDeprecated);
+            // TODO tags ?
+            
+            ((BasicBrooklynTypeRegistry) mgmt.getTypeRegistry()).addToLocalUnpersistedTypeRegistry(type, force);
+        
+        } else {
+            if (resolutionError!=null) {
+                // if there was an error, throw it here
+                throw Exceptions.propagate(resolutionError);
+            }
+            
+            CatalogItemDtoAbstract<?, ?> dto = createItemBuilder(itemType, symbolicName, version)
+                .libraries(libraryBundles)
+                .displayName(displayName)
+                .description(description)
+                .deprecated(catalogDeprecated)
+                .iconUrl(catalogIconUrl)
+                .plan(sourcePlanYaml)
+                .build();
+    
+            dto.setManagementContext((ManagementContextInternal) mgmt);
+            result.add(dto);
+        }
     }
 
     protected static Collection<CatalogBundle> resolveWherePossible(ManagementContext mgmt, Collection<CatalogBundle> libraryBundles) {
@@ -827,7 +915,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return wrapped!=null && wrapped.equalsIgnoreCase("true");
     }
 
-    private void collectUrlReferencedCatalogItems(String url, ManagedBundle containingBundle, List<CatalogItemDtoAbstract<?, ?>> result, Map<Object, Object> parentMeta) {
+    private void collectUrlReferencedCatalogItems(String url, ManagedBundle containingBundle, List<CatalogItemDtoAbstract<?, ?>> result, boolean requireValidation, Map<Object, Object> parentMeta, int depth, boolean force) {
         @SuppressWarnings("unchecked")
         List<?> parentLibrariesRaw = MutableList.copyOf(getFirstAs(parentMeta, List.class, "brooklyn.libraries", "libraries").orNull());
         Collection<CatalogBundle> parentLibraries = CatalogItemDtoAbstract.parseLibraries(parentLibrariesRaw);
@@ -839,7 +927,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             Exceptions.propagateIfFatal(e);
             throw new IllegalStateException("Remote catalog url " + url + " can't be fetched.", e);
         }
-        collectCatalogItems(yaml, containingBundle, result, parentMeta);
+        collectCatalogItemsFromCatalogBomRoot(yaml, containingBundle, result, requireValidation, parentMeta, depth, force);
     }
 
     @SuppressWarnings("unchecked")
@@ -946,7 +1034,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         List<Exception> errors = MutableList.of();
         List<Exception> entityErrors = MutableList.of();
         
-        public PlanInterpreterGuessingType(@Nullable String id, Object item, String itemYaml, @Nullable CatalogItemType optionalCiType, 
+        public PlanInterpreterGuessingType(@Nullable String id, Object item, String itemYaml, @Nullable CatalogItemType optionalCiType,  
                 Collection<CatalogBundle> libraryBundles, List<CatalogItemDtoAbstract<?,?>> itemsDefinedSoFar) {
             // ID is useful to prevent recursive references (possibly only supported for entities?)
             this.id = id;
@@ -1016,52 +1104,54 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 else
                     candidateYaml = key + ":\n" + makeAsIndentedList(itemYaml);
             }
-            // first look in collected items, if a key is given
             String type = (String) item.get("type");
-            
-            if (type!=null && key!=null) {
-                for (CatalogItemDtoAbstract<?,?> candidate: itemsDefinedSoFar) {
-                    if (candidateCiType == candidate.getCatalogItemType() &&
-                            (type.equals(candidate.getSymbolicName()) || type.equals(candidate.getId()))) {
-                        // matched - exit
-                        catalogItemType = candidateCiType;
-                        planYaml = candidateYaml;
-                        resolved = true;
-                        return true;
-                    }
-                }
-            }
-            {
-                // legacy routine; should be the same as above code added in 0.12 because:
-                // if type is symbolic_name, the type will match above, and version will be null so any version allowed to match 
-                // if type is symbolic_name:version, the id will match, and the version will also have to match 
-                // SHOULD NEVER NEED THIS - remove during or after 0.13
-                String typeWithId = type;
-                String version = null;
-                if (CatalogUtils.looksLikeVersionedId(type)) {
-                    version = CatalogUtils.getVersionFromVersionedId(type);
-                    type = CatalogUtils.getSymbolicNameFromVersionedId(type);
-                }
+            if (itemsDefinedSoFar!=null) {
+                // first look in collected items, if a key is given
+                
                 if (type!=null && key!=null) {
                     for (CatalogItemDtoAbstract<?,?> candidate: itemsDefinedSoFar) {
                         if (candidateCiType == candidate.getCatalogItemType() &&
                                 (type.equals(candidate.getSymbolicName()) || type.equals(candidate.getId()))) {
-                            if (version==null || version.equals(candidate.getVersion())) {
-                                log.error("Lookup of '"+type+"' version '"+version+"' only worked using legacy routines; please advise Brooklyn community so they understand why");
-                                // matched - exit
-                                catalogItemType = candidateCiType;
-                                planYaml = candidateYaml;
-                                resolved = true;
-                                return true;
-                            }
+                            // matched - exit
+                            catalogItemType = candidateCiType;
+                            planYaml = candidateYaml;
+                            resolved = true;
+                            return true;
                         }
                     }
                 }
-                
-                type = typeWithId;
-                // above line is a change to behaviour; previously we proceeded below with the version dropped in code above;
-                // but that seems like a bug as the code below will have ignored version.
-                // likely this means we are now stricter about loading things that reference new versions, but correctly so. 
+                {
+                    // legacy routine; should be the same as above code added in 0.12 because:
+                    // if type is symbolic_name, the type will match above, and version will be null so any version allowed to match 
+                    // if type is symbolic_name:version, the id will match, and the version will also have to match 
+                    // SHOULD NEVER NEED THIS - remove during or after 0.13
+                    String typeWithId = type;
+                    String version = null;
+                    if (CatalogUtils.looksLikeVersionedId(type)) {
+                        version = CatalogUtils.getVersionFromVersionedId(type);
+                        type = CatalogUtils.getSymbolicNameFromVersionedId(type);
+                    }
+                    if (type!=null && key!=null) {
+                        for (CatalogItemDtoAbstract<?,?> candidate: itemsDefinedSoFar) {
+                            if (candidateCiType == candidate.getCatalogItemType() &&
+                                    (type.equals(candidate.getSymbolicName()) || type.equals(candidate.getId()))) {
+                                if (version==null || version.equals(candidate.getVersion())) {
+                                    log.error("Lookup of '"+type+"' version '"+version+"' only worked using legacy routines; please advise Brooklyn community so they understand why");
+                                    // matched - exit
+                                    catalogItemType = candidateCiType;
+                                    planYaml = candidateYaml;
+                                    resolved = true;
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                    
+                    type = typeWithId;
+                    // above line is a change to behaviour; previously we proceeded below with the version dropped in code above;
+                    // but that seems like a bug as the code below will have ignored version.
+                    // likely this means we are now stricter about loading things that reference new versions, but correctly so. 
+                }
             }
             
             // then try parsing plan - this will use loader
@@ -1257,9 +1347,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     
     @Override
     public List<? extends CatalogItem<?,?>> addItems(String yaml, ManagedBundle bundle, boolean forceUpdate) {
-        log.debug("Adding manual catalog item to "+mgmt+": "+yaml);
+        log.debug("Adding catalog item to "+mgmt+": "+yaml);
         checkNotNull(yaml, "yaml");
-        List<CatalogItemDtoAbstract<?, ?>> result = collectCatalogItems(yaml, bundle);
+        List<CatalogItemDtoAbstract<?, ?>> result = MutableList.of();
+        collectCatalogItemsFromCatalogBomRoot(yaml, bundle, result, true, ImmutableMap.of(), 0, false);
 
         // do this at the end for atomic updates; if there are intra-yaml references, we handle them specially
         for (CatalogItemDtoAbstract<?, ?> item: result) {
@@ -1269,6 +1360,18 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             addItemDto(item, forceUpdate);
         }
         return result;
+    }
+    
+    @Override @Beta
+    public void addTypesFromBundleBom(String yaml, ManagedBundle bundle, boolean forceUpdate) {
+        log.debug("Adding catalog item to "+mgmt+": "+yaml);
+        checkNotNull(yaml, "yaml");
+        collectCatalogItemsFromCatalogBomRoot(yaml, bundle, null, false, MutableMap.of(), 0, forceUpdate);        
+    }
+    
+    @Override @Beta
+    public Map<RegisteredType,Set<Exception>> validateTypes(Iterable<RegisteredType> typesToValidate) {
+        return MutableMap.of();
     }
     
     private CatalogItem<?,?> addItemDto(CatalogItemDtoAbstract<?, ?> itemDto, boolean forceUpdate) {

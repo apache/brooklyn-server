@@ -30,6 +30,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
+import org.apache.brooklyn.util.osgi.VersionedName;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
@@ -253,6 +254,24 @@ public class RegisteredTypePredicates {
         @Override
         public boolean apply(@Nullable RegisteredType item) {
             return RegisteredTypes.tryValidate(item, context).isPresent();
+        }
+    }
+
+    public static Predicate<? super RegisteredType> containingBundle(VersionedName versionedName) {
+        return new ContainingBundle(versionedName);
+    }
+    public static Predicate<? super RegisteredType> containingBundle(String versionedName) {
+        return new ContainingBundle(VersionedName.fromString(versionedName));
+    }
+    private static class ContainingBundle implements Predicate<RegisteredType> {
+        private final VersionedName bundle;
+
+        public ContainingBundle(VersionedName bundle) {
+            this.bundle = bundle;
+        }
+        @Override
+        public boolean apply(@Nullable RegisteredType item) {
+            return bundle.equalsOsgi(item.getContainingBundle());
         }
     }
 

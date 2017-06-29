@@ -77,6 +77,8 @@ public class CatalogBundleLoader {
         if (null != bom) {
             LOG.debug("Found catalog BOM in {} {} {}", CatalogUtils.bundleIds(bundle));
             String bomText = readBom(bom);
+            // TODO use addTypesFromBundleBom; but when should we do validation? after all bundles are loaded?
+            // OR maybe deprecate/remove this experiment in favour of explicitly installed and managed bundles?
             catalogItems = this.managementContext.getCatalog().addItems(bomText, mb, force);
             for (CatalogItem<?, ?> item : catalogItems) {
                 LOG.debug("Added to catalog: {}, {}", item.getSymbolicName(), item.getVersion());

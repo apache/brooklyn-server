@@ -97,7 +97,7 @@ public abstract class AbstractYamlTest {
         }
         return builder.build();
     }
-
+    
     /** Override to enable OSGi in the management context for all tests in the class. */
     protected boolean disableOsgi() {
         return true;
@@ -254,7 +254,15 @@ public abstract class AbstractYamlTest {
         return Iterables.size(mgmt().getTypeRegistry().getMatching(filter));
     }
     
+    /** forcibly update items when adding to catalog (default is not to do this) */
     public void forceCatalogUpdate() {
         forceUpdate = true;
     }
+    
+    /** whether when adding to catalog to forcibly update */
+    public final boolean isForceUpdate() {
+        return forceUpdate;
+    }
+
+
 }

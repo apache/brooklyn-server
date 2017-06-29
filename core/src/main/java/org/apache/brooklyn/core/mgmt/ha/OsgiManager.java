@@ -46,6 +46,7 @@ import org.apache.brooklyn.core.catalog.internal.CatalogBundleLoader;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
+import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -345,13 +346,7 @@ public class OsgiManager {
 
     @Beta
     public Iterable<RegisteredType> getTypesFromBundle(final VersionedName vn) {
-        final String bundleId = vn.toString();
-        return mgmt.getTypeRegistry().getMatching(new Predicate<RegisteredType>() {
-            @Override
-            public boolean apply(RegisteredType input) {
-                return bundleId.equals(input.getContainingBundle());
-            }
-        });
+        return mgmt.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(vn));
     }
     
     /** @deprecated since 0.12.0 use {@link #install(ManagedBundle, InputStream, boolean, boolean)} */

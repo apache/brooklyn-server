@@ -361,7 +361,7 @@ public class BundleMaker {
         ZipOutputStream zout = null;
         ZipFile zf = null;
         try {
-            zout = new JarOutputStream(new FileOutputStream(f2), mf);
+            zout = mf!=null ? new JarOutputStream(new FileOutputStream(f2), mf) : new ZipOutputStream(new FileOutputStream(f2));
             writeZipEntries(zout, files);
         } catch (IOException e) {
             throw Exceptions.propagate("Unable to read/write for "+nameHint, e);
@@ -374,6 +374,10 @@ public class BundleMaker {
 
     public File createTempBundle(String nameHint, Map<String, String> mf, Map<ZipEntry, InputStream> files) {
         return createTempBundle(nameHint, manifestOf(mf), files);
+    }
+    
+    public File createTempZip(String nameHint, Map<ZipEntry, InputStream> files) {
+        return createTempBundle(nameHint, (Manifest)null, files);
     }
     
 }
