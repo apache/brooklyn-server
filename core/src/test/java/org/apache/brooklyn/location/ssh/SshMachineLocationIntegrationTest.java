@@ -29,16 +29,20 @@ import java.io.OutputStream;
 import java.net.InetAddress;
 import java.security.KeyPair;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineDetails;
+import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.test.LogWatcher;
+import org.apache.brooklyn.test.LogWatcher.EventPredicates;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.crypto.SecureKeys;
 import org.apache.brooklyn.util.core.file.ArchiveUtils;
@@ -61,9 +65,13 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
+
+import ch.qos.logback.classic.spi.ILoggingEvent;
 
 public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
 
@@ -307,5 +315,33 @@ public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
 
         int rc = sm.execScript("Test script directory execution", ImmutableList.of(command));
         assertEquals(rc, 0);
+    }
+    
+    @Test(groups="Integration")
+    public void testLogsStdoutAndStderr() {
+        List<String> loggerNames = ImmutableList.of(
+                SshMachineLocation.class.getName(), 
+                BrooklynLogging.SSH_IO, 
+                SshjTool.class.getName());
+        ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.DEBUG;
+        Predicate<ILoggingEvent> filter = Predicates.alwaysTrue();
+        LogWatcher watcher = new LogWatcher(loggerNames, logLevel, filter);
+
+        watcher.start();
+        try {
+            host.execCommands("mySummary", ImmutableList.of("echo mystdout1", "echo mystdout2", "echo mystderr1 1>&2", "echo mystderr2 1>&2"));
+            
+            watcher.assertHasEvent(EventPredicates.containsMessage(":22:stdout] mystdout1"));
+            watcher.assertHasEvent(EventPredicates.containsMessage(":22:stdout] mystdout2"));
+            watcher.assertHasEvent(EventPredicates.containsMessage(":22:stderr] mystderr1"));
+            watcher.assertHasEvent(EventPredicates.containsMessage(":22:stderr] mystderr2"));
+        } finally {
+            watcher.close();
+        }
+    }
+    
+    @Test(groups="Integration")
+    public void testTurningOffLoggingStdoutAndStderr() {
+        super.testTurningOffLoggingStdoutAndStderr();
     }
 }
