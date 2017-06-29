@@ -41,7 +41,6 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
-import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -175,7 +174,8 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     public <SpecT extends AbstractBrooklynObjectSpec<?,?>> SpecT createSpec(RegisteredType type, @Nullable RegisteredTypeLoadingContext constraint, Class<SpecT> specSuperType) {
         Preconditions.checkNotNull(type, "type");
         if (type.getKind()!=RegisteredTypeKind.SPEC) { 
-            throw new IllegalStateException("Cannot create spec from type "+type+" (kind "+type.getKind()+")");
+            if (type.getKind()==RegisteredTypeKind.UNRESOLVED) throw new ReferencedUnresolvedTypeException(type);
+            else throw new UnsupportedTypePlanException("Cannot create spec from type "+type+" (kind "+type.getKind()+")");
         }
         return createSpec(type, type.getPlan(), type.getSymbolicName(), type.getVersion(), type.getSuperTypes(), constraint, specSuperType);
     }
@@ -253,11 +253,12 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     public <T> T createBean(RegisteredType type, RegisteredTypeLoadingContext constraint, Class<T> optionalResultSuperType) {
         Preconditions.checkNotNull(type, "type");
         if (type.getKind()!=RegisteredTypeKind.BEAN) { 
-            throw new IllegalStateException("Cannot create bean from type "+type+" (kind "+type.getKind()+")");
+            if (type.getKind()==RegisteredTypeKind.UNRESOLVED) throw new ReferencedUnresolvedTypeException(type);
+            else throw new UnsupportedTypePlanException("Cannot create bean from type "+type+" (kind "+type.getKind()+")");
         }
         if (constraint!=null) {
             if (constraint.getExpectedKind()!=null && constraint.getExpectedKind()!=RegisteredTypeKind.SPEC) {
-                throw new IllegalStateException("Cannot create spec with constraint "+constraint);
+                throw new IllegalStateException("Cannot create bean with constraint "+constraint);
             }
             if (constraint.getAlreadyEncounteredTypes().contains(type.getSymbolicName())) {
                 // avoid recursive cycle
@@ -281,15 +282,12 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     @Override
     public <T> T create(RegisteredType type, RegisteredTypeLoadingContext constraint, Class<T> optionalResultSuperType) {
         Preconditions.checkNotNull(type, "type");
-        if (type.getKind()==RegisteredTypeKind.BEAN) {
-            return createBean(type, constraint, optionalResultSuperType);
-        }
-        if (type.getKind()==RegisteredTypeKind.SPEC) {
+        return new RegisteredTypeKindVisitor<T>() { 
+            @Override protected T visitBean() { return createBean(type, constraint, optionalResultSuperType); }
             @SuppressWarnings({ "unchecked", "rawtypes" })
-            T result = (T) createSpec(type, constraint, (Class)optionalResultSuperType);
-            return result;
-        }
-        throw new IllegalArgumentException("Kind-agnostic create method can only be used when the registered type declares its kind, which "+type+" does not");
+            @Override protected T visitSpec() { return (T) createSpec(type, constraint, (Class)optionalResultSuperType); }
+            @Override protected T visitUnresolved() { throw new IllegalArgumentException("Kind-agnostic create method can only be used when the registered type declares its kind, which "+type+" does not"); }
+        }.visit(type.getKind());
     }
 
     @Override
@@ -317,30 +315,39 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
             log.debug("Inserting "+type+" into "+this);
             localRegisteredTypes.put(type.getId(), type);
         } else {
-            if (oldType == type) {
-                // ignore if same instance
-                // (equals not yet implemented, so would be the same, but misleading)
+            if (sameTypeAndPlan(oldType, type)) {
+                // ignore if same type and plan; other things can be changed while we sort out replacements etc
                 return;
             }
             throw new IllegalStateException("Cannot add "+type+" to catalog; different "+oldType+" is already present");
         }
     }
 
+    private boolean sameTypeAndPlan(RegisteredType oldType, RegisteredType type) {
+        if (!oldType.getVersionedName().equals(type.getVersionedName())) return false;
+        if (!oldType.getPlan().equals(type.getPlan())) return false;
+        return true;
+    }
+
     @Beta // API stabilising
-    public void delete(RegisteredType type) {
-        if (localRegisteredTypes.remove(type.getId()) != null) {
+    public void delete(VersionedName type) {
+        if (localRegisteredTypes.remove(type.toString()) != null) {
             return ;
         }
-        mgmt.getCatalog().deleteCatalogItem(type.getSymbolicName(), type.getVersion());
+        // TODO may need to support version-less here?
+        
+        // legacy deletion (may call back to us, but max once)
+        mgmt.getCatalog().deleteCatalogItem(type.getSymbolicName(), type.getVersionString());
+        // if nothing deleted, throw NoSuchElement
+    }
+    
+    public void delete(RegisteredType type) {
+        delete(type.getVersionedName());
     }
     
     @Beta // API stabilising
     public void delete(String id) {
-        if (localRegisteredTypes.remove(id) != null) {
-            return ;
-        }
-        VersionedName vn = VersionedName.fromString(id);
-        mgmt.getCatalog().deleteCatalogItem(vn.getSymbolicName(), vn.getVersionString());
+        delete(VersionedName.fromString(id));
     }
     
 }

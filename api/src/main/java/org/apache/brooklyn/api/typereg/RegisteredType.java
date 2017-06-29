@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Identifiable;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
+import org.apache.brooklyn.util.osgi.VersionedName;
 
 import com.google.common.annotations.Beta;
 
@@ -37,6 +38,9 @@ public interface RegisteredType extends Identifiable {
     
     String getSymbolicName();
     String getVersion();
+    
+    VersionedName getVersionedName();
+
     /** Bundle in symbolicname:id format where this type is defined */
     // TODO would prefer this to be VersionedName if/when everything comes from OSGi bundles
     // unrevert 7260bf9cf3f3ebaaa790693e1b7217a81bef78a7 to start that, and adjust serialization
@@ -111,6 +115,11 @@ public interface RegisteredType extends Identifiable {
         String getPlanFormat();
         /** data for the implementation; may be more specific */
         Object getPlanData();
+        
+        @Override boolean equals(Object obj);
+        @Override int hashCode();
     }
 
+    @Override boolean equals(Object obj);
+    @Override int hashCode();
 }

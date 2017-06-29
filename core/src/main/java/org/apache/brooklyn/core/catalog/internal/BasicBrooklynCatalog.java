@@ -48,6 +48,8 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
@@ -73,7 +75,9 @@ import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.AggregateClassLoader;
@@ -88,6 +92,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.brooklyn.util.yaml.Yamls.YamlExtract;
+import org.osgi.framework.Bundle;
 import org.osgi.framework.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -96,6 +101,7 @@ import org.yaml.snakeyaml.Yaml;
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -860,16 +866,32 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 // warn? add as "unresolved" ? just do nothing?
             }
             String format = null; // could support specifying format
-            // TODO bean? or spec??
-            // TODO learn supertypes, or find later
-            Class<?> javaType = null;  
-            List<Class<?>> superTypes = MutableList.<Class<?>>of().appendIfNotNull(javaType);
+            // TODO if kind and supertype is known, set those here
+            Class<?> javaType = null;
+            List<Object> superTypes = MutableList.of().appendIfNotNull(javaType);
+            
+            // TODO allow these to be set in catalog.bom ?
+            List<String> aliases = MutableList.of();
+            List<Object> tags = MutableList.of();
+            Boolean catalogDisabled = null;
+            
+            if (version==null) {
+                // use this as default version when nothing specified
+                version = BasicBrooklynCatalog.NO_VERSION;
+            }
+            
+            if (sourcePlanYaml==null) {
+                // happens if unresolved and not valid yaml, replace with item yaml
+                // which normally has "type: " prefixed
+                sourcePlanYaml = planInterpreter.itemYaml;
+            }
+            
             BasicRegisteredType type = (BasicRegisteredType) RegisteredTypes.newInstance(
-                RegisteredTypeKind.SPEC,
+                RegisteredTypeKind.UNRESOLVED,
                 symbolicName, version, new BasicTypeImplementationPlan(format, sourcePlanYaml),
-                superTypes, containingBundle, libraryBundles, 
-                displayName, description, catalogIconUrl, catalogDeprecated);
-            // TODO tags ?
+                superTypes, aliases, tags, containingBundle==null ? null : containingBundle.getVersionedName().toString(), 
+                MutableList.<OsgiBundleWithUrl>copyOf(libraryBundles), 
+                displayName, description, catalogIconUrl, catalogDeprecated, catalogDisabled);
             
             ((BasicBrooklynTypeRegistry) mgmt.getTypeRegistry()).addToLocalUnpersistedTypeRegistry(type, force);
         
@@ -911,7 +933,18 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
     private static boolean isNoBundleOrSimpleWrappingBundle(ManagementContext mgmt, ManagedBundle b) {
         if (b==null) return true;
-        String wrapped = ((ManagementContextInternal)mgmt).getOsgiManager().get().findBundle(b).get().getHeaders().get(BROOKLYN_WRAPPED_BOM_BUNDLE);
+        Maybe<OsgiManager> osgi = ((ManagementContextInternal)mgmt).getOsgiManager();
+        if (osgi.isAbsent()) {
+            // odd, shouldn't happen, installing bundle but not using osgi
+            throw new IllegalStateException("OSGi not being used but installing a bundle");
+        }
+        Maybe<Bundle> bb = osgi.get().findBundle(b);
+        if (bb.isAbsent()) {
+            // odd, shouldn't happen, bundle not managed
+            // (originally seen during a race where the empty-remover ran while we were installing)
+            throw new IllegalStateException("Loading from a bundle which is not installed");
+        }
+        String wrapped = bb.get().getHeaders().get(BROOKLYN_WRAPPED_BOM_BUNDLE);
         return wrapped!=null && wrapped.equalsIgnoreCase("true");
     }
 
@@ -1022,7 +1055,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
     private class PlanInterpreterGuessingType {
 
-        final String id;
+        final String idAsSymbolicNameWithoutVersion;
         final Map<?,?> item;
         final String itemYaml;
         final Collection<CatalogBundle> libraryBundles;
@@ -1034,18 +1067,20 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         List<Exception> errors = MutableList.of();
         List<Exception> entityErrors = MutableList.of();
         
-        public PlanInterpreterGuessingType(@Nullable String id, Object item, String itemYaml, @Nullable CatalogItemType optionalCiType,  
+        public PlanInterpreterGuessingType(@Nullable String idAsSymbolicNameWithoutVersion, Object itemDefinitionParsedToStringOrMap, String itemYaml, @Nullable CatalogItemType optionalCiType,  
                 Collection<CatalogBundle> libraryBundles, List<CatalogItemDtoAbstract<?,?>> itemsDefinedSoFar) {
             // ID is useful to prevent recursive references (possibly only supported for entities?)
-            this.id = id;
+            this.idAsSymbolicNameWithoutVersion = idAsSymbolicNameWithoutVersion;
             
-            if (item instanceof String) {
+            if (itemDefinitionParsedToStringOrMap instanceof String) {
                 // if just a string supplied, wrap as map
-                this.item = MutableMap.of("type", item);
+                this.item = MutableMap.of("type", itemDefinitionParsedToStringOrMap);
                 this.itemYaml = "type:\n"+makeAsIndentedObject(itemYaml);                
-            } else {
-                this.item = (Map<?,?>)item;
+            } else if (itemDefinitionParsedToStringOrMap instanceof Map) {
+                this.item = (Map<?,?>)itemDefinitionParsedToStringOrMap;
                 this.itemYaml = itemYaml;
+            } else {
+                throw new IllegalArgumentException("Item definition should be a string or map to use the guesser");
             }
             this.catalogItemType = optionalCiType;
             this.libraryBundles = libraryBundles;
@@ -1060,7 +1095,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             } else {
                 attemptType(null, CatalogItemType.ENTITY);
 
+                List<Exception> oldEntityErrors = MutableList.copyOf(entityErrors);
                 attemptType("services", CatalogItemType.ENTITY);
+                entityErrors.removeAll(oldEntityErrors);
+                entityErrors.addAll(oldEntityErrors);
+                // prefer errors when wrapped in services block
+                
                 attemptType(POLICIES_KEY, CatalogItemType.POLICY);
                 attemptType(ENRICHERS_KEY, CatalogItemType.ENRICHER);
                 attemptType(LOCATIONS_KEY, CatalogItemType.LOCATION);
@@ -1185,7 +1225,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                     if (candidateCiType==CatalogItemType.ENTITY) {
                         entityErrors.add(e);
                     }
-                    if (log.isTraceEnabled())
+                    if (log.isTraceEnabled()) 
                         log.trace("Guessing type of plan, it looks like it isn't "+candidateCiType+"/"+key+": "+e);
                 }
             }
@@ -1219,7 +1259,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         }
 
         private String getIdWithRandomDefault() {
-            return id != null ? id : Strings.makeRandomId(10);
+            return idAsSymbolicNameWithoutVersion != null ? idAsSymbolicNameWithoutVersion : Strings.makeRandomId(10);
         }
         public Map<?,?> getItem() {
             return item;
@@ -1370,10 +1410,179 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
     
     @Override @Beta
-    public Map<RegisteredType,Set<Exception>> validateTypes(Iterable<RegisteredType> typesToValidate) {
-        return MutableMap.of();
+    public Map<RegisteredType,Collection<Throwable>> validateTypes(Iterable<RegisteredType> typesToValidate) {
+        List<RegisteredType> typesRemainingToValidate = MutableList.copyOf(typesToValidate);
+        while (true) {
+            Map<RegisteredType,Collection<Throwable>> result = MutableMap.of();
+            for (RegisteredType t: typesToValidate) {
+                Collection<Throwable> tr = validateType(t);
+                if (!tr.isEmpty()) {
+                    result.put(t, tr);
+                }
+            }
+            if (result.isEmpty() || result.size()==typesRemainingToValidate.size()) {
+                return result;
+            }
+            // recurse wherever there were problems so long as we are reducing the number of problem types
+            // (this lets us solve complex reference problems without needing a complex dependency tree,
+            // in max O(N^2) time)
+            typesRemainingToValidate = MutableList.copyOf(result.keySet());
+        }
     }
     
+    @Override @Beta
+    public Collection<Throwable> validateType(RegisteredType typeToValidate) {
+        ReferenceWithError<RegisteredType> result = resolve(typeToValidate);
+        if (result.hasError()) {
+            if (result.getError() instanceof CompoundRuntimeException) {
+                return ((CompoundRuntimeException)result.getError()).getAllCauses();
+            }
+            return Collections.singleton(result.getError());
+        }
+        // replace what's in catalog with resolved+validated version
+        ((BasicBrooklynTypeRegistry) mgmt.getTypeRegistry()).addToLocalUnpersistedTypeRegistry(result.get(), true);
+        return Collections.emptySet();
+    }
+    
+    /** 
+     * Resolves the given object with respect to the catalog. Returns any errors found while trying to resolve. 
+     * The argument may be changed (e.g. its kind set, supertypes set), and normal usage is to add 
+     * a type in an "unresolved" state if things may need to reference it, then call resolve here,
+     * then replace what was added with the argument given here. */
+    @Beta
+    public ReferenceWithError<RegisteredType> resolve(RegisteredType typeToValidate) {
+        Throwable inconsistentSuperTypesError=null, specError=null, beanError=null;
+        List<Throwable> guesserErrors = MutableList.of();
+        
+        // collect supertype spec / most specific java
+        Set<Object> supers = typeToValidate.getSuperTypes();
+        BrooklynObjectType boType = null;
+        for (Object superI: supers) {
+            BrooklynObjectType boTypeI = null;
+            if (superI instanceof BrooklynObject) boTypeI = BrooklynObjectType.of((BrooklynObject)superI);
+            else if (superI instanceof Class) boTypeI = BrooklynObjectType.of((Class<?>)superI);
+            if (boTypeI!=null && boTypeI!=BrooklynObjectType.UNKNOWN) {
+                if (boType==null) boType = boTypeI;
+                else {
+                    if (boTypeI!=boType) {
+                        inconsistentSuperTypesError = new IllegalStateException("Inconsistent supertypes for "+typeToValidate+"; indicates "+boType+" and "+boTypeI);
+                    }
+                }
+            }
+        }
+        Class<?> superJ = null;
+        for (Object superI: supers) {
+            if (superI instanceof Class) {
+                if (superJ==null) superJ = (Class<?>) superI;
+                else if (superJ.isAssignableFrom((Class<?>)superI)) superJ = (Class<?>) superI;
+            }
+        }
+        
+        // TODO filter what we try based on kind,
+        // and set things based on declared itemType;
+        // also support itemType spec (generic) and bean to help filter
+        
+        // TODO support "template" (never instantiable) in registry
+        
+        RegisteredType resultT = null;
+        
+        Object resultO = null;
+        if (resultO==null && boType!=null) try {
+            // try spec instantiation if we know the BO Type (no point otherwise)
+            resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, typeToValidate);
+            try {
+                resultO = ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).createSpec(resultT, null, boType.getSpecType());
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                specError = e;
+            }
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            // ignore if we couldn't resolve as spec
+        }
+        
+        if (resultO==null) try {
+            // try it as a bean
+            resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.BEAN, typeToValidate);
+            try {
+                resultO = ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).createBean(resultT, null, superJ);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                beanError = e;
+            }
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            // ignore if we couldn't resolve as spec
+        }
+        
+        if (resultO==null) try {
+            // try the legacy PlanInterpreterGuessingType
+            // (this is the only place where we will guess specs, so it handles 
+            // most of our traditional catalog items in BOMs)
+            String yaml = RegisteredTypes.getImplementationDataStringForSpec(typeToValidate);
+            PlanInterpreterGuessingType guesser = new PlanInterpreterGuessingType(typeToValidate.getSymbolicName(), Iterables.getOnlyElement( Yamls.parseAll(yaml) ), 
+                yaml, null, CatalogItemDtoAbstract.parseLibraries( typeToValidate.getLibraries() ), null);
+            guesser.reconstruct();
+            guesserErrors.addAll(guesser.getErrors());
+            if (guesser.isResolved()) {
+                CatalogItemType ciType = guesser.getCatalogItemType();
+                if (ciType==CatalogItemType.TEMPLATE) {
+                    // TODO templates in registry
+                    throw new IllegalStateException("Templates not yet supported in registry");
+
+                } else if (boType==null) {
+                    boType = BrooklynObjectType.of(ciType);
+                    if (boType!=null) {
+                        supers = MutableSet.copyOf(supers);
+                        supers.add(boType.getInterfaceType());
+                        // didn't know type before, retry now that we know the type
+                        resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, typeToValidate);
+                        RegisteredTypes.addSuperTypes(resultT, supers);
+                        RegisteredTypes.changePlan(resultT, 
+                            new BasicTypeImplementationPlan(null /* CampTypePlanTransformer.FORMAT */, guesser.getPlanYaml()));
+                        return resolve(resultT);
+                    }
+                } else if (Objects.equal(boType, BrooklynObjectType.of(ciType))) {
+                    if (specError==null) {
+                        throw new IllegalStateException("Guesser resolved but TypeRegistry couldn't create");
+                    } else {
+                        // do nothing; type was already known, prefer the spec error
+                    }
+                } else {
+                    throw new IllegalStateException("Guesser resolved as "+ciType+" but we expected "+boType);
+                }
+            } else {
+                throw new IllegalStateException("Guesser could not resolve");
+            }
+            
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            guesserErrors.add(e);
+        }
+
+        if (resultO!=null) {
+            if (resultO instanceof BrooklynObject) {
+                // if it was a bean that points at a BO then switch it to a spec and try to re-validate
+                return resolve(RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, typeToValidate));
+            }
+            RegisteredTypes.cacheActualJavaType(resultT, resultO.getClass());
+            
+            supers = MutableSet.copyOf(supers);
+            supers.add(resultO.getClass());
+            supers.add(BrooklynObjectType.of(resultO.getClass()).getInterfaceType());
+            RegisteredTypes.addSuperTypes(resultT, supers);
+
+            return ReferenceWithError.newInstanceWithoutError(resultT);
+        }
+        
+        List<Throwable> errors = MutableList.<Throwable>of()
+            .appendIfNotNull(inconsistentSuperTypesError)
+            .appendAll(guesserErrors)
+            .appendIfNotNull(beanError)
+            .appendIfNotNull(specError);
+        return ReferenceWithError.newInstanceThrowingError(null, Exceptions.create("Could not resolve "+typeToValidate, errors));
+    }
+
     private CatalogItem<?,?> addItemDto(CatalogItemDtoAbstract<?, ?> itemDto, boolean forceUpdate) {
         CatalogItem<?, ?> existingDto = checkItemAllowedAndIfSoReturnAnyDuplicate(itemDto, true, forceUpdate);
         if (existingDto!=null) {

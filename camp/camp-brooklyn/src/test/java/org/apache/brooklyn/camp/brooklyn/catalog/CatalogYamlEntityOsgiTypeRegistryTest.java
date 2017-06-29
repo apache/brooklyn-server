@@ -21,6 +21,8 @@ package org.apache.brooklyn.camp.brooklyn.catalog;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.Collection;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -60,6 +62,11 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
             // bundle not started (no need), and BOM not installed above; do it explicitly below
             // testing the type registry approach instead
             mgmt().getCatalog().addTypesFromBundleBom(catalogYaml, b.get().getMetadata(), isForceUpdate());
+            Map<RegisteredType, Collection<Throwable>> validation = mgmt().getCatalog().validateTypes( mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(b.get().getVersionedName())) );
+            if (!validation.isEmpty()) {
+                throw Exceptions.propagate("Brooklyn failed to load types: "+validation.keySet(), 
+                    Iterables.concat(validation.values()));
+            }
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         }

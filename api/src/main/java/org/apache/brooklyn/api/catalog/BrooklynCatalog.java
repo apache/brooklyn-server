@@ -21,7 +21,6 @@ package org.apache.brooklyn.api.catalog;
 import java.util.Collection;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -106,16 +105,23 @@ public interface BrooklynCatalog {
     @Beta  // method may move elsewhere
     public void addTypesFromBundleBom(String yaml, ManagedBundle bundle, boolean forceUpdate);
     
-    /** Performs YAML validation on the given set of types, returning a map whose keys are
-     * those types where validation failed, mapped to a collection of errors. 
+    /** As {@link #validateType(RegisteredType)} but taking a set of types, returning a map whose keys are
+     * those types where validation failed, mapped to the collection of errors validating that type. 
      * An empty map result indicates no validation errors in the types passed in. 
+     */
+    @Beta  // method may move elsewhere
+    public Map<RegisteredType,Collection<Throwable>> validateTypes(Iterable<RegisteredType> typesToValidate);
+
+    /** Performs YAML validation on the given type, returning a collection of errors. 
+     * An empty result indicates no validation errors in the type passed in. 
      * <p>
      * Validation may be side-effecting in that it sets metadata and refines supertypes
      * for the given registered type.
      */
-    @Beta
-    public Map<RegisteredType,Set<Exception>> validateTypes(Iterable<RegisteredType> typesToValidate);
-    
+    @Beta  // method may move elsewhere
+    Collection<Throwable> validateType(RegisteredType typeToValidate);
+
+
     /**
      * Adds an item (represented in yaml) to the catalog.
      * Fails if the same version exists in catalog.

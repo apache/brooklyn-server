@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
@@ -260,8 +261,11 @@ public class RegisteredTypePredicates {
     public static Predicate<? super RegisteredType> containingBundle(VersionedName versionedName) {
         return new ContainingBundle(versionedName);
     }
+    public static Predicate<? super RegisteredType> containingBundle(OsgiBundleWithUrl bundle) {
+        return containingBundle(bundle.getVersionedName());
+    }
     public static Predicate<? super RegisteredType> containingBundle(String versionedName) {
-        return new ContainingBundle(VersionedName.fromString(versionedName));
+        return containingBundle(VersionedName.fromString(versionedName));
     }
     private static class ContainingBundle implements Predicate<RegisteredType> {
         private final VersionedName bundle;

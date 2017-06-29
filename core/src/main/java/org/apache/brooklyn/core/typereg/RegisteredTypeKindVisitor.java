@@ -31,6 +31,7 @@ public abstract class RegisteredTypeKindVisitor<T> {
         switch (kind) {
         case SPEC: return visitSpec();
         case BEAN: return visitBean();
+        case UNRESOLVED: return visitUnresolved();
         default:
             throw new IllegalStateException("Unexpected registered type kind: "+kind);
         }
@@ -42,4 +43,6 @@ public abstract class RegisteredTypeKindVisitor<T> {
 
     protected abstract T visitSpec();
     protected abstract T visitBean();
+    protected abstract T visitUnresolved();
+    
 }

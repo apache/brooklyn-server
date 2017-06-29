@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.mgmt.rebind.BasicCatalogItemRebindSupport;
 import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
@@ -386,7 +387,7 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
 
     /**
      * Parses an instance of CatalogLibrariesDto from the given List. Expects the list entries
-     * to be either Strings or Maps of String -> String. Will skip items that are not.
+     * to be either Strings or Maps of String -> String or bundles. Will skip items that are not.
      * <p>
      * If a string is supplied, this tries heuristically to identify whether a reference is a bundle or a URL, as follows:
      * - if the string contains a slash, it is treated as a URL (or classpath reference), e.g. <code>/file.txt</code>;
@@ -445,6 +446,10 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
                 }
 
                 dto.add(new CatalogBundleDto(name, version, url));
+            } else if (object instanceof OsgiBundleWithUrl) {
+                dto.add(new CatalogBundleDto( ((OsgiBundleWithUrl)object).getSymbolicName(), ((OsgiBundleWithUrl)object).getSuppliedVersionString(), ((OsgiBundleWithUrl)object).getUrl() ));
+            } else if (object instanceof VersionedName) {
+                dto.add(new CatalogBundleDto( ((VersionedName)object).getSymbolicName(), ((VersionedName)object).getVersionString(), null ));
             } else {
                 LOG.debug("Unexpected entry in libraries list neither string nor map: " + object);
             }

@@ -338,11 +338,16 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION), TestEntity.class.getName());
     }
     
-    @Test(expectedExceptions = IllegalStateException.class)
+    @Test
     public void testUpdatingItemFailsIfDifferent() {
         String symbolicName = "my.catalog.app.id.duplicate";
-        addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION), TestEntity.class.getName());
-        addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION), BasicEntity.class.getName());
+        try {
+            addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION), TestEntity.class.getName());
+            addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION), BasicEntity.class.getName());
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "different", symbolicName, TEST_VERSION, "already present");
+        }
     }
 
     @Test
@@ -375,7 +380,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         try {
             addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION + "-update"), symbolicName);
             Asserts.shouldHaveFailedPreviously("Catalog addition expected to fail due to recursive reference to " + symbolicName);
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             Asserts.expectedFailureContains(e, "recursive", symbolicName);
         }
     }
@@ -391,7 +396,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         try {
             addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION + "-update"), versionedId);
             Asserts.shouldHaveFailedPreviously("Catalog addition expected to fail due to recursive reference to " + versionedId);
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             Asserts.expectedFailureContains(e, "recursive", symbolicName, versionedId);
         }
     }
@@ -410,7 +415,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         try {
             addCatalogEntity(IdAndVersion.of(callerSymbolicName, TEST_VERSION), calleeSymbolicName);
             Asserts.shouldHaveFailedPreviously();
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             Asserts.expectedFailureContains(e, "recursive");
         }
     }
@@ -441,8 +446,8 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                     "      brooklyn.children:",
                     "      - type: " + calleeSymbolicName);
             Asserts.shouldHaveFailedPreviously();
-        } catch (IllegalStateException e) {
-            Asserts.expectedFailureContains(e, "recursive");
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "recursive", callerSymbolicName, calleeSymbolicName);
         }
     }
 

@@ -63,15 +63,16 @@ public class BasicBrooklynTypeRegistryTest extends BrooklynMgmtUnitTestSupport {
     @Test
     public void testCantAddSameIdUnlessSameInstanceOrForced() {
         add(SAMPLE_TYPE);
-        RegisteredType sampleTypeClone = RegisteredTypes.bean("item.A", "1", new BasicTypeImplementationPlan("ignore", null), String.class);
-        add(sampleTypeClone, true);
-        Assert.assertNotEquals( registry().get(SAMPLE_TYPE.getId()), SAMPLE_TYPE );
+        RegisteredType sampleTypeDifferent = RegisteredTypes.bean("item.A", "1", new BasicTypeImplementationPlan("ignore2", null), String.class);
+        add(sampleTypeDifferent, true);
+        Assert.assertSame( registry().get(SAMPLE_TYPE.getId()), sampleTypeDifferent );
+        Assert.assertNotSame( registry().get(SAMPLE_TYPE.getId()), SAMPLE_TYPE );
         
         add(SAMPLE_TYPE, true);
-        Assert.assertEquals( registry().get(SAMPLE_TYPE.getId()), SAMPLE_TYPE );
+        Assert.assertSame( registry().get(SAMPLE_TYPE.getId()), SAMPLE_TYPE );
 
         try {
-            add(sampleTypeClone);
+            add(sampleTypeDifferent);
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
             Asserts.expectedFailureContains(e, SAMPLE_TYPE.getSymbolicName());

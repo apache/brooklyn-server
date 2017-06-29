@@ -29,8 +29,10 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.osgi.VersionedName;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableSet;
 
 /** Instances are usually created by methods in {@link RegisteredTypes}. */
@@ -82,6 +84,11 @@ public class BasicRegisteredType implements RegisteredType {
     @Override
     public String getVersion() {
         return version;
+    }
+    
+    @Override
+    public VersionedName getVersionedName() {
+        return new VersionedName(getSymbolicName(), getVersion());
     }
     
     @Override
@@ -153,4 +160,49 @@ public class BasicRegisteredType implements RegisteredType {
             (getPlan()!=null ? ";"+getPlan().getPlanFormat() : "")+
             "]";
     }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((aliases == null) ? 0 : aliases.hashCode());
+        result = prime * result + ((bundles == null) ? 0 : bundles.hashCode());
+        result = prime * result + ((containingBundle == null) ? 0 : containingBundle.hashCode());
+        result = prime * result + (deprecated ? 1231 : 1237);
+        result = prime * result + ((description == null) ? 0 : description.hashCode());
+        result = prime * result + (disabled ? 1231 : 1237);
+        result = prime * result + ((displayName == null) ? 0 : displayName.hashCode());
+        result = prime * result + ((iconUrl == null) ? 0 : iconUrl.hashCode());
+        result = prime * result + ((implementationPlan == null) ? 0 : implementationPlan.hashCode());
+        result = prime * result + ((kind == null) ? 0 : kind.hashCode());
+        result = prime * result + ((superTypes == null) ? 0 : superTypes.hashCode());
+        result = prime * result + ((symbolicName == null) ? 0 : symbolicName.hashCode());
+        result = prime * result + ((tags == null) ? 0 : tags.hashCode());
+        result = prime * result + ((version == null) ? 0 : version.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null) return false;
+        if (getClass() != obj.getClass()) return false;
+        BasicRegisteredType other = (BasicRegisteredType) obj;
+        if (!Objects.equal(aliases, other.aliases)) return false;
+        if (!Objects.equal(bundles, other.bundles)) return false;
+        if (!Objects.equal(containingBundle, other.containingBundle)) return false;
+        if (!Objects.equal(deprecated, other.deprecated)) return false;
+        if (!Objects.equal(disabled, other.disabled)) return false;
+        if (!Objects.equal(iconUrl, other.iconUrl)) return false;
+        if (!Objects.equal(implementationPlan, other.implementationPlan)) return false;
+        if (!Objects.equal(kind, other.kind)) return false;
+        if (!Objects.equal(superTypes, other.superTypes)) return false;
+        if (!Objects.equal(symbolicName, other.symbolicName)) return false;
+        if (!Objects.equal(tags, other.tags)) return false;
+        if (!Objects.equal(version, other.version)) return false;
+
+        return true;
+    }
+    
+    
 }

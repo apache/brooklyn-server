@@ -19,10 +19,8 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.lang.reflect.Method;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -30,13 +28,13 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
@@ -62,6 +60,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.reflect.TypeToken;
 
@@ -144,18 +143,35 @@ public class RegisteredTypes {
         return addSuperType(spec(symbolicName, version, plan), superType);
     }
     public static RegisteredType newInstance(@Nonnull RegisteredTypeKind kind, @Nonnull String symbolicName, @Nonnull String version, 
-            @Nonnull TypeImplementationPlan plan, @Nonnull List<Class<?>> superTypes, 
-            ManagedBundle containingBundle, Collection<CatalogBundle> libraryBundles, 
-            String displayName, String description, String catalogIconUrl, boolean catalogDeprecated) {
+            @Nonnull TypeImplementationPlan plan, @Nonnull Iterable<Object> superTypes,
+            Iterable<String> aliases, Iterable<Object> tags,
+            String containingBundle, Iterable<OsgiBundleWithUrl> libraryBundles, 
+            String displayName, String description, String catalogIconUrl, 
+            Boolean catalogDeprecated, Boolean catalogDisabled) {
         BasicRegisteredType result = new BasicRegisteredType(kind, symbolicName, version, plan);
         addSuperTypes(result, superTypes);
-        result.containingBundle = containingBundle.getVersionedName().toString();
-        result.bundles.addAll(libraryBundles);
+        addAliases(result, aliases);
+        addTags(result, tags);
+        result.containingBundle = containingBundle;
+        Iterables.addAll(result.bundles, libraryBundles);
         result.displayName = displayName;
         result.description = description;
         result.iconUrl = catalogIconUrl;
-        result.deprecated = catalogDeprecated;
+        if (catalogDeprecated!=null) result.deprecated = catalogDeprecated;
+        if (catalogDisabled!=null) result.disabled = catalogDisabled;
         return result;
+    }
+    public static RegisteredType copy(RegisteredType t) {
+        return copyResolved(t.getKind(), t);
+    }
+    @Beta
+    public static RegisteredType copyResolved(RegisteredTypeKind kind, RegisteredType t) {
+        if (t.getKind()!=null && t.getKind()!=RegisteredTypeKind.UNRESOLVED && t.getKind()!=kind) {
+            throw new IllegalStateException("Cannot copy resolve "+t+" ("+t.getKind()+") as "+kind);
+        }
+        return newInstance(kind, t.getSymbolicName(), t.getVersion(), t.getPlan(), 
+            t.getSuperTypes(), t.getAliases(), t.getTags(), t.getContainingBundle(), t.getLibraries(), 
+            t.getDisplayName(), t.getDescription(), t.getIconUrl(), t.isDeprecated(), t.isDisabled());
     }
 
     /** Creates an anonymous {@link RegisteredType} for plan-instantiation-only use. */
@@ -263,6 +279,7 @@ public class RegisteredTypes {
     public static String getImplementationDataStringForSpec(RegisteredType item) {
         if (item==null || item.getPlan()==null) return null;
         Object data = item.getPlan().getPlanData();
+        if (data==null) throw new IllegalStateException("No plan data for "+item);
         if (!(data instanceof String)) throw new IllegalStateException("Expected plan data for "+item+" to be a string");
         return (String)data;
     }
@@ -419,6 +436,10 @@ public class RegisteredTypes {
             protected Maybe<T> visitBean() {
                 return tryValidateBean(object, type, context);
             }
+            
+            protected Maybe<T> visitUnresolved() { 
+                return Maybe.absent(object+" is not yet resolved");
+            }
         }.visit(kind);
     }
 
@@ -497,6 +518,11 @@ public class RegisteredTypes {
         RegisteredType item = registry.get( object.getCatalogItemId() );
         if (item==null) return null;
         return item.getIconUrl();
+    }
+
+    public static RegisteredType changePlan(RegisteredType type, TypeImplementationPlan plan) {
+        ((BasicRegisteredType)type).implementationPlan = plan;
+        return type;
     }
 
 }
