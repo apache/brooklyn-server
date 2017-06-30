@@ -41,7 +41,9 @@ import org.apache.brooklyn.util.osgi.OsgiUtils;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
+import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.text.VersionComparator;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.Version;
@@ -152,7 +154,17 @@ public class Osgis {
             if (requireExactlyOne && result.size()>1)
                 return Maybe.absent("Multiple bundles ("+result.size()+") matching "+getConstraintsDescription());
             
-            return Maybe.of(result.get(0));
+            // take the highest version of the first symbolic name alphabetically
+            Bundle r1 = result.get(0);
+            for (int i=1; i<result.size(); i++) {
+                if (result.get(i).getSymbolicName().equals(r1.getSymbolicName())) {
+                    r1 = result.get(i);
+                } else {
+                    // was in order so no more symbolic names
+                    break;
+                }
+            }
+            return Maybe.of(r1);
         }
         
         /** Finds all matching bundles, in decreasing version order. */
@@ -212,7 +224,9 @@ public class Osgis {
             Collections.sort(result, new Comparator<Bundle>() {
                 @Override
                 public int compare(Bundle o1, Bundle o2) {
-                    return o2.getVersion().compareTo(o1.getVersion());
+                    int r = NaturalOrderComparator.INSTANCE.compare(o1.getSymbolicName(), o2.getSymbolicName());
+                    if (r!=0) return r;
+                    return VersionComparator.INSTANCE.compare(o1.getVersion().toString(), o2.getVersion().toString());
                 }
             });
             

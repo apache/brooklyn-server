@@ -114,7 +114,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
 
     protected SshMachineLocation newHost() {
         return mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
-                .configure("address", Networking.getLocalHost())
+                .configure("address", "1.2.3.4")
                 .configure(SshMachineLocation.SSH_TOOL_CLASS, RecordingSshTool.class.getName()));
     }
     
@@ -338,6 +338,55 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
             
             Optional<ILoggingEvent> eventWithPasswd = Iterables.tryFind(watcher.getEvents(), EventPredicates.containsMessage("mypassword"));
             assertFalse(eventWithPasswd.isPresent(), "event="+eventWithPasswd);
+        } finally {
+            watcher.close();
+        }
+    }
+    
+    @Test
+    public void testLogsStdoutAndStderr() {
+        RecordingSshTool.setCustomResponse(".*mycommand.*", new CustomResponse(0, "mystdout1\nmystdout2", "mystderr1\nmystderr2"));
+        List<String> loggerNames = ImmutableList.of(
+                SshMachineLocation.class.getName(), 
+                BrooklynLogging.SSH_IO, 
+                SshjTool.class.getName());
+        ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.DEBUG;
+        Predicate<ILoggingEvent> filter = Predicates.alwaysTrue();
+        LogWatcher watcher = new LogWatcher(loggerNames, logLevel, filter);
+
+        watcher.start();
+        try {
+            host.execCommands("mySummary", ImmutableList.of("mycommand"));
+            
+            watcher.assertHasEvent(EventPredicates.containsMessage("[1.2.3.4:22:stdout] mystdout1"));
+            watcher.assertHasEvent(EventPredicates.containsMessage("[1.2.3.4:22:stdout] mystdout2"));
+            watcher.assertHasEvent(EventPredicates.containsMessage("[1.2.3.4:22:stderr] mystderr1"));
+            watcher.assertHasEvent(EventPredicates.containsMessage("[1.2.3.4:22:stderr] mystderr2"));
+        } finally {
+            watcher.close();
+        }
+    }
+    
+    @Test
+    public void testTurningOffLoggingStdoutAndStderr() {
+        RecordingSshTool.setCustomResponse(".*mycommand.*", new CustomResponse(0, "mystdout1\nmystdout2", "mystderr1\nmystderr2"));
+        List<String> loggerNames = ImmutableList.of(
+                SshMachineLocation.class.getName(), 
+                BrooklynLogging.SSH_IO, 
+                SshjTool.class.getName());
+        ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.DEBUG;
+        Predicate<ILoggingEvent> filter = Predicates.alwaysTrue();
+        LogWatcher watcher = new LogWatcher(loggerNames, logLevel, filter);
+
+        watcher.start();
+        try {
+            host.execCommands(
+                    ImmutableMap.of(SshMachineLocation.NO_STDOUT_LOGGING.getName(), true, SshMachineLocation.NO_STDERR_LOGGING.getName(), true), 
+                    "mySummary", 
+                    ImmutableList.of("mycommand"));
+            
+            assertFalse(Iterables.tryFind(watcher.getEvents(), EventPredicates.containsMessage(":stdout]")).isPresent());
+            assertFalse(Iterables.tryFind(watcher.getEvents(), EventPredicates.containsMessage(":stderr]")).isPresent());
         } finally {
             watcher.close();
         }

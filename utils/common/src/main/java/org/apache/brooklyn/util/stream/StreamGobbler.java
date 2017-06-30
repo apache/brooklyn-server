@@ -86,6 +86,8 @@ public class StreamGobbler extends Thread implements Closeable {
             onClose();
             //TODO parametrise log level, for this error, and for normal messages
             if (log!=null && log.isTraceEnabled()) log.trace(logPrefix+"exception reading from stream ("+e+")");
+        } finally {
+            if (out != null) out.flush();
         }
     }
     
