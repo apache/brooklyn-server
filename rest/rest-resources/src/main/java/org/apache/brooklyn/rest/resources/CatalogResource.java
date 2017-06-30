@@ -208,6 +208,9 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
         
         if (result.hasError()) {
+            if (log.isTraceEnabled()) {
+                log.trace("Unable to create from archive, returning 400: "+result.getError().getMessage(), result.getError());
+            }
             return ApiError.builder().errorCode(Status.BAD_REQUEST).message(result.getWithoutError().getMessage())
                 .data(BundleInstallationRestResult.of(result.getWithoutError(), mgmt(), brooklyn(), ui)).build().asJsonResponse();
         }

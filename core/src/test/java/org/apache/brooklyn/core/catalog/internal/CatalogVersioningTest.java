@@ -35,6 +35,7 @@ import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
@@ -54,19 +55,22 @@ public class CatalogVersioningTest {
         if (managementContext != null) Entities.destroyAll(managementContext);
     }
 
+    /** @deprecated since 0.12.0; replaced with {@link RegisteredTypeNaming} */
     @Test
-    public void testParsingVersion() {
-        assertVersionParsesAs("foo:1", "foo", "1");
-        assertVersionParsesAs("foo", null, null);
-        assertVersionParsesAs("foo:1.1", "foo", "1.1");
-        assertVersionParsesAs("foo:1_SNAPSHOT", "foo", "1_SNAPSHOT");
-        assertVersionParsesAs("foo:10.9.8_SNAPSHOT", "foo", "10.9.8_SNAPSHOT");
-        assertVersionParsesAs("foo:bar", null, null);
-        assertVersionParsesAs("chef:cookbook", null, null);
-        assertVersionParsesAs("http://foo:8080", null, null);
+    @Deprecated
+    public void testLegacyParsingVersion() {
+        assertLegacyVersionParsesAs("foo:1", "foo", "1");
+        assertLegacyVersionParsesAs("foo", null, null);
+        assertLegacyVersionParsesAs("foo:1.1", "foo", "1.1");
+        assertLegacyVersionParsesAs("foo:1_SNAPSHOT", "foo", "1_SNAPSHOT");
+        assertLegacyVersionParsesAs("foo:10.9.8_SNAPSHOT", "foo", "10.9.8_SNAPSHOT");
+        assertLegacyVersionParsesAs("foo:bar", null, null);
+        assertLegacyVersionParsesAs("chef:cookbook", null, null);
+        assertLegacyVersionParsesAs("http://foo:8080", null, null);
     }
 
-    private static void assertVersionParsesAs(String versionedId, String id, String version) {
+    @SuppressWarnings("deprecation")
+    private static void assertLegacyVersionParsesAs(String versionedId, String id, String version) {
         if (version==null) {
             Assert.assertFalse(CatalogUtils.looksLikeVersionedId(versionedId));
         } else {

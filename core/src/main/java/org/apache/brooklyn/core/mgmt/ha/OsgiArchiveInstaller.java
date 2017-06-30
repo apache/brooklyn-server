@@ -43,6 +43,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.VersionComparator;
 import org.osgi.framework.Bundle;
@@ -126,7 +127,7 @@ class OsgiArchiveInstaller {
                         // user supplied just a URL (eg brooklyn.libraries), but we recognise it,
                         // so don't try to reload it, just record the info we know about it to retrieve the bundle
                         ((BasicManagedBundle)suppliedKnownBundleMetadata).setSymbolicName(mbFromUrl.getSymbolicName());
-                        ((BasicManagedBundle)suppliedKnownBundleMetadata).setVersion(mbFromUrl.getVersion());
+                        ((BasicManagedBundle)suppliedKnownBundleMetadata).setVersion(mbFromUrl.getSuppliedVersionString());
                     }
                 }
                 if (installedBundle.isAbsent() && suppliedKnownBundleMetadata.getOsgiUniqueUrl()!=null) {
@@ -136,7 +137,7 @@ class OsgiArchiveInstaller {
                     installedBundle = Osgis.bundleFinder(osgiManager.framework).requiringFromUrl(suppliedKnownBundleMetadata.getUrl()).find();
                 }
                 if (installedBundle.isAbsent() && suppliedKnownBundleMetadata.isNameResolved()) {
-                    installedBundle = Osgis.bundleFinder(osgiManager.framework).symbolicName(suppliedKnownBundleMetadata.getSymbolicName()).version(suppliedKnownBundleMetadata.getVersion()).find();
+                    installedBundle = Osgis.bundleFinder(osgiManager.framework).symbolicName(suppliedKnownBundleMetadata.getSymbolicName()).version(suppliedKnownBundleMetadata.getSuppliedVersionString()).find();
                 }
                 if (suppliedKnownBundleMetadata.getUrl()!=null) {
                     if (installedBundle.isAbsent() || force) {
@@ -209,7 +210,7 @@ class OsgiArchiveInstaller {
     
     private void updateManifestFromAllSourceInformation() {
         if (discoveredBomVersionedName!=null) {
-            matchSetOrFail("catalog.bom in archive", discoveredBomVersionedName.getSymbolicName(), discoveredBomVersionedName.getVersion().toString());
+            matchSetOrFail("catalog.bom in archive", discoveredBomVersionedName.getSymbolicName(), discoveredBomVersionedName.getVersionString());
         }
         
         boolean manifestNeedsUpdating = false;
@@ -221,12 +222,12 @@ class OsgiArchiveInstaller {
                 discoveredManifest.getMainAttributes().getValue(Constants.BUNDLE_VERSION) )) {
             manifestNeedsUpdating = true;                
             discoveredManifest.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, inferredMetadata.getSymbolicName());
-            discoveredManifest.getMainAttributes().putValue(Constants.BUNDLE_VERSION, inferredMetadata.getVersion());
+            discoveredManifest.getMainAttributes().putValue(Constants.BUNDLE_VERSION, inferredMetadata.getOsgiVersionString() );
         }
         if (Strings.isBlank(inferredMetadata.getSymbolicName())) {
             throw new IllegalArgumentException("Missing bundle symbolic name in BOM or MANIFEST");
         }
-        if (Strings.isBlank(inferredMetadata.getVersion())) {
+        if (Strings.isBlank(inferredMetadata.getSuppliedVersionString())) {
             throw new IllegalArgumentException("Missing bundle version in BOM or MANIFEST");
         }
         if (discoveredManifest.getMainAttributes().getValue(Attributes.Name.MANIFEST_VERSION)==null) {
@@ -305,7 +306,7 @@ class OsgiArchiveInstaller {
             } else {
                 result.metadata = inferredMetadata;
                 // no such managed bundle
-                Maybe<Bundle> b = Osgis.bundleFinder(osgiManager.framework).symbolicName(result.getMetadata().getSymbolicName()).version(result.getMetadata().getVersion()).find();
+                Maybe<Bundle> b = Osgis.bundleFinder(osgiManager.framework).symbolicName(result.getMetadata().getSymbolicName()).version(result.getMetadata().getSuppliedVersionString()).find();
                 if (b.isPresent()) {
                     // if it's non-brooklyn installed then fail
                     // (e.g. someone trying to install brooklyn or guice through this mechanism!)
@@ -398,7 +399,7 @@ class OsgiArchiveInstaller {
     private boolean canUpdate() {
         // only update if forced, or it's a snapshot for which a byte stream is supplied
         // (IE don't update a snapshot verison every time its URL is referenced in a 'libraries' section)
-        return force || (VersionComparator.isSnapshot(inferredMetadata.getVersion()) && inputStreamSupplied);
+        return force || (VersionComparator.isSnapshot(inferredMetadata.getSuppliedVersionString()) && inputStreamSupplied);
     }
 
     /** true if the supplied name and version are complete; updates if the known data is incomplete;
@@ -415,10 +416,10 @@ class OsgiArchiveInstaller {
         
         if (Strings.isBlank(version)) {
             suppliedIsComplete = false;
-        } else if (Strings.isBlank(inferredMetadata.getVersion())) {
+        } else if (Strings.isBlank(inferredMetadata.getSuppliedVersionString())) {
             ((BasicManagedBundle)inferredMetadata).setVersion(version);
-        } else if (!Objects.equal(inferredMetadata.getVersion(), version)){
-            throw new IllegalArgumentException("Bundle version mismatch '"+version+"' from "+source+" (expected '"+inferredMetadata.getVersion()+"')");
+        } else if (!BrooklynVersionSyntax.equalAsOsgiVersions(inferredMetadata.getSuppliedVersionString(), version)) {
+            throw new IllegalArgumentException("Bundle version mismatch '"+version+"' from "+source+" (expected '"+inferredMetadata.getSuppliedVersionString()+"')");
         }
         
         return suppliedIsComplete;

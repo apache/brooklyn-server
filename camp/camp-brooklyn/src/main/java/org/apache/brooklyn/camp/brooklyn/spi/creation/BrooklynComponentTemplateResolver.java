@@ -32,7 +32,6 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
@@ -41,8 +40,6 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.service.CampServiceSpecResolver;
-import org.apache.brooklyn.camp.brooklyn.spi.creation.service.ServiceTypeResolver;
-import org.apache.brooklyn.camp.brooklyn.spi.creation.service.ServiceTypeResolverAdaptor;
 import org.apache.brooklyn.camp.spi.AbstractResource;
 import org.apache.brooklyn.camp.spi.ApplicationComponentTemplate;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
@@ -81,10 +78,9 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
 /**
- * This generates instances of a template resolver that use a {@link ServiceTypeResolver}
+ * This generates instances of a template resolver that use a {@link EntitySpecResolver}
  * to parse the {@code serviceType} line in the template.
  */
-@SuppressWarnings("deprecation")  // Because of ServiceTypeResolver
 public class BrooklynComponentTemplateResolver {
 
     private static final Logger log = LoggerFactory.getLogger(BrooklynComponentTemplateResolver.class);
@@ -205,10 +201,7 @@ public class BrooklynComponentTemplateResolver {
 
     private List<EntitySpecResolver> getServiceTypeResolverOverrides() {
         List<EntitySpecResolver> overrides = new ArrayList<>();
-        Iterable<ServiceTypeResolver> loader = FrameworkLookup.lookupAll(ServiceTypeResolver.class, mgmt.getCatalogClassLoader());
-        for (ServiceTypeResolver resolver : loader) {
-            overrides.add(new ServiceTypeResolverAdaptor(this, resolver));
-        }
+        // none for now -- previously supported ServiceTypeResolver service
         return overrides;
     }
 

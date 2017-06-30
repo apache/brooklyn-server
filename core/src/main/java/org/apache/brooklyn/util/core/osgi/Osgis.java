@@ -38,8 +38,12 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiUtils;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
+import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.text.VersionComparator;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.Version;
@@ -48,7 +52,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -63,23 +66,6 @@ import com.google.common.base.Predicates;
 @Beta
 public class Osgis {
     private static final Logger LOG = LoggerFactory.getLogger(Osgis.class);
-
-    /** @deprecated since 0.9.0, replaced with {@link org.apache.brooklyn.util.osgi.VersionedName} */
-    @Deprecated
-    public static class VersionedName extends org.apache.brooklyn.util.osgi.VersionedName {
-
-        private VersionedName(org.apache.brooklyn.util.osgi.VersionedName src) {
-            super(src.getSymbolicName(), src.getVersion());
-        }
-
-        public VersionedName(Bundle b) {
-            super(b);
-        }
-
-        public VersionedName(String symbolicName, Version version) {
-            super(symbolicName, version);
-        }
-    }
 
     public static class BundleFinder {
         protected final Framework framework;
@@ -98,6 +84,7 @@ public class Osgis {
             return this;
         }
 
+        /** Accepts non-osgi version syntax, converting to OSGi version syntax */
         public BundleFinder version(String version) {
             this.version = version;
             return this;
@@ -107,17 +94,14 @@ public class Osgis {
             if (Strings.isBlank(symbolicNameOptionallyWithVersion))
                 return this;
             
-            Maybe<org.apache.brooklyn.util.osgi.VersionedName> nv = OsgiUtils.parseOsgiIdentifier(symbolicNameOptionallyWithVersion);
-            if (nv.isAbsent())
-                throw new IllegalArgumentException("Cannot parse symbolic-name:version string '"+symbolicNameOptionallyWithVersion+"'");
-
+            Maybe<VersionedName> nv = VersionedName.parseMaybe(symbolicNameOptionallyWithVersion, false);
             return id(nv.get());
         }
 
-        private BundleFinder id(org.apache.brooklyn.util.osgi.VersionedName nv) {
+        private BundleFinder id(VersionedName nv) {
             symbolicName(nv.getSymbolicName());
-            if (nv.getVersion() != null) {
-                version(nv.getVersion().toString());
+            if (nv.getVersionString() != null) {
+                version(nv.getVersionString());
             }
             return this;
         }
@@ -125,7 +109,7 @@ public class Osgis {
         public BundleFinder bundle(CatalogBundle bundle) {
             if (bundle.isNameResolved()) {
                 symbolicName(bundle.getSymbolicName());
-                version(bundle.getVersion());
+                version(bundle.getSuppliedVersionString());
             }
             if (bundle.getUrl() != null) {
                 requiringFromUrl(bundle.getUrl());
@@ -170,16 +154,40 @@ public class Osgis {
             if (requireExactlyOne && result.size()>1)
                 return Maybe.absent("Multiple bundles ("+result.size()+") matching "+getConstraintsDescription());
             
-            return Maybe.of(result.get(0));
+            // take the highest version of the first symbolic name alphabetically
+            Bundle r1 = result.get(0);
+            for (int i=1; i<result.size(); i++) {
+                if (result.get(i).getSymbolicName().equals(r1.getSymbolicName())) {
+                    r1 = result.get(i);
+                } else {
+                    // was in order so no more symbolic names
+                    break;
+                }
+            }
+            return Maybe.of(r1);
         }
         
         /** Finds all matching bundles, in decreasing version order. */
+        @SuppressWarnings("deprecation")
         public List<Bundle> findAll() {
             boolean urlMatched = false;
             List<Bundle> result = MutableList.of();
+            String v=null, vDep = null;
+            if (version!=null) {
+                v = BrooklynVersionSyntax.toValidOsgiVersion(version);
+                vDep = OsgiUtils.toOsgiVersion(version);
+            }
             for (Bundle b: framework.getBundleContext().getBundles()) {
                 if (symbolicName!=null && !symbolicName.equals(b.getSymbolicName())) continue;
-                if (version!=null && !Version.parseVersion(version).equals(b.getVersion())) continue;
+                if (version!=null) {
+                    String bv = b.getVersion().toString();
+                    if (!v.equals(bv)) {
+                        if (!vDep.equals(bv)) {
+                            continue;
+                        }
+                        LOG.warn("Legacy inferred OSGi version string '"+vDep+"' found to match "+symbolicName+":"+version+"; switch to '"+v+"' format to avoid issues with deprecated version syntax");
+                    }
+                }
                 if (!Predicates.and(predicates).apply(b)) continue;
 
                 // check url last, because if it isn't mandatory we should only clear if we find a url
@@ -216,7 +224,9 @@ public class Osgis {
             Collections.sort(result, new Comparator<Bundle>() {
                 @Override
                 public int compare(Bundle o1, Bundle o2) {
-                    return o2.getVersion().compareTo(o1.getVersion());
+                    int r = NaturalOrderComparator.INSTANCE.compare(o1.getSymbolicName(), o2.getSymbolicName());
+                    if (r!=0) return r;
+                    return VersionComparator.INSTANCE.compare(o1.getVersion().toString(), o2.getVersion().toString());
                 }
             });
             
@@ -425,18 +435,6 @@ public class Osgis {
     @Deprecated
     public static boolean isExtensionBundle(Bundle bundle) {
         return SystemFrameworkLoader.get().isSystemBundle(bundle);
-    }
-
-    /** @deprecated since 0.9.0, replaced with {@link OsgiUtils#parseOsgiIdentifier(java.lang.String) } */
-    @Deprecated
-    public static Maybe<VersionedName> parseOsgiIdentifier(String symbolicNameOptionalWithVersion) {
-        final Maybe<org.apache.brooklyn.util.osgi.VersionedName> original = OsgiUtils.parseOsgiIdentifier(symbolicNameOptionalWithVersion);
-        return original.transform(new Function<org.apache.brooklyn.util.osgi.VersionedName, VersionedName>() {
-            @Override
-            public VersionedName apply(org.apache.brooklyn.util.osgi.VersionedName input) {
-                return new VersionedName(input);
-            }
-        });
     }
 
     @Beta

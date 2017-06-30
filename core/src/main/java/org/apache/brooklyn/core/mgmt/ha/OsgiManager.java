@@ -105,41 +105,42 @@ public class OsgiManager {
     final ManagedBundlesRecord managedBundlesRecord = new ManagedBundlesRecord();
     
     static class ManagedBundlesRecord {
-        private Map<String, ManagedBundle> managedBundles = MutableMap.of();
-        private Map<VersionedName, String> managedBundlesByName = MutableMap.of();
-        private Map<String, String> managedBundlesByUrl = MutableMap.of();
+        private Map<String, ManagedBundle> managedBundlesByUid = MutableMap.of();
+        private Map<VersionedName, String> managedBundlesUidByVersionedName = MutableMap.of();
+        private Map<String, String> managedBundlesUidByUrl = MutableMap.of();
         
         synchronized Map<String, ManagedBundle> getManagedBundles() {
-            return ImmutableMap.copyOf(managedBundles);
+            return ImmutableMap.copyOf(managedBundlesByUid);
         }
 
         synchronized String getManagedBundleId(VersionedName vn) {
-            return managedBundlesByName.get(vn);
+            return managedBundlesUidByVersionedName.get(VersionedName.toOsgiVersionedName(vn));
         }
 
         synchronized ManagedBundle getManagedBundle(VersionedName vn) {
-            return managedBundles.get(managedBundlesByName.get(vn));
+            return managedBundlesByUid.get(managedBundlesUidByVersionedName.get(VersionedName.toOsgiVersionedName(vn)));
         }
         
         synchronized String getManagedBundleIdFromUrl(String url) {
-            return managedBundlesByUrl.get(url);
+            return managedBundlesUidByUrl.get(url);
         }
         
         synchronized ManagedBundle getManagedBundleFromUrl(String url) {
             String id = getManagedBundleIdFromUrl(url);
             if (id==null) return null;
-            return managedBundles.get(id);
+            return managedBundlesByUid.get(id);
         }
 
         synchronized void setManagedBundleUrl(String url, String id) {
-            managedBundlesByUrl.put(url, id);    
+            managedBundlesUidByUrl.put(url, id);    
         }
         
         synchronized void addManagedBundle(OsgiBundleInstallationResult result) {
-            managedBundles.put(result.getMetadata().getId(), result.getMetadata());
-            managedBundlesByName.put(result.getMetadata().getVersionedName(), result.getMetadata().getId());
+            managedBundlesByUid.put(result.getMetadata().getId(), result.getMetadata());
+            managedBundlesUidByVersionedName.put(VersionedName.toOsgiVersionedName(result.getMetadata().getVersionedName()), 
+                result.getMetadata().getId());
             if (Strings.isNonBlank(result.getMetadata().getUrl())) {
-                managedBundlesByUrl.put(result.getMetadata().getUrl(), result.getMetadata().getId());
+                managedBundlesUidByUrl.put(result.getMetadata().getUrl(), result.getMetadata().getId());
             }
         }
     }
@@ -306,12 +307,12 @@ public class OsgiManager {
      */
     public void uninstallUploadedBundle(ManagedBundle bundleMetadata) {
         synchronized (managedBundlesRecord) {
-            ManagedBundle metadata = managedBundlesRecord.managedBundles.remove(bundleMetadata.getId());
+            ManagedBundle metadata = managedBundlesRecord.managedBundlesByUid.remove(bundleMetadata.getId());
             if (metadata==null) {
                 throw new IllegalStateException("No such bundle registered: "+bundleMetadata);
             }
-            managedBundlesRecord.managedBundlesByName.remove(bundleMetadata.getVersionedName());
-            managedBundlesRecord.managedBundlesByUrl.remove(bundleMetadata.getUrl());
+            managedBundlesRecord.managedBundlesUidByVersionedName.remove(bundleMetadata.getVersionedName());
+            managedBundlesRecord.managedBundlesUidByUrl.remove(bundleMetadata.getUrl());
         }
         mgmt.getRebindManager().getChangeListener().onUnmanaged(bundleMetadata);
 
@@ -440,7 +441,7 @@ public class OsgiManager {
         } else {
             Maybe<Bundle> installedBundle;
             if (bundleMetadata.isNameResolved()) {
-                installedBundle = Osgis.bundleFinder(framework).symbolicName(bundleMetadata.getSymbolicName()).version(bundleMetadata.getVersion()).find();
+                installedBundle = Osgis.bundleFinder(framework).symbolicName(bundleMetadata.getSymbolicName()).version(bundleMetadata.getSuppliedVersionString()).find();
             } else {
                 installedBundle = Maybe.absent("Bundle metadata does not have URL nor does it have both name and version");
             }
@@ -460,7 +461,7 @@ public class OsgiManager {
     public static boolean isBundleNameEqualOrAbsent(OsgiBundleWithUrl bundle, Bundle b) {
         return !bundle.isNameResolved() ||
                 (bundle.getSymbolicName().equals(b.getSymbolicName()) &&
-                bundle.getVersion().equals(b.getVersion().toString()));
+                bundle.getOsgiVersionString().equals(b.getVersion().toString()));
     }
 
     public <T> Maybe<Class<T>> tryResolveClass(String type, OsgiBundleWithUrl... osgiBundles) {
@@ -537,7 +538,7 @@ public class OsgiManager {
             ManagedBundle mb = getManagedBundleFromUrl(catalogBundle.getUrl());
             if (mb!=null) {
                 bundleFinder.requiringFromUrl(null);
-                bundleFinder.symbolicName(mb.getSymbolicName()).version(mb.getVersion());
+                bundleFinder.symbolicName(mb.getSymbolicName()).version(mb.getSuppliedVersionString());
                 result = bundleFinder.find();
                 if (result.isPresent()) {
                     return result;
@@ -547,7 +548,7 @@ public class OsgiManager {
 
         if (catalogBundle.getSymbolicName()!=null) {
             BundleFinder bundleFinder = Osgis.bundleFinder(framework);
-            bundleFinder.symbolicName(catalogBundle.getSymbolicName()).version(catalogBundle.getVersion());
+            bundleFinder.symbolicName(catalogBundle.getSymbolicName()).version(catalogBundle.getSuppliedVersionString());
             return bundleFinder.find();
         }
         if (result!=null) {

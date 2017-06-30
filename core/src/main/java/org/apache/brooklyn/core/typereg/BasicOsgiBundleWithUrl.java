@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.typereg;
 
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
+import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
@@ -48,7 +49,7 @@ public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl 
     }
     
     public BasicOsgiBundleWithUrl(OsgiBundleWithUrl b) {
-        this(b.getSymbolicName(), b.getVersion(), b.getUrl());
+        this(b.getSymbolicName(), b.getSuppliedVersionString(), b.getUrl());
     }
 
     @Override
@@ -68,8 +69,13 @@ public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl 
     }
 
     @Override
-    public String getVersion() {
+    public String getSuppliedVersionString() {
         return version;
+    }
+    
+    @Override
+    public String getOsgiVersionString() {
+        return version==null ? version : BrooklynVersionSyntax.toValidOsgiVersion(version);
     }
 
     @Override
@@ -98,7 +104,7 @@ public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl 
         if (getClass() != obj.getClass()) return false;
         OsgiBundleWithUrl other = (OsgiBundleWithUrl) obj;
         if (!Objects.equal(symbolicName, other.getSymbolicName())) return false;
-        if (!Objects.equal(version, other.getVersion())) return false;
+        if (!Objects.equal(getOsgiVersionString(), other.getOsgiVersionString())) return false;
         if (!Objects.equal(url, other.getUrl())) return false;
         return true;
     }

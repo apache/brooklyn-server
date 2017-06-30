@@ -41,6 +41,7 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.rest.domain.ApplicationSpec;
 import org.apache.brooklyn.rest.domain.EntitySpec;
+import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -83,17 +84,17 @@ public class BrooklynRestResourceUtilsTest {
 
     @Test
     public void testCreateAppFromCatalogByType() {
-        createAppFromCatalog(SampleNoOpApplication.class.getName());
+        createAppFromCatalog(SampleNoOpApplication.class.getName(), false);
     }
 
     @Test
     public void testCreateAppFromCatalogByName() {
-        createAppFromCatalog("app.noop");
+        createAppFromCatalog("app.noop", true);
     }
 
     @Test
     public void testCreateAppFromCatalogById() {
-        createAppFromCatalog("app.noop:0.0.1");
+        createAppFromCatalog("app.noop:0.0.1", true);
     }
 
     @Test
@@ -103,11 +104,12 @@ public class BrooklynRestResourceUtilsTest {
                 .javaType(SampleNoOpApplication.class.getName())
                 .build();
         managementContext.getCatalog().addItem(item);
-        createAppFromCatalog(SampleNoOpApplication.class.getName());
+        createAppFromCatalog(SampleNoOpApplication.class.getName(), false);
+        createAppFromCatalog("app.noop", true);
     }
 
     @SuppressWarnings("deprecation")
-    private void createAppFromCatalog(String type) {
+    private void createAppFromCatalog(String type, boolean expectCatalogItemIdSet) {
         CatalogTemplateItemDto item = CatalogItemBuilder.newTemplate("app.noop", "0.0.1")
             .javaType(SampleNoOpApplication.class.getName())
             .build();
@@ -120,22 +122,28 @@ public class BrooklynRestResourceUtilsTest {
                 .build();
         Application app = util.create(spec);
 
-        assertEquals(app.getCatalogItemId(), "app.noop:0.0.1");
+        if (expectCatalogItemIdSet) {
+            assertEquals(app.getCatalogItemId(), "app.noop:0.0.1");
+        } else {
+            // since 0.12.0 we no longer reverse-lookup java types to try to find a registered type
+            // (as per warnings in several previous versions)
+            Assert.assertNull(app.getCatalogItemId());
+        }
     }
 
     @Test
     public void testEntityAppFromCatalogByType() {
-        createEntityFromCatalog(BasicEntity.class.getName());
+        createEntityFromCatalog(BasicEntity.class.getName(), false);
     }
 
     @Test
     public void testEntityAppFromCatalogByName() {
-        createEntityFromCatalog("app.basic");
+        createEntityFromCatalog("app.basic", true);
     }
 
     @Test
     public void testEntityAppFromCatalogById() {
-        createEntityFromCatalog("app.basic:0.0.1");
+        createEntityFromCatalog("app.basic:0.0.1", true);
     }
 
     @Test
@@ -145,11 +153,12 @@ public class BrooklynRestResourceUtilsTest {
                 .javaType(SampleNoOpApplication.class.getName())
                 .build();
         managementContext.getCatalog().addItem(item);
-        createEntityFromCatalog(BasicEntity.class.getName());
+        createEntityFromCatalog(BasicEntity.class.getName(), false);
+        createEntityFromCatalog("app.basic", true);
     }
 
     @SuppressWarnings("deprecation")
-    private void createEntityFromCatalog(String type) {
+    private void createEntityFromCatalog(String type, boolean expectCatalogItemIdSet) {
         String symbolicName = "app.basic";
         String version = "0.0.1";
         CatalogTemplateItemDto item = CatalogItemBuilder.newTemplate(symbolicName, version)
@@ -165,7 +174,13 @@ public class BrooklynRestResourceUtilsTest {
         Application app = util.create(spec);
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
-        assertEquals(entity.getCatalogItemId(), CatalogUtils.getVersionedId(symbolicName, version));
+        if (expectCatalogItemIdSet) {
+            assertEquals(entity.getCatalogItemId(), CatalogUtils.getVersionedId(symbolicName, version));
+        } else {
+            // since 0.12.0 we no longer reverse-lookup java types to try to find a registered type
+            // (as per warnings in several previous versions)
+            Assert.assertNull(entity.getCatalogItemId());
+        }
     }
 
     @Test
