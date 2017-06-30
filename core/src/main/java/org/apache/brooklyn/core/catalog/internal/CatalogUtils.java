@@ -175,7 +175,7 @@ public class CatalogUtils {
             Stopwatch timer = Stopwatch.createStarted();
             List<OsgiBundleInstallationResult> results = MutableList.of();
             for (CatalogBundle bundleUrl : libraries) {
-                OsgiBundleInstallationResult result = osgi.get().installDeferredStart(BasicManagedBundle.of(bundleUrl), null).get();
+                OsgiBundleInstallationResult result = osgi.get().installDeferredStart(BasicManagedBundle.of(bundleUrl), null, true).get();
                 if (log.isDebugEnabled()) {
                     logDebugOrTraceIfRebinding(log, "Installation of library "+bundleUrl+": "+result);
                 }

@@ -118,33 +118,33 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
     public Object[][] dataProvider() {
         return new Object[][] {
             {RebindWithCatalogTestMode.NO_OP, OsgiMode.NONE},
-//            {RebindWithCatalogTestMode.NO_OP, OsgiMode.LIBRARY},
-//            {RebindWithCatalogTestMode.NO_OP, OsgiMode.PREFIX},
-//            
-//            {RebindWithCatalogTestMode.STRIP_DEPRECATION_AND_ENABLEMENT_FROM_CATALOG_ITEM, OsgiMode.NONE},
-//            {RebindWithCatalogTestMode.STRIP_DEPRECATION_AND_ENABLEMENT_FROM_CATALOG_ITEM, OsgiMode.LIBRARY},
-//            {RebindWithCatalogTestMode.STRIP_DEPRECATION_AND_ENABLEMENT_FROM_CATALOG_ITEM, OsgiMode.PREFIX},
-//            
-//            {RebindWithCatalogTestMode.DEPRECATE_CATALOG, OsgiMode.NONE},
-//            {RebindWithCatalogTestMode.DEPRECATE_CATALOG, OsgiMode.LIBRARY},
-//            {RebindWithCatalogTestMode.DEPRECATE_CATALOG, OsgiMode.PREFIX},
-//            
-//            {RebindWithCatalogTestMode.DISABLE_CATALOG, OsgiMode.NONE},
-//            {RebindWithCatalogTestMode.DISABLE_CATALOG, OsgiMode.LIBRARY},
-//            {RebindWithCatalogTestMode.DISABLE_CATALOG, OsgiMode.PREFIX},
-//            
-//            // For DELETE_CATALOG, see https://issues.apache.org/jira/browse/BROOKLYN-149.
-//            // Deletes the catalog item before rebind, but the referenced types are still on the 
-//            // default classpath. Will fallback to loading from classpath.
-//            //
-//            // Does not work for OSGi, because our bundle will no longer be available.
-//            {RebindWithCatalogTestMode.DELETE_CATALOG, OsgiMode.NONE},
-//            
-//            // Upgrades the catalog item before rebind, deleting the old version.
-//            // Will automatically upgrade. Test will enable "FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND"
-//            {RebindWithCatalogTestMode.REPLACE_CATALOG_WITH_NEWER_VERSION, OsgiMode.NONE},
-//            {RebindWithCatalogTestMode.REPLACE_CATALOG_WITH_NEWER_VERSION, OsgiMode.LIBRARY},
-//            {RebindWithCatalogTestMode.REPLACE_CATALOG_WITH_NEWER_VERSION, OsgiMode.PREFIX},
+            {RebindWithCatalogTestMode.NO_OP, OsgiMode.LIBRARY},
+            {RebindWithCatalogTestMode.NO_OP, OsgiMode.PREFIX},
+            
+            {RebindWithCatalogTestMode.STRIP_DEPRECATION_AND_ENABLEMENT_FROM_CATALOG_ITEM, OsgiMode.NONE},
+            {RebindWithCatalogTestMode.STRIP_DEPRECATION_AND_ENABLEMENT_FROM_CATALOG_ITEM, OsgiMode.LIBRARY},
+            {RebindWithCatalogTestMode.STRIP_DEPRECATION_AND_ENABLEMENT_FROM_CATALOG_ITEM, OsgiMode.PREFIX},
+            
+            {RebindWithCatalogTestMode.DEPRECATE_CATALOG, OsgiMode.NONE},
+            {RebindWithCatalogTestMode.DEPRECATE_CATALOG, OsgiMode.LIBRARY},
+            {RebindWithCatalogTestMode.DEPRECATE_CATALOG, OsgiMode.PREFIX},
+            
+            {RebindWithCatalogTestMode.DISABLE_CATALOG, OsgiMode.NONE},
+            {RebindWithCatalogTestMode.DISABLE_CATALOG, OsgiMode.LIBRARY},
+            {RebindWithCatalogTestMode.DISABLE_CATALOG, OsgiMode.PREFIX},
+            
+            // For DELETE_CATALOG, see https://issues.apache.org/jira/browse/BROOKLYN-149.
+            // Deletes the catalog item before rebind, but the referenced types are still on the 
+            // default classpath. Will fallback to loading from classpath.
+            //
+            // Does not work for OSGi, because our bundle will no longer be available.
+            {RebindWithCatalogTestMode.DELETE_CATALOG, OsgiMode.NONE},
+            
+            // Upgrades the catalog item before rebind, deleting the old version.
+            // Will automatically upgrade. Test will enable "FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND"
+            {RebindWithCatalogTestMode.REPLACE_CATALOG_WITH_NEWER_VERSION, OsgiMode.NONE},
+            {RebindWithCatalogTestMode.REPLACE_CATALOG_WITH_NEWER_VERSION, OsgiMode.LIBRARY},
+            {RebindWithCatalogTestMode.REPLACE_CATALOG_WITH_NEWER_VERSION, OsgiMode.PREFIX},
         };
     }
 

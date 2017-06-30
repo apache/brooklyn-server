@@ -19,7 +19,7 @@
 
 package org.apache.brooklyn.core.catalog.internal;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleEvent;
@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 
 @Beta
-public class CatalogBundleTracker extends BundleTracker<Iterable<? extends CatalogItem<?, ?>>> {
+public class CatalogBundleTracker extends BundleTracker<Object> {
 
     private static final Logger LOG = LoggerFactory.getLogger(CatalogBundleTracker.class);
 
@@ -46,13 +46,13 @@ public class CatalogBundleTracker extends BundleTracker<Iterable<? extends Catal
      *
      * @param bundle      The bundle being added to the bundle context.
      * @param bundleEvent The event of the addition.
-     * @return The items added to the catalog; these will be tracked by the {@link BundleTracker} mechanism
-     * and supplied to the {@link #removedBundle(Bundle, BundleEvent, Iterable)} method.
+     * @return null
      * @throws RuntimeException if the catalog items failed to be added to the catalog
      */
     @Override
-    public Iterable<? extends CatalogItem<?, ?>> addingBundle(Bundle bundle, BundleEvent bundleEvent) {
-        return catalogBundleLoader.scanForCatalog(bundle);
+    public Object addingBundle(Bundle bundle, BundleEvent bundleEvent) {
+        catalogBundleLoader.scanForCatalog(bundle, false, true);
+        return null;
     }
 
     /**
@@ -60,19 +60,12 @@ public class CatalogBundleTracker extends BundleTracker<Iterable<? extends Catal
      *
      * @param bundle      The bundle being removed to the bundle context.
      * @param bundleEvent The event of the removal.
-     * @param items       The items being removed
+     * @param callback    Ignored
      * @throws RuntimeException if the catalog items failed to be added to the catalog
      */
     @Override
-    public void removedBundle(Bundle bundle, BundleEvent bundleEvent, Iterable<? extends CatalogItem<?, ?>> items) {
-        if (!items.iterator().hasNext()) {
-            return;
-        }
+    public void removedBundle(Bundle bundle, BundleEvent bundleEvent, Object callback) {
         LOG.debug("Unloading catalog BOM entries from {} {} {}", CatalogUtils.bundleIds(bundle));
-        for (CatalogItem<?, ?> item : items) {
-            LOG.debug("Unloading {} {} from catalog", item.getSymbolicName(), item.getVersion());
-
-            catalogBundleLoader.removeFromCatalog(item);
-        }
+        catalogBundleLoader.removeFromCatalog(new VersionedName(bundle));
     }
 }

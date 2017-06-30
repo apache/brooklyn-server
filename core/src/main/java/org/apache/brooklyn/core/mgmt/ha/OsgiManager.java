@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
@@ -44,6 +45,7 @@ import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.CatalogBundleLoader;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
@@ -104,6 +106,7 @@ public class OsgiManager {
     private Set<Bundle> bundlesAtStartup;
     private File osgiCacheDir;
     final ManagedBundlesRecord managedBundlesRecord = new ManagedBundlesRecord();
+    final Map<VersionedName,ManagedBundle> wrapperBundles = MutableMap.of();
     
     static class ManagedBundlesRecord {
         private Map<String, ManagedBundle> managedBundlesByUid = MutableMap.of();
@@ -277,9 +280,10 @@ public class OsgiManager {
     }
 
     /** See {@link OsgiArchiveInstaller#install()}, but deferring the start and catalog load */
-    public ReferenceWithError<OsgiBundleInstallationResult> installDeferredStart(@Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream zipIn) {
+    public ReferenceWithError<OsgiBundleInstallationResult> installDeferredStart(@Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream zipIn, boolean validateTypes) {
         OsgiArchiveInstaller installer = new OsgiArchiveInstaller(this, knownBundleMetadata, zipIn);
         installer.setDeferredStart(true);
+        installer.setValidateTypes(validateTypes);
         
         return installer.install();
     }
@@ -318,6 +322,7 @@ public class OsgiManager {
             }
             managedBundlesRecord.managedBundlesUidByVersionedName.remove(bundleMetadata.getVersionedName());
             managedBundlesRecord.managedBundlesUidByUrl.remove(bundleMetadata.getUrl());
+            removeInstalledWrapperBundle(bundleMetadata);
         }
         mgmt.getRebindManager().getChangeListener().onUnmanaged(bundleMetadata);
 
@@ -373,16 +378,22 @@ public class OsgiManager {
     // it probably works even if that is true, but we should consider what to do;
     // possibly remove that other capability, so that bundles with BOMs _have_ to be installed via this method.
     // (load order gets confusing with auto-scanning...)
-    public List<? extends CatalogItem<?,?>> loadCatalogBom(Bundle bundle) {
-        return loadCatalogBom(bundle, false);
+    public List<? extends CatalogItem<?,?>> loadCatalogBomLegacy(Bundle bundle) {
+        return loadCatalogBomLegacy(bundle, false);
     }
     
     @Beta  // as above
-    public List<? extends CatalogItem<?,?>> loadCatalogBom(Bundle bundle, boolean force) {
-        return MutableList.copyOf(loadCatalogBom(mgmt, bundle, force));
+    public List<? extends CatalogItem<?,?>> loadCatalogBomLegacy(Bundle bundle, boolean force) {
+        return MutableList.copyOf(loadCatalogBomInternal(mgmt, bundle, force, true, true));
     }
     
-    private static Iterable<? extends CatalogItem<?, ?>> loadCatalogBom(ManagementContext mgmt, Bundle bundle, boolean force) {
+    // since 0.12.0 no longer returns items; it installs non-persisted RegisteredTypes to the type registry instead 
+    @Beta
+    public void loadCatalogBom(Bundle bundle, boolean force, boolean validate) {
+        loadCatalogBomInternal(mgmt, bundle, force, validate, false);
+    }
+    
+    private static Iterable<? extends CatalogItem<?, ?>> loadCatalogBomInternal(ManagementContext mgmt, Bundle bundle, boolean force, boolean validate, boolean legacy) {
         Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
         if (!BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM)) {
             // if the above feature is not enabled, let's do it manually (as a contract of this method)
@@ -392,7 +403,13 @@ public class OsgiManager {
                 // here to get back the predicate from it.
                 final Predicate<Bundle> applicationsPermitted = Predicates.<Bundle>alwaysTrue();
 
-                catalogItems = new CatalogBundleLoader(applicationsPermitted, mgmt).scanForCatalog(bundle, force);
+                CatalogBundleLoader cl = new CatalogBundleLoader(applicationsPermitted, mgmt);
+                if (legacy) {
+                    catalogItems = cl.scanForCatalogLegacy(bundle, force);
+                } else {
+                    cl.scanForCatalog(bundle, force, validate);
+                    catalogItems = null;
+                }
             } catch (RuntimeException ex) {
                 // TODO confirm -- as of May 2017 we no longer uninstall the bundle if install of catalog items fails;
                 // caller needs to upgrade, or uninstall then reinstall
@@ -603,4 +620,22 @@ public class OsgiManager {
     public Framework getFramework() {
         return framework;
     }
+
+    // track wrapper bundles lifecvcle specially, to avoid removing it while it's installing
+    public void addInstalledWrapperBundle(ManagedBundle mb) {
+        synchronized (wrapperBundles) {
+            wrapperBundles.put(mb.getVersionedName(), mb);
+        }
+    }
+    public void removeInstalledWrapperBundle(ManagedBundle mb) {
+        synchronized (wrapperBundles) {
+            wrapperBundles.remove(mb.getVersionedName());
+        }
+    }
+    public Collection<ManagedBundle> getInstalledWrapperBundles() {
+        synchronized (wrapperBundles) {
+            return MutableSet.copyOf(wrapperBundles.values());
+        }
+    }
+
 }

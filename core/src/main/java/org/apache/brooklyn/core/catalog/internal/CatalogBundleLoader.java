@@ -24,12 +24,16 @@ import static org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType.TEMPLA
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.osgi.VersionedName;
@@ -41,6 +45,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
 
 @Beta
 public class CatalogBundleLoader {
@@ -56,6 +61,10 @@ public class CatalogBundleLoader {
         this.managementContext = managementContext;
     }
 
+    public void scanForCatalog(Bundle bundle, boolean force, boolean validate) {
+        scanForCatalogInternal(bundle, force, validate, false);
+    }
+    
     /**
      * Scan the given bundle for a catalog.bom and adds it to the catalog.
      *
@@ -63,11 +72,15 @@ public class CatalogBundleLoader {
      * @return A list of items added to the catalog
      * @throws RuntimeException if the catalog items failed to be added to the catalog
      */
-    public Iterable<? extends CatalogItem<?, ?>> scanForCatalog(Bundle bundle) {
-        return scanForCatalog(bundle, false);
+    public Iterable<? extends CatalogItem<?, ?>> scanForCatalogLegacy(Bundle bundle) {
+        return scanForCatalogLegacy(bundle, false);
     }
     
-    public Iterable<? extends CatalogItem<?, ?>> scanForCatalog(Bundle bundle, boolean force) {
+    public Iterable<? extends CatalogItem<?, ?>> scanForCatalogLegacy(Bundle bundle, boolean force) {
+        return scanForCatalogInternal(bundle, force, true, true);
+    }
+    
+    private Iterable<? extends CatalogItem<?, ?>> scanForCatalogInternal(Bundle bundle, boolean force, boolean validate, boolean legacy) {
         ManagedBundle mb = ((ManagementContextInternal)managementContext).getOsgiManager().get().getManagedBundle(
             new VersionedName(bundle));
 
@@ -77,21 +90,48 @@ public class CatalogBundleLoader {
         if (null != bom) {
             LOG.debug("Found catalog BOM in {} {} {}", CatalogUtils.bundleIds(bundle));
             String bomText = readBom(bom);
-            // TODO use addTypesFromBundleBom; but when should we do validation? after all bundles are loaded?
-            // OR maybe deprecate/remove this experiment in favour of explicitly installed and managed bundles?
-            catalogItems = this.managementContext.getCatalog().addItems(bomText, mb, force);
-            for (CatalogItem<?, ?> item : catalogItems) {
-                LOG.debug("Added to catalog: {}, {}", item.getSymbolicName(), item.getVersion());
+            if (legacy) {
+                catalogItems = this.managementContext.getCatalog().addItems(bomText, mb, force);
+                for (CatalogItem<?, ?> item : catalogItems) {
+                    LOG.debug("Added to catalog: {}, {}", item.getSymbolicName(), item.getVersion());
+                }
+            } else {
+                this.managementContext.getCatalog().addTypesFromBundleBom(bomText, mb, force);
+                if (validate) {
+                    Map<RegisteredType, Collection<Throwable>> validationErrors = this.managementContext.getCatalog().validateTypes(
+                        this.managementContext.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(mb.getVersionedName())) );
+                    if (!validationErrors.isEmpty()) {
+                        throw Exceptions.propagate("Failed to install "+mb.getVersionedName()+", types "+validationErrors.keySet()+" gave errors",
+                            Iterables.concat(validationErrors.values()));
+                    }
+                }
+            }
+            
+            if (BasicBrooklynCatalog.isNoBundleOrSimpleWrappingBundle(managementContext, mb)) {
+                ((ManagementContextInternal)managementContext).getOsgiManager().get().addInstalledWrapperBundle(mb);
             }
         } else {
             LOG.debug("No BOM found in {} {} {}", CatalogUtils.bundleIds(bundle));
         }
 
         if (!applicationsPermitted.apply(bundle)) {
-            catalogItems = removeApplications(catalogItems);
+            if (legacy) {
+                catalogItems = removeApplications(catalogItems);
+            } else {
+                removeApplications(mb);
+            }
         }
 
         return catalogItems;
+    }
+
+    private void removeApplications(ManagedBundle mb) {
+        for (RegisteredType t: managementContext.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(mb.getVersionedName()))) {
+            // TODO support templates, and remove them here
+//            if (t.getKind() == RegisteredTypeKind.TEMPLATE) {
+//                ((BasicBrooklynTypeRegistry) managementContext.getTypeRegistry()).delete(t);
+//            }
+        }
     }
 
     /**
@@ -108,6 +148,10 @@ public class CatalogBundleLoader {
                     "Failed to remove", item.getSymbolicName(), item.getVersion(), "from catalog"
             }, " "), e);
         }
+    }
+    
+    public void removeFromCatalog(VersionedName n) {
+        ((ManagementContextInternal)managementContext).getOsgiManager().get().uninstallCatalogItemsFromBundle(n);
     }
 
     private String readBom(URL bom) {

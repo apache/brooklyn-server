@@ -140,7 +140,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             loader.set(val);
         }
         
-        // TODO Stack, for recursive calls?
+        // If needed, could use stack; see ClassLoaderFromStack...
         public static void unsetLoader(BrooklynClassLoadingContext val) {
             loader.set(null);
         }
@@ -931,7 +931,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return !containingBundle.getVersionedName().equalsOsgi(li.getVersionedName());
     }
 
-    private static boolean isNoBundleOrSimpleWrappingBundle(ManagementContext mgmt, ManagedBundle b) {
+    @Beta
+    public static boolean isNoBundleOrSimpleWrappingBundle(ManagementContext mgmt, ManagedBundle b) {
         if (b==null) return true;
         Maybe<OsgiManager> osgi = ((ManagementContextInternal)mgmt).getOsgiManager();
         if (osgi.isAbsent()) {
@@ -988,7 +989,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         CatalogDto dto = CatalogDto.newNamedInstance("Bundles Scanned Catalog", "All annotated Brooklyn entities detected in bundles", "scanning-bundles-classpath-"+libraries.hashCode());
         List<String> urls = MutableList.of();
         for (OsgiBundleWithUrl b: libraries) {
-            // TODO currently does not support pre-installed bundles identified by name:version 
+            // does not support pre-installed bundles identified by name:version 
             // (ie where URL not supplied)
             if (Strings.isNonBlank(b.getUrl())) {
                 urls.add(b.getUrl());
@@ -1358,13 +1359,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 throw new IllegalStateException(result.getMessage());
             }
             return toItems(result.getCatalogItemsInstalled());
-            
-            // TODO check if we've overridden all items pertaining to an older anonymous catalog.bom bundle
-            // we could remove references to that anonymous bundle; 
-            // without this currently we leak bundles as bom's are replaced
-            // (because we persist each item as well as the bundle, and we use the item XML on rebind, 
-            // rather than rereading the catalog.bom from the bundle, there isn't currently a risk of loading
-            // any of those overwritten items; however probably wise in future to require a bundle ID)
+
+            // if all items pertaining to an older anonymous catalog.bom bundle have been overridden
+            // we delete those later; see list of wrapper bundles kept in OsgiManager
         }
         // fallback to non-OSGi for tests and other environments
         return addItems(yaml, null, forceUpdate);
@@ -1374,7 +1371,6 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     private List<CatalogItem<?,?>> toItems(Iterable<String> itemIds) {
         List<CatalogItem<?,?>> result = MutableList.of();
         for (String id: itemIds) {
-            // TODO prefer to use RegisteredType, but that's an API change here
             result.add(CatalogUtils.getCatalogItemOptionalVersion(mgmt, id));
         }
         return result;
@@ -1812,7 +1808,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         synchronized (uninstallingEmptyLock) {
             Maybe<OsgiManager> osgi = ((ManagementContextInternal)mgmt).getOsgiManager();
             if (osgi.isAbsent()) return;
-            for (ManagedBundle b: osgi.get().getManagedBundles().values()) {
+            for (ManagedBundle b: osgi.get().getInstalledWrapperBundles()) {
                 if (isNoBundleOrSimpleWrappingBundle(mgmt, b)) {
                     Iterable<RegisteredType> typesInBundle = osgi.get().getTypesFromBundle(b.getVersionedName());
                     if (Iterables.isEmpty(typesInBundle)) {

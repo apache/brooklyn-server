@@ -23,18 +23,18 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
+import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
@@ -70,6 +70,7 @@ class OsgiArchiveInstaller {
     private boolean loadCatalogBom = true;
     private boolean force = false;
     private boolean deferredStart = false;
+    private boolean validateTypes = true;
     
     private File zipFile;
     private Manifest discoveredManifest;
@@ -100,7 +101,11 @@ class OsgiArchiveInstaller {
 
     public void setDeferredStart(boolean deferredStart) {
         this.deferredStart = deferredStart;
-    }    
+    }
+    
+    public void setValidateTypes(boolean validateTypes) {
+        this.validateTypes = validateTypes;
+    }
 
     private ManagementContextInternal mgmt() {
         return (ManagementContextInternal) osgiManager.mgmt;
@@ -318,7 +323,7 @@ class OsgiArchiveInstaller {
                     // if it's non-brooklyn installed then fail
                     // (e.g. someone trying to install brooklyn or guice through this mechanism!)
                     result.bundle = b.get();
-                    result.code = OsgiBundleInstallationResult.ResultCode.ERROR_INSTALLING_BUNDLE;
+                    result.code = OsgiBundleInstallationResult.ResultCode.ERROR_LAUNCHING_BUNDLE;
                     throw new IllegalStateException("Bundle "+result.getMetadata().getVersionedName()+" already installed in framework but not managed by Brooklyn; cannot install or update through Brooklyn");
                 }
                 // normal install
@@ -379,9 +384,10 @@ class OsgiArchiveInstaller {
                             osgiManager.uninstallCatalogItemsFromBundle( result.getVersionedName() );
                             // (ideally removal and addition would be atomic)
                         }
-                        List<? extends CatalogItem<?, ?>> items = osgiManager.loadCatalogBom(result.bundle, force);
+                        osgiManager.loadCatalogBom(result.bundle, force, validateTypes);
+                        Iterable<RegisteredType> items = mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(result.getMetadata()));
                         log.debug("Adding items from bundle "+result.getVersionedName()+": "+items);
-                        for (CatalogItem<?,?> ci: items) {
+                        for (RegisteredType ci: items) {
                             result.catalogItemsInstalled.add(ci.getId());
                         }
                     }
@@ -407,7 +413,7 @@ class OsgiArchiveInstaller {
             
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            result.code = startedInstallation ? OsgiBundleInstallationResult.ResultCode.ERROR_INSTALLING_BUNDLE : OsgiBundleInstallationResult.ResultCode.ERROR_PREPARING_BUNDLE;
+            result.code = startedInstallation ? OsgiBundleInstallationResult.ResultCode.ERROR_LAUNCHING_BUNDLE : OsgiBundleInstallationResult.ResultCode.ERROR_PREPARING_BUNDLE;
             result.message = "Bundle "+inferredMetadata+" failed "+
                 (startedInstallation ? "installation" : "preparation") + ": " + Exceptions.collapseText(e);
             return ReferenceWithError.newInstanceThrowingError(result, new IllegalStateException(result.message, e));

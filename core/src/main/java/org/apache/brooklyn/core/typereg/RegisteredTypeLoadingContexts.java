@@ -128,7 +128,8 @@ public class RegisteredTypeLoadingContexts {
     public static RegisteredTypeLoadingContext spec(Class<? extends BrooklynObject> javaSuperType) {
         return of(RegisteredTypeKind.SPEC, javaSuperType);
     }
-    
+
+    /** Adds the required supertype for beans, or supertype of the spec target (e.g. Entity not EntitySpec) for specs */
     public static <T> RegisteredTypeLoadingContext withBeanSuperType(@Nullable RegisteredTypeLoadingContext source, @Nullable Class<T> beanSuperType) {
         Class<T> superType = beanSuperType;
         BasicRegisteredTypeLoadingContext constraint = new BasicRegisteredTypeLoadingContext(source);

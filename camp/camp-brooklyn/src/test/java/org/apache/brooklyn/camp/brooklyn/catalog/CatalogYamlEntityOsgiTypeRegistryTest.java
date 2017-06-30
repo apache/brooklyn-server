@@ -58,9 +58,10 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
                 new ZipEntry(BasicBrooklynCatalog.CATALOG_BOM), new ByteArrayInputStream(catalogYaml.getBytes())));
             ReferenceWithError<OsgiBundleInstallationResult> b = ((ManagementContextInternal)mgmt()).getOsgiManager().get().installDeferredStart(
                 new BasicManagedBundle(bundleName(), bundleVersion(), null), 
-                new FileInputStream(bf));
-            // bundle not started (no need), and BOM not installed above; do it explicitly below
-            // testing the type registry approach instead
+                new FileInputStream(bf),
+                false);
+            // bundle not started (no need), and BOM not installed nor validated above; 
+            // do BOM install and validation below manually to test the type registry approach
             mgmt().getCatalog().addTypesFromBundleBom(catalogYaml, b.get().getMetadata(), isForceUpdate());
             Map<RegisteredType, Collection<Throwable>> validation = mgmt().getCatalog().validateTypes( mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(b.get().getVersionedName())) );
             if (!validation.isEmpty()) {

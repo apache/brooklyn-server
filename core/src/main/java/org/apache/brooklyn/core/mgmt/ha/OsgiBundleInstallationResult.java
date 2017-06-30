@@ -45,9 +45,10 @@ public class OsgiBundleInstallationResult {
         IGNORING_BUNDLE_AREADY_INSTALLED(false),
         /** bundle could not be made insto a state where it could be installed; bundle is not installed, even if forced */
         ERROR_PREPARING_BUNDLE(true),
-        /** bundle could be installed as OSGi but there was an item later, such as catalog items loading;
-         * bundle may be installed */  // TODO behaviour TBC
-        ERROR_INSTALLING_BUNDLE(true);
+        /** bundle successfully installed to OSGi container but there was an error launching it, 
+         * either the OSGi bundle start, catalog items load, or (most commonly) validating the catalog items;
+         * bundle may be installed (currently it is in most/all places, but behaviour TBC) so caller may have to uninstall it */
+        ERROR_LAUNCHING_BUNDLE(true);
         
         final boolean isError;
         ResultCode(boolean isError) { this.isError = isError; }
