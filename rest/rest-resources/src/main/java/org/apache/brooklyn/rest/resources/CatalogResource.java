@@ -203,7 +203,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             result = ReferenceWithError.newInstanceThrowingError(result.getWithoutError(), new IllegalStateException(
                     "Updating existing catalog entries is forbidden: " +
                     result.getWithoutError().getMetadata().getSymbolicName() + ":" +
-                    result.getWithoutError().getMetadata().getVersion() +
+                    result.getWithoutError().getMetadata().getSuppliedVersionString() +
                     ". Use forceUpdate argument to override."));
         }
         
