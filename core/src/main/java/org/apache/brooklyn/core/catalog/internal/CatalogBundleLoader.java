@@ -31,6 +31,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
@@ -90,6 +91,10 @@ public class CatalogBundleLoader {
         if (null != bom) {
             LOG.debug("Found catalog BOM in {} {} {}", CatalogUtils.bundleIds(bundle));
             String bomText = readBom(bom);
+            if (mb==null) {
+                LOG.warn("Bundle "+bundle+" containing BOM is not managed by Brooklyn; using legacy item installation");
+                legacy = true;
+            }
             if (legacy) {
                 catalogItems = this.managementContext.getCatalog().addItems(bomText, mb, force);
                 for (CatalogItem<?, ?> item : catalogItems) {
@@ -107,7 +112,7 @@ public class CatalogBundleLoader {
                 }
             }
             
-            if (BasicBrooklynCatalog.isNoBundleOrSimpleWrappingBundle(managementContext, mb)) {
+            if (!legacy && BasicBrooklynCatalog.isNoBundleOrSimpleWrappingBundle(managementContext, mb)) {
                 ((ManagementContextInternal)managementContext).getOsgiManager().get().addInstalledWrapperBundle(mb);
             }
         } else {

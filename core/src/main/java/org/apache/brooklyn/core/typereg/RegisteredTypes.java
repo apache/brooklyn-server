@@ -210,6 +210,18 @@ public class RegisteredTypes {
     }
 
     @Beta
+    public static RegisteredType setDeprecated(RegisteredType type, boolean deprecated) {
+        ((BasicRegisteredType)type).deprecated = deprecated;
+        return type;
+    }
+
+    @Beta
+    public static RegisteredType setDisabled(RegisteredType type, boolean disabled) {
+        ((BasicRegisteredType)type).disabled = disabled;
+        return type;
+    }
+
+    @Beta
     public static RegisteredType addSuperType(RegisteredType type, @Nullable Class<?> superType) {
         if (superType!=null) {
             ((BasicRegisteredType)type).superTypes.add(superType);

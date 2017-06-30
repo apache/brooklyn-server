@@ -18,9 +18,14 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.Reader;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import java.util.zip.ZipEntry;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.entity.Application;
@@ -30,19 +35,28 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests.Builder;
+import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.core.osgi.BundleMaker;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.net.Urls;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -218,8 +232,31 @@ public abstract class AbstractYamlTest {
         mgmt().getCatalog().addItems(catalogYaml, forceUpdate);
     }
 
+    public static void addCatalogItemsAsOsgi(ManagementContext mgmt, String catalogYaml, VersionedName bundleName, boolean force) {
+        try {
+            BundleMaker bundleMaker = new BundleMaker(mgmt);
+            File bf = bundleMaker.createTempZip("test", MutableMap.of(
+                new ZipEntry(BasicBrooklynCatalog.CATALOG_BOM), new ByteArrayInputStream(catalogYaml.getBytes())));
+            ReferenceWithError<OsgiBundleInstallationResult> b = ((ManagementContextInternal)mgmt).getOsgiManager().get().installDeferredStart(
+                new BasicManagedBundle(bundleName.getSymbolicName(), bundleName.getVersionString(), null), 
+                new FileInputStream(bf),
+                false);
+            // bundle not started (no need), and BOM not installed nor validated above; 
+            // do BOM install and validation below manually to test the type registry approach
+            mgmt.getCatalog().addTypesFromBundleBom(catalogYaml, b.get().getMetadata(), force);
+            Map<RegisteredType, Collection<Throwable>> validation = mgmt.getCatalog().validateTypes( 
+                mgmt.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(b.get().getVersionedName())) );
+            if (!validation.isEmpty()) {
+                throw Exceptions.propagate("Brooklyn failed to load types: "+validation.keySet(), 
+                    Iterables.concat(validation.values()));
+            }
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
+    }
+    
     protected void deleteCatalogEntity(String catalogItem) {
-        mgmt().getCatalog().deleteCatalogItem(catalogItem, TEST_VERSION);
+        ((BasicBrooklynTypeRegistry) mgmt().getTypeRegistry()).delete(new VersionedName(catalogItem, TEST_VERSION));
     }
 
     protected Logger getLogger() {

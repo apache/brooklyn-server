@@ -41,6 +41,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -311,7 +312,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
             Asserts.fail("Registered type "+type+" has ID / symname mismatch");
         
         RegisteredType oldType = mgmt.getTypeRegistry().get(type.getId());
-        if (oldType==null || canForce) {
+        if (oldType==null || canForce || BrooklynVersionSyntax.isSnapshot(oldType.getVersion())) {
             log.debug("Inserting "+type+" into "+this);
             localRegisteredTypes.put(type.getId(), type);
         } else {

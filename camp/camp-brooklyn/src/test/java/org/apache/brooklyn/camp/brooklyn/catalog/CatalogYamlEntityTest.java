@@ -552,6 +552,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     
     @Test(groups = "Broken")
     // See https://issues.apache.org/jira/browse/BROOKLYN-343
+    // Fixed in OSGi subclass
     public void testSameCatalogReferences() {
         addCatalogItems(
             "brooklyn.catalog:",

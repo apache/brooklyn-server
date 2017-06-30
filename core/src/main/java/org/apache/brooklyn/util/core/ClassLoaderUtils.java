@@ -27,20 +27,21 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.LoaderDispatcher.ClassLoaderDispatcher;
 import org.apache.brooklyn.util.core.LoaderDispatcher.MultipleResourceLoaderDispatcher;
 import org.apache.brooklyn.util.core.LoaderDispatcher.ResourceLoaderDispatcher;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.osgi.OsgiUtils;
-import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
@@ -253,18 +254,31 @@ public class ClassLoaderUtils {
         Maybe<T> cls;
         if (entity != null && mgmt != null) {
             String catalogItemId = entity.getCatalogItemId();
+
             if (catalogItemId != null) {
-//                RegisteredType type = mgmt.getTypeRegistry().get(catalogItemId);
-//                if (type != null) {
-//                    BrooklynClassLoadingContextSequential loader = new BrooklynClassLoadingContextSequential(mgmt);
-//                    loader.add(newClassLoadingContextForCatalogItems(mgmt, type.getId(),
-//                        type.getContainingBundle() + type.getLibraries() ?);
-//                    cls = dispatcher.tryLoadFrom(loader, className);
-//                    if (cls.isPresent()) {
-//                        return cls;
-//                    }
-                // TODO prefer above to below, but need to reconcile item.searchPath with RegisteredType?
-                // or use entity search path ?
+                {
+                    BrooklynClassLoadingContextSequential loader = new BrooklynClassLoadingContextSequential(mgmt);
+                    loader.add( newClassLoadingContextForCatalogItems(mgmt, catalogItemId,
+                        entity.getCatalogItemIdSearchPath()) );
+                    cls = dispatcher.tryLoadFrom(loader, className);
+                    if (cls.isPresent()) {
+                        return cls;
+                    }
+                }
+                // the above (entity) should be sufficient?
+                
+                RegisteredType type = mgmt.getTypeRegistry().get(catalogItemId);
+                if (type != null) {
+                    BrooklynClassLoadingContextSequential loader = new BrooklynClassLoadingContextSequential(mgmt);
+                    List<String> libs = MutableList.of();
+                    for (OsgiBundleWithUrl o: type.getLibraries()) libs.add(o.getVersionedName().toString());
+                    loader.add( newClassLoadingContextForCatalogItems(mgmt, type.getContainingBundle(), libs) );
+                    cls = dispatcher.tryLoadFrom(loader, className);
+                    if (cls.isPresent()) {
+                        return cls;
+                    }
+                }
+                
                 CatalogItem<?, ?> item = CatalogUtils.getCatalogItemOptionalVersion(mgmt, catalogItemId);
                 if (item != null) {
                     BrooklynClassLoadingContextSequential loader = new BrooklynClassLoadingContextSequential(mgmt);

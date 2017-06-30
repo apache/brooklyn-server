@@ -22,7 +22,6 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
 import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -121,6 +120,8 @@ public class BrooklynFeatureEnablement {
      * The functionality loads catalog items regardless of the persistence state so best used with persistence disabled.
      * If a bundle is uploaded its BOM is scanned regardless of this property (this only applies to bundles
      * installed through a non-brooklyn method, eg karaf.)
+     * 
+     * This installs legacy items and so should be deprecated in favour of uploading BOMs which Brooklyn manages.
      */
     public static final String FEATURE_LOAD_BUNDLE_CATALOG_BOM = FEATURE_PROPERTY_PREFIX+".osgi.catalog_bom";
 

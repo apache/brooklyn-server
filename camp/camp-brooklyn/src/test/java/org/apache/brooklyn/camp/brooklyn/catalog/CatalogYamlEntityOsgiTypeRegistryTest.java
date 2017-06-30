@@ -18,25 +18,11 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.util.Collection;
-import java.util.Map;
-import java.util.zip.ZipEntry;
-
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
-import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.osgi.BundleMaker;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.testng.annotations.Test;
 
@@ -52,29 +38,7 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
     // use type registry appraoch
     @Override
     protected void addCatalogItems(String catalogYaml) {
-        try {
-            BundleMaker bundleMaker = new BundleMaker(mgmt());
-            File bf = bundleMaker.createTempZip("test", MutableMap.of(
-                new ZipEntry(BasicBrooklynCatalog.CATALOG_BOM), new ByteArrayInputStream(catalogYaml.getBytes())));
-            ReferenceWithError<OsgiBundleInstallationResult> b = ((ManagementContextInternal)mgmt()).getOsgiManager().get().installDeferredStart(
-                new BasicManagedBundle(bundleName(), bundleVersion(), null), 
-                new FileInputStream(bf),
-                false);
-            // bundle not started (no need), and BOM not installed nor validated above; 
-            // do BOM install and validation below manually to test the type registry approach
-            mgmt().getCatalog().addTypesFromBundleBom(catalogYaml, b.get().getMetadata(), isForceUpdate());
-            Map<RegisteredType, Collection<Throwable>> validation = mgmt().getCatalog().validateTypes( mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(b.get().getVersionedName())) );
-            if (!validation.isEmpty()) {
-                throw Exceptions.propagate("Brooklyn failed to load types: "+validation.keySet(), 
-                    Iterables.concat(validation.values()));
-            }
-        } catch (Exception e) {
-            throw Exceptions.propagate(e);
-        }
-    }
-    
-    protected void deleteCatalogEntity(String catalogItem) {
-        mgmt().getCatalog().deleteCatalogItem(catalogItem, TEST_VERSION);
+        addCatalogItemsAsOsgi(mgmt(), catalogYaml, new VersionedName(bundleName(), bundleVersion()), isForceUpdate());
     }
 
     protected String bundleName() { return "sample-bundle"; }
@@ -91,6 +55,12 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
         Asserts.assertEquals(item, Iterables.getOnlyElement(itemsInstalled), "Wrong item; installed: "+itemsInstalled);
     }
 
-    // many other tests from super now run, with the type registry approach instead of catalog item / catalog approach
+    @Test // test broken in super works here
+    // TODO" comment at https://issues.apache.org/jira/browse/BROOKLYN-343
+    public void testSameCatalogReferences() {
+        super.testSameCatalogReferences();
+    }
+        
+    // also runs many other tests from super, here using the osgi/type-registry appraoch
     
 }

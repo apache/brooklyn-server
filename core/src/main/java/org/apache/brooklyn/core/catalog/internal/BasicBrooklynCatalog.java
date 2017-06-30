@@ -627,11 +627,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // don't scan
         } else {
             if (isNoBundleOrSimpleWrappingBundle(mgmt, containingBundle)) {
+                Collection<CatalogItemDtoAbstract<?, ?>> scanResult;
                 // BOMs wrapped in JARs, or without JARs, have special treatment
                 if (isLibrariesMoreThanJustContainingBundle(librariesAddedHereBundles, containingBundle)) {
                     // legacy mode, since 0.12.0, scan libraries referenced in a legacy non-bundle BOM
                     log.warn("Deprecated use of scanJavaAnnotations to scan other libraries ("+librariesAddedHereBundles+"); libraries should declare they scan themselves");
-                    result.addAll(scanAnnotationsLegacyInListOfLibraries(mgmt, librariesAddedHereBundles, catalogMetadata, containingBundle));
+                    scanResult = scanAnnotationsLegacyInListOfLibraries(mgmt, librariesAddedHereBundles, catalogMetadata, containingBundle);
                 } else if (!isLibrariesMoreThanJustContainingBundle(libraryBundles, containingBundle)) {
                     // for default catalog, no libraries declared, we want to scan local classpath
                     // bundle should be named "brooklyn-default-catalog"
@@ -642,9 +643,19 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                         // since 0.12.0, require this to be right next to where libraries are defined, or at root
                         log.warn("Deprecated use of scanJavaAnnotations declared in item; should be declared at the top level of the BOM");
                     }
-                    result.addAll(scanAnnotationsFromLocalNonBundleClasspath(mgmt, catalogMetadata, containingBundle));
+                    scanResult = scanAnnotationsFromLocalNonBundleClasspath(mgmt, catalogMetadata, containingBundle);
                 } else {
                     throw new IllegalStateException("Cannot scan for Java catalog items when libraries declared on an ancestor; scanJavaAnnotations should be specified alongside brooklyn.libraries (or ideally those libraries should specify to scan)");
+                }
+                if (scanResult!=null && !scanResult.isEmpty()) {
+                    if (result!=null) {
+                        result.addAll( scanResult );
+                    } else {
+                        // not returning a result; we need to add here
+                        for (CatalogItem item: scanResult) {
+                            mgmt.getCatalog().addItem(item);
+                        }
+                    }
                 }
             } else {
                 throw new IllegalArgumentException("Scanning for Java annotations is not supported in BOMs in bundles; "
@@ -847,7 +858,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         // run again now that we know the ID to catch recursive definitions and possibly other mistakes (itemType inconsistency?)
         planInterpreter = new PlanInterpreterGuessingType(id, item, sourceYaml, itemType, libraryBundles, result).reconstruct();
         if (resolutionError==null && !planInterpreter.isResolved()) {
-            resolutionError = new IllegalStateException("Plan resolution breaks after id and itemType are set; is there a recursive reference or other type inconsistency?\n"+sourceYaml);
+            resolutionError = new IllegalStateException("Plan resolution for "+id+" breaks after id and itemType are set; is there a recursive reference or other type inconsistency?\n"+sourceYaml);
         }
         String sourcePlanYaml = planInterpreter.getPlanYaml();
 
@@ -951,7 +962,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
     private void collectUrlReferencedCatalogItems(String url, ManagedBundle containingBundle, List<CatalogItemDtoAbstract<?, ?>> result, boolean requireValidation, Map<Object, Object> parentMeta, int depth, boolean force) {
         @SuppressWarnings("unchecked")
-        List<?> parentLibrariesRaw = MutableList.copyOf(getFirstAs(parentMeta, List.class, "brooklyn.libraries", "libraries").orNull());
+        List<?> parentLibrariesRaw = MutableList.copyOf(getFirstAs(parentMeta, Iterable.class, "brooklyn.libraries", "libraries").orNull());
         Collection<CatalogBundle> parentLibraries = CatalogItemDtoAbstract.parseLibraries(parentLibrariesRaw);
         BrooklynClassLoadingContext loader = CatalogUtils.newClassLoadingContext(mgmt, "<catalog url reference loader>:0.0.0", parentLibraries);
         String yaml;
@@ -1626,11 +1637,11 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         CatalogItem<?, ?> existingDto = existingItem.getDto();
         if (existingDto.equals(itemDto)) {
             if (allowDuplicates) return existingItem;
-            throw new IllegalStateException("Updating existing catalog entries, even with the same content, is forbidden: " +
-                    itemDto.getSymbolicName() + ":" + itemDto.getVersion() + ". Use forceUpdate argument to override.");
+            throw new IllegalStateException("Not allowed to update existing catalog entries, even with the same content: " +
+                    itemDto.getSymbolicName() + ":" + itemDto.getVersion());
         } else {
-            throw new IllegalStateException("Updating existing catalog entries is forbidden: " +
-                    itemDto.getSymbolicName() + ":" + itemDto.getVersion() + ". Use forceUpdate argument to override.");
+            throw new IllegalStateException("Cannot add " + itemDto.getSymbolicName() + ":" + itemDto.getVersion() + 
+                " to catalog; a different definition is already present");
         }
     }
 
