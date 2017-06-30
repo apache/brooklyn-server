@@ -20,6 +20,7 @@ import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.core.BrooklynVersionService;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.mgmt.internal.BrooklynShutdownHooks;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.launcher.common.BasicLauncher;
 import org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelper;
@@ -96,6 +97,7 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
     // init-method can't find the start method for some reason, provide an alternative
     public void init() {
         synchronized (reloadLock) {
+            BrooklynShutdownHooks.resetShutdownFlag();
             LOG.debug("OsgiLauncher init");
             catalogInitialization(new CatalogInitialization(String.format("file:%s", defaultCatalogLocation), false, null, false));
             start();
