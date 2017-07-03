@@ -24,33 +24,30 @@ import static org.testng.Assert.assertTrue;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.TestSensorAndEffectorInitializer.TestConfigurableInitializer;
 import org.apache.brooklyn.camp.brooklyn.catalog.CatalogYamlLocationTest;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.policy.TestEnricher;
 import org.apache.brooklyn.core.test.policy.TestPolicy;
+import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.apache.brooklyn.test.Asserts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 @Test
 public class ApplicationsYamlTest extends AbstractYamlTest {
     private static final Logger log = LoggerFactory.getLogger(ApplicationsYamlTest.class);
-
-    @Override
-    protected LocalManagementContext newTestManagementContext() {
-        // Don't need osgi
-        return LocalManagementContextForTests.newInstance();
-    }
 
     @Test
     public void testWrapsEntity() throws Exception {
@@ -403,6 +400,22 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
         assertDoesNotWrap(app1, BasicApplication.class, "My name within item");
     }
     
+    @Test
+    /** Tests catalog.bom format where service is defined alongside brooklyn.catalog, IE latter has no item/items */
+    public void testItemFromServicesSectionInCatalog() {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  id: simple-test",
+            "  version: "+TEST_VERSION,
+            "services:",
+            "- type: org.apache.brooklyn.entity.stock.BasicEntity");
+        
+        Iterable<RegisteredType> retrievedItems = mgmt().getTypeRegistry()
+                .getMatching(RegisteredTypePredicates.symbolicName(Predicates.equalTo("simple-test")));
+        Asserts.assertSize(retrievedItems, 1);
+        Assert.assertEquals(Iterables.getOnlyElement(retrievedItems).getVersion(), TEST_VERSION);
+    }
+
     @Override
     protected Logger getLogger() {
         return log;

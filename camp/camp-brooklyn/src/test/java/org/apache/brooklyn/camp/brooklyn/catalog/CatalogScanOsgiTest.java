@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.camp.brooklyn.test.lite.CampYamlLiteTest;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -91,13 +92,13 @@ public class CatalogScanOsgiTest extends AbstractYamlTest {
 
         RegisteredType hereItem = mgmt().getTypeRegistry().get("here-item");
         assertEquals(hereItem.getVersion(), "2.0-test_java");
-        assertEquals(hereItem.getLibraries().size(), 3);
+        Asserts.assertSize(hereItem.getLibraries(), 2);
         assertEquals(hereItem.getContainingBundle(), "test-items:2.0-test_java");
         
         RegisteredType item = mgmt().getTypeRegistry().get(OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
         // versions and libraries _are_ inherited in this legacy mode
         assertEquals(item.getVersion(), "2.0-test_java");
-        assertEquals(item.getLibraries().size(), 3);
+        Asserts.assertSize(hereItem.getLibraries(), 2);
         // and the containing bundle is recorded as the 
         assertEquals(item.getContainingBundle(), "test-items"+":"+"2.0-test_java");
     }

@@ -89,7 +89,7 @@ public class CatalogYamlVersioningTest extends AbstractYamlTest {
     }
     
     protected void checkAddSameVersionFailsWhenIconIsDifferent(Exception e) {
-        assertExpectedFailureSaysUpdatingExistingItemForbidden(e);
+        assertExpectedFailureSaysDifferentIsBad(e);
         assertExpectedFailureIncludesSampleId(e);
     }
 
@@ -99,9 +99,9 @@ public class CatalogYamlVersioningTest extends AbstractYamlTest {
         Asserts.expectedFailureContainsIgnoreCase(e, 
             symbolicName + ":" + version);
     }
-    protected void assertExpectedFailureSaysUpdatingExistingItemForbidden(Exception e) {
+    protected void assertExpectedFailureSaysDifferentIsBad(Exception e) {
         Asserts.expectedFailureContainsIgnoreCase(e, 
-            "Updating existing catalog entries is forbidden");
+            "cannot add", "different");
     }
 
     @Test

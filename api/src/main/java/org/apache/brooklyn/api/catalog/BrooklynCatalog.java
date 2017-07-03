@@ -60,6 +60,7 @@ public interface BrooklynCatalog {
     <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItems();
 
     /** convenience for filtering items in the catalog; see CatalogPredicates for useful filters */
+//    XXX
     <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItems(Predicate<? super CatalogItem<T,SpecT>> filter);
 
     /** persists the catalog item to the object store, if persistence is enabled */

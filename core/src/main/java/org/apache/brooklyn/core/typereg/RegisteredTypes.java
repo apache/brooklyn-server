@@ -19,8 +19,10 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.lang.reflect.Method;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -30,6 +32,8 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
@@ -119,6 +123,49 @@ public class RegisteredTypes {
         return type;
     }
 
+    /** @deprecated since introduced in 0.12.0; for backwards compatibility only, may be removed at any point.
+     * Returns a partially-populated CatalogItem. Many methods throw {@link UnsupportedOperationException}
+     * but the basic ones work. */
+    @Deprecated
+    public static CatalogItem<?,?> toPartialCatalogItem(RegisteredType t) {
+        return new CatalogItemFromRegisteredType(t);
+    }
+    private static class CatalogItemFromRegisteredType implements CatalogItem<Object,Object> {
+        private final RegisteredType type;
+        public CatalogItemFromRegisteredType(RegisteredType type) { this.type = type; }
+        @Override public String getDisplayName() { return type.getDisplayName(); }
+        @Override public String getCatalogItemId() { return type.getVersionedName().toString(); }
+        @Override public String getId() { return type.getId(); }
+        @Override public String getName() { return type.getSymbolicName(); }
+        @Override public String getSymbolicName() { return type.getSymbolicName(); }
+        @Override public String getRegisteredTypeName() { return type.getSymbolicName(); }
+        @Override public String getDescription() { return type.getDescription(); }
+        @Override public String getIconUrl() { return type.getIconUrl(); }
+        @Override public String getContainingBundle() { return type.getContainingBundle(); }
+        @Override public String getVersion() { return type.getVersion(); }
+
+        @Override public List<String> getCatalogItemIdSearchPath() { throw new UnsupportedOperationException(); }
+        @Override public TagSupport tags() { throw new UnsupportedOperationException(); }
+        @Override public RelationSupport<?> relations() { throw new UnsupportedOperationException(); }
+        @Override public <T> T setConfig(ConfigKey<T> key, T val) { throw new UnsupportedOperationException(); }
+        @Override public <T> T getConfig(ConfigKey<T> key) { throw new UnsupportedOperationException(); }
+        @Override public ConfigurationSupport config() { throw new UnsupportedOperationException(); }
+        @Override public SubscriptionSupport subscriptions() { throw new UnsupportedOperationException(); }
+        @Override public org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType getCatalogItemType() { throw new UnsupportedOperationException(); }
+        @Override public Class<Object> getCatalogItemJavaType() { throw new UnsupportedOperationException(); }
+        @Override public Class<Object> getSpecType() { throw new UnsupportedOperationException(); }
+        @Override public String getJavaType() { throw new UnsupportedOperationException(); }
+        @Override public Collection<org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle> getLibraries() {
+            throw new UnsupportedOperationException();
+        }
+        @Override public String getPlanYaml() { throw new UnsupportedOperationException(); }
+        @Override public RebindSupport<CatalogItemMemento> getRebindSupport() { throw new UnsupportedOperationException(); }
+        @Override public void setDeprecated(boolean deprecated) { throw new UnsupportedOperationException(); }
+        @Override public void setDisabled(boolean disabled) { throw new UnsupportedOperationException(); }
+        @Override public boolean isDeprecated() { throw new UnsupportedOperationException(); }
+        @Override public boolean isDisabled() { throw new UnsupportedOperationException(); }
+    }
+    
     /** Preferred mechanism for defining a bean {@link RegisteredType}. 
      * Callers should also {@link #addSuperTypes(RegisteredType, Iterable)} on the result.*/
     public static RegisteredType bean(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan) {

@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -35,6 +36,8 @@ import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -316,18 +319,101 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
             log.debug("Inserting "+type+" into "+this);
             localRegisteredTypes.put(type.getId(), type);
         } else {
-            if (sameTypeAndPlan(oldType, type)) {
-                // ignore if same type and plan; other things can be changed while we sort out replacements etc
-                return;
-            }
-            throw new IllegalStateException("Cannot add "+type+" to catalog; different "+oldType+" is already present");
+            assertSameEnoughToAllowReplacing(oldType, type);
         }
     }
 
-    private boolean sameTypeAndPlan(RegisteredType oldType, RegisteredType type) {
-        if (!oldType.getVersionedName().equals(type.getVersionedName())) return false;
-        if (!oldType.getPlan().equals(type.getPlan())) return false;
-        return true;
+    /**
+     * Allow replacing even of non-SNAPSHOT versions if plans are "similar enough";
+     * ie, forgiving some metadata changes.
+     * <p>
+     * This is needed when replacing an unresolved item with a resolved one or vice versa;
+     * the {@link RegisteredType#equals(Object)} check is too strict.
+     */
+    private boolean assertSameEnoughToAllowReplacing(RegisteredType oldType, RegisteredType type) {
+       /* The bundle checksum check prevents swapping a different bundle at the same name+version.
+        * For SNAPSHOT and forced-updates, this method doesn't apply, so we can assume here that
+        * either the bundle checksums are the same,
+        * or it is a different bundle declaring an item which is already installed.
+        * <p>
+        * Thus if the containing bundle is the same, the items are necessarily the same,
+        * except for metadata we've mucked with (e.g. kind = unresolved).
+        * <p>
+        * If the containing bundle is different, it's possible someone is doing something sneaky.
+        * If bundles aren't anonymous wrappers, then we should disallow --
+        * e.g. a bundle BAR is declaring and item already declared by a bundle FOO.
+        * 
+        * 
+        * It is the latter case we have to check.
+        * 
+        *  In the latter case we want to fail unless the old item comes from a wrapper bundle.
+        * 
+        * the only time this method 
+        * applies where there might be differences in the item is if installing a bundle BAR which
+        * declares an item with same name and version as an item already installed by a bundle FOO.
+        *  
+        * * uploading a bundle 
+        * * uploading a BOM (no bundle) where the item it is defining is the same as one already defined   
+        *  
+        * (with the same non-SNAPSHOT version) bundle. So any changes to icons, plans, etc, should have already been caught;
+        * this only applies if the BOM/bundle is identical, and in that case the only field where the two types here
+        * could be different is the containing bundle metadata, viz. someone has uploaded an anonymous BOM twice. 
+        */
+        
+        if (!oldType.getVersionedName().equals(type.getVersionedName())) {
+            // different name - shouldn't even come here
+            throw new IllegalStateException("Cannot add "+type+" to catalog; different "+oldType+" is already present");
+        }
+        if (Objects.equals(oldType.getContainingBundle(), type.getContainingBundle())) {
+            // if named bundles equal then contents must be the same (due to bundle checksum); bail out early
+            if (!oldType.getPlan().equals(type.getPlan())) {
+                // shouldn't come here, but check anyway (or maybe if item added twice in the same catalog?)
+                throw new IllegalStateException("Cannot add "+type+" to catalog; different plan in "+oldType+" from same bundle is already present");
+            }
+            if (oldType.getKind()!=RegisteredTypeKind.UNRESOLVED && type.getKind()!=RegisteredTypeKind.UNRESOLVED &&
+                    !Objects.equals(oldType.getKind(), type.getKind())) {
+                throw new IllegalStateException("Cannot add "+type+" to catalog; different kind in "+oldType+" from same bundle is already present");
+            }
+            return true;
+        }
+        
+        // different bundles, either anonymous or same item in two named bundles
+        if (!oldType.getPlan().equals(type.getPlan())) {
+            // if plan is different, fail
+            throw new IllegalStateException("Cannot add "+type+" in "+type.getContainingBundle()+" to catalog; different plan in "+oldType+" from bundle "+
+                oldType.getContainingBundle()+" is already present");
+        }
+        if (oldType.getKind()!=RegisteredTypeKind.UNRESOLVED && type.getKind()!=RegisteredTypeKind.UNRESOLVED &&
+                !Objects.equals(oldType.getKind(), type.getKind())) {
+            // if kind is different and both resolved, fail
+            throw new IllegalStateException("Cannot add "+type+" in "+type.getContainingBundle()+" to catalog; different kind in "+oldType+" from bundle "+
+                oldType.getContainingBundle()+" is already present");
+        }
+
+        // now if old is a wrapper bundle (or old, no bundle), allow it -- metadata may be different here
+        // but we'll allow that, probably the user is updating their catalog to the new format.
+        // icons might change, maybe a few other things (but any such errors can be worked around),
+        // and more useful to be able to upload the same BOM or replace an anonymous BOM with a named bundle.
+        // crucially if old is a wrapper bundle the containing bundle won't actually be needed for anything,
+        // so this is safe in terms of search paths etc.
+        if (oldType.getContainingBundle()==null) {
+            // if old type wasn't from a bundle, let it be replaced by a bundle
+            return true;
+        }
+        // bundle is changing; was old bundle a wrapper?
+        OsgiManager osgi = ((ManagementContextInternal)mgmt).getOsgiManager().orNull();
+        if (osgi==null) {
+            // shouldn't happen, as we got a containing bundle, but just in case
+            return true;
+        }
+        if (BasicBrooklynCatalog.isNoBundleOrSimpleWrappingBundle(mgmt, 
+                osgi.getManagedBundle(VersionedName.fromString(oldType.getContainingBundle())))) {
+            // old was a wrapper bundle; allow it 
+            return true;
+        }
+        
+        throw new IllegalStateException("Cannot add "+type+" in "+type.getContainingBundle()+" to catalog; "
+            + "item  is already present in different bundle "+oldType.getContainingBundle());
     }
 
     @Beta // API stabilising

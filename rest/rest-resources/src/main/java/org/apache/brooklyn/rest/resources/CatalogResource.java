@@ -201,10 +201,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
 
         if (OsgiBundleInstallationResult.ResultCode.IGNORING_BUNDLE_AREADY_INSTALLED.equals(result.getWithoutError().getCode())) {
             result = ReferenceWithError.newInstanceThrowingError(result.getWithoutError(), new IllegalStateException(
-                    "Updating existing catalog entries is forbidden: " +
-                    result.getWithoutError().getMetadata().getSymbolicName() + ":" +
-                    result.getWithoutError().getMetadata().getSuppliedVersionString() +
-                    ". Use forceUpdate argument to override."));
+                    "Cannot add bundle" + result.getWithoutError().getMetadata().getVersionedName() +
+                    "; different bundle with same name already installed"));
         }
         
         if (result.hasError()) {

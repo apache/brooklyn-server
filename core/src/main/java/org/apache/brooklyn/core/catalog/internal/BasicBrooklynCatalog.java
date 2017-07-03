@@ -516,7 +516,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         catalogMetadata.remove("item");
         catalogMetadata.remove("items");
         if (!itemDef.isEmpty()) {
-            log.debug("Reading brooklyn.catalog peer keys as item ('top-level syntax')");
+            // AH - i forgot we even supported this. probably no point anymore,
+            // now that catalog defs can reference an item yaml and things can be bundled together?
+            log.warn("Reading catalog item from sibling keys of `brooklyn.catalog` section, "
+                + "instead of the more common appraoch of putting inside an `item` within it. "
+                + "This behavior is not deprecated yet but it is being considered. "
+                + "If you find it useful please inform the community.");
             Map<String,?> rootItem = MutableMap.of("item", itemDef);
             String rootItemYaml = yaml;
             YamlExtract yamlExtract = Yamls.getTextOfYamlAtPath(rootItemYaml, "brooklyn.catalog");
@@ -849,7 +854,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         String description = getFirstAs(catalogMetadata, String.class, "description").orNull();
         description = setFromItemIfUnset(description, itemAsMap, "description");
 
-        // icon.url is discouraged, but kept for legacy compatibility; should deprecate this
+        // icon.url is discouraged (using '.'), but kept for legacy compatibility; should deprecate this
         final String catalogIconUrl = getFirstAs(catalogMetadata, String.class, "iconUrl", "icon_url", "icon.url").orNull();
 
         final String deprecated = getFirstAs(catalogMetadata, String.class, "deprecated").orNull();
@@ -935,7 +940,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
 
     private static boolean isLibrariesMoreThanJustContainingBundle(Collection<CatalogBundle> library, ManagedBundle containingBundle) {
-        if (library==null) return false;
+        if (library==null || library.isEmpty()) return false;
         if (containingBundle==null) return !library.isEmpty();
         if (library.size()>1) return true;
         CatalogBundle li = Iterables.getOnlyElement(library);
@@ -1369,7 +1374,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             if (result.getCode().isError()) {
                 throw new IllegalStateException(result.getMessage());
             }
-            return toItems(result.getCatalogItemsInstalled());
+            return toLegacyCatalogItems(result.getCatalogItemsInstalled());
 
             // if all items pertaining to an older anonymous catalog.bom bundle have been overridden
             // we delete those later; see list of wrapper bundles kept in OsgiManager
@@ -1379,10 +1384,16 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
     
     @SuppressWarnings("deprecation")
-    private List<CatalogItem<?,?>> toItems(Iterable<String> itemIds) {
+    private List<CatalogItem<?,?>> toLegacyCatalogItems(Iterable<String> itemIds) {
         List<CatalogItem<?,?>> result = MutableList.of();
         for (String id: itemIds) {
-            result.add(CatalogUtils.getCatalogItemOptionalVersion(mgmt, id));
+            CatalogItem<?, ?> item = CatalogUtils.getCatalogItemOptionalVersion(mgmt, id);
+            if (item==null) {
+                // using new Type Registry (OSGi addition); 
+                result.add(RegisteredTypes.toPartialCatalogItem( mgmt.getTypeRegistry().get(id) ));
+            } else {
+                result.add(item);
+            }
         }
         return result;
     }

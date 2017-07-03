@@ -34,19 +34,23 @@ public class CatalogOsgiYamlVersioningTest extends CatalogYamlVersioningTest {
         return false;
     }
 
-    @Override
-    @Test
-    public void testAddSameVersionWithoutBundle() {
-        try {
-            // parent test should fail in OSGi - anonymous bundle is snapshot so updating is attempted
-            // but item version is not snapshot and containing bundle is different, so ultimately fails
-            super.testAddSameVersionWithoutBundle();
-            Asserts.shouldHaveFailedPreviously("Expected to fail because containing bundle will be different when using OSGi");
-        } catch (Exception e) {
-            assertExpectedFailureSaysUpdatingExistingItemForbidden(e);
-            assertExpectedFailureIncludesSampleId(e);
-        }
-    }
+    // now parent version of this test passes also in OSGi;
+    // the "sameEnough" check in BasicBrooklynTypeRegistry.addToLocalUnpersisted
+    // does _not_ look at containing bundle
+    // TODO delete this when we're happy with this behaviour
+//    @Override
+//    @Test
+//    public void testAddSameVersionWithoutBundle() {
+//        try {
+//            // parent test should fail in OSGi - anonymous bundle is snapshot so updating is attempted
+//            // but item version is not snapshot and containing bundle is different, so ultimately fails
+//            super.testAddSameVersionWithoutBundle();
+//            Asserts.shouldHaveFailedPreviously("Expected to fail because containing bundle will be different when using OSGi");
+//        } catch (Exception e) {
+//            assertExpectedFailureSaysDifferentIsBad(e);
+//            assertExpectedFailureIncludesSampleId(e);
+//        }
+//    }
     
     @Test
     public void testAddSameVersionWithoutBundleWorksIfItemIsSnapshot() {
