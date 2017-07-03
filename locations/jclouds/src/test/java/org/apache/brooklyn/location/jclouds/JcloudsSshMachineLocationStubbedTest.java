@@ -23,6 +23,7 @@ import static org.apache.brooklyn.util.core.internal.ssh.SshTool.ADDITIONAL_CONN
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import java.util.List;
@@ -33,6 +34,7 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.AbstractNodeCreator;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.NodeCreator;
+import org.apache.brooklyn.location.jclouds.api.JcloudsLocationConfigPublic;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.test.Asserts;
@@ -226,4 +228,14 @@ public class JcloudsSshMachineLocationStubbedTest extends AbstractJcloudsStubbed
         assertTrue(calledPreRelease.get(), "preReleaseOnObtainError not called on failed onObtain");
         assertFalse(calledPostRelease.get(), "postReleaseOnObtainError not to be called on failed onObtain when destroyOnFailure=false");
     }
+
+    @Test
+    public void testRegionCachedFromJcloudsDefault() throws Exception {
+        privateAddresses = ImmutableList.of();
+        jcloudsLocation.config().removeKey(JcloudsLocationConfigPublic.CLOUD_REGION_ID);
+        JcloudsSshMachineLocation machine = obtainMachine();
+        assertEquals(jcloudsLocation.config().get(JcloudsLocationConfigPublic.CLOUD_REGION_ID), "us-east-1");
+        assertEquals(machine.config().get(JcloudsLocationConfigPublic.CLOUD_REGION_ID), "us-east-1");
+    }
+    
 }

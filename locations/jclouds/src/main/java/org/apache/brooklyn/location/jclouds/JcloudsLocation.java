@@ -675,6 +675,14 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
                 // Setup the template
                 template = buildTemplate(computeService, setup, ImmutableList.of(customizersDelegate));
+
+                // If region is not set on the location by the user get the default from jclouds and cache the value.
+                // Makes it easier for code to keep track of what region the location deploys to (for example customizers).
+                if (Strings.isEmpty(setup.get(CLOUD_REGION_ID))) {
+                    setup.put(CLOUD_REGION_ID, template.getLocation().getId());
+                    config().set(CLOUD_REGION_ID, template.getLocation().getId());
+                }
+
                 boolean expectWindows = isWindows(template, setup);
                 if (!options.skipJcloudsSshing()) {
                     if (expectWindows) {
