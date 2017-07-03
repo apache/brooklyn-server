@@ -180,7 +180,7 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
     @Test(dependsOnMethods = { "testAddLegacyLocationDefinition" })
     @Deprecated
     public void testDeleteLocation() {
-        final int size = getLocationRegistry().getDefinedLocations().size();
+        final int size = getLocationRegistry().getDefinedLocations(true).size();
         URI expectedLocationUri = URI.create("/locations/"+legacyLocationName);
 
         Response response = client().path(expectedLocationUri).delete();
@@ -188,7 +188,7 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
         Asserts.succeedsEventually(new Runnable() {
             @Override
             public void run() {
-                assertEquals(getLocationRegistry().getDefinedLocations().size(), size - 1);
+                assertEquals(getLocationRegistry().getDefinedLocations(true).size(), size - 1);
             }
         });
     }

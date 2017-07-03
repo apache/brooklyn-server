@@ -95,7 +95,6 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
 
         // Item added to catalog should automatically be available in location registry
         LocationDefinition def = mgmt().getLocationRegistry().getDefinedLocationByName(symbolicName);
-        assertEquals(def.getId(), symbolicName);
         assertEquals(def.getName(), symbolicName);
         
         LocationSpec spec = mgmt().getTypeRegistry().createSpec(item, null, LocationSpec.class);
@@ -171,9 +170,9 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         
         addCatalogItems(yaml);
 
-        Map<String, LocationDefinition> defs = mgmt().getLocationRegistry().getDefinedLocations();
-        LocationDefinition def1 = checkNotNull(defs.get("loc1"), "loc1 missing; has %s", defs.keySet());
-        LocationDefinition def2 = checkNotNull(defs.get("loc2"), "loc2 missing; has %s", defs.keySet());
+        Map<String, LocationDefinition> defs = mgmt().getLocationRegistry().getDefinedLocations(true);
+        LocationDefinition def1 = checkNotNull(defs.get("loc1:0.1.2"), "loc1 missing; has %s", defs.keySet());
+        LocationDefinition def2 = checkNotNull(defs.get("loc2:0.1.2"), "loc2 missing; has %s", defs.keySet());
         LocationSpec<? extends Location> spec1 = mgmt().getLocationRegistry().getLocationSpec(def1).get();
         LocationSpec<? extends Location> spec2 = mgmt().getLocationRegistry().getLocationSpec(def2).get();
         
@@ -234,15 +233,15 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         addCatalogItems(yaml2);
         addCatalogItems(yaml3);
 
-        LocationDefinition def1 = mgmt().getLocationRegistry().getDefinedLocations().get("loc1");
+        LocationDefinition def1 = mgmt().getLocationRegistry().getDefinedLocationByName("loc1");
         LocationSpec<? extends Location> spec1 = mgmt().getLocationRegistry().getLocationSpec(def1).get();
         assertEquals(spec1.getDisplayName(), "My name in item metadata");
         
-        LocationDefinition def2 = mgmt().getLocationRegistry().getDefinedLocations().get("loc2");
+        LocationDefinition def2 = mgmt().getLocationRegistry().getDefinedLocationByName("loc2");
         LocationSpec<? extends Location> spec2 = mgmt().getLocationRegistry().getLocationSpec(def2).get();
         assertEquals(spec2.getDisplayName(), "My name in top-level metadata");
         
-        LocationDefinition def3b = mgmt().getLocationRegistry().getDefinedLocations().get("loc3b");
+        LocationDefinition def3b = mgmt().getLocationRegistry().getDefinedLocationByName("loc3b");
         LocationSpec<? extends Location> spec3b = mgmt().getLocationRegistry().getLocationSpec(def3b).get();
         assertEquals(spec3b.getDisplayName(), "My name within item 3b");
     }
@@ -261,7 +260,7 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         
         addCatalogItems(yaml);
 
-        LocationDefinition def = mgmt().getLocationRegistry().getDefinedLocations().get("loc1");
+        LocationDefinition def = mgmt().getLocationRegistry().getDefinedLocationByName("loc1");
         LocationSpec<? extends Location> spec = mgmt().getLocationRegistry().getLocationSpec(def).get();
         assertEquals(spec.getDisplayName(), "My name in top-level");
     }
@@ -280,7 +279,7 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         
         addCatalogItems(yaml);
 
-        LocationDefinition def = mgmt().getLocationRegistry().getDefinedLocations().get("loc1");
+        LocationDefinition def = mgmt().getLocationRegistry().getDefinedLocationByName("loc1");
         LocationSpec<? extends Location> spec = mgmt().getLocationRegistry().getLocationSpec(def).get();
         assertEquals(spec.getDisplayName(), "My name in item metadata");
     }
@@ -299,7 +298,7 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         
         addCatalogItems(yaml);
 
-        LocationDefinition def = mgmt().getLocationRegistry().getDefinedLocations().get("loc1");
+        LocationDefinition def = mgmt().getLocationRegistry().getDefinedLocationByName("loc1");
         LocationSpec<? extends Location> spec = mgmt().getLocationRegistry().getLocationSpec(def).get();
         assertEquals(spec.getDisplayName(), "My name within item");
     }
@@ -403,7 +402,7 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
     }
     
     private void assertLocationRegistryCount(int size) {
-        Asserts.assertThat(mgmt().getLocationRegistry().getDefinedLocations().keySet(), CollectionFunctionals.sizeEquals(size));
+        Asserts.assertThat(mgmt().getLocationRegistry().getDefinedLocations(true).keySet(), CollectionFunctionals.sizeEquals(size));
     }
     private void assertLocationManagerInstancesCount(int size) {
         Asserts.assertThat(mgmt().getLocationManager().getLocations(), CollectionFunctionals.sizeEquals(size));

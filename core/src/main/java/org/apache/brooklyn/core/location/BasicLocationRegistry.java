@@ -47,6 +47,7 @@ import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.location.localhost.LocalhostLocationResolver;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -71,74 +72,46 @@ import com.google.common.collect.Sets;
 /**
  * See {@link LocationRegistry} for general description.
  * <p>
- * TODO The relationship between the catalog and the location registry is a bit messy.
- * For all existing code, the location registry is the definitive way to resolve
- * locations. 
+ * This implementation unfortunately has to deal with location definitions coming from three places:
+ * 
+ * <li> brooklyn.properties
+ * <li> {@link BrooklynCatalog}
+ * <li> {@link BrooklynTypeRegistry}
+ * <p> 
+ * The first is read on init in the call to {@link #updateDefinedLocations()}.
+ * The latter two are <i>not</i> loaded here but are treated as lookups to {@link BrooklynTypeRegistry}.
  * <p>
- * Any location item added to the catalog must therefore be registered here.
- * Whenever an item is added to the catalog, it will automatically call 
- * {@link #updateDefinedLocation(RegisteredType)}. Similarly, when a location
- * is deleted from the catalog it will call {@link #removeDefinedLocation(RegisteredType)}.
+ * (Prior to 0.12.0 items in {@link BrooklynCatalog} were scanned on init here, and then 
+ * it updated this on additions and removals there. That is no longer done with type registry.)
  * <p>
- * However, the location item in the catalog has an unparsed blob of YAML, which contains
+ * We should consider deprecating this as a place where locations can be defined (switch to type registry only).
+ * <p>
+ * However this is used for items from brooklyn.properties -- we could create a bundle to store those
+ * to help with migration, and then deprecate/block changes to those after the bundle is created. 
+ * However properties are the only way currently to set default data used for various clouds; 
+ * either we'd need to deprecate that also, or find a way to support that in a bundled world.
+ * <p>
+ * This is also used in a few other places, such as clocker and the server pool entity.
+ * Things here are never persisted though, so it is those callers' responsibility to recreate.
+ * Alternatively (better) would be for them to add items to the catalog instead of here. 
+ * <p>
+ * Or we keep this lying around for now. Probably not worth the pain above.
+ * <p>
+ * Also note the location item in the catalog has an unparsed blob of YAML, which contains
  * important things like the type and the config of the location. This is only parsed when 
- * {@link BrooklynCatalog#createSpec(CatalogItem)} is called. We therefore jump through 
- * some hoops to wire together the catalog and the registry.
+ * {@link BrooklynTypeRegistry#createSpec(RegisteredType)} is called, so we do that for
+ * lookup possibly more often than one might expect. (If a time hole this could be cached.)
+ * We also need to make sure some of the resolvers here can be used to identify types, so
+ * when loading types, the spec creation routines are able to call this to 
+ * {@link #resolve(String, Boolean, Map)} (that returns a {@link Location} not a spec,
+ * but the {@link Location} instance is discarded).
  * <p>
- * To add a location to the catalog, and then to resolve a location that is in the catalog, 
- * it goes through the following steps:
- * 
- * <ol>
- *   <li>Call {@link BrooklynCatalog#addItems(String)}
- *     <ol>
- *       <li>This automatically calls {@link #updateDefinedLocation(RegisteredType)}
- *       <li>A LocationDefinition is creating, using as its id the {@link RegisteredType#getSymbolicName()}.
- *           The definition's spec is {@code brooklyn.catalog:<symbolicName>:<version>},
- *     </ol>
- *   <li>A blueprint can reference the catalog item using its symbolic name, 
- *       such as the YAML {@code location: my-new-location}.
- *       (this feels similar to the "named locations").
- *     <ol>
- *       <li>This automatically calls {@link #getLocationManaged(String)}.
- *       <li>The LocationDefinition is found by lookig up this name.
- *       <li>The {@link LocationDefiniton.getSpec()} is retrieved; the right {@link LocationResolver} is
- *           found for it.
- *       <li>This uses the {@link CatalogLocationResolver}, because the spec starts with {@code brooklyn.catalog:}.
- *       <li>This resolver extracts from the spec the <symobolicName>:<version>, and looks up the 
- *           location item using the {@link BrooklynTypeRegistry}.
- *       <li>It then creates a {@link LocationSpec} by calling {@link BrooklynTypeRegistry#createSpec(RegisteredType)}.
- *         <ol>
- *           <li>This first tries to use the type (that is in the YAML) as a simple Java class.
- *           <li>If that fails, it will resolve the type using {@link #resolve(String, Boolean, Map)}, which
- *               returns an actual location object.
- *           <li>It extracts from that location object the appropriate metadata to create a {@link LocationSpec},
- *               returns the spec and discards the location object.
- *         </ol>
- *       <li>The resolver creates the {@link Location} from the {@link LocationSpec}
- *     </ol>
- * </ol>
- * 
- * TODO we should change the registry to be a pass-through facade on top of the catalog,
- * and shift to preferring catalog access mechanisms.
- * this brings it in line with how we do other things;
- * also this does not understand versions.
- * to do this we will need to:
- * <li> update the catalog on addition, setting a plan (ensuring serialization);
- *      in case of a definition CHANGED in brooklyn.properties give an error if it means the plan has changed
- *      (user could then remove from brooklyn.properties, if persistence on, or apply the update in the catalog;
- *      ie similar semantics to defining an initial catalog via the CLI)
- * <li> find and return the RegisteredType from the type-registry/catalog here
- * <p>
- * Once done, update the UI use /v1/catalog/locations instead of /v1/locations
- * (currently the latter is the only way to list locations known in the LocationRegistry 
- * ie those from brookln.properties.)
+ * Finally note /v1/catalog/locations does not list items stored here; 
+ * only /v1/locations does that.
  */
 @SuppressWarnings({"rawtypes","unchecked"})
 public class BasicLocationRegistry implements LocationRegistry {
 
-    // TODO save / serialize
-    // (we persist live locations, ie those in the LocationManager, but not "catalog" locations, ie those in this Registry)
-    
     public static final Logger log = LoggerFactory.getLogger(BasicLocationRegistry.class);
 
     /**
@@ -194,29 +167,68 @@ public class BasicLocationRegistry implements LocationRegistry {
     }
     
     @Override
-    public Map<String,LocationDefinition> getDefinedLocations() {
+    public Map<String, LocationDefinition> getDefinedLocations(boolean includeThingsWeAreFacadeFor) {
+        Map<String, LocationDefinition> result = MutableMap.of();
         synchronized (definedLocations) {
-            return ImmutableMap.<String,LocationDefinition>copyOf(definedLocations);
+            result.putAll(definedLocations);
         }
+        for (RegisteredType rt: mgmt.getTypeRegistry().getMatching(RegisteredTypePredicates.IS_LOCATION)) {
+            result.put(rt.getId(), newDefinedLocation(rt));
+        }
+        return result;
+    }
+    
+    @Override @Deprecated
+    public Map<String,LocationDefinition> getDefinedLocations() {
+        return getDefinedLocations(true);
     }
     
     @Override
     public LocationDefinition getDefinedLocationById(String id) {
-        return definedLocations.get(id);
+        return getDefinedLocation(id, true);
     }
 
     @Override
     public LocationDefinition getDefinedLocationByName(String name) {
-        synchronized (definedLocations) {
-            for (LocationDefinition l: definedLocations.values()) {
-                if (l.getName().equals(name)) return l;
-            }
-            return null;
+        return getDefinedLocation(name, false);
+    }
+    
+    private LocationDefinition getDefinedLocation(String nameOrId, boolean isId) {
+        RegisteredType lt = mgmt.getTypeRegistry().get(nameOrId, RegisteredTypeLoadingContexts.withSpecSuperType(null, LocationSpec.class));
+        if (lt!=null) {
+            return newDefinedLocation(lt);
         }
+        
+        synchronized (definedLocations) {
+            if (isId) {
+                LocationDefinition ld = definedLocations.get(nameOrId);
+                if (ld!=null) {
+                    return ld;
+                }
+            } else {
+                for (LocationDefinition l: definedLocations.values()) {
+                    if (l.getName().equals(nameOrId)) return l;
+                }
+            }
+        }
+        
+        // fall back to ignoring supertypes, in case they weren't set
+        lt = mgmt.getTypeRegistry().get(nameOrId);
+        if (lt!=null) {
+            log.warn("Location registry only found "+nameOrId+" when ignoring supertypes; check it is correctly resolved.");
+            return newDefinedLocation(lt);
+        }
+        
+        return null;
     }
 
-    @Override
+    @Override @Deprecated
     public void updateDefinedLocation(LocationDefinition l) {
+        updateDefinedLocationNonPersisted(l);
+    }
+    
+    @Override
+    public void updateDefinedLocationNonPersisted(LocationDefinition l) {
         synchronized (definedLocations) { 
             definedLocations.put(l.getId(), l); 
         }
@@ -226,7 +238,9 @@ public class BasicLocationRegistry implements LocationRegistry {
      * Converts the given item from the catalog into a LocationDefinition, and adds it
      * to the registry (overwriting anything already registered with the id
      * {@link CatalogItem#getCatalogItemId()}.
+     * @deprecated since 0.12.0 this class is a facade so method no longer wanted
      */
+    @Deprecated  // not used
     public void updateDefinedLocation(CatalogItem<Location, LocationSpec<?>> item) {
         String id = item.getCatalogItemId();
         String symbolicName = item.getSymbolicName();
@@ -241,17 +255,22 @@ public class BasicLocationRegistry implements LocationRegistry {
      * Converts the given item from the catalog into a LocationDefinition, and adds it
      * to the registry (overwriting anything already registered with the id
      * {@link RegisteredType#getId()}.
+     * @deprecated since 0.12.0 this class is a facade so method no longer wanted
      */
+    @Deprecated  // not used
     public void updateDefinedLocation(RegisteredType item) {
-        String id = item.getId();
-        String symbolicName = item.getSymbolicName();
-        String spec = CatalogLocationResolver.createLegacyWrappedReference(id);
-        Map<String, Object> config = ImmutableMap.<String, Object>of();
-        BasicLocationDefinition locDefinition = new BasicLocationDefinition(symbolicName, symbolicName, spec, config);
-        
+        BasicLocationDefinition locDefinition = newDefinedLocation(item);
         updateDefinedLocation(locDefinition);
     }
 
+    protected BasicLocationDefinition newDefinedLocation(RegisteredType item) {
+        String id = item.getId();
+        String spec = CatalogLocationResolver.createLegacyWrappedReference(id);
+        return new BasicLocationDefinition(id, item.getSymbolicName(), spec, ImmutableMap.<String, Object>of());
+    }
+
+    /** @deprecated since 0.12.0 this class is a facade so method no longer wanted */
+    @Deprecated  // not used
     public void removeDefinedLocation(CatalogItem<Location, LocationSpec<?>> item) {
         removeDefinedLocation(item.getSymbolicName());
     }
@@ -290,11 +309,6 @@ public class BasicLocationRegistry implements LocationRegistry {
             }
             if (log.isDebugEnabled())
                 log.debug("Found "+count+" defined locations from properties (*.named.* syntax): "+definedLocations.values());
-            
-            for (RegisteredType item: mgmt.getTypeRegistry().getMatching(RegisteredTypePredicates.IS_LOCATION)) {
-                updateDefinedLocation(item);
-                count++;
-            }
         }
     }
     

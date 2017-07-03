@@ -330,11 +330,6 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (log.isTraceEnabled()) {
             log.trace("Scheduling item for persistence removal: {}", itemDto.getId());
         }
-        if (itemDto.getCatalogItemType() == CatalogItemType.LOCATION) {
-            @SuppressWarnings("unchecked")
-            CatalogItem<Location,LocationSpec<?>> locationItem = (CatalogItem<Location, LocationSpec<?>>) itemDto;
-            ((BasicLocationRegistry)mgmt.getLocationRegistry()).removeDefinedLocation(locationItem);
-        }
         mgmt.getRebindManager().getChangeListener().onUnmanaged(itemDto);
 
     }
@@ -1629,11 +1624,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
 
     private void onAdditionUpdateOtherRegistries(CatalogItemDtoAbstract<?, ?> itemDto) {
-        if (itemDto.getCatalogItemType() == CatalogItemType.LOCATION) {
-            @SuppressWarnings("unchecked")
-            CatalogItem<Location,LocationSpec<?>> locationItem = (CatalogItem<Location, LocationSpec<?>>) itemDto;
-            ((BasicLocationRegistry)mgmt.getLocationRegistry()).updateDefinedLocation(locationItem);
-        }
+        // nothing needed (previously updated BasicLocationRegistry but now that is a facade)
     }
 
     /** returns item DTO if item is an allowed duplicate, or null if it should be added (there is no duplicate), 

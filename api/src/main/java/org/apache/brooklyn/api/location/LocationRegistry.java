@@ -27,6 +27,7 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.LocationManager;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.util.guava.Maybe;
 
 /**
@@ -37,18 +38,31 @@ import org.apache.brooklyn.util.guava.Maybe;
 public interface LocationRegistry {
 
     /** map of ID (possibly randomly generated) to the definition (spec, name, id, and props; 
-     * where spec is the spec as defined, for instance possibly another named:xxx location) */
+     * where spec is the spec as defined, for instance possibly another named:xxx location).
+     * optionally will also return all things from other sources where this can look up. */
+    public Map<String,LocationDefinition> getDefinedLocations(boolean includeThingsWeAreFacadeFor);
+    
+    /** @deprecated since 0.12.0 use {@link #getDefinedLocations(boolean)} passing <code>true</code>.
+     * some clients might only want the things actually defined here, which is cheaper. */
+    @Deprecated
     public Map<String,LocationDefinition> getDefinedLocations();
     
     /** returns a LocationDefinition given its ID (usually a random string), or null if none */
     public LocationDefinition getDefinedLocationById(String id);
     
     /** returns a LocationDefinition given its name (e.g. for named locations, supply the bit after the "named:" prefix), 
-     * or null if none */
+     * looking inthe {@link BrooklynTypeRegistry} for registered items, then in this list, or null if none */
     public LocationDefinition getDefinedLocationByName(String name);
 
-    /** adds or updates the given defined location */
+    /** as {@link #updateDefinedLocationNonPersisted(LocationDefinition)}
+     * @deprecated since 0.12.0 use {@link #updateDefinedLocationNonPersisted(LocationDefinition)};
+     * it's exactly the same, just the name makes it clear */
+    @Deprecated
     public void updateDefinedLocation(LocationDefinition l);
+
+    /** adds or updates the given defined location in this registry; note it is not persisted;
+     * callers should consider adding to the {@link BrooklynTypeRegistry} instead */
+    public void updateDefinedLocationNonPersisted(LocationDefinition l);
 
     /** removes the defined location from the registry (applications running there are unaffected) */
     public void removeDefinedLocation(String id);

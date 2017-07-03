@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 
@@ -28,6 +29,7 @@ import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -35,7 +37,9 @@ import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
+import org.apache.brooklyn.core.catalog.internal.CatalogItemDtoAbstract;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
+import org.apache.brooklyn.core.location.BasicLocationRegistry;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.test.Asserts;
@@ -419,14 +423,18 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
 
     @Beta // API stabilising
     public void delete(VersionedName type) {
-        if (localRegisteredTypes.remove(type.toString()) != null) {
+        RegisteredType registeredTypeRemoved = localRegisteredTypes.remove(type.toString());
+        if (registeredTypeRemoved != null) {
             return ;
         }
-        // TODO may need to support version-less here?
         
         // legacy deletion (may call back to us, but max once)
         mgmt.getCatalog().deleteCatalogItem(type.getSymbolicName(), type.getVersionString());
-        // if nothing deleted, throw NoSuchElement
+        // currently the above will succeed or throw; but if we delete that, we need to enable the code below
+//        if (Strings.isBlank(type.getVersionString()) || BrooklynCatalog.DEFAULT_VERSION.equals(type.getVersionString())) {
+//            throw new IllegalStateException("Deleting items with unspecified version (argument DEFAULT_VERSION) not supported.");
+//        }
+//        throw new NoSuchElementException("No catalog item found with id "+type);
     }
     
     public void delete(RegisteredType type) {
