@@ -95,6 +95,7 @@ public enum BrooklynObjectType {
     }
     
     public static BrooklynObjectType of(CatalogItemType t) {
+        if (t==null) return null;
         switch (t) {
         case ENRICHER: return BrooklynObjectType.ENRICHER;
         case ENTITY: return BrooklynObjectType.ENTITY;

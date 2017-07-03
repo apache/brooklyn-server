@@ -38,7 +38,9 @@ public interface BrooklynTypeRegistry {
         /** a registered type which will create the java type described */
         BEAN,
         /** a partially registered type which requires subsequent validation and changing the kind;
-         * until then, an item of this kind cannot be instantiated */
+         * until then, an item of this kind cannot be instantiated.
+         * items registered as templates (using a tag) may remain in this state
+         * if they do not resolve. */
         UNRESOLVED
         // note: additional kinds should have the visitor in core/RegisteredTypeKindVisitor updated
         // to flush out all places which want to implement support for all kinds 

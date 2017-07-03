@@ -584,4 +584,9 @@ public class RegisteredTypes {
         return type;
     }
 
+    public static boolean isTemplate(RegisteredType type) {
+        if (type==null) return false;
+        return type.getTags().contains(BrooklynTags.CATALOG_TEMPLATE);
+    }
+
 }
