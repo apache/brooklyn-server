@@ -46,6 +46,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Identifiers;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,7 +98,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
         RegisteredTypeLoadingContext context = contextFinal;
         if (context==null) context = RegisteredTypeLoadingContexts.any();
         String version = versionFinal;
-        if (version==null) version = BrooklynCatalog.DEFAULT_VERSION;
+        if (Strings.isBlank(version)) version = BrooklynCatalog.DEFAULT_VERSION;
 
         if (!BrooklynCatalog.DEFAULT_VERSION.equals(version)) {
             // normal code path when version is supplied
@@ -139,7 +140,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
             return Maybe.of( RegisteredTypes.CI_TO_RT.apply( item ) );
         
         return Maybe.absent("No matches for "+symbolicNameOrAliasIfNoVersion+
-            (versionFinal!=null ? ":"+versionFinal : "")+
+            (Strings.isNonBlank(versionFinal) ? ":"+versionFinal : "")+
             (contextFinal!=null ? " ("+contextFinal+")" : "") );
     }
 

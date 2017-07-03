@@ -1229,7 +1229,8 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         
         // check on spec
         
-        AbstractBrooklynObjectSpec<?, ?> spec = mgmt().getCatalog().peekSpec(mgmt().getCatalog().getCatalogItem("wrapper-entity", null));
+        AbstractBrooklynObjectSpec<?, ?> spec = mgmt().getTypeRegistry().createSpec(
+            mgmt().getTypeRegistry().get("wrapper-entity", ""), null, null);
         Assert.assertEquals(spec.getParameters().size(), SpecParameterUnwrappingTest.NUM_ENTITY_DEFAULT_CONFIG_KEYS + NUM_CONFIG_KEYS_FROM_TEST_BLUEPRINT, 
             "params: "+spec.getParameters());
         

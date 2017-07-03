@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.api.typereg;
 
-import java.util.Collection;
-
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -52,7 +50,7 @@ public interface BrooklynTypeRegistry {
     /** @return The item matching the given given 
      * {@link RegisteredType#getSymbolicName() symbolicName} 
      * and optionally {@link RegisteredType#getVersion()},
-     * taking the best version if the version is null or a default marker,
+     * taking the best version if the version is null, blank, or a default marker,
      * returning null if no matches are found. */
     RegisteredType get(String symbolicName, String version);
     /** as {@link #get(String, String)} but the given string here 

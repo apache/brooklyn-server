@@ -27,11 +27,10 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.config.external.AbstractExternalConfigSupplier;
@@ -124,7 +123,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
                 "    services:",
                 "    - type: org.apache.brooklyn.test.osgi.entities.SimpleApplication");
 
-        CatalogItem<?, ?> item = mgmt().getCatalog().getCatalogItem("simple-osgi-library", "1.0");
+        RegisteredType item = mgmt().getTypeRegistry().get("simple-osgi-library", "1.0");
         assertCatalogLibraryUrl(item, classpathUrl);
     }
 
@@ -141,7 +140,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
                 "    services:",
                 "    - type: org.apache.brooklyn.test.osgi.entities.SimpleApplication");
 
-        CatalogItem<?, ?> item = mgmt().getCatalog().getCatalogItem("simple-osgi-library", "1.0");
+        RegisteredType item = mgmt().getTypeRegistry().get("simple-osgi-library", "1.0");
         assertCatalogLibraryUrl(item, classpathUrl);
     }
 
@@ -158,7 +157,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
                 "    services:",
                 "    - type: org.apache.brooklyn.test.osgi.entities.SimpleApplication");
 
-        CatalogItem<?, ?> item = mgmt().getCatalog().getCatalogItem("simple-osgi-library", "1.0");
+        RegisteredType item = mgmt().getTypeRegistry().get("simple-osgi-library", "1.0");
         assertCatalogLibraryUrl(item, jarUrl.toString());
     }
 
@@ -220,7 +219,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
                 "    services:",
                 "    - type: org.apache.brooklyn.test.osgi.entities.SimpleApplication");
 
-        CatalogItem<?, ?> item = mgmt().getCatalog().getCatalogItem("simple-osgi-library", "1.0");
+        RegisteredType item = mgmt().getTypeRegistry().get("simple-osgi-library", "1.0");
         assertCatalogLibraryUrl(item, classpathUrl);
     }
 
@@ -415,7 +414,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
         }
         String expectedUrl = "http://" + escapedUsername + ":" + escapedPassword+ "@" + jarUrl.getHost() + ":" + jarUrl.getPort() + jarUrl.getPath();
         
-        CatalogItem<?, ?> item = mgmt().getCatalog().getCatalogItem("simple-osgi-library", "1.0");
+        RegisteredType item = mgmt().getTypeRegistry().get("simple-osgi-library", "1.0");
         assertCatalogLibraryUrl(item, expectedUrl);
     }
     
@@ -432,8 +431,8 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
         }
     }
     
-    protected void assertCatalogLibraryUrl(CatalogItem<?,?> item, String expectedUrl) {
-        for (CatalogBundle b: item.getLibraries()) {
+    protected void assertCatalogLibraryUrl(RegisteredType item, String expectedUrl) {
+        for (OsgiBundleWithUrl b: item.getLibraries()) {
             if (Objects.equals(b.getUrl(), expectedUrl)) {
                 return;
             }

@@ -361,39 +361,6 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         persister.stop(false);
         return mementoManifest;
     }
-
-    protected void assertCatalogsEqual(BrooklynCatalog actual, BrooklynCatalog expected) {
-        Set<String> actualIds = getCatalogItemIds(actual.getCatalogItems());
-        Set<String> expectedIds = getCatalogItemIds(expected.getCatalogItems());
-        assertEquals(actualIds.size(), Iterables.size(actual.getCatalogItems()), "id keyset size != size of catalog. Are there duplicates in the catalog?");
-        assertEquals(actualIds, expectedIds);
-        for (String versionedId : actualIds) {
-            String id = CatalogUtils.getSymbolicNameFromVersionedId(versionedId);
-            String version = CatalogUtils.getVersionFromVersionedId(versionedId);
-            assertCatalogItemsEqual(actual.getCatalogItem(id, version), expected.getCatalogItem(id, version));
-        }
-    }
-
-    private Set<String> getCatalogItemIds(Iterable<CatalogItem<Object, Object>> catalogItems) {
-        return FluentIterable.from(catalogItems)
-                .transform(EntityFunctions.id())
-                .copyInto(Sets.<String>newHashSet());
-   }
-
-    protected void assertCatalogItemsEqual(CatalogItem<?, ?> actual, CatalogItem<?, ?> expected) {
-        assertEquals(actual.getClass(), expected.getClass());
-        assertEquals(actual.getId(), expected.getId());
-        assertEquals(actual.getDisplayName(), expected.getDisplayName());
-        assertEquals(actual.getVersion(), expected.getVersion());
-        assertEquals(actual.getDescription(), expected.getDescription());
-        assertEquals(actual.getIconUrl(), expected.getIconUrl());
-        assertEquals(actual.getVersion(), expected.getVersion());
-        assertEquals(actual.getCatalogItemJavaType(), expected.getCatalogItemJavaType());
-        assertEquals(actual.getCatalogItemType(), expected.getCatalogItemType());
-        assertEquals(actual.getSpecType(), expected.getSpecType());
-        assertEquals(actual.getSymbolicName(), expected.getSymbolicName());
-        assertEquals(actual.getLibraries(), expected.getLibraries());
-    }
     
 //    protected void assertCatalogContains(BrooklynCatalog catalog, CatalogItem<?, ?> item) {
 //        CatalogItem<?, ?> found = catalog.getCatalogItem(item.getSymbolicName(), item.getVersion());
