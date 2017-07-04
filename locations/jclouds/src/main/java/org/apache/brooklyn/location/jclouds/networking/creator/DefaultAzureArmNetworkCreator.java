@@ -26,21 +26,27 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import org.jclouds.azurecompute.arm.AzureComputeApi;
 import org.jclouds.azurecompute.arm.domain.ResourceGroup;
 import org.jclouds.azurecompute.arm.domain.Subnet;
 import org.jclouds.azurecompute.arm.domain.VirtualNetwork;
+import org.jclouds.azurecompute.arm.features.SubnetApi;
+import org.jclouds.azurecompute.arm.features.VirtualNetworkApi;
 import org.jclouds.compute.ComputeService;
 
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.time.CountdownTimer;
+import org.apache.brooklyn.util.time.Duration;
 
 public class DefaultAzureArmNetworkCreator {
 
@@ -49,6 +55,9 @@ public class DefaultAzureArmNetworkCreator {
     private static final String DEFAULT_RESOURCE_GROUP_PREFIX = "brooklyn-default-resource-group";
     private static final String DEFAULT_NETWORK_NAME_PREFIX = "brooklyn-default-network";
     private static final String DEFAULT_SUBNET_NAME_PREFIX = "brooklyn-default-subnet";
+
+    private static final String PROVISIONING_STATE_UPDATING = "Updating";
+    private static final String PROVISIONING_STATE_SUCCEEDED = "Succeeded";
 
     private static final String DEFAULT_VNET_ADDRESS_PREFIX = "10.1.0.0/16";
     private static final String DEFAULT_SUBNET_ADDRESS_PREFIX = "10.1.0.0/24";
@@ -64,29 +73,36 @@ public class DefaultAzureArmNetworkCreator {
             LOG.debug("azure.arm.default.network.enabled is disabled, not creating default network");
             return;
         }
-
+        String location = config.get(CLOUD_REGION_ID);
+        if(StringUtils.isEmpty(location)) {
+            LOG.debug("No region information, so cannot create a default network");
+            return;
+        }
 
         Map<String, Object> templateOptions = config.get(TEMPLATE_OPTIONS);
 
+
         //Only create a default network if we haven't specified a network name (in template options or config) or ip options
         if (config.containsKey(NETWORK_NAME)) {
-            LOG.debug("Network config specified when provisioning Azure machine. Not creating default network");
+            LOG.debug("Network config [{}] specified when provisioning Azure machine. Not creating default network", NETWORK_NAME.getName());
             return;
         }
-        if (templateOptions != null && (templateOptions.containsKey(NETWORK_NAME.getName()) || templateOptions.containsKey("ipOptions"))) {
+        if (templateOptions != null && (templateOptions.containsKey("networks") || templateOptions.containsKey("ipOptions"))) {
             LOG.debug("Network config specified when provisioning Azure machine. Not creating default network");
             return;
         }
 
         AzureComputeApi api = computeService.getContext().unwrapApi(AzureComputeApi.class);
-        String location = config.get(CLOUD_REGION_ID);
 
         String resourceGroupName = DEFAULT_RESOURCE_GROUP_PREFIX  + "-" + location;
         String vnetName = DEFAULT_NETWORK_NAME_PREFIX + "-" + location;
         String subnetName = DEFAULT_SUBNET_NAME_PREFIX + "-" + location;
 
+        SubnetApi subnetApi = api.getSubnetApi(resourceGroupName, vnetName);
+        VirtualNetworkApi virtualNetworkApi = api.getVirtualNetworkApi(resourceGroupName);
+
         //Check if default already exists
-        Subnet preexistingSubnet = api.getSubnetApi(resourceGroupName, vnetName).get(subnetName);
+        Subnet preexistingSubnet = subnetApi.get(subnetName);
         if(preexistingSubnet != null){
             LOG.info("Using pre-existing default Azure network [{}] and subnet [{}] when provisioning machine", 
                     vnetName, subnetName);
@@ -94,27 +110,52 @@ public class DefaultAzureArmNetworkCreator {
             return;
         }
 
-
-        LOG.info("Network config not specified when provisioning Azure machine, and default network/subnet does not exists. "
-                + "Creating network [{}] and subnet [{}], and updating template options", vnetName, subnetName);
-
         createResourceGroupIfNeeded(api, resourceGroupName, location);
 
-        //Setup properties for creating subnet/network
-        Subnet subnet = Subnet.create(subnetName, null, null,
-                Subnet.SubnetProperties.builder().addressPrefix(DEFAULT_SUBNET_ADDRESS_PREFIX).build());
+        Subnet.SubnetProperties subnetProperties = Subnet.SubnetProperties.builder().addressPrefix(DEFAULT_SUBNET_ADDRESS_PREFIX).build();
 
-        VirtualNetwork.VirtualNetworkProperties virtualNetworkProperties = VirtualNetwork.VirtualNetworkProperties
-                .builder().addressSpace(VirtualNetwork.AddressSpace.create(Arrays.asList(DEFAULT_VNET_ADDRESS_PREFIX)))
-                .subnets(Arrays.asList(subnet)).build();
+        //Creating network + subnet if network doesn't exist
+        if(virtualNetworkApi.get(vnetName) == null) {
+            LOG.info("Network config not specified when provisioning Azure machine, and default network/subnet does not exists. "
+                    + "Creating network [{}] and subnet [{}], and updating template options", vnetName, subnetName);
 
-        //Create network
-        api.getVirtualNetworkApi(resourceGroupName).createOrUpdate(vnetName, location, virtualNetworkProperties);
+            Subnet subnet = Subnet.create(subnetName, null, null, subnetProperties);
+
+            VirtualNetwork.VirtualNetworkProperties virtualNetworkProperties = VirtualNetwork.VirtualNetworkProperties
+                    .builder().addressSpace(VirtualNetwork.AddressSpace.create(Arrays.asList(DEFAULT_VNET_ADDRESS_PREFIX)))
+                    .subnets(Arrays.asList(subnet)).build();
+            virtualNetworkApi.createOrUpdate(vnetName, location, virtualNetworkProperties);
+        } else {
+            LOG.info("Network config not specified when provisioning Azure machine, and default subnet does not exists. "
+                    + "Creating subnet [{}] on network [{}], and updating template options", subnetName, vnetName);
+
+            //Just creating the subnet
+            subnetApi.createOrUpdate(subnetName, subnetProperties);
+        }
+
+        //Get created subnet
         Subnet createdSubnet = api.getSubnetApi(resourceGroupName, vnetName).get(subnetName);
+
+        //Wait until subnet is created
+        CountdownTimer timeout = CountdownTimer.newInstanceStarted(Duration.minutes(new Integer(20)));
+        while (PROVISIONING_STATE_UPDATING.equals(createdSubnet.properties().provisioningState())) {
+            if (timeout.isExpired()) {
+                throw new IllegalStateException("Creating subnet " + subnetName + " stuck in the updating state, aborting.");
+            }
+            LOG.debug("Created subnet {} is still in updating state, waiting for it to complete", createdSubnet);
+            Duration.sleep(Duration.ONE_SECOND);
+            createdSubnet = api.getSubnetApi(resourceGroupName, vnetName).get(subnetName);
+        }
+
+        String lastProvisioningState = createdSubnet.properties().provisioningState();
+        if (!lastProvisioningState.equals(PROVISIONING_STATE_SUCCEEDED)) {
+            LOG.debug("Created subnet {} in wrong state, expected state {} but found {}", new Object[] {subnetName, PROVISIONING_STATE_SUCCEEDED, lastProvisioningState});
+            throw new IllegalStateException("Created subnet " + subnetName + " in wrong state, expected state " + PROVISIONING_STATE_SUCCEEDED +
+                    " but found " + lastProvisioningState );
+        }
 
         //Add config
         updateTemplateOptions(config, createdSubnet);
-
     }
 
     private static void updateTemplateOptions(ConfigBag config, Subnet createdSubnet){
@@ -126,10 +167,10 @@ public class DefaultAzureArmNetworkCreator {
             templateOptions = new HashMap<>();
         }
 
-        templateOptions.put("ipOptions", ImmutableMap.of(
+        templateOptions.put("ipOptions", ImmutableList.of(ImmutableMap.of(
                 "allocateNewPublicIp", true, //jclouds will not provide a public IP unless we set this
                 "subnet", createdSubnet.id()
-        ));
+        )));
 
         config.put(TEMPLATE_OPTIONS, templateOptions);
 
