@@ -23,6 +23,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
@@ -36,6 +39,7 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.core.osgi.Osgis;
@@ -280,7 +284,7 @@ class OsgiArchiveInstaller {
             if (result.code!=null) return ReferenceWithError.newInstanceWithoutError(result);
             assert inferredMetadata.isNameResolved() : "Should have resolved "+inferredMetadata;
             assert inferredMetadata instanceof BasicManagedBundle : "Only BasicManagedBundles supported";
-            ((BasicManagedBundle)inferredMetadata).setChecksum(Streams.getMd5Checksum(new FileInputStream(zipFile)));
+            ((BasicManagedBundle)inferredMetadata).setChecksum(getChecksum(new ZipFile(zipFile)));
 
             final boolean updating;
             result.metadata = osgiManager.getManagedBundle(inferredMetadata.getVersionedName());
@@ -310,7 +314,7 @@ class OsgiArchiveInstaller {
                         log.warn("Missing bundle checksum data for "+result+"; assuming bundle replacement is permitted");
                     } else if (!Objects.equal(result.getMetadata().getChecksum(), inferredMetadata.getChecksum())) {
                         throw new IllegalArgumentException("Bundle "+result.getMetadata().getVersionedName()+" already installed; "
-                            + "cannot install a different bundle at a same non-snapshot version");                        
+                            + "cannot install a different bundle at a same non-snapshot version");
                     }
                     result.setIgnoringAlreadyInstalled();
                     return ReferenceWithError.newInstanceWithoutError(result);
@@ -419,6 +423,21 @@ class OsgiArchiveInstaller {
             return ReferenceWithError.newInstanceThrowingError(result, new IllegalStateException(result.message, e));
         } finally {
             close();
+        }
+    }
+
+    private static String getChecksum(ZipFile zf) {
+        // checksum should ignore time/date stamps on files - just look at entries and contents. also ignore order.
+        // (tests fail without time/date is one reason, but really if a person rebuilds a ZIP that is the same 
+        // files we should treat it as identical)
+        try {
+            Map<String,String> entriesToChecksum = MutableMap.of();
+            for (ZipEntry ze: Collections.list(zf.entries())) {
+                entriesToChecksum.put(ze.getName(), Streams.getMd5Checksum(zf.getInputStream(ze)));
+            }
+            return Streams.getMd5Checksum(Streams.newInputStreamWithContents(new TreeMap<>(entriesToChecksum).toString()));
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
         }
     }
 
