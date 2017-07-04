@@ -75,6 +75,7 @@ public interface ActivityApi {
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Could not find task or stream")
     })
+    @Produces(MediaType.TEXT_PLAIN)
     public String stream(
             @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId,
             @ApiParam(value = "Stream ID", required = true) @PathParam("streamId") String streamId);

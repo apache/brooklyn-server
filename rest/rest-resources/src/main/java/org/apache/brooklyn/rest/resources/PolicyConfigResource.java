@@ -77,7 +77,7 @@ public class PolicyConfigResource extends AbstractBrooklynRestResource implement
         ConfigKey<?> ck = policy.getPolicyType().getConfigKey(configKeyName);
         if (ck == null) throw WebResourceUtils.notFound("Cannot find config key '%s' in policy '%s' of entity '%s'", configKeyName, policy, entityToken);
 
-        return getStringValueForDisplay(brooklyn(), policy, policy.getConfig(ck));
+        return (String) WebResourceUtils.getValueForDisplay(mapper(), getStringValueForDisplay(brooklyn(), policy, policy.getConfig(ck)), true, true);
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
