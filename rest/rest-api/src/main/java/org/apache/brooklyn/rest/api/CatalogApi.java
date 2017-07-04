@@ -233,9 +233,10 @@ public interface CatalogApi {
         @ApiParam(name = "allVersions", value = "Include all versions (defaults false, only returning the best version)")
         @QueryParam("allVersions") @DefaultValue("false") boolean includeAllVersions);
 
+    // bad name - it is just templates
     @GET
     @Path("/applications")
-    @ApiOperation(value = "Fetch a list of application templates optionally matching a query", 
+    @ApiOperation(value = "Fetch a list of templates (for applications) optionally matching a query", 
             response = CatalogItemSummary.class,
             responseContainer = "List")
     public List<CatalogItemSummary> listApplications(

@@ -31,6 +31,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
@@ -58,7 +59,6 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
 
     private static final Logger log = LoggerFactory.getLogger(LocationResourceTest.class);
     private String legacyLocationName = "my-jungle-legacy";
-    private String legacyLocationVersion = "0.0.0.SNAPSHOT";
     
     private String locationName = "my-jungle";
     private String locationVersion = "0.1.2";
@@ -81,7 +81,7 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
         log.info("added legacy, at: " + addedLegacyLocationUri);
         LocationSummary location = client().path(response.getLocation()).get(LocationSummary.class);
         log.info(" contents: " + location);
-        assertEquals(location.getSpec(), "brooklyn.catalog:"+legacyLocationName+":"+legacyLocationVersion);
+        assertEquals(location.getSpec(), "brooklyn.catalog:"+legacyLocationName+":"+BasicBrooklynCatalog.NO_VERSION);
         assertTrue(addedLegacyLocationUri.getPath().startsWith("/locations/"));
 
         JcloudsLocation l = (JcloudsLocation) getManagementContext().getLocationRegistry().getLocationManaged(legacyLocationName);
@@ -144,7 +144,7 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
         });
         LocationSummary location = Iterables.getOnlyElement(matching);
         
-        URI expectedLocationUri = URI.create(getEndpointAddress() + "/locations/"+locationName).normalize();
+        URI expectedLocationUri = URI.create(getEndpointAddress() + "/locations/"+locationName+":"+locationVersion).normalize();
         Assert.assertEquals(location.getSpec(), "brooklyn.catalog:"+locationName+":"+locationVersion);
         Assert.assertEquals(location.getLinks().get("self").toString(), expectedLocationUri.getPath());
     }

@@ -22,7 +22,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-import java.awt.*;
+import java.awt.Image;
+import java.awt.Toolkit;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -47,10 +48,13 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.objs.Identifiable;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.EntityPredicates;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.enricher.stock.Aggregator;
@@ -66,6 +70,7 @@ import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
+import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
@@ -93,9 +98,31 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     private static String TEST_VERSION = "0.1.2";
     private static String TEST_LASTEST_VERSION = "0.1.3";
 
+    private Collection<ManagedBundle> initialBundles;
+
     @Override
     protected boolean useLocalScannedCatalog() {
         return true;
+    }
+
+    @Override
+    protected void initClass() throws Exception {
+        super.initClass();
+        // cache initially installed bundles
+        OsgiManager osgi = ((ManagementContextInternal)getManagementContext()).getOsgiManager().get();
+        initialBundles = osgi.getManagedBundles().values();
+    }
+    
+    protected void initMethod() throws Exception {
+        super.initMethod();
+        
+        // and reset OSGi container
+        OsgiManager osgi = ((ManagementContextInternal)getManagementContext()).getOsgiManager().get();
+        for (ManagedBundle b: osgi.getManagedBundles().values()) {
+            if (!initialBundles.contains(b)) {
+                osgi.uninstallUploadedBundle(b);
+            }
+        }
     }
     
     @Test
@@ -167,7 +194,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     public void testRegisterOsgiPolicyTopLevelSyntax() {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
 
-        String symbolicName = "my.catalog.policy.id";
+        String symbolicName = "my.catalog.entity.id."+JavaClassNames.niceClassAndMethod();
         String policyType = "org.apache.brooklyn.test.osgi.entities.SimplePolicy";
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
 
@@ -214,7 +241,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .query("fragment", "vaNIllasOFTWAREpROCESS").get(new GenericType<List<CatalogEntitySummary>>() {});
         assertEquals(entities.size(), 1);
 
-        log.info("RedisCluster-like entities are: " + entities);
+        log.info("MAtching entities are: " + entities);
 
         List<CatalogEntitySummary> entities2 = client().path("/catalog/entities")
                 .query("regex", "[Vv]an.[alS]+oftware\\w+").get(new GenericType<List<CatalogEntitySummary>>() {});
@@ -963,8 +990,11 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         assertEquals(application.getVersion(), TEST_LASTEST_VERSION);
     }
 
-    @Test(dependsOnMethods = {"testGetOnlyLatestApplication"})
+    @Test
     public void testGetOnlyLatestDifferentCases() {
+        // depends on installation of this
+        testGetOnlyLatestApplication();
+        
         String symbolicName = "latest.catalog.application.id";
 
         CatalogItemSummary application = client().path("/catalog/applications/" + symbolicName + "/LaTeSt")
@@ -1018,8 +1048,11 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         assertEquals(application.getVersion(), TEST_LASTEST_VERSION);
     }
 
-    @Test(dependsOnMethods = {"testGetOnlyLatestApplication", "testGetOnlyLatestDifferentCases"})
+    @Test
     public void testDeleteOnlyLatestApplication() throws IOException {
+        // depends on installation of this
+        testGetOnlyLatestApplication();
+
         String symbolicName = "latest.catalog.application.id";
 
         Response deleteResponse = client().path("/catalog/applications/" + symbolicName + "/latest").delete();
@@ -1031,8 +1064,11 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         assertEquals(applications.get(0).getVersion(), TEST_VERSION);
     }
 
-    @Test(dependsOnMethods = {"testGetOnlyLatestEntity"})
+    @Test
     public void testDeleteOnlyLatestEntity() throws IOException {
+        // depends on installation of this
+        testGetOnlyLatestEntity();
+        
         String symbolicName = "latest.catalog.entity.id";
 
         Response deleteResponse = client().path("/catalog/entities/" + symbolicName + "/latest").delete();
@@ -1044,8 +1080,11 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         assertEquals(applications.get(0).getVersion(), TEST_VERSION);
     }
 
-    @Test(dependsOnMethods = {"testGetOnlyLatestPolicy"})
+    @Test
     public void testDeleteOnlyLatestPolicy() throws IOException {
+        // depends on installation of this
+        testGetOnlyLatestPolicy();
+        
         String symbolicName = "latest.catalog.policy.id";
 
         Response deleteResponse = client().path("/catalog/policies/" + symbolicName + "/latest").delete();
@@ -1057,8 +1096,10 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         assertEquals(applications.get(0).getVersion(), TEST_VERSION);
     }
 
-    @Test(dependsOnMethods = {"testGetOnlyLatestLocation"})
+    @Test
     public void testDeleteOnlyLatestLocation() throws IOException {
+        testGetOnlyLatestLocation();
+        
         String symbolicName = "latest.catalog.location.id";
 
         Response deleteResponse = client().path("/catalog/locations/" + symbolicName + "/latest").delete();

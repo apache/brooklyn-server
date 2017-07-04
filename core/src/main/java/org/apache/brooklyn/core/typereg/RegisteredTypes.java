@@ -30,6 +30,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
+import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
@@ -118,6 +119,9 @@ public class RegisteredTypes {
         if (item.getLibraries()!=null) type.bundles.addAll(item.getLibraries());
         // aliases aren't on item
         if (item.tags()!=null) type.tags.addAll(item.tags().getTags());
+        if (item.getCatalogItemType()==CatalogItemType.TEMPLATE) {
+            type.tags.add(BrooklynTags.CATALOG_TEMPLATE);
+        }
 
         // these things from item we ignore: javaType, specType, registeredTypeName ...
         return type;
@@ -456,19 +460,35 @@ public class RegisteredTypes {
 
     public static RegisteredType getBestVersion(Iterable<RegisteredType> types) {
         if (types==null || !types.iterator().hasNext()) return null;
-        return Ordering.from(RegisteredTypeComparator.INSTANCE).max(types);
+        return Ordering.from(RegisteredTypeNameThenBestFirstComparator.INSTANCE).min(types);
     }
     
-    public static class RegisteredTypeComparator implements Comparator<RegisteredType> {
-        public static Comparator<RegisteredType> INSTANCE = new RegisteredTypeComparator();
-        private RegisteredTypeComparator() {}
+    /** by name, then with disabled, deprecated first, then by increasing version */ 
+    public static class RegisteredTypeNameThenWorstFirstComparator implements Comparator<RegisteredType> {
+        public static Comparator<RegisteredType> INSTANCE = new RegisteredTypeNameThenWorstFirstComparator();
+        private RegisteredTypeNameThenWorstFirstComparator() {}
         @Override
         public int compare(RegisteredType o1, RegisteredType o2) {
             return ComparisonChain.start()
+                .compare(o1.getSymbolicName(), o2.getSymbolicName(), NaturalOrderComparator.INSTANCE)
                 .compareTrueFirst(o1.isDisabled(), o2.isDisabled())
                 .compareTrueFirst(o1.isDeprecated(), o2.isDeprecated())
-                .compare(o1.getSymbolicName(), o2.getSymbolicName(), NaturalOrderComparator.INSTANCE)
                 .compare(o1.getVersion(), o2.getVersion(), VersionComparator.INSTANCE)
+                .result();
+        }
+    }
+
+    /** by name, then with disabled, deprecated first, then by increasing version */ 
+    public static class RegisteredTypeNameThenBestFirstComparator implements Comparator<RegisteredType> {
+        public static Comparator<RegisteredType> INSTANCE = new RegisteredTypeNameThenBestFirstComparator();
+        private RegisteredTypeNameThenBestFirstComparator() {}
+        @Override
+        public int compare(RegisteredType o1, RegisteredType o2) {
+            return ComparisonChain.start()
+                .compare(o1.getSymbolicName(), o2.getSymbolicName(), NaturalOrderComparator.INSTANCE)
+                .compareFalseFirst(o1.isDisabled(), o2.isDisabled())
+                .compareFalseFirst(o1.isDeprecated(), o2.isDeprecated())
+                .compare(o2.getVersion(), o1.getVersion(), VersionComparator.INSTANCE)
                 .result();
         }
     }

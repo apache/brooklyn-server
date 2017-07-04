@@ -32,7 +32,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 
@@ -71,7 +75,7 @@ import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.time.Duration;
+import org.apache.cxf.jaxrs.client.WebClient;
 import org.apache.http.HttpHeaders;
 import org.apache.http.entity.ContentType;
 import org.slf4j.Logger;
@@ -86,13 +90,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.core.GenericType;
-import javax.ws.rs.core.MultivaluedHashMap;
-
-import org.apache.cxf.jaxrs.client.WebClient;
 
 @Test(singleThreaded = true,
         // by using a different suite name we disallow interleaving other tests between the methods of this test class, which wrecks the test fixtures
@@ -608,11 +605,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
         String itemVersion = "1.0";
         String serviceType = "org.apache.brooklyn.entity.stock.BasicApplication";
         
-        // Deploy the catalog item
-        addTestCatalogItem(itemSymbolicName, "template", itemVersion, serviceType);
-        List<CatalogEntitySummary> itemSummaries = client().path("/catalog/applications")
-                .query("fragment", itemSymbolicName).query("allVersions", "true").get(new GenericType<List<CatalogEntitySummary>>() {});
-        CatalogItemSummary itemSummary = Iterables.getOnlyElement(itemSummaries);
+        CatalogItemSummary itemSummary = testTemplateItem(itemSymbolicName, itemVersion, serviceType);
         String itemVersionedId = String.format("%s:%s", itemSummary.getSymbolicName(), itemSummary.getVersion());
         assertEquals(itemSummary.getId(), itemVersionedId);
 
@@ -658,6 +651,15 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
             client().path("/catalog/entities/"+itemVersionedId+"/"+itemVersion)
                     .delete();
         }
+    }
+
+    protected CatalogEntitySummary testTemplateItem(String itemSymbolicName, String itemVersion, String serviceType) {
+        // Deploy the catalog item
+        addTestCatalogItem(itemSymbolicName, "template", itemVersion, serviceType);
+        log.info("Types after adding template: "+manager.getTypeRegistry().getAll());
+        List<CatalogEntitySummary> itemSummaries = client().path("/catalog/applications")
+                .query("fragment", itemSymbolicName).query("allVersions", "true").get(new GenericType<List<CatalogEntitySummary>>() {});
+        return Iterables.getOnlyElement(itemSummaries);
     }
 
     private void deprecateCatalogItem(String symbolicName, String version, boolean deprecated) {
