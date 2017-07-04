@@ -45,6 +45,8 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.time.CountdownTimer;
+import org.apache.brooklyn.util.time.Duration;
 
 public class DefaultAzureArmNetworkCreator {
 
@@ -53,6 +55,9 @@ public class DefaultAzureArmNetworkCreator {
     private static final String DEFAULT_RESOURCE_GROUP_PREFIX = "brooklyn-default-resource-group";
     private static final String DEFAULT_NETWORK_NAME_PREFIX = "brooklyn-default-network";
     private static final String DEFAULT_SUBNET_NAME_PREFIX = "brooklyn-default-subnet";
+
+    private static final String PROVISIONING_STATE_UPDATING = "Updating";
+    private static final String PROVISIONING_STATE_SUCCEEDED = "Succeeded";
 
     private static final String DEFAULT_VNET_ADDRESS_PREFIX = "10.1.0.0/16";
     private static final String DEFAULT_SUBNET_ADDRESS_PREFIX = "10.1.0.0/24";
@@ -130,6 +135,24 @@ public class DefaultAzureArmNetworkCreator {
 
         //Get created subnet
         Subnet createdSubnet = api.getSubnetApi(resourceGroupName, vnetName).get(subnetName);
+
+        //Wait until subnet is created
+        CountdownTimer timeout = CountdownTimer.newInstanceStarted(Duration.minutes(new Integer(20)));
+        while (PROVISIONING_STATE_UPDATING.equals(createdSubnet.properties().provisioningState())) {
+            if (timeout.isExpired()) {
+                throw new IllegalStateException("Creating subnet " + subnetName + " stuck in the updating state, aborting.");
+            }
+            LOG.debug("Created subnet {} is still in updating state, waiting for it to complete", createdSubnet);
+            Duration.sleep(Duration.ONE_SECOND);
+            createdSubnet = api.getSubnetApi(resourceGroupName, vnetName).get(subnetName);
+        }
+
+        String lastProvisioningState = createdSubnet.properties().provisioningState();
+        if (!lastProvisioningState.equals(PROVISIONING_STATE_SUCCEEDED)) {
+            LOG.debug("Created subnet {} in wrong state, expected state {} but found {}", new Object[] {subnetName, PROVISIONING_STATE_SUCCEEDED, lastProvisioningState});
+            throw new IllegalStateException("Created subnet " + subnetName + " in wrong state, expected state " + PROVISIONING_STATE_SUCCEEDED +
+                    " but found " + lastProvisioningState );
+        }
 
         //Add config
         updateTemplateOptions(config, createdSubnet);

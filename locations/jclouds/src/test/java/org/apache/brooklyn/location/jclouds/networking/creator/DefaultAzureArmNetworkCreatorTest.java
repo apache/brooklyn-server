@@ -24,6 +24,7 @@ import static org.apache.brooklyn.location.jclouds.api.JcloudsLocationConfigPubl
 import static org.apache.brooklyn.location.jclouds.networking.creator.DefaultAzureArmNetworkCreator.AZURE_ARM_DEFAULT_NETWORK_ENABLED;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -63,7 +64,7 @@ public class DefaultAzureArmNetworkCreatorTest {
     @Mock VirtualNetwork virtualNetwork;
 
     @Mock ResourceGroup resourceGroup;
-    @Mock Subnet subnet;
+    @Mock(answer = org.mockito.Answers.RETURNS_DEEP_STUBS) Subnet subnet;
 
     final String TEST_LOCATION = "test-loc";
     final String TEST_RESOURCE_GROUP = "brooklyn-default-resource-group-" + TEST_LOCATION;
@@ -128,16 +129,17 @@ public class DefaultAzureArmNetworkCreatorTest {
 
         //Setup mocks
         when(subnetApi.get(TEST_SUBNET_NAME)).thenReturn(null).thenReturn(subnet); //null first time, subnet next
-
         when(resourceGroupApi.get(TEST_RESOURCE_GROUP)).thenReturn(null);
+        when(subnet.properties().provisioningState()).thenReturn("Updating").thenReturn("Succeeded");
+
 
 
         //Test
         DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
 
         //verify calls made
-        verify(subnetApi, times(2)).get(TEST_SUBNET_NAME);
         verify(subnet).id();
+        verify(subnetApi, atLeast(2)).get(TEST_SUBNET_NAME);
 
         verify(resourceGroupApi).get(TEST_RESOURCE_GROUP);
         verify(resourceGroupApi).create(eq(TEST_RESOURCE_GROUP), eq(TEST_LOCATION), any());
@@ -162,13 +164,13 @@ public class DefaultAzureArmNetworkCreatorTest {
         //Setup mocks
         when(subnetApi.get(TEST_SUBNET_NAME)).thenReturn(null).thenReturn(subnet); //null first time, subnet next
         when(resourceGroupApi.get(TEST_RESOURCE_GROUP)).thenReturn(resourceGroup);
-
+        when(subnet.properties().provisioningState()).thenReturn("Updating").thenReturn("Succeeded");
 
         //Test
         DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
 
         //verify
-        verify(subnetApi, times(2)).get(TEST_SUBNET_NAME);
+        verify(subnetApi, atLeast(2)).get(TEST_SUBNET_NAME);
         verify(subnet).id();
 
         verify(resourceGroupApi).get(TEST_RESOURCE_GROUP);
@@ -195,14 +197,14 @@ public class DefaultAzureArmNetworkCreatorTest {
         when(subnetApi.get(TEST_SUBNET_NAME)).thenReturn(null).thenReturn(subnet); //null first time, subnet next
         when(virtualNetworkApi.get(TEST_NETWORK_NAME)).thenReturn(virtualNetwork);
         when(resourceGroupApi.get(TEST_RESOURCE_GROUP)).thenReturn(resourceGroup);
-
+        when(subnet.properties().provisioningState()).thenReturn("Updating").thenReturn("Succeeded");
 
         //Test
         DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, configBag);
 
         //verify
-        verify(subnetApi, times(2)).get(TEST_SUBNET_NAME);
         verify(subnetApi).createOrUpdate(eq(TEST_SUBNET_NAME), any());
+        verify(subnetApi, atLeast(2)).get(TEST_SUBNET_NAME);
         verify(subnet).id();
 
         verify(resourceGroupApi).get(TEST_RESOURCE_GROUP);
