@@ -23,39 +23,37 @@ import static org.testng.Assert.assertTrue;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
-import org.apache.brooklyn.api.entity.drivers.DriverDependentEntity;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.core.entity.drivers.RegistryEntityDriverFactory;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.entity.drivers.ReflectiveEntityDriverFactoryTest.MyDriver;
 import org.apache.brooklyn.core.entity.drivers.ReflectiveEntityDriverFactoryTest.MyDriverDependentEntity;
 import org.apache.brooklyn.core.location.SimulatedLocation;
-import org.testng.annotations.AfterMethod;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.util.collections.MutableMap;
 
-public class RegistryEntityDriverFactoryTest {
+public class RegistryEntityDriverFactoryTest extends BrooklynAppUnitTestSupport {
 
     private RegistryEntityDriverFactory factory;
     private SshMachineLocation sshLocation;
     private SimulatedLocation simulatedLocation;
-
+    private MyDriverDependentEntity entity;
+    
     @BeforeMethod
     public void setUp() throws Exception {
+        super.setUp();
         factory = new RegistryEntityDriverFactory();
-        sshLocation = new SshMachineLocation(MutableMap.of("address", "localhost"));
-        simulatedLocation = new SimulatedLocation();
-    }
-
-    @AfterMethod
-    public void tearDown(){
-        // nothing to tear down; no management context created
+        sshLocation = mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
+                .configure("address", "localhost"));
+        simulatedLocation = mgmt.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class));
+        entity = app.addChild(EntitySpec.create(MyDriverDependentEntity.class)
+                .configure(MyDriverDependentEntity.DRIVER_CLASS, MyDriver.class));
     }
 
     @Test
     public void testHasDriver() throws Exception {
-        DriverDependentEntity<MyDriver> entity = new MyDriverDependentEntity<MyDriver>(MyDriver.class);
         factory.registerDriver(MyDriver.class, SshMachineLocation.class, MyOtherSshDriver.class);
         assertTrue(factory.hasDriver(entity, sshLocation));
         assertFalse(factory.hasDriver(entity, simulatedLocation));
@@ -63,9 +61,8 @@ public class RegistryEntityDriverFactoryTest {
 
     @Test
     public void testInstantiatesRegisteredDriver() throws Exception {
-        DriverDependentEntity<MyDriver> entity = new MyDriverDependentEntity<MyDriver>(MyDriver.class);
         factory.registerDriver(MyDriver.class, SshMachineLocation.class, MyOtherSshDriver.class);
-        MyDriver driver = factory.build(entity, sshLocation);
+        MyDriver driver = (MyDriver) factory.build(entity, sshLocation);
         assertTrue(driver instanceof MyOtherSshDriver);
     }
 

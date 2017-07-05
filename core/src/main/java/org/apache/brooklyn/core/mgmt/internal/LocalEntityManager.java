@@ -20,8 +20,6 @@ package org.apache.brooklyn.core.mgmt.internal;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import groovy.util.ObservableList;
-
 import java.lang.reflect.Proxy;
 import java.util.Collection;
 import java.util.Collections;
@@ -105,8 +103,12 @@ public class LocalEntityManager implements EntityManagerInternal {
     /** Management mode for each entity */
     private final Map<String,ManagementTransitionMode> entityModesById = Collections.synchronizedMap(Maps.<String,ManagementTransitionMode>newLinkedHashMap());
 
-    /** Proxies of the managed entities */
-    private final ObservableList entities = new ObservableList();
+    /**
+     * Proxies of the managed entities.
+     * 
+     * Access to this is always done in a synchronized block (synchronizing on `this`).
+     */
+    private final ObservableSet<Entity> entities = new ObservableSet<Entity>();
     
     /** Proxies of the managed entities that are applications */
     private final Set<Application> applications = Sets.newConcurrentHashSet();
@@ -800,12 +802,12 @@ public class LocalEntityManager implements EntityManagerInternal {
     void addEntitySetListener(CollectionChangeListener<Entity> listener) {
         //must notify listener in a different thread to avoid deadlock (issue #378)
         AsyncCollectionChangeAdapter<Entity> wrappedListener = new AsyncCollectionChangeAdapter<Entity>(managementContext.getExecutionManager(), listener);
-        entities.addPropertyChangeListener(new GroovyObservablesPropertyChangeToCollectionChangeAdapter(wrappedListener));
+        entities.addListener(wrappedListener);
     }
 
     void removeEntitySetListener(CollectionChangeListener<Entity> listener) {
         AsyncCollectionChangeAdapter<Entity> wrappedListener = new AsyncCollectionChangeAdapter<Entity>(managementContext.getExecutionManager(), listener);
-        entities.removePropertyChangeListener(new GroovyObservablesPropertyChangeToCollectionChangeAdapter(wrappedListener));
+        entities.removeListener(wrappedListener);
     }
     
     private boolean shouldSkipUnmanagement(Entity e) {

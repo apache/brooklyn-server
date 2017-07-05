@@ -513,8 +513,24 @@
                 <artifactId>cxf-rt-rs-client</artifactId>
                 <version>${cxf.version}</version>
             </dependency>
-        </dependencies>
-    </dependencyManagement>
+			<dependency>
+				<groupId>io.fabric8</groupId>
+				<artifactId>kubernetes-client</artifactId>
+				<version>${kubernetes-client.version}</version>
+				<exclusions>
+					<exclusion>
+						<groupId>com.squareup.okio</groupId>
+						<artifactId>okio</artifactId>
+					</exclusion>
+				</exclusions>
+			</dependency>
+			<dependency>
+				<groupId>io.fabric8</groupId>
+				<artifactId>openshift-client</artifactId>
+				<version>${kubernetes-client.version}</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 
     <build>
         <testSourceDirectory>src/test/java</testSourceDirectory>
@@ -547,7 +563,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.3</version>
+                    <version>3.6.1</version>
                     <configuration>
                         <source>${java.version}</source>
                         <target>${java.version}</target>
@@ -668,7 +684,7 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${surefire.version}</version>
                     <configuration>
-                         <argLine>-Xms768m -Xmx768m -XX:MaxPermSize=256m -verbose:gc -XX:SoftRefLRUPolicyMSPerMB=1</argLine>
+                         <argLine>-Xms768m -Xmx768m -verbose:gc -XX:SoftRefLRUPolicyMSPerMB=1</argLine>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -886,7 +902,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>2.13</version>
+                <version>2.17</version>
                 <executions>
                     <execution>
                         <id>verify-style</id>

@@ -21,52 +21,23 @@ package org.apache.brooklyn.policy.autoscaling;
 import java.util.List;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.api.entity.ImplementedBy;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.trait.Resizable;
-import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.test.entity.TestCluster;
-
-import com.google.common.base.Throwables;
-import com.google.common.collect.Lists;
 
 /**
  * Test class for providing a Resizable LocallyManagedEntity for policy testing
  * It is hooked up to a TestCluster that can be used to make assertions against
  */
-public class LocallyResizableEntity extends AbstractEntity implements Resizable {
-    List<Integer> sizes = Lists.newArrayList();
-    TestCluster cluster;
-    long resizeSleepTime = 0;
+@ImplementedBy(LocallyResizableEntityImpl.class)
+public interface LocallyResizableEntity extends Entity, Resizable {
+    ConfigKey<TestCluster> TEST_CLUSTER = ConfigKeys.newConfigKey(
+            TestCluster.class,
+            "testCluster");
     
-    public LocallyResizableEntity (TestCluster tc) {
-        this(null, tc);
-    }
-    @SuppressWarnings("deprecation")
-    public LocallyResizableEntity (Entity parent, TestCluster tc) {
-        super(parent);
-        this.cluster = tc;
-        sensors().set(Startable.SERVICE_UP, true);
-    }
+    void setResizeSleepTime(long val);
     
-    @Override
-    public Integer resize(Integer newSize) {
-        try {
-            Thread.sleep(resizeSleepTime);
-            sizes.add(newSize); 
-            return cluster.resize(newSize);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
-        }
-    }
-    
-    @Override
-    public Integer getCurrentSize() {
-        return cluster.getCurrentSize();
-    }
-    
-    @Override
-    public String toString() {
-        return getDisplayName();
-    }
+    List<Integer> getSizes();
 }

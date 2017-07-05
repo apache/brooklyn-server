@@ -45,7 +45,9 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.OsgiUtil;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.text.VersionComparator;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.Constants;
 import org.osgi.framework.FrameworkUtil;
@@ -155,7 +157,7 @@ public class BrooklynVersion implements BrooklynVersionService {
 
     @Override
     public boolean isSnapshot() {
-        return (getVersion().indexOf("-SNAPSHOT") >= 0);
+        return VersionComparator.isSnapshot(getVersion());
     }
 
     private void readPropertiesFromMavenResource(ClassLoader resourceLoader) {
@@ -456,5 +458,9 @@ public class BrooklynVersion implements BrooklynVersionService {
             }
             return true;
         }
+    }
+
+    public static String getOsgiVersion() {
+        return BrooklynVersionSyntax.toValidOsgiVersion(get());
     }
 }

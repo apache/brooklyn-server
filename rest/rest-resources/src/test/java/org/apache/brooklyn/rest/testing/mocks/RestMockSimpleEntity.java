@@ -18,9 +18,6 @@
  */
 package org.apache.brooklyn.rest.testing.mocks;
 
-import java.util.Map;
-
-import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.annotation.Effector;
@@ -38,22 +35,6 @@ import org.slf4j.LoggerFactory;
 public class RestMockSimpleEntity extends SoftwareProcessImpl {
 
     private static final Logger log = LoggerFactory.getLogger(RestMockSimpleEntity.class);
-    
-    public RestMockSimpleEntity() {
-        super();
-    }
-
-    public RestMockSimpleEntity(Entity parent) {
-        super(parent);
-    }
-
-    public RestMockSimpleEntity(@SuppressWarnings("rawtypes") Map flags, Entity parent) {
-        super(flags, parent);
-    }
-
-    public RestMockSimpleEntity(@SuppressWarnings("rawtypes") Map flags) {
-        super(flags);
-    }
     
     @Override
     protected void connectSensors() {

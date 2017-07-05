@@ -35,10 +35,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.policy.PolicySpec;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.trait.Resizable;
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestCluster;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -55,7 +54,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-public class AutoScalerPolicyTest {
+public class AutoScalerPolicyTest extends BrooklynAppUnitTestSupport {
 
     private static final Logger log = LoggerFactory.getLogger(AutoScalerPolicyTest.class);
     
@@ -69,16 +68,15 @@ public class AutoScalerPolicyTest {
     AutoScalerPolicy policy;
     TestCluster cluster;
     LocallyResizableEntity resizable;
-    TestApplication app;
     List<Integer> policyResizes = MutableList.of();
     
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
+        super.setUp();
         log.info("resetting "+getClass().getSimpleName());
-        app = TestApplication.Factory.newManagedInstanceForTests();
         cluster = app.createAndManageChild(EntitySpec.create(TestCluster.class).configure(TestCluster.INITIAL_SIZE, 1));
-        resizable = new LocallyResizableEntity(cluster, cluster);
-        Entities.manage(resizable);
+        resizable = cluster.addChild(EntitySpec.create(LocallyResizableEntity.class)
+                .configure(LocallyResizableEntity.TEST_CLUSTER, cluster));
         PolicySpec<AutoScalerPolicy> policySpec = PolicySpec.create(AutoScalerPolicy.class).configure(AutoScalerPolicy.RESIZE_OPERATOR, new ResizeOperator() {
             @Override
             public Integer resize(Entity entity, Integer desiredSize) {
@@ -93,11 +91,14 @@ public class AutoScalerPolicyTest {
 
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
-        if (policy != null) policy.destroy();
-        if (app != null) Entities.destroyAll(app.getManagementContext());
-        cluster = null;
-        resizable = null;
-        policy = null;
+        try {
+            if (policy != null) policy.destroy();
+        } finally {
+            super.tearDown();
+            cluster = null;
+            resizable = null;
+            policy = null;
+        }
     }
 
     public void assertSizeEventually(Integer targetSize) {
@@ -188,20 +189,18 @@ public class AutoScalerPolicyTest {
     @Test
     public void testHasId() throws Exception {
         resizable.policies().remove(policy);
-        policy = AutoScalerPolicy.builder()
+        policy = resizable.policies().add(AutoScalerPolicy.builder()
                 .minPoolSize(2)
-                .build();
-        resizable.policies().add(policy);
+                .buildSpec());
         Assert.assertTrue(policy.getId()!=null);
     }
     
     @Test
     public void testNeverShrinkBelowMinimum() throws Exception {
         resizable.policies().remove(policy);
-        policy = AutoScalerPolicy.builder()
+        policy = resizable.policies().add(AutoScalerPolicy.builder()
                 .minPoolSize(2)
-                .build();
-        resizable.policies().add(policy);
+                .buildSpec());
         
         resizable.resize(4);
         resizable.sensors().emit(AutoScalerPolicy.DEFAULT_POOL_COLD_SENSOR, message(4, 0L, 4*10L, 4*20L));
@@ -213,10 +212,9 @@ public class AutoScalerPolicyTest {
     @Test
     public void testNeverGrowAboveMaximmum() throws Exception {
         resizable.policies().remove(policy);
-        policy = AutoScalerPolicy.builder()
+        policy = resizable.policies().add(AutoScalerPolicy.builder()
                 .maxPoolSize(5)
-                .build();
-        resizable.policies().add(policy);
+                .buildSpec());
         
         resizable.resize(4);
         resizable.sensors().emit(AutoScalerPolicy.DEFAULT_POOL_HOT_SENSOR, message(4, 1000000L, 4*10L, 4*20L));
@@ -236,7 +234,7 @@ public class AutoScalerPolicyTest {
     
     @Test
     public void testNeverShrinkHotPool() throws Exception {
-        resizable.resizeSleepTime = 0;
+        resizable.setResizeSleepTime(0);
         resizable.resize(2);
         resizable.sensors().emit(AutoScalerPolicy.DEFAULT_POOL_HOT_SENSOR, message(2, 0L, 2*10L, 2*20L));
         
@@ -247,7 +245,7 @@ public class AutoScalerPolicyTest {
     
     @Test(groups="Integration")
     public void testConcurrentShrinkShrink() throws Exception {
-        resizable.resizeSleepTime = 250;
+        resizable.setResizeSleepTime(250);
         resizable.resize(4);
         resizable.sensors().emit(AutoScalerPolicy.DEFAULT_POOL_COLD_SENSOR, message(4, 30L, 4*10L, 4*20L));
         // would cause pool to shrink to 3
@@ -260,7 +258,7 @@ public class AutoScalerPolicyTest {
     
     @Test(groups="Integration")
     public void testConcurrentGrowGrow() throws Exception {
-        resizable.resizeSleepTime = 250;
+        resizable.setResizeSleepTime(250);
         resizable.resize(2);
         resizable.sensors().emit(AutoScalerPolicy.DEFAULT_POOL_HOT_SENSOR, message(2, 41L, 2*10L, 2*20L));
         // would cause pool to grow to 3
@@ -273,7 +271,7 @@ public class AutoScalerPolicyTest {
     
     @Test(groups="Integration")
     public void testConcurrentGrowShrink() throws Exception {
-        resizable.resizeSleepTime = 250;
+        resizable.setResizeSleepTime(250);
         resizable.resize(2);
         resizable.sensors().emit(AutoScalerPolicy.DEFAULT_POOL_HOT_SENSOR, message(2, 81L, 2*10L, 2*20L));
         // would cause pool to grow to 5
@@ -286,7 +284,7 @@ public class AutoScalerPolicyTest {
     
     @Test(groups="Integration")
     public void testConcurrentShrinkGrow() throws Exception {
-        resizable.resizeSleepTime = 250;
+        resizable.setResizeSleepTime(250);
         resizable.resize(4);
         resizable.sensors().emit(AutoScalerPolicy.DEFAULT_POOL_COLD_SENSOR, message(4, 1L, 4*10L, 4*20L));
         // would cause pool to shrink to 1
@@ -302,14 +300,14 @@ public class AutoScalerPolicyTest {
     @Test(groups="WIP")
     public void testRepeatedQueuedResizeTakesLatestValueRatherThanIntermediateValues() throws Exception {
         // TODO is this too time sensitive? the resize takes only 250ms so if it finishes before the next emit we'd also see size=2
-        resizable.resizeSleepTime = 500;
+        resizable.setResizeSleepTime(250);
         resizable.resize(4);
         resizable.sensors().emit(AutoScalerPolicy.DEFAULT_POOL_COLD_SENSOR, message(4, 30L, 4*10L, 4*20L)); // shrink to 3
         resizable.sensors().emit(AutoScalerPolicy.DEFAULT_POOL_COLD_SENSOR, message(4, 20L, 4*10L, 4*20L)); // shrink to 2
         resizable.sensors().emit(AutoScalerPolicy.DEFAULT_POOL_COLD_SENSOR, message(4, 10L, 4*10L, 4*20L)); // shrink to 1
         
         Asserts.succeedsEventually(ImmutableMap.of("timeout", TIMEOUT_MS), currentSizeAsserter(resizable, 1));
-        assertEquals(resizable.sizes, ImmutableList.of(4, 3, 1));
+        assertEquals(resizable.getSizes(), ImmutableList.of(4, 3, 1));
     }
     
 
@@ -318,14 +316,13 @@ public class AutoScalerPolicyTest {
         resizable.policies().remove(policy);
         
         final AtomicInteger counter = new AtomicInteger();
-        policy = AutoScalerPolicy.builder()
+        policy = resizable.policies().add(AutoScalerPolicy.builder()
                 .resizeOperator(new ResizeOperator() {
                         @Override public Integer resize(Entity entity, Integer desiredSize) {
                             counter.incrementAndGet();
                             return desiredSize;
                         }})
-                .build();
-        resizable.policies().add(policy);
+                .buildSpec());
         
         resizable.sensors().emit(AutoScalerPolicy.DEFAULT_POOL_HOT_SENSOR, message(1, 21L, 1*10L, 1*20L)); // grow to 2
         
@@ -346,12 +343,11 @@ public class AutoScalerPolicyTest {
         BasicNotificationSensor<Map> customPoolColdSensor = new BasicNotificationSensor<Map>(Map.class, "custom.cold", "");
         @SuppressWarnings("rawtypes")
         BasicNotificationSensor<Map> customPoolOkSensor = new BasicNotificationSensor<Map>(Map.class, "custom.ok", "");
-        policy = AutoScalerPolicy.builder()
+        policy = resizable.policies().add(AutoScalerPolicy.builder()
                 .poolHotSensor(customPoolHotSensor) 
                 .poolColdSensor(customPoolColdSensor)
                 .poolOkSensor(customPoolOkSensor)
-                .build();
-        resizable.policies().add(policy);
+                .buildSpec());
         
         resizable.sensors().emit(customPoolHotSensor, message(1, 21L, 1*10L, 1*20L)); // grow to 2
         Asserts.succeedsEventually(ImmutableMap.of("timeout", TIMEOUT_MS), currentSizeAsserter(resizable, 2));
@@ -366,11 +362,10 @@ public class AutoScalerPolicyTest {
         Duration minPeriodBetweenExecs = Duration.ZERO;
         resizable.policies().remove(policy);
         
-        policy = AutoScalerPolicy.builder()
+        policy = resizable.policies().add(AutoScalerPolicy.builder()
                 .resizeUpStabilizationDelay(Duration.of(resizeUpStabilizationDelay, TimeUnit.MILLISECONDS)) 
                 .minPeriodBetweenExecs(minPeriodBetweenExecs)
-                .build();
-        resizable.policies().add(policy);
+                .buildSpec());
         resizable.resize(1);
         
         // Ignores temporary blip
@@ -381,7 +376,7 @@ public class AutoScalerPolicyTest {
         assertEquals(resizable.getCurrentSize(), (Integer)1);
         Asserts.succeedsContinually(MutableMap.of("duration", 2000L), new Runnable() {
                 @Override public void run() {
-                    assertEquals(resizable.sizes, ImmutableList.of(1));
+                    assertEquals(resizable.getSizes(), ImmutableList.of(1));
                 }});
     }
 
@@ -410,11 +405,10 @@ public class AutoScalerPolicyTest {
         Duration minPeriodBetweenExecs = Duration.ZERO;
         resizable.policies().remove(policy);
         
-        policy = AutoScalerPolicy.builder()
+        policy = resizable.policies().add(AutoScalerPolicy.builder()
                 .resizeUpStabilizationDelay(Duration.of(resizeUpStabilizationDelay, TimeUnit.MILLISECONDS)) 
                 .minPeriodBetweenExecs(minPeriodBetweenExecs)
-                .build();
-        resizable.policies().add(policy);
+                .buildSpec());
         resizable.resize(1);
         
         // Will grow to only the max sustained in this time window 
@@ -494,11 +488,10 @@ public class AutoScalerPolicyTest {
         Duration minPeriodBetweenExecs = Duration.ZERO;
         resizable.policies().remove(policy);
         
-        policy = AutoScalerPolicy.builder()
+        policy = resizable.policies().add(AutoScalerPolicy.builder()
                 .resizeDownStabilizationDelay(Duration.of(resizeStabilizationDelay, TimeUnit.MILLISECONDS)) 
                 .minPeriodBetweenExecs(minPeriodBetweenExecs)
-                .build();
-        resizable.policies().add(policy);
+                .buildSpec());
         resizable.resize(2);
         
         // Ignores temporary blip
@@ -510,7 +503,7 @@ public class AutoScalerPolicyTest {
         Asserts.succeedsContinually(MutableMap.of("duration", 2000L), new Runnable() {
                 @Override
                 public void run() {
-                    assertEquals(resizable.sizes, ImmutableList.of(2));
+                    assertEquals(resizable.getSizes(), ImmutableList.of(2));
                 }});
     }
 
@@ -532,11 +525,10 @@ public class AutoScalerPolicyTest {
         policy.suspend();
         resizable.policies().remove(policy);
         
-        policy = AutoScalerPolicy.builder()
+        policy = resizable.policies().add(AutoScalerPolicy.builder()
                 .resizeDownStabilizationDelay(Duration.of(resizeDownStabilizationDelay, TimeUnit.MILLISECONDS))
                 .minPeriodBetweenExecs(minPeriodBetweenExecs)
-                .build();
-        resizable.policies().add(policy);
+                .buildSpec());
         resizable.resize(3);
         
         // Will shrink to only the min sustained in this time window
@@ -583,11 +575,10 @@ public class AutoScalerPolicyTest {
         Duration minPeriodBetweenExecs = Duration.ZERO;
         resizable.policies().remove(policy);
         
-        policy = AutoScalerPolicy.builder()
+        policy = resizable.policies().add(AutoScalerPolicy.builder()
                 .resizeDownStabilizationDelay(Duration.of(resizeDownStabilizationDelay, TimeUnit.MILLISECONDS))
                 .minPeriodBetweenExecs(minPeriodBetweenExecs)
-                .build();
-        resizable.policies().add(policy);
+                .buildSpec());
         resizable.resize(2);
         
         // After suitable delay, grows to desired

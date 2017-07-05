@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.render.RendererHints;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.rest.domain.EnricherConfigSummary;
 import org.apache.brooklyn.rest.domain.EntityConfigSummary;
 import org.apache.brooklyn.rest.domain.EntitySummary;
@@ -90,19 +91,15 @@ public class EntityTransformer {
                 .put("spec", URI.create(entityUri + "/spec"))
             ;
 
-        if (entity.getIconUrl()!=null)
+        if (RegisteredTypes.getIconUrl(entity)!=null)
             lb.put("iconUrl", URI.create(entityUri + "/icon"));
 
         if (entity.getCatalogItemId() != null) {
             String versionedId = entity.getCatalogItemId();
             URI catalogUri;
-            if (CatalogUtils.looksLikeVersionedId(versionedId)) {
-                String symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(versionedId);
-                String version = CatalogUtils.getVersionFromVersionedId(versionedId);
-                catalogUri = serviceUriBuilder(ub, CatalogApi.class, "getEntity").build(symbolicName, version);
-            } else {
-                catalogUri = serviceUriBuilder(ub, CatalogApi.class, "getEntity_0_7_0").build(versionedId);
-            }
+            String symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(versionedId);
+            String version = CatalogUtils.getVersionFromVersionedId(versionedId);
+            catalogUri = serviceUriBuilder(ub, CatalogApi.class, "getEntity").build(symbolicName, version);
             lb.put("catalog", catalogUri);
         }
 

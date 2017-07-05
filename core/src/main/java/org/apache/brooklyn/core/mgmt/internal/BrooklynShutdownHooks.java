@@ -18,11 +18,8 @@
  */
 package org.apache.brooklyn.core.mgmt.internal;
 
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicBoolean;
-
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -40,8 +37,10 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Lists;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BrooklynShutdownHooks {
 
@@ -97,6 +96,17 @@ public class BrooklynShutdownHooks {
             
         } catch (Exception e) {
             throw Exceptions.propagate(e);
+        }
+    }
+
+    public static void resetShutdownFlag() {
+        try {
+            semaphore.acquire();
+            isShutDown.compareAndSet(true, false);
+        } catch (InterruptedException e) {
+            throw new IllegalStateException("Could not reset shutdown flag", e);
+        } finally {
+            semaphore.release();
         }
     }
 

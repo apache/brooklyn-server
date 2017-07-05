@@ -24,6 +24,7 @@ import java.util.LinkedList;
 import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.config.ConfigKey;
@@ -97,23 +98,24 @@ public class RollingTimeWindowMeanEnricher<T extends Number> extends AbstractTyp
     public RollingTimeWindowMeanEnricher() { // for rebinding
     }
 
+    /**
+     * @deprecated since 0.12.0; use {@link EnricherSpec}
+     */
+    @Deprecated
     public RollingTimeWindowMeanEnricher(Entity producer, AttributeSensor<T> source, 
         AttributeSensor<Double> target, Duration timePeriod) {
         super(producer, source, target);
         this.timePeriod = Preconditions.checkNotNull(timePeriod, "timePeriod");
-        
-        if (source!=null && target!=null)
-            this.uniqueTag = JavaClassNames.simpleClassName(getClass())+":"+source.getName()+"/"+timePeriod+"->"+target.getName();
     }
 
-    /** @deprecated since 0.6.0 use Duration parameter rather than long with millis */
-    @Deprecated
-    public RollingTimeWindowMeanEnricher(Entity producer, AttributeSensor<T> source, 
-            AttributeSensor<Double> target, long timePeriod) {
-        this(producer, source, target, Duration.millis(timePeriod));
+    @Override
+    public void init() {
+        super.init();
+        if (uniqueTag == null && source != null && target != null) {
+            uniqueTag = JavaClassNames.simpleClassName(getClass())+":"+source.getName()+"/"+timePeriod+"->"+target.getName();
+        }
     }
-
-
+    
     @Override
     public void onEvent(SensorEvent<T> event) {
         onEvent(event, event.getTimestamp());

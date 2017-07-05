@@ -40,9 +40,10 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
@@ -324,7 +325,7 @@ public class Enrichers {
 
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .omitNullValues()
                     .add("aggregating", aggregating)
                     .add("keySensor", keySensor)
@@ -426,7 +427,7 @@ public class Enrichers {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .omitNullValues()
                     .add("combining", combining)
                     .add("publishing", publishing)
@@ -485,7 +486,7 @@ public class Enrichers {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .omitNullValues()
                     .add("publishing", publishing)
                     .add("transforming", transforming)
@@ -569,7 +570,7 @@ public class Enrichers {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .omitNullValues()
                     .add("fromEntity", fromEntity)
                     .add("fromEntitySupplier", fromEntitySupplier)
@@ -629,7 +630,7 @@ public class Enrichers {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .omitNullValues()
                     .add("publishing", targetSensor)
                     .add("fromSensor", fromSensor)
@@ -705,7 +706,7 @@ public class Enrichers {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .omitNullValues()
                     .add("publishing", publishing)
                     .add("transforming", transforming)

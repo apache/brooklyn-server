@@ -19,19 +19,19 @@
 package org.apache.brooklyn.feed.windows;
 
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
-import org.apache.brooklyn.core.mgmt.rebind.RebindAbstractCommandFeedTest;
+import org.apache.brooklyn.core.mgmt.rebind.AbstractRebindHistoricTest;
 import org.testng.annotations.Test;
 
-public class RebindWinrmCmdFeedTest extends RebindAbstractCommandFeedTest {
+public class RebindWinrmCmdFeedTest extends AbstractRebindHistoricTest {
 
     @Test
-    public void testSshFeed_2017_04() throws Exception {
+    public void testWinrmCmdFeed_2017_04() throws Exception {
         addMemento(BrooklynObjectType.FEED, "winrm-cmd-feed", "a8pno3muco");
         rebind();
     }
 
     @Test
-    public void testSshFeed_2017_04_withoutBundlePrefixes() throws Exception {
+    public void testWinrmCmdFeed_2017_04_withoutBundlePrefixes() throws Exception {
         addMemento(BrooklynObjectType.FEED, "winrm-cmd-feed-no-bundle-prefixes", "akc24nlh2k");
         rebind();
     }

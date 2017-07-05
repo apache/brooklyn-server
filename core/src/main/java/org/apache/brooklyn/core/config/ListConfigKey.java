@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.config;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,6 +31,8 @@ import org.apache.brooklyn.core.internal.storage.impl.ConcurrentMapAcceptingNull
 import org.apache.brooklyn.util.collections.MutableList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.reflect.TypeToken;
 
 /** A config key representing a list of values. 
  * If a value is set on this key, it is _added_ to the list.
@@ -53,12 +57,59 @@ import org.slf4j.LoggerFactory;
  */
 //TODO Create interface
 @Deprecated
-public class ListConfigKey<V> extends AbstractCollectionConfigKey<List<? extends V>,List<Object>,V> {
+public class ListConfigKey<V> extends AbstractCollectionConfigKey<List<V>,List<Object>,V> {
 
     private static final long serialVersionUID = 751024268729803210L;
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ListConfigKey.class);
     
+    public static class Builder<V> extends BasicConfigKey.Builder<List<V>,Builder<V>> {
+        protected Class<V> subType;
+        
+        public Builder(TypeToken<V> subType, String name) {
+            super(new TypeToken<List<V>>() {}, name);
+            this.subType = (Class<V>) subType.getRawType();
+        }
+        public Builder(Class<V> subType, String name) {
+            super(new TypeToken<List<V>>() {}, name);
+            this.subType = checkNotNull(subType, "subType");
+        }
+        public Builder(ListConfigKey<V> key) {
+            this(key.getName(), key);
+        }
+        public Builder(String newName, ListConfigKey<V> key) {
+            super(newName, key);
+            subType = key.subType;
+        }
+        @Override
+        public Builder<V> self() {
+            return this;
+        }
+        @Override
+        @Deprecated
+        public Builder<V> name(String val) {
+            throw new UnsupportedOperationException("Builder must be constructed with name");
+        }
+        @Override
+        @Deprecated
+        public Builder<V> type(Class<List<V>> val) {
+            throw new UnsupportedOperationException("Builder must be constructed with type");
+        }
+        @Override
+        @Deprecated
+        public Builder<V> type(TypeToken<List<V>> val) {
+            throw new UnsupportedOperationException("Builder must be constructed with type");
+        }
+        @Override
+        public ListConfigKey<V> build() {
+            return new ListConfigKey<V>(this);
+        }
+    }
+
+    public ListConfigKey(Builder<V> builder) {
+        super(builder, builder.subType);
+    }
+
     public ListConfigKey(Class<V> subType, String name) {
         this(subType, name, name, null);
     }

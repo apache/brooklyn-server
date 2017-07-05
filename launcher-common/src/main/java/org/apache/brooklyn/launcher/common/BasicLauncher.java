@@ -45,7 +45,6 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
@@ -105,9 +104,7 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
     private final List<String> locationSpecs = new ArrayList<String>();
     private final List<Location> locations = new ArrayList<Location>();
 
-    private final List<Application> appsToManage = new ArrayList<Application>();
-    @SuppressWarnings("deprecation") // TODO convert to EntitySpec; should be easy when users not allowed to pass in a builder
-    private final List<org.apache.brooklyn.core.entity.factory.ApplicationBuilder> appBuildersToManage = new ArrayList<org.apache.brooklyn.core.entity.factory.ApplicationBuilder>();
+    private final List<EntitySpec<? extends Application>> appSpecsToManage = new ArrayList<>();
     private final List<String> yamlAppsToManage = new ArrayList<String>();
     private final List<Application> apps = new ArrayList<Application>();
     
@@ -144,54 +141,13 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
     }
 
     /** 
-     * Specifies that the launcher should manage the given Brooklyn application.
-     * The application must not yet be managed. 
-     * The application will not be started as part of this call (callers can
-     * subsequently call {@link #start()} or {@link #getApplications()}.
-     * 
-     * @see #application(ApplicationBuilder)
-     * 
-     * @deprecated since 0.9.0; instead use {@link #application(String)} for YAML apps, or {@link #application(EntitySpec)}.
-     *             Note that apps are now auto-managed on construction through EntitySpec/YAML.
-     */
-    @Deprecated
-    public T application(Application app) {
-        if (Entities.isManaged(app)) throw new IllegalArgumentException("Application must not already be managed");
-        appsToManage.add(checkNotNull(app, "app"));
-        return self();
-    }
-
-    /** 
-     * Specifies that the launcher should build and manage the given Brooklyn application.
-     * The application must not yet be managed. 
-     * The application will not be started as part of this call (callers can
-     * subsequently call {@link #start()} or {@link #getApplications()}.
-     * 
-     * @see #application(EntitySpec)
-     * 
-     * @deprecated since 0.9.0; instead use {@link #application(String)} for YAML apps, or {@link #application(EntitySpec)}.
-     *             Note that apps are now auto-managed on construction through EntitySpec/YAML.
-     */
-    @Deprecated
-    public T application(org.apache.brooklyn.core.entity.factory.ApplicationBuilder appBuilder) {
-        LOG.warn("Caller supplied ApplicationBuilder; convert to EntitySpec as this style builder may not be supported in future.");
-        appBuildersToManage.add(checkNotNull(appBuilder, "appBuilder"));
-        return self();
-    }
-
-    /** 
      * Specifies that the launcher should build and manage the Brooklyn application
      * described by the given spec.
      * The application will not be started as part of this call (callers can
      * subsequently call {@link #start()} or {@link #getApplications()}.
-     * 
-     * @see #application(Application)
      */
-    @SuppressWarnings("deprecation")  // when appsToManage is EntitySpec this will no longer be needed
-    public T application(EntitySpec<? extends StartableApplication> appSpec) {
-        appBuildersToManage.add(new org.apache.brooklyn.core.entity.factory.ApplicationBuilder(checkNotNull(appSpec, "appSpec")) {
-                @Override protected void doBuild() {
-                }});
+    public T application(EntitySpec<? extends Application> appSpec) {
+        appSpecsToManage.add(appSpec);
         return self();
     }
 
@@ -671,14 +627,9 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
         rebindManager.startPersistence();
     }
 
-    @SuppressWarnings("deprecation")
     protected void createApps() {
-        for (org.apache.brooklyn.core.entity.factory.ApplicationBuilder appBuilder : appBuildersToManage) {
-            StartableApplication app = appBuilder.manage(managementContext);
-            apps.add(app);
-        }
-        for (Application app : appsToManage) {
-            Entities.startManagement(app, managementContext);
+        for (EntitySpec<? extends Application> spec : appSpecsToManage) {
+            Application app = managementContext.getEntityManager().createEntity(spec);
             apps.add(app);
         }
         for (String blueprint : yamlAppsToManage) {

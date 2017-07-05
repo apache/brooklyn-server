@@ -24,9 +24,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Stack;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.effector.Effector;
@@ -49,9 +47,7 @@ import org.apache.brooklyn.core.effector.BasicParameterType;
 import org.apache.brooklyn.core.effector.EffectorAndBody;
 import org.apache.brooklyn.core.effector.EffectorTasks.EffectorBodyTaskFactory;
 import org.apache.brooklyn.core.effector.EffectorTasks.EffectorTaskFactory;
-import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
-import org.apache.brooklyn.core.mgmt.classloading.ClassLoaderFromBrooklynClassLoadingContext;
-import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
+import org.apache.brooklyn.core.mgmt.classloading.ClassLoaderFromStackOfBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicCatalogItemMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicEnricherMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicEntityMemento;
@@ -59,17 +55,13 @@ import org.apache.brooklyn.core.mgmt.rebind.dto.BasicFeedMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicLocationMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicManagedBundleMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicPolicyMemento;
-import org.apache.brooklyn.core.mgmt.rebind.dto.MutableBrooklynMemento;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
-import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.xstream.XmlSerializer;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.thoughtworks.xstream.converters.Converter;
 import com.thoughtworks.xstream.converters.MarshallingContext;
 import com.thoughtworks.xstream.converters.SingleValueConverter;
@@ -79,7 +71,6 @@ import com.thoughtworks.xstream.core.ReferencingMarshallingContext;
 import com.thoughtworks.xstream.io.HierarchicalStreamReader;
 import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
 import com.thoughtworks.xstream.io.path.PathTrackingReader;
-import com.thoughtworks.xstream.mapper.CannotResolveClassException;
 import com.thoughtworks.xstream.mapper.Mapper;
 import com.thoughtworks.xstream.mapper.MapperWrapper;
 
@@ -91,7 +82,7 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
 
     private static final Logger LOG = LoggerFactory.getLogger(XmlMementoSerializer.class);
 
-    private final OsgiClassLoader delegatingClassLoader;
+    private final ClassLoaderFromStackOfBrooklynClassLoadingContext delegatingClassLoader;
     private LookupContext lookupContext;
     
     public XmlMementoSerializer(ClassLoader classLoader) {
@@ -99,9 +90,8 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
     }
     
     public XmlMementoSerializer(ClassLoader classLoader, Map<String, String> deserializingClassRenames) {
-        super(deserializingClassRenames);
-        this.delegatingClassLoader = new OsgiClassLoader(classLoader);
-        xstream.setClassLoader(this.delegatingClassLoader);
+        super(new ClassLoaderFromStackOfBrooklynClassLoadingContext(classLoader), deserializingClassRenames);
+        this.delegatingClassLoader = (ClassLoaderFromStackOfBrooklynClassLoadingContext) xstream.getClassLoader();
         
         xstream.alias("entity", BasicEntityMemento.class);
         xstream.alias("location", BasicLocationMemento.class);
@@ -137,14 +127,20 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
     
         //For compatibility with existing persistence stores content.
         xstream.aliasField("registeredTypeName", BasicCatalogItemMemento.class, "symbolicName");
+        configureXstreamWithDeprecatedItems();
+    }
+
+    @SuppressWarnings("deprecation")
+    private void configureXstreamWithDeprecatedItems() {
         xstream.registerLocalConverter(BasicCatalogItemMemento.class, "libraries", new CatalogItemLibrariesConverter());
     }
     
-    // Warning: this is called in the super-class constructor, so before this constructor!
+    // Warning: this is called in the super-class constructor, so before this constructor -
+    // most fields will not be set, including "xstream" (use a supplier if you need to)
+    // See comment on superclass method.
     @Override
     protected MapperWrapper wrapMapperForNormalUsage(Mapper next) {
         MapperWrapper mapper = super.wrapMapperForNormalUsage(next);
-        mapper = new OsgiClassnameMapper(mapper);
         mapper = new CustomMapper(mapper, Entity.class, "entityProxy");
         mapper = new CustomMapper(mapper, Location.class, "locationProxy");
         mapper = new UnwantedStateLoggingMapper(mapper);
@@ -178,7 +174,7 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
      * 
      * @author aled
      */
-    public class CustomMapper extends MapperWrapper {
+    public static class CustomMapper extends MapperWrapper {
         private final Class<?> clazz;
         private final String alias;
 
@@ -362,9 +358,9 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
     // Perhaps context.getRequiredType(); can be used instead?
     // Other users of xstream (e.g. jenkinsci) manually check for resoved-to and class attributes
     //   for compatibility with older versions of xstream
-    private static Class readClassType(HierarchicalStreamReader reader, Mapper mapper) {
+    private static Class<?> readClassType(HierarchicalStreamReader reader, Mapper mapper) {
         String classAttribute = readClassAttribute(reader, mapper);
-        Class type;
+        Class<?> type;
         if (classAttribute == null) {
             type = mapper.realClass(reader.getNodeName());
         } else {
@@ -400,47 +396,6 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         }
     }
 
-    public class OsgiClassnameMapper extends MapperWrapper {
-        private final OsgiClassPrefixer prefixer;
-        
-        OsgiClassnameMapper(MapperWrapper mapper) {
-            super(mapper);
-            prefixer = new OsgiClassPrefixer();
-        }
-        
-        @Override
-        public String serializedClass(Class type) {
-            // TODO What if previous stages have already renamed it?
-            // For example the "outer class renaming stuff"?!
-            String superResult = super.serializedClass(type);
-            if (type != null && type.getName().equals(superResult)) {
-                Optional<String> prefix = prefixer.getPrefix(type);
-                if (prefix.isPresent()) {
-                    return prefix.get() + superResult;
-                }
-            }
-            return superResult;
-        }
-        
-        @Override
-        public Class realClass(String elementName) {
-            CannotResolveClassException tothrow;
-            try {
-                return super.realClass(elementName);
-            } catch (CannotResolveClassException e) {
-                tothrow = e;
-            }
-
-            // Class.forName(elementName, false, classLader) does not seem to like us returned a 
-            // class whose name does not match that passed in. Therefore fallback to using loadClass.
-            try {
-                return xstream.getClassLoaderReference().getReference().loadClass(elementName);
-            } catch (ClassNotFoundException e) {
-                throw new CannotResolveClassException(elementName + " via loadClass", tothrow);
-            }
-        }
-    }
-    
     /** When reading/writing specs, it checks whether there is a catalog item id set and uses it to load */
     public class SpecConverter extends ReflectionConverter {
         SpecConverter() {
@@ -493,7 +448,7 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
                     RegisteredType cat = lookupContext.lookupManagementContext().getTypeRegistry().get(catalogItemId);
                     if (cat==null) throw new NoSuchElementException("catalog item: "+catalogItemId);
                     BrooklynClassLoadingContext clcNew = CatalogUtils.newClassLoadingContext(lookupContext.lookupManagementContext(), cat);
-                    delegatingClassLoader.pushXstreamCustomClassLoader(clcNew);
+                    delegatingClassLoader.pushClassLoadingContext(clcNew);
                     customLoaderSet = true;
                 }
                 
@@ -504,7 +459,7 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
             } finally {
                 context.put("SpecConverter.instance", null);
                 if (customLoaderSet) {
-                    delegatingClassLoader.popXstreamCustomClassLoader();
+                    delegatingClassLoader.popClassLoadingContext();
                 }
             }
         }
@@ -525,98 +480,6 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         protected void instantiateNewInstanceSettingCache(HierarchicalStreamReader reader, UnmarshallingContext context) {
             Object instance = super.instantiateNewInstance(reader, context);
             context.put("SpecConverter.instance", instance);
-        }
-    }
-    
-    @VisibleForTesting
-    static class OsgiClassLoader extends ClassLoader {
-        private final Stack<BrooklynClassLoadingContext> contexts = new Stack<BrooklynClassLoadingContext>();
-        private final Stack<ClassLoader> cls = new Stack<ClassLoader>();
-        private final AtomicReference<Thread> xstreamLockOwner = new AtomicReference<Thread>();
-        private ManagementContext mgmt;
-        private ClassLoader currentClassLoader;
-        private AtomicReference<ClassLoaderUtils> currentLoader = new AtomicReference<>();
-        private int lockCount;
-        
-        protected OsgiClassLoader(ClassLoader classLoader) {
-            setCurrentClassLoader(classLoader);
-        }
-        
-        protected void setManagementContext(ManagementContext mgmt) {
-            this.mgmt = checkNotNull(mgmt, "mgmt");
-            currentLoader.set(new ClassLoaderUtils(currentClassLoader, mgmt));
-        }
-
-        @Override
-        protected Class<?> findClass(String name) throws ClassNotFoundException {
-            return currentLoader.get().loadClass(name);
-        }
-
-        /** Must be accompanied by a corresponding {@link #popXstreamCustomClassLoader()} when finished. */
-        @SuppressWarnings("deprecation")
-        protected void pushXstreamCustomClassLoader(BrooklynClassLoadingContext clcNew) {
-            acquireXstreamLock();
-            BrooklynClassLoadingContext oldClc;
-            if (!contexts.isEmpty()) {
-                oldClc = contexts.peek();
-            } else {
-                // TODO XmlMementoSerializer should take a BCLC instead of a CL
-                oldClc = JavaBrooklynClassLoadingContext.create(mgmt, getCurrentClassLoader());
-            }
-            BrooklynClassLoadingContextSequential clcMerged = new BrooklynClassLoadingContextSequential(mgmt, oldClc, clcNew);
-            ClassLoader newCL = ClassLoaderFromBrooklynClassLoadingContext.of(clcMerged);
-            contexts.push(clcMerged);
-            cls.push(getCurrentClassLoader());
-            setCurrentClassLoader(newCL);
-        }
-
-        protected void popXstreamCustomClassLoader() {
-            synchronized (xstreamLockOwner) {
-                releaseXstreamLock();
-                setCurrentClassLoader(cls.pop());
-                contexts.pop();
-            }
-        }
-        
-        private ClassLoader getCurrentClassLoader() {
-            return currentClassLoader;
-        }
-        
-        private void setCurrentClassLoader(ClassLoader classLoader) {
-            currentClassLoader = checkNotNull(classLoader);
-            currentLoader.set(new ClassLoaderUtils(currentClassLoader, mgmt));
-        }
-        
-        protected void acquireXstreamLock() {
-            synchronized (xstreamLockOwner) {
-                while (true) {
-                    if (xstreamLockOwner.compareAndSet(null, Thread.currentThread()) || 
-                        Thread.currentThread().equals( xstreamLockOwner.get() )) {
-                        break;
-                    }
-                    try {
-                        xstreamLockOwner.wait(1000);
-                    } catch (InterruptedException e) {
-                        throw Exceptions.propagate(e);
-                    }
-                }
-                lockCount++;
-            }
-        }
-
-        protected void releaseXstreamLock() {
-            synchronized (xstreamLockOwner) {
-                if (lockCount<=0) {
-                    throw new IllegalStateException("xstream not locked");
-                }
-                if (--lockCount == 0) {
-                    if (!xstreamLockOwner.compareAndSet(Thread.currentThread(), null)) {
-                        Thread oldOwner = xstreamLockOwner.getAndSet(null);
-                        throw new IllegalStateException("xstream was locked by "+oldOwner+" but unlock attempt by "+Thread.currentThread());
-                    }
-                    xstreamLockOwner.notifyAll();
-                }
-            }
         }
     }
 }

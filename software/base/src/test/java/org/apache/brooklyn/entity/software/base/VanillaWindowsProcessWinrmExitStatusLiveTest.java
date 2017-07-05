@@ -26,7 +26,6 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -83,7 +82,7 @@ public class VanillaWindowsProcessWinrmExitStatusLiveTest {
     public void setUp() throws Exception {
         EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class)
                 .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true);
-        app = ApplicationBuilder.newManagedApp(appSpec, mgmt);
+        app = mgmt.getEntityManager().createEntity(appSpec);
     }
 
     @AfterMethod(alwaysRun=true)

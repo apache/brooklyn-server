@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import javax.xml.ws.WebServiceException;
 
+import com.google.common.primitives.Ints;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -79,6 +80,7 @@ import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.jclouds.JcloudsBlobStoreBasedObjectStore;
 import org.apache.brooklyn.location.jclouds.api.JcloudsLocationPublic;
 import org.apache.brooklyn.location.jclouds.networking.JcloudsPortForwarderExtension;
+import org.apache.brooklyn.location.jclouds.networking.creator.DefaultAzureArmNetworkCreator;
 import org.apache.brooklyn.location.jclouds.templates.PortableTemplateBuilder;
 import org.apache.brooklyn.location.jclouds.templates.customize.TemplateBuilderCustomizer;
 import org.apache.brooklyn.location.jclouds.templates.customize.TemplateBuilderCustomizers;
@@ -159,6 +161,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -201,7 +204,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     private static final int NOTES_MAX_LENGTH = 1000;
 
     @VisibleForTesting
-    static final String AWS_VPC_HELP_URL = "http://brooklyn.apache.org/v/latest/ops/locations/index.html#ec2-classic-problems-with-vpc-only-hardware-instance-types";
+    static final String AWS_VPC_HELP_URL = "http://brooklyn.apache.org/v/latest/locations/#ec2-classic-problems-with-vpc-only-hardware-instance-types";
 
     private final AtomicBoolean listedAvailableTemplatesOnNoSuchTemplate = new AtomicBoolean(false);
 
@@ -210,7 +213,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     @SetFromFlag // so it's persisted
     private final Map<MachineLocation,String> vmInstanceIds = Maps.newLinkedHashMap();
 
-    static { Networking.init(); }
+    static {
+        Networking.init();
+    }
 
     public JcloudsLocation() {
         super();
@@ -283,7 +288,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     @Override
     public String toVerboseString() {
-        return Objects.toStringHelper(this).omitNullValues()
+        return MoreObjects.toStringHelper(this).omitNullValues()
                 .add("id", getId()).add("name", getDisplayName()).add("identity", getIdentity())
                 .add("description", config().getLocalBag().getDescription()).add("provider", getProvider())
                 .add("region", getRegion()).add("endpoint", getEndpoint())
@@ -388,45 +393,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     public Collection<JcloudsLocationCustomizer> getCustomizers(ConfigBag setup) {
-        @SuppressWarnings("deprecation")
-        JcloudsLocationCustomizer customizer = setup.get(JCLOUDS_LOCATION_CUSTOMIZER);
-        Collection<JcloudsLocationCustomizer> customizers = setup.get(JCLOUDS_LOCATION_CUSTOMIZERS);
-        @SuppressWarnings("deprecation")
-        String customizerType = setup.get(JCLOUDS_LOCATION_CUSTOMIZER_TYPE);
-        @SuppressWarnings("deprecation")
-        String customizersSupplierType = setup.get(JCLOUDS_LOCATION_CUSTOMIZERS_SUPPLIER_TYPE);
-
-        ClassLoader catalogClassLoader = getManagementContext().getCatalogClassLoader();
-        List<JcloudsLocationCustomizer> result = new ArrayList<JcloudsLocationCustomizer>();
-        if (customizer != null) result.add(customizer);
-        if (customizers != null) result.addAll(customizers);
-        if (Strings.isNonBlank(customizerType)) {
-            Maybe<JcloudsLocationCustomizer> customizerByType = Reflections.invokeConstructorFromArgs(catalogClassLoader, JcloudsLocationCustomizer.class, customizerType, setup);
-            if (customizerByType.isPresent()) {
-                result.add(customizerByType.get());
-            } else {
-                customizerByType = Reflections.invokeConstructorFromArgs(catalogClassLoader, JcloudsLocationCustomizer.class, customizerType);
-                if (customizerByType.isPresent()) {
-                    result.add(customizerByType.get());
-                } else {
-                    throw new IllegalStateException("Failed to create JcloudsLocationCustomizer "+customizersSupplierType+" for location "+this);
-                }
-            }
+        try {
+            return LocationCustomizerDelegate.getCustomizers(getManagementContext(), setup);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to create initialize customizers for location "+this);
         }
-        if (Strings.isNonBlank(customizersSupplierType)) {
-            Maybe<Supplier<Collection<JcloudsLocationCustomizer>>> supplier = Reflections.<Supplier<Collection<JcloudsLocationCustomizer>>>invokeConstructorFromArgsUntyped(catalogClassLoader, customizersSupplierType, setup);
-            if (supplier.isPresent()) {
-                result.addAll(supplier.get().get());
-            } else {
-                supplier = Reflections.<Supplier<Collection<JcloudsLocationCustomizer>>>invokeConstructorFromArgsUntyped(catalogClassLoader, customizersSupplierType);
-                if (supplier.isPresent()) {
-                    result.addAll(supplier.get().get());
-                } else {
-                    throw new IllegalStateException("Failed to create JcloudsLocationCustomizer supplier "+customizersSupplierType+" for location "+this);
-                }
-            }
-        }
-        return result;
     }
 
     public ConnectivityResolver getLocationNetworkInfoCustomizer(ConfigBag setup) {
@@ -435,8 +406,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     protected Collection<MachineLocationCustomizer> getMachineCustomizers(ConfigBag setup) {
-        Collection<MachineLocationCustomizer> customizers = setup.get(MACHINE_LOCATION_CUSTOMIZERS);
-        return (customizers == null ? ImmutableList.<MachineLocationCustomizer>of() : customizers);
+        try {
+            return LocationCustomizerDelegate.getMachineCustomizers(getManagementContext(), setup);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to create initialize customizers for location "+this);
+        }
     }
 
     public void setDefaultImageId(String val) {
@@ -512,17 +486,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     public ComputeService getComputeService(ConfigBag config) {
         ComputeServiceRegistry registry = getConfig(COMPUTE_SERVICE_REGISTRY);
         return registry.findComputeService(ResolvingConfigBag.newInstanceExtending(getManagementContext(), config), true);
-    }
-
-    /** @deprecated since 0.7.0 use {@link #listMachines()} */ @Deprecated
-    public Set<? extends ComputeMetadata> listNodes() {
-        return listNodes(MutableMap.of());
-    }
-    /** @deprecated since 0.7.0 use {@link #listMachines()}.
-     * (no support for custom compute service flags; if that is needed, we'll have to introduce a new method,
-     * but it seems there are no usages) */ @Deprecated
-    public Set<? extends ComputeMetadata> listNodes(Map<?,?> flags) {
-        return getComputeService(flags).listNodes();
     }
 
     @Override
@@ -683,6 +646,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         Duration customizedTimestamp = null;
         Stopwatch provisioningStopwatch = Stopwatch.createStarted();
 
+        JcloudsLocationCustomizer customizersDelegate = LocationCustomizerDelegate.newInstance(getManagementContext(), setup);
+
         try {
             LOG.info("Creating VM "+getCreationString(setup)+" in "+this);
 
@@ -701,12 +666,15 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             LoginCredentials userCredentials = null;
             Set<? extends NodeMetadata> nodes;
             Template template;
-            Collection<JcloudsLocationCustomizer> customizers = getCustomizers(setup);
-            Collection<MachineLocationCustomizer> machineCustomizers = getMachineCustomizers(setup);
 
             try {
+                // Create default network for Azure ARM if necessary
+                if ("azurecompute-arm".equals(this.getProvider())) {
+                    DefaultAzureArmNetworkCreator.createDefaultNetworkAndAddToTemplateOptionsIfRequired(computeService, setup);
+                }
+
                 // Setup the template
-                template = buildTemplate(computeService, setup, customizers);
+                template = buildTemplate(computeService, setup, ImmutableList.of(customizersDelegate));
                 boolean expectWindows = isWindows(template, setup);
                 if (!options.skipJcloudsSshing()) {
                     if (expectWindows) {
@@ -740,7 +708,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     }
                 }
 
-                customizeTemplate(computeService, template, customizers);
+                customizeTemplate(computeService, template, customizersDelegate);
 
                 LOG.debug("jclouds using template {} / options {} to provision machine in {}",
                         new Object[] {template, template.getOptions(), getCreationString(setup)});
@@ -756,11 +724,13 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             if (node == null)
                 throw new IllegalStateException("No nodes returned by jclouds create-nodes in " + getCreationString(setup));
 
+            customizersDelegate.customize(this, node, setup);
+
             boolean windows = isWindows(node, setup);
 
             if (windows) {
                 int newLoginPort = node.getLoginPort() == 22
-                        ? (getConfig(WinRmMachineLocation.USE_HTTPS_WINRM) ? 5986 : 5985)
+                        ? (setup.get(WinRmMachineLocation.USE_HTTPS_WINRM) ? 5986 : 5985)
                         : node.getLoginPort();
                 String newLoginUser = "root".equals(node.getCredentials().getUser())
                         ? "Administrator"
@@ -941,8 +911,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     } else {
                         LOG.warn("Using DEPRECATED flag OPEN_IPTABLES (will not be supported in future versions) for {} at {}", machineLocation, this);
 
-                        @SuppressWarnings("unchecked")
-                        Iterable<Integer> inboundPorts = (Iterable<Integer>) setup.get(INBOUND_PORTS);
+                        Iterable<Integer> inboundPorts = Ints.asList(template.getOptions().getInboundPorts());
 
                         if (inboundPorts == null || Iterables.isEmpty(inboundPorts)) {
                             LOG.info("No ports to open in iptables (no inbound ports) for {} at {}", machineLocation, this);
@@ -1042,15 +1011,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 // ssh to exec these commands!
             }
 
-            // Apply any optional app-specific customization.
-            for (JcloudsLocationCustomizer customizer : customizers) {
-                LOG.debug("Customizing machine {}, using customizer {}", machineLocation, customizer);
-                customizer.customize(this, computeService, machineLocation);
-            }
-            for (MachineLocationCustomizer customizer : machineCustomizers) {
-                LOG.debug("Customizing machine {}, using customizer {}", machineLocation, customizer);
-                customizer.customize(machineLocation);
-            }
+            customizersDelegate.customize(this, computeService, machineLocation);
 
             customizedTimestamp = Duration.of(provisioningStopwatch);
             String logMessage = "Finished VM "+getCreationString(setup)+" creation:"
@@ -1101,6 +1062,13 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     + ": "+e.getMessage());
             LOG.debug(Throwables.getStackTraceAsString(e));
 
+            try {
+                customizersDelegate.preReleaseOnObtainError(this, machineLocation, e);
+            } catch (Exception customizerException) {
+                LOG.info("Got exception on calling customizer preReleaseOnObtainError, ignoring. Location is {}, machine location is {}, node is {}",
+                        new Object[] {this, machineLocation, node, customizerException});
+            }
+
             if (destroyNode) {
                 Stopwatch destroyingStopwatch = Stopwatch.createStarted();
                 if (machineLocation != null) {
@@ -1110,6 +1078,14 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 }
                 LOG.info("Destroyed " + (machineLocation != null ? "machine " + machineLocation : "node " + node)
                         + " in " + Duration.of(destroyingStopwatch).toStringRounded());
+
+                try {
+                    customizersDelegate.postReleaseOnObtainError(this, machineLocation, e);
+                } catch (Exception customizerException) {
+                    LOG.debug("Got exception on calling customizer postReleaseOnObtainError, ignoring. Location is {}, machine Location is {}, node is {}",
+                            new Object[] {this, machineLocation, node, customizerException});
+                }
+
             }
 
             throw Exceptions.propagate(e);
@@ -1280,11 +1256,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             .build();
 
     /** hook whereby template customizations can be made for various clouds */
-    protected void customizeTemplate(ComputeService computeService, Template template, Collection<JcloudsLocationCustomizer> customizers) {
-        for (JcloudsLocationCustomizer customizer : customizers) {
-            customizer.customize(this, computeService, template);
-            customizer.customize(this, computeService, template.getOptions());
-        }
+    protected void customizeTemplate(ComputeService computeService, Template template, JcloudsLocationCustomizer customizersDelegate) {
+        customizersDelegate.customize(this, computeService, template);
+        customizersDelegate.customize(this, computeService, template.getOptions());
 
         // these things are nice on softlayer
         if (template.getOptions() instanceof SoftLayerTemplateOptions) {
@@ -1346,8 +1320,15 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         return BrooklynImageChooser.cloneFor(chooser, computeService, config);
     }
 
-    /** returns the jclouds Template which describes the image to be built, for the given config and compute service */
+    /** @deprecated since 0.11.0. Use {@link #buildTemplate(ComputeService, ConfigBag, JcloudsLocationCustomizer)} instead. */
+    @Deprecated
     public Template buildTemplate(ComputeService computeService, ConfigBag config, Collection<JcloudsLocationCustomizer> customizers) {
+        JcloudsLocationCustomizer customizersDelegate = LocationCustomizerDelegate.newInstance(customizers);
+        return buildTemplate(computeService, config, customizersDelegate);
+    }
+
+    /** returns the jclouds Template which describes the image to be built, for the given config and compute service */
+    public Template buildTemplate(ComputeService computeService, ConfigBag config, JcloudsLocationCustomizer customizersDelegate) {
         TemplateBuilder templateBuilder = config.get(TEMPLATE_BUILDER);
         if (templateBuilder==null) {
             templateBuilder = new PortableTemplateBuilder<PortableTemplateBuilder<?>>();
@@ -1401,10 +1382,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
         }
 
-        // Then apply any optional app-specific customization.
-        for (JcloudsLocationCustomizer customizer : customizers) {
-            customizer.customize(this, computeService, templateBuilder);
-        }
+        customizersDelegate.customize(this, computeService, templateBuilder);
 
         LOG.debug("jclouds using templateBuilder {} for provisioning in {} for {}", new Object[] {
             templateBuilder, this, getCreationString(config)});
@@ -1616,10 +1594,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         sshProps.put("port", hostAndPort.getPort());
         sshProps.put(AbstractLocation.TEMPORARY_LOCATION.getName(), true);
         sshProps.put(LocalLocationManager.CREATE_UNMANAGED.getName(), true);
-        String sshClass = config().get(SshMachineLocation.SSH_TOOL_CLASS);
-        if (Strings.isNonBlank(sshClass)) {
-            sshProps.put(SshMachineLocation.SSH_TOOL_CLASS.getName(), sshClass);
-        }
 
         sshProps.remove("id");
         sshProps.remove("password");
@@ -1732,7 +1706,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                         LOG.warn("exit code {} when creating user for {}; usage may subsequently fail", exitcode, node);
                     }
                 } finally {
-                    getManagementContext().getLocationManager().unmanage(sshLoc);
+                    if (getManagementContext().getLocationManager().isManaged(sshLoc)) {
+                        getManagementContext().getLocationManager().unmanage(sshLoc);
+                    }
                     Streams.closeQuietly(sshLoc);
                 }
             }
@@ -1777,27 +1753,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     // ----------------- registering existing machines ------------------------
 
-    /**
-     * @deprecated since 0.8.0 use {@link #registerMachine(NodeMetadata)} instead.
-     */
-    @Deprecated
-    public JcloudsSshMachineLocation rebindMachine(NodeMetadata metadata) throws NoMachinesAvailableException {
-        return (JcloudsSshMachineLocation) registerMachine(metadata);
-    }
-
-    protected MachineLocation registerMachine(NodeMetadata metadata) throws NoMachinesAvailableException {
+    protected JcloudsMachineLocation registerMachine(NodeMetadata metadata) throws NoMachinesAvailableException {
         return registerMachine(MutableMap.of(), metadata);
     }
 
-    /**
-     * @deprecated since 0.8.0 use {@link #registerMachine(Map, NodeMetadata)} instead.
-     */
-    @Deprecated
-    public JcloudsSshMachineLocation rebindMachine(Map<?,?> flags, NodeMetadata metadata) throws NoMachinesAvailableException {
-        return (JcloudsSshMachineLocation) registerMachine(flags, metadata);
-    }
-
-    protected MachineLocation registerMachine(Map<?, ?> flags, NodeMetadata metadata) throws NoMachinesAvailableException {
+    protected JcloudsMachineLocation registerMachine(Map<?, ?> flags, NodeMetadata metadata) throws NoMachinesAvailableException {
         ConfigBag setup = ConfigBag.newInstanceExtending(config().getBag(), flags);
         if (!setup.containsKey("id")) setup.putStringKey("id", metadata.getId());
         setHostnameUpdatingCredentials(setup, metadata);
@@ -1807,25 +1767,27 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     /**
      * Brings an existing machine with the given details under management.
      * <p>
-     * This method will throw an exception if used to reconnect to a Windows VM.
-     * @deprecated since 0.8.0 use {@link #registerMachine(ConfigBag)} instead.
-     */
-    @Deprecated
-    public JcloudsSshMachineLocation rebindMachine(ConfigBag setup) throws NoMachinesAvailableException {
-        return (JcloudsSshMachineLocation) registerMachine(setup);
-    }
-
-    /**
-     * Brings an existing machine with the given details under management.
+     * The args passed in are used to match against an existing machine. The machines are listed
+     * (see @link #listMachines()}), and each is compared against the given args. There should
+     * be exactly one matching machine.
      * <p>
-     * Required fields are:
+     * Arguments that can be used for matching are:
      * <ul>
-     *   <li>id: the jclouds VM id, e.g. "eu-west-1/i-5504f21d" (NB this is {@see JcloudsMachineLocation#getJcloudsId()} not #getId())
-     *   <li>hostname: the public hostname or IP of the machine, e.g. "ec2-176-34-93-58.eu-west-1.compute.amazonaws.com"
-     *   <li>userName: the username for sshing into the machine (for use if it is not a Windows system)
-     * <ul>
+     *   <li>{@code id}: the cloud provider's VM id, e.g. "eu-west-1/i-5504f21d" (NB this is 
+     *       {@see JcloudsMachineLocation#getJcloudsId()} not #getId())
+     *   <li>{@code hostname}: the public hostname or IP of the machine, 
+     *       e.g. "ec2-176-34-93-58.eu-west-1.compute.amazonaws.com"
+     * </ul>
+     * 
+     * Other config options can also be passed in, for subsequent usage of the machine. For example,
+     * {@code user} will deterine the username subsequently used for ssh or WinRM. See the standard
+     * config options of {@link JcloudsLocation}, {@link SshMachineLocation} and 
+     * {@link WinRmMachineLocation}.
+     * 
+     * @throws IllegalArgumentException if there is not exactly one match
      */
-    public JcloudsMachineLocation registerMachine(ConfigBag setup) throws NoMachinesAvailableException {
+    public JcloudsMachineLocation registerMachine(ConfigBag flags) throws NoMachinesAvailableException {
+        ConfigBag setup = ConfigBag.newInstanceExtending(config().getBag(), flags.getAllConfig());
         NodeMetadata node = findNodeOrThrow(setup);
         return registerMachineLocation(setup, node);
     }
@@ -1903,17 +1865,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         return node;
     }
 
-    /**
-     * @deprecated since 0.8.0 use {@link #registerMachine(Map)} instead.
-     */
-    @Deprecated
-    public JcloudsSshMachineLocation rebindMachine(Map<?, ?> flags) throws NoMachinesAvailableException {
-        return (JcloudsSshMachineLocation) registerMachine(flags);
-    }
-
-    public MachineLocation registerMachine(Map<?,?> flags) throws NoMachinesAvailableException {
-        ConfigBag setup = ConfigBag.newInstanceExtending(config().getBag(), flags);
-        return registerMachine(setup);
+    public JcloudsMachineLocation registerMachine(Map<?,?> flags) throws NoMachinesAvailableException {
+        return registerMachine(ConfigBag.newInstance(flags));
     }
 
     /**
@@ -2160,21 +2113,16 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         Exception tothrow = null;
 
         ConfigBag setup = ((LocationInternal)machine).config().getBag();
-        Collection<JcloudsLocationCustomizer> customizers = getCustomizers(setup);
-        Collection<MachineLocationCustomizer> machineCustomizers = getMachineCustomizers(setup);
-        
-        for (JcloudsLocationCustomizer customizer : customizers) {
-            try {
-                customizer.preRelease(machine);
-            } catch (Exception e) {
-                LOG.error("Problem invoking pre-release customizer "+customizer+" for machine "+machine+" in "+this+", instance id "+instanceId+
+
+        JcloudsLocationCustomizer customizersDelegate = LocationCustomizerDelegate.newInstance(getManagementContext(), setup);
+
+        try {
+            customizersDelegate.preRelease(machine);
+        } catch (Exception e) {
+            LOG.error("Problem invoking pre-release for machine "+machine+" in "+this+", instance id "+instanceId+
                     "; ignoring and continuing, "
                     + (tothrow==null ? "will throw subsequently" : "swallowing due to previous error")+": "+e, e);
-                if (tothrow==null) tothrow = e;
-            }
-        }
-        for (MachineLocationCustomizer customizer : machineCustomizers) {
-            customizer.preRelease(machine);
+            if (tothrow==null) tothrow = e;
         }
 
         try {
@@ -2200,15 +2148,13 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         removeChild(machine);
 
-        for (JcloudsLocationCustomizer customizer : customizers) {
-            try {
-                customizer.postRelease(machine);
-            } catch (Exception e) {
-                LOG.error("Problem invoking pre-release customizer "+customizer+" for machine "+machine+" in "+this+", instance id "+instanceId+
+        try {
+            customizersDelegate.postRelease(machine);
+        } catch (Exception e) {
+            LOG.error("Problem invoking post-release for machine "+machine+" in "+this+", instance id "+instanceId+
                     "; ignoring and continuing, "
                     + (tothrow==null ? "will throw subsequently" : "swallowing due to previous error")+": "+e, e);
-                if (tothrow==null) tothrow = e;
-            }
+            if (tothrow==null) tothrow = e;
         }
         
         if (tothrow != null) {
@@ -2494,7 +2440,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     if (success) {
                         credsSuccessful.set(machinesToTry.getRight());
 
-                        String verifyWindowsUp = getConfig(WinRmMachineLocation.WAIT_WINDOWS_TO_START);
+                        String verifyWindowsUp = setup.get(WinRmMachineLocation.WAIT_WINDOWS_TO_START);
                         if (Strings.isBlank(verifyWindowsUp) || verifyWindowsUp.equals("false")) {
                             return true;
                         }
@@ -2941,11 +2887,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     String getHostnameAws(HostAndPort hostAndPort, LoginCredentials userCredentials, ConfigBag setup) {
-        SshMachineLocation sshLocByIp = null;
+        // TODO messy way to get an SSH session
+        SshMachineLocation sshLocByIp = createTemporarySshMachineLocation(hostAndPort, userCredentials, setup);
         try {
-            // TODO messy way to get an SSH session
-            sshLocByIp = createTemporarySshMachineLocation(hostAndPort, userCredentials, setup);
-
             ByteArrayOutputStream outStream = new ByteArrayOutputStream();
             ByteArrayOutputStream errStream = new ByteArrayOutputStream();
             int exitcode = sshLocByIp.execCommands(
@@ -2961,6 +2905,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
             throw new IllegalStateException("Could not obtain aws-ec2 hostname for vm "+hostAndPort+"; exitcode="+exitcode+"; stdout="+outString+"; stderr="+new String(errStream.toByteArray()));
         } finally {
+            if (getManagementContext().getLocationManager().isManaged(sshLocByIp)) {
+                getManagementContext().getLocationManager().unmanage(sshLocByIp);
+            }
             Streams.closeQuietly(sshLocByIp);
         }
     }

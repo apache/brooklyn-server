@@ -43,6 +43,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -211,7 +212,7 @@ public class FlagUtils {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this).omitNullValues()
+            return MoreObjects.toStringHelper(this).omitNullValues()
                 .add("flag", flagName)
                 .add("configKey", configKey)
                 .add("flagValue", flagValue.orNull())

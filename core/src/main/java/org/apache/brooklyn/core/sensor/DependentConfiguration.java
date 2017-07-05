@@ -48,6 +48,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -116,7 +117,7 @@ public class DependentConfiguration {
      * @see #attributeWhenReady(Entity, AttributeSensor, Predicate)
      */
     public static <T> Task<T> attributeWhenReady(Entity source, AttributeSensor<T> sensor) {
-        return attributeWhenReady(source, sensor, GroovyJavaMethods.truthPredicate());
+        return attributeWhenReady(source, sensor, JavaGroovyEquivalents.groovyTruthPredicate());
     }
     
     /**
@@ -124,7 +125,7 @@ public class DependentConfiguration {
      */
     @Deprecated
     public static <T> Task<T> attributeWhenReady(Entity source, AttributeSensor<T> sensor, Closure<Boolean> ready) {
-        Predicate<Object> readyPredicate = (ready != null) ? GroovyJavaMethods.<Object>predicateFromClosure(ready) : GroovyJavaMethods.truthPredicate();
+        Predicate<Object> readyPredicate = (ready != null) ? GroovyJavaMethods.<Object>predicateFromClosure(ready) : JavaGroovyEquivalents.groovyTruthPredicate();
         return attributeWhenReady(source, sensor, readyPredicate);
     }
     
@@ -143,7 +144,7 @@ public class DependentConfiguration {
      */
     @Deprecated
     public static <T,V> Task<V> attributePostProcessedWhenReady(Entity source, AttributeSensor<T> sensor, Closure<Boolean> ready, Closure<V> postProcess) {
-        Predicate<? super T> readyPredicate = (ready != null) ? GroovyJavaMethods.predicateFromClosure(ready) : GroovyJavaMethods.truthPredicate();
+        Predicate<? super T> readyPredicate = (ready != null) ? GroovyJavaMethods.predicateFromClosure(ready) : JavaGroovyEquivalents.groovyTruthPredicate();
         Function<? super T, V> postProcessFunction = GroovyJavaMethods.<T,V>functionFromClosure(postProcess);
         return attributePostProcessedWhenReady(source, sensor, readyPredicate, postProcessFunction);
     }
@@ -153,15 +154,15 @@ public class DependentConfiguration {
      */
     @Deprecated
     public static <T,V> Task<V> attributePostProcessedWhenReady(Entity source, AttributeSensor<T> sensor, Closure<V> postProcess) {
-        return attributePostProcessedWhenReady(source, sensor, GroovyJavaMethods.truthPredicate(), GroovyJavaMethods.<T,V>functionFromClosure(postProcess));
+        return attributePostProcessedWhenReady(source, sensor, JavaGroovyEquivalents.groovyTruthPredicate(), GroovyJavaMethods.<T,V>functionFromClosure(postProcess));
     }
 
     public static <T> Task<T> valueWhenAttributeReady(Entity source, AttributeSensor<T> sensor, T value) {
-        return DependentConfiguration.<T,T>attributePostProcessedWhenReady(source, sensor, GroovyJavaMethods.truthPredicate(), Functions.constant(value));
+        return DependentConfiguration.<T,T>attributePostProcessedWhenReady(source, sensor, JavaGroovyEquivalents.groovyTruthPredicate(), Functions.constant(value));
     }
 
     public static <T,V> Task<V> valueWhenAttributeReady(Entity source, AttributeSensor<T> sensor, Function<? super T,V> valueProvider) {
-        return attributePostProcessedWhenReady(source, sensor, GroovyJavaMethods.truthPredicate(), valueProvider);
+        return attributePostProcessedWhenReady(source, sensor, JavaGroovyEquivalents.groovyTruthPredicate(), valueProvider);
     }
     
     /**
@@ -169,7 +170,7 @@ public class DependentConfiguration {
      */
     @Deprecated
     public static <T,V> Task<V> valueWhenAttributeReady(Entity source, AttributeSensor<T> sensor, Closure<V> valueProvider) {
-        return attributePostProcessedWhenReady(source, sensor, GroovyJavaMethods.truthPredicate(), valueProvider);
+        return attributePostProcessedWhenReady(source, sensor, JavaGroovyEquivalents.groovyTruthPredicate(), valueProvider);
     }
     
     /**
@@ -267,7 +268,7 @@ public class DependentConfiguration {
         
         protected boolean ready(T value) {
             if (ready!=null) return ready.apply(value);
-            return GroovyJavaMethods.truth(value);
+            return JavaGroovyEquivalents.groovyTruth(value);
         }
         
         @SuppressWarnings({ "rawtypes", "unchecked" })
@@ -771,7 +772,7 @@ public class DependentConfiguration {
     /** returns a task for parallel execution returning a list of values for the given sensor for the given entity list,
      * optionally when the values satisfy a given readiness predicate (defaulting to groovy truth if not supplied) */
     public static <T> Task<List<T>> listAttributesWhenReady(AttributeSensor<T> sensor, Iterable<Entity> entities) {
-        return listAttributesWhenReady(sensor, entities, GroovyJavaMethods.truthPredicate());
+        return listAttributesWhenReady(sensor, entities, JavaGroovyEquivalents.groovyTruthPredicate());
     }
 
     /**
@@ -779,14 +780,14 @@ public class DependentConfiguration {
      */
     @Deprecated
     public static <T> Task<List<T>> listAttributesWhenReady(AttributeSensor<T> sensor, Iterable<Entity> entities, Closure<Boolean> readiness) {
-        Predicate<Object> readinessPredicate = (readiness != null) ? GroovyJavaMethods.<Object>predicateFromClosure(readiness) : GroovyJavaMethods.truthPredicate();
+        Predicate<Object> readinessPredicate = (readiness != null) ? GroovyJavaMethods.<Object>predicateFromClosure(readiness) : JavaGroovyEquivalents.groovyTruthPredicate();
         return listAttributesWhenReady(sensor, entities, readinessPredicate);
     }
     
     /** returns a task for parallel execution returning a list of values of the given sensor list on the given entity, 
      * optionally when the values satisfy a given readiness predicate (defaulting to groovy truth if not supplied) */    
     public static <T> Task<List<T>> listAttributesWhenReady(final AttributeSensor<T> sensor, Iterable<Entity> entities, Predicate<? super T> readiness) {
-        if (readiness == null) readiness = GroovyJavaMethods.truthPredicate();
+        if (readiness == null) readiness = JavaGroovyEquivalents.groovyTruthPredicate();
         return builder().attributeWhenReadyFromMultiple(entities, sensor, readiness).build();
     }
 
@@ -849,7 +850,7 @@ public class DependentConfiguration {
          * optionally when the values satisfy a given readiness predicate (defaulting to groovy truth if not supplied) */ 
         @Beta
         public <T> MultiBuilder<T, T, List<T>> attributeWhenReadyFromMultiple(Iterable<? extends Entity> sources, AttributeSensor<T> sensor) {
-            return attributeWhenReadyFromMultiple(sources, sensor, GroovyJavaMethods.truthPredicate());
+            return attributeWhenReadyFromMultiple(sources, sensor, JavaGroovyEquivalents.groovyTruthPredicate());
         }
         /** As {@link #attributeWhenReadyFromMultiple(Iterable, AttributeSensor)} with an explicit readiness test. */
         @Beta
@@ -918,7 +919,7 @@ public class DependentConfiguration {
             return (Builder<T,V2>) this;
         }
         public <T2> Builder<T,V> abortIf(Entity source, AttributeSensor<T2> sensor) {
-            return abortIf(source, sensor, GroovyJavaMethods.truthPredicate());
+            return abortIf(source, sensor, JavaGroovyEquivalents.groovyTruthPredicate());
         }
         public <T2> Builder<T,V> abortIf(Entity source, AttributeSensor<T2> sensor, Predicate<? super T2> predicate) {
             abortSensorConditions.add(new AttributeAndSensorCondition<T2>(source, sensor, predicate));
@@ -1007,7 +1008,7 @@ public class DependentConfiguration {
         private void validate() {
             checkNotNull(source, "Entity source");
             checkNotNull(sensor, "Sensor");
-            if (readiness == null) readiness = GroovyJavaMethods.truthPredicate();
+            if (readiness == null) readiness = JavaGroovyEquivalents.groovyTruthPredicate();
             if (postProcess == null) postProcess = (Function) Functions.identity();
         }
     }
@@ -1030,7 +1031,7 @@ public class DependentConfiguration {
          * optionally when the values satisfy a given readiness predicate (defaulting to groovy truth if not supplied) */ 
         @Beta
         protected MultiBuilder(Iterable<? extends Entity> sources, AttributeSensor<T> sensor) {
-            this(sources, sensor, GroovyJavaMethods.truthPredicate());
+            this(sources, sensor, JavaGroovyEquivalents.groovyTruthPredicate());
         }
         @Beta
         protected MultiBuilder(Iterable<? extends Entity> sources, AttributeSensor<T> sensor, Predicate<? super T> readiness) {

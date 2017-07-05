@@ -212,31 +212,6 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
         assertEquals(client().path(appUri).get(ApplicationSummary.class).getSpec().getName(), "simple-app-interface");
     }
 
-    @SuppressWarnings("deprecation")
-    @Test(dependsOnMethods = { "testDeployApplication", "testLocatedLocation" })
-    public void testDeployApplicationFromBuilder() throws Exception {
-        ApplicationSpec spec = ApplicationSpec.builder()
-                .type(org.apache.brooklyn.rest.testing.mocks.RestMockAppBuilder.class.getCanonicalName())
-                .name("simple-app-builder")
-                .locations(ImmutableSet.of("localhost"))
-                .build();
-
-        Response response = clientDeploy(spec);
-        assertTrue(response.getStatus() / 100 == 2, "response is " + response);
-
-        // Expect app to be running
-        URI appUri = response.getLocation();
-        waitForApplicationToBeRunning(response.getLocation(), Duration.TEN_SECONDS);
-        assertEquals(client().path(appUri).get(ApplicationSummary.class).getSpec().getName(), "simple-app-builder");
-
-        // Expect app to have the child-entity
-        Set<EntitySummary> entities = client().path(appUri.toString() + "/entities")
-                .get(new GenericType<Set<EntitySummary>>() {});
-        assertEquals(entities.size(), 1);
-        assertEquals(Iterables.getOnlyElement(entities).getName(), "child1");
-        assertEquals(Iterables.getOnlyElement(entities).getType(), RestMockSimpleEntity.class.getCanonicalName());
-    }
-
     @Test(dependsOnMethods = { "testDeployApplication", "testLocatedLocation" })
     public void testDeployApplicationYaml() throws Exception {
         String yaml = "{ name: simple-app-yaml, location: localhost, services: [ { serviceType: "+BasicApplication.class.getCanonicalName()+" } ] }";

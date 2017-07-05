@@ -21,9 +21,7 @@ package org.apache.brooklyn.rest.util;
 import static com.google.common.collect.Iterables.transform;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.notFound;
 
-import java.lang.reflect.Constructor;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +32,6 @@ import java.util.concurrent.Future;
 import javax.ws.rs.core.MediaType;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
-import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -47,9 +44,6 @@ import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.catalog.CatalogPredicates;
-import org.apache.brooklyn.core.catalog.internal.CatalogItemComparator;
-import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -58,7 +52,6 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.enricher.stock.Enrichers;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.rest.domain.ApplicationSpec;
@@ -76,9 +69,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -216,20 +207,6 @@ public class BrooklynRestResourceUtils {
         @SuppressWarnings({ "unchecked" })
         private FindItemAndClass inferFrom(String type) {
             RegisteredType item = mgmt.getTypeRegistry().get(type);
-            if (item==null) {
-                // deprecated attempt to load an item not in the type registry
-                
-                // although the method called was deprecated in 0.7.0, its use here was not warned until 0.9.0;
-                // therefore this behaviour should not be changed until after 0.9.0;
-                // at which point it should try a pojo load (see below)
-                item = getCatalogItemForType(type);
-                if (item!=null) {
-                    log.warn("Creating application for requested type `"+type+" using item "+item+"; "
-                        + "the registered type name ("+item.getSymbolicName()+") should be used from the spec instead, "
-                        + "or the type registered under its own name. "
-                        + "Future versions will likely change semantics to attempt a POJO load of the type instead.");
-                }
-            }
             
             if (item != null) {
                 return setAs(
@@ -254,53 +231,8 @@ public class BrooklynRestResourceUtils {
             this.catalogItemId = catalogItemId;
             return this;
         }
-        
-        @Deprecated // see caller
-        private RegisteredType getCatalogItemForType(String typeName) {
-            final RegisteredType resultI;
-            if (CatalogUtils.looksLikeVersionedId(typeName)) {
-                //All catalog identifiers of the form aaaa:bbbb are composed of symbolicName+version.
-                //No javaType is allowed as part of the identifier.
-                resultI = mgmt.getTypeRegistry().get(typeName);
-            } else {
-                //Usually for catalog items with javaType (that is items from catalog.xml)
-                //the symbolicName and javaType match because symbolicName (was ID)
-                //is not specified explicitly. But could be the case that there is an item
-                //whose symbolicName is explicitly set to be different from the javaType.
-                //Note that in the XML the attribute is called registeredTypeName.
-                Iterable<CatalogItem<Object,Object>> resultL = mgmt.getCatalog().getCatalogItems(CatalogPredicates.javaType(Predicates.equalTo(typeName)));
-                if (!Iterables.isEmpty(resultL)) {
-                    //Push newer versions in front of the list (not that there should
-                    //be more than one considering the items are coming from catalog.xml).
-                    resultI = RegisteredTypes.of(sortVersionsDesc(resultL).iterator().next());
-                    if (log.isDebugEnabled() && Iterables.size(resultL)>1) {
-                        log.debug("Found "+Iterables.size(resultL)+" matches in catalog for type "+typeName+"; returning the result with preferred version, "+resultI);
-                    }
-                } else {
-                    //As a last resort try searching for items with the same symbolicName supposedly
-                    //different from the javaType.
-                    resultI = mgmt.getTypeRegistry().get(typeName, BrooklynCatalog.DEFAULT_VERSION);
-                    if (resultI != null) {
-                        if (resultI.getSuperTypes().isEmpty()) {
-                            //Catalog items scanned from the classpath (using reflection and annotations) now
-                            //get yaml spec rather than a java type. Can't use those when creating apps from
-                            //the legacy app spec format.
-                            log.warn("Unable to find catalog item for type "+typeName +
-                                    ". There is an existing catalog item with ID " + resultI.getId() +
-                                    " but it doesn't define a class type.");
-                            return null;
-                        }
-                    }
-                }
-            }
-            return resultI;
-        }
-        private <T,SpecT> Collection<CatalogItem<T,SpecT>> sortVersionsDesc(Iterable<CatalogItem<T,SpecT>> versions) {
-            return ImmutableSortedSet.orderedBy(CatalogItemComparator.<T,SpecT>getInstance()).addAll(versions).build();
-        }
     }
     
-    @SuppressWarnings({ "deprecation" })
     public Application create(ApplicationSpec spec) {
         log.warn("Using deprecated functionality (as of 0.9.0), ApplicationSpec style (pre CAMP plans). " +
                     "Transition to actively supported spec plans.");
@@ -332,21 +264,7 @@ public class BrooklynRestResourceUtils {
         }
 
         try {
-            if (org.apache.brooklyn.core.entity.factory.ApplicationBuilder.class.isAssignableFrom(itemAndClass.clazz)) {
-                // warning only added in 0.9.0
-                log.warn("Using deprecated ApplicationBuilder "+itemAndClass.clazz+"; callers must migrate to use of Application");
-                Constructor<?> constructor = itemAndClass.clazz.getConstructor();
-                org.apache.brooklyn.core.entity.factory.ApplicationBuilder appBuilder = (org.apache.brooklyn.core.entity.factory.ApplicationBuilder) constructor.newInstance();
-                if (!Strings.isEmpty(name)) appBuilder.appDisplayName(name);
-                if (entities.size() > 0)
-                    log.warn("Cannot supply additional entities when using an ApplicationBuilder; ignoring in spec {}", spec);
-
-                log.info("REST placing '{}' under management", spec.getName());
-                appBuilder.configure(convertFlagsToKeys(appBuilder.getType(), configO));
-                configureRenderingMetadata(spec, appBuilder);
-                instance = appBuilder.manage(mgmt);
-
-            } else if (Application.class.isAssignableFrom(itemAndClass.clazz)) {
+            if (Application.class.isAssignableFrom(itemAndClass.clazz)) {
                 org.apache.brooklyn.api.entity.EntitySpec<?> coreSpec = toCoreEntitySpec(itemAndClass.clazz, name, configO, itemAndClass.catalogItemId);
                 configureRenderingMetadata(spec, coreSpec);
                 for (EntitySpec entitySpec : entities) {
@@ -432,11 +350,6 @@ public class BrooklynRestResourceUtils {
         return result;
     }
     
-    @SuppressWarnings("deprecation")
-    protected void configureRenderingMetadata(ApplicationSpec spec, org.apache.brooklyn.core.entity.factory.ApplicationBuilder appBuilder) {
-        appBuilder.configure(getRenderingConfigurationFor(spec.getType()));
-    }
-
     protected void configureRenderingMetadata(ApplicationSpec input, org.apache.brooklyn.api.entity.EntitySpec<?> entity) {
         entity.configure(getRenderingConfigurationFor(input.getType()));
     }

@@ -119,14 +119,6 @@ public class BrooklynNodeImpl extends SoftwareProcessImpl implements BrooklynNod
 
     private HttpFeed httpFeed;
     
-    public BrooklynNodeImpl() {
-        super();
-    }
-
-    public BrooklynNodeImpl(Entity parent) {
-        super(parent);
-    }
-    
     @Override
     public Class<?> getDriverInterface() {
         return BrooklynNodeDriver.class;

@@ -19,7 +19,6 @@
 package org.apache.brooklyn.entity.group;
 
 import java.util.Collection;
-import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -52,13 +51,6 @@ public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup 
     protected final Object memberChangeMutex = new Object();
 
     private volatile MyEntitySetChangeListener setChangeListener = null;
-
-    public DynamicGroupImpl() { }
-
-    @Deprecated
-    public DynamicGroupImpl(@SuppressWarnings("rawtypes") Map flags, Entity parent) {
-        super(flags, parent);
-    }
 
     @Override
     public void init() {

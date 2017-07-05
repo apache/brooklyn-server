@@ -18,18 +18,21 @@
  */
 package org.apache.brooklyn.test.performance;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import java.io.File;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.commons.io.FileUtils;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 /**
  * For building up a description of what to measure.
@@ -52,9 +55,12 @@ public class PerformanceTestDescriptor {
     public Integer warmupIterations;
     public Duration duration;
     public Integer iterations;
+    public int numConcurrentJobs = 1;
+    public Duration abortIfIterationLongerThan;
     public Runnable job;
     public Runnable preJob;
     public Runnable postJob;
+    public Runnable postWarmup;
     public CountDownLatch completionLatch;
     public Duration completionLatchTimeout = Duration.FIVE_MINUTES;
     public Double minAcceptablePerSecond;
@@ -112,6 +118,21 @@ public class PerformanceTestDescriptor {
         if (sealed) throw new IllegalStateException("Should not modify after sealed (e.g. after use)");
         this.iterations = val; return this;
     }
+
+    /**
+     * The number of concurrent jobs to execute. If used with {@link #preJob(Runnable)} or {@link #postJob(Runnable)},
+     * then those pre/post hooks will be called before/after the concurrent jobs are all done.
+     */
+    public PerformanceTestDescriptor numConcurrentJobs(int val) {
+        if (sealed) throw new IllegalStateException("Should not modify after sealed (e.g. after use)");
+        checkArgument(val >= 1, "val (%s) must be one or more", val);
+        this.numConcurrentJobs = val; return this;
+    }
+
+    public PerformanceTestDescriptor abortIfIterationLongerThan(Duration val) {
+        if (sealed) throw new IllegalStateException("Should not modify after sealed (e.g. after use)");
+        this.abortIfIterationLongerThan = val; return this;
+    }
     
     /**
      * The job to be repeatedly executed.
@@ -119,6 +140,20 @@ public class PerformanceTestDescriptor {
     public PerformanceTestDescriptor job(Runnable val) {
         if (sealed) throw new IllegalStateException("Should not modify after sealed (e.g. after use)");
         this.job = val; return this;
+    }
+    
+    /**
+     * See {@link #job(Runnable)}
+     */
+    public PerformanceTestDescriptor job(Callable<?> val) {
+        return job(new Runnable() {
+            public void run() {
+                try {
+                    val.call();
+                } catch (Exception e) {
+                    throw Exceptions.propagate(e);
+                }
+            }});
     }
     
     /**
@@ -135,6 +170,14 @@ public class PerformanceTestDescriptor {
     public PerformanceTestDescriptor postJob(Runnable val) {
         if (sealed) throw new IllegalStateException("Should not modify after sealed (e.g. after use)");
         this.postJob = val; return this;
+    }
+    
+    /**
+     * To be run once, after the warmup.
+     */
+    public PerformanceTestDescriptor postWarmup(Runnable val) {
+        if (sealed) throw new IllegalStateException("Should not modify after sealed (e.g. after use)");
+        this.postWarmup = val; return this;
     }
     
     /**
@@ -211,7 +254,7 @@ public class PerformanceTestDescriptor {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .omitNullValues()
                 .add("summary", summary)
                 .add("duration", duration)
@@ -221,6 +264,8 @@ public class PerformanceTestDescriptor {
                 .add("job", job)
                 .add("completionLatch", completionLatch)
                 .add("minAcceptablePerSecond", minAcceptablePerSecond)
+                .add("abortIfIterationLongerThan", abortIfIterationLongerThan)
+                .add("numConcurrentJobs", numConcurrentJobs)
                 .toString();
     }
 }

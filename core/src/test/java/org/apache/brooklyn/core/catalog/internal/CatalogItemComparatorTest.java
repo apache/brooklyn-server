@@ -62,12 +62,15 @@ public class CatalogItemComparatorTest {
         compare(STABLE, STABLE, 0);
 
         compare(STABLE, "10.6", 1);
-        compare(STABLE, "10.5.8.1", 1);
 
-        compare("10.5.8-rc2", "10.5.8-rc3", 1) ;
-        compare("10.5.8-rc2", "10.5.8-rc1", -1);
+        compare(RC2, "10.5.8-rc3", 1) ;
+        compare(RC2, "10.5.8-rc1", -1);
 
         compare(STABLE, RC2, -1);
+        // surprising one, remember .1 is qualifier
+        compare(STABLE, "10.5.8.1", -1);
+        compare(STABLE, "10.5.8-1", -1);
+        compare(RC2, "10.5.8-1", -1);
 
         CatalogItemComparator cmp = CatalogItemComparator.INSTANCE;
         assertTrue(cmp.compare(v(RC2), v("10.5.8-beta1")) == cmp.compare(v(RC2), v("10.5.8-beta3")));

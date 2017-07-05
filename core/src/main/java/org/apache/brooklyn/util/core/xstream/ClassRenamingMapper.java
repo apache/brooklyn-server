@@ -22,7 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Map;
 
-import org.apache.brooklyn.core.mgmt.persist.OsgiClassPrefixer;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.slf4j.Logger;
@@ -39,10 +39,10 @@ import com.thoughtworks.xstream.mapper.MapperWrapper;
 public class ClassRenamingMapper extends MapperWrapper {
     
     /*
-     * TODO There is a strange relationship between this and XmlMementoSerializer$OsgiClassnameMapper.
+     * TODO There is a strange relationship between this and OsgiClassnameMapper.
      * Should these be perhaps merged?
      * 
-     * TODO For class-loading on deserialzation, should we push the class-rename logic into 
+     * TODO For class-loading on deserialization, should we push the class-rename logic into 
      * org.apache.brooklyn.util.core.ClassLoaderUtils instead? Does the xstream mapper do
      * anything else important, beyond that class-loading responsibility? It's registration
      * in XmlSerializer makes it look a bit scary: wrapMapperForAllLowLevelMentions().
@@ -80,11 +80,6 @@ public class ClassRenamingMapper extends MapperWrapper {
      *  3. As mentioned under the use-cases, the rename could include the full bundle name prefix, 
      *     or it might just be the classname. We want to handle both, so need to implement yet
      *     more fallback behaviour.
-     * 
-     * ---
-     * TODO Wanted to pass xstream, rather than Supplier<ClassLoader>, in constructor. However, 
-     * this caused NPE because of how this is constructed from inside 
-     * XmlMementoSerializer.wrapMapperForNormalUsage, called from within an anonymous subclass of XStream!
      */
     
     public static final Logger LOG = LoggerFactory.getLogger(ClassRenamingMapper.class);
@@ -95,6 +90,7 @@ public class ClassRenamingMapper extends MapperWrapper {
     public ClassRenamingMapper(Mapper wrapped, Map<String, String> nameToType, Supplier<? extends ClassLoader> classLoaderSupplier) {
         super(wrapped);
         this.nameToType = checkNotNull(nameToType, "nameToType");
+        // supplier, rather than instance, used for reasons noted at XmlSerializer.wrapMapperForNormalUsage 
         this.classLoaderSupplier = checkNotNull(classLoaderSupplier, "classLoaderSupplier");
     }
     
@@ -107,10 +103,14 @@ public class ClassRenamingMapper extends MapperWrapper {
             elementName = elementNameOpt.get();
         }
 
-        CannotResolveClassException tothrow;
+        Exception tothrow;
         try {
             return super.realClass(elementName);
-        } catch (CannotResolveClassException e) {
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            // CannotResolveClassException is what should be thrown, but
+            // sneakily you can get other, e.g. 
+            // IAE if you have a ":" in the name and a URLClassLoader tries to read it
             LOG.trace("Failed to load class using super.realClass({}), for orig class {}, attempting fallbacks: {}", new Object[] {elementName, elementNamOrig, e});
             tothrow = e;
         }
@@ -158,7 +158,7 @@ public class ClassRenamingMapper extends MapperWrapper {
             }
         }
         
-        throw tothrow;
+        throw Exceptions.propagate(tothrow);
     }
     
     private boolean hasBundlePrefix(String type) {

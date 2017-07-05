@@ -238,17 +238,6 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
     }
     
     @Test
-    public void testCanCustomizeRebind() throws Exception {
-        MyEntity2 origE = origApp.createAndManageChild(EntitySpec.create(MyEntity2.class).configure("myfield", "myval"));
-        
-        newApp = rebind();
-        
-        MyEntity2 newE = (MyEntity2) Iterables.find(newApp.getChildren(), Predicates.instanceOf(MyEntity2.class));
-        assertEquals(newE.getMyfield(), "myval");
-        Assert.assertEquals(newE, origE);
-    }
-    
-    @Test
     public void testRebindsSubscriptions() throws Exception {
         MyEntity2 origE = origApp.createAndManageChild(EntitySpec.create(MyEntity2.class).configure("subscribe", true));
         
@@ -835,14 +824,9 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
                 Boolean.class, "test.subscribe", "Whether to do some subscriptions on re-bind", false);
         
         public List<String> getEvents();
-        
-        public String getMyfield();
     }
     
     public static class MyEntity2Impl extends AbstractEntity implements MyEntity2 {
-        @SetFromFlag
-        String myfield;
-        
         final List<String> events = new CopyOnWriteArrayList<String>();
 
         @SuppressWarnings("unused")
@@ -857,11 +841,6 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         }
 
         @Override
-        public String getMyfield() {
-            return myfield;
-        }
-        
-        @Override
         public void onManagementStarting() {
             if (getConfig(SUBSCRIBE)) {
                 subscriptions().subscribe(getApplication(), TestApplication.MY_ATTRIBUTE, new SensorEventListener<String>() {
@@ -870,20 +849,6 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
                     }
                 });
             }
-        }
-        
-        @Override
-        public RebindSupport<EntityMemento> getRebindSupport() {
-            return new BasicEntityRebindSupport(this) {
-                @Override public EntityMemento getMemento() {
-                    // Note: using MutableMap so accepts nulls
-                    return getMementoWithProperties(MutableMap.<String,Object>of("myfield", myfield));
-                }
-                @Override protected void doReconstruct(RebindContext rebindContext, EntityMemento memento) {
-                    super.doReconstruct(rebindContext, memento);
-                    myfield = (String) memento.getCustomField("myfield");
-                }
-            };
         }
     }
 

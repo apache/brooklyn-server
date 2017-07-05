@@ -59,7 +59,7 @@ import io.cloudsoft.winrm4j.winrm.WinRmToolResponse;
 public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm.WinRmTool, ManagementContextInjectable {
 
     private static final Logger LOG = LoggerFactory.getLogger(Winrm4jTool.class);
-    
+
     private static final ConfigKey<WinRmClientContext> CONTEXT = ConfigKeys.newConfigKey(WinRmClientContext.class, "winrm.context");
 
     // TODO Should we move this up to the interface?
@@ -215,9 +215,7 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
     }
 
     private io.cloudsoft.winrm4j.winrm.WinRmTool connect() {
-        WinRmClientContext context = createWinrmContext(mgmt);
         WinRmTool.Builder builder = WinRmTool.Builder.builder(host, computerName, user, password)
-                .context(context)
                 .setAuthenticationScheme(authenticationScheme)
                 .useHttps(useSecureWinrm)
                 .port(port);
@@ -231,24 +229,6 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
             builder.disableCertificateChecks(true);
         }
         return builder.build();
-    }
-
-    private static synchronized WinRmClientContext createWinrmContext(ManagementContext mgmt) {
-        // TODO Use getScratchpad()
-        BrooklynProperties props = ((ManagementContextInternal)mgmt).getBrooklynProperties();
-        WinRmClientContext instance = props.getConfig(CONTEXT);
-        if (instance == null) {
-            final WinRmClientContext newContext = WinRmClientContext.newInstance();
-            instance = newContext;
-            props.put(CONTEXT, instance);
-            Threads.addShutdownHook(new Runnable() {
-                @Override
-                public void run() {
-                    newContext.shutdown();
-                }
-            });
-        }
-        return instance;
     }
 
     private <T> T getRequiredConfig(ConfigBag bag, ConfigKey<T> key) {

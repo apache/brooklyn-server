@@ -73,6 +73,10 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         return new ConcreteBuilder<T>().type(type).name(name);
     }
 
+    public static <T> Builder<T,?> builder(String newName, ConfigKey<T> key) {
+        return new ConcreteBuilder<T>(newName, key);
+    }
+
     public static <T> Builder<T,?> builder(ConfigKey<T> key) {
         return new ConcreteBuilder<T>(key);
     }
@@ -82,6 +86,9 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         }
         public ConcreteBuilder(TypeToken<T> type, String name) {
             super(type, name);
+        }
+        public ConcreteBuilder(String newName, ConfigKey<T> key) {
+            super(newName, key);
         }
         public ConcreteBuilder(ConfigKey<T> key) {
             super(key);
@@ -113,8 +120,11 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
             this(TypeToken.of(type), name);
         }
         public Builder(ConfigKey<T> key) {
+            this(key.getName(), key);
+        }
+        public Builder(String newName, ConfigKey<T> key) {
             this.type = checkNotNull(key.getTypeToken(), "type");
-            this.name = checkNotNull(key.getName(), "name");
+            this.name = checkNotNull(newName, "name");
             description(key.getDescription());
             defaultValue(key.getDefaultValue());
             reconfigurable(key.isReconfigurable());
@@ -243,7 +253,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         this.description = builder.description;
         this.defaultValue = builder.defaultValue;
         this.reconfigurable = builder.reconfigurable;
-        this.parentInheritance = builder.runtimeInheritance;
+        this.runtimeInheritance = builder.runtimeInheritance;
         this.typeInheritance = builder.typeInheritance;
         // Note: it's intentionally possible to have default values that are not valid
         // per the configured constraint. If validity were checked here any class that

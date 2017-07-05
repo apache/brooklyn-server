@@ -37,7 +37,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 
 /** 
@@ -210,6 +210,6 @@ public class Poller<V> {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("entity", entity).toString();
+        return MoreObjects.toStringHelper(this).add("entity", entity).toString();
     }
 }

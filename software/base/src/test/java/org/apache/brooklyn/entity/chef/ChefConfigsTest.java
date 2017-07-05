@@ -20,28 +20,16 @@ package org.apache.brooklyn.entity.chef;
 
 import java.util.Set;
 
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.entity.chef.ChefConfig;
 import org.apache.brooklyn.entity.chef.ChefConfigs;
 import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
-public class ChefConfigsTest {
+public class ChefConfigsTest extends BrooklynAppUnitTestSupport {
 
-    private TestApplication app = null;
-
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() {
-        if (app!=null) Entities.destroyAll(app.getManagementContext());
-        app = null;
-    }
-    
     @Test
     public void testAddToRunList() {
-        app = ApplicationBuilder.newManagedApp(TestApplication.class);
         ChefConfigs.addToLaunchRunList(app, "a", "b");
         Set<? extends String> runs = app.getConfig(ChefConfig.CHEF_LAUNCH_RUN_LIST);
         Assert.assertEquals(runs.size(), 2, "runs="+runs);

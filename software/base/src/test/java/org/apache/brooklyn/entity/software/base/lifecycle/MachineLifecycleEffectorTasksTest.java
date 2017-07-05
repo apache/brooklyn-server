@@ -23,6 +23,7 @@ import static org.testng.Assert.assertTrue;
 
 import java.util.List;
 
+import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -34,12 +35,11 @@ import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters.StopMode;
 import org.apache.brooklyn.entity.stock.BasicEntity;
-import org.apache.brooklyn.entity.stock.BasicEntityImpl;
 import org.apache.brooklyn.location.jclouds.BailOutJcloudsLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.task.TaskInternal;
@@ -55,10 +55,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-public class MachineLifecycleEffectorTasksTest {
-    public static boolean canStop(StopMode stopMode, boolean isEntityStopped) {
-        BasicEntityImpl entity = new BasicEntityImpl();
+public class MachineLifecycleEffectorTasksTest extends BrooklynAppUnitTestSupport {
+    
+    public static boolean canStop(Application parent, StopMode stopMode, boolean isEntityStopped) {
         Lifecycle state = isEntityStopped ? Lifecycle.STOPPED : Lifecycle.RUNNING;
+        BasicEntity entity = parent.addChild(EntitySpec.create(BasicEntity.class));
         entity.sensors().set(SoftwareProcess.SERVICE_STATE_ACTUAL, state);
         return MachineLifecycleEffectorTasks.canStop(stopMode, entity);
     }
@@ -77,7 +78,7 @@ public class MachineLifecycleEffectorTasksTest {
 
     @Test(dataProvider = "canStopStates")
     public void testBasicSonftwareProcessCanStop(StopMode mode, boolean isEntityStopped, boolean expected) {
-        boolean canStop = canStop(mode, isEntityStopped);
+        boolean canStop = canStop(app, mode, isEntityStopped);
         assertEquals(canStop, expected);
     }
 
@@ -86,7 +87,6 @@ public class MachineLifecycleEffectorTasksTest {
 
         AttributeSensor<Boolean> ready = Sensors.newBooleanSensor("readiness");
 
-        TestApplication app = TestApplication.Factory.newManagedInstanceForTests();
         BasicEntity triggerEntity = app.createAndManageChild(EntitySpec.create(BasicEntity.class));
 
         EmptySoftwareProcess entity = app.createAndManageChild(EntitySpec.create(EmptySoftwareProcess.class)
@@ -115,8 +115,6 @@ public class MachineLifecycleEffectorTasksTest {
             } else {
                 Exceptions.propagate(t);
             }
-        } finally {
-            Entities.destroyAll(app.getManagementContext());
         }
     }
 

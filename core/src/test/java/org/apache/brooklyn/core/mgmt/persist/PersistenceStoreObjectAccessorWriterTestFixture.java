@@ -104,7 +104,7 @@ public abstract class PersistenceStoreObjectAccessorWriterTestFixture {
         Date write1 = accessor.getLastModifiedDate();
         Assert.assertNotNull(write1);
         
-        Time.sleep(getLastModifiedResolution().times(2));
+        Time.sleep(getLastModifiedResolution().multiply(2));
         accessor.put("abc");
         accessor.waitForCurrentWrites(TIMEOUT);
         Date write2 = accessor.getLastModifiedDate();

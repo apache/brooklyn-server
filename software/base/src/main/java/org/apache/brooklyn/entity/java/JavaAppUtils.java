@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 import javax.management.openmbean.CompositeData;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.feed.http.HttpValueFunctions;
 import org.apache.brooklyn.feed.jmx.JmxAttributePollConfig;
@@ -93,12 +94,17 @@ public class JavaAppUtils {
     }
 
     public static void connectJavaAppServerPolicies(Entity entity, Duration windowPeriod) {
-        entity.enrichers().add(new TimeFractionDeltaEnricher<Double>(entity, UsesJavaMXBeans.PROCESS_CPU_TIME, 
-                UsesJavaMXBeans.PROCESS_CPU_TIME_FRACTION_LAST, TimeUnit.MILLISECONDS));
+        entity.enrichers().add(EnricherSpec.create(TimeFractionDeltaEnricher.class)
+                .configure("producer", entity)
+                .configure("source", UsesJavaMXBeans.PROCESS_CPU_TIME)
+                .configure("target", UsesJavaMXBeans.PROCESS_CPU_TIME_FRACTION_LAST)
+                .configure("durationPerOrigUnit", Duration.millis(1)));
 
-        entity.enrichers().add(new RollingTimeWindowMeanEnricher<Double>(entity,
-                UsesJavaMXBeans.PROCESS_CPU_TIME_FRACTION_LAST, UsesJavaMXBeans.PROCESS_CPU_TIME_FRACTION_IN_WINDOW,
-                windowPeriod));
+        entity.enrichers().add(EnricherSpec.create(RollingTimeWindowMeanEnricher.class)
+                .configure("producer", entity)
+                .configure("source", UsesJavaMXBeans.PROCESS_CPU_TIME_FRACTION_LAST)
+                .configure("target", UsesJavaMXBeans.PROCESS_CPU_TIME_FRACTION_IN_WINDOW)
+                .configure("timePeriod", windowPeriod));
     }
 
     /**

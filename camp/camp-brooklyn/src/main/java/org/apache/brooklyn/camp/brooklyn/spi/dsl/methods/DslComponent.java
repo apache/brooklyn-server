@@ -43,6 +43,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
@@ -52,7 +53,6 @@ import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.xstream.ObjectWithDefaultStringImplConverter;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 
@@ -489,7 +489,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 targetSensor = Sensors.newSensor(Object.class, sensorNameS);
             }
             Object result = targetEntity.sensors().get(targetSensor);
-            return GroovyJavaMethods.truth(result) ? Maybe.of(result) : ImmediateValueNotAvailableException.newAbsentWithExceptionSupplier();
+            return JavaGroovyEquivalents.groovyTruth(result) ? Maybe.of(result) : ImmediateValueNotAvailableException.newAbsentWithExceptionSupplier();
         }
 
         @SuppressWarnings("unchecked")

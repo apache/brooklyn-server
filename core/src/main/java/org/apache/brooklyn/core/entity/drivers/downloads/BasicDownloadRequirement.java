@@ -26,7 +26,7 @@ import org.apache.brooklyn.api.entity.drivers.EntityDriver;
 import org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolverManager.DownloadRequirement;
 import org.apache.brooklyn.util.collections.MutableMap;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 
 public class BasicDownloadRequirement implements DownloadRequirement {
@@ -80,6 +80,6 @@ public class BasicDownloadRequirement implements DownloadRequirement {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("driver", entityDriver).add("addon", addonName).omitNullValues().toString();
+        return MoreObjects.toStringHelper(this).add("driver", entityDriver).add("addon", addonName).omitNullValues().toString();
     }
 }

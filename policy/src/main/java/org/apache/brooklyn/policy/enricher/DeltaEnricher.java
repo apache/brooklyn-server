@@ -23,6 +23,7 @@ import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.enricher.stock.AbstractTransformingEnricher;
@@ -36,9 +37,13 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 public class DeltaEnricher<T extends Number> extends AbstractTransformingEnricher<T> {
     Number last = 0;
 
-    public DeltaEnricher() { // for rebinding
+    public DeltaEnricher() { // for EnricherSpec and rebinding
     }
     
+    /**
+     * @deprecated since 0.12.0; use {@link EnricherSpec}
+     */
+    @Deprecated
     public DeltaEnricher(Entity producer, Sensor<T> source, AttributeSensor<T> target) {
         super(producer, source, target);
     }

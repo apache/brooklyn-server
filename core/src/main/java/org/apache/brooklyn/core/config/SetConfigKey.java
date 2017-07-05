@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.config;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -28,6 +30,8 @@ import org.apache.brooklyn.core.config.internal.AbstractCollectionConfigKey;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.reflect.TypeToken;
 
 /** A config key representing a set of values. 
  * If a value is set using this *typed* key, it is _added_ to the set
@@ -44,11 +48,58 @@ import org.slf4j.LoggerFactory;
  * Specific values can be added in a replaceable way by referring to a subkey.
  */
 //TODO Create interface
-public class SetConfigKey<V> extends AbstractCollectionConfigKey<Set<? extends V>, Set<Object>, V> {
+public class SetConfigKey<V> extends AbstractCollectionConfigKey<Set<V>, Set<Object>, V> {
 
     private static final long serialVersionUID = 751024268729803210L;
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(SetConfigKey.class);
+
+    public static class Builder<V> extends BasicConfigKey.Builder<Set<V>,Builder<V>> {
+        protected Class<V> subType;
+        
+        public Builder(TypeToken<V> subType, String name) {
+            super(new TypeToken<Set<V>>() {}, name);
+            this.subType = (Class<V>) subType.getRawType();
+        }
+        public Builder(Class<V> subType, String name) {
+            super(new TypeToken<Set<V>>() {}, name);
+            this.subType = checkNotNull(subType, "subType");
+        }
+        public Builder(SetConfigKey<V> key) {
+            this(key.getName(), key);
+        }
+        public Builder(String newName, SetConfigKey<V> key) {
+            super(newName, key);
+            subType = key.subType;
+        }
+        @Override
+        public Builder<V> self() {
+            return this;
+        }
+        @Override
+        @Deprecated
+        public Builder<V> name(String val) {
+            throw new UnsupportedOperationException("Builder must be constructed with name");
+        }
+        @Override
+        @Deprecated
+        public Builder<V> type(Class<Set<V>> val) {
+            throw new UnsupportedOperationException("Builder must be constructed with type");
+        }
+        @Override
+        @Deprecated
+        public Builder<V> type(TypeToken<Set<V>> val) {
+            throw new UnsupportedOperationException("Builder must be constructed with type");
+        }
+        @Override
+        public SetConfigKey<V> build() {
+            return new SetConfigKey<V>(this);
+        }
+    }
+
+    public SetConfigKey(Builder<V> builder) {
+        super(builder, builder.subType);
+    }
 
     public SetConfigKey(Class<V> subType, String name) {
         this(subType, name, name, null);
@@ -60,7 +111,7 @@ public class SetConfigKey<V> extends AbstractCollectionConfigKey<Set<? extends V
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public SetConfigKey(Class<V> subType, String name, String description, Set<? extends V> defaultValue) {
-        super((Class)Set.class, subType, name, description, defaultValue);
+        super((Class)Set.class, subType, name, description, (Set) defaultValue);
     }
 
     @Override

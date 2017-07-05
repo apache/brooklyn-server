@@ -30,13 +30,15 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.location.SimulatedLocation;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.group.DynamicGroup;
+import org.apache.brooklyn.policy.loadbalancing.BalanceableContainer;
+import org.apache.brooklyn.policy.loadbalancing.MockContainerEntity;
+import org.apache.brooklyn.policy.loadbalancing.MockItemEntity;
+import org.apache.brooklyn.policy.loadbalancing.MockItemEntityImpl;
+import org.apache.brooklyn.policy.loadbalancing.Movable;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.time.Time;
@@ -44,11 +46,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
-import org.apache.brooklyn.policy.loadbalancing.BalanceableContainer;
-import org.apache.brooklyn.policy.loadbalancing.MockContainerEntity;
-import org.apache.brooklyn.policy.loadbalancing.MockItemEntity;
-import org.apache.brooklyn.policy.loadbalancing.MockItemEntityImpl;
-import org.apache.brooklyn.policy.loadbalancing.Movable;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
@@ -57,7 +54,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
-public class AbstractFollowTheSunPolicyTest {
+public abstract class AbstractFollowTheSunPolicyTest extends BrooklynAppUnitTestSupport {
     
     private static final Logger LOG = LoggerFactory.getLogger(AbstractFollowTheSunPolicyTest.class);
     
@@ -66,8 +63,6 @@ public class AbstractFollowTheSunPolicyTest {
     
     protected static final long CONTAINER_STARTUP_DELAY_MS = 100;
     
-    protected TestApplication app;
-    protected ManagementContext managementContext;
     protected SimulatedLocation loc1;
     protected SimulatedLocation loc2;
     protected FollowTheSunPool pool;
@@ -78,17 +73,16 @@ public class AbstractFollowTheSunPolicyTest {
     protected Random random = new Random();
     
     @BeforeMethod(alwaysRun=true)
+    @Override
     public void setUp() throws Exception {
+        super.setUp();
         LOG.debug("In AbstractFollowTheSunPolicyTest.setUp()");
 
         MockItemEntityImpl.totalMoveCount.set(0);
         MockItemEntityImpl.lastMoveTime.set(0);
         
-        managementContext = LocalManagementContextForTests.newInstance();
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, managementContext);
-        
-        loc1 = managementContext.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class).configure("name", "loc1"));
-        loc2 = managementContext.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class).configure("name", "loc2"));
+        loc1 = mgmt.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class).configure("name", "loc1"));
+        loc2 = mgmt.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class).configure("name", "loc2"));
         
         containerGroup = app.createAndManageChild(EntitySpec.create(DynamicGroup.class)
                 .displayName("containerGroup")
@@ -106,11 +100,15 @@ public class AbstractFollowTheSunPolicyTest {
     }
     
     @AfterMethod(alwaysRun=true)
-    public void tearDown() {
-        if (pool != null && policy != null) pool.policies().remove(policy);
-        if (app != null) Entities.destroyAll(app.getManagementContext());
-        MockItemEntityImpl.totalMoveCount.set(0);
-        MockItemEntityImpl.lastMoveTime.set(0);
+    @Override
+    public void tearDown() throws Exception {
+        try {
+            if (pool != null && policy != null) pool.policies().remove(policy);
+        } finally {
+            super.tearDown();
+            MockItemEntityImpl.totalMoveCount.set(0);
+            MockItemEntityImpl.lastMoveTime.set(0);
+        }
     }
     
     /**

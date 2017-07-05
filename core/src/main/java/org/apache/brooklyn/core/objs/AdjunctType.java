@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
@@ -101,7 +102,7 @@ public class AdjunctType implements Serializable {
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(name)
+        return MoreObjects.toStringHelper(name)
                 .add("configKeys", configKeys)
                 .toString();
     }

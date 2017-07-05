@@ -23,11 +23,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -47,9 +44,10 @@ import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 import org.apache.brooklyn.entity.group.StopFailedRuntimeException;
 import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Ticker;
 import com.google.common.collect.Lists;
@@ -97,22 +95,8 @@ public class ServiceReplacer extends AbstractPolicy {
     protected final List<Long> consecutiveReplacementFailureTimes = Lists.newCopyOnWriteArrayList();
     
     public ServiceReplacer() {
-        this(new ConfigBag());
     }
     
-    public ServiceReplacer(Map<String,?> flags) {
-        this(new ConfigBag().putAll(flags));
-    }
-    
-    public ServiceReplacer(ConfigBag configBag) {
-        // TODO hierarchy should use ConfigBag, and not change flags
-        super(configBag.getAllConfigMutable());
-    }
-    
-    public ServiceReplacer(Sensor<?> failureSensorToMonitor) {
-        this(new ConfigBag().configure(FAILURE_SENSOR_TO_MONITOR, failureSensorToMonitor));
-    }
-
     @Override
     public void setEntity(final EntityLocal entity) {
         checkArgument(entity instanceof MemberReplaceable, "ServiceReplacer must take a MemberReplaceable, not %s", entity);

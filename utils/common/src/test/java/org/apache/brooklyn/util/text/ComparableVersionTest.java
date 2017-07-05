@@ -35,8 +35,9 @@ public class ComparableVersionTest {
         Assert.assertTrue(v.isLessThanAndNotEqualTo("10.6"));
         Assert.assertTrue(v.isLessThanOrEqualTo("10.5.8"));
         Assert.assertFalse(v.isLessThanAndNotEqualTo("10.5.8"));
-        
-        Assert.assertTrue(v.isLessThanAndNotEqualTo("10.5.8.1"));
+
+        // this one is surprising -- but we don't support sub-patch numbers, the ".1" is a qualifier
+        Assert.assertTrue(v.isGreaterThanAndNotEqualTo("10.5.8.1"));
         
         Assert.assertTrue(v_rc2.isLessThanAndNotEqualTo("10.5.8-rc3")) ;
         Assert.assertTrue(v_rc2.isGreaterThanAndNotEqualTo("10.5.8-rc1"));

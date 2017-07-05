@@ -18,11 +18,8 @@
  */
 package org.apache.brooklyn.core.feed;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.util.Collection;
 
-import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.FeedMemento;
@@ -57,23 +54,6 @@ public abstract class AbstractFeed extends AbstractEntityAdjunct implements Feed
     public AbstractFeed() {
     }
     
-    /**
-     * @deprecated since 0.7.0; use no-arg constructor; call {@link #setEntity(EntityLocal)}
-     */
-    @Deprecated
-    public AbstractFeed(Entity entity) {
-        this(entity, false);
-    }
-    
-    /**
-     * @deprecated since 0.7.0; use no-arg constructor; call {@link #setEntity(EntityLocal)} and {@code setConfig(ONLY_IF_SERVICE_UP, onlyIfServiceUp)}
-     */
-    @Deprecated
-    public AbstractFeed(Entity entity, boolean onlyIfServiceUp) {
-        this.entity = checkNotNull((EntityInternal)entity, "entity");
-        setConfig(ONLY_IF_SERVICE_UP, onlyIfServiceUp);
-    }
-
     // Ensure idempotent, as called in builders (in case not registered with entity), and also called
     // when registering with entity
     @Override

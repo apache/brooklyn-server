@@ -42,6 +42,7 @@ import javax.management.openmbean.TabularType;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
@@ -55,8 +56,8 @@ import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.core.test.entity.TestApplicationImpl;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.entity.java.JmxAttributeSensor;
@@ -89,7 +90,7 @@ import com.google.common.collect.Lists;
  * TODO tests of other JMX_AGENT_MODE are done in ActiveMqIntegrationTest; 
  * would be nice to promote some to live here
  */
-public class JmxFeedTest {
+public class JmxFeedTest extends BrooklynAppUnitTestSupport {
     
     // FIXME Move out the JmxHelper tests into the JmxHelperTest class
     
@@ -101,7 +102,6 @@ public class JmxFeedTest {
     private static final int SHORT_WAIT_MS = 250;
     
     private JmxService jmxService;
-    private TestApplication app;
     private TestEntity entity;
     private JmxFeed feed;
     private JmxHelper jmxHelper;
@@ -133,11 +133,13 @@ public class JmxFeedTest {
     }
     
     @BeforeMethod(alwaysRun=true)
+    @Override
     public void setUp() throws Exception {
+        super.setUp();
+        
         jmxObjectName = new ObjectName(objectName);
         
         // Create an entity and configure it with the above JMX service
-        app = TestApplication.Factory.newManagedInstanceForTests();
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class).impl(TestEntityWithJmx.class).additionalInterfaces(UsesJmx.class));
         app.start(ImmutableList.of(new SimulatedLocation()));
 
@@ -148,11 +150,14 @@ public class JmxFeedTest {
     
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
-        if (feed != null) feed.stop();
-        if (jmxHelper != null) jmxHelper.disconnect();
-        if (jmxService != null) jmxService.shutdown();
-        if (app != null) Entities.destroyAll(app.getManagementContext());
-        feed = null;
+        try {
+            if (feed != null) feed.stop();
+            if (jmxHelper != null) jmxHelper.disconnect();
+            if (jmxService != null) jmxService.shutdown();
+            feed = null;
+        } finally {
+            super.tearDown();
+        }
     }
 
     @Test
@@ -391,9 +396,9 @@ public class JmxFeedTest {
     // Test reproduces functionality used in Monterey, for Venue entity being told of requestActor
     @Test
     public void testSubscribeToJmxNotificationAndEmitCorrespondingNotificationSensor() throws Exception {
-        TestApplication app2 = new TestApplicationImpl();
-        final EntityWithEmitter entity = new EntityWithEmitter(app2);
-        Entities.startManagement(app2);
+        final TestApplication app2 = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
+        final EntityWithEmitter entity = app2.addChild(EntitySpec.create(EntityWithEmitter.class));
+        
         try {
             app2.start(ImmutableList.of(new SimulatedLocation()));
             
@@ -428,19 +433,13 @@ public class JmxFeedTest {
             Entities.destroyAll(app2.getManagementContext());
         }
     }
-    
-    public static class EntityWithEmitter extends AbstractEntity {
+
+    @ImplementedBy(EntityWithEmitterImpl.class)
+    public static interface EntityWithEmitter extends Entity {
         public static final BasicNotificationSensor<String> MY_NOTIF = new BasicNotificationSensor<String>(String.class, "test.myNotif", "My notif");
-        
-        public EntityWithEmitter(Entity owner) {
-            super(owner);
-        }
-        public EntityWithEmitter(Map flags) {
-            super(flags);
-        }
-        public EntityWithEmitter(Map flags, Entity owner) {
-            super(flags, owner);
-        }
+    }
+    
+    public static class EntityWithEmitterImpl extends AbstractEntity implements EntityWithEmitter {
     }
     
     private Notification sendNotification(StandardEmitterMBean mbean, String type, long seq, Object userData) {

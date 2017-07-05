@@ -18,16 +18,29 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
+import static org.apache.brooklyn.location.jclouds.JcloudsLocationConfig.JCLOUDS_LOCATION_CUSTOMIZERS;
+import static org.apache.brooklyn.util.core.internal.ssh.SshTool.ADDITIONAL_CONNECTION_METADATA;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import javax.annotation.Nullable;
 
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.AbstractNodeCreator;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.NodeCreator;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
+import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadata.Status;
 import org.jclouds.compute.domain.NodeMetadataBuilder;
@@ -48,6 +61,13 @@ public class JcloudsSshMachineLocationStubbedTest extends AbstractJcloudsStubbed
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(JcloudsImageChoiceStubbedLiveTest.class);
+    
+    @SuppressWarnings("serial")
+    private static class FailObtainOnPurposeException extends RuntimeException {
+        public FailObtainOnPurposeException(String message) {
+            super(message);
+        }
+    }
     
     private List<String> privateAddresses;
     private List<String> publicAddresses;
@@ -117,5 +137,93 @@ public class JcloudsSshMachineLocationStubbedTest extends AbstractJcloudsStubbed
                 WinRmTool.PROP_EXEC_TRIES.getName(), 456));
         assertEquals(machine.config().get(WinRmMachineLocation.COPY_FILE_CHUNK_SIZE_BYTES), Integer.valueOf(123));
         assertEquals(machine.config().get(WinRmTool.PROP_EXEC_TRIES), Integer.valueOf(456));
+    }
+
+    @Test
+    public void testNodeSetupCustomizer() throws Exception {
+        final String testMetadata = "test-metadata";
+        obtainMachine(ImmutableMap.of(JCLOUDS_LOCATION_CUSTOMIZERS, ImmutableList.of(new BasicJcloudsLocationCustomizer(){
+            @Override
+            public void customize(JcloudsLocation location, NodeMetadata node, ConfigBag setup) {
+                assertNotNull(node, "node");
+                assertNotNull(location, "location");
+                setup.configure(ADDITIONAL_CONNECTION_METADATA, testMetadata);
+            }
+        })));
+        Map<?, ?> lastConstructorProps = RecordingSshTool.getLastConstructorProps();
+        assertEquals(lastConstructorProps.get(ADDITIONAL_CONNECTION_METADATA.getName()), testMetadata);
+    }
+    
+    @Test
+    public void testNodeObtainErrorCustomizer() throws Exception {
+        final AtomicBoolean calledPreRelease = new AtomicBoolean();
+        final AtomicBoolean calledPostRelease = new AtomicBoolean();
+        try {
+            obtainMachine(ImmutableMap.of(
+                    JcloudsLocationConfig.MACHINE_CREATE_ATTEMPTS, 1,
+                    JCLOUDS_LOCATION_CUSTOMIZERS, ImmutableList.of(new BasicJcloudsLocationCustomizer(){
+
+                @Override
+                public void customize(JcloudsLocation location, ComputeService computeService,
+                        JcloudsMachineLocation machine) {
+                    // failing with a node already created
+                    throw new FailObtainOnPurposeException("testing obtain failure customizer callbacks");
+                }
+                @Override
+                public void preReleaseOnObtainError(JcloudsLocation jcloudsLocation,
+                        @Nullable JcloudsMachineLocation machineLocation,
+                        Exception cause) {
+                    calledPreRelease.set(true);
+                }
+                @Override
+                public void postReleaseOnObtainError(JcloudsLocation jcloudsLocation,
+                        @Nullable JcloudsMachineLocation machineLocation,
+                        Exception cause) {
+                    calledPostRelease.set(true);
+                }
+            })));
+            Asserts.shouldHaveFailedPreviously("Expected exception of type " + FailObtainOnPurposeException.class.getSimpleName());
+        } catch (FailObtainOnPurposeException e) {
+            // expected
+        }
+        assertTrue(calledPreRelease.get(), "preReleaseOnObtainError not called on failed onObtain");
+        assertTrue(calledPostRelease.get(), "postReleaseOnObtainError not called on failed onObtain");
+    }
+
+    @Test
+    public void testNodeObtainErrorCustomizerNoDestroy() throws Exception {
+        final AtomicBoolean calledPreRelease = new AtomicBoolean();
+        final AtomicBoolean calledPostRelease = new AtomicBoolean();
+        try {
+            obtainMachine(ImmutableMap.of(
+                    JcloudsLocationConfig.MACHINE_CREATE_ATTEMPTS, 1,
+                    JcloudsLocationConfig.DESTROY_ON_FAILURE, false,
+                    JCLOUDS_LOCATION_CUSTOMIZERS, ImmutableList.of(new BasicJcloudsLocationCustomizer(){
+
+                @Override
+                public void customize(JcloudsLocation location, ComputeService computeService,
+                        JcloudsMachineLocation machine) {
+                    // failing with a node already created
+                    throw new FailObtainOnPurposeException("testing obtain failure customizer callbacks");
+                }
+                @Override
+                public void preReleaseOnObtainError(JcloudsLocation jcloudsLocation,
+                        @Nullable JcloudsMachineLocation machineLocation,
+                        Exception cause) {
+                    calledPreRelease.set(true);
+                }
+                @Override
+                public void postReleaseOnObtainError(JcloudsLocation jcloudsLocation,
+                        @Nullable JcloudsMachineLocation machineLocation,
+                        Exception cause) {
+                    calledPostRelease.set(true);
+                }
+            })));
+            Asserts.shouldHaveFailedPreviously("Expected exception of type " + FailObtainOnPurposeException.class.getSimpleName());
+        } catch (FailObtainOnPurposeException e) {
+            // expected
+        }
+        assertTrue(calledPreRelease.get(), "preReleaseOnObtainError not called on failed onObtain");
+        assertFalse(calledPostRelease.get(), "postReleaseOnObtainError not to be called on failed onObtain when destroyOnFailure=false");
     }
 }

@@ -20,21 +20,25 @@ package org.apache.brooklyn.core.policy.basic;
 
 import static org.testng.Assert.assertEquals;
 
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.EnricherType;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableSet;
 
-public class EnricherTypeTest {
+public class EnricherTypeTest extends BrooklynAppUnitTestSupport {
     private MyEnricher enricher;
     
     @BeforeMethod(alwaysRun=true)
+    @Override
     public void setUp() throws Exception{
-        enricher = new MyEnricher();
+        super.setUp();
+        enricher = app.enrichers().add(EnricherSpec.create(MyEnricher.class));
     }
 
     @AfterMethod(alwaysRun=true)

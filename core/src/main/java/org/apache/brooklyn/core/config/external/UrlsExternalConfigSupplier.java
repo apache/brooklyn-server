@@ -24,7 +24,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.util.core.ResourceUtils;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Maps;
 
 
@@ -70,7 +70,7 @@ public class UrlsExternalConfigSupplier extends AbstractExternalConfigSupplier {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("name", getName()).toString();
+        return MoreObjects.toStringHelper(this).add("name", getName()).toString();
     }
     
     @Override

@@ -26,45 +26,30 @@ import org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolver;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.location.SimulatedLocation;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-public class BasicDownloadsRegistryTest {
+public class BasicDownloadsRegistryTest extends BrooklynAppUnitTestSupport {
 
-    private BrooklynProperties brooklynProperties;
-    private LocalManagementContext managementContext;
     private Location loc;
-    private TestApplication app;
     private TestEntity entity;
     private MyEntityDriver driver;
 
     @BeforeMethod(alwaysRun=true)
+    @Override
     public void setUp() throws Exception {
-        brooklynProperties = BrooklynProperties.Factory.newEmpty();
-        managementContext = new LocalManagementContext(brooklynProperties);
-        loc = new SimulatedLocation();
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, managementContext);
+        super.setUp();
+        loc = app.newSimulatedLocation();
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         driver = new MyEntityDriver(entity, loc);
-        
     }
     
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
-    }
-
     @Test
     public void testUsesDownloadUrlAttribute() throws Exception {
         entity.config().set(BrooklynConfigKeys.SUGGESTED_VERSION, "myversion");
@@ -86,7 +71,7 @@ public class BasicDownloadsRegistryTest {
         String expectedLocalRepo = String.format("file://$HOME/.brooklyn/repository/%s/%s/%s", "TestEntity", "myentityversion", expectedFilename);
         String expectedDownloadUrl = String.format("acme.com/%s", expectedFilename);
         String expectedCloudsoftRepo = String.format("http://downloads.cloudsoftcorp.com/brooklyn/repository/%s/%s/%s", "TestEntity", "myentityversion", expectedFilename);
-        DownloadResolver actual = managementContext.getEntityDownloadsManager().newDownloader(driver, "myaddon", ImmutableMap.of("addonversion", "myaddonversion"));
+        DownloadResolver actual = mgmt.getEntityDownloadsManager().newDownloader(driver, "myaddon", ImmutableMap.of("addonversion", "myaddonversion"));
         assertEquals(actual.getTargets(), ImmutableList.of(expectedLocalRepo, expectedDownloadUrl, expectedCloudsoftRepo), "actual="+actual);
     }
     
@@ -94,7 +79,7 @@ public class BasicDownloadsRegistryTest {
     public void testDefaultResolverSubstitutesDownloadUrlFailsIfVersionMissing() throws Exception {
         entity.sensors().set(Attributes.DOWNLOAD_URL, "version=${version}");
         try {
-            DownloadResolver result = managementContext.getEntityDownloadsManager().newDownloader(driver);
+            DownloadResolver result = mgmt.getEntityDownloadsManager().newDownloader(driver);
             fail("Should have failed, but got "+result);
         } catch (IllegalArgumentException e) {
             if (!e.toString().contains("${version}")) throw e;
@@ -103,7 +88,7 @@ public class BasicDownloadsRegistryTest {
     
     @Test
     public void testReturnsLocalRepoThenOverrideThenAttributeValThenCloudsoftUrlThenFallback() throws Exception {
-        BrooklynProperties managementProperties = managementContext.getBrooklynProperties();
+        BrooklynProperties managementProperties = mgmt.getBrooklynProperties();
         managementProperties.put("brooklyn.downloads.all.url", "http://fromprops/${version}.allprimary");
         managementProperties.put("brooklyn.downloads.all.fallbackurl", "http://fromfallback/${version}.allfallback");
         entity.sensors().set(Attributes.DOWNLOAD_URL, "http://fromattrib/${version}.default");
@@ -126,7 +111,7 @@ public class BasicDownloadsRegistryTest {
         entity.config().set(BrooklynConfigKeys.SUGGESTED_VERSION, "myversion");
         entity.sensors().set(Attributes.DOWNLOAD_URL, "http://myhost.com/myfile-${version}.tar.gz");
 
-        DownloadResolver actual = managementContext.getEntityDownloadsManager().newDownloader(driver);
+        DownloadResolver actual = mgmt.getEntityDownloadsManager().newDownloader(driver);
         assertEquals(actual.getFilename(), "myfile-myversion.tar.gz");
     }
     
@@ -135,7 +120,7 @@ public class BasicDownloadsRegistryTest {
         entity.config().set(BrooklynConfigKeys.SUGGESTED_VERSION, "myversion");
         entity.sensors().set(Attributes.DOWNLOAD_ADDON_URLS, ImmutableMap.of("myaddon", "http://myhost.com/myfile-${addonversion}.tar.gz"));
 
-        DownloadResolver actual = managementContext.getEntityDownloadsManager().newDownloader(driver, "myaddon", ImmutableMap.of("addonversion", "myaddonversion"));
+        DownloadResolver actual = mgmt.getEntityDownloadsManager().newDownloader(driver, "myaddon", ImmutableMap.of("addonversion", "myaddonversion"));
         assertEquals(actual.getFilename(), "myfile-myaddonversion.tar.gz");
     }
     
@@ -144,12 +129,12 @@ public class BasicDownloadsRegistryTest {
         entity.config().set(BrooklynConfigKeys.SUGGESTED_VERSION, "myversion");
         entity.sensors().set(Attributes.DOWNLOAD_URL, "http://myhost.com/download/");
 
-        DownloadResolver actual = managementContext.getEntityDownloadsManager().newDownloader(driver, ImmutableMap.of("filename", "overridden.filename.tar.gz"));
+        DownloadResolver actual = mgmt.getEntityDownloadsManager().newDownloader(driver, ImmutableMap.of("filename", "overridden.filename.tar.gz"));
         assertEquals(actual.getFilename(), "overridden.filename.tar.gz");
     }
     
     private void assertResolves(String... expected) {
-        DownloadResolver actual = managementContext.getEntityDownloadsManager().newDownloader(driver);
+        DownloadResolver actual = mgmt.getEntityDownloadsManager().newDownloader(driver);
         assertEquals(actual.getTargets(), ImmutableList.copyOf(expected), "actual="+actual);
     }
 }

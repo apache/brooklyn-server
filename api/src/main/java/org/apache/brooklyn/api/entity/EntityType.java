@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.api.entity;
 
-import java.util.NoSuchElementException;
 import java.util.Set;
 
 import org.apache.brooklyn.api.effector.Effector;
@@ -50,17 +49,6 @@ public interface EntityType extends BrooklynType {
      */
     public Maybe<Effector<?>> getEffectorByName(String name);
         
-    /**
-     * @return the matching effector on this entity
-     * @throws NoSuchElementException If there is no exact match for this signature
-     * <p>
-     * @deprecated since 0.7.0 use {@link #getEffectorByName(String)};
-     * use of multiple effectors with the same name is not supported by the EntityDynamicType implementation,
-     * so should be discouraged.  overloading can be achieved by inspecting the parameters map. 
-     */
-    @Deprecated
-    Effector<?> getEffector(String name, Class<?>... parameterTypes);
-
     /**
      * The Sensor with the given name, or null if not found.
      */

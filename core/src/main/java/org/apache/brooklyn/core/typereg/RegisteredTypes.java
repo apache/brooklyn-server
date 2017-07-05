@@ -33,6 +33,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
@@ -47,6 +48,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.Maybe.Absent;
 import org.apache.brooklyn.util.text.NaturalOrderComparator;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.VersionComparator;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
@@ -100,6 +102,7 @@ public class RegisteredTypes {
         }
         
         BasicRegisteredType type = (BasicRegisteredType) spec(item.getSymbolicName(), item.getVersion(), impl, item.getCatalogItemJavaType());
+        type.containingBundle = item.getContainingBundle();
         type.displayName = item.getDisplayName();
         type.description = item.getDescription();
         type.iconUrl = item.getIconUrl();
@@ -164,6 +167,13 @@ public class RegisteredTypes {
     }
     @Beta public static void cacheActualJavaType(RegisteredType type, Class<?> clazz) {
         ((BasicRegisteredType)type).getCache().put(ACTUAL_JAVA_TYPE, clazz);
+    }
+
+    @Beta
+    public static RegisteredType setContainingBundle(RegisteredType type, @Nullable ManagedBundle bundle) {
+        ((BasicRegisteredType)type).containingBundle =
+            bundle==null ? null : Strings.toString(bundle.getVersionedName());
+        return type;
     }
 
     @Beta

@@ -67,7 +67,9 @@ public interface CatalogApi {
             @ApiResponse(code = 400, message = "Error processing the given YAML"),
             @ApiResponse(code = 201, message = "Catalog items added successfully")
     })
-    public Response create(String yaml);
+    public Response create(String yaml,
+            @ApiParam(name="forceUpdate", value="Force update of catalog item (overwriting existing catalog items with same name and version)")
+            @QueryParam("forceUpdate") @DefaultValue("false") boolean forceUpdate);
 
     @POST
     @Consumes({MediaType.APPLICATION_JSON, "application/x-yaml",
@@ -85,16 +87,28 @@ public interface CatalogApi {
     })
     public Response createFromYaml(
             @ApiParam(name = "yaml", value = "YAML descriptor of catalog item", required = true)
-            @Valid String yaml);
+            @Valid String yaml,
+            @ApiParam(name="forceUpdate", value="Force update of catalog item (overwriting existing catalog items with same name and version)")
+            @QueryParam("forceUpdate") @DefaultValue("false")
+            boolean forceUpdate);
 
     @Beta
+    /* TODO the polymorphic return type dependent on 'detail' is ugly, 
+     * but we're stuck in this API because backwards compatibility expects the types map
+     * whereas typical usage wants more feedback. we should introduce a 
+     * /registry and/or /types and/or /bundles endpoint that always provides details
+     * (and an approach to handling types more aligned with BrooklynTypeRegistry and OSGi bundling).
+     * Not too concerned here as this method is beta and the above switch will probably naturally happen soon. 
+     * The main client who cares about this is the Go CLI. */
     @POST
     @Consumes({"application/x-zip", "application/x-jar"})
     @ApiOperation(
             value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading a ZIP/JAR archive.",
             notes = "Accepts either an OSGi bundle JAR, or ZIP which will be turned into bundle JAR. Bother format must "
                     + "contain a catalog.bom at the root of the archive, which must contain the bundle and version key."
-                    + "Return value is map of ID to CatalogItemSummary.",
+                    + "Return value is map of ID to CatalogItemSummary unless detail=true is passed as a parameter in which "
+                    + "case the return value is a BundleInstallationRestResult map containing the types map in types along "
+                    + "with a message, bundle, and code.",
             response = String.class,
             hidden = true)
     @ApiResponses(value = {
@@ -106,7 +120,13 @@ public interface CatalogApi {
                     name = "archive",
                     value = "Bundle to install, in ZIP or JAR format, requiring catalog.bom containing bundle name and version",
                     required = true)
-            byte[] archive);
+            byte[] archive,
+            @ApiParam(name="detail", value="Provide a wrapping details map", required=false)
+            @QueryParam("detail") @DefaultValue("false")
+            boolean detail,
+            @ApiParam(name="forceUpdate", value="Force update of catalog item (overwriting existing catalog items with same name and version)")
+            @QueryParam("forceUpdate") @DefaultValue("false")
+            boolean forceUpdate);
 
     @Beta
     @POST
@@ -128,7 +148,10 @@ public interface CatalogApi {
                     name = "item",
                     value = "Item to install, as JAR/ZIP or Catalog YAML (autodetected)",
                     required = true)
-                    byte[] item);
+                    byte[] item,
+            @ApiParam(name="forceUpdate", value="Force update of catalog item (overwriting existing catalog items with same name and version)")
+            @QueryParam("forceUpdate") @DefaultValue("false")
+                    boolean forceUpdate);
     
     @DELETE
     @Path("/applications/{symbolicName}/{version}")

@@ -28,7 +28,6 @@ import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
-import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.impl.XsltTransformer;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -46,6 +45,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.io.ByteSource;
 
 @Beta
 public class CompoundTransformer {
@@ -265,6 +265,7 @@ public class CompoundTransformer {
         Map<String, String> feeds = MutableMap.copyOf(rawData.getFeeds());
         Map<String, String> catalogItems = MutableMap.copyOf(rawData.getCatalogItems());
         Map<String, String> bundles = MutableMap.copyOf(rawData.getBundles());
+        Map<String, ByteSource> bundleJars = MutableMap.copyOf(rawData.getBundleJars());
 
         // TODO @neykov asks whether transformers should be run in registration order,
         // rather than in type order.  TBD.  (would be an easy change.)
@@ -328,7 +329,11 @@ public class CompoundTransformer {
                     LOG.warn("Unable to delete " + type + " id"+Strings.s(missing.size())+" ("+missing+"), "
                             + "because not found in persisted state (continuing)");
                 }
+                // bundles have to be supplied by ID, but if so they can be deleted along with the jars
                 bundles.keySet().removeAll(itemsToDelete);
+                for (String item: itemsToDelete) {
+                    bundleJars.remove(item+".jar");
+                }
                 break;
             case UNKNOWN:
                 break; // no-op
@@ -372,9 +377,12 @@ public class CompoundTransformer {
                         }
                         break;
                     case MANAGED_BUNDLE:
-                        for (Map.Entry<String, String> entry : bundles.entrySet()) {
-                            entry.setValue(transformer.transform(entry.getValue()));
-                        }
+                        // transform of bundles and JARs not supported - you can delete, that's all
+                        // TODO we should support a better way of adding/removing bundles,
+                        // e.g. start in management mode where you can edit brooklyn-managed bundles
+//                        for (Map.Entry<String, String> entry : bundles.entrySet()) {
+//                            entry.setValue(transformer.transform(entry.getValue()));
+//                        }
                         break;
                     case UNKNOWN:
                         break; // no-op
@@ -393,6 +401,7 @@ public class CompoundTransformer {
                 .feeds(feeds)
                 .catalogItems(catalogItems)
                 .bundles(bundles)
+                .bundleJars(bundleJars)
                 .build();
     }
     

@@ -34,6 +34,7 @@ import org.apache.brooklyn.util.core.internal.ssh.SshAbstractTool.SshAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.net.HostAndPort;
 
@@ -269,7 +270,7 @@ public class SshjClientConnection implements SshAction<SSHClient> {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper("")
+        return MoreObjects.toStringHelper("")
                 .add("hostAndPort", hostAndPort)
                 .add("user", username)
                 .add("ssh", ssh != null ? ssh.hashCode() : null)

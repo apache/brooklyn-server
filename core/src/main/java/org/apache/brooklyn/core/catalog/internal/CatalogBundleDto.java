@@ -18,10 +18,12 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
+import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 
 public class CatalogBundleDto implements CatalogBundle {
     private String symbolicName;
@@ -39,7 +41,7 @@ public class CatalogBundleDto implements CatalogBundle {
         }
 
         this.symbolicName = name;
-        this.version = version;
+        this.version = version==null ? null : BrooklynVersionSyntax.toValidOsgiVersion(version);
         this.url = url;
     }
 
@@ -57,8 +59,13 @@ public class CatalogBundleDto implements CatalogBundle {
     }
 
     @Override
-    public String getVersion() {
+    public String getSuppliedVersionString() {
         return version;
+    }
+    
+    @Override
+    public String getOsgiVersionString() {
+        return version==null ? version : BrooklynVersionSyntax.toValidOsgiVersion(version);
     }
 
     @Override
@@ -68,7 +75,7 @@ public class CatalogBundleDto implements CatalogBundle {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("symbolicName", symbolicName)
                 .add("version", version)
                 .add("url", url)

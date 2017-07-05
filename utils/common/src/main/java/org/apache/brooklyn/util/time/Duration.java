@@ -178,6 +178,11 @@ public class Duration implements Comparable<Duration>, Serializable {
     }
 
     /** creates new {@link Duration} instance of the given length of time */
+    public static Duration micros(Number n) {
+        return new Duration((long) (n.doubleValue() * TimeUnit.MICROSECONDS.toNanos(1)), TimeUnit.NANOSECONDS);
+    }
+
+    /** creates new {@link Duration} instance of the given length of time */
     public static Duration nanos(Number n) {
         return new Duration(n.longValue(), TimeUnit.NANOSECONDS);
     }

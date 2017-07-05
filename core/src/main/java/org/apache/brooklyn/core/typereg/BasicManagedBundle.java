@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.typereg;
 import java.io.File;
 import java.util.Map;
 
+import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
@@ -28,6 +29,9 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.mgmt.rebind.BasicManagedBundleRebindSupport;
 import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
+import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
+import org.osgi.framework.Version;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.MoreObjects;
@@ -51,7 +55,8 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
             Preconditions.checkNotNull(name, "Either a URL or both name and version are required");
             Preconditions.checkNotNull(version, "Either a URL or both name and version are required");
         }
-
+        Version.parseVersion(version);
+        
         this.symbolicName = name;
         this.version = version;
         this.url = url;
@@ -72,12 +77,23 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     }
     
     @Override
-    public String getVersion() {
+    public String getSuppliedVersionString() {
         return version;
+    }
+
+    @Override
+    public String getOsgiVersionString() {
+        return version==null ? version : BrooklynVersionSyntax.toValidOsgiVersion(version);
     }
 
     public void setVersion(String version) {
         this.version = version;
+    }
+    
+    @Override
+    public VersionedName getVersionedName() {
+        if (symbolicName==null) return null;
+        return new VersionedName(symbolicName, version);
     }
     
     @Override
@@ -125,7 +141,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         if (getClass() != obj.getClass()) return false;
         OsgiBundleWithUrl other = (OsgiBundleWithUrl) obj;
         if (!Objects.equal(symbolicName, other.getSymbolicName())) return false;
-        if (!Objects.equal(version, other.getVersion())) return false;
+        if (!Objects.equal(getOsgiVersionString(), other.getOsgiVersionString())) return false;
         if (!Objects.equal(url, other.getUrl())) return false;
         return true;
     }
@@ -172,4 +188,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         throw new UnsupportedOperationException();
     }
 
+    public static ManagedBundle of(CatalogBundle bundleUrl) {
+        return new BasicManagedBundle(bundleUrl.getSymbolicName(), bundleUrl.getSuppliedVersionString(), bundleUrl.getUrl());
+    }
 }

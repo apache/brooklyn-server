@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Range;
 
 public class MemoryUsageTrackerTest {
@@ -139,7 +139,7 @@ public class MemoryUsageTrackerTest {
         }
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("total", Strings.makeSizeString(total))
                     .add("free", Strings.makeSizeString(free))
                     .add("used", Strings.makeSizeString(used))

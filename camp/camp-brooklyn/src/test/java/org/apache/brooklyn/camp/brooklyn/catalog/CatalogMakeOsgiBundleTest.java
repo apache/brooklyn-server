@@ -37,10 +37,11 @@ import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.catalog.internal.CatalogBomScanner;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -48,6 +49,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
@@ -89,7 +91,8 @@ public class CatalogMakeOsgiBundleTest extends AbstractYamlTest {
             Entities.destroy(app);
         }
         for (Bundle b: bundlesToRemove) {
-            b.uninstall();
+            ((ManagementContextInternal)mgmt()).getOsgiManager().get().uninstallUploadedBundle(
+                ((ManagementContextInternal)mgmt()).getOsgiManager().get().getManagedBundle(new VersionedName(b)));
         }
         bundlesToRemove.clear();
     }
@@ -156,7 +159,8 @@ public class CatalogMakeOsgiBundleTest extends AbstractYamlTest {
         
         jf = bm.copyAddingManifest(jf, MutableMap.of(
                 "Manifest-Version", "1.0", 
-                "Bundle-SymbolicName", customName));
+                "Bundle-SymbolicName", customName,
+                "Bundle-Version", "0.0.0.SNAPSHOT"));
         
         Assert.assertTrue(bm.hasOsgiManifest(jf));
         
@@ -172,10 +176,8 @@ public class CatalogMakeOsgiBundleTest extends AbstractYamlTest {
 
     private void installBundle(File jf) {
         try (FileInputStream fin = new FileInputStream(jf)) {
-            BasicManagedBundle bundleMetadata = new BasicManagedBundle();
-            Bundle bundle =
-                ((LocalManagementContext)mgmt()).getOsgiManager().get().installUploadedBundle(bundleMetadata, fin, true);
-            bundlesToRemove.add(bundle);
+            OsgiBundleInstallationResult br = ((ManagementContextInternal)mgmt()).getOsgiManager().get().install(fin).get();
+            bundlesToRemove.add(br.getBundle());
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         }

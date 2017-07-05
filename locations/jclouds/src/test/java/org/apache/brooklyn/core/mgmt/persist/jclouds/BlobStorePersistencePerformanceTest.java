@@ -42,6 +42,10 @@ public class BlobStorePersistencePerformanceTest extends AbstractPerformanceTest
     JcloudsBlobStoreBasedObjectStore objectStore;
     StoreObjectAccessor blobstoreAccessor;
     
+    protected boolean useLiveManagementContext() {
+        return true;
+    }
+
     @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {

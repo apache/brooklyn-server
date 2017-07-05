@@ -20,17 +20,10 @@ package org.apache.brooklyn.core.catalog.internal;
 
 import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.core.entity.AbstractApplication;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 
 public class MyCatalogItems {
 
     @Catalog(description="Some silly app test")
     public static class MySillyAppTemplate extends AbstractApplication {
-    }
-    
-    @Catalog(description="Some silly app builder test")
-    public static class MySillyAppBuilderTemplate extends ApplicationBuilder {
-        @Override protected void doBuild() {
-        }
     }
 }

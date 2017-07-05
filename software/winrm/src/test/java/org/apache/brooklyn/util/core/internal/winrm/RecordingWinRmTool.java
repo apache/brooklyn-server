@@ -27,7 +27,7 @@ import java.util.Map.Entry;
 
 import org.apache.brooklyn.util.stream.Streams;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -59,7 +59,7 @@ public class RecordingWinRmTool implements WinRmTool {
         
         @Override
         public String toString() {
-            return Objects.toStringHelper(this)
+            return MoreObjects.toStringHelper(this)
                     .add("type", type)
                     .add("constructorProps", constructorProps)
                     .add("commands", commands)
@@ -123,6 +123,10 @@ public class RecordingWinRmTool implements WinRmTool {
             throw new IllegalStateException("No executions recorded");
         }
         return execs.get(execs.size()-1);
+    }
+
+    public static Map<?,?> getLastConstructorProps() {
+        return constructorProps.get(constructorProps.size()-1);
     }
 
     private final Map<?, ?> ownConstructorProps;

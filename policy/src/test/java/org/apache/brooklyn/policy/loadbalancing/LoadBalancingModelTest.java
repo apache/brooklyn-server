@@ -22,33 +22,37 @@ import static org.testng.Assert.assertEquals;
 
 import java.util.Collections;
 
-import org.testng.annotations.AfterMethod;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-public class LoadBalancingModelTest {
+public class LoadBalancingModelTest extends BrooklynAppUnitTestSupport {
 
     private static final double PRECISION = 0.00001;
     
-    private MockContainerEntity container1 = new MockContainerEntityImpl();
-    private MockContainerEntity container2 = new MockContainerEntityImpl();
-    private MockItemEntity item1 = new MockItemEntityImpl();
-    private MockItemEntity item2 = new MockItemEntityImpl();
-    private MockItemEntity item3 = new MockItemEntityImpl();
+    private MockContainerEntity container1;
+    private MockContainerEntity container2;
+    private MockItemEntity item1;
+    private MockItemEntity item2;
+    private MockItemEntity item3;
     
     private DefaultBalanceablePoolModel<MockContainerEntity, MockItemEntity> model;
 
     @BeforeMethod(alwaysRun=true)
+    @Override
     public void setUp() throws Exception {
+        super.setUp();
         model = new DefaultBalanceablePoolModel<MockContainerEntity, MockItemEntity>("myname");
-    }
-
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        // nothing to tear down; no management context created
+        
+        container1 = app.addChild(EntitySpec.create(MockContainerEntity.class));
+        container2 = app.addChild(EntitySpec.create(MockContainerEntity.class));
+        item1 = app.addChild(EntitySpec.create(MockItemEntity.class));
+        item2 = app.addChild(EntitySpec.create(MockItemEntity.class));
+        item3 = app.addChild(EntitySpec.create(MockItemEntity.class));
     }
 
     @Test

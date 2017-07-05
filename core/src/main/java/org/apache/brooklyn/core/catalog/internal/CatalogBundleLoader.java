@@ -29,8 +29,11 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
@@ -69,6 +72,8 @@ public class CatalogBundleLoader {
      * @throws RuntimeException if the catalog items failed to be added to the catalog
      */
     public Iterable<? extends CatalogItem<?, ?>> scanForCatalog(Bundle bundle) {
+        ManagedBundle mb = ((ManagementContextInternal)managementContext).getOsgiManager().get().getManagedBundle(
+            new VersionedName(bundle));
 
         Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
 
@@ -77,7 +82,7 @@ public class CatalogBundleLoader {
             LOG.debug("Found catalog BOM in {} {} {}", CatalogUtils.bundleIds(bundle));
             String bomText = readBom(bom);
             String bomWithLibraryPath = addLibraryDetails(bundle, bomText);
-            catalogItems = this.managementContext.getCatalog().addItems(bomWithLibraryPath);
+            catalogItems = this.managementContext.getCatalog().addItems(bomWithLibraryPath, mb);
             for (CatalogItem<?, ?> item : catalogItems) {
                 LOG.debug("Added to catalog: {}, {}", item.getSymbolicName(), item.getVersion());
             }

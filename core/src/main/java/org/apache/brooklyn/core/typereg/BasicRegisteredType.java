@@ -39,6 +39,7 @@ public class BasicRegisteredType implements RegisteredType {
     final RegisteredTypeKind kind;
     final String symbolicName;
     final String version;
+    String containingBundle;
     
     final List<OsgiBundleWithUrl> bundles = MutableList.of();
     String displayName;
@@ -81,6 +82,11 @@ public class BasicRegisteredType implements RegisteredType {
     @Override
     public String getVersion() {
         return version;
+    }
+    
+    @Override
+    public String getContainingBundle() {
+        return containingBundle;
     }
     
     @Override

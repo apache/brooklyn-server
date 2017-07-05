@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.mgmt.osgi;
 
+import static org.testng.Assert.assertTrue;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -35,9 +37,11 @@ import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemDtoAbstract;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.effector.Effectors;
+import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.objs.proxy.EntityProxy;
 import org.apache.brooklyn.core.objs.proxy.InternalEntityFactory;
 import org.apache.brooklyn.core.objs.proxy.InternalPolicyFactory;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
@@ -46,6 +50,7 @@ import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.osgi.OsgiTestBase;
 import org.apache.brooklyn.util.core.osgi.Osgis;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
@@ -93,18 +98,17 @@ public class OsgiVersionMoreEntityTest implements OsgiTestResources {
      */
     @Test
     public void testEntityProxy() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+        
         File storageTempDir = Os.newTempDir("osgi-standalone");
         Framework framework = Osgis.getFramework(storageTempDir.getAbsolutePath(), true);
         
+        ManagementContextInternal managementContext = null;
         try {
-            ManagementContextInternal managementContext;
-            InternalEntityFactory factory;
-
             managementContext = new LocalManagementContextForTests();
             InternalPolicyFactory policyFactory = new InternalPolicyFactory(managementContext);
-            factory = new InternalEntityFactory(managementContext, managementContext.getEntityManager().getEntityTypeRegistry(), policyFactory);
+            InternalEntityFactory factory = new InternalEntityFactory(managementContext, managementContext.getEntityManager().getEntityTypeRegistry(), policyFactory);
 
-            TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), BROOKLYN_TEST_OSGI_ENTITIES_PATH);
             Bundle bundle = Osgis.install(framework, BROOKLYN_TEST_OSGI_ENTITIES_PATH);
             @SuppressWarnings("unchecked")
             Class<? extends Entity> bundleCls = (Class<? extends Entity>) bundle.loadClass("org.apache.brooklyn.test.osgi.entities.SimpleEntityImpl");
@@ -113,12 +117,19 @@ public class OsgiVersionMoreEntityTest implements OsgiTestResources {
 
             @SuppressWarnings("unchecked")
             EntitySpec<Entity> spec = (((EntitySpec<Entity>)EntitySpec.create(bundleInterface))).impl(bundleCls);
-            Entity entity = bundleCls.newInstance();
-            factory.createEntityProxy(spec, entity);
+            AbstractEntity entityImpl = (AbstractEntity) factory.createEntity(spec);
+            Entity entityProxy = factory.createEntityProxy(spec, entityImpl);
+            
+            assertTrue(entityProxy instanceof EntityProxy, "proxy="+entityProxy);
+            assertTrue(entityProxy instanceof Entity, "proxy="+entityProxy);
+            assertTrue(bundleInterface.isInstance(entityProxy), "proxy="+entityProxy);
 
-            if (managementContext != null) Entities.destroyAll(managementContext);
         } finally {
-            OsgiTestBase.tearDownOsgiFramework(framework, storageTempDir);
+            try {
+                if (managementContext != null) Entities.destroyAll(managementContext);
+            } finally {
+                OsgiTestBase.tearDownOsgiFramework(framework, storageTempDir);
+            }
         }
     }
     
@@ -128,9 +139,10 @@ public class OsgiVersionMoreEntityTest implements OsgiTestResources {
     protected RegisteredType addCatalogItemWithNameAndType(String symName, String version, String type, String ...libraries) {
         return addCatalogItemWithNameAndType(mgmt, symName, version, type, libraries);
     }
-
+    
     @SuppressWarnings("deprecation")
     static RegisteredType addCatalogItemWithNameAndType(ManagementContext mgmt, String symName, String version, String type, String ...libraries) {
+        OsgiTestBase.preinstallLibrariesLowLevelToPreventCatalogBomParsing(mgmt, libraries);
         CatalogEntityItemDto c1 = newCatalogItemWithNameAndType(symName, version, type, libraries);
         mgmt.getCatalog().addItem(c1);
         RegisteredType c2 = mgmt.getTypeRegistry().get(symName, version);

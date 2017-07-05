@@ -23,18 +23,15 @@ import static org.testng.Assert.assertTrue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.SimulatedLocation;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.test.performance.PerformanceMeasurer;
 import org.apache.brooklyn.test.performance.PerformanceTestDescriptor;
 import org.apache.brooklyn.test.performance.PerformanceTestResult;
 import org.apache.brooklyn.util.internal.DoubleSystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
 import com.google.common.base.Stopwatch;
@@ -50,7 +47,7 @@ import com.google.common.base.Stopwatch;
  * We are also not running the tests for long enough to check if object creation is going to kill
  * performance in the long-term, etc.
  */
-public class AbstractPerformanceTest {
+public class AbstractPerformanceTest extends BrooklynAppUnitTestSupport {
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractPerformanceTest.class);
     
@@ -68,21 +65,30 @@ public class AbstractPerformanceTest {
     
     protected static final long TIMEOUT_MS = 10*1000;
     
-    protected TestApplication app;
     protected SimulatedLocation loc;
-    protected ManagementContext mgmt;
     
     @BeforeMethod(alwaysRun=true)
+    @Override
     public void setUp() throws Exception {
+        super.setUp();
         for (int i = 0; i < 5; i++) System.gc();
-        loc = new SimulatedLocation();
-        app = ApplicationBuilder.newManagedApp(TestApplication.class);
-        mgmt = app.getManagementContext();
+        loc = app.newSimulatedLocation();
+    }
+
+    @Override
+    protected BrooklynProperties getBrooklynProperties() {
+        if (useLiveManagementContext()) {
+            return BrooklynProperties.Factory.newDefault();
+        } else {
+            return BrooklynProperties.Factory.newEmpty();
+        }
     }
     
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
+    /**
+     * For overriding; controls whether to load ~/.brooklyn/brooklyn.properties
+     */
+    protected boolean useLiveManagementContext() {
+        return false;
     }
 
     protected PerformanceTestResult measure(PerformanceTestDescriptor options) {

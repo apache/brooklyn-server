@@ -24,6 +24,7 @@ import java.io.File;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
@@ -31,6 +32,7 @@ import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.java.JavaOptsTest.TestingJavaOptsVanillaJavaAppImpl;
+import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -41,7 +43,6 @@ import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -156,13 +157,22 @@ public class VanillaJavaAppRebindTest {
         public void onManagementStarted() {
             super.onManagementStarted();
             LOG.info("mgmt started for "+this);
-            enrichers().add(new RollingTimeWindowMeanEnricher<Double>(this, PROCESS_CPU_TIME, AVG1, Duration.TEN_SECONDS));
+            enrichers().add(EnricherSpec.create(RollingTimeWindowMeanEnricher.class)
+                    .configure("producer", this)
+                    .configure("source", PROCESS_CPU_TIME)
+                    .configure("target", AVG1)
+                    .configure("timePeriod", Duration.TEN_SECONDS));
         }
+        
         @Override
         protected void connectSensors() {
             super.connectSensors();
             LOG.info("connecting sensors for "+this);
-            enrichers().add(new RollingTimeWindowMeanEnricher<Double>(this, PROCESS_CPU_TIME, AVG2, Duration.TEN_SECONDS));
+            enrichers().add(EnricherSpec.create(RollingTimeWindowMeanEnricher.class)
+                    .configure("producer", this)
+                    .configure("source", PROCESS_CPU_TIME)
+                    .configure("target", AVG2)
+                    .configure("timePeriod", Duration.TEN_SECONDS));
         }
     }
 

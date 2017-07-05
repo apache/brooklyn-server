@@ -38,7 +38,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 
 /**
@@ -85,11 +84,6 @@ public class UpdatingMap<S,TKey,TVal> extends AbstractEnricher implements Sensor
     protected Boolean removingIfResultIsNull;
 
     public UpdatingMap() {
-        this(Maps.newLinkedHashMap());
-    }
-
-    public UpdatingMap(Map<Object, Object> flags) {
-        super(flags);
     }
 
     @Override

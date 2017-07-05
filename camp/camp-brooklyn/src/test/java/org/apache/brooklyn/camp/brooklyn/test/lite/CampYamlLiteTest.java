@@ -40,8 +40,6 @@ import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.camp.spi.pdp.PdpYamlTest;
 import org.apache.brooklyn.camp.test.mock.web.MockWebPlatform;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
-import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
-import org.apache.brooklyn.core.catalog.internal.CatalogDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddChildrenEffector;
@@ -52,6 +50,7 @@ import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
@@ -156,6 +155,7 @@ public class CampYamlLiteTest {
     @Test
     public void testYamlServiceForCatalog() {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+        installWithoutCatalogBom(mgmt, OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL);
 
         CatalogItem<?, ?> realItem = Iterables.getOnlyElement(mgmt.getCatalog().addItems(Streams.readFullyStringAndClose(getClass().getResourceAsStream("test-app-service-blueprint.yaml"))));
         Iterable<CatalogItem<Object, Object>> retrievedItems = mgmt.getCatalog()
@@ -169,7 +169,7 @@ public class CampYamlLiteTest {
         Assert.assertEquals(bundles.size(), 1);
         CatalogBundle bundle = Iterables.getOnlyElement(bundles);
         Assert.assertEquals(bundle.getUrl(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL);
-        Assert.assertEquals(bundle.getVersion(), "0.1.0");
+        Assert.assertEquals(bundle.getSuppliedVersionString(), "0.1.0");
 
         EntitySpec<?> spec1 = (EntitySpec<?>) mgmt.getCatalog().peekSpec(retrievedItem);
         assertNotNull(spec1);
@@ -184,14 +184,16 @@ public class CampYamlLiteTest {
 
         String symbolicName = "my.catalog.app.id";
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
-        String yaml = getSampleMyCatalogAppYaml(symbolicName, bundleUrl);
+        String yaml = prepAndGetSampleMyCatalogAppYaml(symbolicName, bundleUrl);
 
         mgmt.getCatalog().addItems(yaml);
 
         assertMgmtHasSampleMyCatalogApp(symbolicName, bundleUrl);
     }
 
-    private String getSampleMyCatalogAppYaml(String symbolicName, String bundleUrl) {
+    private String prepAndGetSampleMyCatalogAppYaml(String symbolicName, String bundleUrl) {
+        installWithoutCatalogBom(mgmt, bundleUrl);
+        
         return Joiner.on("\n").join(
                 "brooklyn.catalog:",
                 "  id: " + symbolicName,
@@ -203,7 +205,14 @@ public class CampYamlLiteTest {
                 "  libraries:",
                 "  - url: " + bundleUrl,
                 "  item:",
-                "    type: io.camp.mock:AppServer");
+                "    type: " + MockWebPlatform.APPSERVER.getName());
+    }
+
+    protected void installWithoutCatalogBom(LocalManagementContext mgmt, String bundleUrl) {
+        // install bundle for class access but without loading its catalog.bom, 
+        // since we only have mock matchers here
+        // (if we don't do this, the default routines install it and try to process the catalog.bom, failing)
+        mgmt.getOsgiManager().get().installDeferredStart(new BasicManagedBundle(null, null, bundleUrl), null).get();
     }
 
     private void assertMgmtHasSampleMyCatalogApp(String symbolicName, String bundleUrl) {

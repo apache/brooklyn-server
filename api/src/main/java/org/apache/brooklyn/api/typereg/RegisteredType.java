@@ -37,7 +37,22 @@ public interface RegisteredType extends Identifiable {
     
     String getSymbolicName();
     String getVersion();
+    /** Bundle in symbolicname:id format where this type is defined */
+    // TODO would prefer this to be VersionedName if/when everything comes from OSGi bundles
+    // unrevert 7260bf9cf3f3ebaaa790693e1b7217a81bef78a7 to start that, and adjust serialization
+    // as described in that commit message (supporting String in xstream serialization for VN)
+    String getContainingBundle();
 
+    /** Library bundle search path that this item declares for resolving types -
+     * registered types from these bundles should be preferred,  
+     * java types from these bundles will be accessible during construction,
+     * and if the resulting instance maintains a search path these bundles will be declared there.
+     * <p>
+     * This does not include bundles from parent registered types for this item 
+     * (unless the designer re-declares them explicitly), but typical implementations
+     * of instantiation will find those at construction time and if the resulting instance 
+     * maintains a search path those items will typically be added there.
+     */
     Collection<OsgiBundleWithUrl> getLibraries();
 
     String getDisplayName();

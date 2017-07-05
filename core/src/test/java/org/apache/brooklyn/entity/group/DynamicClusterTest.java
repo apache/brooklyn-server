@@ -98,7 +98,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 
-public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
+public class DynamicClusterTest extends AbstractDynamicClusterOrFabricTest {
 
     private static final int TIMEOUT_MS = 2000;
 
@@ -1156,20 +1156,6 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         for (Entity entity : entities) {
             assertTrue(expected.contains(entity.sensors().get(TestEntity.SEQUENCE)));
         }
-    }
-
-    private void assertFirstAndNonFirstCounts(Collection<Entity> members, int expectedFirstCount, int expectedNonFirstCount) {
-        Set<Entity> found = MutableSet.of();
-        for (Entity e: members) {
-            if ("first".equals(e.getConfig(TestEntity.CONF_NAME))) found.add(e);
-        }
-        assertEquals(found.size(), expectedFirstCount);
-        
-        found.clear();
-        for (Entity e: members) {
-            if ("non-first".equals(e.getConfig(TestEntity.CONF_NAME))) found.add(e);
-        }
-        assertEquals(found.size(), expectedNonFirstCount);
     }
 
     @DataProvider

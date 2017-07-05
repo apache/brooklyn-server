@@ -48,7 +48,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -82,7 +82,7 @@ public class BasicMachineDetails implements MachineDetails {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(MachineDetails.class)
+        return MoreObjects.toStringHelper(MachineDetails.class)
                 .add("os", osDetails)
                 .add("hardware", hardwareDetails)
                 .toString();
