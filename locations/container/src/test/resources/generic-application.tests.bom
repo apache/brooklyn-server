@@ -1,0 +1,467 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+###
+ # Application blueprints and tests for testing deployment to Swarm or k8s endpoints, and hybrid
+ # deployments that span VMs and containers.
+ #
+ # It deploys a multi-node blueprint, consisting of:
+ #  - a cluster of Tomcat nodes (size 1)
+ #  - nginx
+ #  - database
+ #
+ # It asserts that:
+ #  - app comes up
+ #  - via nginx, we can connect to the web-app
+ #  - via nginx (and the web-app), we can write to the database and read from database
+ #
+ # The different variants of the test will:
+ #  - everything running in cluster;
+ #    See "multi-node-app-cluster".
+ #  - hybrid: comms from VM into the containers (nginx on a VM);
+ #    See "multi-node-app-cloud-to-cluster".
+ #  - hybrid: comms from the containers out to the VM (database on a VM);
+ #    See "multi-node-app-cluster-to-cloud".
+ #
+ # Tests assume that there is a pre-existing location defined with the name "testing-cluster",
+ # which is a swarm or k8s endpoint.
+ #
+ # It assumes that the tests are run against a location in which VMs can be provisioned
+ # (which is then overridden where "testing-cluster" should instead be used). For example,
+ # "multi-node-app-cloud-to-cluster" deploys nginx to the location passed in; and
+ # deploys the tomcat-webapp-cluster to "testing-cluster".
+ ##
+
+brooklyn.catalog:
+  version: "0.12.0-SNAPSHOT" # BROOKLYN_VERSION
+  iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
+
+  items:
+  - "https://raw.githubusercontent.com/brooklyncentral/common-catalog-utils/master/common-tests/src/main/resources/commontests/common.tests.bom"
+  - id: tomcat-webapp-cluster
+    name: "Tomcat Webapp Cluster"
+    description: |
+      Cluster of Tomcat servers
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.group.DynamicCluster
+      id: cluster
+      name: "Webapp Cluster"
+      brooklyn.config:
+        initialSize: 1
+        memberSpec:
+          $brooklyn:entitySpec:
+            type: org.apache.brooklyn.entity.webapp.tomcat.TomcatServer
+            id: tomcat
+            name: "Tomcat Server"
+            brooklyn.config:
+              wars.root:
+                "http://search.maven.org/remotecontent?filepath=org/apache/brooklyn/example/brooklyn-example-hello-world-sql-webapp/0.9.0/brooklyn-example-hello-world-sql-webapp-0.9.0.war"
+              java.sysprops:
+                brooklyn.example.db.url:
+                  $brooklyn:formatString:
+                    - "jdbc:%s%s?user=%s&password=%s"
+                    - $brooklyn:config("db.url")
+                    - "visitors"
+                    - "brooklyn"
+                    - "br00k11n"
+            brooklyn.enrichers:
+              - type: org.apache.brooklyn.core.network.OnPublicNetworkEnricher
+                brooklyn.config:
+                  sensors:
+                    - http.port
+      brooklyn.enrichers:
+        - type: org.apache.brooklyn.enricher.stock.Aggregator
+          brooklyn.config:
+            enricher.sourceSensor: $brooklyn:sensor("webapp.reqs.perSec.windowed")
+            enricher.targetSensor: $brooklyn:sensor("webapp.reqs.perSec.perNode")
+            enricher.aggregating.fromMembers: true
+            transformation: average
+
+  - id: nginx-load-balancer
+    name: "Nginx Load Balancer"
+    description: |
+      Nginx load balancer
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.proxy.nginx.NginxController
+      id: nginx
+      name: "Load Balancer (nginx)"
+      brooklyn.config:
+        loadbalancer.serverpool: $brooklyn:sibling("cluster")
+        nginx.sticky: false
+      brooklyn.enrichers:
+        - type: org.apache.brooklyn.core.network.OnPublicNetworkEnricher
+          brooklyn.config:
+            sensors:
+              - main.uri
+
+  - id: mysql-database
+    name: "MySQL Database"
+    description: |
+      MySQL database
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.database.mysql.MySqlNode
+      id: db
+      name: "Database (MySQL)"
+      brooklyn.config:
+        provisioning.properties:
+          osFamily: centos
+          osVersionRegex: 7
+        datastore.creation.script.url:
+          "https://raw.githubusercontent.com/apache/brooklyn-library/0.11.x/examples/simple-web-cluster/src/main/resources/visitors-creation-script.sql"
+      brooklyn.enrichers:
+        - type: org.apache.brooklyn.core.network.OnSubnetNetworkEnricher
+          brooklyn.config:
+            sensors:
+              - datastore.url
+
+  - id: multi-node-app-cluster
+    name: "Multi-node Application"
+    description: |
+      A multi-node Brooklyn app, consisting of a cluster of Tomcat servers,
+      a MySQL database and an Nginx load balancer, deployed to a cluster location.
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicApplication
+      brooklyn.children:
+        - type: tomcat-webapp-cluster
+          id: cluster
+          location: testing-cluster
+        - type: nginx-load-balancer
+          id: nginx
+          location: testing-cluster
+        - type: mysql-database
+          id: db
+          location: testing-cluster
+
+  - id: multi-node-app-cloud-to-cluster
+    name: "Multi-node Hybrid Application"
+    description: |
+      A hybrid multi-node Brooklyn app, consisting of a cluster of Tomcat servers,
+      a MySQL database and an Nginx load balancer, with the load balancer deployed
+      to a cloud location and the other entities deployed to a cluster location.
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicApplication
+      brooklyn.children:
+        - type: tomcat-webapp-cluster
+          id: cluster
+          location: testing-cluster
+        - type: nginx-load-balancer
+          id: nginx
+        - type: mysql-database
+          id: db
+          location: testing-cluster
+
+  - id: multi-node-app-cluster-to-cloud
+    name: "Multi-node Hybrid Application"
+    description: |
+      A multi-node Brooklyn app, consisting of a cluster of Tomcat servers,
+      a MySQL database and an Nginx load balancer, with the database deployed
+      to a cloud location and the other entities deployed to a cluster location
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicApplication
+      brooklyn.children:
+        - type: tomcat-webapp-cluster
+          id: cluster
+          location: testing-cluster
+        - type: nginx-load-balancer
+          id: nginx
+          location: testing-cluster
+        - type: mysql-database
+          id: db
+
+  - id: test-multi-node-app
+    name: Test multi-node app deployment
+    description: |
+      Test that we can provision a multi-node Brooklyn app
+    itemType: entity
+    item:
+      type: test-case
+      name: "Sensor Tests"
+      brooklyn.children:
+        - type: assert-up
+        - type: assert-running
+        - type: test-http-status-200
+          url: $brooklyn:config("nginx.url")
+          timeout: 60s
+        - type: test-http-status-200
+          name: "Check Write to web-app message board"
+          url:
+            $brooklyn:formatString:
+              - "%s/db.jsp?name=myname&message=mymessage"
+              - $brooklyn:config("nginx.url")
+        - type: test-http-body
+          name: "Check Read from web-app message board"
+          url:
+            $brooklyn:formatString:
+              - "%s/db.jsp"
+              - $brooklyn:config("nginx.url")
+          assert:
+            - contains: "myname"
+            - contains: "mymessage"
+
+  - id: deploy-multi-node-app-cluster
+    name: "Multi Node Cluster App"
+    description: |
+      Deploy a multi-node app to a cluster location
+    item:
+      type: test-case
+      id: test-scope
+      name: "Cluster Deploy Tests"
+      brooklyn.children:
+        - type: multi-node-app-cluster
+          id: cluster-only-app
+          brooklyn.config:
+            db.url: $brooklyn:ancestor("test-scope").descendant("db").attributeWhenReady("datastore.url.mapped.subnet")
+            member.sensor.hostname: $brooklyn:sensor("host.subnet.address")
+        - type:  test-multi-node-app
+          brooklyn.config:
+            timeout: 30m
+            targetId: cluster-only-app
+            nginx.url: $brooklyn:ancestor("test-scope").descendant("nginx").attributeWhenReady("main.uri.mapped.public")
+
+  - id: deploy-multi-node-app-cloud-to-cluster
+    name: "Multi Node Cloud to Cluster App"
+    description: |
+      Deploy a multi-node app to Cloud and cluster locations, with communication
+      from the Cloud entity (Nginx) to the cluster entities.
+    item:
+      type: test-case
+      id: test-scope
+      name: "Cloud to Cluster Deploy Tests"
+      brooklyn.children:
+        - type: multi-node-app-cloud-to-cluster
+          id: cloud-to-cluster-app
+          brooklyn.config:
+            db.url: $brooklyn:ancestor("test-scope").descendant("db").attributeWhenReady("datastore.url.mapped.subnet")
+            member.sensor.hostandport: $brooklyn:sensor("http.endpoint.mapped.public")
+            proxy.domainName: $brooklyn:ancestor("test-scope").descendant("nginx").attributeWhenReady("host.address")
+        - type:  test-multi-node-app
+          brooklyn.config:
+            timeout: 30m
+            targetId: cloud-to-cluster-app
+            nginx.url: $brooklyn:ancestor("test-scope").descendant("nginx").attributeWhenReady("main.uri")
+
+  - id: deploy-multi-node-app-cluster-to-cloud
+    name: "Multi Node Cluster to Cloud App"
+    description: |
+      Deploy a multi-node app to Cloud and Cluster locations, with communication
+      from the Cluster entities to the Cloud entity (MySQL).
+    item:
+      type: test-case
+      id: test-scope
+      name: "Cluster to Cloud Deploy Tests"
+      brooklyn.children:
+        - type: multi-node-app-cluster-to-cloud
+          id: cluster-to-cloud-app
+          brooklyn.config:
+            db.url: $brooklyn:ancestor("test-scope").descendant("db").attributeWhenReady("datastore.url")
+            member.sensor.hostname: $brooklyn:sensor("host.subnet.address")
+        - type:  test-multi-node-app
+          brooklyn.config:
+            timeout: 30m
+            targetId: cluster-to-cloud-app
+            nginx.url: $brooklyn:ancestor("test-scope").descendant("nginx").attributeWhenReady("main.uri.mapped.public")
+
+  ###
+  # Deploy a single-node blueprint, and confirm SSH works.
+  ##
+  - id: deploy-app-to-cluster-single-node
+    name: "Single Node App to Cluster endpoint"
+    description: |
+      Test that we can provision a simple Brooklyn SoftwareProcess to a Cluster endpoint
+    item:
+      type: test-case
+      name: "Single Node App Deploy Tests"
+      brooklyn.children:
+        - type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
+          location: testing-cluster
+          id: empty
+          brooklyn.config:
+            onbox.base.dir.skipResolution: true
+            sshMonitoring.enabled: false
+        - type: test-case
+          name: "Empty Container Tests"
+          brooklyn.config:
+            timeout: 15m
+            targetId: empty
+          brooklyn.children:
+            - type: test-case
+              name: "Sensor Tests"
+              brooklyn.children:
+                # Is up and can deploy
+                - type: assert-up
+                - type: assert-running
+                # Can ssh
+                - type: test-ssh
+                  command: |
+                    echo "hello-world"
+                  assertStatus:
+                    equals: 0
+                  assertOut:
+                    contains: "hello-world"
+
+  ##
+  # A Riak cluster example.
+  #
+  # Requires a (docker swarm or k8s cluster) location pre-configured with cloudsoft/ubuntu:14.04 for the Riak application to deploy to.
+  ##
+  - id: riak-cluster-to-cluster-multi-node
+    name: "Riak Cluster"
+    description: |
+      Riak cluster with load-balanced chatroom webapp
+    iconUrl: classpath://riak-icon.png
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicApplication
+      id: riak-app
+      name: "Riak App"
+      brooklyn.children:
+        - type: org.apache.brooklyn.entity.nosql.riak.RiakCluster
+          id: riak-cluster
+          name: "Riak Cluster"
+          brooklyn.config:
+            provisioning.properties:
+              # cloudsoft/ubuntu:14.04
+              osFamily: ubuntu
+              osVersionRegex: 14.04
+            initialSize: 3
+            install.version: 2.1.4
+            riak.networking.optimize: false
+            riak.networking.internal: false
+        - type: org.apache.brooklyn.entity.webapp.ControlledDynamicWebAppCluster
+          id: web-cluster
+          name: "Web Cluster"
+          brooklyn.config:
+            initialSize: 2
+            dynamiccluster.memberspec:
+              $brooklyn:entitySpec:
+                type: org.apache.brooklyn.entity.webapp.tomcat.Tomcat8Server
+                brooklyn.config:
+                  wars.root:
+                    "https://s3-eu-west-1.amazonaws.com/brooklyn-clocker/brooklyn-example-hello-world-sql-webapp.war"
+                  java.sysprops:
+                    brooklyn.example.riak.nodes:
+                      $brooklyn:entity("riak-cluster").attributeWhenReady("riak.cluster.nodeList")
+            controlleddynamicwebappcluster.controllerSpec:
+              $brooklyn:entitySpec:
+                type: org.apache.brooklyn.entity.proxy.nginx.NginxController
+                id: load-balancer
+                brooklyn.enrichers:
+                  - type: org.apache.brooklyn.core.network.OnPublicNetworkEnricher
+                    brooklyn.config:
+                      sensors:
+                        - main.uri
+          brooklyn.enrichers:
+            # publish the mapped URL at the cluster
+            - type: org.apache.brooklyn.enricher.stock.Propagator
+              brooklyn.config:
+                uniqueTag: url-propagator
+                enricher.producer: $brooklyn:entity("load-balancer")
+                enricher.propagating.inclusions:
+                  - main.uri.mapped.public
+      brooklyn.enrichers:
+        # publish the cluster URL (the mapped public one) as the main.uri of the top-level app
+        - type: org.apache.brooklyn.enricher.stock.Propagator
+          brooklyn.config:
+            uniqueTag: main-uri-publisher
+            enricher.producer: $brooklyn:entity("web-cluster")
+            enricher.propagating.inclusions:
+              - main.uri.mapped.public
+
+  - id: deploy-riak-cluster-to-cluster-multi-node
+    name: "Multi Node Riak Cluster to Cluster"
+    description: |
+      Deploy Riak cluster with load-balanced chatroom webapp to Cluster location
+    item:
+      type: test-case
+      name: "Multi Node App Deploy Tests"
+      brooklyn.children:
+        - type: riak-cluster-to-cluster-multi-node
+          id: riak-app
+          location: testing-cluster
+        - type: test-case
+          brooklyn.config:
+            timeout: 30m
+            targetId: riak-app
+          brooklyn.children:
+            - type: test-case
+              name: "Sensor Tests"
+              brooklyn.children:
+                - type: assert-up
+                - type: assert-running
+                - type: test-http-status-200
+                  url: $brooklyn:entity("riak-app").attributeWhenReady("main.uri.mapped.public")
+                  timeout: 60s
+                - type: test-http-status-200
+                  name: "Check Write to web-app message board"
+                  url:
+                    $brooklyn:formatString:
+                      - "%s/riak.jsp?name=myname&message=mymessage"
+                      - $brooklyn:entity("riak-app").attributeWhenReady("main.uri.mapped.public")
+                  timeout: 60s
+                - type: test-http-body
+                  name: "Check Read from web-app message board"
+                  url:
+                    $brooklyn:formatString:
+                      - "%s/riak.jsp"
+                      - $brooklyn:entity("riak-app").attributeWhenReady("main.uri.mapped.public")
+                  timeout: 60s
+                  assert:
+                    - contains: "myname"
+                    - contains: "mymessage"
+
+  - id: deploy-single-container-type
+    name: "Deploy Container Type"
+    description: |
+      Deploys an httpd container using the container type
+    itemType: entity
+    item:
+      type: test-case
+      name: "Deploy Container Type Tests"
+      brooklyn.children:
+        - type: org.apache.brooklyn.container.entity.docker.DockerContainer
+          location: testing-cluster
+          id: httpd
+          name: "httpd"
+          brooklyn.config:
+            docker.container.disableSsh: true
+            docker.container.imageName: "httpd"
+            docker.container.inboundPorts:
+              - "70"
+              - "80"
+              - "90-99"
+        - type: test-case
+          brooklyn.config:
+            timeout: 30m
+            targetId: httpd
+          brooklyn.children:
+            - type: test-case
+              name: "Sensor Tests"
+              brooklyn.children:
+                - type: assert-up
+                - type: assert-running
+                - type: test-http-status-200
+                  url:
+                    $brooklyn:formatString:
+                      - "http://%s"
+                      - $brooklyn:entity("httpd").attributeWhenReady("docker.port.80.mapped.public")
+                  timeout: 30s

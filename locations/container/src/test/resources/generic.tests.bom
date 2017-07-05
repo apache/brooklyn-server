@@ -1,0 +1,60 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+brooklyn.catalog:
+  version: "0.12.0-SNAPSHOT" # BROOKLYN_VERSION
+  iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
+
+  items:
+  - "https://raw.githubusercontent.com/brooklyncentral/common-catalog-utils/master/common-tests/src/main/resources/commontests/common.tests.bom"
+
+  - id: cluster-endpoint-tests
+    name: "Cluster Endpoint Deployment Tests"
+    description: |
+      Tests containers and applications can be deployed to both cluster and
+      Cloud locations
+    itemType: template
+    item:
+      brooklyn.config:
+        timeout: 1h
+        timeout.initialStartup: 1h
+        timeout.runtimeAssertion: 1h
+      services:
+        - type: test-case
+          name: "1. Deploy Container Type Tests"
+          brooklyn.children:
+            - type: deploy-single-container-type
+        - type: test-case
+          name: "2. Deploy Blueprint Application Tests"
+          brooklyn.config:
+            dontRequireTtyForSudo: true
+          brooklyn.children:
+            - type: test-case
+              name: "2.1. Single-Node Application Test"
+              brooklyn.children:
+                - type: deploy-app-to-cluster-single-node
+            - type: test-case
+              name: "2.2. Multi-Node Application Test"
+              brooklyn.children:
+                # remove this because of https://issues.apache.org/jira/browse/BROOKLYN-311
+                #- type: deploy-riak-cluster-to-cluster-multi-node
+                - type: deploy-multi-node-app-cluster
+            - type: test-case
+              name: "2.3 Hybrid Multi-Node Application"
+              brooklyn.children:
+                - type: deploy-multi-node-app-cluster-to-cloud
+                - type: deploy-multi-node-app-cloud-to-cluster
