@@ -66,7 +66,7 @@ public class PolicyConfigResource extends AbstractBrooklynRestResource implement
             ((BrooklynObjectInternal)policy).config().getInternalConfigMap().getAllConfigInheritedRawValuesIgnoringErrors() ).getAllConfig();
         Map<String, Object> result = Maps.newLinkedHashMap();
         for (Map.Entry<String, Object> ek : source.entrySet()) {
-            result.put(ek.getKey(), getStringValueForDisplay(brooklyn(), policy, ek.getValue()));
+            result.put(ek.getKey(), WebResourceUtils.getValueForDisplay(mapper(), getStringValueForDisplay(brooklyn(), policy, ek.getValue()), true, true));
         }
         return result;
     }

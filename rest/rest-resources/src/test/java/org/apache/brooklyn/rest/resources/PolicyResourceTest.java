@@ -130,7 +130,7 @@ public class PolicyResourceTest extends BrooklynRestResourceTest {
     @Test(dependsOnMethods = "testReconfigureConfig")
     public void testGetConfigValue() throws Exception {
         String configName = RestMockSimplePolicy.SAMPLE_CONFIG.getName();
-        String expectedVal = "newval";
+        String expectedVal = (String) WebResourceUtils.getValueForDisplay(mapper(), "newval", true, true);
         
         Map<String, Object> allState = client().path(ENDPOINT + policyId + "/config/current-state")
                 .get(new GenericType<Map<String, Object>>() {});
