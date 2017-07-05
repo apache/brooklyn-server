@@ -1,0 +1,513 @@
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+<entity>
+  <brooklynVersion>0.12.0-SNAPSHOT</brooklynVersion>
+  <type>org.apache.brooklyn.entity.stock.BasicApplicationImpl</type>
+  <id>sr6qljzg0j</id>
+  <displayName>BROOKLYN-519 backwards compatibility</displayName>
+  <searchPath class="ImmutableList"/>
+  <tags>
+    <org.apache.brooklyn.core.mgmt.BrooklynTags_-NamedStringTag>
+      <kind>yaml_spec</kind>
+      <contents>name: BROOKLYN-519 backwards compatibility
+location: localhost
+services:
+- type: org.apache.brooklyn.entity.stock.BasicApplication
+  brooklyn.config:
+    childSpec:
+      $brooklyn:entitySpec:
+       - type: brooklyn.entity.group.DynamicCluster
+</contents>
+    </org.apache.brooklyn.core.mgmt.BrooklynTags_-NamedStringTag>
+  </tags>
+  <config>
+    <camp.template.id>aWc9valT</camp.template.id>
+    <childSpec>
+      <org.apache.brooklyn.api.entity.EntitySpec>
+        <type>org.apache.brooklyn.entity.group.DynamicCluster</type>
+        <catalogItemIdSearchPath class="MutableSet"/>
+        <tags class="MutableSet"/>
+        <parameters class="ImmutableList">
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>cluster.initial.quorumSize</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>cluster.initial.quorumSize</name>
+              <type>java.lang.Integer</type>
+              <description>Initial cluster quorum size - number of initial nodes that must have been successfully started to report success (if &lt; 0, then use value of INITIAL_SIZE)</description>
+              <defaultValue class="int">-1</defaultValue>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>cluster.initial.size</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>cluster.initial.size</name>
+              <type>java.lang.Integer</type>
+              <description>Initial cluster size</description>
+              <defaultValue class="int">1</defaultValue>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>cluster.member.id</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>cluster.member.id</name>
+              <type>java.lang.Integer</type>
+              <description>The unique ID number (sequential) of a member of a cluster</description>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>defaultDisplayName</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>defaultDisplayName</name>
+              <type>java.lang.String</type>
+              <reconfigurable>false</reconfigurable>
+              <runtimeInheritance class="org.apache.brooklyn.core.config.BasicConfigInheritance$NeverInherited"/>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>dynamiccluster.availabilityZones</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>dynamiccluster.availabilityZones</name>
+              <typeToken class="org.apache.brooklyn.entity.group.DynamicCluster$5" resolves-to="com.google.common.reflect.TypeToken$SimpleTypeToken">
+                <runtimeType class="com.google.common.reflect.Types$ParameterizedTypeImpl">
+                  <argumentsList>
+                    <java-class>java.lang.String</java-class>
+                  </argumentsList>
+                  <rawType>java.util.Collection</rawType>
+                </runtimeType>
+              </typeToken>
+              <description>availability zones to use (if non-null, overrides other configuration)</description>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>dynamiccluster.customChildFlags</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>dynamiccluster.customChildFlags</name>
+              <type>java.util.Map</type>
+              <description>Additional flags to be passed to children when they are being created</description>
+              <defaultValue class="com.google.common.collect.EmptyImmutableBiMap"/>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>dynamiccluster.firstmemberspec</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>dynamiccluster.firstmemberspec</name>
+              <typeToken class="org.apache.brooklyn.entity.group.DynamicCluster$3" resolves-to="com.google.common.reflect.TypeToken$SimpleTypeToken">
+                <runtimeType class="com.google.common.reflect.Types$ParameterizedTypeImpl">
+                  <argumentsList>
+                    <com.google.common.reflect.Types_-WildcardTypeImpl>
+                      <lowerBounds reference="../../../../../../../../../../../searchPath"/>
+                      <upperBounds>
+                        <java-class>java.lang.Object</java-class>
+                      </upperBounds>
+                    </com.google.common.reflect.Types_-WildcardTypeImpl>
+                  </argumentsList>
+                  <rawType>org.apache.brooklyn.api.entity.EntitySpec</rawType>
+                </runtimeType>
+              </typeToken>
+              <description>entity spec for creating new cluster members, used for the very first member if different</description>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>dynamiccluster.maxConcurrentChildCommands</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>dynamiccluster.maxConcurrentChildCommands</name>
+              <type>java.lang.Integer</type>
+              <description>[Beta] The maximum number of effector invocations that will be made on children at once (e.g. start, stop, restart). Any value null or less than or equal to zero means invocations are unbounded</description>
+              <defaultValue class="int">0</defaultValue>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>dynamiccluster.memberspec</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>dynamiccluster.memberspec</name>
+              <typeToken class="org.apache.brooklyn.entity.group.DynamicCluster$2" resolves-to="com.google.common.reflect.TypeToken$SimpleTypeToken">
+                <runtimeType class="com.google.common.reflect.Types$ParameterizedTypeImpl">
+                  <argumentsList>
+                    <com.google.common.reflect.Types_-WildcardTypeImpl>
+                      <lowerBounds reference="../../../../../../../../../../../searchPath"/>
+                      <upperBounds>
+                        <java-class>java.lang.Object</java-class>
+                      </upperBounds>
+                    </com.google.common.reflect.Types_-WildcardTypeImpl>
+                  </argumentsList>
+                  <rawType>org.apache.brooklyn.api.entity.EntitySpec</rawType>
+                </runtimeType>
+              </typeToken>
+              <description>entity spec for creating new cluster members</description>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>dynamiccluster.numAvailabilityZones</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>dynamiccluster.numAvailabilityZones</name>
+              <type>java.lang.Integer</type>
+              <description>number of availability zones to use (will attempt to auto-discover this number)</description>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>dynamiccluster.quarantineFailedEntities</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>dynamiccluster.quarantineFailedEntities</name>
+              <type>java.lang.Boolean</type>
+              <description>If true, will quarantine entities that fail to start; if false, will get rid of them (i.e. delete them)</description>
+              <defaultValue class="boolean">true</defaultValue>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>dynamiccluster.quarantineFilter</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>dynamiccluster.quarantineFilter</name>
+              <typeToken class="org.apache.brooklyn.entity.group.DynamicCluster$1" resolves-to="com.google.common.reflect.TypeToken$SimpleTypeToken">
+                <runtimeType class="com.google.common.reflect.Types$ParameterizedTypeImpl">
+                  <argumentsList>
+                    <com.google.common.reflect.Types_-WildcardTypeImpl>
+                      <lowerBounds>
+                        <java-class>java.lang.Throwable</java-class>
+                      </lowerBounds>
+                      <upperBounds>
+                        <java-class>java.lang.Object</java-class>
+                      </upperBounds>
+                    </com.google.common.reflect.Types_-WildcardTypeImpl>
+                  </argumentsList>
+                  <rawType>com.google.common.base.Predicate</rawType>
+                </runtimeType>
+              </typeToken>
+              <description>Quarantine the failed nodes that pass this filter (given the exception thrown by the node). Default is those that did not fail with NoMachinesAvailableException (Config ignored if quarantineFailedEntities is false)</description>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>dynamiccluster.removalstrategy</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>dynamiccluster.removalstrategy</name>
+              <typeToken class="org.apache.brooklyn.entity.group.DynamicCluster$4" resolves-to="com.google.common.reflect.TypeToken$SimpleTypeToken">
+                <runtimeType class="com.google.common.reflect.Types$ParameterizedTypeImpl">
+                  <argumentsList>
+                    <com.google.common.reflect.Types_-ParameterizedTypeImpl>
+                      <argumentsList>
+                        <java-class>org.apache.brooklyn.api.entity.Entity</java-class>
+                      </argumentsList>
+                      <rawType>java.util.Collection</rawType>
+                    </com.google.common.reflect.Types_-ParameterizedTypeImpl>
+                    <java-class>org.apache.brooklyn.api.entity.Entity</java-class>
+                  </argumentsList>
+                  <rawType>com.google.common.base.Function</rawType>
+                </runtimeType>
+              </typeToken>
+              <description>strategy for deciding what to remove when down-sizing</description>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>dynamiccluster.restartMode</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>dynamiccluster.restartMode</name>
+              <type>java.lang.String</type>
+              <description>How this cluster should handle restarts; by default it is disallowed, but this key can specify a different mode. Modes supported by dynamic cluster are &apos;off&apos;, &apos;sequential&apos;, or &apos;parallel&apos;. However subclasses can define their own modes or may ignore this.</description>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>dynamiccluster.zone.enable</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>dynamiccluster.zone.enable</name>
+              <type>java.lang.Boolean</type>
+              <description>Whether to use availability zones, or just deploy everything into the generic location</description>
+              <defaultValue class="boolean">false</defaultValue>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>dynamiccluster.zone.failureDetector</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>dynamiccluster.zone.failureDetector</name>
+              <type>org.apache.brooklyn.entity.group.DynamicCluster$ZoneFailureDetector</type>
+              <description>Zone failure detector</description>
+              <defaultValue class="org.apache.brooklyn.entity.group.zoneaware.ProportionalZoneFailureDetector">
+                <zoneHistories class="concurrent-hash-map"/>
+                <ticker class="com.google.common.base.Ticker$1"/>
+                <minDatapoints>2</minDatapoints>
+                <timeToConsider>3600000</timeToConsider>
+                <maxProportionFailures>0.9</maxProportionFailures>
+              </defaultValue>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>dynamiccluster.zone.placementStrategy</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>dynamiccluster.zone.placementStrategy</name>
+              <type>org.apache.brooklyn.entity.group.DynamicCluster$NodePlacementStrategy</type>
+              <description>Node placement strategy</description>
+              <defaultValue class="org.apache.brooklyn.entity.group.zoneaware.BalancingNodePlacementStrategy"/>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>enricher.service_state.children_and_members.quorum.running</label>
+            <pinned>false</pinned>
+            <configKey class="org.apache.brooklyn.core.config.BasicConfigKey$BasicConfigKeyOverwriting">
+              <name>enricher.service_state.children_and_members.quorum.running</name>
+              <type>org.apache.brooklyn.util.collections.QuorumCheck</type>
+              <description>Problems check from children actual states (lifecycle), applied by default to members and children, not checking upness, but requiring by default that none are on-fire</description>
+              <defaultValue class="org.apache.brooklyn.util.collections.QuorumCheck$NumericQuorumCheck">
+                <minRequiredSize>0</minRequiredSize>
+                <minRequiredRatio>1.0</minRequiredRatio>
+                <allowEmpty>false</allowEmpty>
+                <name>all</name>
+              </defaultValue>
+              <reconfigurable>false</reconfigurable>
+              <runtimeInheritance class="org.apache.brooklyn.core.config.BasicConfigInheritance$NotReinherited"/>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+              <parentKey class="configKey">
+                <name>enricher.service_state.children_and_members.quorum.running</name>
+                <type>org.apache.brooklyn.util.collections.QuorumCheck</type>
+                <description>Logic for checking whether this service is healthy, based on children and/or members running, defaulting to requiring none to be ON-FIRE</description>
+                <defaultValue class="org.apache.brooklyn.util.collections.QuorumCheck$NumericQuorumCheck">
+                  <minRequiredSize>0</minRequiredSize>
+                  <minRequiredRatio>1.0</minRequiredRatio>
+                  <allowEmpty>false</allowEmpty>
+                  <name>all</name>
+                </defaultValue>
+                <reconfigurable>false</reconfigurable>
+                <runtimeInheritance class="org.apache.brooklyn.core.config.BasicConfigInheritance$NotReinherited" reference="../../runtimeInheritance"/>
+                <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+              </parentKey>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>enricher.service_state.children_and_members.quorum.up</label>
+            <pinned>false</pinned>
+            <configKey class="org.apache.brooklyn.core.config.BasicConfigKey$BasicConfigKeyOverwriting">
+              <name>enricher.service_state.children_and_members.quorum.up</name>
+              <type>org.apache.brooklyn.util.collections.QuorumCheck</type>
+              <description>Up check, applied by default to members, requiring at least one present and up</description>
+              <defaultValue class="org.apache.brooklyn.util.collections.QuorumCheck$NumericQuorumCheck">
+                <minRequiredSize>1</minRequiredSize>
+                <minRequiredRatio>0.0</minRequiredRatio>
+                <allowEmpty>false</allowEmpty>
+                <name>atLeastOne</name>
+              </defaultValue>
+              <reconfigurable>false</reconfigurable>
+              <runtimeInheritance class="org.apache.brooklyn.core.config.BasicConfigInheritance$NotReinherited" reference="../../../org.apache.brooklyn.core.objs.BasicSpecParameter[18]/configKey/runtimeInheritance"/>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+              <parentKey class="configKey">
+                <name>enricher.service_state.children_and_members.quorum.up</name>
+                <type>org.apache.brooklyn.util.collections.QuorumCheck</type>
+                <description>Logic for checking whether this service is up, based on children and/or members, defaulting to allowing none but if there are any requiring at least one to be up</description>
+                <defaultValue class="org.apache.brooklyn.util.collections.QuorumCheck$NumericQuorumCheck">
+                  <minRequiredSize>1</minRequiredSize>
+                  <minRequiredRatio>0.0</minRequiredRatio>
+                  <allowEmpty>true</allowEmpty>
+                  <name>atLeastOneUnlessEmpty</name>
+                </defaultValue>
+                <reconfigurable>false</reconfigurable>
+                <runtimeInheritance class="org.apache.brooklyn.core.config.BasicConfigInheritance$NotReinherited" reference="../../../../org.apache.brooklyn.core.objs.BasicSpecParameter[18]/configKey/runtimeInheritance"/>
+                <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+              </parentKey>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>group.members.delegate</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>group.members.delegate</name>
+              <type>java.lang.Boolean</type>
+              <description>Deprecated: Add delegate child entities for members of the group</description>
+              <defaultValue class="boolean">false</defaultValue>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+          <org.apache.brooklyn.core.objs.BasicSpecParameter>
+            <label>group.members.delegate.nameFormat</label>
+            <pinned>false</pinned>
+            <configKey class="configKey">
+              <name>group.members.delegate.nameFormat</name>
+              <type>java.lang.String</type>
+              <description>Delegate members name format string (Use %s for the original entity display name)</description>
+              <defaultValue class="string">%s</defaultValue>
+              <reconfigurable>false</reconfigurable>
+              <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+            </configKey>
+          </org.apache.brooklyn.core.objs.BasicSpecParameter>
+        </parameters>
+        <flags/>
+        <config/>
+        <policies/>
+        <policySpecs/>
+        <enrichers/>
+        <enricherSpecs/>
+        <locations/>
+        <locationSpecs/>
+        <additionalInterfaces/>
+        <entityInitializers/>
+        <children/>
+        <members/>
+        <groups/>
+        <immutable>false</immutable>
+      </org.apache.brooklyn.api.entity.EntitySpec>
+    </childSpec>
+  </config>
+  <!--<locations>
+    <string>g2cuybun23</string>
+  </locations>-->
+  <attributes>
+    <service.notUp.indicators>
+      <MutableMap/>
+    </service.notUp.indicators>
+    <entity.id>sr6qljzg0j</entity.id>
+    <application.id>sr6qljzg0j</application.id>
+    <catalog.id>
+      <null/>
+    </catalog.id>
+    <service.isUp type="boolean">true</service.isUp>
+    <service.problems>
+      <MutableMap/>
+    </service.problems>
+    <service.state type="org.apache.brooklyn.core.entity.lifecycle.Lifecycle">RUNNING</service.state>
+    <service.state.expected>
+      <org.apache.brooklyn.core.entity.lifecycle.Lifecycle_-Transition>
+        <state>RUNNING</state>
+        <timestampUtc>1499351390695</timestampUtc>
+      </org.apache.brooklyn.core.entity.lifecycle.Lifecycle_-Transition>
+    </service.state.expected>
+  </attributes>
+<!--  <enrichers>
+    <string>tkgkbe7qm2</string>
+    <string>if3cubw781</string>
+    <string>bl6tihss7g</string>
+  </enrichers> -->
+  <configKeys>
+    <camp.template.id>
+      <configKey>
+        <name>camp.template.id</name>
+        <type>java.lang.String</type>
+        <description>UID of the component in the CAMP template from which this entity was created</description>
+        <reconfigurable>false</reconfigurable>
+        <runtimeInheritance class="org.apache.brooklyn.core.config.BasicConfigInheritance$NeverInherited" reference="../../../../config/childSpec/org.apache.brooklyn.api.entity.EntitySpec/parameters/org.apache.brooklyn.core.objs.BasicSpecParameter[4]/configKey/runtimeInheritance"/>
+        <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+      </configKey>
+    </camp.template.id>
+    <childSpec>
+      <configKey>
+        <name>childSpec</name>
+        <type>java.lang.Object</type>
+        <description>childSpec</description>
+        <reconfigurable>false</reconfigurable>
+        <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+      </configKey>
+    </childSpec>
+  </configKeys>
+  <attributeKeys>
+    <service.notUp.indicators>
+      <attributeSensor>
+        <typeToken class="org.apache.brooklyn.core.entity.Attributes$1" resolves-to="com.google.common.reflect.TypeToken$SimpleTypeToken">
+          <runtimeType class="com.google.common.reflect.Types$ParameterizedTypeImpl">
+            <argumentsList>
+              <java-class>java.lang.String</java-class>
+              <java-class>java.lang.Object</java-class>
+            </argumentsList>
+            <rawType>java.util.Map</rawType>
+          </runtimeType>
+        </typeToken>
+        <name>service.notUp.indicators</name>
+        <description>A map of namespaced indicators that the service is not up</description>
+        <persistence>REQUIRED</persistence>
+      </attributeSensor>
+    </service.notUp.indicators>
+    <service.problems>
+      <attributeSensor>
+        <typeToken class="org.apache.brooklyn.core.entity.Attributes$2" resolves-to="com.google.common.reflect.TypeToken$SimpleTypeToken">
+          <runtimeType class="com.google.common.reflect.Types$ParameterizedTypeImpl">
+            <argumentsList>
+              <java-class>java.lang.String</java-class>
+              <java-class>java.lang.Object</java-class>
+            </argumentsList>
+            <rawType>java.util.Map</rawType>
+          </runtimeType>
+        </typeToken>
+        <name>service.problems</name>
+        <description>A map of namespaced indicators of problems with a service</description>
+        <persistence>REQUIRED</persistence>
+      </attributeSensor>
+    </service.problems>
+    <service.state>
+      <attributeSensor>
+        <type>org.apache.brooklyn.core.entity.lifecycle.Lifecycle</type>
+        <name>service.state</name>
+        <description>Actual lifecycle state of the service</description>
+        <persistence>REQUIRED</persistence>
+      </attributeSensor>
+    </service.state>
+    <service.state.expected>
+      <attributeSensor>
+        <type>org.apache.brooklyn.core.entity.lifecycle.Lifecycle$Transition</type>
+        <name>service.state.expected</name>
+        <description>Last controlled change to service state, indicating what the expected state should be</description>
+        <persistence>REQUIRED</persistence>
+      </attributeSensor>
+    </service.state.expected>
+  </attributeKeys>
+</entity>
