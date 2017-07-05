@@ -21,6 +21,8 @@ import org.testng.annotations.Test;
 
 public class OsgiUtilsTest {
 
+    // TODO other utils tests ... or maybe other tests in this package are sufficient?
+    
     @Test
     public void testToOsgiVersion() {
         assertVersion("0.10.0-20160713.1653", "0.10.0.20160713_1653");
@@ -43,6 +45,7 @@ public class OsgiUtilsTest {
         assertVersion("4aug2000r7-dev", "0.0.0.4aug2000r7-dev");
     }
 
+    @Deprecated
     private void assertVersion(String ver, String expected) {
         assertEquals(OsgiUtils.toOsgiVersion(ver), expected);
     }

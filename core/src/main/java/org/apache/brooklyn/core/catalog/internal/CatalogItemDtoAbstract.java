@@ -33,6 +33,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.mgmt.rebind.BasicCatalogItemRebindSupport;
 import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
 import org.apache.brooklyn.core.relations.EmptyRelationSupport;
+import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
@@ -386,6 +387,16 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
     /**
      * Parses an instance of CatalogLibrariesDto from the given List. Expects the list entries
      * to be either Strings or Maps of String -> String. Will skip items that are not.
+     * <p>
+     * If a string is supplied, this tries heuristically to identify whether a reference is a bundle or a URL, as follows:
+     * - if the string contains a slash, it is treated as a URL (or classpath reference), e.g. <code>/file.txt</code>;
+     * - if the string is {@link RegisteredTypeNaming#isGoodTypeColonVersion(String)} with an OSGi version it is treated as a bundle, e.g. <code>file:1</code>;
+     * - if the string is ambiguous (has a single colon) a warning is given, 
+     *   and typically it is treated as a URL because OSGi versions are needed here, e.g. <code>file:v1</code> is a URL,
+     *   but for a transitional period (possibly ending in 0.13 as warning is introduced in 0.12) for compatibility with previous versions,
+     *   versions starting with a number trigger bundle resolution, e.g. <code>file:1.txt</code> is a bundle for now
+     *   (but in all these cases warnings are logged)
+     * - otherwise (multiple colons, or no colons) it is treated like a URL
      */
     public static Collection<CatalogBundle> parseLibraries(Collection<?> possibleLibraries) {
         Collection<CatalogBundle> dto = MutableList.of();
@@ -405,16 +416,28 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
 
                 //Infer reference type (heuristically)
                 if (inlineRef.contains("/") || inlineRef.contains("\\")) {
-                    //looks like an url/file path
+                    //looks like an url/file path (note these chars now formally disallowed in type names)
                     name = null;
                     version = null;
                     url = inlineRef;
+                } else if (RegisteredTypeNaming.isGoodBrooklynTypeColonVersion(inlineRef) || RegisteredTypeNaming.isValidOsgiTypeColonVersion(inlineRef)) {
+                    //looks like a name+version ref
+                    name = CatalogUtils.getSymbolicNameFromVersionedId(inlineRef);
+                    version = CatalogUtils.getVersionFromVersionedId(inlineRef);
+                    url = null;
                 } else if (CatalogUtils.looksLikeVersionedId(inlineRef)) {
+                    LOG.warn("Reference to library "+inlineRef+" is being treated as type but deprecated version syntax "
+                        + "means in subsequent versions it will be treated as a URL.");
                     //looks like a name+version ref
                     name = CatalogUtils.getSymbolicNameFromVersionedId(inlineRef);
                     version = CatalogUtils.getVersionFromVersionedId(inlineRef);
                     url = null;
                 } else {
+                    if (RegisteredTypeNaming.isUsableTypeColonVersion(inlineRef)) {
+                        LOG.warn("Ambiguous library reference "+inlineRef+" is being treated as a URL even though"
+                            + " it looks a bit like a bundle with a non-osgi-version.  Use strict OSGi versions to treat as a bundle. "
+                            + "To suppress this message and force URL use a slash in the reference ");
+                    }
                     //assume it to be relative url
                     name = null;
                     version = null;

@@ -776,7 +776,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         Assert.assertNull(lib.getUrl());
 
         assertEquals(lib.getSymbolicName(), "org.apache.brooklyn.test.resources.osgi.brooklyn-test-osgi-entities");
-        assertEquals(lib.getVersion(), version);
+        assertEquals(lib.getSuppliedVersionString(), version);
 
         // now let's check other things on the item
         URI expectedIconUrl = URI.create(getEndpointAddress() + "/catalog/icon/" + symbolicName + "/" + entityItem.getVersion()).normalize();
@@ -852,7 +852,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         Assert.assertNull(lib.getUrl());
 
         assertEquals(lib.getSymbolicName(), symbolicName);
-        assertEquals(lib.getVersion(), version);
+        assertEquals(lib.getSuppliedVersionString(), version);
 
         // now let's check other things on the item
         URI expectedIconUrl = URI.create(getEndpointAddress() + "/catalog/icon/" + symbolicName + "/" + entityItem.getVersion()).normalize();
@@ -1068,5 +1068,176 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .get(new GenericType<List<CatalogItemSummary>>() {});
         assertEquals(applications.size(), 1);
         assertEquals(applications.get(0).getVersion(), TEST_VERSION);
+    }
+
+    @Test
+    public void testForceUpdateForYAML() {
+        String symbolicName = "force.update.catalog.application.id";
+        String itemType = "template";
+        String initialName = "My Catalog App";
+        String initialDescription = "My description";
+        String updatedName = initialName + " 2";
+        String updatedDescription = initialDescription + " 2";
+
+        String initialYaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  itemType: " + itemType,
+                "  name: " + initialName,
+                "  description: " + initialDescription,
+                "  icon_url: classpath:///bridge-small.png",
+                "  version: " + TEST_VERSION,
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity");
+        String updatedYaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  itemType: " + itemType,
+                "  name: " + updatedName,
+                "  description: " + updatedDescription,
+                "  icon_url: classpath:///bridge-small.png",
+                "  version: " + TEST_VERSION,
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity");
+
+        client().path("/catalog").post(initialYaml);
+
+        CatalogItemSummary initialApplication = client().path("/catalog/applications/" + symbolicName + "/" + TEST_VERSION)
+                .get(CatalogItemSummary.class);
+        assertEquals(initialApplication.getName(), initialName);
+        assertEquals(initialApplication.getDescription(), initialDescription);
+
+        Response invalidResponse = client().path("/catalog").post(updatedYaml);
+
+        assertEquals(invalidResponse.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
+
+        Response validResponse = client().path("/catalog").query("forceUpdate", true).post(updatedYaml);
+
+        assertEquals(validResponse.getStatus(), Response.Status.CREATED.getStatusCode());
+
+        CatalogItemSummary application = client().path("/catalog/applications/" + symbolicName + "/" + TEST_VERSION)
+                .get(CatalogItemSummary.class);
+        assertEquals(application.getName(), updatedName);
+        assertEquals(application.getDescription(), updatedDescription);
+    }
+
+    @Test
+    public void testForceUpdateForZip() throws Exception {
+        final String symbolicName = "force.update.zip.catalog.application.id";
+        final String initialName = "My Catalog App";
+        final String initialDescription = "My Description";
+        final String updatedName = initialName + " 2";
+        final String updatedDescription = initialDescription  +" 2";
+
+        File initialZip = createZip(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  bundle: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  id: " + symbolicName,
+                "  itemType: entity",
+                "  name: " + initialName,
+                "  description: " + initialDescription,
+                "  icon_url: classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif",
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity")));
+        File updatedZip = createZip(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  bundle: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  id: " + symbolicName,
+                "  itemType: entity",
+                "  name: " + updatedName,
+                "  description: " + updatedDescription,
+                "  icon_url: classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif",
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity")));
+
+        client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .post(Streams.readFully(new FileInputStream(initialZip)));
+
+        CatalogItemSummary initialEntity = client().path("/catalog/entities/" + symbolicName + "/" + TEST_VERSION)
+                .get(CatalogItemSummary.class);
+        assertEquals(initialEntity.getName(), initialName);
+        assertEquals(initialEntity.getDescription(), initialDescription);
+
+        Response invalidResponse = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .post(Streams.readFully(new FileInputStream(updatedZip)));
+
+        assertEquals(invalidResponse.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
+
+        Response validResponse = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .query("forceUpdate", true)
+                .post(Streams.readFully(new FileInputStream(updatedZip)));
+
+        assertEquals(validResponse.getStatus(), Response.Status.CREATED.getStatusCode());
+
+        CatalogItemSummary entity = client().path("/catalog/entities/" + symbolicName + "/" + TEST_VERSION)
+                .get(CatalogItemSummary.class);
+        assertEquals(entity.getName(), updatedName);
+        assertEquals(entity.getDescription(), updatedDescription);
+    }
+
+    @Test
+    public void testForceUpdateForJar() throws Exception {
+        final String symbolicName = "force.update.jar.catalog.application.id";
+        final String initialName = "My Catalog App";
+        final String initialDescription = "My Description";
+        final String updatedName = initialName + " 2";
+        final String updatedDescription = initialDescription  +" 2";
+
+        File initialJar = createJar(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  bundle: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  id: " + symbolicName,
+                "  itemType: entity",
+                "  name: " + initialName,
+                "  description: " + initialDescription,
+                "  icon_url: classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif",
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity")));
+        File updatedJar = createJar(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  bundle: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  id: " + symbolicName,
+                "  itemType: entity",
+                "  name: " + updatedName,
+                "  description: " + updatedDescription,
+                "  icon_url: classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif",
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity")));
+
+        client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
+                .post(Streams.readFully(new FileInputStream(initialJar)));
+
+        CatalogItemSummary initialEntity = client().path("/catalog/entities/" + symbolicName + "/" + TEST_VERSION)
+                .get(CatalogItemSummary.class);
+        assertEquals(initialEntity.getName(), initialName);
+        assertEquals(initialEntity.getDescription(), initialDescription);
+
+        Response invalidResponse = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
+                .post(Streams.readFully(new FileInputStream(updatedJar)));
+
+        assertEquals(invalidResponse.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
+
+        Response validResponse = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
+                .query("forceUpdate", true)
+                .post(Streams.readFully(new FileInputStream(updatedJar)));
+
+        assertEquals(validResponse.getStatus(), Response.Status.CREATED.getStatusCode());
+
+        CatalogItemSummary entity = client().path("/catalog/entities/" + symbolicName + "/" + TEST_VERSION)
+                .get(CatalogItemSummary.class);
+        assertEquals(entity.getName(), updatedName);
+        assertEquals(entity.getDescription(), updatedDescription);
     }
 }

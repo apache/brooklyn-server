@@ -46,6 +46,7 @@ import org.apache.brooklyn.core.location.BasicLocationRegistry;
 import org.apache.brooklyn.core.mgmt.internal.CampYamlParser;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer;
+import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -58,14 +59,12 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.AggregateClassLoader;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.LoadedClassLoader;
-import org.apache.brooklyn.util.osgi.OsgiUtils;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.brooklyn.util.yaml.Yamls.YamlExtract;
-import org.osgi.framework.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
@@ -447,7 +446,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (Strings.isBlank(version)) {
             throw new IllegalStateException("Catalog BOM must define version if bundle is defined");
         }
-        return new VersionedName(bundle, Version.valueOf(OsgiUtils.toOsgiVersion(version)));
+        return new VersionedName(bundle, version);
     }
 
     private void collectCatalogItems(String yaml, List<CatalogItemDtoAbstract<?, ?>> result, Map<?, ?> parentMeta) {
@@ -601,14 +600,37 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         // if symname not set, infer from: id, then name, then item id, then item name
         if (Strings.isBlank(symbolicName)) {
             if (Strings.isNonBlank(id)) {
-                if (CatalogUtils.looksLikeVersionedId(id)) {
+                if (RegisteredTypeNaming.isGoodBrooklynTypeColonVersion(id)) {
                     symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(id);
+                } else if (RegisteredTypeNaming.isValidOsgiTypeColonVersion(id)) {
+                    symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(id);
+                    log.warn("Discouraged version syntax in id '"+id+"'; version should comply with brooklyn recommendation (#.#.#-qualifier or portion) or specify symbolic name and version explicitly, not OSGi version syntax");
+                } else if (CatalogUtils.looksLikeVersionedId(id)) {
+                    // use of above method is deprecated in 0.12; this block can be removed in 0.13
+                    log.warn("Discouraged version syntax in id '"+id+"'; version should comply with brooklyn recommendation (#.#.#-qualifier or portion) or specify symbolic name and version explicitly");
+                    symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(id);
+                } else if (RegisteredTypeNaming.isUsableTypeColonVersion(id)) {
+                    log.warn("Deprecated type naming syntax in id '"+id+"'; colons not allowed in type name as it is used to indicate version");
+                    // deprecated in 0.12; from 0.13 this can change to treat part after the colon as version, also see line to set version below
+                    // (may optionally warn or disallow if we want to require OSGi versions)
+                    // symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(id);
+                    symbolicName = id;
                 } else {
                     symbolicName = id;
                 }
             } else if (Strings.isNonBlank(name)) {
-                if (CatalogUtils.looksLikeVersionedId(name)) {
+                if (RegisteredTypeNaming.isGoodBrooklynTypeColonVersion(name) || RegisteredTypeNaming.isValidOsgiTypeColonVersion(name)) {
+                    log.warn("Deprecated use of 'name' key to define '"+name+"'; version should be specified within 'id' key or with 'version' key, not this tag");
+                    // deprecated in 0.12; remove in 0.13
                     symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(name);
+                } else if (CatalogUtils.looksLikeVersionedId(name)) {
+                    log.warn("Deprecated use of 'name' key to define '"+name+"'; version should be specified within 'id' key or with 'version' key, not this tag");
+                    // deprecated in 0.12; remove in 0.13
+                    symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(name);
+                } else if (RegisteredTypeNaming.isUsableTypeColonVersion(name)) {
+                    log.warn("Deprecated type naming syntax in id '"+id+"'; colons not allowed in type name as it is used to indicate version");
+                    // deprecated in 0.12; throw error if we want in 0.13
+                    symbolicName = name;
                 } else {
                     symbolicName = name;
                 }
@@ -624,18 +646,38 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             }
         }
 
+        String versionFromId = null;
+        if (RegisteredTypeNaming.isGoodBrooklynTypeColonVersion(id)) {
+            versionFromId = CatalogUtils.getVersionFromVersionedId(id);
+        } else if (RegisteredTypeNaming.isValidOsgiTypeColonVersion(id)) {
+            versionFromId = CatalogUtils.getVersionFromVersionedId(id);
+            log.warn("Discouraged version syntax in id '"+id+"'; version should comply with Brooklyn recommended version syntax (#.#.#-qualifier or portion) or specify symbolic name and version explicitly, not OSGi");
+        } else if (CatalogUtils.looksLikeVersionedId(id)) {
+            log.warn("Discouraged version syntax in id '"+id+"'; version should comply with Brooklyn recommended version syntax (#.#.#-qualifier or portion) or specify symbolic name and version explicitly");
+            // remove in 0.13
+            versionFromId = CatalogUtils.getVersionFromVersionedId(id);
+        } else if (RegisteredTypeNaming.isUsableTypeColonVersion(id)) {
+            // deprecated in 0.12, with warning above; from 0.13 this can be uncommented to treat part after the colon as version
+            // (may optionally warn or disallow if we want to require OSGi versions)
+            // if comparable section above is changed, change this to:
+            // versionFromId = CatalogUtils.getVersionFromVersionedId(id);
+        }
+        
         // if version not set, infer from: id, then from name, then item version
-        if (CatalogUtils.looksLikeVersionedId(id)) {
-            String versionFromId = CatalogUtils.getVersionFromVersionedId(id);
-            if (versionFromId != null && Strings.isNonBlank(version) && !versionFromId.equals(version)) {
+        if (versionFromId!=null) {
+            if (Strings.isNonBlank(version) && !versionFromId.equals(version)) {
                 throw new IllegalArgumentException("Discrepency between version set in id " + versionFromId + " and version property " + version);
             }
             version = versionFromId;
         }
+        
         if (Strings.isBlank(version)) {
             if (CatalogUtils.looksLikeVersionedId(name)) {
+                // deprecated in 0.12, remove in 0.13
+                log.warn("Deprecated use of 'name' key to define '"+name+"'; version should be specified within 'id' key or with 'version' key, not this tag");
                 version = CatalogUtils.getVersionFromVersionedId(name);
-            } else if (Strings.isBlank(version)) {
+            }
+            if (Strings.isBlank(version)) {
                 version = setFromItemIfUnset(version, itemAsMap, "version");
                 version = setFromItemIfUnset(version, itemAsMap, "template_version");
                 if (version==null) {
@@ -855,24 +897,50 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             }
             // first look in collected items, if a key is given
             String type = (String) item.get("type");
-            String version = null;
-            if (CatalogUtils.looksLikeVersionedId(type)) {
-                version = CatalogUtils.getVersionFromVersionedId(type);
-                type = CatalogUtils.getSymbolicNameFromVersionedId(type);
-            }
+            
             if (type!=null && key!=null) {
                 for (CatalogItemDtoAbstract<?,?> candidate: itemsDefinedSoFar) {
                     if (candidateCiType == candidate.getCatalogItemType() &&
                             (type.equals(candidate.getSymbolicName()) || type.equals(candidate.getId()))) {
-                        if (version==null || version.equals(candidate.getVersion())) {
-                            // matched - exit
-                            catalogItemType = candidateCiType;
-                            planYaml = candidateYaml;
-                            resolved = true;
-                            return true;
+                        // matched - exit
+                        catalogItemType = candidateCiType;
+                        planYaml = candidateYaml;
+                        resolved = true;
+                        return true;
+                    }
+                }
+            }
+            {
+                // legacy routine; should be the same as above code added in 0.12 because:
+                // if type is symbolic_name, the type will match above, and version will be null so any version allowed to match 
+                // if type is symbolic_name:version, the id will match, and the version will also have to match 
+                // SHOULD NEVER NEED THIS - remove during or after 0.13
+                String typeWithId = type;
+                String version = null;
+                if (CatalogUtils.looksLikeVersionedId(type)) {
+                    version = CatalogUtils.getVersionFromVersionedId(type);
+                    type = CatalogUtils.getSymbolicNameFromVersionedId(type);
+                }
+                if (type!=null && key!=null) {
+                    for (CatalogItemDtoAbstract<?,?> candidate: itemsDefinedSoFar) {
+                        if (candidateCiType == candidate.getCatalogItemType() &&
+                                (type.equals(candidate.getSymbolicName()) || type.equals(candidate.getId()))) {
+                            if (version==null || version.equals(candidate.getVersion())) {
+                                log.error("Lookup of '"+type+"' version '"+version+"' only worked using legacy routines; please advise Brooklyn community so they understand why");
+                                // matched - exit
+                                catalogItemType = candidateCiType;
+                                planYaml = candidateYaml;
+                                resolved = true;
+                                return true;
+                            }
                         }
                     }
                 }
+                
+                type = typeWithId;
+                // above line is a change to behaviour; previously we proceeded below with the version dropped in code above;
+                // but that seems like a bug as the code below will have ignored version.
+                // likely this means we are now stricter about loading things that reference new versions, but correctly so. 
             }
             
             // then try parsing plan - this will use loader

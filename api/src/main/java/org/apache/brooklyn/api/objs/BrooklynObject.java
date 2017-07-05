@@ -56,6 +56,9 @@ public interface BrooklynObject extends Identifiable, Configurable {
      * <p>
      * In some cases this may be set heuristically from context and so may not be accurate.
      * Callers can set an explicit catalog item ID if inferencing is not correct.
+     * <p>
+     * This should conform to OSGi specs for <code>symbolic_name:version</code>
+     * but weaker semantics are usually allowed so long as neither segment contains a <code>:</code> or whitespace.
      */
     String getCatalogItemId();
 

@@ -193,7 +193,7 @@ public class ExternalConfigYamlTest extends AbstractYamlTest {
         CatalogBundle bundle = Iterables.getOnlyElement(item.getLibraries());
         assertEquals(bundle.getUrl(), LIBRARY_URL);
         assertEquals(bundle.getSymbolicName(), LIBRARY_SYMBOLIC_NAME);
-        assertEquals(bundle.getVersion(), LIBRARY_VERSION);
+        assertEquals(bundle.getSuppliedVersionString(), LIBRARY_VERSION);
     }
 
     // Will download the given catalog library jar

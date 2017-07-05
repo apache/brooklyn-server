@@ -169,7 +169,7 @@ public class CampYamlLiteTest {
         Assert.assertEquals(bundles.size(), 1);
         CatalogBundle bundle = Iterables.getOnlyElement(bundles);
         Assert.assertEquals(bundle.getUrl(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL);
-        Assert.assertEquals(bundle.getVersion(), "0.1.0");
+        Assert.assertEquals(bundle.getSuppliedVersionString(), "0.1.0");
 
         EntitySpec<?> spec1 = (EntitySpec<?>) mgmt.getCatalog().peekSpec(retrievedItem);
         assertNotNull(spec1);

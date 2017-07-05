@@ -30,6 +30,7 @@ import org.apache.brooklyn.core.mgmt.rebind.BasicManagedBundleRebindSupport;
 import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.osgi.framework.Version;
 
 import com.google.common.annotations.Beta;
@@ -76,8 +77,13 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     }
     
     @Override
-    public String getVersion() {
+    public String getSuppliedVersionString() {
         return version;
+    }
+
+    @Override
+    public String getOsgiVersionString() {
+        return version==null ? version : BrooklynVersionSyntax.toValidOsgiVersion(version);
     }
 
     public void setVersion(String version) {
@@ -87,7 +93,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     @Override
     public VersionedName getVersionedName() {
         if (symbolicName==null) return null;
-        return new VersionedName(symbolicName, Version.parseVersion(version));
+        return new VersionedName(symbolicName, version);
     }
     
     @Override
@@ -135,7 +141,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         if (getClass() != obj.getClass()) return false;
         OsgiBundleWithUrl other = (OsgiBundleWithUrl) obj;
         if (!Objects.equal(symbolicName, other.getSymbolicName())) return false;
-        if (!Objects.equal(version, other.getVersion())) return false;
+        if (!Objects.equal(getOsgiVersionString(), other.getOsgiVersionString())) return false;
         if (!Objects.equal(url, other.getUrl())) return false;
         return true;
     }
@@ -183,6 +189,6 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     }
 
     public static ManagedBundle of(CatalogBundle bundleUrl) {
-        return new BasicManagedBundle(bundleUrl.getSymbolicName(), bundleUrl.getVersion(), bundleUrl.getUrl());
+        return new BasicManagedBundle(bundleUrl.getSymbolicName(), bundleUrl.getSuppliedVersionString(), bundleUrl.getUrl());
     }
 }

@@ -46,9 +46,9 @@ public class DefaultAzureArmNetworkCreator {
 
     public static final Logger LOG = LoggerFactory.getLogger(DefaultAzureArmNetworkCreator.class);
 
-    private static final String DEFAULT_RESOURCE_GROUP = "brooklyn-default-resource-group";
-    private static final String DEFAULT_NETWORK_NAME = "brooklyn-default-network";
-    private static final String DEFAULT_SUBNET_NAME = "brooklyn-default-subnet";
+    private static final String DEFAULT_RESOURCE_GROUP_PREFIX = "brooklyn-default-resource-group";
+    private static final String DEFAULT_NETWORK_NAME_PREFIX = "brooklyn-default-network";
+    private static final String DEFAULT_SUBNET_NAME_PREFIX = "brooklyn-default-subnet";
 
     private static final String DEFAULT_VNET_ADDRESS_PREFIX = "10.1.0.0/16";
     private static final String DEFAULT_SUBNET_ADDRESS_PREFIX = "10.1.0.0/24";
@@ -61,7 +61,7 @@ public class DefaultAzureArmNetworkCreator {
 
     public static void createDefaultNetworkAndAddToTemplateOptionsIfRequired(ComputeService computeService, ConfigBag config) {
         if (!config.get(AZURE_ARM_DEFAULT_NETWORK_ENABLED)) {
-            LOG.info("azure.arm.default.network.enabled is disabled, not creating default network");
+            LOG.debug("azure.arm.default.network.enabled is disabled, not creating default network");
             return;
         }
 
@@ -70,33 +70,33 @@ public class DefaultAzureArmNetworkCreator {
 
         //Only create a default network if we haven't specified a network name (in template options or config) or ip options
         if (config.containsKey(NETWORK_NAME)) {
-            LOG.info("Network config specified when provisioning Azure machine. Not creating default network");
+            LOG.debug("Network config specified when provisioning Azure machine. Not creating default network");
             return;
         }
         if (templateOptions != null && (templateOptions.containsKey(NETWORK_NAME.getName()) || templateOptions.containsKey("ipOptions"))) {
-            LOG.info("Network config specified when provisioning Azure machine. Not creating default network");
+            LOG.debug("Network config specified when provisioning Azure machine. Not creating default network");
             return;
         }
-
-        LOG.info("Network config not specified when provisioning Azure machine. Creating default network if doesn't exist");
 
         AzureComputeApi api = computeService.getContext().unwrapApi(AzureComputeApi.class);
         String location = config.get(CLOUD_REGION_ID);
 
-        String resourceGroupName = DEFAULT_RESOURCE_GROUP  + "-" + location;
-        String vnetName = DEFAULT_NETWORK_NAME + "-" + location;
-        String subnetName = DEFAULT_SUBNET_NAME + "-" + location;
+        String resourceGroupName = DEFAULT_RESOURCE_GROUP_PREFIX  + "-" + location;
+        String vnetName = DEFAULT_NETWORK_NAME_PREFIX + "-" + location;
+        String subnetName = DEFAULT_SUBNET_NAME_PREFIX + "-" + location;
 
         //Check if default already exists
         Subnet preexistingSubnet = api.getSubnetApi(resourceGroupName, vnetName).get(subnetName);
         if(preexistingSubnet != null){
-            LOG.info("Default Azure network and subnet already created, "+vnetName);
+            LOG.info("Using pre-existing default Azure network [{}] and subnet [{}] when provisioning machine", 
+                    vnetName, subnetName);
             updateTemplateOptions(config, preexistingSubnet);
             return;
         }
 
 
-        LOG.info("Network config not specified when creating Azure location and default network/subnet does not exists. Creating");
+        LOG.info("Network config not specified when provisioning Azure machine, and default network/subnet does not exists. "
+                + "Creating network [{}] and subnet [{}], and updating template options", vnetName, subnetName);
 
         createResourceGroupIfNeeded(api, resourceGroupName, location);
 
@@ -136,12 +136,13 @@ public class DefaultAzureArmNetworkCreator {
     }
 
     private static void createResourceGroupIfNeeded(AzureComputeApi api, String resourceGroup, String location) {
-        LOG.debug("using resource group [%s]", resourceGroup);
         ResourceGroup rg = api.getResourceGroupApi().get(resourceGroup);
         if (rg == null) {
-            LOG.debug("resource group [%s] does not exist. Creating!", resourceGroup);
+            LOG.info("Default Azure resource group [{}] does not exist in {}. Creating!", resourceGroup, location);
             api.getResourceGroupApi().create(resourceGroup, location,
                     ImmutableMap.of("description", "brooklyn default resource group"));
+        } else {
+            LOG.debug("Using existing default Azure resource group [{}] in {}", resourceGroup, location);
         }
     }
 }

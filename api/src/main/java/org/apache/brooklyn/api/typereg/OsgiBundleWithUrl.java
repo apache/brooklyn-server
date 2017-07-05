@@ -24,7 +24,11 @@ import com.google.common.annotations.Beta;
 public interface OsgiBundleWithUrl {
     
     public String getSymbolicName();
-    public String getVersion();
+    /** guaranteed to be in OSGi syntax, or null if name+version not available */
+    public String getOsgiVersionString();
+    
+    /** string as defined by caller; not necessarily in OSGi syntax */
+    public String getSuppliedVersionString();
     
     /** where this bundle can be downloaded; typically required unless we are guaranteed the bundle will be manually installed or handled by persistence */
     public String getUrl();

@@ -262,10 +262,14 @@ public class RecordingSshTool implements SshTool {
     protected void writeCustomResponseStreams(Map<String, ?> props, CustomResponse response) {
         try {
             if (Strings.isNonBlank(response.stdout) && props.get(SshTool.PROP_OUT_STREAM.getName()) != null) {
-                ((OutputStream)props.get(SshTool.PROP_OUT_STREAM.getName())).write(response.stdout.getBytes());
+                OutputStream out = (OutputStream)props.get(SshTool.PROP_OUT_STREAM.getName());
+                out.write(response.stdout.getBytes());
+                out.flush();
             }
             if (Strings.isNonBlank(response.stderr) && props.get(SshTool.PROP_ERR_STREAM.getName()) != null) {
-                ((OutputStream)props.get(SshTool.PROP_ERR_STREAM.getName())).write(response.stderr.getBytes());
+                OutputStream err = (OutputStream)props.get(SshTool.PROP_ERR_STREAM.getName());
+                err.write(response.stderr.getBytes());
+                err.flush();
             }
         } catch (IOException e) {
             Exceptions.propagate(e);

@@ -283,7 +283,7 @@ public class ClassLoaderUtilsTest {
                 Entity.class.getName());
         new ClassLoaderUtils(this, mgmt).loadClass(
                 "org.apache.brooklyn.api",
-                OsgiUtils.toOsgiVersion(BrooklynVersion.get()),
+                BrooklynVersion.getOsgiVersion(),
                 Entity.class.getName());
         try {
             new ClassLoaderUtils(this, mgmt).loadClass(

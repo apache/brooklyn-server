@@ -18,27 +18,27 @@
  */
 package org.apache.brooklyn.util.text;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Comparator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import org.apache.brooklyn.util.text.NaturalOrderComparator;
-import org.apache.brooklyn.util.text.Strings;
-
-import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Objects;
 
 /**
  * {@link Comparator} for version strings.
  * <p>
- * SNAPSHOT items always lowest rated, 
- * then splitting on dots,
- * using natural order comparator (so "9" < "10" and "4u8" < "4u20"),
- * and preferring segments without qualifiers ("4" > "4beta").
+ * This gives the desired semantics for our recommended version syntax,
+ * following <code>major.minor.patch-qualifier</code> syntax, 
+ * doing numeric order of major/minor/patch (1.10 > 1.9),
+ * treating anything with a qualifier lower than the corresponding without but higher than items before
+ * (1.2 > 1.2-rc > 1.1),
+ * SNAPSHOT items always lowest rated (1.0 > 2-SNAPSHOT), and 
+ * qualifier sorting follows {@link NaturalOrderComparator} (1-M10 > 1-M9).
  * <p>
  * Impossible to follow semantics for all versioning schemes but 
- * does the obvious right thing for normal schemes
- * and pretty well in fringe cases.
+ * does the obvious right thing for normal schemes and pretty well in fringe cases.
+ * Probably the most surprising fringe behaviours will be
+ * 1.2.3.4 < 1.2.3 (the ".4" is considered a qualifier).
  * <p>
  * See test case for lots of examples.
  */
@@ -56,149 +56,68 @@ public class VersionComparator implements Comparator<String> {
         if (version==null) return false;
         return version.toUpperCase().contains(SNAPSHOT);
     }
+
     
+    @SuppressWarnings("unused")
+    private static class TwoBooleans {
+        private final boolean b1, b2;
+        public TwoBooleans(boolean b1, boolean b2) { this.b1 = b1; this.b2 = b2; }
+        boolean bothTrue() { return b1 && b2; }
+        boolean eitherTrue() { return b1 || b2; }
+        boolean bothFalse() { return !eitherTrue(); }
+        boolean same() { return b1==b2; }
+        boolean different() { return b1!=b2; }
+        int compare(boolean trueIsLess) { return same() ? 0 : b1==trueIsLess ? -1 : 1; }
+        public static TwoBooleans of(boolean v1, boolean v2) {
+            return new TwoBooleans(v1, v2);
+        }
+    }
     @Override
     public int compare(String v1, String v2) {
-        if (v1==null && v2==null) return 0;
-        if (v1==null) return -1;
-        if (v2==null) return 1;
+        if (Objects.equal(v1, v2)) return 0;
         
-        boolean isV1Snapshot = isSnapshot(v1);
-        boolean isV2Snapshot = isSnapshot(v2);
-        if (isV1Snapshot == isV2Snapshot) {
-            // if snapshot status is the same, look at dot-split parts first
-            return compareDotSplitParts(splitOnDot(v1), splitOnDot(v2));
-        } else {
-            // snapshot goes first
-            return isV1Snapshot ? -1 : 1;
-        }
-    }
+        TwoBooleans nulls = TwoBooleans.of(v1==null, v2==null);
+        if (nulls.eitherTrue()) return nulls.compare(true);
 
-    @VisibleForTesting
-    static String[] splitOnDot(String v) {
-        return v.split("(?<=\\.)|(?=\\.)");
-    }
-    
-    private int compareDotSplitParts(String[] v1Parts, String[] v2Parts) {
-        for (int i = 0; ; i++) {
-            if (i >= v1Parts.length && i >= v2Parts.length) {
-                // end of both
-                return 0;
-            }
-            if (i == v1Parts.length) {
-                // sequence depends whether the extra part *starts with* a number
-                // ie
-                //                   2.0 < 2.0.0
-                // and
-                //   2.0.qualifier < 2.0 < 2.0.0qualifier < 2.0.0-qualifier < 2.0.0.qualifier < 2.0.0 < 2.0.9-qualifier
-                return isNumberInFirstCharPossiblyAfterADot(v2Parts, i) ? -1 : 1;
-            }
-            if (i == v2Parts.length) {
-                // as above but inverted
-                return isNumberInFirstCharPossiblyAfterADot(v1Parts, i) ? 1 : -1;
-            }
-            // not at end; compare this dot split part
-            
-            int result = compareDotSplitPart(v1Parts[i], v2Parts[i]);
-            if (result!=0) return result;
-        }
-    }
-    
-    private int compareDotSplitPart(String v1, String v2) {
-        String[] v1Parts = splitOnNonWordChar(v1);
-        String[] v2Parts = splitOnNonWordChar(v2);
+        TwoBooleans snapshots = TwoBooleans.of(isSnapshot(v1), isSnapshot(v2));
+        if (snapshots.different()) return snapshots.compare(true);
+
+        String u1 = versionWithoutQualifier(v1);
+        String u2 = versionWithoutQualifier(v2);
+        int uq = NaturalOrderComparator.INSTANCE.compare(u1, u2);
+        if (uq!=0) return uq;
         
-        for (int i = 0; ; i++) {
-            if (i >= v1Parts.length && i >= v2Parts.length) {
-                // end of both
-                return 0;
-            }
-            if (i == v1Parts.length) {
-                // shorter set always wins here; i.e.
-                // 1-qualifier < 1
-                return 1;
-            }
-            if (i == v2Parts.length) {
-                // as above but inverted
-                return -1;
-            }
-            // not at end; compare this dot split part
-            
-            String v1p = v1Parts[i];
-            String v2p = v2Parts[i];
-            
-            if (v1p.equals(v2p)) continue;
-            
-            if (isNumberInFirstChar(v1p) || isNumberInFirstChar(v2p)) {
-                // something starting with a number is higher than something not
-                if (!isNumberInFirstChar(v1p)) return -1;
-                if (!isNumberInFirstChar(v2p)) return 1;
-                
-                // both start with numbers; can use natural order comparison *unless*
-                // one is purely a number AND the other *begins* with that number,
-                // followed by non-digit chars, in which case prefer the pure number
-                // ie:
-                //           1beta < 1
-                // but note
-                //            1 < 2beta < 11beta
-                if (isNumber(v1p) || isNumber(v2p)) {
-                    if (!isNumber(v1p)) {
-                        if (v1p.startsWith(v2p)) {
-                            if (!isNumberInFirstChar(Strings.removeFromStart(v1p, v2p))) {
-                                // v2 is a number, and v1 is the same followed by non-numbers
-                                return -1;
-                            }
-                        }
-                    }
-                    if (!isNumber(v2p)) {
-                        // as above but inverted
-                        if (v2p.startsWith(v1p)) {
-                            if (!isNumberInFirstChar(Strings.removeFromStart(v2p, v1p))) {
-                                return 1;
-                            }
-                        }
-                    }
-                    // both numbers, skip to natural order comparison
-                }
-            }
-            
-            // otherwise it is in-order
-            int result = NaturalOrderComparator.INSTANCE.compare(v1p, v2p);
-            if (result!=0) return result;
-        }
-    }
+        // qualified items are lower than unqualified items
+        TwoBooleans no_qualifier = TwoBooleans.of(u1.equals(v1), u2.equals(v2));
+        if (no_qualifier.different()) return no_qualifier.compare(false);
 
-    @VisibleForTesting
-    static String[] splitOnNonWordChar(String v) {
-        Collection<String> parts = new ArrayList<String>();
-        String remaining = v;
+        // now compare qualifiers
         
-        // use lookahead to split on all non-letter non-numbers, putting them into their own buckets 
-        parts.addAll(Arrays.asList(remaining.split("(?<=[^0-9\\p{L}])|(?=[^0-9\\p{L}])")));
-        return parts.toArray(new String[parts.size()]);
+        // allow -, ., and _ as qualifier offsets; if used, compare qualifer without that
+        String q1 = v1.substring(u1.length());
+        String q2 = v2.substring(u2.length());
+        
+        String qq1 = q1, qq2 = q2;
+        if (q1.startsWith("-") || q1.startsWith(".") || q1.startsWith("_")) q1 = q1.substring(1);
+        if (q2.startsWith("-") || q2.startsWith(".") || q2.startsWith("_")) q2 = q2.substring(1);
+        uq = NaturalOrderComparator.INSTANCE.compare(q1, q2);
+        if (uq!=0) return uq;
+        
+        // if qualifiers the same, look at qualifier separator char
+        int sep1 = qq1.startsWith("-") ? 3 : qq1.startsWith(".") ? 2 : qq1.startsWith("_") ? 1 : 0;
+        int sep2 = qq2.startsWith("-") ? 3 : qq2.startsWith(".") ? 2 : qq2.startsWith("_") ? 1 : 0;
+        uq = Integer.compare(sep1, sep2);
+        if (uq!=0) return uq;
+        
+        // finally, do normal comparison if both have qualifier or both unqualified (in case leading 0's are used)
+        return NaturalOrderComparator.INSTANCE.compare(v1, v2);
     }
 
-    @VisibleForTesting
-    static boolean isNumberInFirstCharPossiblyAfterADot(String[] parts, int i) {
-        if (parts==null || parts.length<=i) return false;
-        if (isNumberInFirstChar(parts[i])) return true;
-        if (".".equals(parts[i])) {
-            if (parts.length>i+1)
-                if (isNumberInFirstChar(parts[i+1])) 
-                    return true;
-        }
-        return false;
+    private String versionWithoutQualifier(String v1) {
+        Matcher q = Pattern.compile("("+BrooklynVersionSyntax.NUMBER+
+            "("+BrooklynVersionSyntax.DOT+BrooklynVersionSyntax.NUMBER+
+                "("+BrooklynVersionSyntax.DOT+BrooklynVersionSyntax.NUMBER+")?)?)(.*)").matcher(v1);
+        return q.matches() ? q.group(1) : "";
     }
 
-    @VisibleForTesting
-    static boolean isNumberInFirstChar(String v) {
-        if (v==null || v.length()==0) return false;
-        return Character.isDigit(v.charAt(0));
-    }
-    
-    @VisibleForTesting
-    static boolean isNumber(String v) {
-        if (v==null || v.length()==0) return false;
-        return v.matches("[\\d]+");
-    }
 }

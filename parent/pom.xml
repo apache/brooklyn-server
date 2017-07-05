@@ -513,8 +513,24 @@
                 <artifactId>cxf-rt-rs-client</artifactId>
                 <version>${cxf.version}</version>
             </dependency>
-        </dependencies>
-    </dependencyManagement>
+			<dependency>
+				<groupId>io.fabric8</groupId>
+				<artifactId>kubernetes-client</artifactId>
+				<version>${kubernetes-client.version}</version>
+				<exclusions>
+					<exclusion>
+						<groupId>com.squareup.okio</groupId>
+						<artifactId>okio</artifactId>
+					</exclusion>
+				</exclusions>
+			</dependency>
+			<dependency>
+				<groupId>io.fabric8</groupId>
+				<artifactId>openshift-client</artifactId>
+				<version>${kubernetes-client.version}</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 
     <build>
         <testSourceDirectory>src/test/java</testSourceDirectory>

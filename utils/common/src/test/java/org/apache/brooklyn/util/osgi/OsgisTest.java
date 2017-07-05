@@ -21,16 +21,16 @@ package org.apache.brooklyn.util.osgi;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
-import org.osgi.framework.Version;
 import org.testng.annotations.Test;
 
 public class OsgisTest {
 
+    @SuppressWarnings("deprecation")
     @Test
     public void testParseOsgiIdentifier() throws Exception {
-        assertEquals(OsgiUtils.parseOsgiIdentifier("a.b").get(), new VersionedName("a.b", null));
-        assertEquals(OsgiUtils.parseOsgiIdentifier("a.b:0.1.2").get(), new VersionedName("a.b", Version.parseVersion("0.1.2")));
-        assertEquals(OsgiUtils.parseOsgiIdentifier("a.b:0.0.0.SNAPSHOT").get(), new VersionedName("a.b", Version.parseVersion("0.0.0.SNAPSHOT")));
+        assertEquals(OsgiUtils.parseOsgiIdentifier("a.b").get(), new VersionedName("a.b", (String)null));
+        assertEquals(OsgiUtils.parseOsgiIdentifier("a.b:0.1.2").get(), new VersionedName("a.b", "0.1.2"));
+        assertEquals(OsgiUtils.parseOsgiIdentifier("a.b:0.0.0.SNAPSHOT").get(), new VersionedName("a.b", "0.0.0.SNAPSHOT"));
         assertFalse(OsgiUtils.parseOsgiIdentifier("a.b:0.notanumber.2").isPresent()); // invalid version
         assertFalse(OsgiUtils.parseOsgiIdentifier("a.b:0.1.2:3.4.5").isPresent());    // too many colons
         assertFalse(OsgiUtils.parseOsgiIdentifier("a.b:0.0.0_SNAPSHOT").isPresent()); // invalid version

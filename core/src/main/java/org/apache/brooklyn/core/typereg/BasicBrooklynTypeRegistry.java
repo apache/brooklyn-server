@@ -153,7 +153,9 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     @Override
     public Maybe<RegisteredType> getMaybe(String symbolicNameOrAliasWithOptionalVersion, RegisteredTypeLoadingContext context) {
         Maybe<RegisteredType> r1 = null;
-        if (CatalogUtils.looksLikeVersionedId(symbolicNameOrAliasWithOptionalVersion)) {
+        if (RegisteredTypeNaming.isUsableTypeColonVersion(symbolicNameOrAliasWithOptionalVersion) ||
+                // included through 0.12 so legacy type names are accepted (with warning)
+                CatalogUtils.looksLikeVersionedId(symbolicNameOrAliasWithOptionalVersion)) {
             String symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(symbolicNameOrAliasWithOptionalVersion);
             String version = CatalogUtils.getVersionFromVersionedId(symbolicNameOrAliasWithOptionalVersion);
             r1 = getSingle(symbolicName, version, context);

@@ -16,24 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.camp.brooklyn.spi.creation.service;
+package org.apache.brooklyn.container.location.kubernetes;
 
-import static org.testng.Assert.assertEquals;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 
-import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
-import org.apache.brooklyn.entity.stock.BasicEntity;
-import org.testng.annotations.Test;
+import io.fabric8.kubernetes.client.KubernetesClient;
 
+public interface KubernetesClientRegistry {
 
-public class ServiceTypeResolverTest extends AbstractYamlTest {
-    
-    @Test
-    public void testAddCatalogItemVerySimple() throws Exception {
-        EntitySpec<?> spec = createAppEntitySpec(
-                "services:",
-                "- type: \"test-resolver:" + BasicEntity.class.getName() + "\"");
-        assertEquals(spec.getChildren().get(0).getFlags().get("resolver"), TestServiceTypeResolver.class);
-    }
+    KubernetesClient getKubernetesClient(ConfigBag conf);
 
 }
