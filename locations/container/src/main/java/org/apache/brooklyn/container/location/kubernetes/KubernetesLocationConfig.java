@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.container.location.kubernetes;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Map;
 
 import org.apache.brooklyn.config.ConfigKey;
@@ -33,6 +35,17 @@ import com.google.common.reflect.TypeToken;
 public interface KubernetesLocationConfig extends CloudLocationConfig {
 
     ConfigKey<String> MASTER_URL = LocationConfigKeys.CLOUD_ENDPOINT;
+
+    ConfigKey<String> KUBECONFIG = ConfigKeys.builder(String.class)
+            .name("kubeconfig")
+            .description("Kubernetes .kubeconfig file to use for Location configuration keys")
+            .constraint(file -> Files.isReadable(Paths.get(file)))
+            .build();
+
+    ConfigKey<String> KUBECONFIG_CONTEXT = ConfigKeys.builder(String.class)
+            .name("kubeconfig.context")
+            .description("Kubernetes .kubeconfig context to use for Location configuration")
+            .build();
 
     ConfigKey<String> CA_CERT_DATA = ConfigKeys.builder(String.class)
             .name("caCertData")
