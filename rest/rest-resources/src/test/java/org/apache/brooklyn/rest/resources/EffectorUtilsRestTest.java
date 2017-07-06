@@ -85,6 +85,7 @@ public class EffectorUtilsRestTest extends BrooklynAppUnitTestSupport {
         } catch (InterruptedException|ExecutionException e) {
             throw Exceptions.propagate(e);
         }
+        log.debug("Result description: "+summary.getDescription());
         assertEquals(
                 summary.getDescription(),
                 "Invoking effector resetPassword on "+TestEntityWithEffectors.class.getSimpleName()+":"+entity.getId().substring(0,4)

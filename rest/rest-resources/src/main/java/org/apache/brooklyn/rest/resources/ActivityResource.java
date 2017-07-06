@@ -79,13 +79,13 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
             return result;
         }
         Set<Task<?>> nextLayer = MutableSet.copyOf( ((HasTaskChildren) parentTask).getChildren() );
-        outer: while (!nextLayer.isEmpty() && maxDepth-- != 0) {
+        outer: while (limit!=0 && !nextLayer.isEmpty() && maxDepth-- != 0) {
             Set<Task<?>> thisLayer = nextLayer;
             nextLayer = MutableSet.of();
             for (final Task<?> childTask : thisLayer) {
                 TaskSummary wasThere = result.put(childTask.getId(), TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(childTask));
                 if (wasThere==null) {
-                    if (limit-- == 0) {
+                    if (--limit == 0) {
                         break outer;
                     }
                     if (childTask instanceof HasTaskChildren) {

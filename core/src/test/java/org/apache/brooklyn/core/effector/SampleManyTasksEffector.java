@@ -1,12 +1,15 @@
 package org.apache.brooklyn.core.effector;
 
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.EffectorTasks.EffectorTaskFactory;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -39,11 +42,21 @@ services:
  */
 public class SampleManyTasksEffector extends AddEffector {
 
+    public static final ConfigKey<Integer> RANDOM_SEED = ConfigKeys.newIntegerConfigKey("random.seed");
+
     public SampleManyTasksEffector(ConfigBag params) {
         super(Effectors.effector(String.class, params.get(EFFECTOR_NAME)).name("eatand").impl(body(params)).build());
     }
 
+    public Effector<?> getEffector() {
+        return effector;
+    }
+    
     private static EffectorTaskFactory<String> body(ConfigBag params) {
+        Integer seed = params.get(RANDOM_SEED);
+        final Random random = seed!=null ? new Random(seed) : new Random();
+        
+        // NOTE: not nicely serializable
         return new EffectorTaskFactory<String>() {
             @Override
             public TaskAdaptable<String> newTask(Entity entity, Effector<String> effector, ConfigBag parameters) {
@@ -53,13 +66,13 @@ public class SampleManyTasksEffector extends AddEffector {
                 List<Task<Object>> result = MutableList.of();
                 do {
                     TaskBuilder<Object> t = Tasks.builder();
-                    double x = Math.random();
-                    if (depth>4) x *= Math.random();
-                    if (depth>6) x *= Math.random();
+                    double x = random.nextDouble();
+                    if (depth>4) x *= random.nextDouble();
+                    if (depth>6) x *= random.nextDouble();
                     if (x<0.3) {
                         t.displayName("eat").body(new Callable<Object>() { public Object call() { return "eat"; }});
                     } else if (x<0.6) {
-                        final Duration time = Duration.millis(Math.round(10*1000*Math.random()*Math.random()*Math.random()*Math.random()*Math.random()));
+                        final Duration time = Duration.millis(Math.round(10*1000*random.nextDouble()*random.nextDouble()*random.nextDouble()*random.nextDouble()*random.nextDouble()));
                         t.displayName("sleep").description("Sleeping "+time).body(new Callable<Object>() { public Object call() {
                             Tasks.setBlockingDetails("sleeping "+time);
                             Time.sleep(time);
@@ -78,7 +91,7 @@ public class SampleManyTasksEffector extends AddEffector {
                     }
                     result.add(t.build());
                     
-                } while (Math.random()<0.8);
+                } while (random.nextDouble()<0.8);
                 return result;
             }
         };

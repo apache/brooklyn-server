@@ -480,6 +480,10 @@ public class Entities {
         out.flush();
     }
 
+    public static void dumpInfo(Task<?> t) {
+        Tasks.dumpInfo(t);
+    }
+    
     public static void dumpInfo(Enricher enr) {
         try {
             dumpInfo(enr, new PrintWriter(System.out), "", "  ");

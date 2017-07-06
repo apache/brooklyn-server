@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.util.core.task;
 
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.Writer;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -39,7 +42,6 @@ import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -492,4 +494,29 @@ public class Tasks {
         return "in "+timeout;
     }
 
+
+    public static void dumpInfo(Task<?> t) {
+        try {
+            dumpInfo(t, new PrintWriter(System.out), "", "  ");
+        } catch (IOException exc) {
+            // system.out throwing an exception is odd, so don't have IOException on signature
+            throw new RuntimeException(exc);
+        }
+    }
+    public static void dumpInfo(Task<?> t, Writer out) throws IOException {
+        dumpInfo(t, out, "", "  ");
+    }
+    public static void dumpInfo(Task<?> t, String currentIndentation, String tab) throws IOException {
+        dumpInfo(t, new PrintWriter(System.out), currentIndentation, tab);
+    }
+    public static void dumpInfo(Task<?> t, Writer out, String currentIndentation, String tab) throws IOException {
+        out.append(currentIndentation+t+": "+t.getStatusDetail(false)+"\n");
+
+        if (t instanceof HasTaskChildren) {
+            for (Task<?> child: ((HasTaskChildren)t).getChildren()) {
+                dumpInfo(child, out, currentIndentation+tab, tab);
+            }
+        }
+        out.flush();
+    }
 }
