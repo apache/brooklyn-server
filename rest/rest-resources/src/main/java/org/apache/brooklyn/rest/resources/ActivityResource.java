@@ -40,6 +40,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 
 import com.google.common.collect.Collections2;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -52,10 +53,15 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
         return TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(t);
     }
 
-    @Override
+    @Override @Deprecated
     public Map<String, TaskSummary> getAllChildrenAsMap(final String taskId) {
+        return getAllChildrenAsMap(taskId, 200, -1);
+    }
+    
+    @Override
+    public Map<String, TaskSummary> getAllChildrenAsMap(final String taskId, final int limit, final int maxDepth) {
         final Task<?> parentTask = findTask(taskId);
-        return getAllDescendantTasks(parentTask);
+        return getAllDescendantTasks(parentTask, limit, maxDepth);
     }
 
     protected Task<?> findTask(final String taskId) {
@@ -67,14 +73,26 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
         return task;
     }
 
-    private LinkedHashMap<String, TaskSummary> getAllDescendantTasks(final Task<?> parentTask) {
+    private LinkedHashMap<String, TaskSummary> getAllDescendantTasks(final Task<?> parentTask, int limit, int maxDepth) {
         final LinkedHashMap<String, TaskSummary> result = Maps.newLinkedHashMap();
         if (!(parentTask instanceof HasTaskChildren)) {
             return result;
         }
-        for (final Task<?> childTask : ((HasTaskChildren) parentTask).getChildren()) {
-            result.put(childTask.getId(), TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(childTask));
-            result.putAll(getAllDescendantTasks(childTask));
+        Set<Task<?>> nextLayer = MutableSet.copyOf( ((HasTaskChildren) parentTask).getChildren() );
+        outer: while (!nextLayer.isEmpty() && maxDepth-- != 0) {
+            Set<Task<?>> thisLayer = nextLayer;
+            nextLayer = MutableSet.of();
+            for (final Task<?> childTask : thisLayer) {
+                TaskSummary wasThere = result.put(childTask.getId(), TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(childTask));
+                if (wasThere==null) {
+                    if (limit-- == 0) {
+                        break outer;
+                    }
+                    if (childTask instanceof HasTaskChildren) {
+                        Iterables.addAll(nextLayer, ((HasTaskChildren)childTask).getChildren());
+                    }
+                }
+            }
         }
         return result;
     }

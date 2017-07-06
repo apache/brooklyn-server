@@ -112,10 +112,12 @@ public interface EntityApi {
     public List<TaskSummary> listTasks(
             @ApiParam(value = "Application ID or name", required = true) @PathParam("application") String applicationId,
             @ApiParam(value = "Entity ID or name", required = true) @PathParam("entity") String entityId,
-            @ApiParam(value = "Whether to include subtasks recursively across different entities", required = false)
+            @ApiParam(value = "Max number of tasks, or -1 for all (default 200)", required = false) 
+            @QueryParam("limit") @DefaultValue("200") int limit,
+            @ApiParam(value = "Whether to include subtasks recursively across different entities (default false)", required = false)
             @QueryParam("recurse") @DefaultValue("false") Boolean recurse);
 
-    /** @deprecated since 0.12.0 use {@link #listTasks(String, String, Boolean)} */
+    /** @deprecated since 0.12.0 use {@link #listTasks(String, String, Integer, Boolean)} */
     @Deprecated
     public List<TaskSummary> listTasks(
         String applicationId,

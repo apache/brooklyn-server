@@ -24,11 +24,9 @@ import static javax.ws.rs.core.Response.Status.ACCEPTED;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 import java.net.URI;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -132,7 +130,8 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     }
 
     @Override
-    public List<TaskSummary> listTasks(String applicationId, String entityId, Boolean recurse) {
+    public List<TaskSummary> listTasks(String applicationId, String entityId, int limit, Boolean recurse) {
+        int sizeRemaining = limit;
         Entity entity = brooklyn().getEntity(applicationId, entityId);
         List<Task<?>> tasksToScan = MutableList.copyOf(BrooklynTaskTags.getTasksInEntityContext(mgmt().getExecutionManager(), entity));
         Map<String,Task<?>> tasksLoaded = MutableMap.of();
@@ -140,6 +139,9 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         while (!tasksToScan.isEmpty()) {
             Task<?> t = tasksToScan.remove(0);
             if (tasksLoaded.put(t.getId(), t)==null) {
+                if (--sizeRemaining==0) {
+                    break;
+                }
                 if (Boolean.TRUE.equals(recurse)) {
                     if (t instanceof HasTaskChildren) {
                         Iterables.addAll(tasksToScan, ((HasTaskChildren) t).getChildren() );
@@ -153,7 +155,7 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     
     @Override @Deprecated
     public List<TaskSummary> listTasks(String applicationId, String entityId) {
-        return listTasks(applicationId, entityId, false);
+        return listTasks(applicationId, entityId, -1, false);
     }
 
     @Override

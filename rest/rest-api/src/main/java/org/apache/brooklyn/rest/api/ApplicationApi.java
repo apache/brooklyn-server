@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.rest.api;
 
-import io.swagger.annotations.Api;
 import java.util.List;
 import java.util.Map;
 
@@ -35,15 +34,15 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import org.apache.brooklyn.rest.domain.ApplicationSpec;
 import org.apache.brooklyn.rest.domain.ApplicationSummary;
-import org.apache.brooklyn.rest.domain.EntitySummary;
 import org.apache.brooklyn.rest.domain.EntityDetail;
+import org.apache.brooklyn.rest.domain.EntitySummary;
 
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
+import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
 
 @Path("/applications")
 @Api("Applications")
