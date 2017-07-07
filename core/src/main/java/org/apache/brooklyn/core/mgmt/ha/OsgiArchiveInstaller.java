@@ -306,9 +306,11 @@ class OsgiArchiveInstaller {
                 if (canUpdate()) { 
                     result.bundle = osgiManager.framework.getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
                     if (result.getBundle()==null) {
-                        throw new IllegalStateException("Detected already managing bundle "+result.getMetadata().getVersionedName()+" but framework cannot find it");
+                        log.warn("Brooklyn thought is was already managing bundle "+result.getMetadata().getVersionedName()+" but it's not installed to framework; reinstalling it");
+                        updating = false;
+                    } else {
+                        updating = true;
                     }
-                    updating = true;
                 } else {
                     if (result.getMetadata().getChecksum()==null || inferredMetadata.getChecksum()==null) {
                         log.warn("Missing bundle checksum data for "+result+"; assuming bundle replacement is permitted");
@@ -324,11 +326,16 @@ class OsgiArchiveInstaller {
                 // no such managed bundle
                 Maybe<Bundle> b = Osgis.bundleFinder(osgiManager.framework).symbolicName(result.getMetadata().getSymbolicName()).version(result.getMetadata().getSuppliedVersionString()).find();
                 if (b.isPresent()) {
-                    // if it's non-brooklyn installed then fail
-                    // (e.g. someone trying to install brooklyn or guice through this mechanism!)
-                    result.bundle = b.get();
-                    result.code = OsgiBundleInstallationResult.ResultCode.ERROR_LAUNCHING_BUNDLE;
-                    throw new IllegalStateException("Bundle "+result.getMetadata().getVersionedName()+" already installed in framework but not managed by Brooklyn; cannot install or update through Brooklyn");
+                    // bundle already installed to OSGi subsystem but brooklyn not aware of it;
+                    // this will often happen on a karaf restart so don't be too strict!
+                    // in this case let's uninstall it to make sure we have the right bundle and checksum
+                    // (in case where user has replaced a JAR file in persisted state,
+                    // or where they osgi installed something and are now uploading it or something else) 
+                    // but let's just assume it's the same; worst case if not user will
+                    // have to uninstall it then reinstall it to do the replacement
+                    // (means you can't just replace a JAR in persisted state however)
+                    log.debug("Brooklyn install of "+result.getMetadata().getVersionedName()+" detected already loaded in OSGi; uninstalling that to reinstall as Brooklyn-managed");
+                    b.get().uninstall();
                 }
                 // normal install
                 updating = false;
@@ -337,7 +344,6 @@ class OsgiArchiveInstaller {
             startedInstallation = true;
             try (InputStream fin = new FileInputStream(zipFile)) {
                 if (!updating) {
-                    // install new
                     assert result.getBundle()==null;
                     result.bundle = osgiManager.framework.getBundleContext().installBundle(result.getMetadata().getOsgiUniqueUrl(), fin);
                 } else {
