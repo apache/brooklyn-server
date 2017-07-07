@@ -24,6 +24,7 @@ import static javax.ws.rs.core.Response.Status.ACCEPTED;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 import java.net.URI;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -64,10 +65,13 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
+import com.google.common.base.Objects;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Ordering;
 import com.google.common.io.Files;
 
 @HaHotStateRequired
@@ -134,6 +138,9 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         int sizeRemaining = limit;
         Entity entity = brooklyn().getEntity(applicationId, entityId);
         List<Task<?>> tasksToScan = MutableList.copyOf(BrooklynTaskTags.getTasksInEntityContext(mgmt().getExecutionManager(), entity));
+        if (limit>0) {
+            tasksToScan = MutableList.copyOf(Ordering.from(new InterestingTasksFirstComparator(entity)).leastOf(tasksToScan, limit));
+        }
         Map<String,Task<?>> tasksLoaded = MutableMap.of();
         
         while (!tasksToScan.isEmpty()) {
@@ -151,6 +158,84 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         }
         return new LinkedList<TaskSummary>(Collections2.transform(tasksLoaded.values(), 
             TaskTransformer.fromTask(ui.getBaseUriBuilder())));
+    }
+    
+    /** API does not guarantee order, but this is a the one we use (when there are lots of tasks):
+     * prefer top-level tasks and to recent tasks, 
+     * balanced such that the following are equal:
+     * <li>something manually submitted here, submitted two hours ago
+     * <li>something submitted from another entity, submitted ten minutes ago
+     * <li>anything in progress, submitted one minute ago
+     * <li>anything not started, submitted ten seconds ago
+     * <li>anything completed, submitted one second ago
+     * <p>
+     * So if there was a manual "foo" effector invoked via REST on this entity a day ago,
+     * a "bar" effector invoked from a parent effector would only be preferred
+     * if invoked in the last two hours;
+     * active subtasks of "bar" would be preferred if submitted within the last 12 minutes,
+     * unstarted subtasks if submitted within 2 minutes,
+     * and completed subtasks if within the last 12 seconds.
+     * Thus there is a heavy bias over time to show the top-level tasks,
+     * but there is also a bias for detail for very recent activity.
+     * <p>
+     * It's far from perfect but provides a way -- when there are lots of tasks --
+     * that we can show important things, where important things are the top level
+     * and very recent.
+     */
+    @Beta  
+    public static class InterestingTasksFirstComparator implements Comparator<Task<?>> {
+        Entity context;
+        public InterestingTasksFirstComparator() { this(null); }
+        public InterestingTasksFirstComparator(Entity entity) { this.context = entity; }
+        @Override
+        public int compare(Task<?> o1, Task<?> o2) {
+            // absolute pref for submitted items
+            if (!Objects.equal(o1.isSubmitted(), o2.isSubmitted())) {
+                return o1.isSubmitted() ? -1 : 1;
+            }
+
+            // big pref for top-level tasks (manual operations), where submitter null
+            int weight = 0;
+            Task<?> o1s = o1.getSubmittedByTask();
+            Task<?> o2s = o2.getSubmittedByTask();
+            if ("start".equals(o1.getDisplayName()) ||"start".equals(o2.getDisplayName())) {
+                weight = 0;
+            }
+            if (!Objects.equal(o1s==null, o2s==null))
+                weight += 2*60*60 * (o1s==null ? -1 : 1);
+            
+            // pretty big pref for things invoked by other entities
+            if (context!=null && o1s!=null && o2s!=null) {
+                boolean o1se = context.equals(BrooklynTaskTags.getContextEntity(o1s));
+                boolean o2se = context.equals(BrooklynTaskTags.getContextEntity(o2s));
+                if (!Objects.equal(o1se, o2se))
+                    weight += 10*60 *  (o2se ? -1 : 1);
+            }
+            // slight pref for things in progress
+            if (!Objects.equal(o1.isBegun() && !o1.isDone(), o2.isBegun() && !o2.isDone()))
+                weight += 60 * (o1.isBegun() && !o1.isDone() ? -1 : 1);
+            // and very slight pref for things not begun
+            if (!Objects.equal(o1.isBegun(), o2.isBegun())) 
+                weight += 10 * (!o1.isBegun() ? -1 : 1);
+            
+            // sort based on how recently the task changed state
+            long now = System.currentTimeMillis();
+            long t1 = o1.isDone() ? o1.getEndTimeUtc() : o1.isBegun() ? o1.getStartTimeUtc() : o1.getSubmitTimeUtc();
+            long t2 = o2.isDone() ? o2.getEndTimeUtc() : o2.isBegun() ? o2.getStartTimeUtc() : o2.getSubmitTimeUtc();
+            long u1 = now - t1;
+            long u2 = now - t2;
+            // so smaller = more recent
+            // and if there is a weight, increase the other side so it is de-emphasised
+            // IE if weight was -10 that means T1 is "10 times more interesting"
+            // or more precisely, a task T1 from 10 mins ago equals a task T2 from 1 min ago
+            if (weight<0) u2 *= -weight;
+            else if (weight>0) u1 *= weight;
+            if (u1!=u2) return u1 > u2 ? 1 : -1;
+            // if equal under mapping, use weight
+            if (weight!=0) return weight < 0 ? -1 : 1;
+            // lastly use ID to ensure canonical order
+            return o1.getId().compareTo(o2.getId());
+        }
     }
     
     @Override @Deprecated
