@@ -39,6 +39,7 @@ import org.apache.brooklyn.api.location.LocationResolver;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.config.ConfigPredicates;
@@ -214,8 +215,11 @@ public class BasicLocationRegistry implements LocationRegistry {
         
         // fall back to ignoring supertypes, in case they weren't set
         lt = mgmt.getTypeRegistry().get(nameOrId);
-        if (lt!=null) {
-            log.warn("Location registry only found "+nameOrId+" when ignoring supertypes; check it is correctly resolved.");
+        if (lt!=null && lt.getSuperTypes().isEmpty()) {
+            if (lt.getKind()!=RegisteredTypeKind.UNRESOLVED) {
+                // don't warn when still trying to resolve
+                log.warn("Location registry only found "+nameOrId+" when ignoring supertypes; check it is correctly resolved.");
+            }
             return newDefinedLocation(lt);
         }
         
