@@ -99,7 +99,7 @@ public class ServerResourceTest extends BrooklynRestResourceTest {
     void testGetConfig() throws Exception {
         ((ManagementContextInternal)getManagementContext()).getBrooklynProperties().put("foo.bar.baz", "quux");
         try {
-            assertEquals(client().path("/server/config/foo.bar.baz").get(String.class), "quux");
+            assertEquals(client().path("/server/config/foo.bar.baz").get(String.class), "\"quux\"");
         } finally {
             ((ManagementContextInternal)getManagementContext()).getBrooklynProperties().remove("foo.bar.baz");
         }

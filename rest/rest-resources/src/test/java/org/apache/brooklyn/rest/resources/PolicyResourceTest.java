@@ -28,6 +28,7 @@ import java.util.Set;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeClass;
@@ -109,7 +110,7 @@ public class PolicyResourceTest extends BrooklynRestResourceTest {
     @Test
     public void testGetDefaultValue() throws Exception {
         String configName = RestMockSimplePolicy.SAMPLE_CONFIG.getName();
-        String expectedVal = RestMockSimplePolicy.SAMPLE_CONFIG.getDefaultValue();
+        String expectedVal = (String) WebResourceUtils.getValueForDisplay(mapper(), RestMockSimplePolicy.SAMPLE_CONFIG.getDefaultValue(), true, true);
         
         String configVal = client().path(ENDPOINT + policyId + "/config/" + configName)
                 .get(String.class);
@@ -129,7 +130,7 @@ public class PolicyResourceTest extends BrooklynRestResourceTest {
     @Test(dependsOnMethods = "testReconfigureConfig")
     public void testGetConfigValue() throws Exception {
         String configName = RestMockSimplePolicy.SAMPLE_CONFIG.getName();
-        String expectedVal = "newval";
+        String expectedVal = (String) WebResourceUtils.getValueForDisplay(mapper(), "newval", true, true);
         
         Map<String, Object> allState = client().path(ENDPOINT + policyId + "/config/current-state")
                 .get(new GenericType<Map<String, Object>>() {});

@@ -383,7 +383,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
         }
         ConfigKey<String> config = ConfigKeys.newStringConfigKey(configKey);
-        return mgmt().getConfig().getConfig(config);
+        return (String) WebResourceUtils.getValueForDisplay(mapper(), mgmt().getConfig().getConfig(config), true, true);
     }
 
     @Override
@@ -446,7 +446,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         request.getSession();
         EntitlementContext entitlementContext = Entitlements.getEntitlementContext();
         if (entitlementContext!=null && entitlementContext.user()!=null){
-            return entitlementContext.user();
+            return (String) WebResourceUtils.getValueForDisplay(mapper(), entitlementContext.user(), true, true);
         } else {
             return null; //User can be null if no authentication was requested
         }
