@@ -66,7 +66,7 @@ public class PolicyConfigResource extends AbstractBrooklynRestResource implement
             ((BrooklynObjectInternal)policy).config().getInternalConfigMap().getAllConfigInheritedRawValuesIgnoringErrors() ).getAllConfig();
         Map<String, Object> result = Maps.newLinkedHashMap();
         for (Map.Entry<String, Object> ek : source.entrySet()) {
-            result.put(ek.getKey(), WebResourceUtils.getValueForDisplay(mapper(), getStringValueForDisplay(brooklyn(), policy, ek.getValue()), true, true));
+            result.put(ek.getKey(), getStringValueForDisplay(brooklyn(), policy, ek.getValue()));
         }
         return result;
     }
@@ -77,7 +77,7 @@ public class PolicyConfigResource extends AbstractBrooklynRestResource implement
         ConfigKey<?> ck = policy.getPolicyType().getConfigKey(configKeyName);
         if (ck == null) throw WebResourceUtils.notFound("Cannot find config key '%s' in policy '%s' of entity '%s'", configKeyName, policy, entityToken);
 
-        return (String) WebResourceUtils.getValueForDisplay(mapper(), getStringValueForDisplay(brooklyn(), policy, policy.getConfig(ck)), true, true);
+        return getStringValueForDisplay(brooklyn(), policy, policy.getConfig(ck));
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
