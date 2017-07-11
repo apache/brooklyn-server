@@ -277,6 +277,7 @@
         <feature>jclouds-api-openstack-nova</feature>
         <feature>jclouds-api-byon</feature>
         <feature>jclouds-api-ec2</feature>
+        <feature>jclouds-digitalocean2</feature>
         <feature>jclouds-gogrid</feature>
         <feature>jclouds-elastichosts-lon-b</feature>
         <feature>jclouds-elastichosts-lon-p</feature>
@@ -287,6 +288,7 @@
         <feature>jclouds-go2cloud-jhb1</feature>
         <feature>jclouds-softlayer</feature>
         <feature>jclouds-api-cloudstack</feature>
+        <feature>jclouds-profitbricks</feature>
         <!-- feature>hpcloud</feature-->
         <feature>jclouds-rackspace-cloudservers-us</feature>
         <feature>jclouds-rackspace-cloudservers-uk</feature>
