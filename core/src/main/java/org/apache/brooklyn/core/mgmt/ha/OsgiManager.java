@@ -41,11 +41,9 @@ import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.CatalogBundleLoader;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
@@ -395,33 +393,29 @@ public class OsgiManager {
     
     private static Iterable<? extends CatalogItem<?, ?>> loadCatalogBomInternal(ManagementContext mgmt, Bundle bundle, boolean force, boolean validate, boolean legacy) {
         Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
-        if (!BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM)) {
-            // if the above feature is not enabled, let's do it manually (as a contract of this method)
-            try {
-                // TODO improve on this - it ignores the configuration of whitelists, see CatalogBomScanner.
-                // One way would be to add the CatalogBomScanner to the new Scratchpad area, then retrieving the singleton
-                // here to get back the predicate from it.
-                final Predicate<Bundle> applicationsPermitted = Predicates.<Bundle>alwaysTrue();
 
-                CatalogBundleLoader cl = new CatalogBundleLoader(applicationsPermitted, mgmt);
-                if (legacy) {
-                    catalogItems = cl.scanForCatalogLegacy(bundle, force);
-                } else {
-                    cl.scanForCatalog(bundle, force, validate);
-                    catalogItems = null;
-                }
-            } catch (RuntimeException ex) {
-                // TODO confirm -- as of May 2017 we no longer uninstall the bundle if install of catalog items fails;
-                // caller needs to upgrade, or uninstall then reinstall
-                // (this uninstall wouldn't have unmanaged it in brooklyn in any case)
+        try {
+            final Predicate<Bundle> applicationsPermitted = Predicates.<Bundle>alwaysTrue();
+
+            CatalogBundleLoader cl = new CatalogBundleLoader(applicationsPermitted, mgmt);
+            if (legacy) {
+                catalogItems = cl.scanForCatalogLegacy(bundle, force);
+            } else {
+                cl.scanForCatalog(bundle, force, validate);
+                catalogItems = null;
+            }
+        } catch (RuntimeException ex) {
+            // TODO confirm -- as of May 2017 we no longer uninstall the bundle if install of catalog items fails;
+            // caller needs to upgrade, or uninstall then reinstall
+            // (this uninstall wouldn't have unmanaged it in brooklyn in any case)
 //                try {
 //                    bundle.uninstall();
 //                } catch (BundleException e) {
 //                    log.error("Cannot uninstall bundle " + bundle.getSymbolicName() + ":" + bundle.getVersion()+" (after error installing catalog items)", e);
 //                }
-                throw new IllegalArgumentException("Error installing catalog items", ex);
-            }
+            throw new IllegalArgumentException("Error installing catalog items", ex);
         }
+            
         return catalogItems;
     }
     

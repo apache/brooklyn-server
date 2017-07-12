@@ -115,17 +115,6 @@ public class BrooklynFeatureEnablement {
     public static final String FEATURE_VALIDATE_LOCATION_SSH_KEYS = "brooklyn.validate.locationSshKeys";
 
     /**
-     * Whether to scan newly loaded bundles for catalog.bom and load it.
-     * 
-     * The functionality loads catalog items regardless of the persistence state so best used with persistence disabled.
-     * If a bundle is uploaded its BOM is scanned regardless of this property (this only applies to bundles
-     * installed through a non-brooklyn method, eg karaf.)
-     * 
-     * This installs legacy items and so should be deprecated in favour of uploading BOMs which Brooklyn manages.
-     */
-    public static final String FEATURE_LOAD_BUNDLE_CATALOG_BOM = FEATURE_PROPERTY_PREFIX+".osgi.catalog_bom";
-
-    /**
      * Values explicitly set by Java calls.
      */
     private static final Map<String, Boolean> FEATURE_ENABLEMENTS = Maps.newLinkedHashMap();
@@ -161,7 +150,6 @@ public class BrooklynFeatureEnablement {
         setDefault(FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND, false);
         setDefault(FEATURE_SSH_ASYNC_EXEC, false);
         setDefault(FEATURE_VALIDATE_LOCATION_SSH_KEYS, true);
-        setDefault(FEATURE_LOAD_BUNDLE_CATALOG_BOM, false);
     }
     
     static {

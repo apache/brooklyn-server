@@ -1416,7 +1416,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         log.debug("Adding catalog item to "+mgmt+": "+yaml);
         checkNotNull(yaml, "yaml");
         List<CatalogItemDtoAbstract<?, ?>> result = MutableList.of();
-        collectCatalogItemsFromCatalogBomRoot(yaml, bundle, result, true, ImmutableMap.of(), 0, false);
+        collectCatalogItemsFromCatalogBomRoot(yaml, bundle, result, true, ImmutableMap.of(), 0, forceUpdate);
 
         // do this at the end for atomic updates; if there are intra-yaml references, we handle them specially
         for (CatalogItemDtoAbstract<?, ?> item: result) {
