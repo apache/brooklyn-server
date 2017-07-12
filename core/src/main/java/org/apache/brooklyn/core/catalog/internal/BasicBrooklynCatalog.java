@@ -512,10 +512,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (!itemDef.isEmpty()) {
             // AH - i forgot we even supported this. probably no point anymore,
             // now that catalog defs can reference an item yaml and things can be bundled together?
-            log.warn("Reading catalog item from sibling keys of `brooklyn.catalog` section, "
+            log.warn("Deprecated read of catalog item from sibling keys of `brooklyn.catalog` section, "
                 + "instead of the more common appraoch of putting inside an `item` within it. "
-                + "This behavior is not deprecated yet but it is being considered. "
-                + "If you find it useful please inform the community.");
+                + "Rewrite to use nested/reference syntax instead or contact the community for assistance or feedback.");
             Map<String,?> rootItem = MutableMap.of("item", itemDef);
             String rootItemYaml = yaml;
             YamlExtract yamlExtract = Yamls.getTextOfYamlAtPath(rootItemYaml, "brooklyn.catalog");
@@ -532,12 +531,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
      * Expects item metadata, containing an `item` containing the definition,
      * and/or `items` containing a list of item metadata (recursing with depth).
      * 
-     * Supports two modes:
+     * Supports two modes depending whether <code>result</code> is passed here:
      * 
-     * * CatalogItems validated and returned, but not added to catalog here;
+     * * CatalogItems validated and returned, but not added to catalog here, instead returned in <code>result</code>;
      *   caller does that, and CI instances are persisted and loaded directly after rebind
      *   
-     * * RegisteredTypes added to (unpersisted) type registry;
+     * * RegisteredTypes added to (unpersisted) type registry if <code>result</code> is null;
      *   caller than validates, optionally removes broken ones,
      *   given the ability to add multiple interdependent BOMs/bundles and then validate;
      *   bundles with BOMs are persisted instead of catalog items
@@ -1050,7 +1049,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (url==null) {
             // NOT available after persistence/rebind 
             // as shown by test in CatalogOsgiVersionMoreEntityRebindTest
-            throw new IllegalArgumentException("Error prepaing to scan "+containingBundle.getVersionedName()+": no URL available");
+            throw new IllegalArgumentException("Error preparing to scan "+containingBundle.getVersionedName()+": no URL available");
         }
         // org.reflections requires the URL to be "file:" containg ".jar"
         File fJar = Os.newTempFile(containingBundle.getVersionedName().toOsgiString(), ".jar");
