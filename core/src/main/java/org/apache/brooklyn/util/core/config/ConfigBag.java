@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.ConcurrentModificationException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 import javax.annotation.Nonnull;
 
@@ -527,42 +528,54 @@ public class ConfigBag {
         return getStringKeyMaybe(key, markUsed).orNull();
     }
 
-    private synchronized Maybe<Object> getRawKeyMaybe(ConfigKey<?> key, boolean markUsed) {
-        Maybe<Object> val = getRawStringKeyMaybe(key.getName(), markUsed);
-        
+
+    private synchronized Maybe<Object> getKeyMaybeInternal(ConfigKey<?> key, Function<String, Maybe<Object>> getKey) {
+        Maybe<Object> val = getKey.apply(key.getName());
+
         String firstDeprecatedName = null;
         Maybe<Object> firstDeprecatedVal = null;
         for (String deprecatedName : key.getDeprecatedNames()) {
-            Maybe<Object> deprecatedVal = getRawStringKeyMaybe(deprecatedName, markUsed);
+            Maybe<Object> deprecatedVal = getKey.apply(deprecatedName);
             if (deprecatedVal.isPresent()) {
                 if (val.isPresent()) {
                     if (!Objects.equal(val.get(), deprecatedVal.get())) {
                         log.warn("Conflicting value for key "+key+" from deprecated name '"+deprecatedName+"'; "
-                                + "using value from preferred name "+key.getName());
+                            + "using value from preferred name "+key.getName());
                     } else {
                         log.warn("Duplicate value for key "+key+" from deprecated name '"+deprecatedName+"'; "
-                                + "using same value from preferred name "+key.getName());
+                            + "using same value from preferred name "+key.getName());
                     }
                 } else if (firstDeprecatedVal != null && firstDeprecatedVal.isPresent()) {
                     if (!Objects.equal(firstDeprecatedVal.get(), deprecatedVal.get())) {
                         log.warn("Conflicting value for key "+key+" from deprecated name '"+deprecatedName+"'; "
-                                + "using earlier deprecated name "+firstDeprecatedName);
+                            + "using earlier deprecated name "+firstDeprecatedName);
                     } else {
                         log.warn("Duplicate value for key "+key+" from deprecated name '"+deprecatedName+"'; "
-                                + "using same value from earlier depreated name "+key.getName());
+                            + "using same value from earlier depreated name "+key.getName());
                     }
                 } else {
                     // new value, from deprecated name
                     log.warn("Value for key "+key+" found with deprecated name '"+deprecatedName+"'; "
-                            + "recommend changing to preferred name '"+key.getName()+"'; this will not be supported in future versions");
+                        + "recommend changing to preferred name '"+key.getName()+"'; this will not be supported in future versions");
                     firstDeprecatedName = deprecatedName;
                     firstDeprecatedVal = deprecatedVal;
                 }
             }
         }
-        
 
         return val.isPresent() ? val : (firstDeprecatedVal != null && firstDeprecatedVal.isPresent() ? firstDeprecatedVal : val);
+    }
+
+
+    private synchronized Maybe<Object> getRawKeyMaybe(ConfigKey<?> key, boolean markUsed) {
+        return getKeyMaybeInternal(key, name -> getRawStringKeyMaybe(name, markUsed));
+    }
+
+    /**
+     * @return Unresolved configuration value. May be overridden to provide resolution - @see {@link ResolvingConfigBag#getStringKeyMaybe(String, boolean)}
+     */
+    protected synchronized Maybe<Object> getKeyMaybe(ConfigKey<?> key, boolean markUsed) {
+        return getKeyMaybeInternal(key, name -> getStringKeyMaybe(name, markUsed));
     }
 
     private synchronized Maybe<Object> getRawStringKeyMaybe(String key, boolean markUsed) {
@@ -571,46 +584,6 @@ public class ConfigBag {
             return Maybe.of(config.get(key));
         }
         return Maybe.absent();
-    }
-
-    /**
-     * @return Unresolved configuration value. May be overridden to provide resolution - @see {@link ResolvingConfigBag#getStringKeyMaybe(String, boolean)}
-     */
-    protected synchronized Maybe<Object> getKeyMaybe(ConfigKey<?> key, boolean markUsed) {
-        Maybe<Object> val = getStringKeyMaybe(key.getName(), markUsed);
-        
-        String firstDeprecatedName = null;
-        Maybe<Object> firstDeprecatedVal = null;
-        for (String deprecatedName : key.getDeprecatedNames()) {
-            Maybe<Object> deprecatedVal = getStringKeyMaybe(deprecatedName, markUsed);
-            if (deprecatedVal.isPresent()) {
-                if (val.isPresent()) {
-                    if (!Objects.equal(val.get(), deprecatedVal.get())) {
-                        log.warn("Conflicting value for key "+key+" from deprecated name '"+deprecatedName+"'; "
-                                + "using value from preferred name "+key.getName());
-                    } else {
-                        log.warn("Duplicate value for key "+key+" from deprecated name '"+deprecatedName+"'; "
-                                + "using same value from preferred name "+key.getName());
-                    }
-                } else if (firstDeprecatedVal != null && firstDeprecatedVal.isPresent()) {
-                    if (!Objects.equal(firstDeprecatedVal.get(), deprecatedVal.get())) {
-                        log.warn("Conflicting value for key "+key+" from deprecated name '"+deprecatedName+"'; "
-                                + "using earlier deprecated name "+firstDeprecatedName);
-                    } else {
-                        log.warn("Duplicate value for key "+key+" from deprecated name '"+deprecatedName+"'; "
-                                + "using same value from earlier depreated name "+key.getName());
-                    }
-                } else {
-                    // new value, from deprecated name
-                    log.warn("Value for key "+key+" found with deprecated name '"+deprecatedName+"'; "
-                            + "recommend changing to preferred name '"+key.getName()+"'; this will not be supported in future versions");
-                    firstDeprecatedName = deprecatedName;
-                    firstDeprecatedVal = deprecatedVal;
-                }
-            }
-        }
-        
-        return val.isPresent() ? val : (firstDeprecatedVal != null && firstDeprecatedVal.isPresent() ? firstDeprecatedVal : val);
     }
 
     /**
