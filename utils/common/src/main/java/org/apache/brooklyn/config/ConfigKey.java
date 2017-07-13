@@ -47,8 +47,17 @@ public interface ConfigKey<T> {
     String getName();
 
     /**
-     * Returns the constituent parts of the configuration parameter name as a {@link Collection}.
+     * Returns deprecated names that will could also be used, but that are discouraged and will
+     * likely not be supported for the given config key in future versions.
      */
+    Collection<String> getDeprecatedNames();
+
+    /**
+     * Returns the constituent parts of the configuration parameter name as a {@link Collection}.
+     * 
+     * @deprecated since 0.12.0; use {@link #getName()}
+     */
+    @Deprecated
     Collection<String> getNameParts();
 
     /**

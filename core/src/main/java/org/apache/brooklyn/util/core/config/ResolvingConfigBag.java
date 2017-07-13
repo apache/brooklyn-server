@@ -164,6 +164,12 @@ public class ResolvingConfigBag extends ConfigBag {
     }
 
     @Override
+    protected synchronized Maybe<Object> getKeyMaybe(ConfigKey<?> key, boolean markUsed) {
+        Maybe<Object> result = super.getKeyMaybe(key, markUsed);
+        return (result.isPresent()) ? Maybe.of(getTransformer().apply(result.get())) : result;
+    }
+
+    @Override
     public Map<String,Object> getAllConfigMutable() {
         throw new UnsupportedOperationException();
     }
