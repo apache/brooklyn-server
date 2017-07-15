@@ -41,6 +41,7 @@ import org.eclipse.jetty.server.Server;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.gson.Gson;
 
 public class ServerResourceIntegrationTest extends BrooklynRestApiLauncherTestFixture {
 
@@ -118,7 +119,7 @@ public class ServerResourceIntegrationTest extends BrooklynRestApiLauncherTestFi
         HttpToolResponse response = HttpTool.httpGet(client, URI.create(getBaseUriRest(server) + "server/user"),
                 ImmutableMap.<String, String>of());
         HttpAsserts.assertHealthyStatusCode(response.getResponseCode());
-        return response.getContentAsString();
+        return new Gson().fromJson(response.getContentAsString(), String.class);
     }
 
 }
