@@ -101,20 +101,27 @@ public class HighAvailabilitySummary implements Serializable {
         }
     }
 
+    private final String planeId;
     private final String ownId;
     private final String masterId;
     private final Map<String, HaNodeSummary> nodes;
     private final Map<String, URI> links;
 
     public HighAvailabilitySummary(
+            @JsonProperty("planeId") String planeId,
             @JsonProperty("ownId") String ownId,
             @JsonProperty("masterId") String masterId,
             @JsonProperty("nodes") Map<String, HaNodeSummary> nodes,
             @JsonProperty("links") Map<String, URI> links) {
+        this.planeId = planeId;
         this.ownId = ownId;
         this.masterId = masterId;
         this.nodes = (nodes == null) ? ImmutableMap.<String, HaNodeSummary>of() : nodes;
         this.links = (links == null) ? ImmutableMap.<String, URI>of() : ImmutableMap.copyOf(links);
+    }
+
+    public String getPlaneId() {
+        return planeId;
     }
 
     public String getOwnId() {
@@ -138,7 +145,8 @@ public class HighAvailabilitySummary implements Serializable {
         if (this == o) return true;
         if (!(o instanceof HighAvailabilitySummary)) return false;
         HighAvailabilitySummary that = (HighAvailabilitySummary) o;
-        return Objects.equals(ownId, that.ownId) &&
+        return Objects.equals(planeId, that.planeId) &&
+                Objects.equals(ownId, that.ownId) &&
                 Objects.equals(masterId, that.masterId) &&
                 Objects.equals(nodes, that.nodes) &&
                 Objects.equals(links, that.links);

@@ -346,6 +346,16 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     }
 
     @Override
+    public String getPlaneId() {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SERVER_STATUS, null))
+            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+
+        Maybe<ManagementContext> mm = mgmtMaybe();
+        Maybe<String> result = (mm.isPresent()) ? mm.get().getManagementPlaneIdMaybe() : Maybe.absent();
+        return result.isPresent() ? result.get() : "";
+    }
+
+    @Override
     public boolean isUp() {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SERVER_STATUS, null))
             throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());

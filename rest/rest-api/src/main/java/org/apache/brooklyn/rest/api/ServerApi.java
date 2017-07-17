@@ -85,6 +85,11 @@ public interface ServerApi {
     public VersionSummary getVersion();
 
     @GET
+    @Path("/planeid")
+    @ApiOperation(value = "Return the plane id (an identifier that is stable across restarts and HA failovers)")
+    public String getPlaneId();
+
+    @GET
     @Path("/up")
     @ApiOperation(value = "Returns whether this server is up - fully started, and not stopping, though it may have errors")
     public boolean isUp();

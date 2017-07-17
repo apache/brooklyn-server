@@ -40,7 +40,7 @@ public class HighAvailabilityTransformer {
         // TODO What links?
         ImmutableMap.Builder<String, URI> lb = ImmutableMap.<String, URI>builder();
 
-        return new HighAvailabilitySummary(ownNodeId, memento.getMasterNodeId(), nodes, lb.build());
+        return new HighAvailabilitySummary(memento.getPlaneId(), ownNodeId, memento.getMasterNodeId(), nodes, lb.build());
     }
 
     public static HaNodeSummary haNodeSummary(ManagementNodeSyncRecord memento) {
