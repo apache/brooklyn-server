@@ -77,7 +77,9 @@ public class ServerResourceTest extends BrooklynRestResourceTest {
         HighAvailabilitySummary summary = client().path("/server/ha/states").get(HighAvailabilitySummary.class);
         log.info("HA summary is: "+summary);
         
+        String planeId = getManagementContext().getManagementPlaneIdMaybe().get();
         String ownNodeId = getManagementContext().getManagementNodeId();
+        assertEquals(summary.getPlaneId(), planeId);
         assertEquals(summary.getOwnId(), ownNodeId);
         assertEquals(summary.getMasterId(), ownNodeId);
         assertEquals(summary.getNodes().keySet(), ImmutableSet.of(ownNodeId));
