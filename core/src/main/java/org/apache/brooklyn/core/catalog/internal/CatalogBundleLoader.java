@@ -31,7 +31,6 @@ import java.util.Map;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
-import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
@@ -45,7 +44,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 
 @Beta
@@ -54,30 +52,20 @@ public class CatalogBundleLoader {
     private static final Logger LOG = LoggerFactory.getLogger(CatalogBundleLoader.class);
     private static final String CATALOG_BOM_URL = "catalog.bom";
 
-    private Predicate<Bundle> applicationsPermitted;
     private ManagementContext managementContext;
 
-    public CatalogBundleLoader(Predicate<Bundle> applicationsPermitted, ManagementContext managementContext) {
-        this.applicationsPermitted = applicationsPermitted;
+    public CatalogBundleLoader(ManagementContext managementContext) {
         this.managementContext = managementContext;
     }
 
     public void scanForCatalog(Bundle bundle, boolean force, boolean validate) {
         scanForCatalogInternal(bundle, force, validate, false);
     }
-    
-    /**
-     * Scan the given bundle for a catalog.bom and adds it to the catalog.
-     *
-     * @param bundle The bundle to add
-     * @return A list of items added to the catalog
-     * @throws RuntimeException if the catalog items failed to be added to the catalog
-     */
-    public Iterable<? extends CatalogItem<?, ?>> scanForCatalogLegacy(Bundle bundle) {
-        return scanForCatalogLegacy(bundle, false);
-    }
-    
+
+    /** @deprecated since 0.12.0 */
+    @Deprecated // scans a bundle which is installed but Brooklyn isn't managing (will probably remove)
     public Iterable<? extends CatalogItem<?, ?>> scanForCatalogLegacy(Bundle bundle, boolean force) {
+        LOG.warn("Bundle "+bundle+" being loaded with deprecated legacy loader");
         return scanForCatalogInternal(bundle, force, true, true);
     }
     
@@ -119,24 +107,7 @@ public class CatalogBundleLoader {
             LOG.debug("No BOM found in {} {} {}", CatalogUtils.bundleIds(bundle));
         }
 
-        if (!applicationsPermitted.apply(bundle)) {
-            if (legacy) {
-                catalogItems = removeApplications(catalogItems);
-            } else {
-                removeApplications(mb);
-            }
-        }
-
         return catalogItems;
-    }
-
-    private void removeApplications(ManagedBundle mb) {
-        for (RegisteredType t: managementContext.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(mb.getVersionedName()))) {
-            // TODO support templates, and remove them here
-//            if (t.getKind() == RegisteredTypeKind.TEMPLATE) {
-//                ((BasicBrooklynTypeRegistry) managementContext.getTypeRegistry()).delete(t);
-//            }
-        }
     }
 
     /**

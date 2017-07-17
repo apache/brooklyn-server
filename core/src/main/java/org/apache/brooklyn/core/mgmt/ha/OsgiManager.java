@@ -73,8 +73,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -371,39 +369,20 @@ public class OsgiManager {
         }
     }
 
-    @Beta
-    // TODO this is designed to work if the FEATURE_LOAD_BUNDLE_CATALOG_BOM is disabled, the default, but unintuitive here
-    // it probably works even if that is true, but we should consider what to do;
-    // possibly remove that other capability, so that bundles with BOMs _have_ to be installed via this method.
-    // (load order gets confusing with auto-scanning...)
-    public List<? extends CatalogItem<?,?>> loadCatalogBomLegacy(Bundle bundle) {
-        return loadCatalogBomLegacy(bundle, false);
-    }
-    
-    @Beta  // as above
-    public List<? extends CatalogItem<?,?>> loadCatalogBomLegacy(Bundle bundle, boolean force) {
-        return MutableList.copyOf(loadCatalogBomInternal(mgmt, bundle, force, true, true));
-    }
-    
     // since 0.12.0 no longer returns items; it installs non-persisted RegisteredTypes to the type registry instead 
     @Beta
     public void loadCatalogBom(Bundle bundle, boolean force, boolean validate) {
-        loadCatalogBomInternal(mgmt, bundle, force, validate, false);
+        loadCatalogBomInternal(mgmt, bundle, force, validate);
     }
     
-    private static Iterable<? extends CatalogItem<?, ?>> loadCatalogBomInternal(ManagementContext mgmt, Bundle bundle, boolean force, boolean validate, boolean legacy) {
+    private static Iterable<? extends CatalogItem<?, ?>> loadCatalogBomInternal(ManagementContext mgmt, Bundle bundle, boolean force, boolean validate) {
         Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
 
         try {
-            final Predicate<Bundle> applicationsPermitted = Predicates.<Bundle>alwaysTrue();
-
-            CatalogBundleLoader cl = new CatalogBundleLoader(applicationsPermitted, mgmt);
-            if (legacy) {
-                catalogItems = cl.scanForCatalogLegacy(bundle, force);
-            } else {
-                cl.scanForCatalog(bundle, force, validate);
-                catalogItems = null;
-            }
+            CatalogBundleLoader cl = new CatalogBundleLoader(mgmt);
+            cl.scanForCatalog(bundle, force, validate);
+            catalogItems = null;
+            
         } catch (RuntimeException ex) {
             // TODO confirm -- as of May 2017 we no longer uninstall the bundle if install of catalog items fails;
             // caller needs to upgrade, or uninstall then reinstall
