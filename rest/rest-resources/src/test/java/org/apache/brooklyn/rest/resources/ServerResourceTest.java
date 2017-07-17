@@ -59,6 +59,12 @@ public class ServerResourceTest extends BrooklynRestResourceTest {
     }
 
     @Test
+    public void testGetPlaneId() throws Exception {
+        String planeId = client().path("/server/planeid").get(String.class);
+        assertEquals(planeId, manager.getManagementPlaneIdMaybe().get());
+    }
+
+    @Test
     public void testGetStatus() throws Exception {
         ManagementNodeState nodeState = client().path("/server/ha/state").get(ManagementNodeState.class);
         assertEquals(nodeState.name(), "MASTER");
