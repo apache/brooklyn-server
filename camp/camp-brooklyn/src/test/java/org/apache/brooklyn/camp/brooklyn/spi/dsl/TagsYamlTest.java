@@ -64,7 +64,7 @@ public class TagsYamlTest extends AbstractYamlTest {
                     "  brooklyn.tags:",
                     "    tag1: true",
                     "    tag2: 2");
-            fail("Should throw IllegalArgumentException exception.");
+            fail("Should throw IllegalArgumentException exception; instead got: "+app);
         } catch (CompoundRuntimeException e) {
             Asserts.assertStringContainsAtLeastOne(Exceptions.getFirstInteresting(e).getMessage(),"brooklyn.tags must be a list, is: ");
         }
@@ -112,7 +112,7 @@ public class TagsYamlTest extends AbstractYamlTest {
                     "      type: "+TagsTestObject.class.getName(),
                     "      constructor.args:",
                     "      - $brooklyn:attributeWhenReady(\"host.name\")");
-            fail("Should throw IllegalArgumentException exception.");
+            fail("Should throw IllegalArgumentException exception; instead got "+app);
         } catch (CompoundRuntimeException e) {
             Asserts.assertStringContainsAtLeastOne(Exceptions.getFirstInteresting(e).getMessage(),"brooklyn.tags should not contain DeferredSupplier. A DeferredSupplier is made when using $brooklyn:attributeWhenReady");
         }
