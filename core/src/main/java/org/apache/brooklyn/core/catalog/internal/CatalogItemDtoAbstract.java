@@ -391,7 +391,7 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
      * <p>
      * If a string is supplied, this tries heuristically to identify whether a reference is a bundle or a URL, as follows:
      * - if the string contains a slash, it is treated as a URL (or classpath reference), e.g. <code>/file.txt</code>;
-     * - if the string is {@link RegisteredTypeNaming#isGoodTypeColonVersion(String)} with an OSGi version it is treated as a bundle, e.g. <code>file:1</code>;
+     * - if the string is {@link RegisteredTypeNaming#isGoodBrooklynTypeColonVersion(String))} with an OSGi version it is treated as a bundle, e.g. <code>file:1</code>;
      * - if the string is ambiguous (has a single colon) a warning is given, 
      *   and typically it is treated as a URL because OSGi versions are needed here, e.g. <code>file:v1</code> is a URL,
      *   but for a transitional period (possibly ending in 0.13 as warning is introduced in 0.12) for compatibility with previous versions,

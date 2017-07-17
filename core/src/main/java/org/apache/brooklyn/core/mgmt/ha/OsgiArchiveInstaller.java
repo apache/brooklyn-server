@@ -411,9 +411,13 @@ class OsgiArchiveInstaller {
                 if (!result.catalogItemsInstalled.isEmpty()) {
                     // show fewer info messages, only for 'interesting' and non-deferred installations
                     // (rebind is deferred, as are tests, but REST is not)
-                    MutableList<String> firstFive = MutableList.copyOf(Iterables.limit(result.catalogItemsInstalled, 5));
-                    log.info(result.message+", items: "+firstFive+
-                        (result.catalogItemsInstalled.size() > 5 ? " (and others, "+result.catalogItemsInstalled.size()+" total)" : "") );
+                    final int MAX_TO_LIST_EXPLICITLY = 5;
+                    MutableList<String> firstN = MutableList.copyOf(Iterables.limit(result.catalogItemsInstalled, MAX_TO_LIST_EXPLICITLY));
+                    log.info(result.message+", items: "+firstN+
+                        (result.catalogItemsInstalled.size() > MAX_TO_LIST_EXPLICITLY ? " (and others, "+result.catalogItemsInstalled.size()+" total)" : "") );
+                    if (log.isDebugEnabled() && result.catalogItemsInstalled.size()>MAX_TO_LIST_EXPLICITLY) {
+                        log.debug(result.message+", all items: "+result.catalogItemsInstalled);
+                    }
                 } else {
                     log.debug(result.message+" (into Brooklyn), with no catalog items");
                 }
