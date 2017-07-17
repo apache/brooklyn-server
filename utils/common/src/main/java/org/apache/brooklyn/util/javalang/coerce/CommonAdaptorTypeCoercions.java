@@ -48,6 +48,8 @@ import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.yaml.Yamls;
 
 import com.google.common.base.Function;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -271,6 +273,18 @@ public class CommonAdaptorTypeCoercions {
             @Override
             public Date apply(final Integer input) {
                 return new Date(input);
+            }
+        });
+        registerAdapter(String.class, Predicate.class, new Function<String,Predicate>() {
+            @Override
+            public Predicate apply(final String input) {
+                switch (input) {
+                case "alwaysFalse" : return Predicates.alwaysFalse();
+                case "alwaysTrue" :  return Predicates.alwaysTrue();
+                case "isNull" :      return Predicates.isNull();
+                case "notNull" :     return Predicates.notNull();
+                default: throw new IllegalArgumentException("Cannot convert string '" + input + "' to predicate");
+                }
             }
         });
     }

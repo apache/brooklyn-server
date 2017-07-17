@@ -45,6 +45,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -472,6 +473,21 @@ public class TypeCoercionsTest {
     public void testCoerceStringToNumber() {
         assertEquals(coerce("1", Number.class), Double.valueOf(1));
         assertEquals(coerce("1.0", Number.class), Double.valueOf(1.0));
+    }
+
+    @Test
+    public void testCoerceStringToPredicate() {
+        assertEquals(coerce("alwaysFalse", Predicate.class), Predicates.alwaysFalse());
+        assertEquals(coerce("alwaysTrue", Predicate.class), Predicates.alwaysTrue());
+        assertEquals(coerce("isNull", Predicate.class), Predicates.isNull());
+        assertEquals(coerce("notNull", Predicate.class), Predicates.notNull());
+        
+        try {
+            coerce("wrongInput", Predicate.class);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (RuntimeException e) {
+            Asserts.expectedFailureContains(e, "Cannot convert string 'wrongInput' to predicate");
+        }
     }
 
     @Test(expectedExceptions = org.apache.brooklyn.util.javalang.coerce.ClassCoercionException.class)
