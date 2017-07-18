@@ -125,6 +125,7 @@ public class TypePlanTransformers {
                     (Strings.isNonBlank(e.getMessage()) ? " ("+e.getMessage()+")" : ""));
             } catch (Throwable e) {
                 Exceptions.propagateIfFatal(e);
+                log.debug("Transformer for "+t.getFormatCode()+" gave an error creating this plan (retrying with others): "+e, e);
                 failuresFromTransformers.add(new PropagatedRuntimeException(
                     (type.getSymbolicName()!=null ? "Error in definition of "+type.getId() : 
                         "Transformer for "+t.getFormatCode()+" gave an error creating this plan") + ": "+

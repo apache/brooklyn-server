@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
-import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
@@ -38,12 +37,8 @@ import org.apache.brooklyn.core.objs.BasicSpecParameter;
 import org.apache.brooklyn.core.plan.PlanToSpecTransformer;
 import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.Iterables;
 
 /**
  * Instantiates classes from a registered type which simply
@@ -82,28 +77,7 @@ public class JavaCatalogToSpecTransformer implements PlanToSpecTransformer {
             CatalogItem<T, SpecT> item, Set<String> encounteredTypes) throws UnsupportedTypePlanException {
         @SuppressWarnings("deprecation")
         String javaType = item.getJavaType();
-        boolean poorMansCamp = false;
-        if (javaType == null) {
-            if (Strings.isNonBlank( item.getPlanYaml() )) {
-                try {
-                    Map<?,?> parsed = (Map<?,?>) Iterables.getOnlyElement( Yamls.parseAll(item.getPlanYaml()) );
-                    if ("type".equals(Iterables.getOnlyElement(parsed.keySet()))) {
-                        javaType = (String) Iterables.getOnlyElement(parsed.values());
-                        poorMansCamp = true;
-                    }
-                } catch (Exception e) {
-                    throw new UnsupportedTypePlanException(getClass().getName() + " parses only old-style catalog items containing only 'type: JavaClass' in YAML (or javaType in DTO)", e);
-                }
-            }
-        }
         if (javaType != null) {
-            // TODO "JavaType" should never be used any more; but we do want to support a poor-man's camp
-            // for tests that expect CAMP in core where CAMP module isn't available
-            if (poorMansCamp) {
-                // cannot warn here as -- however all CatalogToSpec transformers including this will be removed;
-                // in favour of TypePlanTransformer instances
-                log.trace("Deprecated functionality (since 0.9.0). Using old-style java type attribute for " + item);
-            }
             Class<?> type;
             try {
                 // java types were deprecated before we added osgi support so this isn't necessary,

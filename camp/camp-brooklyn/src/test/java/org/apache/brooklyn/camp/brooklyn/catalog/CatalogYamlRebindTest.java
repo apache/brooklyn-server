@@ -87,28 +87,24 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
     
     enum OsgiMode {
         NONE,
-        // we don't test OSGi with this because CAMP isn't available 
-        // (and the library bundles assume CAMP in their catalog.bom)
-        // OSGi rebind isn't the focus of the tests which use this parameter
-        // so it's okay, though a bit ugly
-//        NORMAL,
+        NORMAL
     }
 
     boolean useOsgi = false;
-    private Boolean defaultEnablementOfFeatureAutoFixatalogRefOnRebind;
+    private Boolean defaultEnablementOfFeatureAutoFixCatalogRefOnRebind;
     
     @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {
-        defaultEnablementOfFeatureAutoFixatalogRefOnRebind = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND);
+        defaultEnablementOfFeatureAutoFixCatalogRefOnRebind = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND);
         super.setUp();
     }
     
     @AfterMethod(alwaysRun=true)
     @Override
     public void tearDown() throws Exception {
-        if (defaultEnablementOfFeatureAutoFixatalogRefOnRebind != null) {
-            BrooklynFeatureEnablement.setEnablement(BrooklynFeatureEnablement.FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND, defaultEnablementOfFeatureAutoFixatalogRefOnRebind);
+        if (defaultEnablementOfFeatureAutoFixCatalogRefOnRebind != null) {
+            BrooklynFeatureEnablement.setEnablement(BrooklynFeatureEnablement.FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND, defaultEnablementOfFeatureAutoFixCatalogRefOnRebind);
         }
         super.tearDown();
     }
@@ -368,8 +364,10 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
         Entities.destroyAll(origManagementContext);
         try {
             useOsgi = true;
-            origManagementContext = createOrigManagementContext();
-            origApp = createApp();
+            tearDown();
+            setUp();
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
         } finally {
             useOsgi = false;
         }
@@ -380,10 +378,8 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
         doTestLongReferenceSequence();
     }
     
-    @Test(groups="Broken")
+    @Test
     public void testLongReferenceSequenceWithOsgi() throws Exception {
-        // won't work in OSGi mode because we need CAMP to resolve type "a0"
-        // (poor man's resolver only resolves Java classes)
         recreateOrigManagementContextWithOsgi();
         doTestLongReferenceSequence();
     }
