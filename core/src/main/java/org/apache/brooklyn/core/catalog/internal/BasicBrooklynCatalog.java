@@ -1858,7 +1858,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 if (isNoBundleOrSimpleWrappingBundle(mgmt, b)) {
                     Iterable<RegisteredType> typesInBundle = osgi.get().getTypesFromBundle(b.getVersionedName());
                     if (Iterables.isEmpty(typesInBundle)) {
-                        log.debug("uninstalling empty wrapper bundle "+b);
+                        log.info("Uninstalling now-empty BOM wrapper bundle "+b.getVersionedName()+" ("+b.getOsgiUniqueUrl()+")");
                         osgi.get().uninstallUploadedBundle(b);
                     }
                 }

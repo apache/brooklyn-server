@@ -25,13 +25,16 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.camp.brooklyn.test.lite.CampYamlLiteTest;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -115,6 +118,37 @@ public class CatalogScanOsgiTest extends AbstractYamlTest {
             "      libraries:",
             "      - classpath://" + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH,
             "      - classpath://" + OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_V2_PATH);
+    }
+    
+    @Test
+    public void testAddAnonymousBomTwiceDeletesOldEmptyOne() {
+        Map<String, ManagedBundle> b1 = ((ManagementContextInternal)mgmt()).getOsgiManager().get().getManagedBundles();
+        addCatalogItems(bomAnonymous());
+        Map<String, ManagedBundle> b2_new = MutableMap.copyOf(
+            ((ManagementContextInternal)mgmt()).getOsgiManager().get().getManagedBundles() );
+        for (String old: b1.keySet()) b2_new.remove(old);
+
+        RegisteredType sample = mgmt().getTypeRegistry().get("sample");
+        Asserts.assertNotNull(sample);
+        Asserts.assertSize(b2_new.values(), 1);
+        
+        addCatalogItems(bomAnonymous());
+        Map<String, ManagedBundle> b3 = MutableMap.copyOf(
+            ((ManagementContextInternal)mgmt()).getOsgiManager().get().getManagedBundles() );
+        Map<String, ManagedBundle> b3_new = MutableMap.copyOf(b3);
+        for (String old: b1.keySet()) b3_new.remove(old);
+        for (String old: b2_new.keySet()) b3_new.remove(old);
+        Asserts.assertSize(b3_new.values(), 1);
+
+        Asserts.assertFalse(b3_new.keySet().contains( Iterables.getOnlyElement(b2_new.keySet()) ));
+    }
+
+    static String bomAnonymous() {
+        return Strings.lines("brooklyn.catalog:",
+            "    items:",
+            "    - item:",
+            "        id: sample",
+            "        type: "+BasicEntity.class.getName());
     }
     
 }

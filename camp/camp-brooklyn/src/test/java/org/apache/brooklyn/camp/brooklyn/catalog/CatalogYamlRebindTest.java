@@ -25,6 +25,8 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+import java.io.File;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
@@ -38,6 +40,7 @@ import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
@@ -84,8 +87,14 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
     
     enum OsgiMode {
         NONE,
+        // we don't test OSGi with this because CAMP isn't available 
+        // (and the library bundles assume CAMP in their catalog.bom)
+        // OSGi rebind isn't the focus of the tests which use this parameter
+        // so it's okay, though a bit ugly
+//        NORMAL,
     }
 
+    boolean useOsgi = false;
     private Boolean defaultEnablementOfFeatureAutoFixatalogRefOnRebind;
     
     @BeforeMethod(alwaysRun=true)
@@ -106,7 +115,7 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
     
     @Override
     protected boolean useOsgi() {
-        return false;
+        return useOsgi || (origManagementContext!=null && ((ManagementContextInternal)origManagementContext).getOsgiManager().isPresent());
     }
 
     @DataProvider
@@ -192,6 +201,8 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
     public void testRebindWithCatalogAndAppUsingOptions(RebindWithCatalogTestMode mode, OsgiMode osgiMode, RebindOptions options) throws Exception {
         if (osgiMode != OsgiMode.NONE) {
             TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+            
+            recreateOrigManagementContextWithOsgi();
         }
 
         if (mode == RebindWithCatalogTestMode.REPLACE_CATALOG_WITH_NEWER_VERSION) {
@@ -351,9 +362,33 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
             }
         }
     }
+
+    protected void recreateOrigManagementContextWithOsgi() {
+        // replace with OSGi context
+        Entities.destroyAll(origManagementContext);
+        try {
+            useOsgi = true;
+            origManagementContext = createOrigManagementContext();
+            origApp = createApp();
+        } finally {
+            useOsgi = false;
+        }
+    }
     
     @Test
-    public void testLongReferenceSequence() throws Exception {
+    public void testLongReferenceSequenceWithoutOsgi() throws Exception {
+        doTestLongReferenceSequence();
+    }
+    
+    @Test(groups="Broken")
+    public void testLongReferenceSequenceWithOsgi() throws Exception {
+        // won't work in OSGi mode because we need CAMP to resolve type "a0"
+        // (poor man's resolver only resolves Java classes)
+        recreateOrigManagementContextWithOsgi();
+        doTestLongReferenceSequence();
+    }
+    
+    private void doTestLongReferenceSequence() throws Exception {
         // adds a0, a1 extending a0, a2 extending a1, ... a9 extending a8
         // osgi rebind of types can fail because bundles are restored in any order
         // and dependencies might not yet be installed;
@@ -373,5 +408,23 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
         Asserts.assertTrue(child instanceof BasicEntity);
         Asserts.assertEquals(child.getCatalogItemId(), "a9:1");
     }
-    
+
+    @Test
+    public void testDeleteEmptyBundleRemovedFromPersistence() throws Exception {
+        recreateOrigManagementContextWithOsgi();
+        
+        String bom = Strings.lines(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: sample",
+                "    item:",
+                "      type: " + BasicEntity.class.getName());
+        addCatalogItems(bom);
+        addCatalogItems(bom);
+        rebind();
+        // should only contain one bundle / bundle.jar pair
+        Asserts.assertSize(Arrays.asList( new File(mementoDir, "bundles").list() ), 2);
+    }
+
 }

@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
@@ -32,12 +33,17 @@ import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
+import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
 import org.apache.brooklyn.core.plan.PlanToSpecTransformer;
 import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.Iterables;
 
 /**
  * Instantiates classes from a registered type which simply
@@ -76,12 +82,26 @@ public class JavaCatalogToSpecTransformer implements PlanToSpecTransformer {
             CatalogItem<T, SpecT> item, Set<String> encounteredTypes) throws UnsupportedTypePlanException {
         @SuppressWarnings("deprecation")
         String javaType = item.getJavaType();
+        boolean poorMansCamp = false;
+        if (javaType == null) {
+            if (Strings.isNonBlank( item.getPlanYaml() )) {
+                try {
+                    Map<?,?> parsed = (Map<?,?>) Iterables.getOnlyElement( Yamls.parseAll(item.getPlanYaml()) );
+                    if ("type".equals(Iterables.getOnlyElement(parsed.keySet()))) {
+                        javaType = (String) Iterables.getOnlyElement(parsed.values());
+                        poorMansCamp = true;
+                    }
+                } catch (Exception e) {
+                    throw new UnsupportedTypePlanException(getClass().getName() + " parses only old-style catalog items containing only 'type: JavaClass' in YAML (or javaType in DTO)", e);
+                }
+            }
+        }
         if (javaType != null) {
-            // TODO This log.warn previously said "Using old-style xml catalog items with java type attribute".
-            // However, nothing in this code is specific to catalog.xml. Perhaps that is the only way this code
-            // can be reached? We should investigate further when we have time - if we can confirm it was only
-            // used for catalog.xml, then this can be deleted.
-            log.warn("Deprecated functionality (since 0.9.0). Using old-style java type attribute for " + item);
+            // TODO "JavaType" should never be used any more; but we do want to support a poor-man's camp
+            // for tests that expect CAMP in core where CAMP module isn't available
+            if (poorMansCamp) {
+                log.warn("Deprecated functionality (since 0.9.0). Using old-style java type attribute for " + item);
+            }
             Class<?> type;
             try {
                 // java types were deprecated before we added osgi support so this isn't necessary,
@@ -90,6 +110,7 @@ public class JavaCatalogToSpecTransformer implements PlanToSpecTransformer {
                 final BrooklynClassLoadingContextSequential ctx = new BrooklynClassLoadingContextSequential(mgmt);
                 ctx.add(CatalogUtils.newClassLoadingContextForCatalogItems(mgmt, item.getCatalogItemId(),
                     item.getCatalogItemIdSearchPath()));
+                ctx.addSecondary(JavaBrooklynClassLoadingContext.create(mgmt));
                 type = ctx.loadClass(javaType);
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
@@ -117,7 +138,7 @@ public class JavaCatalogToSpecTransformer implements PlanToSpecTransformer {
             SpecT untypedSpc = (SpecT) spec;
             return untypedSpc;
         } else {
-            throw new UnsupportedTypePlanException(getClass().getName() + " parses only old-style catalog items containing javaType");
+            throw new UnsupportedTypePlanException(getClass().getName() + " parses only old-style catalog items containing only 'type: JavaClass' or javaType in DTO");
         }
     }
 
