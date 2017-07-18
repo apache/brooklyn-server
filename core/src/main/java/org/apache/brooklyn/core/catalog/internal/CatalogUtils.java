@@ -153,9 +153,9 @@ public class CatalogUtils {
         ManagementContext managementContext, String primaryItemId, List<String> searchPath) {
 
         BrooklynClassLoadingContextSequential seqLoader = new BrooklynClassLoadingContextSequential(managementContext);
-        addSearchItem(managementContext, seqLoader, primaryItemId);
+        addSearchItem(managementContext, seqLoader, primaryItemId, false /* primary ID may be temporary */);
         for (String searchId : searchPath) {
-            addSearchItem(managementContext, seqLoader, searchId);
+            addSearchItem(managementContext, seqLoader, searchId, true);
         }
         return seqLoader;
     }
@@ -375,7 +375,7 @@ public class CatalogUtils {
         }
     }
 
-    private static void addSearchItem(ManagementContext managementContext, BrooklynClassLoadingContextSequential loader, String itemId) {
+    private static void addSearchItem(ManagementContext managementContext, BrooklynClassLoadingContextSequential loader, String itemId, boolean warnIfNotFound) {
         OsgiManager osgi = ((ManagementContextInternal)managementContext).getOsgiManager().orNull();
         boolean didSomething = false;
         if (osgi!=null) {
@@ -395,8 +395,12 @@ public class CatalogUtils {
         }
 
         if (!didSomething) {
-            // TODO review what to do here
-            log.warn("Can't find catalog item " + itemId+"; ignoring, but a search path may be incomplete and other errors may follow");
+            if (warnIfNotFound) {
+                log.warn("Can't find catalog item " + itemId+" when searching; a search path may be incomplete and other errors may follow");
+            } else {
+                log.trace("Can't find catalog item " + itemId+" when searching; ignoring as this can be normal in setup/scans, "
+                    + "but it can also mean a search path may be incomplete and other errors may follow");
+            }
         }
     }
 

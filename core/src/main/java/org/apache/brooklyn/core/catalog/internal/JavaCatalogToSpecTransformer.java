@@ -100,7 +100,9 @@ public class JavaCatalogToSpecTransformer implements PlanToSpecTransformer {
             // TODO "JavaType" should never be used any more; but we do want to support a poor-man's camp
             // for tests that expect CAMP in core where CAMP module isn't available
             if (poorMansCamp) {
-                log.warn("Deprecated functionality (since 0.9.0). Using old-style java type attribute for " + item);
+                // cannot warn here as -- however all CatalogToSpec transformers including this will be removed;
+                // in favour of TypePlanTransformer instances
+                log.trace("Deprecated functionality (since 0.9.0). Using old-style java type attribute for " + item);
             }
             Class<?> type;
             try {
