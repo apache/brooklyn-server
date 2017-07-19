@@ -110,7 +110,7 @@ public class JcloudsLocationUsageTrackingTest extends AbstractJcloudsStubbedLive
         entity = app.createAndManageChild(EntitySpec.create(SoftwareProcessEntityTest.MyService.class));
         
         serverSocket = new ServerSocket();
-        serverSocket.bind(new InetSocketAddress(Networking.getLocalHost(), 0), 0);
+        serverSocket.bind(new InetSocketAddress(Networking.getReachableLocalHost(), 0), 0);
     }
 
     @AfterMethod(alwaysRun=true)

@@ -42,6 +42,6 @@ public class BrooklynNetworkUtils {
     /** returns a IP address for localhost paying attention to a system property to prevent lookup in some cases */
     public static InetAddress getLocalhostInetAddress() {
         return TypeCoercions.coerce(JavaGroovyEquivalents.elvis(BrooklynServiceAttributes.LOCALHOST_IP_ADDRESS.getValue(),
-                Networking.getLocalHost()), InetAddress.class);
+                Networking.getReachableLocalHost()), InetAddress.class);
     }
 }

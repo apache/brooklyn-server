@@ -177,7 +177,7 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
         for (int i=0; i<size; i++) {
             Map<Object,Object> flags2 = MutableMap.<Object,Object>builder()
                     .putAll(flags)
-                    .put("address", elvis(address, Networking.getLocalHost()))
+                    .put("address", elvis(address, getLocalhostInetAddress()))
                     .build();
             
             // copy inherited keys for ssh; 
@@ -309,17 +309,17 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
         @Override
         public LocalhostMachine configure(Map<?,?> properties) {
             if (address==null || !properties.containsKey("address"))
-                address = Networking.getLocalHost();
+                address = getLocalhostInetAddress();
             super.configure(properties);
             return this;
         }
         @Override
         public String getSubnetHostname() {
-           return Networking.getLocalHost().getHostName();
+           return Networking.getReachableLocalHost().getHostName();
         }
         @Override
         public String getSubnetIp() {
-            return Networking.getLocalHost().getHostAddress();
+            return Networking.getReachableLocalHost().getHostAddress();
         }
     }
 

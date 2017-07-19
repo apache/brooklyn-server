@@ -173,7 +173,7 @@ public class ReachableSocketFinderTest {
     @Test(groups="Integration")
     public void testFailsIfRealSocketUnreachable() throws Exception {
         ReachableSocketFinder realFinder = new ReachableSocketFinder();
-        HostAndPort wrongAddr = HostAndPort.fromParts(Networking.getLocalHost().getHostAddress(), findAvailablePort());
+        HostAndPort wrongAddr = HostAndPort.fromParts(Networking.getReachableLocalHost().getHostAddress(), findAvailablePort());
         
         try {
             HostAndPort result = realFinder.findOpenSocketOnNode(ImmutableList.of(wrongAddr), Duration.FIVE_SECONDS);

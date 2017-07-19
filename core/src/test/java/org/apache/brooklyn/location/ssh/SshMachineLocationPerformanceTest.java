@@ -111,7 +111,7 @@ public class SshMachineLocationPerformanceTest {
     public void testConsecutiveSmallCommandsWithDifferentProperties() throws Exception {
         final Map<String, ?> emptyProperties = Collections.emptyMap();
         final Map<String, ?> customProperties = MutableMap.of(
-                "address", Networking.getLocalHost(),
+                "address", Networking.getReachableLocalHost(),
                 SshTool.PROP_SESSION_TIMEOUT.getName(), 20000,
                 SshTool.PROP_CONNECT_TIMEOUT.getName(), 50000,
                 SshTool.PROP_SCRIPT_HEADER.getName(), "#!/bin/bash");

@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;
@@ -217,13 +218,28 @@ public class NetworkingUtilsTest {
     }
 
     @Test
-    public void testIsPortAvailableValidatesAddress() throws Exception {
+    public void testCanConnectToLocalhost() throws Exception {
+        try (ServerSocket ss = new ServerSocket()) {
+            ss.bind(new InetSocketAddress(Networking.getReachableLocalHost(), 0));
+            // check we can connect to it
+            try (Socket s = new Socket()) {
+                s.setSoTimeout(500);
+                try {
+                    s.connect(ss.getLocalSocketAddress(), 500);
+                } catch (Exception e) {
+                    Assert.fail("Localhost as "+ss.getInetAddress()+" is not reachable; ensure localhost is correctly configured and addressible to use Brooklyn", e);
+                }
+            }
+        }
+    }
+        
+    @Test
+    public void testBindToLocalhostAndIsPortAvailableDetectsExplicitLocalhostBinding() throws Exception {
         ServerSocket ss = new ServerSocket();
-        ss.bind(new InetSocketAddress(InetAddress.getLocalHost(), 0));
+        ss.bind(new InetSocketAddress(Networking.getReachableLocalHost(), 0));
         int boundPort = ss.getLocalPort();
         assertTrue(ss.isBound());
         assertNotEquals(boundPort, 0);
-        //will run isAddressValid before returning
         assertFalse(Networking.isPortAvailable(boundPort));
         ss.close();
     }

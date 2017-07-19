@@ -38,10 +38,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.Range;
-import com.google.common.collect.RangeSet;
-import com.google.common.collect.TreeRangeSet;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
@@ -50,8 +47,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
+import com.google.common.collect.TreeRangeSet;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.UnsignedBytes;
 
@@ -427,13 +428,62 @@ public class Networking {
         }
     }
 
-    /** returns local IP address, or 127.0.0.1 if it cannot be parsed */
+    /** returns local IP address, or 127.0.0.1 if it cannot be parsed
+     * @deprecated since 0.12.0, as this method has bad defaults (fails on some machines);
+     * use {@link #getLocalHost(boolean, boolean, boolean, int)} for full control or
+     * {@link #getReachableLocalHost()} for a method with better defaults and errors */
     public static InetAddress getLocalHost() {
-        try {
-            return InetAddress.getLocalHost();
-        } catch (UnknownHostException e) {
-            InetAddress result = null;
-            result = getInetAddressWithFixedName("127.0.0.1");
+        return getLocalHost(false, true, false, 0);
+    }
+    
+    /** returns a validated local IP address, preferring 127.0.0.1 if it works, and failing if none found */
+    public static InetAddress getReachableLocalHost() {
+        return getLocalHost(true, true, true, 250);
+    }
+    
+    /**
+     * returns a local IP address, using some heuristics to determine the best one 
+     * in the case of multiple possibilities, as follows 
+     * @param checkReachable whether to ensure that the address is bindable and reachable
+     * @param prefer127 whether to prefer standard loopback address 127.0.0.1 if listed
+     * @param failIfNone whether to fail if none or simply return 127.0.0.1
+     * @param timeout how long to wait for each address (if doing checkReachable)
+     * @return an {@link InetAddress} corresponding to localhost
+     */
+    public static InetAddress getLocalHost(boolean checkReachable, boolean prefer127, boolean failIfNone, int timeout) {
+        Map<String, InetAddress> addrs = getLocalAddresses();
+        MutableSet<InetAddress> candidates = new MutableSet<>();
+        if (prefer127) {
+            candidates.addIfNotNull(addrs.get("127.0.0.1"));
+        }
+        candidates.addAll(addrs.values());
+        if (checkReachable) {
+            for (InetAddress a: candidates) {
+                try (ServerSocket ss = new ServerSocket()) {
+                    ss.bind(new InetSocketAddress(a, 0));
+                    if (isReachable(HostAndPort.fromParts(a.getHostAddress(), ss.getLocalPort()), true, timeout)) {
+                        return a;
+                    }
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    // swallow and continue
+                }
+            }
+        } else {
+            if (!candidates.isEmpty()) {
+                return candidates.iterator().next();
+            }
+        }
+        if (failIfNone) {
+            throw new IllegalStateException("No reachable local addresses could be found; ensure that localhost is correctly configured on this machine"
+                + ", and if required that network security permits local access to localhost ports");
+        } else {
+            InetAddress result;
+            try {
+                result = InetAddress.getLocalHost();
+            } catch (UnknownHostException e2) {
+                result = getInetAddressWithFixedName("127.0.0.1");
+            }
             log.warn("Localhost is not resolvable; using "+result);
             return result;
         }
@@ -527,14 +577,19 @@ public class Networking {
     }
     
     public static boolean isReachable(HostAndPort endpoint) {
-        // TODO Should we create an unconnected socket, and then use the calls below (see jclouds' InetSocketAddressConnect):
-        //      socket.setReuseAddress(false);
-        //      socket.setSoLinger(false, 1);
-        //      socket.setSoTimeout(timeout);
-        //      socket.connect(socketAddress, timeout);
-        
+        return isReachable(endpoint, false, 0);
+    }
+    public static boolean isReachable(HostAndPort endpoint, boolean noReuseOrLinger, int timeout) {
         try {
-            Socket s = new Socket(endpoint.getHostText(), endpoint.getPort());
+            Socket s = new Socket();
+            if (noReuseOrLinger) {
+                s.setReuseAddress(false);
+                s.setSoLinger(false, 1);
+            }
+            if (timeout>0) {
+                s.setSoTimeout(timeout);
+            }
+            s.connect(new InetSocketAddress(endpoint.getHostText(), endpoint.getPort()));
             closeQuietly(s);
             return true;
         } catch (Exception e) {

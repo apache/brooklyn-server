@@ -227,7 +227,7 @@ public class TestEndpointReachableTest extends BrooklynAppUnitTestSupport {
     }
 
     protected ServerSocket openServerPort() throws IOException {
-        InetAddress localAddress = Networking.getLocalHost();
+        InetAddress localAddress = Networking.getReachableLocalHost();
         return new ServerSocket(0, 1024, localAddress);
     }
 
@@ -235,7 +235,7 @@ public class TestEndpointReachableTest extends BrooklynAppUnitTestSupport {
         int startPort = 58767;
         int endPort = 60000;
         int port = startPort;
-        InetAddress localAddress = Networking.getLocalHost();
+        InetAddress localAddress = Networking.getReachableLocalHost();
         do {
             if (Networking.isPortAvailable(localAddress, port)) {
                 return HostAndPort.fromParts(localAddress.getHostAddress(), port);

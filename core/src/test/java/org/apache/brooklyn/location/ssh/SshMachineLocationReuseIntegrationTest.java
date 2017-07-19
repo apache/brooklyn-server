@@ -102,7 +102,7 @@ public class SshMachineLocationReuseIntegrationTest {
     public void setUp() throws Exception {
         managementContext = new LocalManagementContext();
         host = managementContext.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
-                .configure("address", Networking.getLocalHost())
+                .configure("address", Networking.getReachableLocalHost())
                 .configure(SshMachineLocation.SSH_TOOL_CLASS, RecordingSshjTool.class.getName()));
     }
 
@@ -163,7 +163,7 @@ public class SshMachineLocationReuseIntegrationTest {
 
     public Map<String, Object> customSshConfigKeys() throws UnknownHostException {
         return MutableMap.<String, Object>of(
-                "address", Networking.getLocalHost(),
+                "address", Networking.getReachableLocalHost(),
                 SshTool.PROP_SESSION_TIMEOUT.getName(), 20000,
                 SshTool.PROP_CONNECT_TIMEOUT.getName(), 50000,
                 SshTool.PROP_SCRIPT_HEADER.getName(), "#!/bin/bash");

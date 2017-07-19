@@ -51,7 +51,7 @@ public class SimulatedLocation extends AbstractLocation implements MachineProvis
 
     private static final InetAddress address;
     static {
-        address = Networking.getLocalHost();
+        address = Networking.getReachableLocalHost();
     }
 
     Iterable<Integer> permittedPorts = PortRanges.fromString("1+");
