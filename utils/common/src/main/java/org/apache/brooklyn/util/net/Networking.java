@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.io.IOException;
 import java.net.DatagramSocket;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
@@ -50,6 +51,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeSet;
 import com.google.common.collect.TreeRangeSet;
@@ -89,6 +91,9 @@ public class Networking {
         return isPortAvailable(ANY_NIC, port);
     }
     public static boolean isPortAvailable(InetAddress localAddress, int port) {
+        return isPortAvailable(localAddress, port, SET_REUSE_ADDRESS);
+    }
+    public static boolean isPortAvailable(InetAddress localAddress, int port, Boolean allowReuse) {
         if (port < MIN_PORT_NUMBER || port > MAX_PORT_NUMBER) {
             throw new IllegalArgumentException("Invalid start port: " + port);
         }
@@ -101,19 +106,21 @@ public class Networking {
             //Svet - SO_REUSEADDR (enabled below) will allow one socket to listen on 0.0.0.0:X and another on
             //192.168.0.1:X which explains the above comment (nginx sets SO_REUSEADDR as well). Moreover there
             //is no TIME_WAIT for listening sockets without any connections so why enable it at all.
+            //Alex - TIME_WAIT sticks around for a while (30s or so) if a java process dies while it has
+            //connections; if we want things to aggressively try to take a port, they should use reuse-addr
             ServerSocket ss = null;
             DatagramSocket ds = null;
             try {
                 // Check TCP port
                 ss = new ServerSocket();
                 ss.setSoTimeout(250);
-                if (SET_REUSE_ADDRESS!=null) { ss.setReuseAddress(SET_REUSE_ADDRESS); }
+                if (allowReuse!=null) { ss.setReuseAddress(allowReuse); }
                 ss.bind(new InetSocketAddress(localAddress, port));
 
                 // Check UDP port
                 ds = new DatagramSocket(null);
                 ds.setSoTimeout(250);
-                if (SET_REUSE_ADDRESS!=null) { ss.setReuseAddress(SET_REUSE_ADDRESS); }
+                if (allowReuse!=null) { ss.setReuseAddress(allowReuse); }
                 ds.bind(new InetSocketAddress(localAddress, port));
             } catch (IOException e) {
                 if (log.isTraceEnabled()) log.trace("Failed binding to " + localAddress + " : " + port, e);
@@ -143,7 +150,7 @@ public class Networking {
                     Enumeration<InetAddress> as = ni.getInetAddresses();
                     while (as.hasMoreElements()) {
                         InetAddress a = as.nextElement();
-                        if (!isPortAvailable(a, port)) {
+                        if (!isPortAvailable(a, port, allowReuse)) {
                             if (isAddressValid(a)) {
                                 if (log.isTraceEnabled()) log.trace("Port {} : {} @ {} is taken and the address is valid", new Object[] {a, port, nis});
                                 return false;
@@ -433,12 +440,12 @@ public class Networking {
      * use {@link #getLocalHost(boolean, boolean, boolean, int)} for full control or
      * {@link #getReachableLocalHost()} for a method with better defaults and errors */
     public static InetAddress getLocalHost() {
-        return getLocalHost(false, true, false, 0);
+        return getLocalHost(false, true, true, false, 0);
     }
     
     /** returns a validated local IP address, preferring 127.0.0.1 if it works, and failing if none found */
     public static InetAddress getReachableLocalHost() {
-        return getLocalHost(true, true, true, 250);
+        return getLocalHost(true, true, true, true, 250);
     }
     
     /**
@@ -450,11 +457,14 @@ public class Networking {
      * @param timeout how long to wait for each address (if doing checkReachable)
      * @return an {@link InetAddress} corresponding to localhost
      */
-    public static InetAddress getLocalHost(boolean checkReachable, boolean prefer127, boolean failIfNone, int timeout) {
+    public static InetAddress getLocalHost(boolean checkReachable, boolean prefer127, boolean preferIpV4, boolean failIfNone, int timeout) {
         Map<String, InetAddress> addrs = getLocalAddresses();
         MutableSet<InetAddress> candidates = new MutableSet<>();
         if (prefer127) {
             candidates.addIfNotNull(addrs.get("127.0.0.1"));
+        }
+        if (preferIpV4) {
+            candidates.addAll(Iterables.filter(addrs.values(), Inet4Address.class));
         }
         candidates.addAll(addrs.values());
         if (checkReachable) {
@@ -589,7 +599,7 @@ public class Networking {
             if (timeout>0) {
                 s.setSoTimeout(timeout);
             }
-            s.connect(new InetSocketAddress(endpoint.getHostText(), endpoint.getPort()));
+            s.connect(new InetSocketAddress(endpoint.getHostText(), endpoint.getPort()), timeout);
             closeQuietly(s);
             return true;
         } catch (Exception e) {
