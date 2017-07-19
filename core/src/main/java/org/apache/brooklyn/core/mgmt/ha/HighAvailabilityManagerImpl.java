@@ -129,7 +129,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     private static final Logger LOG = LoggerFactory.getLogger(HighAvailabilityManagerImpl.class);
 
     private final ManagementContextInternal managementContext;
-    private volatile String ownNodeId;
+    private final String ownNodeId;
     private volatile ManagementPlaneSyncRecordPersister persister;
     private volatile PromotionListener promotionListener;
     private volatile MasterChooser masterChooser = new AlphabeticMasterChooser();
@@ -163,6 +163,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
 
     public HighAvailabilityManagerImpl(ManagementContextInternal managementContext) {
         this.managementContext = managementContext;
+        ownNodeId = managementContext.getManagementNodeId();
         startTimeUtc = localTickerUtc.read();
     }
 
@@ -242,7 +243,6 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     @Override
     public void disabled() {
         disabled = true;
-        ownNodeId = managementContext.getManagementNodeId();
         // this is notionally the master, just not running; see javadoc for more info
         stop(ManagementNodeState.MASTER);
         
@@ -276,7 +276,6 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
             }
         }
         
-        ownNodeId = managementContext.getManagementNodeId();
         // TODO Small race in that we first check, and then we'll do checkMaster() on first poll,
         // so another node could have already become master or terminated in that window.
         ManagementPlaneSyncRecord planeRec = loadManagementPlaneSyncRecord(false);
