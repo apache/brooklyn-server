@@ -54,7 +54,6 @@ public interface LoaderDispatcher<T> {
         @Override
         public Maybe<Class<?>> tryLoadFrom(BrooklynClassLoadingContext loader, String className) {
             try {
-                // return Maybe.<Class<?>>of(loader.loadClass(className));
                 return loader.tryLoadClass(className);
             } catch (IllegalStateException e) {
                 propagateIfCauseNotClassNotFound(e);

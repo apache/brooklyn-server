@@ -152,8 +152,10 @@ public class Exceptions {
         return propagate(msg, throwable, false);
     }
 
-    /** As {@link #propagate(String)} but always re-wraps including the given message. 
-     * See {@link #propagateAnnotateIfWrapping(String, Throwable)} if the message is optional. */
+    /** As {@link #propagate(String, Throwable)} but unlike earlier deprecated version
+     * this always re-wraps including the given message, until semantics of that method change to match this. 
+     * See {@link #propagateAnnotateIfWrapping(String, Throwable)} if the message 
+     * should be omitted and the given throwable preserved if it can already be propagated. */
     public static RuntimeException propagateAnnotated(String msg, Throwable throwable) {
         return propagate(msg, throwable, true);
     }

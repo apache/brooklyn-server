@@ -140,8 +140,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             List<RegisteredType> itemsRT = MutableList.of();
             for (CatalogItem<?, ?> ci: items) {
                 RegisteredType rt = brooklyn().getTypeRegistry().get(ci.getId());
-                if (rt!=null) itemsRT.add(rt);
-                else itemsRT.add(RegisteredTypes.of(ci));
+                itemsRT.add(rt!=null ? rt : RegisteredTypes.of(ci));
             }
             return buildCreateResponse(itemsRT);
         } catch (Exception e) {

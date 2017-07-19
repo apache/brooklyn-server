@@ -81,7 +81,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
 
     @Override
     public String getOsgiVersionString() {
-        return version==null ? version : BrooklynVersionSyntax.toValidOsgiVersion(version);
+        return version==null ? null : BrooklynVersionSyntax.toValidOsgiVersion(version);
     }
 
     public void setVersion(String version) {
@@ -130,7 +130,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     @Override
     public int hashCode() {
         // checksum deliberately omitted here to match with OsgiBundleWithUrl
-        return Objects.hashCode(symbolicName, version, url);
+        return Objects.hashCode(symbolicName, getOsgiVersionString(), url);
     }
 
     @Override
@@ -142,10 +142,11 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         if (!Objects.equal(symbolicName, other.getSymbolicName())) return false;
         if (!Objects.equal(getOsgiVersionString(), other.getOsgiVersionString())) return false;
         if (!Objects.equal(url, other.getUrl())) return false;
-        if (other instanceof BasicManagedBundle) {
-            // make equality symetricm, OsgiBunde equals this iff this equals OsgiBundle;
-            // checksum compared if available, but not required
-            if (!Objects.equal(checksum, ((BasicManagedBundle)other).getChecksum())) return false;
+        if (other instanceof ManagedBundle) {
+            // checksum compared if available, but not required;
+            // this makes equality with other OsgiBundleWithUrl items symmetric,
+            // but for two MB's we look additionally at checksum
+            if (!Objects.equal(checksum, ((ManagedBundle)other).getChecksum())) return false;
         }
         return true;
     }

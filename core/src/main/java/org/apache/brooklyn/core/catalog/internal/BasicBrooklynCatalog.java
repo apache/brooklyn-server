@@ -1055,13 +1055,14 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         File fJar = Os.newTempFile(containingBundle.getVersionedName().toOsgiString(), ".jar");
         try {
             Streams.copy(ResourceUtils.create().getResourceFromUrl(url), new FileOutputStream(fJar));
+            subCatalog.addToClasspath(new String[] { "file:"+fJar.getAbsolutePath() });
+            Collection<CatalogItemDtoAbstract<?, ?>> result = scanAnnotationsInternal(mgmt, subCatalog, MutableMap.of("version", containingBundle.getSuppliedVersionString()), containingBundle);
+            return result;
         } catch (FileNotFoundException e) {
-            throw Exceptions.propagate("Error extracting "+url+" to scan "+containingBundle.getVersionedName(), e);
+            throw Exceptions.propagateAnnotated("Error extracting "+url+" to scan "+containingBundle.getVersionedName(), e);
+        } finally {
+            fJar.delete();
         }
-        subCatalog.addToClasspath(new String[] { "file:"+fJar.getAbsolutePath() });
-        Collection<CatalogItemDtoAbstract<?, ?>> result = scanAnnotationsInternal(mgmt, subCatalog, MutableMap.of("version", containingBundle.getSuppliedVersionString()), containingBundle);
-        fJar.delete();
-        return result;
     }
 
     private Collection<CatalogItemDtoAbstract<?, ?>> scanAnnotationsInternal(ManagementContext mgmt, CatalogDo subCatalog, Map<?, ?> catalogMetadata, ManagedBundle containingBundle) {
@@ -1376,8 +1377,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 result = osgiManager.get().install(null, new FileInputStream(bf), true, true, forceUpdate).get();
             } catch (FileNotFoundException e) {
                 throw Exceptions.propagate(e);
+            } finally {
+                bf.delete();
             }
-            bf.delete();
             uninstallEmptyWrapperBundles();
             if (result.getCode().isError()) {
                 throw new IllegalStateException(result.getMessage());

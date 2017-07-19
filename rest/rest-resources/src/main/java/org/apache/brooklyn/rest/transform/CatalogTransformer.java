@@ -223,8 +223,13 @@ public class CatalogTransformer {
     }
 
     private static Set<Object> makeTags(EntitySpec<?> spec, RegisteredType item) {
+        return makeTags(spec, MutableSet.copyOf(item.getTags()));
+    }
+    private static Set<Object> makeTags(EntitySpec<?> spec, CatalogItem<?, ?> item) {
+        return makeTags(spec, MutableSet.copyOf(item.tags().getTags()));
+    }
+    private static Set<Object> makeTags(EntitySpec<?> spec, Set<Object> tags) {
         // Combine tags on item with an InterfacesTag.
-        Set<Object> tags = MutableSet.copyOf(item.getTags());
         if (spec != null) {
             Class<?> type;
             if (spec.getImplementation() != null) {
@@ -238,8 +243,6 @@ public class CatalogTransformer {
         }
         return tags;
     }
-
-    
     
     /** @deprecated since 0.12.0 use {@link RegisteredType} methods instead */  @Deprecated
     public static <T extends Entity> CatalogEntitySummary catalogEntitySummary(BrooklynRestResourceUtils b, CatalogItem<T,EntitySpec<? extends T>> item, UriBuilder ub) {
@@ -381,21 +384,4 @@ public class CatalogTransformer {
         return iconUrl;
     }
 
-    private static Set<Object> makeTags(EntitySpec<?> spec, CatalogItem<?, ?> item) {
-        // Combine tags on item with an InterfacesTag.
-        Set<Object> tags = MutableSet.copyOf(item.tags().getTags());
-        if (spec != null) {
-            Class<?> type;
-            if (spec.getImplementation() != null) {
-                type = spec.getImplementation();
-            } else {
-                type = spec.getType();
-            }
-            if (type != null) {
-                tags.add(new BrooklynTags.TraitsTag(Reflections.getAllInterfaces(type)));
-            }
-        }
-        return tags;
-    }
-    
 }

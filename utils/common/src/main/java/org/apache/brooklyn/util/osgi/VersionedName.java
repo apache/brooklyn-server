@@ -127,8 +127,8 @@ public class VersionedName {
     }
     
     /** As {@link #equals(Object)} but accepting the argument as equal 
-     * if versions are identical when injected to OSGi-valid versions,
-     * and accepting strings as the other */
+     * if versions are identical under the {@link #getOsgiVersion()} conversion;
+     * also accepts strings as the other, converting as per {@link #fromString(String)} */
     public boolean equalsOsgi(Object other) {
         if (other instanceof String) {
             other = VersionedName.fromString((String)other);

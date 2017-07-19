@@ -192,6 +192,7 @@ public class BasicRegisteredType implements RegisteredType {
         if (!Objects.equal(bundles, other.bundles)) return false;
         if (!Objects.equal(containingBundle, other.containingBundle)) return false;
         if (!Objects.equal(deprecated, other.deprecated)) return false;
+        if (!Objects.equal(description, other.description)) return false;
         if (!Objects.equal(disabled, other.disabled)) return false;
         if (!Objects.equal(iconUrl, other.iconUrl)) return false;
         if (!Objects.equal(implementationPlan, other.implementationPlan)) return false;
