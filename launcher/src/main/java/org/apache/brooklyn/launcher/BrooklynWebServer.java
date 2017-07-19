@@ -386,7 +386,9 @@ public class BrooklynWebServer {
             if (portRange==null) {
                 portRange = getHttpsEnabled() ? httpsPort : httpPort;
             }
-            actualPort = LocalhostMachineProvisioningLocation.obtainPort(getAddress(), portRange);
+            actualPort = LocalhostMachineProvisioningLocation.obtainPort(getAddress(), portRange,
+                // allow reuse-addr so we prefer to bind to lower-numbered ports even if they are in time-wait state
+                true);
             if (actualPort == -1) 
                 throw new IllegalStateException("Unable to provision port for web console (wanted "+portRange+")");
         }
