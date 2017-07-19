@@ -20,6 +20,8 @@ package org.apache.brooklyn.core.typereg;
 
 import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 
+import com.google.common.base.Objects;
+
 public class BasicTypeImplementationPlan implements TypeImplementationPlan {
     final String format;
     final Object data;
@@ -38,4 +40,25 @@ public class BasicTypeImplementationPlan implements TypeImplementationPlan {
     public Object getPlanData() {
         return data;
     }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((data == null) ? 0 : data.hashCode());
+        result = prime * result + ((format == null) ? 0 : format.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null) return false;
+        if (getClass() != obj.getClass()) return false;
+        BasicTypeImplementationPlan other = (BasicTypeImplementationPlan) obj;
+        if (!Objects.equal(format, other.format)) return false;
+        if (!Objects.equal(data, other.data)) return false;
+        return true;
+    }
+    
 }

@@ -18,21 +18,26 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-/** Used by {@link BrooklynTypePlanTransformer} for a transformer to indicate an error resolving a plan. */
-// TODO add another hierarchy RecognizedTypePlanException or a score to indicate priority of errors for reporting?
-public class UnsupportedTypePlanException extends RuntimeException {
+import org.apache.brooklyn.api.typereg.RegisteredType;
+
+/** Indicates a type has requested to resolve another type which is not resolved or not resolvable */
+public class ReferencedUnresolvedTypeException extends UnsupportedTypePlanException {
 
     private static final long serialVersionUID = -5590108442839125317L;
 
-    public UnsupportedTypePlanException(String message, Throwable cause) {
+    public ReferencedUnresolvedTypeException(String message, Throwable cause) {
         super(message, cause);
     }
 
-    public UnsupportedTypePlanException(String message) {
+    public ReferencedUnresolvedTypeException(String message) {
         super(message);
     }
 
-    public UnsupportedTypePlanException(Throwable cause) {
+    public ReferencedUnresolvedTypeException(RegisteredType t) {
+        this("Reference to "+t.getVersionedName()+" in plan but that type cannot be resolved (recursive plan or premature evaluation?)");
+    }
+    
+    public ReferencedUnresolvedTypeException(Throwable cause) {
         super(cause);
     }
 

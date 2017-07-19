@@ -25,12 +25,12 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.config.external.AbstractExternalConfigSupplier;
@@ -58,7 +58,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.io.BaseEncoding;
 
 public class CatalogOsgiLibraryTest extends AbstractYamlTest {
@@ -124,7 +123,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
                 "    services:",
                 "    - type: org.apache.brooklyn.test.osgi.entities.SimpleApplication");
 
-        CatalogItem<?, ?> item = mgmt().getCatalog().getCatalogItem("simple-osgi-library", "1.0");
+        RegisteredType item = mgmt().getTypeRegistry().get("simple-osgi-library", "1.0");
         assertCatalogLibraryUrl(item, classpathUrl);
     }
 
@@ -141,7 +140,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
                 "    services:",
                 "    - type: org.apache.brooklyn.test.osgi.entities.SimpleApplication");
 
-        CatalogItem<?, ?> item = mgmt().getCatalog().getCatalogItem("simple-osgi-library", "1.0");
+        RegisteredType item = mgmt().getTypeRegistry().get("simple-osgi-library", "1.0");
         assertCatalogLibraryUrl(item, classpathUrl);
     }
 
@@ -158,7 +157,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
                 "    services:",
                 "    - type: org.apache.brooklyn.test.osgi.entities.SimpleApplication");
 
-        CatalogItem<?, ?> item = mgmt().getCatalog().getCatalogItem("simple-osgi-library", "1.0");
+        RegisteredType item = mgmt().getTypeRegistry().get("simple-osgi-library", "1.0");
         assertCatalogLibraryUrl(item, jarUrl.toString());
     }
 
@@ -220,7 +219,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
                 "    services:",
                 "    - type: org.apache.brooklyn.test.osgi.entities.SimpleApplication");
 
-        CatalogItem<?, ?> item = mgmt().getCatalog().getCatalogItem("simple-osgi-library", "1.0");
+        RegisteredType item = mgmt().getTypeRegistry().get("simple-osgi-library", "1.0");
         assertCatalogLibraryUrl(item, classpathUrl);
     }
 
@@ -268,6 +267,15 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
             Assert.fail("Expected to find 'messages.txt'");
         }
     }
+
+    protected void assertCannotFindMessages(Entity entity) {
+        ResourceUtils ru = ResourceUtils.create(entity);
+        Iterable<URL> files = ru.getResources("org/apache/brooklyn/test/osgi/resources/message.txt");
+        if (files.iterator().hasNext()) {
+            Entities.dumpInfo(entity);
+            Assert.fail("Expected NOT to find 'messages.txt'");
+        }
+    }
     
     @Test
     public void testLibraryIsUsedByChildInCatalogItem() throws Exception {
@@ -295,16 +303,19 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
         // the spec has no catalog item ID except at the root Application
         
         Entity app = createAndStartApplication("services: [ { type: item-from-library } ]");
-        Entity entity = app.getChildren().iterator().next();
-        entity = entity.getChildren().iterator().next();
-        Entities.dumpInfo(entity);
+        Entity entity1 = app.getChildren().iterator().next();
         
-        // TODO re-enable when we've converted to a search path;
+        Entities.dumpInfo(app);
+        
+        Assert.assertEquals(entity1.getCatalogItemId(), "item-from-library:1.0");
+        assertCanFindMessages( entity1 );
+        
+        // TODO enable when we've converted to a search path;
         // currently this test method passes because of CatalogUtils.setCatalogItemIdOnAddition
         // but we don't want to be doing that, we only want the search path
-        //Assert.assertNull(entity.getCatalogItemId(), "Entity had a catalog item ID, even though it was stockj");
-        
-        assertCanFindMessages( entity );
+        //Entity entity2 = entity1.getChildren().iterator().next();
+        //Assert.assertNull(entity2.getCatalogItemId(), "Entity had a catalog item ID, even though it was stockj");
+        //assertCannotFindMessages( entity2 );
     }
     
     @Test
@@ -403,7 +414,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
         }
         String expectedUrl = "http://" + escapedUsername + ":" + escapedPassword+ "@" + jarUrl.getHost() + ":" + jarUrl.getPort() + jarUrl.getPath();
         
-        CatalogItem<?, ?> item = mgmt().getCatalog().getCatalogItem("simple-osgi-library", "1.0");
+        RegisteredType item = mgmt().getTypeRegistry().get("simple-osgi-library", "1.0");
         assertCatalogLibraryUrl(item, expectedUrl);
     }
     
@@ -420,8 +431,13 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
         }
     }
     
-    protected void assertCatalogLibraryUrl(CatalogItem<?,?> item, String expectedUrl) {
-        CatalogBundle library = Iterables.getOnlyElement(item.getLibraries());
-        assertEquals(library.getUrl(), expectedUrl);
+    protected void assertCatalogLibraryUrl(RegisteredType item, String expectedUrl) {
+        for (OsgiBundleWithUrl b: item.getLibraries()) {
+            if (Objects.equals(b.getUrl(), expectedUrl)) {
+                return;
+            }
+        }
+        Assert.fail("No library found with URL "+expectedUrl);
     }
+    
 }

@@ -47,6 +47,7 @@ public class BasicCatalogItemMemento extends AbstractMemento implements CatalogI
     public static class Builder extends AbstractMemento.Builder<Builder> {
         protected String description;
         protected String symbolicName;
+        protected String containingBundle;
         protected String iconUrl;
         protected String javaType;
         protected String version;
@@ -66,6 +67,11 @@ public class BasicCatalogItemMemento extends AbstractMemento implements CatalogI
 
         public Builder symbolicName(String symbolicName) {
             this.symbolicName = symbolicName;
+            return self();
+        }
+
+        public Builder containingBundle(String containingBundle) {
+            this.containingBundle = containingBundle;
             return self();
         }
 
@@ -128,6 +134,7 @@ public class BasicCatalogItemMemento extends AbstractMemento implements CatalogI
             super.from(other);
             description = other.getDescription();
             symbolicName = other.getSymbolicName();
+            containingBundle = other.getContainingBundle();
             iconUrl = other.getIconUrl();
             javaType = other.getJavaType();
             version = other.getVersion();
@@ -149,6 +156,7 @@ public class BasicCatalogItemMemento extends AbstractMemento implements CatalogI
 
     private String description;
     private String symbolicName;
+    private String containingBundle;
     private String iconUrl;
     private String javaType;
     private String version;
@@ -168,6 +176,7 @@ public class BasicCatalogItemMemento extends AbstractMemento implements CatalogI
         super(builder);
         this.description = builder.description;
         this.symbolicName = builder.symbolicName;
+        this.containingBundle = builder.containingBundle;
         this.iconUrl = builder.iconUrl;
         this.version = builder.version;
         this.planYaml = builder.planYaml;
@@ -196,6 +205,11 @@ public class BasicCatalogItemMemento extends AbstractMemento implements CatalogI
         return symbolicName;
     }
 
+    @Override
+    public String getContainingBundle() {
+        return containingBundle;
+    }
+    
     @Override
     public String getIconUrl() {
         return iconUrl;

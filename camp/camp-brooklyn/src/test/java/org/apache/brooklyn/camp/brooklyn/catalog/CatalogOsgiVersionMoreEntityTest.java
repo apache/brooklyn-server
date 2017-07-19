@@ -20,6 +20,7 @@ package org.apache.brooklyn.camp.brooklyn.catalog;
 
 import static org.testng.Assert.assertTrue;
 
+import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -30,10 +31,10 @@ import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynEntityMatcher;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiVersionMoreEntityTest;
@@ -42,6 +43,7 @@ import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.text.Strings;
@@ -76,7 +78,7 @@ public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest implement
         // bundle installed
         Map<String, ManagedBundle> bundles = ((ManagementContextInternal)mgmt()).getOsgiManager().get().getManagedBundles();
         Asserts.assertSize(bundles.keySet(), 1);
-        Assert.assertEquals(br.getMetadata().getId(), Iterables.getOnlyElement( bundles.keySet() ));
+        Assert.assertTrue(bundles.keySet().contains( br.getMetadata().getId() ));
         
         // types installed
         RegisteredType t = mgmt().getTypeRegistry().get(BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
@@ -247,7 +249,14 @@ public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest implement
         // this refers to the java item, where the libraries are defined
         item = mgmt().getTypeRegistry().get("org.apache.brooklyn.test.osgi.entities.more.MorePolicy");
         Assert.assertEquals(item.getVersion(), "2.0.test_java");
-        Assert.assertEquals(item.getLibraries().size(), 2);
+        // check the libraries are as expected and fully resolved
+        List<String> libStr = MutableList.of();
+        for (OsgiBundleWithUrl ob: item.getLibraries()) {
+            libStr.add(ob.getVersionedName()==null ? ob.getUrl() : ob.getVersionedName().toString());
+        }
+        Assert.assertEquals(libStr, MutableList.of(
+            BROOKLYN_TEST_MORE_ENTITIES_SYMBOLIC_NAME_FULL+":"+"0.2.0", 
+            BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FULL+":"+"0.1.0"));
         
         Entity app = createAndStartApplication(
                 "services: ",

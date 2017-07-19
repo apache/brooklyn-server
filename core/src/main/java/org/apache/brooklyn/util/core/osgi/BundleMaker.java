@@ -114,7 +114,7 @@ public class BundleMaker {
             return f;
             
         } catch (Exception e) {
-            throw Exceptions.propagate("Error creating ZIP from classpath spec "+path, e);
+            throw Exceptions.propagateAnnotated("Error creating ZIP from classpath spec "+path, e);
             
         } finally {
             Streams.closeQuietly(zout);
@@ -136,7 +136,7 @@ public class BundleMaker {
             jf = new JarFile(f);
             return jf.getManifest();
         } catch (IOException e) {
-            throw Exceptions.propagate("Unable to read "+f+" when looking for manifest", e);
+            throw Exceptions.propagateAnnotated("Unable to read "+f+" when looking for manifest", e);
         } finally {
             Streams.closeQuietly(jf);
         }
@@ -144,11 +144,15 @@ public class BundleMaker {
     
     /** as {@link #copyAddingManifest(File, Manifest)} but taking manifest entries as a map for convenience */
     public File copyAddingManifest(File f, Map<String,String> attrs) {
+        return copyAddingManifest(f, manifestOf(attrs));
+    }
+
+    protected Manifest manifestOf(Map<String, String> attrs) {
         Manifest mf = new Manifest();
         for (Map.Entry<String,String> attr: attrs.entrySet()) {
             mf.getMainAttributes().putValue(attr.getKey(), attr.getValue());
         }
-        return copyAddingManifest(f, mf);
+        return mf;
     }
     
     /** create a copy of the given ZIP as a JAR with the given manifest, returning the new temp file */
@@ -160,7 +164,7 @@ public class BundleMaker {
             zout = new JarOutputStream(new FileOutputStream(f2), mf);
             writeZipEntriesFromFile(zout, f, Predicates.not(Predicates.equalTo(MANIFEST_PATH)));
         } catch (IOException e) {
-            throw Exceptions.propagate("Unable to read "+f+" when looking for manifest", e);
+            throw Exceptions.propagateAnnotated("Unable to read "+f+" when looking for manifest", e);
         } finally {
             Streams.closeQuietly(zf);
             Streams.closeQuietly(zout);
@@ -222,7 +226,7 @@ public class BundleMaker {
 
             return f2;
         } catch (IOException e) {
-            throw Exceptions.propagate("Unable to read "+f+" when looking for manifest", e);
+            throw Exceptions.propagateAnnotated("Unable to read "+f+" when looking for manifest", e);
         } finally {
             Streams.closeQuietly(zf);
             Streams.closeQuietly(zout);
@@ -281,7 +285,7 @@ public class BundleMaker {
             return b;
             
         } catch (Exception e) {
-            throw Exceptions.propagate("Error starting bundle from "+f, e);
+            throw Exceptions.propagateAnnotated("Error starting bundle from "+f, e);
         }
     }
     
@@ -349,6 +353,31 @@ public class BundleMaker {
         Streams.copy(itemFound, zout);
         Streams.closeQuietly(itemFound);
         zout.closeEntry();
+    }
+
+    /** Creates a temporary file with the given metadata */ 
+    public File createTempBundle(String nameHint, Manifest mf, Map<ZipEntry, InputStream> files) {
+        File f2 = Os.newTempFile(nameHint, "zip");
+        ZipOutputStream zout = null;
+        ZipFile zf = null;
+        try {
+            zout = mf!=null ? new JarOutputStream(new FileOutputStream(f2), mf) : new ZipOutputStream(new FileOutputStream(f2));
+            writeZipEntries(zout, files);
+        } catch (IOException e) {
+            throw Exceptions.propagate("Unable to read/write for "+nameHint, e);
+        } finally {
+            Streams.closeQuietly(zf);
+            Streams.closeQuietly(zout);
+        }
+        return f2;
+    }
+
+    public File createTempBundle(String nameHint, Map<String, String> mf, Map<ZipEntry, InputStream> files) {
+        return createTempBundle(nameHint, manifestOf(mf), files);
+    }
+    
+    public File createTempZip(String nameHint, Map<ZipEntry, InputStream> files) {
+        return createTempBundle(nameHint, (Manifest)null, files);
     }
     
 }

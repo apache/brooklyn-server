@@ -433,7 +433,7 @@ public class Main extends AbstractMain {
                         try {
                             populateCatalog(catInit.getManagementContext().getCatalog());
                         } catch (Throwable e) {
-                            catInit.handleException(e, "overridden main class populate catalog");
+                            catInit.handleException(e, "in main class populate catalog override");
                         }
                         
                         // Force load of catalog (so web console is up to date)

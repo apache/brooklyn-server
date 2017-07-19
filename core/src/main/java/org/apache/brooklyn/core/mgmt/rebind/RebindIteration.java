@@ -100,13 +100,16 @@ import org.apache.brooklyn.core.objs.proxy.InternalPolicyFactory;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
+import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -117,6 +120,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -337,13 +341,40 @@ public abstract class RebindIteration {
                 }
             }
             // Start them all after we've installed them
+            Set<RegisteredType> installedTypes = MutableSet.of();
             for (OsgiBundleInstallationResult br: installs) {
                 try {
                     rebindContext.startBundle(br);
+                    Iterables.addAll(installedTypes, managementContext.getTypeRegistry().getMatching(
+                        RegisteredTypePredicates.containingBundle(br.getVersionedName())));
                 } catch (Exception e) {
                     exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, br.getMetadata().getId(), br.getMetadata().getSymbolicName(), e);
                 }
             }
+            // Now validate all types
+            Map<RegisteredType, Collection<Throwable>> validationErrors = this.managementContext.getCatalog().validateTypes( installedTypes );
+            if (!validationErrors.isEmpty()) {
+                Map<VersionedName, Map<RegisteredType,Collection<Throwable>>> errorsByBundle = MutableMap.of();
+                for (RegisteredType t: validationErrors.keySet()) {
+                    VersionedName vn = VersionedName.fromString(t.getContainingBundle());
+                    Map<RegisteredType, Collection<Throwable>> errorsInBundle = errorsByBundle.get(vn);
+                    if (errorsInBundle==null) {
+                        errorsInBundle = MutableMap.of();
+                        errorsByBundle.put(vn, errorsInBundle);
+                    }
+                    errorsInBundle.put(t, validationErrors.get(t));
+                }
+                for (VersionedName vn: errorsByBundle.keySet()) {
+                    Map<RegisteredType, Collection<Throwable>> errorsInBundle = errorsByBundle.get(vn);
+                    ManagedBundle b = managementContext.getOsgiManager().get().getManagedBundle(vn);
+                    exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, 
+                        b!=null ? b.getId() : /* just in case it was uninstalled concurrently somehow */ vn.toString(),
+                        vn.getSymbolicName(), 
+                        Exceptions.create("Failed to install "+vn+", types "+errorsInBundle.keySet()+" gave errors",
+                            Iterables.concat(errorsInBundle.values())));
+                }
+            }
+
         } else {
             logRebindingDebug("Not rebinding bundles; feature disabled: {}", mementoManifest.getBundleIds());
         }
@@ -1021,20 +1052,37 @@ public abstract class RebindIteration {
             List<String> reboundSearchPath = MutableList.of();
             if (searchPath != null && !searchPath.isEmpty()) {
                 for (String searchItemId : searchPath) {
-                    CatalogItem<?, ?> searchItem = findCatalogItemInReboundCatalog(bType, searchItemId, contextSuchAsId);
-                    if (searchItem != null) {
-                        reboundSearchPath.add(searchItem.getCatalogItemId());
+                    String fixedSearchItemId = null;
+                    RegisteredType t1 = managementContext.getTypeRegistry().get(searchItemId);
+                    if (t1!=null) fixedSearchItemId = t1.getId();
+                    if (fixedSearchItemId==null) {
+                        CatalogItem<?, ?> ci = findCatalogItemInReboundCatalog(bType, searchItemId, contextSuchAsId);
+                        if (ci!=null) fixedSearchItemId = ci.getCatalogItemId();
+                    }
+                    if (fixedSearchItemId != null) {
+                        reboundSearchPath.add(fixedSearchItemId);
                     } else {
                         LOG.warn("Unable to load catalog item "+ searchItemId
-                            +" for "+contextSuchAsId + " (" + bType.getSimpleName()+"); attempting load nevertheless");
+                            + " for search path of "+contextSuchAsId + " (" + bType.getSimpleName()+"); attempting to load "+jType+" nevertheless");
                     }
                 }
             }
 
             if (catalogItemId != null) {
-                CatalogItem<?, ?> catalogItem = findCatalogItemInReboundCatalog(bType, catalogItemId, contextSuchAsId);
-                if (catalogItem != null) {
-                    String transformedCatalogItemId = catalogItem.getCatalogItemId();
+                String transformedCatalogItemId = null;
+                
+                Maybe<RegisteredType> registeredType = managementContext.getTypeRegistry().getMaybe(catalogItemId,
+                    // ignore bType; catalog item ID gives us the search path, but doesn't need to be of the requested type
+                    null );
+                if (registeredType.isPresent()) {
+                    transformedCatalogItemId = registeredType.get().getId();
+                } else {
+                    CatalogItem<?, ?> catalogItem = findCatalogItemInReboundCatalog(bType, catalogItemId, contextSuchAsId);
+                    if (catalogItem != null) {
+                        transformedCatalogItemId = catalogItem.getCatalogItemId();
+                    }
+                }
+                if (transformedCatalogItemId!=null) {
                     try {
                         BrooklynClassLoadingContextSequential loader =
                             new BrooklynClassLoadingContextSequential(managementContext);
@@ -1043,10 +1091,10 @@ public abstract class RebindIteration {
                         return new LoadedClass<T>(loader.loadClass(jType, bType), transformedCatalogItemId, reboundSearchPath);
                     } catch (Exception e) {
                         Exceptions.propagateIfFatal(e);
-                        LOG.warn("Unable to load "+jType+" using loader; will try reflections");
+                        LOG.warn("Unable to load class "+jType+" needed for "+catalogItemId+" for "+contextSuchAsId+", via "+transformedCatalogItemId+" loader (will try reflections)");
                     }
                 } else {
-                    LOG.warn("Unable to load catalog item "+catalogItemId+" for " + contextSuchAsId +
+                    LOG.warn("Unable to load catalog item "+catalogItemId+" ("+bType+") for " + contextSuchAsId +
                       " ("+bType.getSimpleName()+"); will try reflection");
                 }
             }
@@ -1055,12 +1103,12 @@ public abstract class RebindIteration {
                 return new LoadedClass<T>((Class<T>)loadClass(jType), catalogItemId, reboundSearchPath);
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
-                LOG.warn("Unable to load "+jType+" using reflections; will try standard context");
+                LOG.warn("Unable to load class "+jType+" needed for "+catalogItemId+" for "+contextSuchAsId+", via reflections (may try others, will throw if fails)");
             }
 
             if (catalogItemId != null) {
-                throw new IllegalStateException("Unable to load catalog item " + catalogItemId + " for " +
-                    contextSuchAsId + ", or load class from classpath");
+                throw new IllegalStateException("Unable to load "+jType+" for catalog item " + catalogItemId + " for " + contextSuchAsId);
+                
             } else if (BrooklynFeatureEnablement.isEnabled(FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND)) {
                 //Try loading from whichever catalog bundle succeeds.
                 BrooklynCatalog catalog = managementContext.getCatalog();

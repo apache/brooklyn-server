@@ -112,7 +112,9 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
                         return createBean(type, context);
                     } catch (Exception e) { throw Exceptions.propagate(e); }
                 }
-                
+                @Override protected Object visitUnresolved() { 
+                    throw new IllegalStateException(type+" is not yet resolved");
+                }
             }.visit(type.getKind()), type, context).get();
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);

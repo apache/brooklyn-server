@@ -39,6 +39,7 @@ import org.apache.brooklyn.api.location.LocationRegistry;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.policy.Policy;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
@@ -86,6 +87,10 @@ public class BrooklynRestResourceUtils {
         this.mgmt = mgmt;
     }
 
+    public BrooklynTypeRegistry getTypeRegistry() {
+        return mgmt.getTypeRegistry();
+    }
+    
     public BrooklynCatalog getCatalog() {
         return mgmt.getCatalog();
     }

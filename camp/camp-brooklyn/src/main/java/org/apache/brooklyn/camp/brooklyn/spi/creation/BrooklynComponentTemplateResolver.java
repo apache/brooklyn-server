@@ -160,18 +160,18 @@ public class BrooklynComponentTemplateResolver {
 
     public <T extends Entity> EntitySpec<T> resolveSpec(Set<String> encounteredRegisteredTypeSymbolicNames) {
         if (alreadyBuilt.getAndSet(true))
-            throw new IllegalStateException("Spec can only be used once: "+this);
+            throw new IllegalStateException("Spec resolver can only be used once: "+this);
 
         EntitySpec<?> spec = serviceSpecResolver.resolve(type, loader, encounteredRegisteredTypeSymbolicNames);
 
         if (spec == null) {
             // Try to provide some troubleshooting details
             final String msgDetails;
-            RegisteredType item = mgmt.getTypeRegistry().get(Strings.removeFromStart(type, "catalog:"));
+            RegisteredType item = mgmt.getTypeRegistry().get(Strings.removeAllFromStart(type, "catalog:", "brooklyn:"));
             String proto = Urls.getProtocol(type);
             if (item != null && encounteredRegisteredTypeSymbolicNames.contains(item.getSymbolicName())) {
                 msgDetails = "Cycle between catalog items detected, starting from " + type +
-                        ". Other catalog items being resolved up the stack are " + encounteredRegisteredTypeSymbolicNames +
+                        ". Other catalog items being resolved recursively up the stack are " + encounteredRegisteredTypeSymbolicNames +
                         ". Tried loading it as a Java class instead but failed.";
             } else if (proto != null) {
                 if (BrooklynCampConstants.YAML_URL_PROTOCOL_WHITELIST.contains(proto)) {

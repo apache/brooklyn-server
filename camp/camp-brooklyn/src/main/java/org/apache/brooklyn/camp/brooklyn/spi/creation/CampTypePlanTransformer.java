@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.core.typereg.AbstractFormatSpecificTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
@@ -47,6 +48,8 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
 
     @Override
     protected double scoreForNullFormat(Object planData, RegisteredType type, RegisteredTypeLoadingContext context) {
+        if (type!=null && type.getKind()!=RegisteredTypeKind.SPEC) return 0;
+        
         Maybe<Map<?,?>> plan = RegisteredTypes.getAsYamlMap(planData);
         if (plan.isAbsent()) return 0;
         if (plan.get().containsKey("services")) return 0.8;
@@ -60,6 +63,8 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
 
     @Override
     protected double scoreForNonmatchingNonnullFormat(String planFormat, Object planData, RegisteredType type, RegisteredTypeLoadingContext context) {
+        if (type!=null && type.getKind()!=RegisteredTypeKind.SPEC) return 0;
+
         if (FORMATS.contains(planFormat.toLowerCase())) return 0.9;
         return 0;
     }
@@ -73,7 +78,7 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
     @Override
     protected Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         // beans not supported by this?
-        return null;
+        throw new IllegalStateException("beans not supported here");
     }
 
     @Override

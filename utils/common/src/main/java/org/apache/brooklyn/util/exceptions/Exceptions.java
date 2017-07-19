@@ -24,7 +24,6 @@ import static com.google.common.base.Predicates.instanceOf;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -131,17 +130,32 @@ public class Exceptions {
     }
 
     /**
+     * Convenience for {@link #propagateAnnotateIfWrapping(String, Throwable)}.
+     * 
+     * @deprecated since 0.12.0 behaviour will change (default should be to always wrap and annotate);
+     * for now users should review and switch to either 
+     * {@link #propagateAnnotated(String, Throwable)} or {@link #propagateAnnotateIfWrapping(String, Throwable)} as appropriate.
+     */
+    @Deprecated
+    public static RuntimeException propagate(String msg, Throwable throwable) {
+        return propagate(msg, throwable, false);
+    }
+
+    /**
      * See {@link #propagate(Throwable)}.
      * <p>
      * The given message is included <b>only</b> if the given {@link Throwable}
      * needs to be wrapped; otherwise the message is not used.
      * To always include the message, use {@link #propagateAnnotated(String, Throwable)}.
      */
-    public static RuntimeException propagate(String msg, Throwable throwable) {
+    public static RuntimeException propagateAnnotateIfWrapping(String msg, Throwable throwable) {
         return propagate(msg, throwable, false);
     }
 
-    /** As {@link #propagate(String, Throwable)} but always re-wraps including the given message. */
+    /** As {@link #propagate(String, Throwable)} but unlike earlier deprecated version
+     * this always re-wraps including the given message, until semantics of that method change to match this. 
+     * See {@link #propagateAnnotateIfWrapping(String, Throwable)} if the message 
+     * should be omitted and the given throwable preserved if it can already be propagated. */
     public static RuntimeException propagateAnnotated(String msg, Throwable throwable) {
         return propagate(msg, throwable, true);
     }
@@ -448,30 +462,30 @@ public class Exceptions {
         public Throwable getOriginal() { return cause; }
     }
 
-    public static RuntimeException propagate(Collection<? extends Throwable> exceptions) {
+    public static RuntimeException propagate(Iterable<? extends Throwable> exceptions) {
         throw propagate(create(exceptions));
     }
-    public static RuntimeException propagate(String prefix, Collection<? extends Throwable> exceptions) {
+    public static RuntimeException propagate(String prefix, Iterable<? extends Throwable> exceptions) {
         throw propagate(create(prefix, exceptions));
     }
 
     /** creates the given exception, but without propagating it, for use when caller will be wrapping */
-    public static Throwable create(Collection<? extends Throwable> exceptions) {
+    public static Throwable create(Iterable<? extends Throwable> exceptions) {
         return create(null, exceptions);
     }
     /** creates the given exception, but without propagating it, for use when caller will be wrapping */
-    public static RuntimeException create(@Nullable String prefix, Collection<? extends Throwable> exceptions) {
-        if (exceptions.size()==1) {
+    public static RuntimeException create(@Nullable String prefix, Iterable<? extends Throwable> exceptions) {
+        if (Iterables.size(exceptions)==1) {
             Throwable e = exceptions.iterator().next();
             if (Strings.isBlank(prefix)) return new PropagatedRuntimeException(e);
             return new PropagatedRuntimeException(prefix + ": " + Exceptions.collapseText(e), e);
         }
-        if (exceptions.isEmpty()) {
+        if (Iterables.isEmpty(exceptions)) {
             if (Strings.isBlank(prefix)) return new CompoundRuntimeException("(empty compound exception)", exceptions);
             return new CompoundRuntimeException(prefix, exceptions);
         }
-        if (Strings.isBlank(prefix)) return new CompoundRuntimeException(exceptions.size()+" errors, including: " + Exceptions.collapseText(exceptions.iterator().next()), exceptions);
-        return new CompoundRuntimeException(prefix+"; "+exceptions.size()+" errors including: " + Exceptions.collapseText(exceptions.iterator().next()), exceptions);
+        if (Strings.isBlank(prefix)) return new CompoundRuntimeException(Iterables.size(exceptions)+" errors, including: " + Exceptions.collapseText(exceptions.iterator().next()), exceptions);
+        return new CompoundRuntimeException(prefix+"; "+Iterables.size(exceptions)+" errors including: " + Exceptions.collapseText(exceptions.iterator().next()), exceptions);
     }
 
     /** Some throwables require a prefix for the message to make sense,

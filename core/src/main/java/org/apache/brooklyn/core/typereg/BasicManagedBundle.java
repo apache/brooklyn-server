@@ -31,7 +31,6 @@ import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
-import org.osgi.framework.Version;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.MoreObjects;
@@ -42,6 +41,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
 
     private String symbolicName;
     private String version;
+    private String checksum;
     private String url;
     private transient File localFileWhenJustUploaded;
 
@@ -55,8 +55,6 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
             Preconditions.checkNotNull(name, "Either a URL or both name and version are required");
             Preconditions.checkNotNull(version, "Either a URL or both name and version are required");
         }
-        Version.parseVersion(version);
-        
         this.symbolicName = name;
         this.version = version;
         this.url = url;
@@ -83,7 +81,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
 
     @Override
     public String getOsgiVersionString() {
-        return version==null ? version : BrooklynVersionSyntax.toValidOsgiVersion(version);
+        return version==null ? null : BrooklynVersionSyntax.toValidOsgiVersion(version);
     }
 
     public void setVersion(String version) {
@@ -131,7 +129,8 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(symbolicName, version, url);
+        // checksum deliberately omitted here to match with OsgiBundleWithUrl
+        return Objects.hashCode(symbolicName, getOsgiVersionString(), url);
     }
 
     @Override
@@ -143,6 +142,12 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         if (!Objects.equal(symbolicName, other.getSymbolicName())) return false;
         if (!Objects.equal(getOsgiVersionString(), other.getOsgiVersionString())) return false;
         if (!Objects.equal(url, other.getUrl())) return false;
+        if (other instanceof ManagedBundle) {
+            // checksum compared if available, but not required;
+            // this makes equality with other OsgiBundleWithUrl items symmetric,
+            // but for two MB's we look additionally at checksum
+            if (!Objects.equal(checksum, ((ManagedBundle)other).getChecksum())) return false;
+        }
         return true;
     }
 
@@ -181,6 +186,14 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     @Override
     public void setDisplayName(String newName) {
         throw new UnsupportedOperationException();
+    }
+    
+    @Override
+    public String getChecksum() {
+        return checksum;
+    }
+    public void setChecksum(String md5Checksum) {
+        this.checksum = md5Checksum;
     }
 
     @Override

@@ -104,7 +104,7 @@ public abstract class CloudExplorerSupport implements Callable<Void> {
             locs.add(loc);
         } else if (allLocations) {
             // Find all named locations that point at different target clouds
-            Map<String, LocationDefinition> definedLocations = managementContext.getLocationRegistry().getDefinedLocations();
+            Map<String, LocationDefinition> definedLocations = managementContext.getLocationRegistry().getDefinedLocations(true);
             for (LocationDefinition locationDef : definedLocations.values()) {
 
                 Location loc = managementContext.getLocationManager().createLocation(

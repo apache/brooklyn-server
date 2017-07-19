@@ -106,23 +106,23 @@ public class LocationManagementTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testManagedLocationsNamedCreateAndCleanup() {
-        Asserts.assertThat(mgmt.getLocationRegistry().getDefinedLocations().keySet(), CollectionFunctionals.sizeEquals(0));
+        Asserts.assertThat(mgmt.getLocationRegistry().getDefinedLocations(true).keySet(), CollectionFunctionals.sizeEquals(0));
         Asserts.assertThat(mgmt.getCatalog().getCatalogItems(), CollectionFunctionals.sizeEquals(0));
         Asserts.assertThat(locationManager.getLocations(), CollectionFunctionals.sizeEquals(0));
         
-        mgmt.getLocationRegistry().updateDefinedLocation( new BasicLocationDefinition("lh1", "localhost", null) );
+        mgmt.getLocationRegistry().updateDefinedLocationNonPersisted( new BasicLocationDefinition("lh1", "localhost", null) );
         
-        Asserts.assertThat(mgmt.getLocationRegistry().getDefinedLocations().keySet(), CollectionFunctionals.sizeEquals(1));
+        Asserts.assertThat(mgmt.getLocationRegistry().getDefinedLocations(true).keySet(), CollectionFunctionals.sizeEquals(1));
         Asserts.assertThat(locationManager.getLocations(), CollectionFunctionals.sizeEquals(0));
         // currently such defined locations do NOT appear in catalog -- see CatalogYamlLocationTest
         Asserts.assertThat(mgmt.getCatalog().getCatalogItems(), CollectionFunctionals.sizeEquals(0));
         
         Location loc = mgmt.getLocationRegistry().getLocationManaged("lh1");
-        Asserts.assertThat(mgmt.getLocationRegistry().getDefinedLocations().keySet(), CollectionFunctionals.sizeEquals(1));
+        Asserts.assertThat(mgmt.getLocationRegistry().getDefinedLocations(true).keySet(), CollectionFunctionals.sizeEquals(1));
         Asserts.assertThat(locationManager.getLocations(), CollectionFunctionals.sizeEquals(1));
         
         mgmt.getLocationManager().unmanage(loc);
-        Asserts.assertThat(mgmt.getLocationRegistry().getDefinedLocations().keySet(), CollectionFunctionals.sizeEquals(1));
+        Asserts.assertThat(mgmt.getLocationRegistry().getDefinedLocations(true).keySet(), CollectionFunctionals.sizeEquals(1));
         Asserts.assertThat(locationManager.getLocations(), CollectionFunctionals.sizeEquals(0));
     }
 

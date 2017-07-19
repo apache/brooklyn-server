@@ -80,18 +80,9 @@ public class SpecParameterParsingOsgiTest extends AbstractYamlTest {
     public void testOsgiClassScanned() {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_V2_PATH);
-
-        addCatalogItems("brooklyn.catalog:",
-            "    items:",
-            "    - scanJavaAnnotations: true",
-            "      version: 2.0.test_java",
-            "      libraries:",
-            "      - classpath://" + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH,
-            "      - classpath://" + OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_V2_PATH);
-
+        addCatalogItems(CatalogScanOsgiTest.bomForLegacySiblingLibraries());
+        
         RegisteredType item = mgmt().getTypeRegistry().get(OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
-        assertEquals(item.getVersion(), "2.0.test_java");
-        assertEquals(item.getLibraries().size(), 2);
         AbstractBrooklynObjectSpec<?,?> spec = createSpec(item);
         List<SpecParameter<?>> inputs = spec.getParameters();
         if (inputs.isEmpty()) Assert.fail("no inputs (if you're in the IDE, mvn clean install may need to be run to rebuild osgi test JARs)");

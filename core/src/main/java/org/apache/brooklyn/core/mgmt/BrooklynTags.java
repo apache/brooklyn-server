@@ -39,6 +39,9 @@ public class BrooklynTags {
     public static final String NOTES_KIND = "notes";
     public static final String OWNER_ENTITY_ID = "owner_entity_id";
     public static final String ICON_URL = "icon_url";
+    /** tag on a registered type indicating that an item is intended to be used as a template,
+     * and does not have to resolve */
+    public static final Object CATALOG_TEMPLATE = "catalog_template";
 
     public static class NamedStringTag implements Serializable {
         private static final long serialVersionUID = 7932098757009051348L;

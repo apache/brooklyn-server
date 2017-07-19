@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
@@ -40,12 +41,12 @@ import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.CatalogBundleLoader;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
+import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -72,8 +73,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -103,6 +102,7 @@ public class OsgiManager {
     private Set<Bundle> bundlesAtStartup;
     private File osgiCacheDir;
     final ManagedBundlesRecord managedBundlesRecord = new ManagedBundlesRecord();
+    final Map<VersionedName,ManagedBundle> wrapperBundles = MutableMap.of();
     
     static class ManagedBundlesRecord {
         private Map<String, ManagedBundle> managedBundlesByUid = MutableMap.of();
@@ -251,10 +251,12 @@ public class OsgiManager {
         framework = null;
     }
 
+    /** Map of bundles by UID */
     public Map<String, ManagedBundle> getManagedBundles() {
         return managedBundlesRecord.getManagedBundles();
     }
 
+    /** Gets UID given a name, or null */
     public String getManagedBundleId(VersionedName vn) {
         return managedBundlesRecord.getManagedBundleId(vn);
     }
@@ -274,9 +276,10 @@ public class OsgiManager {
     }
 
     /** See {@link OsgiArchiveInstaller#install()}, but deferring the start and catalog load */
-    public ReferenceWithError<OsgiBundleInstallationResult> installDeferredStart(@Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream zipIn) {
+    public ReferenceWithError<OsgiBundleInstallationResult> installDeferredStart(@Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream zipIn, boolean validateTypes) {
         OsgiArchiveInstaller installer = new OsgiArchiveInstaller(this, knownBundleMetadata, zipIn);
         installer.setDeferredStart(true);
+        installer.setValidateTypes(validateTypes);
         
         return installer.install();
     }
@@ -285,6 +288,8 @@ public class OsgiManager {
     @Beta
     public ReferenceWithError<OsgiBundleInstallationResult> install(@Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream zipIn,
             boolean start, boolean loadCatalogBom, boolean forceUpdateOfNonSnapshots) {
+        
+        log.debug("Installing bundle from stream - known details: "+knownBundleMetadata);
         
         OsgiArchiveInstaller installer = new OsgiArchiveInstaller(this, knownBundleMetadata, zipIn);
         installer.setStart(start);
@@ -313,6 +318,7 @@ public class OsgiManager {
             }
             managedBundlesRecord.managedBundlesUidByVersionedName.remove(bundleMetadata.getVersionedName());
             managedBundlesRecord.managedBundlesUidByUrl.remove(bundleMetadata.getUrl());
+            removeInstalledWrapperBundle(bundleMetadata);
         }
         mgmt.getRebindManager().getChangeListener().onUnmanaged(bundleMetadata);
 
@@ -333,19 +339,15 @@ public class OsgiManager {
     @Beta
     public void uninstallCatalogItemsFromBundle(VersionedName bundle) {
         List<RegisteredType> thingsFromHere = ImmutableList.copyOf(getTypesFromBundle( bundle ));
+        log.debug("Uninstalling items from bundle "+bundle+": "+thingsFromHere);
         for (RegisteredType t: thingsFromHere) {
             mgmt.getCatalog().deleteCatalogItem(t.getSymbolicName(), t.getVersion());
         }
     }
 
-    protected Iterable<RegisteredType> getTypesFromBundle(final VersionedName vn) {
-        final String bundleId = vn.toString();
-        return mgmt.getTypeRegistry().getMatching(new Predicate<RegisteredType>() {
-            @Override
-            public boolean apply(RegisteredType input) {
-                return bundleId.equals(input.getContainingBundle());
-            }
-        });
+    @Beta
+    public Iterable<RegisteredType> getTypesFromBundle(final VersionedName vn) {
+        return mgmt.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(vn));
     }
     
     /** @deprecated since 0.12.0 use {@link #install(ManagedBundle, InputStream, boolean, boolean)} */
@@ -367,38 +369,32 @@ public class OsgiManager {
         }
     }
 
+    // since 0.12.0 no longer returns items; it installs non-persisted RegisteredTypes to the type registry instead 
     @Beta
-    // TODO this is designed to work if the FEATURE_LOAD_BUNDLE_CATALOG_BOM is disabled, the default, but unintuitive here
-    // it probably works even if that is true, but we should consider what to do;
-    // possibly remove that other capability, so that bundles with BOMs _have_ to be installed via this method.
-    // (load order gets confusing with auto-scanning...)
-    public List<? extends CatalogItem<?,?>> loadCatalogBom(Bundle bundle) {
-        return MutableList.copyOf(loadCatalogBom(mgmt, bundle));
+    public void loadCatalogBom(Bundle bundle, boolean force, boolean validate) {
+        loadCatalogBomInternal(mgmt, bundle, force, validate);
     }
     
-    private static Iterable<? extends CatalogItem<?, ?>> loadCatalogBom(ManagementContext mgmt, Bundle bundle) {
+    private static Iterable<? extends CatalogItem<?, ?>> loadCatalogBomInternal(ManagementContext mgmt, Bundle bundle, boolean force, boolean validate) {
         Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
-        if (!BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM)) {
-            // if the above feature is not enabled, let's do it manually (as a contract of this method)
-            try {
-                // TODO improve on this - it ignores the configuration of whitelists, see CatalogBomScanner.
-                // One way would be to add the CatalogBomScanner to the new Scratchpad area, then retrieving the singleton
-                // here to get back the predicate from it.
-                final Predicate<Bundle> applicationsPermitted = Predicates.<Bundle>alwaysTrue();
 
-                catalogItems = new CatalogBundleLoader(applicationsPermitted, mgmt).scanForCatalog(bundle);
-            } catch (RuntimeException ex) {
-                // TODO confirm -- as of May 2017 we no longer uninstall the bundle if install of catalog items fails;
-                // caller needs to upgrade, or uninstall then reinstall
-                // (this uninstall wouldn't have unmanaged it in brooklyn in any case)
+        try {
+            CatalogBundleLoader cl = new CatalogBundleLoader(mgmt);
+            cl.scanForCatalog(bundle, force, validate);
+            catalogItems = null;
+            
+        } catch (RuntimeException ex) {
+            // TODO confirm -- as of May 2017 we no longer uninstall the bundle if install of catalog items fails;
+            // caller needs to upgrade, or uninstall then reinstall
+            // (this uninstall wouldn't have unmanaged it in brooklyn in any case)
 //                try {
 //                    bundle.uninstall();
 //                } catch (BundleException e) {
 //                    log.error("Cannot uninstall bundle " + bundle.getSymbolicName() + ":" + bundle.getVersion()+" (after error installing catalog items)", e);
 //                }
-                throw new IllegalArgumentException("Error installing catalog items", ex);
-            }
+            throw new IllegalArgumentException("Error installing catalog items", ex);
         }
+            
         return catalogItems;
     }
     
@@ -597,4 +593,22 @@ public class OsgiManager {
     public Framework getFramework() {
         return framework;
     }
+
+    // track wrapper bundles lifecvcle specially, to avoid removing it while it's installing
+    public void addInstalledWrapperBundle(ManagedBundle mb) {
+        synchronized (wrapperBundles) {
+            wrapperBundles.put(mb.getVersionedName(), mb);
+        }
+    }
+    public void removeInstalledWrapperBundle(ManagedBundle mb) {
+        synchronized (wrapperBundles) {
+            wrapperBundles.remove(mb.getVersionedName());
+        }
+    }
+    public Collection<ManagedBundle> getInstalledWrapperBundles() {
+        synchronized (wrapperBundles) {
+            return MutableSet.copyOf(wrapperBundles.values());
+        }
+    }
+
 }

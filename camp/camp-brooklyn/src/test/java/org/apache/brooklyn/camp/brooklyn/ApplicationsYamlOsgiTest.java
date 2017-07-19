@@ -16,42 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.api.mgmt.rebind.mementos;
+package org.apache.brooklyn.camp.brooklyn;
 
-import java.util.Collection;
-import java.util.List;
+import org.testng.annotations.Test;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.api.objs.SpecParameter;
-
-public interface CatalogItemMemento extends Memento {
-
-    String getDescription();
-
-    String getSymbolicName();
-
-    String getContainingBundle();
+@Test
+public class ApplicationsYamlOsgiTest extends ApplicationsYamlTest {
     
-    String getIconUrl();
-
-    String getVersion();
-
-    String getPlanYaml();
-
-    String getJavaType();
-
-    List<SpecParameter<?>> getParameters();
-
-    Collection<CatalogItem.CatalogBundle> getLibraries();
-
-    CatalogItem.CatalogItemType getCatalogItemType();
-
-    Class<?> getCatalogItemJavaType();
-
-    Class<?> getSpecType();
-
-    boolean isDeprecated();
-
-    boolean isDisabled();
+    @Override
+    protected boolean disableOsgi() {
+        return false;
+    }
     
 }

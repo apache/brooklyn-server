@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.typereg;
 
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 
 import com.google.common.base.MoreObjects;
@@ -78,6 +79,12 @@ public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl 
         return version==null ? version : BrooklynVersionSyntax.toValidOsgiVersion(version);
     }
 
+    @Override
+    public VersionedName getVersionedName() {
+        if (!isNameResolved()) return null;
+        return new VersionedName(getSymbolicName(), getSuppliedVersionString());
+    }
+    
     @Override
     public String getUrl() {
         return url;

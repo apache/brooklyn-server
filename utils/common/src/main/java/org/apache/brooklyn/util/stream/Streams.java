@@ -30,6 +30,9 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
@@ -39,6 +42,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
@@ -215,4 +219,21 @@ public class Streams {
         return false;
     }
 
+    public static String getMd5Checksum(InputStream in) {
+        MessageDigest md;
+        try {
+            md = MessageDigest.getInstance("MD5");
+        } catch (NoSuchAlgorithmException e) {
+            throw Exceptions.propagate(e);
+        }
+        DigestInputStream dis = new DigestInputStream(in, md);
+        readFullyAndClose(dis);
+        byte[] digest = md.digest();
+        StringBuilder result = new StringBuilder();
+        for (byte b: digest) {
+            result.append(Strings.padStart(Integer.toHexString((256+b)%256), 2, '0'));
+        }
+        return result.toString().toUpperCase();
+    }
+    
 }

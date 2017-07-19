@@ -29,12 +29,10 @@ import java.util.zip.ZipEntry;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
-import org.apache.brooklyn.core.catalog.internal.CatalogBomScanner;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
@@ -53,8 +51,6 @@ import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
-import org.osgi.framework.BundleContext;
-import org.osgi.framework.ServiceReference;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
@@ -80,7 +76,6 @@ public class CatalogMakeOsgiBundleTest extends AbstractYamlTest {
     @BeforeClass(alwaysRun = true)
     public void setUp() throws Exception {
         super.setUp();
-        manuallyEnableBomScanner(mgmt());
         bm = new BundleMaker( ((LocalManagementContext)mgmt()).getOsgiManager().get().getFramework(), ResourceUtils.create(this) );
     }
     
@@ -100,21 +95,6 @@ public class CatalogMakeOsgiBundleTest extends AbstractYamlTest {
     @AfterClass(alwaysRun = true)
     public void tearDown() throws Exception {
         super.tearDown();
-    }
-    
-    public static void manuallyEnableBomScanner(ManagementContext mgmt) {
-        BrooklynFeatureEnablement.enable(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM);
-        
-        CatalogBomScanner scanner = new CatalogBomScanner();
-        BundleContext context = ((LocalManagementContext)mgmt).getOsgiManager().get().getFramework().getBundleContext();
-        
-        context.registerService(ManagementContext.class.getName(), mgmt, null);
-        ServiceReference<ManagementContext> ref = context.getServiceReference(ManagementContext.class);
-        try {
-            scanner.bind(ref);
-        } catch (Exception e) {
-            throw Exceptions.propagate(e);
-        }
     }
     
     @AfterMethod(alwaysRun=true)
