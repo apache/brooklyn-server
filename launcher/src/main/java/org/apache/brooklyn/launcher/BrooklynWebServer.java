@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.net.BindException;
 import java.net.InetAddress;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.security.KeyPair;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -294,10 +295,12 @@ public class BrooklynWebServer {
         return actualPort;
     }
 
-    /** interface/address where this server is listening;
+    /** interface/address where this server is or will be listening;
      * if bound to 0.0.0.0 (all NICs, e.g. because security is set) this will return one NIC where this is bound */
     public InetAddress getAddress() {
-        return actualAddress;
+        if (actualAddress!=null) return actualAddress;
+        if (!shouldBindToAll()) return bindAddress;
+        return BrooklynNetworkUtils.getLocalhostInetAddress();
     }
     
     /** URL for accessing this web server (root context) */
@@ -421,8 +424,8 @@ public class BrooklynWebServer {
         connector.setPort(actualPort);
         server.setConnectors(new Connector[]{connector});
 
-        if (bindAddress == null || bindAddress.equals(InetAddress.getByAddress(new byte[] { 0, 0, 0, 0 }))) {
-            actualAddress = BrooklynNetworkUtils.getLocalhostInetAddress();
+        if (shouldBindToAll()) {
+            actualAddress = null;
         } else {
             actualAddress = bindAddress;
         }
@@ -466,6 +469,15 @@ public class BrooklynWebServer {
         }
 
         log.info("Started Brooklyn console at "+getRootUrl()+", running " + rootWar + (allWars!=null && !allWars.isEmpty() ? " and " + wars.values() : ""));
+    }
+
+    private boolean shouldBindToAll() {
+        try {
+            return bindAddress == null || bindAddress.equals(InetAddress.getByAddress(new byte[] { 0, 0, 0, 0 }));
+        } catch (UnknownHostException e) {
+            // shouldn't happen
+            throw Exceptions.propagate(e);
+        }
     }
 
     private WebAppContext deployRestApi(WebAppContext context) {

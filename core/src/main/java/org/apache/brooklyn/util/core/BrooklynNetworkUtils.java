@@ -39,9 +39,14 @@ public class BrooklynNetworkUtils {
         return LocalhostExternalIpLoader.getLocalhostIpQuicklyOrDefault();
     }
 
-    /** returns a IP address for localhost paying attention to a system property to prevent lookup in some cases */
+    /** returns an IP address for localhost,
+     * paying attention to system property 
+     * {@link BrooklynServiceAttributes#LOCALHOST_IP_ADDRESS}
+     * if set to prevent default selection when needed,
+     * otherwise finding the first bindable/reachable NIC from a system lookup which usually
+     * prefers non-loopback devices (but use the system property if if needed) */
     public static InetAddress getLocalhostInetAddress() {
         return TypeCoercions.coerce(JavaGroovyEquivalents.elvis(BrooklynServiceAttributes.LOCALHOST_IP_ADDRESS.getValue(),
-                Networking.getReachableLocalHost()), InetAddress.class);
+                Networking.getLocalHost(true, false, true, 500)), InetAddress.class);
     }
 }
