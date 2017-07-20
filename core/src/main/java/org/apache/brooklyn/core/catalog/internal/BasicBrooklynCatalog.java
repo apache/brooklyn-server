@@ -1364,7 +1364,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             log.debug("Wrapping supplied BOM as "+vn);
             Manifest mf = new Manifest();
             mf.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, vn.getSymbolicName());
-            mf.getMainAttributes().putValue(Constants.BUNDLE_VERSION, vn.getOsgiVersionString() );
+            mf.getMainAttributes().putValue(Constants.BUNDLE_VERSION, vn.getOsgiVersionString());
+            mf.getMainAttributes().putValue(Constants.BUNDLE_MANIFESTVERSION, "2");
             mf.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), OSGI_MANIFEST_VERSION_VALUE);
             mf.getMainAttributes().putValue(BROOKLYN_WRAPPED_BOM_BUNDLE, Boolean.TRUE.toString());
             
