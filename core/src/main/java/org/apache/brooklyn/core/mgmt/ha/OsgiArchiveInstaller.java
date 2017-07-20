@@ -227,10 +227,10 @@ class OsgiArchiveInstaller {
             manifestNeedsUpdating = true;
         }
         if (!matchSetOrFail("MANIFEST.MF in archive", discoveredManifest.getMainAttributes().getValue(Constants.BUNDLE_SYMBOLICNAME),
-                discoveredManifest.getMainAttributes().getValue(Constants.BUNDLE_VERSION) )) {
+                discoveredManifest.getMainAttributes().getValue(Constants.BUNDLE_VERSION))) {
             manifestNeedsUpdating = true;                
             discoveredManifest.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, inferredMetadata.getSymbolicName());
-            discoveredManifest.getMainAttributes().putValue(Constants.BUNDLE_VERSION, inferredMetadata.getOsgiVersionString() );
+            discoveredManifest.getMainAttributes().putValue(Constants.BUNDLE_VERSION, inferredMetadata.getOsgiVersionString());
         }
         if (Strings.isBlank(inferredMetadata.getSymbolicName())) {
             throw new IllegalArgumentException("Missing bundle symbolic name in BOM or MANIFEST");
