@@ -138,7 +138,7 @@ public class DefaultAzureArmNetworkCreator {
 
         //Wait until subnet is created
         CountdownTimer timeout = CountdownTimer.newInstanceStarted(Duration.minutes(new Integer(20)));
-        while (PROVISIONING_STATE_UPDATING.equals(createdSubnet.properties().provisioningState())) {
+        while (createdSubnet == null || createdSubnet.properties()  == null || PROVISIONING_STATE_UPDATING.equals(createdSubnet.properties().provisioningState())) {
             if (timeout.isExpired()) {
                 throw new IllegalStateException("Creating subnet " + subnetName + " stuck in the updating state, aborting.");
             }
