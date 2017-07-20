@@ -368,8 +368,12 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
         if (Objects.equals(oldType.getContainingBundle(), type.getContainingBundle())) {
             // if named bundles equal then contents must be the same (due to bundle checksum); bail out early
             if (!oldType.getPlan().equals(type.getPlan())) {
-                // shouldn't come here, but check anyway (or maybe if item added twice in the same catalog?)
-                throw new IllegalStateException("Cannot add "+type+" to catalog; different plan in "+oldType+" from same bundle is already present");
+                String msg = "Cannot add "+type+" to catalog; different plan in "+oldType+" from same bundle "+
+                    type.getContainingBundle()+" is already present";
+                log.debug(msg+"\n"+
+                    "Plan being added is:\n"+type.getPlan()+"\n"+
+                    "Plan already present is:\n"+oldType.getPlan() );
+                throw new IllegalStateException(msg);
             }
             if (oldType.getKind()!=RegisteredTypeKind.UNRESOLVED && type.getKind()!=RegisteredTypeKind.UNRESOLVED &&
                     !Objects.equals(oldType.getKind(), type.getKind())) {
@@ -384,8 +388,8 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
             String msg = "Cannot add "+type+" in "+type.getContainingBundle()+" to catalog; different plan in "+oldType+" from bundle "+
                 oldType.getContainingBundle()+" is already present (throwing)";
             log.debug(msg+"\n"+
-                "Plan from "+type.getContainingBundle()+" is:\n"+type.getPlan()+"\n"+
-                "Plan from "+oldType.getContainingBundle()+" is:\n"+oldType.getPlan() );
+                "Plan being added from "+type.getContainingBundle()+" is:\n"+type.getPlan()+"\n"+
+                "Plan already present from "+oldType.getContainingBundle()+" is:\n"+oldType.getPlan() );
             throw new IllegalStateException(msg);
         }
         if (oldType.getKind()!=RegisteredTypeKind.UNRESOLVED && type.getKind()!=RegisteredTypeKind.UNRESOLVED &&
