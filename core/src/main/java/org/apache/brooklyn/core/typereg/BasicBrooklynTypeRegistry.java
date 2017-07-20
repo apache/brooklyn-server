@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 
@@ -29,7 +28,6 @@ import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
-import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -37,9 +35,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
-import org.apache.brooklyn.core.catalog.internal.CatalogItemDtoAbstract;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
-import org.apache.brooklyn.core.location.BasicLocationRegistry;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.test.Asserts;
@@ -385,8 +381,12 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
         // different bundles, either anonymous or same item in two named bundles
         if (!oldType.getPlan().equals(type.getPlan())) {
             // if plan is different, fail
-            throw new IllegalStateException("Cannot add "+type+" in "+type.getContainingBundle()+" to catalog; different plan in "+oldType+" from bundle "+
-                oldType.getContainingBundle()+" is already present");
+            String msg = "Cannot add "+type+" in "+type.getContainingBundle()+" to catalog; different plan in "+oldType+" from bundle "+
+                oldType.getContainingBundle()+" is already present (throwing)";
+            log.debug(msg+"\n"+
+                "Plan from "+type.getContainingBundle()+" is:\n"+type.getPlan()+"\n"+
+                "Plan from "+oldType.getContainingBundle()+" is:\n"+oldType.getPlan() );
+            throw new IllegalStateException(msg);
         }
         if (oldType.getKind()!=RegisteredTypeKind.UNRESOLVED && type.getKind()!=RegisteredTypeKind.UNRESOLVED &&
                 !Objects.equals(oldType.getKind(), type.getKind())) {
