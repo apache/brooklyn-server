@@ -907,12 +907,16 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 sourcePlanYaml = planInterpreter.itemYaml;
             }
             
+            BasicTypeImplementationPlan plan = new BasicTypeImplementationPlan(format, sourcePlanYaml);
             BasicRegisteredType type = (BasicRegisteredType) RegisteredTypes.newInstance(
                 RegisteredTypeKind.UNRESOLVED,
-                symbolicName, version, new BasicTypeImplementationPlan(format, sourcePlanYaml),
+                symbolicName, version, plan,
                 superTypes, aliases, tags, containingBundle==null ? null : containingBundle.getVersionedName().toString(), 
                 MutableList.<OsgiBundleWithUrl>copyOf(libraryBundles), 
                 displayName, description, catalogIconUrl, catalogDeprecated, catalogDisabled);
+            RegisteredTypes.notePlanEquivalentToThis(type, plan);
+            // record original source in case it was changed
+            RegisteredTypes.notePlanEquivalentToThis(type, new BasicTypeImplementationPlan(format, sourceYaml));
             
             ((BasicBrooklynTypeRegistry) mgmt.getTypeRegistry()).addToLocalUnpersistedTypeRegistry(type, force);
         
@@ -1581,7 +1585,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 }
                 
                 if (!Objects.equal(guesser.getPlanYaml(), yaml)) {
-                    RegisteredTypes.changePlan(resultT, 
+                    RegisteredTypes.changePlanNotingEquivalent(resultT, 
                         new BasicTypeImplementationPlan(null /* CampTypePlanTransformer.FORMAT */, guesser.getPlanYaml()));
                     changedSomething = true;
                 }
