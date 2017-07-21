@@ -125,7 +125,7 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
     private Duration haHeartbeatTimeoutOverride = null;
     private Duration haHeartbeatPeriodOverride = null;
     
-    private boolean started;
+    protected boolean started;
     
     private BrooklynProperties.Factory.Builder brooklynPropertiesBuilder;
 
