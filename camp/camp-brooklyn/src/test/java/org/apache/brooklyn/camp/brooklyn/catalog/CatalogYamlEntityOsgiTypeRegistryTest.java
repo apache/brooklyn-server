@@ -20,6 +20,7 @@ package org.apache.brooklyn.camp.brooklyn.catalog;
 
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
+import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
@@ -55,12 +56,44 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
         Asserts.assertEquals(item, Iterables.getOnlyElement(itemsInstalled), "Wrong item; installed: "+itemsInstalled);
     }
 
-    @Test // test broken in super works here
-    // TODO" comment at https://issues.apache.org/jira/browse/BROOKLYN-343
+    @Test // test disabled as "broken" in super but works here
     public void testSameCatalogReferences() {
         super.testSameCatalogReferences();
     }
+
+    @Test
+    public void testUpdatingItemAllowedIfEquivalentUnderRewrite() {
+        String symbolicName = "my.catalog.app.id.duplicate";
+        // forward reference supported here (but not in super)
+        // however the plan is rewritten meaning a second install requires special comparison
+        // (RegisteredTypes "equivalent plan" methods)
+        addForwardReferencePlan(symbolicName);
+
+        // delete one but not the other to prevent resolution and thus rewrite until later validation phase,
+        // thus initial addition will compare unmodified plan from here against modified plan added above;
+        // replacement will then succeed only if we've correctly recorded equivalence tags 
+        deleteCatalogEntity("forward-referenced-entity");
         
+        addForwardReferencePlan(symbolicName);
+    }
+
+    protected void addForwardReferencePlan(String symbolicName) {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  id: " + symbolicName,
+            "  version: " + TEST_VERSION,
+            "  itemType: entity",
+            "  items:",
+            "  - id: " + symbolicName,
+            "    itemType: entity",
+            "    item:",
+            "      type: forward-referenced-entity",
+            "  - id: " + "forward-referenced-entity",
+            "    itemType: entity",
+            "    item:",
+            "      type: " + TestEntity.class.getName());
+    }
+    
     // also runs many other tests from super, here using the osgi/type-registry appraoch
     
 }

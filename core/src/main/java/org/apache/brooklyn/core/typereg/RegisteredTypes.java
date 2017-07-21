@@ -53,6 +53,7 @@ import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer.JavaCla
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.Maybe.Absent;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.VersionComparator;
@@ -62,6 +63,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ComparisonChain;
@@ -599,11 +601,57 @@ public class RegisteredTypes {
         return item.getIconUrl();
     }
 
+    /** @deprecated since 0.12.0 see {@link #changePlanNotingEquivalent(RegisteredType, TypeImplementationPlan)} */
+    @Deprecated
     public static RegisteredType changePlan(RegisteredType type, TypeImplementationPlan plan) {
         ((BasicRegisteredType)type).implementationPlan = plan;
         return type;
     }
+    
+    /** Changes the plan set on the given type, returning it,
+     * and also recording that comparisons checking {@link #arePlansEquivalent(RegisteredType, RegisteredType)}
+     * should consider the two plans equivalent.
+     */
+    @Beta  // would prefer not to need this, but currently it is needed due to how resolver rewrites plan
+           // and we then check plan equality when considering a re-install, else we spuriously fail on
+           // identical re-installs (eg with dns-etc-hosts-generator)
+    public static RegisteredType changePlanNotingEquivalent(RegisteredType type, TypeImplementationPlan plan) {
+        RegisteredTypes.notePlanEquivalentToThis(type, type.getPlan());
+        RegisteredTypes.notePlanEquivalentToThis(type, plan);
+        ((BasicRegisteredType)type).implementationPlan = plan;
+        return type;
+    }
+    
+    private static String tagForEquivalentPlan(String input) {
+        // plans may be trimmed by yaml parser so do that before checking equivalence
+        // it does mean a format change will be ignored
+        return "equivalent-plan("+Streams.getMd5Checksum(Streams.newInputStreamWithContents(input.trim()))+")";
+    }
+    
+    @Beta
+    public static void notePlanEquivalentToThis(RegisteredType type, TypeImplementationPlan plan) {
+        Object data = plan.getPlanData();
+        if (data==null) throw new IllegalStateException("No plan data for "+plan+" noted equivalent to "+type);
+        if (!(data instanceof String)) throw new IllegalStateException("Expected plan for equivalent to "+type+" to be a string; was "+data);
+        ((BasicRegisteredType)type).tags.add(tagForEquivalentPlan((String)data));
+    }
 
+    @Beta
+    public static boolean arePlansEquivalent(RegisteredType type1, RegisteredType type2) {
+        String plan1 = getImplementationDataStringForSpec(type1);
+        String plan2 = getImplementationDataStringForSpec(type2);
+        if (Strings.isNonBlank(plan1) && Strings.isNonBlank(plan2)) {
+            String p2tag = tagForEquivalentPlan(plan2);
+            String p1tag = tagForEquivalentPlan(plan1);
+            // allow same plan under trimming,
+            // or any recorded tag in either direction
+            if (Objects.equal(p1tag, p2tag)) return true;
+            if (type1.getTags().contains(p2tag)) return true;
+            if (type2.getTags().contains(p1tag)) return true;
+        }
+        return Objects.equal(type1.getPlan(), type2.getPlan());
+    }
+    
     public static boolean isTemplate(RegisteredType type) {
         if (type==null) return false;
         return type.getTags().contains(BrooklynTags.CATALOG_TEMPLATE);

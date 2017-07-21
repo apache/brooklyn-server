@@ -571,7 +571,6 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             "          spec: ",
             "            $brooklyn:entitySpec:",
             "              type: referenced-entity");
-
     }
 
     @Test

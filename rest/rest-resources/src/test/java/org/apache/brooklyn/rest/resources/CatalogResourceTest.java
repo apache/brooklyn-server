@@ -175,10 +175,8 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         assertEquals(item.getIconUrl(), "classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif");
 
         // an InterfacesTag should be created for every catalog item
-        assertEquals(entityItem.getTags().size(), 1);
-        Object tag = entityItem.getTags().iterator().next();
-        @SuppressWarnings("unchecked")
-        List<String> actualInterfaces = ((Map<String, List<String>>) tag).get("traits");
+        Map<String, List<String>> traitsMapTag = Iterables.getOnlyElement(Iterables.filter(entityItem.getTags(), Map.class));
+        List<String> actualInterfaces = traitsMapTag.get("traits");
         List<Class<?>> expectedInterfaces = Reflections.getAllInterfaces(TestEntity.class);
         assertEquals(actualInterfaces.size(), expectedInterfaces.size());
         for (Class<?> expectedInterface : expectedInterfaces) {
@@ -813,10 +811,9 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         assertEquals(item.getIconUrl(), "classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif");
 
         // an InterfacesTag should be created for every catalog item
-        assertEquals(entityItem.getTags().size(), 1);
-        Object tag = entityItem.getTags().iterator().next();
         @SuppressWarnings("unchecked")
-        List<String> actualInterfaces = ((Map<String, List<String>>) tag).get("traits");
+        Map<String, List<String>> traitsMapTag = Iterables.getOnlyElement(Iterables.filter(entityItem.getTags(), Map.class));
+        List<String> actualInterfaces = traitsMapTag.get("traits");
         List<Class<?>> expectedInterfaces = Reflections.getAllInterfaces(TestEntity.class);
         assertEquals(actualInterfaces.size(), expectedInterfaces.size());
         for (Class<?> expectedInterface : expectedInterfaces) {
@@ -889,10 +886,8 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         assertEquals(item.getIconUrl(), "classpath:" + iconPath);
 
         // an InterfacesTag should be created for every catalog item
-        assertEquals(entityItem.getTags().size(), 1);
-        Object tag = entityItem.getTags().iterator().next();
-        @SuppressWarnings("unchecked")
-        List<String> actualInterfaces = ((Map<String, List<String>>) tag).get("traits");
+        Map<String, List<String>> traitsMapTag = Iterables.getOnlyElement(Iterables.filter(entityItem.getTags(), Map.class));
+        List<String> actualInterfaces = traitsMapTag.get("traits");
         List<String> expectedInterfaces = ImmutableList.of(Entity.class.getName(), BrooklynObject.class.getName(), Identifiable.class.getName(), Configurable.class.getName());
         assertTrue(actualInterfaces.containsAll(expectedInterfaces), "actual="+actualInterfaces);
 
