@@ -49,6 +49,7 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Ordering;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 
@@ -317,21 +318,28 @@ public class Os {
     private static final Map<String,FileDeletionHook> deletions = new LinkedHashMap<String, Os.FileDeletionHook>();
     
     private static void addShutdownFileDeletionHook(String path, FileDeletionHook hook) {
+        // ensure Ordering class is loaded (else shutdown hook will fail as it can't load that class when shutting down)
+        Ordering.<Integer>natural();
         synchronized (deletions) {
             if (deletions.isEmpty()) {
                 Thread shutdownHook = new Thread() {
                     @Override
                     public void run() {
-                        synchronized (deletions) {
-                            List<String> pathsToDelete = new ArrayList<String>(deletions.keySet());
-                            Collections.sort(pathsToDelete, Strings.lengthComparator().reverse());
-                            for (String path: pathsToDelete) {
-                                try {
-                                    deletions.remove(path).run();
-                                } catch (Exception e) {
-                                    log.warn("Unable to delete '"+path+"' on shutdown: "+e);
+                        log.debug("Shutting down, deleting: "+deletions);
+                        try {
+                            synchronized (deletions) {
+                                List<String> pathsToDelete = new ArrayList<String>(deletions.keySet());
+                                Collections.sort(pathsToDelete, Strings.lengthComparator().reverse());
+                                for (String path: pathsToDelete) {
+                                    try {
+                                        deletions.remove(path).run();
+                                    } catch (Exception e) {
+                                        log.warn("Unable to delete '"+path+"' on shutdown: "+e);
+                                    }
                                 }
                             }
+                        } catch (Exception e) {
+                            log.warn("Unable to delete one or mort paths ("+deletions+") on shutdown: "+e);
                         }
                     }
                 };
