@@ -40,6 +40,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 
 import com.google.common.collect.Collections2;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -47,33 +48,51 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
 
     @Override
     public TaskSummary get(String taskId) {
-        Task<?> t = mgmt().getExecutionManager().getTask(taskId);
-        if (t == null) {
-            throw WebResourceUtils.notFound("Cannot find task '%s'", taskId);
-        }
-        checkEntityEntitled(t);
+        Task<?> t = findTask(taskId);
 
         return TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(t);
     }
 
-    @Override
+    @Override @Deprecated
     public Map<String, TaskSummary> getAllChildrenAsMap(final String taskId) {
-        final Task<?> parentTask = mgmt().getExecutionManager().getTask(taskId);
-        if (parentTask == null) {
-            throw WebResourceUtils.notFound("Cannot find task '%s'", taskId);
-        }
-        checkEntityEntitled(parentTask);
-        return getAllDescendantTasks(parentTask);
+        return getAllChildrenAsMap(taskId, 200, -1);
+    }
+    
+    @Override
+    public Map<String, TaskSummary> getAllChildrenAsMap(final String taskId, final int limit, final int maxDepth) {
+        final Task<?> parentTask = findTask(taskId);
+        return getAllDescendantTasks(parentTask, limit, maxDepth);
     }
 
-    private LinkedHashMap<String, TaskSummary> getAllDescendantTasks(final Task<?> parentTask) {
+    protected Task<?> findTask(final String taskId) {
+        final Task<?> task = mgmt().getExecutionManager().getTask(taskId);
+        if (task == null) {
+            throw WebResourceUtils.notFound("Cannot find task '%s' - possibly garbage collected to save memory", taskId);
+        }
+        checkEntityEntitled(task);
+        return task;
+    }
+
+    private LinkedHashMap<String, TaskSummary> getAllDescendantTasks(final Task<?> parentTask, int limit, int maxDepth) {
         final LinkedHashMap<String, TaskSummary> result = Maps.newLinkedHashMap();
         if (!(parentTask instanceof HasTaskChildren)) {
             return result;
         }
-        for (final Task<?> childTask : ((HasTaskChildren) parentTask).getChildren()) {
-            result.put(childTask.getId(), TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(childTask));
-            result.putAll(getAllDescendantTasks(childTask));
+        Set<Task<?>> nextLayer = MutableSet.copyOf( ((HasTaskChildren) parentTask).getChildren() );
+        outer: while (limit!=0 && !nextLayer.isEmpty() && maxDepth-- != 0) {
+            Set<Task<?>> thisLayer = nextLayer;
+            nextLayer = MutableSet.of();
+            for (final Task<?> childTask : thisLayer) {
+                TaskSummary wasThere = result.put(childTask.getId(), TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(childTask));
+                if (wasThere==null) {
+                    if (--limit == 0) {
+                        break outer;
+                    }
+                    if (childTask instanceof HasTaskChildren) {
+                        Iterables.addAll(nextLayer, ((HasTaskChildren)childTask).getChildren());
+                    }
+                }
+            }
         }
         return result;
     }
@@ -81,11 +100,7 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
 
     @Override
     public List<TaskSummary> children(String taskId, Boolean includeBackground) {
-        Task<?> t = mgmt().getExecutionManager().getTask(taskId);
-        if (t == null) {
-            throw WebResourceUtils.notFound("Cannot find task '%s'", taskId);
-        }
-        checkEntityEntitled(t);
+        Task<?> t = findTask(taskId);
 
         Set<TaskSummary> result = MutableSet.copyOf(getSubTaskChildren(t));
         if (Boolean.TRUE.equals(includeBackground)) {
@@ -118,11 +133,7 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
 
     @Override
     public String stream(String taskId, String streamId) {
-        Task<?> t = mgmt().getExecutionManager().getTask(taskId);
-        if (t == null) {
-            throw WebResourceUtils.notFound("Cannot find task '%s'", taskId);
-        }
-        checkEntityEntitled(t);
+        Task<?> t = findTask(taskId);
         checkStreamEntitled(t, streamId);
 
         WrappedStream stream = BrooklynTaskTags.stream(t, streamId);

@@ -47,6 +47,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Maps;
 
@@ -125,7 +126,7 @@ public class EntityDynamicType extends BrooklynDynamicType<Entity, AbstractEntit
      */
     @Beta
     public void addEffector(Effector<?> newEffector) {
-        Effector<?> oldEffector = effectors.put(newEffector.getName(), newEffector);
+        Effector<?> oldEffector = effectors.put(Preconditions.checkNotNull(newEffector.getName(), "Missing 'name' for effector"), newEffector);
         invalidateSnapshot();
         if (oldEffector!=null)
             instance.sensors().emit(AbstractEntity.EFFECTOR_CHANGED, newEffector.getName());

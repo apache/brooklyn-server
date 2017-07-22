@@ -63,7 +63,7 @@ public class AddEffector implements EntityInitializer {
     
     public static final ConfigKey<Map<String,Object>> EFFECTOR_PARAMETER_DEFS = new MapConfigKey<Object>(Object.class, "parameters");
 
-    final Effector<?> effector;
+    protected final Effector<?> effector;
     
     public AddEffector(Effector<?> effector) {
         this.effector = Preconditions.checkNotNull(effector, "effector");
