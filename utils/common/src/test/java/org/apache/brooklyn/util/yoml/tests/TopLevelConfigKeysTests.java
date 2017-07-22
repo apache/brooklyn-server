@@ -94,6 +94,7 @@ public class TopLevelConfigKeysTests {
         @Override public boolean isValueValid(T value) { return true; }
         @Override public ConfigInheritance getInheritanceByContext(ConfigInheritanceContext context) { return null; }
         @Override public Map<ConfigInheritanceContext, ConfigInheritance> getInheritanceByContext() { return MutableMap.of(); }
+        @Override public Collection<String> getDeprecatedNames() { return MutableList.of(); }
     }
     
     static class S1 {
