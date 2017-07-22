@@ -18,15 +18,15 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
-import org.testng.annotations.Test;
-
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.camp.brooklyn.ApplicationsYamlTest;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.testng.annotations.Test;
 
 /**
- * Also see related tests in {@link ApplicationsYamlTest}.
- * TODO Not clear what the difference is between these two test classes!
+ * Tests a few obscure circular references.
+ * See primary tests in {@link ApplicationsYamlTest}.
+ * Also see OSGi subclass.
  */
 public class CatalogYamlAppTest extends AbstractYamlTest {
 
@@ -40,12 +40,8 @@ public class CatalogYamlAppTest extends AbstractYamlTest {
      * "org.apache.brooklyn.entity.stock.BasicEntity", but that has been defined in the
      * catalog as this new blueprint (which overrides the previous value of it
      * being a reference to the Java class).
-     * 
-     * We need to use an id that matches something else already on the classpath.
-     * Otherwise we'd get an error telling us "could not resolve item ..." when
-     * attempting to add the initial catalog item.
      */
-    @Test(groups="WIP") // TODO Fix this!
+    @Test   // already fixed prior to type-registry shift in 0.12.0, but also works with OSGi
     public void testAddCatalogItemWithCircularReference() throws Exception {
         // Add a catalog item with a circular reference to its own id.
         addCatalogItems(
@@ -107,4 +103,5 @@ public class CatalogYamlAppTest extends AbstractYamlTest {
             deleteCatalogEntity("org.apache.brooklyn.entity.stock.BasicApplication");
         }
     }
+    
 }

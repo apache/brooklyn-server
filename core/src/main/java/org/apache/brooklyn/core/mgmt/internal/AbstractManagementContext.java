@@ -80,6 +80,7 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -132,6 +133,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
     }
 
     private final AtomicLong totalEffectorInvocationCount = new AtomicLong();
+    private final String managementNodeId;
 
     protected DeferredBrooklynProperties configMap;
     protected Scratchpad scratchpad;
@@ -163,6 +165,8 @@ public abstract class AbstractManagementContext implements ManagementContextInte
     protected CatalogInitialization catalogInitialization;
 
     public AbstractManagementContext(BrooklynProperties brooklynProperties) {
+        this.managementNodeId = Strings.makeRandomId(8);
+
         this.configMap = new DeferredBrooklynProperties(brooklynProperties, this);
         this.scratchpad = new BasicScratchpad();
         this.entityDriverManager = new BasicEntityDriverManager();
@@ -200,6 +204,11 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         return startupComplete;
     }
 
+    @Override
+    public String getManagementNodeId() {
+        return managementNodeId;
+    }
+    
     @Override
     public BrooklynStorage getStorage() {
         return storage;

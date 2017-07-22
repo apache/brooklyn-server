@@ -213,7 +213,7 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
         }
     }
 
-    private static class ProblemStartingChildrenException extends RuntimeException {
+    protected static class ProblemStartingChildrenException extends RuntimeException {
         private static final long serialVersionUID = 7710856289284536803L;
         private ProblemStartingChildrenException(Exception cause) { super(cause); }
     }

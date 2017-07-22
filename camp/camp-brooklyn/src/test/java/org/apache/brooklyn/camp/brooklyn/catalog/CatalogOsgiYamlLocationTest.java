@@ -75,6 +75,14 @@ public class CatalogOsgiYamlLocationTest extends AbstractYamlTest {
         assertAdded(symbolicName, SIMPLE_LOCATION_TYPE);
         assertOsgi(symbolicName);
         removeAndAssert(symbolicName);
+        
+        // and do it again; the OSGi registry doesn't add it;
+        // it only works because the location registry initializes itself on first call
+        // by reading from the catalog
+        symbolicName = "my.catalog.location.id.load.2";
+        addCatalogLocation(symbolicName, SIMPLE_LOCATION_TYPE, getOsgiLibraries());
+        assertAdded(symbolicName, SIMPLE_LOCATION_TYPE);
+        assertOsgi(symbolicName);
     }
 
     @Test
@@ -103,7 +111,7 @@ public class CatalogOsgiYamlLocationTest extends AbstractYamlTest {
 
         // Item added to catalog should automatically be available in location registry
         LocationDefinition def = mgmt().getLocationRegistry().getDefinedLocationByName(symbolicName);
-        assertEquals(def.getId(), symbolicName);
+        assertEquals(def.getId(), symbolicName+":"+TEST_VERSION);
         assertEquals(def.getName(), symbolicName);
         
         LocationSpec<?> spec = mgmt().getTypeRegistry().createSpec(item, null, LocationSpec.class);

@@ -38,6 +38,7 @@ import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;

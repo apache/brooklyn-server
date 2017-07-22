@@ -39,6 +39,7 @@ import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.text.Strings;
 
@@ -155,6 +156,9 @@ class CampResolver {
             return appSpec;
             
         } else {
+            if (at.getPlatformComponentTemplates()==null || at.getPlatformComponentTemplates().isEmpty()) {
+                throw new UnsupportedTypePlanException("No 'services' declared");
+            }
             throw new IllegalStateException("Unable to instantiate YAML; invalid type or parameters in plan:\n"+plan);
         }
 

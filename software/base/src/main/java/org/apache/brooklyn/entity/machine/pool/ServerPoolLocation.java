@@ -44,9 +44,9 @@ public class ServerPoolLocation extends AbstractLocation implements MachineProvi
 
     private static final Logger LOG = LoggerFactory.getLogger(ServerPoolLocation.class);
 
-    @SetFromFlag("owner")
-    public static final ConfigKey<ServerPool> OWNER = ConfigKeys.newConfigKey(
-            ServerPool.class, "pool.location.owner");
+    public static final ConfigKey<ServerPool> OWNER = ConfigKeys.builder(ServerPool.class, "owner")
+            .deprecatedNames("pool.location.owner")
+            .build();
 
     @SetFromFlag("locationName")
     public static final ConfigKey<String> LOCATION_NAME = ConfigKeys.newStringConfigKey("pool.location.name");
@@ -56,8 +56,8 @@ public class ServerPoolLocation extends AbstractLocation implements MachineProvi
     
     @Override
     public void init() {
-        LOG.debug("Initialising. Owner is: {}", checkNotNull(getConfig(OWNER), OWNER.getName()));
         super.init();
+        LOG.debug("Initialising. Owner is: {}", checkNotNull(getConfig(OWNER), OWNER.getName()));
     }
 
     @Override

@@ -36,7 +36,12 @@ public interface BrooklynTypeRegistry {
          * for the type registered (e.g. the {@link Entity} instance) */
         SPEC,
         /** a registered type which will create the java type described */
-        BEAN 
+        BEAN,
+        /** a partially registered type which requires subsequent validation and changing the kind;
+         * until then, an item of this kind cannot be instantiated.
+         * items registered as templates (using a tag) may remain in this state
+         * if they do not resolve. */
+        UNRESOLVED
         // note: additional kinds should have the visitor in core/RegisteredTypeKindVisitor updated
         // to flush out all places which want to implement support for all kinds 
     }
@@ -47,7 +52,7 @@ public interface BrooklynTypeRegistry {
     /** @return The item matching the given given 
      * {@link RegisteredType#getSymbolicName() symbolicName} 
      * and optionally {@link RegisteredType#getVersion()},
-     * taking the best version if the version is null or a default marker,
+     * taking the best version if the version is null, blank, or a default marker,
      * returning null if no matches are found. */
     RegisteredType get(String symbolicName, String version);
     /** as {@link #get(String, String)} but the given string here 

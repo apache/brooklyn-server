@@ -47,6 +47,7 @@ import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
+import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
 import org.apache.brooklyn.core.internal.storage.Reference;
 import org.apache.brooklyn.core.internal.storage.impl.BasicReference;
@@ -215,7 +216,14 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
             config().removeKey(PARENT_LOCATION);
         }
 
+        // Allow config keys to be set by name (or deprecated name)
+        //
+        // The resulting `properties` will no longer contain the keys that we matched;
+        // we will not also use them to for `SetFromFlag` etc.
+        properties = ConfigUtilsInternal.setAllConfigKeys(properties, getLocationTypeInternal().getConfigKeys().values(), this);
+
         // NB: flag-setting done here must also be done in BasicLocationRebindSupport
+        // Must call setFieldsFromFlagsWithBag, even if properites is empty, so defaults are extracted from annotations
         ConfigBag configBag = ConfigBag.newInstance(properties);
         FlagUtils.setFieldsFromFlagsWithBag(this, properties, configBag, firstTime);
         FlagUtils.setAllConfigKeys(this, configBag, false);
@@ -241,7 +249,7 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
             } else {
                 codes = TypeCoercions.coerce(rawCodes, new TypeToken<Set<String>>() {});
             }
-            configBag.put(LocationConfigKeys.ISO_3166, codes);
+            config().set(LocationConfigKeys.ISO_3166, codes);
         }
         
         return this;

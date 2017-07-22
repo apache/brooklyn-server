@@ -19,6 +19,7 @@
 package org.apache.brooklyn.api.objs;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
+import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
@@ -72,10 +73,37 @@ public enum BrooklynObjectType {
     }
     
     public static BrooklynObjectType of(BrooklynObject instance) {
-        for (BrooklynObjectType t: values()) {
-            if (t.getInterfaceType()!=null && t.getInterfaceType().isInstance(instance))
-                return t;
+        if (instance!=null) {
+            for (BrooklynObjectType t: values()) {
+                if (t.getInterfaceType()!=null && t.getInterfaceType().isInstance(instance))
+                    return t;
+            }
         }
         return UNKNOWN;
     }
+    
+    public static BrooklynObjectType of(Class<?> objectTypeOrSpecType) {
+        if (objectTypeOrSpecType!=null) {
+            for (BrooklynObjectType t: values()) {
+                if (t.getInterfaceType()!=null && t.getInterfaceType().isAssignableFrom(objectTypeOrSpecType))
+                    return t;
+                if (t.getSpecType()!=null && t.getSpecType().isAssignableFrom(objectTypeOrSpecType))
+                    return t;
+            }
+        }
+        return UNKNOWN;
+    }
+    
+    public static BrooklynObjectType of(CatalogItemType t) {
+        if (t==null) return null;
+        switch (t) {
+        case ENRICHER: return BrooklynObjectType.ENRICHER;
+        case ENTITY: return BrooklynObjectType.ENTITY;
+        case LOCATION: return BrooklynObjectType.LOCATION;
+        case POLICY: return BrooklynObjectType.POLICY;
+        case TEMPLATE: return BrooklynObjectType.ENTITY;
+        default: return BrooklynObjectType.UNKNOWN;
+        }
+    }
+    
 }

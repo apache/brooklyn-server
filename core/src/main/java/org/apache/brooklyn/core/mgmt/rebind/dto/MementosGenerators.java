@@ -323,6 +323,7 @@ public class MementosGenerators {
         return builder.build();
     }
     
+    @SuppressWarnings("deprecation")
     private static CatalogItemMemento newCatalogItemMemento(CatalogItem<?, ?> catalogItem) {
         if (catalogItem instanceof CatalogItemDo<?,?>) {
             catalogItem = ((CatalogItemDo<?,?>)catalogItem).getDto();
@@ -331,6 +332,7 @@ public class MementosGenerators {
         populateBrooklynObjectMementoBuilder(catalogItem, builder);
         builder.catalogItemJavaType(catalogItem.getCatalogItemJavaType())
             .catalogItemType(catalogItem.getCatalogItemType())
+            .containingBundle(catalogItem.getContainingBundle())
             .description(catalogItem.getDescription())
             .iconUrl(catalogItem.getIconUrl())
             .javaType(catalogItem.getJavaType())

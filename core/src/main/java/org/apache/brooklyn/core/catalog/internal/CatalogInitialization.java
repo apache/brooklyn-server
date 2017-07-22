@@ -34,6 +34,7 @@ import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.FatalRuntimeException;
+import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -394,15 +395,18 @@ public class CatalogInitialization implements ManagementContextInjectable {
         if (throwable instanceof RuntimeInterruptedException)
             throw (RuntimeInterruptedException) throwable;
 
-        String throwableText = Exceptions.collapseText(throwable);
-        log.error("Error loading catalog item '"+details+"': "+throwableText);
-        log.debug("Trace for error loading catalog item '"+details+"': "+throwableText, throwable);
+        if (details instanceof CatalogItem) {
+            if (((CatalogItem<?,?>)details).getCatalogItemId() != null) {
+                details = ((CatalogItem<?,?>)details).getCatalogItemId();
+            }
+        }
+        PropagatedRuntimeException wrap = new PropagatedRuntimeException("Error loading catalog item "+details, throwable);
+        log.debug("Trace for: "+wrap, wrap);
 
-        // TODO give more detail when adding
-        ((ManagementContextInternal)getManagementContext()).errors().add(throwable);
+        ((ManagementContextInternal)getManagementContext()).errors().add(wrap);
         
         if (isStartingUp && failOnStartupErrors) {
-            throw new FatalRuntimeException("Unable to load catalog item '"+details+"': "+throwableText, throwable);
+            throw new FatalRuntimeException("Unable to load catalog item "+details, wrap);
         }
     }
     

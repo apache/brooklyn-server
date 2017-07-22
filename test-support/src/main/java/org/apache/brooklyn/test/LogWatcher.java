@@ -62,15 +62,22 @@ public class LogWatcher implements Closeable {
 
     public static class EventPredicates {
         public static Predicate<ILoggingEvent> containsMessage(final String expected) {
+            return containsMessages(expected);
+        }
+    
+        public static Predicate<ILoggingEvent> containsMessages(final String... expecteds) {
             return new Predicate<ILoggingEvent>() {
                 @Override public boolean apply(ILoggingEvent input) {
                     if (input == null) return false;
                     String msg = input.getFormattedMessage();
-                    return (msg != null) && msg.contains(expected);
+                    if (msg == null) return false;
+                    for (String expected : expecteds) {
+                        if (!msg.contains(expected)) return false;
+                    }
+                    return true;
                 }
             };
         }
-    
         public static Predicate<ILoggingEvent> containsExceptionStackLine(final Class<?> clazz, final String methodName) {
             return new Predicate<ILoggingEvent>() {
                 @Override public boolean apply(ILoggingEvent input) {

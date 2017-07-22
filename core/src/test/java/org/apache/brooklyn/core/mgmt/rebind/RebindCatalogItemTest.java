@@ -26,7 +26,9 @@ import static org.testng.Assert.fail;
 
 import java.io.File;
 import java.util.Map;
+import java.util.Set;
 
+import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -40,6 +42,8 @@ import org.apache.brooklyn.core.catalog.internal.CatalogEntityItemDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
 import org.apache.brooklyn.core.catalog.internal.CatalogLocationItemDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogPolicyItemDto;
+import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
+import org.apache.brooklyn.core.entity.EntityFunctions;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
@@ -58,7 +62,9 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 
 public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
 
@@ -274,7 +280,7 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
         assertFalse(itemPostRebind.isPresent(), "item="+itemPostRebind);
     }
 
-    @Test(invocationCount = 3)
+    @Test(invocationCount = 3)  // why three times?
     public void testCanTagCatalogItemAfterRebind() {
         String symbolicName = "rebind-yaml-catalog-item-test";
         String yaml = Joiner.on("\n").join(
@@ -292,9 +298,13 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
                 .build();
         origManagementContext.getCatalog().addItem(item);
         LOG.info("Added item to catalog: {}, id={}", item, item.getId());
-
+        
+        assertEquals(Iterables.size(origManagementContext.getTypeRegistry().getAll()), 1);
         assertEquals(Iterables.size(origManagementContext.getCatalog().getCatalogItems()), 1);
+        // in OSGi/type registry you cannot edit tags directly (they won't be persisted as they come from BOM)
+        // RegisteredType origItem = origManagementContext.getTypeRegistry().get(symbolicName, TEST_VERSION);
         CatalogItem<?,?> origItem = origManagementContext.getCatalog().getCatalogItem(symbolicName, TEST_VERSION);
+        assertNotNull(origItem, "Item not in catalog (might be using new type registry where adding tags to items isn't supported as items come from BOM)");
         final String tag = "tag1";
         origItem.tags().addTag(tag);
         assertTrue(origItem.tags().containsTag(tag));
@@ -373,5 +383,38 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
             throw Throwables.propagate(e);
         }
         assertCatalogsEqual(newManagementContext.getCatalog(), origManagementContext.getCatalog());
+    }
+    
+    protected void assertCatalogsEqual(BrooklynCatalog actual, BrooklynCatalog expected) {
+        Set<String> actualIds = getCatalogItemIds(actual.getCatalogItems());
+        Set<String> expectedIds = getCatalogItemIds(expected.getCatalogItems());
+        assertEquals(actualIds.size(), Iterables.size(actual.getCatalogItems()), "id keyset size != size of catalog. Are there duplicates in the catalog?");
+        assertEquals(actualIds, expectedIds);
+        for (String versionedId : actualIds) {
+            String id = CatalogUtils.getSymbolicNameFromVersionedId(versionedId);
+            String version = CatalogUtils.getVersionFromVersionedId(versionedId);
+            assertCatalogItemsEqual(actual.getCatalogItem(id, version), expected.getCatalogItem(id, version));
+        }
+    }
+
+    private Set<String> getCatalogItemIds(Iterable<CatalogItem<Object, Object>> catalogItems) {
+        return FluentIterable.from(catalogItems)
+                .transform(EntityFunctions.id())
+                .copyInto(Sets.<String>newHashSet());
+   }
+
+    protected void assertCatalogItemsEqual(CatalogItem<?, ?> actual, CatalogItem<?, ?> expected) {
+        assertEquals(actual.getClass(), expected.getClass());
+        assertEquals(actual.getId(), expected.getId());
+        assertEquals(actual.getDisplayName(), expected.getDisplayName());
+        assertEquals(actual.getVersion(), expected.getVersion());
+        assertEquals(actual.getDescription(), expected.getDescription());
+        assertEquals(actual.getIconUrl(), expected.getIconUrl());
+        assertEquals(actual.getVersion(), expected.getVersion());
+        assertEquals(actual.getCatalogItemJavaType(), expected.getCatalogItemJavaType());
+        assertEquals(actual.getCatalogItemType(), expected.getCatalogItemType());
+        assertEquals(actual.getSpecType(), expected.getSpecType());
+        assertEquals(actual.getSymbolicName(), expected.getSymbolicName());
+        assertEquals(actual.getLibraries(), expected.getLibraries());
     }
 }

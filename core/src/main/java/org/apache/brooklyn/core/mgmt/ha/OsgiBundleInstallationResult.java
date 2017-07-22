@@ -37,11 +37,23 @@ public class OsgiBundleInstallationResult {
     Runnable deferredStart;
     
     public enum ResultCode { 
-        INSTALLED_NEW_BUNDLE,
-        UPDATED_EXISTING_BUNDLE, 
-        IGNORING_BUNDLE_AREADY_INSTALLED, 
-        ERROR_PREPARING_BUNDLE,
-        ERROR_INSTALLING_BUNDLE 
+        INSTALLED_NEW_BUNDLE(false),
+        UPDATED_EXISTING_BUNDLE(false),
+        /** Bundle is already installed at exact same version and same contents; safely ignoring 
+         * (safe in that behaviour won't be different or dangerous; 
+         * could potentially be surprising, but ability to idempotently install things is nicer) */
+        IGNORING_BUNDLE_AREADY_INSTALLED(false),
+        /** bundle could not be made insto a state where it could be installed; bundle is not installed, even if forced */
+        ERROR_PREPARING_BUNDLE(true),
+        /** bundle successfully installed to OSGi container but there was an error launching it, 
+         * either the OSGi bundle start, catalog items load, or (most commonly) validating the catalog items;
+         * bundle may be installed (currently it is in most/all places, but behaviour TBC) so caller may have to uninstall it */
+        ERROR_LAUNCHING_BUNDLE(true);
+        
+        final boolean isError;
+        ResultCode(boolean isError) { this.isError = isError; }
+        
+        public boolean isError() { return isError; }
     }
     final List<String> catalogItemsInstalled = MutableList.of();
     

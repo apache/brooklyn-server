@@ -41,6 +41,7 @@ import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.launcher.BrooklynLauncher;
+import org.apache.brooklyn.launcher.BrooklynViewerLauncher;
 import org.apache.brooklyn.launcher.SimpleYamlLauncherForTests;
 import org.apache.brooklyn.launcher.camp.BrooklynCampPlatformLauncher;
 import org.apache.brooklyn.test.Asserts;
@@ -83,7 +84,7 @@ public abstract class AbstractBlueprintTest {
                 };
             }
         };
-        viewer = BrooklynLauncher.newInstance()
+        viewer = BrooklynViewerLauncher.newInstance()
                 .managementContext(mgmt)
                 .start();
     }

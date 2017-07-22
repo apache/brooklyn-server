@@ -3,11 +3,13 @@
 # and templates to get started using Brooklyn
 
 brooklyn.catalog:
+  bundle: brooklyn-default-catalog
   version: "0.12.0-SNAPSHOT"  # BROOKLYN_VERSION
-  items:
 
   # load everything in the classpath with a @Catalog annotation
-  - scanJavaAnnotations: true
+  scanJavaAnnotations: true
+  
+  items:
 
   - id: server
     itemType: entity

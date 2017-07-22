@@ -127,9 +127,8 @@ public class LocalManagementContext extends AbstractManagementContext {
         return closed;
     }
 
-    private AtomicBoolean terminated = new AtomicBoolean(false);
+    private final AtomicBoolean terminated = new AtomicBoolean(false);
     private String managementPlaneId;
-    private String managementNodeId;
     private BasicExecutionManager execution;
     private SubscriptionManager subscriptions;
     private LocalEntityManager entityManager;
@@ -172,7 +171,6 @@ public class LocalManagementContext extends AbstractManagementContext {
         
         checkNotNull(configMap, "brooklynProperties");
         
-        this.managementNodeId = Strings.makeRandomId(8);
         this.builder = builder;
         this.brooklynAdditionalProperties = brooklynAdditionalProperties;
         if (brooklynAdditionalProperties != null)
@@ -206,22 +204,17 @@ public class LocalManagementContext extends AbstractManagementContext {
     
     public void setManagementPlaneId(String newPlaneId) {
         if (managementPlaneId != null && !managementPlaneId.equals(newPlaneId)) {
-            log.warn("Management plane ID at {} {} changed from {} to {} (can happen on concurrent startup of multiple nodes)", new Object[] { managementNodeId, getHighAvailabilityManager().getNodeState(), managementPlaneId, newPlaneId });
-            log.debug("Management plane ID at {} {} changed from {} to {} (can happen on concurrent startup of multiple nodes)", new Object[] {managementNodeId, getHighAvailabilityManager().getNodeState(), managementPlaneId, newPlaneId, new RuntimeException("Stack trace for setManagementPlaneId")});
+            log.warn("Management plane ID at {} {} changed from {} to {} (can happen on concurrent startup of multiple nodes)", new Object[] { getManagementNodeId(), getHighAvailabilityManager().getNodeState(), managementPlaneId, newPlaneId });
+            log.debug("Management plane ID at {} {} changed from {} to {} (can happen on concurrent startup of multiple nodes)", new Object[] {getManagementNodeId(), getHighAvailabilityManager().getNodeState(), managementPlaneId, newPlaneId, new RuntimeException("Stack trace for setManagementPlaneId")});
         }
         this.managementPlaneId = newPlaneId;
     }
 
     public void generateManagementPlaneId() {
         if (this.managementPlaneId != null) {
-            throw new IllegalStateException("Request to generate a management plane ID for node "+managementNodeId+" but one already exists (" + managementPlaneId + ")");
+            throw new IllegalStateException("Request to generate a management plane ID for node "+getManagementNodeId()+" but one already exists (" + managementPlaneId + ")");
         }
         this.managementPlaneId = Strings.makeRandomId(8);
-    }
-    
-    @Override
-    public String getManagementNodeId() {
-        return managementNodeId;
     }
     
     @Override

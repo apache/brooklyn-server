@@ -62,7 +62,8 @@ public class Aggregator<T,U> extends AbstractAggregator<T,U> implements SensorEv
             "Specifies a transformation, as a function from a collection to the value, or as a string " +
                     "matching a pre-defined named transformation, such as 'average' (for numbers), " +
                     "'sum' (for numbers), 'isQuorate' (to compute a quorum), " +
-                    "or 'list' (the default, putting any collection of items into a list)");
+                    "'list' (the default, putting any collection of items into a list), " +
+                    "or 'first' (the first value, or null if empty)");
 
     public static final ConfigKey<Function<? super Collection<?>, ?>> TRANSFORMATION = ConfigKeys.newConfigKey(new TypeToken<Function<? super Collection<?>, ?>>() {},
             "enricher.transformation");
@@ -120,6 +121,7 @@ public class Aggregator<T,U> extends AbstractAggregator<T,U> implements SensorEv
         if ("isQuorate".equalsIgnoreCase(t1)) return new Enrichers.ComputingIsQuorate(targetSensor.getTypeToken(),
                 QuorumChecks.of(config().get(QUORUM_CHECK_TYPE)), config().get(QUORUM_TOTAL_SIZE));
         if ("list".equalsIgnoreCase(t1)) return new ComputingList();
+        if ("first".equalsIgnoreCase(t1)) return new FirstOrNull();
         return null;
     }
 
@@ -128,6 +130,13 @@ public class Aggregator<T,U> extends AbstractAggregator<T,U> implements SensorEv
         public List<TT> apply(Collection<TT> input) {
             if (input==null) return null;
             return MutableList.copyOf(input).asUnmodifiable();
+        }
+    }
+    
+    private static class FirstOrNull<TT> implements Function<Collection<TT>, TT> {
+        @Override
+        public TT apply(Collection<TT> input) {
+            return (input==null) ? null : Iterables.getFirst(input, null);
         }
     }
     

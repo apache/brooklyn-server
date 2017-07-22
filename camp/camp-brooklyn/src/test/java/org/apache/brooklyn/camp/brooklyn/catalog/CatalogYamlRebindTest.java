@@ -25,6 +25,8 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+import java.io.File;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
@@ -38,6 +40,7 @@ import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
@@ -51,7 +54,6 @@ import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.text.Strings;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -70,12 +72,10 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
     //   - config/attribute cannot be instantiated (e.g. because class no longer on classpath)
     //   - entity file corrupt
 
-    private static final String OSGI_BUNDLE_SYMBOLID_NAME_FULL = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FULL;
-    private static final String OSGI_BUNDLE_URL = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
-    private static final String OSGI_SIMPLE_ENTITY_TYPE = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY;
-    private static final String OSGI_SIMPLE_POLICY_TYPE = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_POLICY;
-    private static final String OSGI_SIMPLE_EFFECTOR_TYPE = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_EFFECTOR;
-
+    // Since 0.12.0 OSGi reads from bundles so many of the things this used to test are no longer supported;
+    // deprecation and disablement will have to be done on a bundle-wide basis
+    // and transforms will have to be done by forcibly replacing a bundle or another "upgrade" mechanism
+    
     enum RebindWithCatalogTestMode {
         NO_OP,
         STRIP_DEPRECATION_AND_ENABLEMENT_FROM_CATALOG_ITEM,
@@ -87,51 +87,43 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
     
     enum OsgiMode {
         NONE,
-        LIBRARY,
-        PREFIX
+        NORMAL
     }
 
-    private Boolean defaultEnablementOfFeatureAutoFixatalogRefOnRebind;
+    boolean useOsgi = false;
+    private Boolean defaultEnablementOfFeatureAutoFixCatalogRefOnRebind;
     
     @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {
-        defaultEnablementOfFeatureAutoFixatalogRefOnRebind = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND);
+        defaultEnablementOfFeatureAutoFixCatalogRefOnRebind = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND);
         super.setUp();
     }
     
     @AfterMethod(alwaysRun=true)
     @Override
     public void tearDown() throws Exception {
-        if (defaultEnablementOfFeatureAutoFixatalogRefOnRebind != null) {
-            BrooklynFeatureEnablement.setEnablement(BrooklynFeatureEnablement.FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND, defaultEnablementOfFeatureAutoFixatalogRefOnRebind);
+        if (defaultEnablementOfFeatureAutoFixCatalogRefOnRebind != null) {
+            BrooklynFeatureEnablement.setEnablement(BrooklynFeatureEnablement.FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND, defaultEnablementOfFeatureAutoFixCatalogRefOnRebind);
         }
         super.tearDown();
     }
     
     @Override
     protected boolean useOsgi() {
-        return true;
+        return useOsgi || (origManagementContext!=null && ((ManagementContextInternal)origManagementContext).getOsgiManager().isPresent());
     }
 
     @DataProvider
     public Object[][] dataProvider() {
         return new Object[][] {
             {RebindWithCatalogTestMode.NO_OP, OsgiMode.NONE},
-            {RebindWithCatalogTestMode.NO_OP, OsgiMode.LIBRARY},
-            {RebindWithCatalogTestMode.NO_OP, OsgiMode.PREFIX},
             
             {RebindWithCatalogTestMode.STRIP_DEPRECATION_AND_ENABLEMENT_FROM_CATALOG_ITEM, OsgiMode.NONE},
-            {RebindWithCatalogTestMode.STRIP_DEPRECATION_AND_ENABLEMENT_FROM_CATALOG_ITEM, OsgiMode.LIBRARY},
-            {RebindWithCatalogTestMode.STRIP_DEPRECATION_AND_ENABLEMENT_FROM_CATALOG_ITEM, OsgiMode.PREFIX},
             
             {RebindWithCatalogTestMode.DEPRECATE_CATALOG, OsgiMode.NONE},
-            {RebindWithCatalogTestMode.DEPRECATE_CATALOG, OsgiMode.LIBRARY},
-            {RebindWithCatalogTestMode.DEPRECATE_CATALOG, OsgiMode.PREFIX},
             
             {RebindWithCatalogTestMode.DISABLE_CATALOG, OsgiMode.NONE},
-            {RebindWithCatalogTestMode.DISABLE_CATALOG, OsgiMode.LIBRARY},
-            {RebindWithCatalogTestMode.DISABLE_CATALOG, OsgiMode.PREFIX},
             
             // For DELETE_CATALOG, see https://issues.apache.org/jira/browse/BROOKLYN-149.
             // Deletes the catalog item before rebind, but the referenced types are still on the 
@@ -143,8 +135,6 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
             // Upgrades the catalog item before rebind, deleting the old version.
             // Will automatically upgrade. Test will enable "FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND"
             {RebindWithCatalogTestMode.REPLACE_CATALOG_WITH_NEWER_VERSION, OsgiMode.NONE},
-            {RebindWithCatalogTestMode.REPLACE_CATALOG_WITH_NEWER_VERSION, OsgiMode.LIBRARY},
-            {RebindWithCatalogTestMode.REPLACE_CATALOG_WITH_NEWER_VERSION, OsgiMode.PREFIX},
         };
     }
 
@@ -207,6 +197,8 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
     public void testRebindWithCatalogAndAppUsingOptions(RebindWithCatalogTestMode mode, OsgiMode osgiMode, RebindOptions options) throws Exception {
         if (osgiMode != OsgiMode.NONE) {
             TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+            
+            recreateOrigManagementContextWithOsgi();
         }
 
         if (mode == RebindWithCatalogTestMode.REPLACE_CATALOG_WITH_NEWER_VERSION) {
@@ -216,63 +208,17 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
         String appSymbolicName = "my.catalog.app.id.load";
         String appVersion = "0.1.0";
 
-        String appCatalogFormat;
-        if (osgiMode == OsgiMode.LIBRARY) {
-            appCatalogFormat = Joiner.on("\n").join(
-                    "brooklyn.catalog:",
-                    "  id: " + appSymbolicName,
-                    "  version: %s",
-                    "  itemType: entity",
-                    "  libraries:",
-                    "  - url: " + OSGI_BUNDLE_URL,
-                    "  item:",
-                    "    type: " + OSGI_SIMPLE_ENTITY_TYPE,
-                    "    brooklyn.enrichers:",
-                    "    - type: " + TestEnricher.class.getName(),
-                    "    brooklyn.policies:",
-                    "    - type: " + OSGI_SIMPLE_POLICY_TYPE,
-                    "    brooklyn.initializers:",
-                    "    - type: " + OSGI_SIMPLE_EFFECTOR_TYPE);
-        } else if (osgiMode == OsgiMode.PREFIX) {
-            // This catalog item is just meant to load the bundle in the OSGi environment. Its content is irrelevant.
-            String libraryItem = Joiner.on("\n").join(
-                    "brooklyn.catalog:",
-                    "  id: dummy",
-                    "  version: %s",
-                    "  itemType: entity",
-                    "  libraries:",
-                    "  - url: " + OSGI_BUNDLE_URL,
-                    "  item: " + BasicEntity.class.getName());
-            addCatalogItems(String.format(libraryItem, appVersion));
-
-            // Use bundle prefixes here, pointing to the bundle already loaded above
-            appCatalogFormat = Joiner.on("\n").join(
-                    "brooklyn.catalog:",
-                    "  id: " + appSymbolicName,
-                    "  version: %s",
-                    "  itemType: entity",
-                    "  item:",
-                    "    type: " + OSGI_BUNDLE_SYMBOLID_NAME_FULL + ":" + OSGI_SIMPLE_ENTITY_TYPE,
-                    "    brooklyn.enrichers:",
-                    "    - type: " + TestEnricher.class.getName(),
-                    "    brooklyn.policies:",
-                    "    - type: " + OSGI_BUNDLE_SYMBOLID_NAME_FULL + ":" + OSGI_SIMPLE_POLICY_TYPE,
-                    "    brooklyn.initializers:",
-                    "    - type: " + OSGI_BUNDLE_SYMBOLID_NAME_FULL + ":" + OSGI_SIMPLE_EFFECTOR_TYPE);
-        } else {
-            appCatalogFormat = Joiner.on("\n").join(
-                "brooklyn.catalog:",
-                "  id: " + appSymbolicName,
-                "  version: %s",
-                "  itemType: entity",
-                "  item:",
-                "    type: " + BasicEntity.class.getName(),
-                "    brooklyn.enrichers:",
-                "    - type: " + TestEnricher.class.getName(),
-                "    brooklyn.policies:",
-                "    - type: " + TestPolicy.class.getName());
-        }
-
+        String appCatalogFormat = Joiner.on("\n").join(
+            "brooklyn.catalog:",
+            "  id: " + appSymbolicName,
+            "  version: %s",
+            "  itemType: entity",
+            "  item:",
+            "    type: " + BasicEntity.class.getName(),
+            "    brooklyn.enrichers:",
+            "    - type: " + TestEnricher.class.getName(),
+            "    brooklyn.policies:",
+            "    - type: " + TestPolicy.class.getName());
 
         String locSymbolicName = "my.catalog.loc.id.load";
         String locVersion = "1.0.0";
@@ -412,4 +358,69 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
             }
         }
     }
+
+    protected void recreateOrigManagementContextWithOsgi() {
+        // replace with OSGi context
+        Entities.destroyAll(origManagementContext);
+        try {
+            useOsgi = true;
+            tearDown();
+            setUp();
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        } finally {
+            useOsgi = false;
+        }
+    }
+    
+    @Test
+    public void testLongReferenceSequenceWithoutOsgi() throws Exception {
+        doTestLongReferenceSequence();
+    }
+    
+    @Test
+    public void testLongReferenceSequenceWithOsgi() throws Exception {
+        recreateOrigManagementContextWithOsgi();
+        doTestLongReferenceSequence();
+    }
+    
+    private void doTestLongReferenceSequence() throws Exception {
+        // adds a0, a1 extending a0, a2 extending a1, ... a9 extending a8
+        // osgi rebind of types can fail because bundles are restored in any order
+        // and dependencies might not yet be installed;
+        // ensure items are added first without validation, then validating
+        for (int i = 0; i<10; i++) {
+            addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: a" + i,
+                "  version: 1",
+                "  itemType: entity",
+                "  item:",
+                "    type: " + (i==0 ? BasicEntity.class.getName() : "a" + (i-1)));
+        }
+        origApp = (StartableApplication) createAndStartApplication("services: [ { type: a9 } ]");
+        rebind();
+        Entity child = Iterables.getOnlyElement( newApp.getChildren() );
+        Asserts.assertTrue(child instanceof BasicEntity);
+        Asserts.assertEquals(child.getCatalogItemId(), "a9:1");
+    }
+
+    @Test
+    public void testDeleteEmptyBundleRemovedFromPersistence() throws Exception {
+        recreateOrigManagementContextWithOsgi();
+        
+        String bom = Strings.lines(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: sample",
+                "    item:",
+                "      type: " + BasicEntity.class.getName());
+        addCatalogItems(bom);
+        addCatalogItems(bom);
+        rebind();
+        // should only contain one bundle / bundle.jar pair
+        Asserts.assertSize(Arrays.asList( new File(mementoDir, "bundles").list() ), 2);
+    }
+
 }

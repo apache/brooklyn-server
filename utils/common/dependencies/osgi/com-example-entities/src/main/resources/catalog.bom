@@ -17,7 +17,6 @@
 
 
 brooklyn.catalog:
-    version: "0.12.0-SNAPSHOT" # BROOKLYN_VERSION
     itemType: entity
     description: For testing loading catalog.bom with catalog scan
     displayName: I Haz Catalog

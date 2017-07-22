@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -33,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -41,10 +43,13 @@ import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.internal.AttributesInternal;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
+import org.apache.brooklyn.core.entity.trait.AsyncStartable;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
@@ -321,6 +326,30 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
         assertNotMarkedOnfire(newApp, Lifecycle.STARTING);
     }
     
+    @Test
+    public void testRebindAsyncStartableWhileStarting() throws Exception {
+        AsyncEntity entity = app().createAndManageChild(EntitySpec.create(AsyncEntity.class));
+        
+        app().start(ImmutableList.of(locationProvisioner));
+
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STARTING);
+        EntityAsserts.assertAttributeEqualsEventually(app(), Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        assertEquals(entity.sensors().get(Attributes.SERVICE_STATE_EXPECTED).getState(), Lifecycle.STARTING);
+
+        TestApplication newApp = rebind();
+        final AsyncEntity newEntity = (AsyncEntity) Iterables.find(newApp.getChildren(), Predicates.instanceOf(AsyncEntity.class));
+
+        assertNotMarkedOnfire(newEntity, Lifecycle.STARTING);
+        assertNotMarkedOnfire(newApp, Lifecycle.RUNNING);
+
+        // Set the async entity to completed; expect it to correctly transition (even after rebind) 
+        newEntity.clearNotUpIndicator();
+        newEntity.setExpected(Lifecycle.RUNNING);
+        
+        EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_UP, true);
+    }
+
     protected ListenableFuture<Void> startAsync(final Startable entity, final Collection<? extends Location> locs) {
         return executor.submit(new Callable<Void>() {
             @Override public Void call() throws Exception {
@@ -457,6 +486,46 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
                 this.name = name;
                 this.args = args;
             }
+        }
+    }
+    
+    /**
+     * The AsyncEntity's start leaves it in a "STARTING" state.
+     * 
+     * It stays like that until {@code clearNotUpIndicator(); setExpected(Lifecycle.RUNNING)} is 
+     * called. It should then report "RUNNING" and service.isUp=true.
+     */
+    @ImplementedBy(AsyncEntityImpl.class)
+    public interface AsyncEntity extends Entity, AsyncStartable {
+        void setExpected(Lifecycle state);
+        void clearNotUpIndicator();
+    }
+    
+    public static class AsyncEntityImpl extends AbstractEntity implements AsyncEntity {
+
+        @Override
+        public void start(Collection<? extends Location> locations) {
+            ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
+            ServiceStateLogic.ServiceNotUpLogic.updateNotUpIndicator(this, START.getName(), "starting");
+        }
+
+
+        @Override
+        public void setExpected(Lifecycle state) {
+            ServiceStateLogic.setExpectedState(this, checkNotNull(state, "state"));
+        }
+
+        @Override
+        public void clearNotUpIndicator() {
+            ServiceStateLogic.ServiceNotUpLogic.clearNotUpIndicator(this, START.getName());
+        }
+        
+        @Override
+        public void stop() {
+        }
+
+        @Override
+        public void restart() {
         }
     }
 }

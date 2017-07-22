@@ -65,7 +65,7 @@ public class ExceptionsTest {
         String extraMsg = "my message";
         Exception tothrow = new Exception("simulated");
         try {
-            throw Exceptions.propagate(extraMsg, tothrow);
+            throw Exceptions.propagateAnnotateIfWrapping(extraMsg, tothrow);
         } catch (RuntimeException e) {
             assertEquals(e.getMessage(), "my message");
             assertEquals(e.getCause(), tothrow);
@@ -76,7 +76,7 @@ public class ExceptionsTest {
     public void testPropagateRuntimeExceptionIgnoresMessage() throws Exception {
         NullPointerException tothrow = new NullPointerException("simulated");
         try {
-            throw Exceptions.propagate("my message", tothrow);
+            throw Exceptions.propagateAnnotateIfWrapping("my message", tothrow);
         } catch (NullPointerException e) {
             assertEquals(e, tothrow);
         }
@@ -257,14 +257,14 @@ public class ExceptionsTest {
     @Test
     public void testPropagateWithAnnotationNotExplicitIncludedWhenWrapped() throws Exception {
         Throwable t = new Throwable("test");
-        try { Exceptions.propagate("important", t); } catch (Throwable t2) { t = t2; }
+        try { Exceptions.propagateAnnotateIfWrapping("important", t); } catch (Throwable t2) { t = t2; }
         Assert.assertEquals(Exceptions.collapseText(t), "important: test");
     }
 
     @Test
     public void testPropagateWithAnnotationNotExplicitIgnoredWhenNotWrapped() throws Exception {
         Throwable t = new RuntimeException("test");
-        try { Exceptions.propagate("ignore", t); } catch (Throwable t2) { t = t2; }
+        try { Exceptions.propagateAnnotateIfWrapping("ignore", t); } catch (Throwable t2) { t = t2; }
         Assert.assertEquals(Exceptions.collapseText(t), "test");
     }
 

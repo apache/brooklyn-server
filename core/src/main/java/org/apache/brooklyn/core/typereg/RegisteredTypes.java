@@ -19,8 +19,10 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.lang.reflect.Method;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -28,12 +30,16 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
+import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
@@ -47,6 +53,7 @@ import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer.JavaCla
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.Maybe.Absent;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.VersionComparator;
@@ -56,9 +63,11 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.reflect.TypeToken;
 
@@ -112,11 +121,57 @@ public class RegisteredTypes {
         if (item.getLibraries()!=null) type.bundles.addAll(item.getLibraries());
         // aliases aren't on item
         if (item.tags()!=null) type.tags.addAll(item.tags().getTags());
+        if (item.getCatalogItemType()==CatalogItemType.TEMPLATE) {
+            type.tags.add(BrooklynTags.CATALOG_TEMPLATE);
+        }
 
         // these things from item we ignore: javaType, specType, registeredTypeName ...
         return type;
     }
 
+    /** @deprecated since introduced in 0.12.0; for backwards compatibility only, may be removed at any point.
+     * Returns a partially-populated CatalogItem. Many methods throw {@link UnsupportedOperationException}
+     * but the basic ones work. */
+    @Deprecated
+    public static CatalogItem<?,?> toPartialCatalogItem(RegisteredType t) {
+        return new CatalogItemFromRegisteredType(t);
+    }
+    private static class CatalogItemFromRegisteredType implements CatalogItem<Object,Object> {
+        private final RegisteredType type;
+        public CatalogItemFromRegisteredType(RegisteredType type) { this.type = type; }
+        @Override public String getDisplayName() { return type.getDisplayName(); }
+        @Override public String getCatalogItemId() { return type.getVersionedName().toString(); }
+        @Override public String getId() { return type.getId(); }
+        @Override public String getName() { return type.getSymbolicName(); }
+        @Override public String getSymbolicName() { return type.getSymbolicName(); }
+        @Override public String getRegisteredTypeName() { return type.getSymbolicName(); }
+        @Override public String getDescription() { return type.getDescription(); }
+        @Override public String getIconUrl() { return type.getIconUrl(); }
+        @Override public String getContainingBundle() { return type.getContainingBundle(); }
+        @Override public String getVersion() { return type.getVersion(); }
+
+        @Override public List<String> getCatalogItemIdSearchPath() { throw new UnsupportedOperationException(); }
+        @Override public TagSupport tags() { throw new UnsupportedOperationException(); }
+        @Override public RelationSupport<?> relations() { throw new UnsupportedOperationException(); }
+        @Override public <T> T setConfig(ConfigKey<T> key, T val) { throw new UnsupportedOperationException(); }
+        @Override public <T> T getConfig(ConfigKey<T> key) { throw new UnsupportedOperationException(); }
+        @Override public ConfigurationSupport config() { throw new UnsupportedOperationException(); }
+        @Override public SubscriptionSupport subscriptions() { throw new UnsupportedOperationException(); }
+        @Override public org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType getCatalogItemType() { throw new UnsupportedOperationException(); }
+        @Override public Class<Object> getCatalogItemJavaType() { throw new UnsupportedOperationException(); }
+        @Override public Class<Object> getSpecType() { throw new UnsupportedOperationException(); }
+        @Override public String getJavaType() { throw new UnsupportedOperationException(); }
+        @Override public Collection<org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle> getLibraries() {
+            throw new UnsupportedOperationException();
+        }
+        @Override public String getPlanYaml() { throw new UnsupportedOperationException(); }
+        @Override public RebindSupport<CatalogItemMemento> getRebindSupport() { throw new UnsupportedOperationException(); }
+        @Override public void setDeprecated(boolean deprecated) { throw new UnsupportedOperationException(); }
+        @Override public void setDisabled(boolean disabled) { throw new UnsupportedOperationException(); }
+        @Override public boolean isDeprecated() { throw new UnsupportedOperationException(); }
+        @Override public boolean isDisabled() { throw new UnsupportedOperationException(); }
+    }
+    
     /** Preferred mechanism for defining a bean {@link RegisteredType}. 
      * Callers should also {@link #addSuperTypes(RegisteredType, Iterable)} on the result.*/
     public static RegisteredType bean(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan) {
@@ -125,20 +180,51 @@ public class RegisteredTypes {
     }
     /** Convenience for {@link #bean(String, String, TypeImplementationPlan)} when there is a single known java signature/super type */
     public static RegisteredType bean(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan, @Nonnull Class<?> superType) {
-        if (superType==null) log.warn("Deprecated use of RegisteredTypes API passing null name/version", new Exception("Location of deprecated use, wrt "+symbolicName+":"+version+" "+plan));
+        if (superType==null) log.warn("Deprecated use of RegisteredTypes API passing null supertype", new Exception("Location of deprecated use, wrt "+symbolicName+":"+version+" "+plan));
         return addSuperType(bean(symbolicName, version, plan), superType);
     }
     
     /** Preferred mechanism for defining a spec {@link RegisteredType}.
      * Callers should also {@link #addSuperTypes(RegisteredType, Iterable)} on the result.*/
     public static RegisteredType spec(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan) {
-        if (symbolicName==null || version==null) log.warn("Deprecated use of RegisteredTypes API passing null name/version", new Exception("Location of deprecated use, wrt "+plan));
+        if (symbolicName==null || version==null) log.warn("Deprecated use of RegisteredTypes API passing null supertype", new Exception("Location of deprecated use, wrt "+plan));
         return new BasicRegisteredType(RegisteredTypeKind.SPEC, symbolicName, version, plan);
     }
-    /** Convenience for {@link #cpec(String, String, TypeImplementationPlan)} when there is a single known java signature/super type */
+    /** Convenience for {@link #spec(String, String, TypeImplementationPlan)} when there is a single known java signature/super type */
     public static RegisteredType spec(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan, @Nonnull Class<?> superType) {
-        if (superType==null) log.warn("Deprecated use of RegisteredTypes API passing null name/version", new Exception("Location of deprecated use, wrt "+symbolicName+":"+version+" "+plan));
+        if (superType==null) log.warn("Deprecated use of RegisteredTypes API passing null supertype", new Exception("Location of deprecated use, wrt "+symbolicName+":"+version+" "+plan));
         return addSuperType(spec(symbolicName, version, plan), superType);
+    }
+    public static RegisteredType newInstance(@Nonnull RegisteredTypeKind kind, @Nonnull String symbolicName, @Nonnull String version, 
+            @Nonnull TypeImplementationPlan plan, @Nonnull Iterable<Object> superTypes,
+            Iterable<String> aliases, Iterable<Object> tags,
+            String containingBundle, Iterable<OsgiBundleWithUrl> libraryBundles, 
+            String displayName, String description, String catalogIconUrl, 
+            Boolean catalogDeprecated, Boolean catalogDisabled) {
+        BasicRegisteredType result = new BasicRegisteredType(kind, symbolicName, version, plan);
+        addSuperTypes(result, superTypes);
+        addAliases(result, aliases);
+        addTags(result, tags);
+        result.containingBundle = containingBundle;
+        Iterables.addAll(result.bundles, libraryBundles);
+        result.displayName = displayName;
+        result.description = description;
+        result.iconUrl = catalogIconUrl;
+        if (catalogDeprecated!=null) result.deprecated = catalogDeprecated;
+        if (catalogDisabled!=null) result.disabled = catalogDisabled;
+        return result;
+    }
+    public static RegisteredType copy(RegisteredType t) {
+        return copyResolved(t.getKind(), t);
+    }
+    @Beta
+    public static RegisteredType copyResolved(RegisteredTypeKind kind, RegisteredType t) {
+        if (t.getKind()!=null && t.getKind()!=RegisteredTypeKind.UNRESOLVED && t.getKind()!=kind) {
+            throw new IllegalStateException("Cannot copy resolve "+t+" ("+t.getKind()+") as "+kind);
+        }
+        return newInstance(kind, t.getSymbolicName(), t.getVersion(), t.getPlan(), 
+            t.getSuperTypes(), t.getAliases(), t.getTags(), t.getContainingBundle(), t.getLibraries(), 
+            t.getDisplayName(), t.getDescription(), t.getIconUrl(), t.isDeprecated(), t.isDisabled());
     }
 
     /** Creates an anonymous {@link RegisteredType} for plan-instantiation-only use. */
@@ -173,6 +259,18 @@ public class RegisteredTypes {
     public static RegisteredType setContainingBundle(RegisteredType type, @Nullable ManagedBundle bundle) {
         ((BasicRegisteredType)type).containingBundle =
             bundle==null ? null : Strings.toString(bundle.getVersionedName());
+        return type;
+    }
+
+    @Beta
+    public static RegisteredType setDeprecated(RegisteredType type, boolean deprecated) {
+        ((BasicRegisteredType)type).deprecated = deprecated;
+        return type;
+    }
+
+    @Beta
+    public static RegisteredType setDisabled(RegisteredType type, boolean disabled) {
+        ((BasicRegisteredType)type).disabled = disabled;
         return type;
     }
 
@@ -246,6 +344,7 @@ public class RegisteredTypes {
     public static String getImplementationDataStringForSpec(RegisteredType item) {
         if (item==null || item.getPlan()==null) return null;
         Object data = item.getPlan().getPlanData();
+        if (data==null) throw new IllegalStateException("No plan data for "+item);
         if (!(data instanceof String)) throw new IllegalStateException("Expected plan data for "+item+" to be a string");
         return (String)data;
     }
@@ -306,6 +405,7 @@ public class RegisteredTypes {
      * Queries recursively the given types (either {@link Class} or {@link RegisteredType}) 
      * to see whether any inherit from the given {@link Class} */
     public static boolean isAnyTypeSubtypeOf(Set<Object> candidateTypes, Class<?> superType) {
+        if (superType == Object.class) return true;
         return isAnyTypeOrSuperSatisfying(candidateTypes, Predicates.assignableFrom(superType));
     }
 
@@ -362,19 +462,35 @@ public class RegisteredTypes {
 
     public static RegisteredType getBestVersion(Iterable<RegisteredType> types) {
         if (types==null || !types.iterator().hasNext()) return null;
-        return Ordering.from(RegisteredTypeComparator.INSTANCE).max(types);
+        return Ordering.from(RegisteredTypeNameThenBestFirstComparator.INSTANCE).min(types);
     }
     
-    public static class RegisteredTypeComparator implements Comparator<RegisteredType> {
-        public static Comparator<RegisteredType> INSTANCE = new RegisteredTypeComparator();
-        private RegisteredTypeComparator() {}
+    /** by name, then with disabled, deprecated first, then by increasing version */ 
+    public static class RegisteredTypeNameThenWorstFirstComparator implements Comparator<RegisteredType> {
+        public static Comparator<RegisteredType> INSTANCE = new RegisteredTypeNameThenWorstFirstComparator();
+        private RegisteredTypeNameThenWorstFirstComparator() {}
         @Override
         public int compare(RegisteredType o1, RegisteredType o2) {
             return ComparisonChain.start()
+                .compare(o1.getSymbolicName(), o2.getSymbolicName(), NaturalOrderComparator.INSTANCE)
                 .compareTrueFirst(o1.isDisabled(), o2.isDisabled())
                 .compareTrueFirst(o1.isDeprecated(), o2.isDeprecated())
-                .compare(o1.getSymbolicName(), o2.getSymbolicName(), NaturalOrderComparator.INSTANCE)
                 .compare(o1.getVersion(), o2.getVersion(), VersionComparator.INSTANCE)
+                .result();
+        }
+    }
+
+    /** by name, then with disabled, deprecated first, then by increasing version */ 
+    public static class RegisteredTypeNameThenBestFirstComparator implements Comparator<RegisteredType> {
+        public static Comparator<RegisteredType> INSTANCE = new RegisteredTypeNameThenBestFirstComparator();
+        private RegisteredTypeNameThenBestFirstComparator() {}
+        @Override
+        public int compare(RegisteredType o1, RegisteredType o2) {
+            return ComparisonChain.start()
+                .compare(o1.getSymbolicName(), o2.getSymbolicName(), NaturalOrderComparator.INSTANCE)
+                .compareFalseFirst(o1.isDisabled(), o2.isDisabled())
+                .compareFalseFirst(o1.isDeprecated(), o2.isDeprecated())
+                .compare(o2.getVersion(), o1.getVersion(), VersionComparator.INSTANCE)
                 .result();
         }
     }
@@ -400,6 +516,10 @@ public class RegisteredTypes {
             @Override
             protected Maybe<T> visitBean() {
                 return tryValidateBean(object, type, context);
+            }
+            
+            protected Maybe<T> visitUnresolved() { 
+                return Maybe.absent(object+" is not yet resolved");
             }
         }.visit(kind);
     }
@@ -480,4 +600,61 @@ public class RegisteredTypes {
         if (item==null) return null;
         return item.getIconUrl();
     }
+
+    /** @deprecated since 0.12.0 see {@link #changePlanNotingEquivalent(RegisteredType, TypeImplementationPlan)} */
+    @Deprecated
+    public static RegisteredType changePlan(RegisteredType type, TypeImplementationPlan plan) {
+        ((BasicRegisteredType)type).implementationPlan = plan;
+        return type;
+    }
+    
+    /** Changes the plan set on the given type, returning it,
+     * and also recording that comparisons checking {@link #arePlansEquivalent(RegisteredType, RegisteredType)}
+     * should consider the two plans equivalent.
+     */
+    @Beta  // would prefer not to need this, but currently it is needed due to how resolver rewrites plan
+           // and we then check plan equality when considering a re-install, else we spuriously fail on
+           // identical re-installs (eg with dns-etc-hosts-generator)
+    public static RegisteredType changePlanNotingEquivalent(RegisteredType type, TypeImplementationPlan plan) {
+        RegisteredTypes.notePlanEquivalentToThis(type, type.getPlan());
+        RegisteredTypes.notePlanEquivalentToThis(type, plan);
+        ((BasicRegisteredType)type).implementationPlan = plan;
+        return type;
+    }
+    
+    private static String tagForEquivalentPlan(String input) {
+        // plans may be trimmed by yaml parser so do that before checking equivalence
+        // it does mean a format change will be ignored
+        return "equivalent-plan("+Streams.getMd5Checksum(Streams.newInputStreamWithContents(input.trim()))+")";
+    }
+    
+    @Beta
+    public static void notePlanEquivalentToThis(RegisteredType type, TypeImplementationPlan plan) {
+        Object data = plan.getPlanData();
+        if (data==null) throw new IllegalStateException("No plan data for "+plan+" noted equivalent to "+type);
+        if (!(data instanceof String)) throw new IllegalStateException("Expected plan for equivalent to "+type+" to be a string; was "+data);
+        ((BasicRegisteredType)type).tags.add(tagForEquivalentPlan((String)data));
+    }
+
+    @Beta
+    public static boolean arePlansEquivalent(RegisteredType type1, RegisteredType type2) {
+        String plan1 = getImplementationDataStringForSpec(type1);
+        String plan2 = getImplementationDataStringForSpec(type2);
+        if (Strings.isNonBlank(plan1) && Strings.isNonBlank(plan2)) {
+            String p2tag = tagForEquivalentPlan(plan2);
+            String p1tag = tagForEquivalentPlan(plan1);
+            // allow same plan under trimming,
+            // or any recorded tag in either direction
+            if (Objects.equal(p1tag, p2tag)) return true;
+            if (type1.getTags().contains(p2tag)) return true;
+            if (type2.getTags().contains(p1tag)) return true;
+        }
+        return Objects.equal(type1.getPlan(), type2.getPlan());
+    }
+    
+    public static boolean isTemplate(RegisteredType type) {
+        if (type==null) return false;
+        return type.getTags().contains(BrooklynTags.CATALOG_TEMPLATE);
+    }
+
 }

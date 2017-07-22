@@ -137,7 +137,7 @@ public class CatalogDo {
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
                     if (failOnLoadError) {
-                        Exceptions.propagate(e);
+                        Exceptions.propagateAnnotated("Loading bundles for catalog item " + entry.getCatalogItemId() + " failed", e);
                     } else {
                         log.error("Loading bundles for catalog item " + entry + " failed: " + e.getMessage(), e);
                     }

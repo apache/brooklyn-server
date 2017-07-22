@@ -442,4 +442,5 @@ public class Osgis {
         Bundle bundle = org.osgi.framework.FrameworkUtil.getBundle(clazz);
         return Optional.fromNullable(bundle);
     }
+
 }

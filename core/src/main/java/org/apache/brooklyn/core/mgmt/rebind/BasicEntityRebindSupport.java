@@ -38,6 +38,7 @@ import org.apache.brooklyn.core.entity.internal.AttributesInternal;
 import org.apache.brooklyn.core.entity.internal.AttributesInternal.ProvisioningTaskState;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
+import org.apache.brooklyn.core.entity.trait.AsyncStartable;
 import org.apache.brooklyn.core.feed.AbstractFeed;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
@@ -232,7 +233,9 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
     protected void instanceRebind(AbstractBrooklynObject instance) {
         Preconditions.checkState(instance == entity, "Expected %s and %s to match, but different objects", instance, entity);
         Lifecycle expectedState = ServiceStateLogic.getExpectedState(entity);
-        if (expectedState == Lifecycle.STARTING || expectedState == Lifecycle.STOPPING) {
+        boolean isAsync = (entity instanceof AsyncStartable);
+        
+        if ((!isAsync && expectedState == Lifecycle.STARTING) || expectedState == Lifecycle.STOPPING) {
             // If we were previously "starting" or "stopping", then those tasks will have been 
             // aborted. We don't want to continue showing that state (e.g. the web-console would
             // then show the it as in-progress with the "spinning" icon).

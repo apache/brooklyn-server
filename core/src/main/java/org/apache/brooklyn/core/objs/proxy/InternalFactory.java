@@ -121,7 +121,7 @@ public class InternalFactory {
             return special.newInstance().create(managementContext, clazz, spec);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            throw Exceptions.propagate("Unable to create "+clazz+" "+spec+" using special "+special, e);
+            throw Exceptions.propagateAnnotated("Unable to create "+clazz+" "+spec+" using special "+special, e);
         }
     }
 

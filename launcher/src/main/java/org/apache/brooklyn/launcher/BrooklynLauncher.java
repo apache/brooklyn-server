@@ -74,6 +74,7 @@ import com.google.common.collect.Maps;
  *     .start();
  * 
  * Entities.dumpInfo(launcher.getApplications());
+ * }
  * </pre>
  */
 public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {

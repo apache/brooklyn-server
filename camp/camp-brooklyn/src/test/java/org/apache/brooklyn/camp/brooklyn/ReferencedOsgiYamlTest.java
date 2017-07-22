@@ -22,6 +22,7 @@ import java.util.Collection;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
@@ -193,10 +194,10 @@ public class ReferencedOsgiYamlTest extends AbstractYamlTest {
             "      item:",
             "        type: " + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY);
 
-        BrooklynCatalog catalog = mgmt().getCatalog();
-        Assert.assertNotNull(catalog.getCatalogItem("yaml.nested.catalog.nested", BrooklynCatalog.DEFAULT_VERSION));
-        Assert.assertNotNull(catalog.getCatalogItem("yaml.nested.catalog.simple", BrooklynCatalog.DEFAULT_VERSION));
-        Assert.assertNotNull(catalog.getCatalogItem("yaml.nested.catalog.more", BrooklynCatalog.DEFAULT_VERSION));
+        BrooklynTypeRegistry catalog = mgmt().getTypeRegistry();
+        Assert.assertNotNull(catalog.get("yaml.nested.catalog.nested", BrooklynCatalog.DEFAULT_VERSION));
+        Assert.assertNotNull(catalog.get("yaml.nested.catalog.simple", BrooklynCatalog.DEFAULT_VERSION));
+        Assert.assertNotNull(catalog.get("yaml.nested.catalog.more", BrooklynCatalog.DEFAULT_VERSION));
     }
 
     protected void assertCatalogReference() throws Exception {

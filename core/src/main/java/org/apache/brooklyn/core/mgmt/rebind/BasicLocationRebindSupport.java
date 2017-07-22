@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.mgmt.rebind;
 
 import java.lang.reflect.Field;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -27,6 +28,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.rebind.RebindContext;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.LocationMemento;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.mgmt.rebind.dto.MementosGenerators;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -70,9 +72,17 @@ public class BasicLocationRebindSupport extends AbstractBrooklynObjectRebindSupp
         // Note that the flags have been set in the constructor
         // Sept 2016 - now ignores unused and config description
         
+        Collection<ConfigKey<?>> configKeys = location.getLocationTypeInternal().getConfigKeys().values();
+        
         for (Map.Entry<String, Object> entry : memento.getLocationConfig().entrySet()) {
             String flagName = entry.getKey();
             Object value = entry.getValue();
+            
+            Map<?, ?> unused = ConfigUtilsInternal.setAllConfigKeys(MutableMap.of(flagName, value), configKeys, location);
+            if (unused.isEmpty()) {
+                // Config key was known explicitly; don't need to iterate over all the fields yet again!
+                continue;
+            }
             
             Field field;
             try {

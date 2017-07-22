@@ -44,8 +44,6 @@ import com.google.common.base.Objects;
  */
 public class VersionComparator implements Comparator<String> {
     
-    private static final String SNAPSHOT = "SNAPSHOT";
-
     public static final VersionComparator INSTANCE = new VersionComparator();
 
     public static VersionComparator getInstance() {
@@ -53,10 +51,8 @@ public class VersionComparator implements Comparator<String> {
     }
 
     public static boolean isSnapshot(String version) {
-        if (version==null) return false;
-        return version.toUpperCase().contains(SNAPSHOT);
+        return BrooklynVersionSyntax.isSnapshot(version);
     }
-
     
     @SuppressWarnings("unused")
     private static class TwoBooleans {

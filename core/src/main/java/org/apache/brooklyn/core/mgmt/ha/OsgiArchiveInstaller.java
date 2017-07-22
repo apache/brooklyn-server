@@ -23,17 +23,23 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
+import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.core.osgi.Osgis;
@@ -53,16 +59,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.Iterables;
 
 // package-private so we can move this one if/when we move OsgiManager
 class OsgiArchiveInstaller {
 
     private static final Logger log = LoggerFactory.getLogger(OsgiArchiveInstaller.class);
     
-    // must be 1.0; see bottom of
-    // http://www.eclipse.org/virgo/documentation/virgo-documentation-3.7.0.M01/docs/virgo-user-guide/html/ch02s02.html
-    private static final String OSGI_MANIFEST_VERSION_VALUE = "1.0";
-
     final private OsgiManager osgiManager;
     private ManagedBundle suppliedKnownBundleMetadata;
     private InputStream zipIn;
@@ -71,6 +74,7 @@ class OsgiArchiveInstaller {
     private boolean loadCatalogBom = true;
     private boolean force = false;
     private boolean deferredStart = false;
+    private boolean validateTypes = true;
     
     private File zipFile;
     private Manifest discoveredManifest;
@@ -101,7 +105,11 @@ class OsgiArchiveInstaller {
 
     public void setDeferredStart(boolean deferredStart) {
         this.deferredStart = deferredStart;
-    }    
+    }
+    
+    public void setValidateTypes(boolean validateTypes) {
+        this.validateTypes = validateTypes;
+    }
 
     private ManagementContextInternal mgmt() {
         return (ManagementContextInternal) osgiManager.mgmt;
@@ -185,9 +193,9 @@ class OsgiArchiveInstaller {
             } catch (IOException e) {
                 throw new IllegalArgumentException("Invalid ZIP/JAR archive: "+e);
             }
-            ZipEntry bom = zf.getEntry("catalog.bom");
+            ZipEntry bom = zf.getEntry(BasicBrooklynCatalog.CATALOG_BOM);
             if (bom==null) {
-                bom = zf.getEntry("/catalog.bom");
+                bom = zf.getEntry("/"+BasicBrooklynCatalog.CATALOG_BOM);
             }
             if (bom==null) {
                 if (isCatalogBomRequired) {
@@ -219,10 +227,10 @@ class OsgiArchiveInstaller {
             manifestNeedsUpdating = true;
         }
         if (!matchSetOrFail("MANIFEST.MF in archive", discoveredManifest.getMainAttributes().getValue(Constants.BUNDLE_SYMBOLICNAME),
-                discoveredManifest.getMainAttributes().getValue(Constants.BUNDLE_VERSION) )) {
+                discoveredManifest.getMainAttributes().getValue(Constants.BUNDLE_VERSION))) {
             manifestNeedsUpdating = true;                
             discoveredManifest.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, inferredMetadata.getSymbolicName());
-            discoveredManifest.getMainAttributes().putValue(Constants.BUNDLE_VERSION, inferredMetadata.getOsgiVersionString() );
+            discoveredManifest.getMainAttributes().putValue(Constants.BUNDLE_VERSION, inferredMetadata.getOsgiVersionString());
         }
         if (Strings.isBlank(inferredMetadata.getSymbolicName())) {
             throw new IllegalArgumentException("Missing bundle symbolic name in BOM or MANIFEST");
@@ -231,7 +239,7 @@ class OsgiArchiveInstaller {
             throw new IllegalArgumentException("Missing bundle version in BOM or MANIFEST");
         }
         if (discoveredManifest.getMainAttributes().getValue(Attributes.Name.MANIFEST_VERSION)==null) {
-            discoveredManifest.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), OSGI_MANIFEST_VERSION_VALUE);
+            discoveredManifest.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), BasicBrooklynCatalog.OSGI_MANIFEST_VERSION_VALUE);
             manifestNeedsUpdating = true;                
         }
         if (manifestNeedsUpdating) {
@@ -275,6 +283,8 @@ class OsgiArchiveInstaller {
             updateManifestFromAllSourceInformation();
             if (result.code!=null) return ReferenceWithError.newInstanceWithoutError(result);
             assert inferredMetadata.isNameResolved() : "Should have resolved "+inferredMetadata;
+            assert inferredMetadata instanceof BasicManagedBundle : "Only BasicManagedBundles supported";
+            ((BasicManagedBundle)inferredMetadata).setChecksum(getChecksum(new ZipFile(zipFile)));
 
             final boolean updating;
             result.metadata = osgiManager.getManagedBundle(inferredMetadata.getVersionedName());
@@ -296,10 +306,18 @@ class OsgiArchiveInstaller {
                 if (canUpdate()) { 
                     result.bundle = osgiManager.framework.getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
                     if (result.getBundle()==null) {
-                        throw new IllegalStateException("Detected already managing bundle "+result.getMetadata().getVersionedName()+" but framework cannot find it");
+                        log.warn("Brooklyn thought is was already managing bundle "+result.getMetadata().getVersionedName()+" but it's not installed to framework; reinstalling it");
+                        updating = false;
+                    } else {
+                        updating = true;
                     }
-                    updating = true;
                 } else {
+                    if (result.getMetadata().getChecksum()==null || inferredMetadata.getChecksum()==null) {
+                        log.warn("Missing bundle checksum data for "+result+"; assuming bundle replacement is permitted");
+                    } else if (!Objects.equal(result.getMetadata().getChecksum(), inferredMetadata.getChecksum())) {
+                        throw new IllegalArgumentException("Bundle "+result.getMetadata().getVersionedName()+" already installed; "
+                            + "cannot install a different bundle at a same non-snapshot version");
+                    }
                     result.setIgnoringAlreadyInstalled();
                     return ReferenceWithError.newInstanceWithoutError(result);
                 }
@@ -308,11 +326,16 @@ class OsgiArchiveInstaller {
                 // no such managed bundle
                 Maybe<Bundle> b = Osgis.bundleFinder(osgiManager.framework).symbolicName(result.getMetadata().getSymbolicName()).version(result.getMetadata().getSuppliedVersionString()).find();
                 if (b.isPresent()) {
-                    // if it's non-brooklyn installed then fail
-                    // (e.g. someone trying to install brooklyn or guice through this mechanism!)
-                    result.bundle = b.get();
-                    result.code = OsgiBundleInstallationResult.ResultCode.ERROR_INSTALLING_BUNDLE;
-                    throw new IllegalStateException("Bundle "+result.getMetadata().getVersionedName()+" already installed in framework but not managed by Brooklyn; cannot install or update through Brooklyn");
+                    // bundle already installed to OSGi subsystem but brooklyn not aware of it;
+                    // this will often happen on a karaf restart so don't be too strict!
+                    // in this case let's uninstall it to make sure we have the right bundle and checksum
+                    // (in case where user has replaced a JAR file in persisted state,
+                    // or where they osgi installed something and are now uploading it or something else) 
+                    // but let's just assume it's the same; worst case if not user will
+                    // have to uninstall it then reinstall it to do the replacement
+                    // (means you can't just replace a JAR in persisted state however)
+                    log.debug("Brooklyn install of "+result.getMetadata().getVersionedName()+" detected already loaded in OSGi; uninstalling that to reinstall as Brooklyn-managed");
+                    b.get().uninstall();
                 }
                 // normal install
                 updating = false;
@@ -321,7 +344,6 @@ class OsgiArchiveInstaller {
             startedInstallation = true;
             try (InputStream fin = new FileInputStream(zipFile)) {
                 if (!updating) {
-                    // install new
                     assert result.getBundle()==null;
                     result.bundle = osgiManager.framework.getBundleContext().installBundle(result.getMetadata().getOsgiUniqueUrl(), fin);
                 } else {
@@ -336,14 +358,14 @@ class OsgiArchiveInstaller {
             if (!updating) { 
                 osgiManager.managedBundlesRecord.addManagedBundle(result);
                 result.code = OsgiBundleInstallationResult.ResultCode.INSTALLED_NEW_BUNDLE;
-                result.message = "Installed "+result.getMetadata().getVersionedName()+" with ID "+result.getMetadata().getId();
+                result.message = "Installed Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" with ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
                 mgmt().getRebindManager().getChangeListener().onManaged(result.getMetadata());
             } else {
                 result.code = OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE;
-                result.message = "Updated "+result.getMetadata().getVersionedName()+" as existing ID "+result.getMetadata().getId();
+                result.message = "Updated Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" as existing ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
                 mgmt().getRebindManager().getChangeListener().onChanged(result.getMetadata());
             }
-            log.info(result.message);
+            log.debug(result.message + " (in osgi container)");
             
             // setting the above before the code below means if there is a problem starting or loading catalog items
             // a user has to remove then add again, or forcibly reinstall;
@@ -360,6 +382,7 @@ class OsgiArchiveInstaller {
                 public void run() {
                     if (start) {
                         try {
+                            log.debug("Starting bundle "+result.getVersionedName());
                             result.bundle.start();
                         } catch (BundleException e) {
                             throw Exceptions.propagate(e);
@@ -371,7 +394,10 @@ class OsgiArchiveInstaller {
                             osgiManager.uninstallCatalogItemsFromBundle( result.getVersionedName() );
                             // (ideally removal and addition would be atomic)
                         }
-                        for (CatalogItem<?,?> ci: osgiManager.loadCatalogBom(result.bundle)) {
+                        osgiManager.loadCatalogBom(result.bundle, force, validateTypes);
+                        Iterable<RegisteredType> items = mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(result.getMetadata()));
+                        log.debug("Adding items from bundle "+result.getVersionedName()+": "+items);
+                        for (RegisteredType ci: items) {
                             result.catalogItemsInstalled.add(ci.getId());
                         }
                     }
@@ -379,20 +405,49 @@ class OsgiArchiveInstaller {
             };
             if (deferredStart) {
                 result.deferredStart = startRunnable;
+                log.debug(result.message+" (Brooklyn load deferred)");
             } else {
                 startRunnable.run();
+                if (!result.catalogItemsInstalled.isEmpty()) {
+                    // show fewer info messages, only for 'interesting' and non-deferred installations
+                    // (rebind is deferred, as are tests, but REST is not)
+                    final int MAX_TO_LIST_EXPLICITLY = 5;
+                    MutableList<String> firstN = MutableList.copyOf(Iterables.limit(result.catalogItemsInstalled, MAX_TO_LIST_EXPLICITLY));
+                    log.info(result.message+", items: "+firstN+
+                        (result.catalogItemsInstalled.size() > MAX_TO_LIST_EXPLICITLY ? " (and others, "+result.catalogItemsInstalled.size()+" total)" : "") );
+                    if (log.isDebugEnabled() && result.catalogItemsInstalled.size()>MAX_TO_LIST_EXPLICITLY) {
+                        log.debug(result.message+", all items: "+result.catalogItemsInstalled);
+                    }
+                } else {
+                    log.debug(result.message+" (into Brooklyn), with no catalog items");
+                }
             }
 
             return ReferenceWithError.newInstanceWithoutError(result);
             
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            result.code = startedInstallation ? OsgiBundleInstallationResult.ResultCode.ERROR_INSTALLING_BUNDLE : OsgiBundleInstallationResult.ResultCode.ERROR_PREPARING_BUNDLE;
+            result.code = startedInstallation ? OsgiBundleInstallationResult.ResultCode.ERROR_LAUNCHING_BUNDLE : OsgiBundleInstallationResult.ResultCode.ERROR_PREPARING_BUNDLE;
             result.message = "Bundle "+inferredMetadata+" failed "+
                 (startedInstallation ? "installation" : "preparation") + ": " + Exceptions.collapseText(e);
             return ReferenceWithError.newInstanceThrowingError(result, new IllegalStateException(result.message, e));
         } finally {
             close();
+        }
+    }
+
+    private static String getChecksum(ZipFile zf) {
+        // checksum should ignore time/date stamps on files - just look at entries and contents. also ignore order.
+        // (tests fail without time/date is one reason, but really if a person rebuilds a ZIP that is the same 
+        // files we should treat it as identical)
+        try {
+            Map<String,String> entriesToChecksum = MutableMap.of();
+            for (ZipEntry ze: Collections.list(zf.entries())) {
+                entriesToChecksum.put(ze.getName(), Streams.getMd5Checksum(zf.getInputStream(ze)));
+            }
+            return Streams.getMd5Checksum(Streams.newInputStreamWithContents(new TreeMap<>(entriesToChecksum).toString()));
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
         }
     }
 

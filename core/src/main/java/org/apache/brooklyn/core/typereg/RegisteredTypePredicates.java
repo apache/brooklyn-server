@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.typereg;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Application;
@@ -26,21 +28,28 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.osgi.VersionedName;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 
 public class RegisteredTypePredicates {
 
+    private static final Logger log = LoggerFactory.getLogger(RegisteredTypePredicates.class);
+    
     public static Predicate<RegisteredType> deprecated(final boolean deprecated) {
         return new DeprecatedEqualTo(deprecated);
     }
-
     private static class DeprecatedEqualTo implements Predicate<RegisteredType> {
         private final boolean deprecated;
         
@@ -56,7 +65,6 @@ public class RegisteredTypePredicates {
     public static Predicate<RegisteredType> disabled(boolean disabled) {
         return new DisabledEqualTo(disabled);
     }
-
     private static class DisabledEqualTo implements Predicate<RegisteredType> {
         private final boolean disabled;
         
@@ -66,6 +74,21 @@ public class RegisteredTypePredicates {
         @Override
         public boolean apply(@Nullable RegisteredType item) {
             return (item != null) && item.isDisabled() == disabled;
+        }
+    }
+    
+    public static Predicate<RegisteredType> template(final boolean template) {
+        return new TemplateTagPresent(template);
+    }
+    private static class TemplateTagPresent implements Predicate<RegisteredType> {
+        private final boolean present;
+        
+        public TemplateTagPresent(boolean present) {
+            this.present = present;
+        }
+        @Override
+        public boolean apply(@Nullable RegisteredType item) {
+            return (item != null) && RegisteredTypes.isTemplate(item) == present;
         }
     }
 
@@ -256,4 +279,55 @@ public class RegisteredTypePredicates {
         }
     }
 
+    public static Predicate<? super RegisteredType> containingBundle(VersionedName versionedName) {
+        return new ContainingBundle(versionedName);
+    }
+    public static Predicate<? super RegisteredType> containingBundle(OsgiBundleWithUrl bundle) {
+        return containingBundle(bundle.getVersionedName());
+    }
+    public static Predicate<? super RegisteredType> containingBundle(String versionedName) {
+        return containingBundle(VersionedName.fromString(versionedName));
+    }
+    private static class ContainingBundle implements Predicate<RegisteredType> {
+        private final VersionedName bundle;
+
+        public ContainingBundle(VersionedName bundle) {
+            this.bundle = bundle;
+        }
+        @Override
+        public boolean apply(@Nullable RegisteredType item) {
+            return bundle.equalsOsgi(item.getContainingBundle());
+        }
+    }
+
+    @Beta // expensive way to compare everything; API likely to change to be clearer
+    public static Predicate<RegisteredType> stringRepresentationMatches(Predicate<? super String> filter) {
+        return new StringRepresentationMatches<>(checkNotNull(filter, "filter"));
+    }
+    private static class StringRepresentationMatches<T, SpecT> implements Predicate<RegisteredType> {
+        private final Predicate<? super String> filter;
+        StringRepresentationMatches(final Predicate<? super String> filter) {
+            this.filter = filter;
+        }
+        @Override
+        public boolean apply(@Nullable RegisteredType item) {
+            try {
+                String thingToCompare = 
+                    item.getVersionedName().toString()+"\n"+
+                    item.getVersionedName().toOsgiString()+"\n"+
+                    item.getTags()+"\n"+
+                    item.getDisplayName()+"\n"+
+                    item.getAliases()+"\n"+
+                    item.getDescription()+"\n"+
+                    RegisteredTypes.getImplementationDataStringForSpec(item);
+                return filter.apply(thingToCompare);
+            } catch (Exception e) {
+                // If we propagated exceptions, then we'd risk aborting the checks for other catalog items.
+                // Play it safe, in case there's something messed up with just one catalog item.
+                Exceptions.propagateIfFatal(e);
+                log.warn("Problem producing string representation of "+item+"; assuming no match, and continuing", e);
+                return false;
+            }
+        }
+    }
 }

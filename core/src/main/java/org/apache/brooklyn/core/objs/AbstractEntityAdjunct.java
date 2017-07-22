@@ -40,12 +40,14 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.core.mgmt.internal.SubscriptionTracker;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
@@ -151,6 +153,13 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
             }
         }
 
+        // Allow config keys to be set by name (or deprecated name)
+        //
+        // The resulting `flags` will no longer contain the keys that we matched;
+        // we will not also use them to for `SetFromFlag` etc.
+        flags = ConfigUtilsInternal.setAllConfigKeys(flags, getAdjunctType().getConfigKeys(), this);
+
+        // Must call setFieldsFromFlagsWithBag, even if properites is empty, so defaults are extracted from annotations
         ConfigBag bag = new ConfigBag().putAll(flags);
         FlagUtils.setFieldsFromFlags(this, bag, isFirstTime);
         FlagUtils.setAllConfigKeys(this, bag, false);

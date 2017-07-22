@@ -19,13 +19,16 @@
 package org.apache.brooklyn.api.catalog;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 
+import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 
@@ -57,6 +60,7 @@ public interface BrooklynCatalog {
     <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItems();
 
     /** convenience for filtering items in the catalog; see CatalogPredicates for useful filters */
+//    XXX
     <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItems(Predicate<? super CatalogItem<T,SpecT>> filter);
 
     /** persists the catalog item to the object store, if persistence is enabled */
@@ -91,6 +95,33 @@ public interface BrooklynCatalog {
      * @since 0.10.0
      */
     AbstractBrooklynObjectSpec<?, ?> peekSpec(CatalogItem<?, ?> item);
+
+    /** Adds the given registered types defined in a bundle's catalog BOM; 
+     * no validation performed, so caller should do that subsequently after 
+     * loading all potential inter-dependent types.
+     * <p>
+     * Nothing is returned but caller can retrieve the results by searching the
+     * type registry for types with the same containing bundle.
+     */
+    @Beta  // method may move elsewhere
+    public void addTypesFromBundleBom(String yaml, ManagedBundle bundle, boolean forceUpdate);
+    
+    /** As {@link #validateType(RegisteredType)} but taking a set of types, returning a map whose keys are
+     * those types where validation failed, mapped to the collection of errors validating that type. 
+     * An empty map result indicates no validation errors in the types passed in. 
+     */
+    @Beta  // method may move elsewhere
+    public Map<RegisteredType,Collection<Throwable>> validateTypes(Iterable<RegisteredType> typesToValidate);
+
+    /** Performs YAML validation on the given type, returning a collection of errors. 
+     * An empty result indicates no validation errors in the type passed in. 
+     * <p>
+     * Validation may be side-effecting in that it sets metadata and refines supertypes
+     * for the given registered type.
+     */
+    @Beta  // method may move elsewhere
+    Collection<Throwable> validateType(RegisteredType typeToValidate);
+
 
     /**
      * Adds an item (represented in yaml) to the catalog.
@@ -136,6 +167,9 @@ public interface BrooklynCatalog {
      * @throws IllegalArgumentException if the yaml was invalid
      */
     Iterable<? extends CatalogItem<?,?>> addItems(String yaml, boolean forceUpdate);
+    
+    /** As {@link #addItems(String, ManagedBundle)} but exposing forcing option as per {@link #addItem(String, boolean)}. */
+    Iterable<? extends CatalogItem<?,?>> addItems(String yaml, ManagedBundle bundle, boolean forceUpdate);
     
     /**
      * adds an item to the 'manual' catalog;

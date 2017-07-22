@@ -41,6 +41,7 @@ import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.testng.annotations.Test;
@@ -279,6 +280,18 @@ public class DslYamlTest extends AbstractYamlTest {
     }
 
     @Test
+    public void testDslConfigInMap() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    source: myvalue",
+                "    dest:",
+                "      key: $brooklyn:config(\"source\")");
+        assertEquals(getConfigEventually(app, DEST), MutableMap.of("key", "myvalue"));
+    }
+
+    @Test
     public void testDslConfigOnEntity() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
@@ -306,7 +319,7 @@ public class DslYamlTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testDslConfigOnEntityWithDeferredArg() throws Exception {
+    public void testDslConfigOnEntityWithDeferredArgAsEntityId() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
                 "- type: " + BasicApplication.class.getName(),
@@ -314,6 +327,23 @@ public class DslYamlTest extends AbstractYamlTest {
                 "    entityName: sourceEntity",
                 "    configName: source",
                 "    dest: $brooklyn:entity(config(\"entityName\")).config(config(\"configName\"))",
+                "  brooklyn.children:",
+                "  - type: " + BasicEntity.class.getName(),
+                "    id: sourceEntity",
+                "    brooklyn.config:",
+                "      source: myvalue");
+        assertEquals(getConfigEventually(app, DEST), "myvalue");
+    }
+
+    @Test
+    public void testDslConfigOnEntityWithDeferredArgAsEntity() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    entityValue: $brooklyn:entity(\"sourceEntity\")",
+                "    configName: source",
+                "    dest: $brooklyn:entity(config(\"entityValue\")).config(config(\"configName\"))",
                 "  brooklyn.children:",
                 "  - type: " + BasicEntity.class.getName(),
                 "    id: sourceEntity",

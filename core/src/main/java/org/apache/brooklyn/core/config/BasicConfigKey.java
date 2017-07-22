@@ -47,6 +47,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.reflect.TypeToken;
 
@@ -100,6 +101,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
 
     public abstract static class Builder<T, B extends Builder<T,B>> {
         protected String name;
+        protected Collection<String> deprecatedNames = ImmutableList.of();
         protected TypeToken<T> type;
         protected String description;
         protected T defaultValue;
@@ -125,6 +127,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         public Builder(String newName, ConfigKey<T> key) {
             this.type = checkNotNull(key.getTypeToken(), "type");
             this.name = checkNotNull(newName, "name");
+            this.deprecatedNames = checkNotNull(key.getDeprecatedNames(), "deprecatedNames");
             description(key.getDescription());
             defaultValue(key.getDefaultValue());
             reconfigurable(key.isReconfigurable());
@@ -134,6 +137,12 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         }
         public B name(String val) {
             this.name = val; return self();
+        }
+        public B deprecatedNames(Collection<String> val) {
+            this.deprecatedNames = val; return self();
+        }
+        public B deprecatedNames(String... val) {
+            return deprecatedNames(val == null ? ImmutableList.of() : ImmutableList.copyOf(val));
         }
         public B type(Class<T> val) {
             this.type = TypeToken.of(val); return self();
@@ -187,6 +196,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
     }
     
     protected String name;
+    protected Collection<String> deprecatedNames;
     protected TypeToken<T> typeToken;
     protected Class<? super T> type;
     protected String description;
@@ -237,6 +247,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
     public BasicConfigKey(TypeToken<T> type, String name, String description, T defaultValue) {
         this.description = description;
         this.name = checkNotNull(name, "name");
+        this.deprecatedNames = ImmutableList.of();
         
         this.type = TypeTokens.getRawTypeIfRaw(checkNotNull(type, "type"));
         this.typeToken = TypeTokens.getTypeTokenIfNotRaw(type);
@@ -248,6 +259,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
 
     public BasicConfigKey(Builder<T,?> builder) {
         this.name = checkNotNull(builder.name, "name");
+        this.deprecatedNames = checkNotNull(builder.deprecatedNames, "deprecatedNames");
         this.type = TypeTokens.getRawTypeIfRaw(checkNotNull(builder.type, "type"));
         this.typeToken = TypeTokens.getTypeTokenIfNotRaw(builder.type);
         this.description = builder.description;
@@ -263,6 +275,13 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
 
     /** @see ConfigKey#getName() */
     @Override public String getName() { return name; }
+
+    /** @see ConfigKey#getDeprecatedNames() */
+    @Override public Collection<String> getDeprecatedNames() {
+        // check for null, for backwards compatibility of serialized state
+        if (deprecatedNames == null) deprecatedNames = ImmutableList.of();
+        return deprecatedNames;
+    }
 
     /** @see ConfigKey#getTypeName() */
     @Override public String getTypeName() { return getType().getName(); }
@@ -361,6 +380,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
     }
 
     /** @see ConfigKey#getNameParts() */
+    @Deprecated
     @Override public Collection<String> getNameParts() {
         return Lists.newArrayList(dots.split(name));
     }

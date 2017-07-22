@@ -31,6 +31,8 @@ import com.google.common.base.Preconditions;
  */
 public class BrooklynVersionSyntax {
 
+    private static final String SNAPSHOT = "SNAPSHOT";
+
     public static final String USABLE_REGEX = "[^:\\s/\\\\]+";
     public static final String DOT = "\\.";
 
@@ -190,6 +192,11 @@ public class BrooklynVersionSyntax {
     public static boolean equalAsOsgiVersions(String v1, String v2) {
         if (v1==null || v2==null) return (v1==null && v2==null);
         return toValidOsgiVersion(v1).equals(toValidOsgiVersion(v2));
+    }
+
+    public static boolean isSnapshot(String version) {
+        if (version==null) return false;
+        return version.toUpperCase().contains(SNAPSHOT);
     }
 
 }

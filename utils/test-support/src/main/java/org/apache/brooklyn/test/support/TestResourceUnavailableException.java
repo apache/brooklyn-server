@@ -53,7 +53,7 @@ public class TestResourceUnavailableException extends SkipException {
      *
      * Note that this will use the same classloader that was used to load this class.
      *
-     * @param resourceName the classpath resource name, e.g.
+     * @param resourceName the classpath resource name, as a path, e.g.
      *                     <code>/brooklyn/osgi/brooklyn-test-osgi-entities.jar</code>
      */
     public static void throwIfResourceUnavailable(Class<?> relativeToClass, String resourceName) {
@@ -61,8 +61,10 @@ public class TestResourceUnavailableException extends SkipException {
         checkNotNull(resourceName, "resourceName");
         checkArgument(!resourceName.isEmpty(), "resourceName must not be empty");
         InputStream resource = relativeToClass.getResourceAsStream(resourceName);
-        if (resource == null)
+        if (resource == null) {
+            // would be nice to support URLs but ResourceUtils isn't available here
             throw new TestResourceUnavailableException(resourceName);
+        }
 
         // just make sure we clean up the resource
         try {

@@ -59,6 +59,12 @@ public class ServerResourceTest extends BrooklynRestResourceTest {
     }
 
     @Test
+    public void testGetPlaneId() throws Exception {
+        String planeId = client().path("/server/planeid").get(String.class);
+        assertEquals(planeId, manager.getManagementPlaneIdMaybe().get());
+    }
+
+    @Test
     public void testGetStatus() throws Exception {
         ManagementNodeState nodeState = client().path("/server/ha/state").get(ManagementNodeState.class);
         assertEquals(nodeState.name(), "MASTER");
@@ -71,7 +77,9 @@ public class ServerResourceTest extends BrooklynRestResourceTest {
         HighAvailabilitySummary summary = client().path("/server/ha/states").get(HighAvailabilitySummary.class);
         log.info("HA summary is: "+summary);
         
+        String planeId = getManagementContext().getManagementPlaneIdMaybe().get();
         String ownNodeId = getManagementContext().getManagementNodeId();
+        assertEquals(summary.getPlaneId(), planeId);
         assertEquals(summary.getOwnId(), ownNodeId);
         assertEquals(summary.getMasterId(), ownNodeId);
         assertEquals(summary.getNodes().keySet(), ImmutableSet.of(ownNodeId));
@@ -99,7 +107,7 @@ public class ServerResourceTest extends BrooklynRestResourceTest {
     void testGetConfig() throws Exception {
         ((ManagementContextInternal)getManagementContext()).getBrooklynProperties().put("foo.bar.baz", "quux");
         try {
-            assertEquals(client().path("/server/config/foo.bar.baz").get(String.class), "quux");
+            assertEquals(client().path("/server/config/foo.bar.baz").get(String.class), "\"quux\"");
         } finally {
             ((ManagementContextInternal)getManagementContext()).getBrooklynProperties().remove("foo.bar.baz");
         }

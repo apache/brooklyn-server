@@ -116,14 +116,17 @@ public class RebindContextLookupContext implements LookupContext {
 
     @SuppressWarnings("deprecation")
     @Override
+    // only used for persisted xml catalog items; not used for registered types
     public CatalogItem<?, ?> lookupCatalogItem(String id) {
         CatalogItem<?, ?> result = rebindContext.getCatalogItem(id);
         if (result == null) {
-            // TODO-type-registry
-//          result = managementContext.getTypeRegistry().get(id, null, null);
             result = CatalogUtils.getCatalogItemOptionalVersion(managementContext, id);
         }
         if (result == null) {
+            if (managementContext.getTypeRegistry().get(id)!=null) {
+                // don't treat as dangling; caller should now recognise null as meaning it's known in the type registry
+                return null;
+            }
             result = exceptionHandler.onDanglingCatalogItemRef(id);
         }
         return result;
