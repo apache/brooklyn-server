@@ -22,28 +22,17 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.feed.CommandPollConfig;
-import org.apache.brooklyn.feed.ssh.SshFeed;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
-
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
-import org.apache.brooklyn.core.effector.AddSensor;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.sensor.AddSensor;
 import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
-import org.apache.brooklyn.feed.AbstractCommandFeed;
-import org.apache.brooklyn.feed.ssh.SshPollConfig;
+import org.apache.brooklyn.feed.CommandPollConfig;
+import org.apache.brooklyn.feed.ssh.SshFeed;
 import org.apache.brooklyn.feed.ssh.SshValueFunctions;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -53,6 +42,13 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 
 /** 
  * Configurable {@link EntityInitializer} which adds an SSH sensor feed running the <code>command</code> supplied
@@ -61,7 +57,6 @@ import org.apache.brooklyn.util.text.Strings;
  *
  * @see HttpRequestSensor
  */
-@Beta
 public final class SshCommandSensor<T> extends AddSensor<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(SshCommandSensor.class);
@@ -142,7 +137,6 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
         entity.addFeed(feed);
     }
 
-    @Beta
     public static String makeCommandExecutingInDirectory(String command, String executionDir, Entity entity) {
         String finalCommand = command;
         String execDir = executionDir;

@@ -28,6 +28,8 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 public class StringFunctions {
@@ -276,6 +278,24 @@ public class StringFunctions {
         public String apply(@Nullable Iterable<?> input) {
             Object[] arr = (input == null) ? null : Iterables.toArray(input, Object.class);
             return String.format(pattern, arr);
+        }
+    }
+
+    /** splits a string into a collection of elements */
+    public static Function<String, Iterable<?>> splitter(final String separator) {
+        return new SplitterFunction(separator);
+    }
+
+    private static class SplitterFunction implements Function<String, Iterable<?>> {
+        private final String separator;
+
+        public SplitterFunction(String separator) {
+            this.separator = separator;
+        }
+        @Override
+        public Iterable<?> apply(@Nullable String input) {
+            if (input == null) return ImmutableList.of();
+            return ImmutableList.copyOf(Splitter.on(separator).split(input));
         }
     }
 

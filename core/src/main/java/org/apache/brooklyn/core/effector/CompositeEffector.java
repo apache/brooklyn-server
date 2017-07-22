@@ -29,6 +29,8 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.Effectors.EffectorBuilder;
+import org.apache.brooklyn.core.effector.composite.ReplaceEffector;
+import org.apache.brooklyn.core.effector.composite.SequenceEffector;
 import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -42,7 +44,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.reflect.TypeToken;
 
+/**
+ * @deprecated use a combintaion of {@link ReplaceEffector} and {@link SequenceEffector} instead
+ */
 @Beta
+@Deprecated
 public class CompositeEffector extends AddEffector {
 
     private static final Logger LOG = LoggerFactory.getLogger(CompositeEffector.class);

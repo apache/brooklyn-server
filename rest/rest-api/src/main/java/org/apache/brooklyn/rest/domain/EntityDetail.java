@@ -18,15 +18,17 @@
  */
 package org.apache.brooklyn.rest.domain;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.common.collect.ImmutableList;
-import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 public class EntityDetail extends EntitySummary {
 
@@ -34,7 +36,7 @@ public class EntityDetail extends EntitySummary {
 
     private final String applicationId;
     private final String parentId;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_EMPTY)
+    @JsonInclude(Include.NON_NULL)
     private final List<EntitySummary> children;
     private final List<String> groupIds;
     private final List<Map<String, String>> members;

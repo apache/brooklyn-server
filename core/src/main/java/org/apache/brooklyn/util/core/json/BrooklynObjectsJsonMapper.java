@@ -28,7 +28,7 @@ public class BrooklynObjectsJsonMapper {
 
         ObjectMapper mapper = new ObjectMapper();
         mapper.setSerializerProvider(sp);
-        mapper.setVisibilityChecker(new PossiblyStrictPreferringFieldsVisibilityChecker());
+        mapper.setVisibility(new PossiblyStrictPreferringFieldsVisibilityChecker());
 
         SimpleModule mapperModule = new SimpleModule("Brooklyn", new Version(0, 0, 0, "ignored", null, null));
 

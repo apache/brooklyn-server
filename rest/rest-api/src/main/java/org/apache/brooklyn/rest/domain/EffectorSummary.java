@@ -23,6 +23,8 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.base.MoreObjects;
@@ -38,7 +40,7 @@ public class EffectorSummary implements HasName, Serializable {
 
         private final String name;
         private final String type;
-        @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+        @JsonInclude(Include.NON_NULL)
         private final String description;
         private final T defaultValue;
         private final boolean shouldSanitize;

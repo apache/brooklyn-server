@@ -21,20 +21,21 @@ package org.apache.brooklyn.rest.domain;
 import java.io.Serializable;
 import java.util.Objects;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 public class ScriptExecutionSummary implements Serializable {
 
     private static final long serialVersionUID = -7707936602991185960L;
 
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final Object result;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_EMPTY)
+    @JsonInclude(Include.NON_NULL)
     private final String problem;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_EMPTY)
+    @JsonInclude(Include.NON_EMPTY)
     private final String stdout;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_EMPTY)
+    @JsonInclude(Include.NON_EMPTY)
     private final String stderr;
 
     public ScriptExecutionSummary(
