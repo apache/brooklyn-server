@@ -92,13 +92,12 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
     protected JsonObject apiGet(String path, ImmutableMap<String, String> headers) {
         try {
             String uri = Urls.mergePaths(endpoint, path);
-            LOG.debug("Vault request - GET: {}", uri);
-            LOG.debug("Vault request - headers: {}", headers.toString());
+            LOG.trace("Vault request - GET: {}", uri);
+            LOG.trace("Vault request - headers: {}", headers.toString());
             HttpToolResponse response = HttpTool.httpGet(httpClient, Urls.toUri(uri), headers);
-            LOG.debug("Vault response - code: {} {}", new Object[]{Integer.toString(response.getResponseCode()), response.getReasonPhrase()});
-            LOG.debug("Vault response - headers: {}", response.getHeaderLists().toString());
+            LOG.trace("Vault response - code: {} {}", new Object[]{Integer.toString(response.getResponseCode()), response.getReasonPhrase()});
+            LOG.trace("Vault response - headers: {}", response.getHeaderLists().toString());
             String responseBody = new String(response.getContent(), CHARSET_NAME);
-            LOG.debug("Vault response - body: {}", responseBody);
             if (HttpTool.isStatusCodeHealthy(response.getResponseCode())) {
                 return gson.fromJson(responseBody, JsonObject.class);
             } else {
