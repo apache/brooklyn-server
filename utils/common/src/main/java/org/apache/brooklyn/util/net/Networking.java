@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.io.IOException;
 import java.net.DatagramSocket;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
@@ -38,10 +39,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.Range;
-import com.google.common.collect.RangeSet;
-import com.google.common.collect.TreeRangeSet;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
@@ -50,8 +48,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
+import com.google.common.collect.TreeRangeSet;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.UnsignedBytes;
 
@@ -88,6 +91,9 @@ public class Networking {
         return isPortAvailable(ANY_NIC, port);
     }
     public static boolean isPortAvailable(InetAddress localAddress, int port) {
+        return isPortAvailable(localAddress, port, SET_REUSE_ADDRESS);
+    }
+    public static boolean isPortAvailable(InetAddress localAddress, int port, Boolean allowReuse) {
         if (port < MIN_PORT_NUMBER || port > MAX_PORT_NUMBER) {
             throw new IllegalArgumentException("Invalid start port: " + port);
         }
@@ -100,19 +106,24 @@ public class Networking {
             //Svet - SO_REUSEADDR (enabled below) will allow one socket to listen on 0.0.0.0:X and another on
             //192.168.0.1:X which explains the above comment (nginx sets SO_REUSEADDR as well). Moreover there
             //is no TIME_WAIT for listening sockets without any connections so why enable it at all.
+            //Alex - TIME_WAIT sticks around for a while (30s or so) if a java process dies while it has
+            //connections; if we want things to aggressively try to take a port, they should use reuse-addr,
+            //but probably testing against ANY_NIC unless they want to trump things listening on all interfaces.
+            //(isPortAvailable(ANY_NIC) will say false if any NIC is using it, 
+            //but isPortAvailable(SPECIFIC) may say true even if there is an ANY_NIC binding, when reuseAddr is true)
             ServerSocket ss = null;
             DatagramSocket ds = null;
             try {
                 // Check TCP port
                 ss = new ServerSocket();
                 ss.setSoTimeout(250);
-                if (SET_REUSE_ADDRESS!=null) { ss.setReuseAddress(SET_REUSE_ADDRESS); }
+                if (allowReuse!=null) { ss.setReuseAddress(allowReuse); }
                 ss.bind(new InetSocketAddress(localAddress, port));
 
                 // Check UDP port
                 ds = new DatagramSocket(null);
                 ds.setSoTimeout(250);
-                if (SET_REUSE_ADDRESS!=null) { ss.setReuseAddress(SET_REUSE_ADDRESS); }
+                if (allowReuse!=null) { ss.setReuseAddress(allowReuse); }
                 ds.bind(new InetSocketAddress(localAddress, port));
             } catch (IOException e) {
                 if (log.isTraceEnabled()) log.trace("Failed binding to " + localAddress + " : " + port, e);
@@ -142,7 +153,7 @@ public class Networking {
                     Enumeration<InetAddress> as = ni.getInetAddresses();
                     while (as.hasMoreElements()) {
                         InetAddress a = as.nextElement();
-                        if (!isPortAvailable(a, port)) {
+                        if (!isPortAvailable(a, port, allowReuse)) {
                             if (isAddressValid(a)) {
                                 if (log.isTraceEnabled()) log.trace("Port {} : {} @ {} is taken and the address is valid", new Object[] {a, port, nis});
                                 return false;
@@ -427,13 +438,65 @@ public class Networking {
         }
     }
 
-    /** returns local IP address, or 127.0.0.1 if it cannot be parsed */
+    /** returns local IP address, or 127.0.0.1 if it cannot be parsed
+     * @deprecated since 0.12.0, as this method has bad defaults (fails on some machines);
+     * use {@link #getLocalHost(boolean, boolean, boolean, int)} for full control or
+     * {@link #getReachableLocalHost()} for a method with better defaults and errors */
     public static InetAddress getLocalHost() {
-        try {
-            return InetAddress.getLocalHost();
-        } catch (UnknownHostException e) {
-            InetAddress result = null;
-            result = getInetAddressWithFixedName("127.0.0.1");
+        return getLocalHost(false, true, true, false, 0);
+    }
+    
+    /** returns a validated local IP address, preferring 127.0.0.1 if it works, and failing if none found */
+    public static InetAddress getReachableLocalHost() {
+        return getLocalHost(true, true, true, true, 250);
+    }
+    
+    /**
+     * returns a local IP address, using some heuristics to determine the best one 
+     * in the case of multiple possibilities, as follows 
+     * @param checkReachable whether to ensure that the address is bindable and reachable
+     * @param prefer127 whether to prefer standard loopback address 127.0.0.1 if listed
+     * @param failIfNone whether to fail if none or simply return 127.0.0.1
+     * @param timeout how long to wait for each address (if doing checkReachable)
+     * @return an {@link InetAddress} corresponding to localhost
+     */
+    public static InetAddress getLocalHost(boolean checkReachable, boolean prefer127, boolean preferIpV4, boolean failIfNone, int timeout) {
+        Map<String, InetAddress> addrs = getLocalAddresses();
+        MutableSet<InetAddress> candidates = new MutableSet<>();
+        if (prefer127) {
+            candidates.addIfNotNull(addrs.get("127.0.0.1"));
+        }
+        if (preferIpV4) {
+            candidates.addAll(Iterables.filter(addrs.values(), Inet4Address.class));
+        }
+        candidates.addAll(addrs.values());
+        if (checkReachable) {
+            for (InetAddress a: candidates) {
+                try (ServerSocket ss = new ServerSocket()) {
+                    ss.bind(new InetSocketAddress(a, 0));
+                    if (isReachable(HostAndPort.fromParts(a.getHostAddress(), ss.getLocalPort()), true, timeout)) {
+                        return a;
+                    }
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    // swallow and continue
+                }
+            }
+        } else {
+            if (!candidates.isEmpty()) {
+                return candidates.iterator().next();
+            }
+        }
+        if (failIfNone) {
+            throw new IllegalStateException("No reachable local addresses could be found; ensure that localhost is correctly configured on this machine"
+                + ", and if required that network security permits local access to localhost ports");
+        } else {
+            InetAddress result;
+            try {
+                result = InetAddress.getLocalHost();
+            } catch (UnknownHostException e2) {
+                result = getInetAddressWithFixedName("127.0.0.1");
+            }
             log.warn("Localhost is not resolvable; using "+result);
             return result;
         }
@@ -527,14 +590,19 @@ public class Networking {
     }
     
     public static boolean isReachable(HostAndPort endpoint) {
-        // TODO Should we create an unconnected socket, and then use the calls below (see jclouds' InetSocketAddressConnect):
-        //      socket.setReuseAddress(false);
-        //      socket.setSoLinger(false, 1);
-        //      socket.setSoTimeout(timeout);
-        //      socket.connect(socketAddress, timeout);
-        
+        return isReachable(endpoint, false, 0);
+    }
+    public static boolean isReachable(HostAndPort endpoint, boolean noReuseOrLinger, int timeout) {
         try {
-            Socket s = new Socket(endpoint.getHostText(), endpoint.getPort());
+            Socket s = new Socket();
+            if (noReuseOrLinger) {
+                s.setReuseAddress(false);
+                s.setSoLinger(false, 1);
+            }
+            if (timeout>0) {
+                s.setSoTimeout(timeout);
+            }
+            s.connect(new InetSocketAddress(endpoint.getHostText(), endpoint.getPort()), timeout);
             closeQuietly(s);
             return true;
         } catch (Exception e) {
