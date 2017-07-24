@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.entity.group;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -30,9 +31,13 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceProblemsLogic;
 import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.function.FunctionPollConfig;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,6 +106,22 @@ public class DynamicMultiGroupImpl extends DynamicGroupImpl implements DynamicMu
         connectScanner();
     }
 
+    @Override
+    protected void initEnrichers() {
+        super.initEnrichers();
+        // check states and upness separately so they can be individually replaced if desired
+        // problem if any children or members are on fire
+        enrichers().add(ServiceStateLogic.newEnricherFromChildrenState()
+                .checkChildrenOnly()
+                .requireRunningChildren(getConfig(RUNNING_QUORUM_CHECK))
+                .suppressDuplicates(true));
+        // defaults to requiring at least one member or child who is up
+        enrichers().add(ServiceStateLogic.newEnricherFromChildrenUp()
+                .checkChildrenOnly()
+                .requireUpChildren(getConfig(UP_QUORUM_CHECK))
+                .suppressDuplicates(true));
+    }
+    
     private void connectScanner() {
         Long interval = getConfig(RESCAN_INTERVAL);
         if (interval != null && interval > 0L) {
@@ -211,10 +232,24 @@ public class DynamicMultiGroupImpl extends DynamicGroupImpl implements DynamicMu
                     Iterables.filter(getMembers(), Predicates.compose(Predicates.notNull(), bucketFunction)), bucketFunction);
 
             // Now fill the buckets
+            Collection<Entity> oldChildren = getChildren();
             for (String name : entityMapping.keySet()) {
                 BasicGroup bucket = buckets.get(name);
                 if (bucket == null) {
-                    bucket = addChild(EntitySpec.create(bucketSpec).displayName(name));
+                    try {
+                        bucket = addChild(EntitySpec.create(bucketSpec).displayName(name));
+                    } catch (Exception e) {
+                        Exceptions.propagateIfFatal(e);
+                        ServiceProblemsLogic.updateProblemsIndicator(this, "children", "Could not add child; removing all new children for now: "+Exceptions.collapseText(e));
+                        // if we don't do this, they get added infinitely often
+                        MutableSet<Entity> newChildren = MutableSet.copyOf(getChildren());
+                        newChildren.removeAll(oldChildren);
+                        for (Entity child: newChildren) {
+                            removeChild(child);
+                        }
+                        throw e;
+                    }
+                    ServiceProblemsLogic.clearProblemsIndicator(this, "children");
                     buckets.put(name, bucket);
                 }
                 bucket.setMembers(entityMapping.get(name));

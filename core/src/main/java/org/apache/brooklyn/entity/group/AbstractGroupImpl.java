@@ -107,16 +107,7 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
                 // FIXME do not set sensors on members; possibly we don't need FIRST at all, just look at the first in MEMBERS, and take care to guarantee order there
                 Entity first = getAttribute(FIRST);
                 if (first == null) {
-                    member.sensors().set(FIRST_MEMBER, true);
-                    member.sensors().set(FIRST, member);
                     sensors().set(FIRST, member);
-                } else {
-                    if (first.equals(member) || first.equals(member.getAttribute(FIRST))) {
-                        // do nothing (rebinding)
-                    } else {
-                        member.sensors().set(FIRST_MEMBER, false);
-                        member.sensors().set(FIRST, first);
-                    }
                 }
     
                 ((EntityInternal)member).groups().add((Group)getProxyIfAvailable());
@@ -165,10 +156,10 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
                     log.debug("Group {} lost member {}", this, member);
                     // TODO ideally the following are all synched
                     sensors().set(GROUP_SIZE, getCurrentSize());
-                    sensors().set(GROUP_MEMBERS, getMembers());
+                    Collection<Entity> membersNow = getMembers();
+                    sensors().set(GROUP_MEMBERS, membersNow);
                     if (member.equals(getAttribute(FIRST))) {
-                        // TODO should we elect a new FIRST ?  as is the *next* will become first.  could we do away with FIRST altogether?
-                        sensors().set(FIRST, null);
+                        sensors().set(FIRST, membersNow.isEmpty() ? null : membersNow.iterator().next());
                     }
                     // emit after the above so listeners can use getMembers() and getCurrentSize()
                     sensors().emit(MEMBER_REMOVED, member);
