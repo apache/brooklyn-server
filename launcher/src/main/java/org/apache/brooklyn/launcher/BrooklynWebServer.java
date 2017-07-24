@@ -38,25 +38,25 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import javax.security.auth.spi.LoginModule;
 
-import com.google.common.collect.ImmutableList;
-import org.apache.brooklyn.core.BrooklynFeatureEnablement;
-import org.apache.brooklyn.rest.NopSecurityHandler;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.location.PortRanges;
+import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
 import org.apache.brooklyn.launcher.config.CustomResourceLocator;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
+import org.apache.brooklyn.rest.NopSecurityHandler;
 import org.apache.brooklyn.rest.RestApiSetup;
+import org.apache.brooklyn.rest.filter.CorsImplSupplierFilter;
 import org.apache.brooklyn.rest.filter.CsrfTokenFilter;
 import org.apache.brooklyn.rest.filter.EntitlementContextFilter;
-import org.apache.brooklyn.rest.filter.CorsImplSupplierFilter;
 import org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter;
 import org.apache.brooklyn.rest.filter.LoggingFilter;
 import org.apache.brooklyn.rest.filter.NoCacheFilter;
@@ -66,7 +66,6 @@ import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule;
 import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule.RolePrincipal;
 import org.apache.brooklyn.rest.security.jaas.JaasUtils;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
-import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.rest.util.ShutdownHandlerProvider;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.BrooklynNetworkUtils;
@@ -80,6 +79,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.javalang.Threads;
 import org.apache.brooklyn.util.logging.LoggingSetup;
+import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -104,6 +104,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
 /**
@@ -386,8 +387,10 @@ public class BrooklynWebServer {
             if (portRange==null) {
                 portRange = getHttpsEnabled() ? httpsPort : httpPort;
             }
-            actualPort = LocalhostMachineProvisioningLocation.obtainPort(getAddress(), portRange,
-                // allow reuse-addr so we prefer to bind to lower-numbered ports even if they are in time-wait state
+            actualPort = LocalhostMachineProvisioningLocation.obtainPort( 
+                shouldBindToAll() ? Networking.ANY_NIC : getAddress(), portRange,
+                // allow reuse-addr so we prefer to bind to lower-numbered ports even if they are in time-wait state;
+                // also allows if specific NIC specified, we can bind to it even if something else is using 0.0.0.0
                 true);
             if (actualPort == -1) 
                 throw new IllegalStateException("Unable to provision port for web console (wanted "+portRange+")");

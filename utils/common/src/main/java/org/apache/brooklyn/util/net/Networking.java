@@ -107,7 +107,10 @@ public class Networking {
             //192.168.0.1:X which explains the above comment (nginx sets SO_REUSEADDR as well). Moreover there
             //is no TIME_WAIT for listening sockets without any connections so why enable it at all.
             //Alex - TIME_WAIT sticks around for a while (30s or so) if a java process dies while it has
-            //connections; if we want things to aggressively try to take a port, they should use reuse-addr
+            //connections; if we want things to aggressively try to take a port, they should use reuse-addr,
+            //but probably testing against ANY_NIC unless they want to trump things listening on all interfaces.
+            //(isPortAvailable(ANY_NIC) will say false if any NIC is using it, 
+            //but isPortAvailable(SPECIFIC) may say true even if there is an ANY_NIC binding, when reuseAddr is true)
             ServerSocket ss = null;
             DatagramSocket ds = null;
             try {

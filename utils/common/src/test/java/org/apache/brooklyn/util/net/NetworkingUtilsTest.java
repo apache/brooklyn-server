@@ -171,34 +171,56 @@ public class NetworkingUtilsTest {
             fail("This test requires that at least some ports near "+port+"+ not be in use.");
     }
 
+    private int findPort() {
+        for (int port = 58767; port < 60000; port++) {
+            if (Networking.isPortAvailable(port)) {
+                return port;
+            }
+        }
+        throw Asserts.fail("This test requires that at least one port a little bit under port 60000 not be in use.");
+    }
+    
     @Test
     public void testIsPortAvailableReportsFalseWhenPortIsInUse() throws Exception {
-        int port = 58767;
-        ServerSocket ss = null;
-        do {
-            port ++;
-            if (Networking.isPortAvailable(port)) {
-                try {
-                    ss = new ServerSocket(port);
-                    log.info("acquired port on "+port+" for test "+JavaClassNames.niceClassAndMethod());
-                    assertFalse(Networking.isPortAvailable(port), "port mistakenly reported as available");
-                } finally {
-                    if (ss != null) {
-                        ss.close();
-                    }
-                }
-            }
-            // repeat until we can get a port
-        } while (ss == null && port < 60000);
-        Assert.assertNotNull(ss, "could not get a port");
-        
+        int port = findPort();
+        try (ServerSocket ss = new ServerSocket(port)) {
+            log.info("acquired port on "+port+" for test "+JavaClassNames.niceClassAndMethod());
+            assertFalse(Networking.isPortAvailable(port), "port mistakenly reported as available");
+        }
+        // above will close, so below succeeds
+          
         final int portF = port;
         Asserts.succeedsEventually(new Runnable() {
             @Override public void run() {
                 assertTrue(Networking.isPortAvailable(portF), "port "+portF+" not made available afterwards");
             }});
     }
-
+    
+    @Test
+    public void testPortNotAvailableOnAnyNicWithReuseAddressWhenBoundToAnyNic() throws Exception {
+        int port = findPort();
+        try (ServerSocket ss = new ServerSocket()) {
+            ss.setReuseAddress(true);
+            ss.bind(new InetSocketAddress(Networking.ANY_NIC, port));
+            log.info("acquired port on "+port+" for test "+JavaClassNames.niceClassAndMethod());
+            assertFalse(Networking.isPortAvailable(Networking.ANY_NIC, port, true), "port mistakenly reported as available");
+            // a specific NIC *will* be available
+            //assertFalse(Networking.isPortAvailable(Networking.LOOPBACK, port, true), "port mistakenly reported as available");
+        }
+    }
+    
+    @Test
+    public void testPortNotAvailableOnAnyNicOrLoopbackWithReuseAddressWhenBoundToLoopback() throws Exception {
+        int port = findPort();
+        try (ServerSocket ss = new ServerSocket()) {
+            ss.setReuseAddress(true);
+            ss.bind(new InetSocketAddress(Networking.LOOPBACK, port));
+            log.info("acquired port on "+port+" for test "+JavaClassNames.niceClassAndMethod());
+            assertFalse(Networking.isPortAvailable(Networking.LOOPBACK, port, true), "port mistakenly reported as available");
+            assertFalse(Networking.isPortAvailable(Networking.ANY_NIC, port, true), "port mistakenly reported as available");
+        }
+    }
+    
     @Test
     public void testIsPortAvailableReportsPromptly() throws Exception {
         // repeat until we can get an available port
