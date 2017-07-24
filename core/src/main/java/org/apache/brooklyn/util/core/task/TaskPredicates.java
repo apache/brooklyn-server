@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.core.task;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -69,7 +70,7 @@ public class TaskPredicates {
     private static class IsDone implements Predicate<Task<?>> {
         @Override
         public boolean apply(Task<?> input) {
-            return input.isDone();
+            return (input != null) && input.isDone();
         }
         @Override
         public String toString() {
@@ -77,4 +78,79 @@ public class TaskPredicates {
         }
     }
     
+    /**
+     * @since 0.12.0
+     */
+    public static Predicate<Task<?>> hasTag(Object tag) {
+        return new HasTag(tag);
+    }
+
+    private static class HasTag implements Predicate<Task<?>> {
+        private final Object tag;
+        public HasTag(Object tag) {
+            this.tag = checkNotNull(tag, "tag");
+        }
+        @Override
+        public boolean apply(Task<?> input) {
+            return (input != null) && input.getTags().contains(tag);
+        }
+        @Override
+        public String toString() {
+            return "hasTag("+tag+")";
+        }
+    }
+    
+    /**
+     * @since 0.12.0
+     */
+    public static Predicate<Task<?>> isEffector() {
+        return new IsEffector();
+    }
+    
+    private static class IsEffector implements Predicate<Task<?>> {
+        @Override
+        public boolean apply(Task<?> input) {
+            return (input != null) && BrooklynTaskTags.isEffectorTask(input);
+        }
+        @Override
+        public String toString() {
+            return "isEffector()";
+        }
+    }
+    
+    /**
+     * @since 0.12.0
+     */
+    public static Predicate<Task<?>> isTransient() {
+        return new IsTransient();
+    }
+    
+    private static class IsTransient implements Predicate<Task<?>> {
+        @Override
+        public boolean apply(Task<?> input) {
+            return (input != null) && BrooklynTaskTags.isTransient(input);
+        }
+        @Override
+        public String toString() {
+            return "isTransient()";
+        }
+    }
+    
+    /**
+     * @since 0.12.0
+     */
+    public static Predicate<Task<?>> isInessential() {
+        return new IsInessential();
+    }
+    
+    private static class IsInessential implements Predicate<Task<?>> {
+        @Override
+        public boolean apply(Task<?> input) {
+            return (input != null) && BrooklynTaskTags.isInessential(input);
+        }
+        @Override
+        public String toString() {
+            return "isTransient()";
+        }
+    }
 }
