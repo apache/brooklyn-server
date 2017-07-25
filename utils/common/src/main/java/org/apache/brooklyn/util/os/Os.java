@@ -335,11 +335,13 @@ public class Os {
                                         deletions.remove(path).run();
                                     } catch (Exception e) {
                                         log.warn("Unable to delete '"+path+"' on shutdown: "+e);
+                                        log.debug("Trace for shutdown deletion problem: "+e, e);
                                     }
                                 }
                             }
                         } catch (Exception e) {
-                            log.warn("Unable to delete one or mort paths ("+deletions+") on shutdown: "+e);
+                            log.warn("Unable to delete one or more paths ("+deletions+") on shutdown: "+e);
+                            log.debug("Trace for shutdown deletion problem: "+e, e);
                         }
                     }
                 };
