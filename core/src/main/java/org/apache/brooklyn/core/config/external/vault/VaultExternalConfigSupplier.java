@@ -21,7 +21,10 @@ package org.apache.brooklyn.core.config.external.vault;
 import java.io.UnsupportedEncodingException;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+import com.google.common.collect.Maps;
+import com.google.gson.JsonElement;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.config.external.AbstractExternalConfigSupplier;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -87,6 +90,16 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
     public String get(String key) {
         JsonObject response = apiGet(Urls.mergePaths("v1", path), headersWithToken);
         return response.getAsJsonObject("data").get(key).getAsString();
+    }
+
+    /**
+     * Obtains data stored in <code>path</code>.
+     */
+    public Map<String, String> getDataAsStringMap() {
+        JsonObject response = apiGet(Urls.mergePaths("v1", path), headersWithToken);
+        Map<String, JsonElement> dataMap = response.getAsJsonObject("data").entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        return Maps.transformValues(dataMap, jsonElement -> jsonElement.getAsString());
     }
 
     protected JsonObject apiGet(String path, ImmutableMap<String, String> headers) {
