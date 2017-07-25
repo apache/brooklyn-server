@@ -45,6 +45,7 @@ import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
@@ -62,6 +63,8 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.collections.SetFromLiveMap;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -99,6 +102,9 @@ public class LocalEntityManager implements EntityManagerInternal {
     
     /** Real managed entities */
     private final Map<String,Entity> entitiesById = Maps.newLinkedHashMap();
+    
+    /** Entities keyed off {@link BrooklynConfigKeys#DEPLOYMENT_UID} (only including those entities with a uid) */
+    private final Map<String,Entity> entitiesByDeploymentUid = Maps.newLinkedHashMap();
     
     /** Management mode for each entity */
     private final Map<String,ManagementTransitionMode> entityModesById = Collections.synchronizedMap(Maps.<String,ManagementTransitionMode>newLinkedHashMap());
@@ -440,6 +446,7 @@ public class LocalEntityManager implements EntityManagerInternal {
     private void unmanage(final Entity e, ManagementTransitionMode mode, boolean hasBeenReplaced) {
         if (shouldSkipUnmanagement(e)) return;
         final ManagementTransitionInfo info = new ManagementTransitionInfo(managementContext, mode);
+        final Maybe<String> deploymentUid = tryGetDeploymentUid(e);
         
         if (hasBeenReplaced) {
             // we are unmanaging an old instance after having replaced it
@@ -508,6 +515,7 @@ public class LocalEntityManager implements EntityManagerInternal {
         entityProxiesById.remove(e.getId());
         entitiesById.remove(e.getId());
         entityModesById.remove(e.getId());
+        if (deploymentUid.isPresent()) entitiesByDeploymentUid.remove(deploymentUid.get());
     }
     
     private void stopTasks(Entity entity) {
@@ -668,25 +676,37 @@ public class LocalEntityManager implements EntityManagerInternal {
      */
     private synchronized boolean manageNonRecursive(Entity e, ManagementTransitionMode mode) {
         Entity old = entitiesById.get(e.getId());
+        Maybe<String> deploymentUid = tryGetDeploymentUid(e);
         
         if (old!=null && mode.wasNotLoaded()) {
             if (old.equals(e)) {
                 log.warn("{} redundant call to start management of entity {}; ignoring", this, e);
             } else {
-                throw new IllegalStateException("call to manage entity "+e+" ("+mode+") but different entity "+old+" already known under that id at "+this);
+                throw new IdAlreadyExistsException("call to manage entity "+e+" ("+mode+") but "
+                        + "different entity "+old+" already known under that id '"+e.getId()+"' at "+this);
             }
             return false;
         }
 
+        if (deploymentUid.isPresent() && entitiesByDeploymentUid.containsKey(deploymentUid.get()) && mode.wasNotLoaded()) {
+            // The case of `oldDuplicateDeploymentUid.equals(e)` should have already been detected above,
+            // with us already having done `return false`.
+            Entity oldDuplicateDeploymentUid = entitiesByDeploymentUid.get(deploymentUid.get());
+            throw new IdAlreadyExistsException("call to manage entity "+e+" ("+mode+") but different entity "+oldDuplicateDeploymentUid
+                    +" already known under that deployment uid '"+deploymentUid.get()+"' at "+this);
+        }
+
         BrooklynLogging.log(log, BrooklynLogging.levelDebugOrTraceIfReadOnly(e),
-            "{} starting management of entity {}", this, e);
+                "{} starting management of entity {}", this, e);
         Entity realE = toRealEntity(e);
         
         Entity oldProxy = entityProxiesById.get(e.getId());
         Entity proxyE;
         if (oldProxy!=null) {
             if (mode.wasNotLoaded()) {
-                throw new IllegalStateException("call to manage entity "+e+" from unloaded state ("+mode+") but already had proxy "+oldProxy+" already known under that id at "+this);
+                throw new IdAlreadyExistsException("call to manage entity "+e+" from unloaded "
+                        + "state ("+mode+") but already had proxy "+oldProxy+" already known "
+                        + "under that id '"+e.getId()+"' at "+this);
             }
             // make the old proxy point at this new delegate
             // (some other tricks done in the call below)
@@ -698,7 +718,10 @@ public class LocalEntityManager implements EntityManagerInternal {
         entityProxiesById.put(e.getId(), proxyE);
         entityTypes.put(e.getId(), realE.getClass().getName());
         entitiesById.put(e.getId(), realE);
-
+        if (deploymentUid.isPresent()) {
+            entitiesByDeploymentUid.put(deploymentUid.get(), realE);
+        }
+        
         preManagedEntitiesById.remove(e.getId());
         if ((e instanceof Application) && (e.getParent()==null)) {
             applications.add((Application)proxyE);
@@ -737,6 +760,8 @@ public class LocalEntityManager implements EntityManagerInternal {
          * from its groups?
          */
         
+        Maybe<String> deploymentUid = tryGetDeploymentUid(e);
+
         if (!getLastManagementTransitionMode(e.getId()).isReadOnly()) {
             e.clearParent();
             for (Group group : e.groups()) {
@@ -764,6 +789,8 @@ public class LocalEntityManager implements EntityManagerInternal {
             entities.remove(proxyE);
             entityProxiesById.remove(e.getId());
             entityModesById.remove(e.getId());
+            if (deploymentUid.isPresent()) entitiesByDeploymentUid.remove(deploymentUid.get());
+            
             Object old = entitiesById.remove(e.getId());
 
             entityTypes.remove(e.getId());
@@ -868,6 +895,16 @@ public class LocalEntityManager implements EntityManagerInternal {
         return result;
     }
     
+    private Maybe<String> tryGetDeploymentUid(Entity e) {
+        Maybe<Object> raw = ((EntityInternal)e).config().getRaw(BrooklynConfigKeys.DEPLOYMENT_UID);
+        if (raw.isPresent()) {
+            String uid = raw.get() == null ? null : raw.get().toString(); 
+            return Strings.isBlank(uid) ? Maybe.absent() : Maybe.of(uid);
+        } else {
+            return Maybe.absent();
+        }
+    }
+
     private boolean isRunning() {
         return managementContext.isRunning();
     }

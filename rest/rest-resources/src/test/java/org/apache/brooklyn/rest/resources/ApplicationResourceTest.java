@@ -21,10 +21,12 @@ package org.apache.brooklyn.rest.resources;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.find;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
@@ -42,6 +44,7 @@ import javax.ws.rs.core.Response;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityFunctions;
 import org.apache.brooklyn.core.entity.EntityPredicates;
@@ -74,6 +77,8 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpAsserts;
+import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.cxf.jaxrs.client.WebClient;
 import org.apache.http.HttpHeaders;
@@ -84,12 +89,14 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Range;
 
 @Test(singleThreaded = true,
         // by using a different suite name we disallow interleaving other tests between the methods of this test class, which wrecks the test fixtures
@@ -662,6 +669,76 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
         return Iterables.getOnlyElement(itemSummaries);
     }
 
+    @Test(dependsOnMethods = { "testDeployApplication", "testLocatedLocation" })
+    public void testDeploymentUidIsSet() throws Exception {
+        String yaml = "{ name: simple-app-yaml, services: [ { type: "+BasicApplication.class.getCanonicalName()+" } ] }";
+
+        Response response = deployApp(yaml, "myuid-testDeploymentUidIsSet");
+        assertResponseStatus(response, 201);
+
+        URI appUri = response.getLocation();
+        Map<?, ?> config = getApplicationConfig(appUri);
+        assertEquals(config.get(BrooklynConfigKeys.DEPLOYMENT_UID.getName()), "myuid-testDeploymentUidIsSet", "config="+config);
+    }
+
+    @Test(dependsOnMethods = { "testDeployApplication", "testLocatedLocation" })
+    public void testFailsIfMultipleConflictingDeploymentUids() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "name: simple-app-yaml",
+                "services:",
+                "  - type: "+BasicApplication.class.getCanonicalName(),
+                "    brooklyn.config:",
+                "      "+BrooklynConfigKeys.DEPLOYMENT_UID.getName()+": myUidInYaml");
+
+        Response response = deployApp(yaml, "myUidInQueryParam");
+        assertResponseStatus(response, 400, StringPredicates.containsLiteral("as well as deploymentUid query parameter being supplied"));
+    }
+
+    @Test(dependsOnMethods = { "testDeployApplication", "testLocatedLocation" })
+    public void testDeploymentUidFailsOnDuplicate() throws Exception {
+        // First app
+        String yaml = "{ name: my-name-1, services: [ { type: "+BasicApplication.class.getCanonicalName()+" } ] }";
+        Response response = deployApp(yaml, "myuid-testDeploymentUidFailsOnDuplicate");
+        assertResponseStatus(response, 201);
+
+        Optional<Application> app = Iterables.tryFind(getManagementContext().getApplications(), EntityPredicates.displayNameEqualTo("my-name-1"));
+        assertTrue(app.isPresent());
+        assertEquals(app.get().config().get(BrooklynConfigKeys.DEPLOYMENT_UID), "myuid-testDeploymentUidFailsOnDuplicate");
+
+        // Second app should get a conflict response (409)
+        String yaml2 = "{ name: my-name-2, services: [ { type: "+BasicApplication.class.getCanonicalName()+" } ] }";
+        Response response2 = deployApp(yaml2, "myuid-testDeploymentUidFailsOnDuplicate");
+        assertResponseStatus(response2, 409, StringPredicates.containsLiteral("already known under that deployment uid 'myuid-testDeploymentUidFailsOnDuplicate'"));
+
+        Optional<Application> app2 = Iterables.tryFind(getManagementContext().getApplications(), EntityPredicates.displayNameEqualTo("my-name-2"));
+        assertFalse(app2.isPresent(), "app2="+app2);
+        
+        // Third app with different deploymentUid should work
+        String yaml3 = "{ name: my-name-3, services: [ { type: "+BasicApplication.class.getCanonicalName()+" } ] }";
+        Response response3 = deployApp(yaml3, "myuid-different");
+        assertResponseStatus(response3, 201);
+        
+        Optional<Application> app3 = Iterables.tryFind(getManagementContext().getApplications(), EntityPredicates.displayNameEqualTo("my-name-3"));
+        assertTrue(app3.isPresent());
+        assertEquals(app3.get().config().get(BrooklynConfigKeys.DEPLOYMENT_UID), "myuid-different");
+        
+        // Delete app1; then deploying app2 should succeed
+        Entities.unmanage(app.get());
+        
+        Response response2b = deployApp(yaml2, "myuid-testDeploymentUidFailsOnDuplicate");
+        assertResponseStatus(response2b, 201);
+
+        Optional<Application> app2b = Iterables.tryFind(getManagementContext().getApplications(), EntityPredicates.displayNameEqualTo("my-name-2"));
+        assertTrue(app2b.isPresent());
+        assertEquals(app2b.get().config().get(BrooklynConfigKeys.DEPLOYMENT_UID), "myuid-testDeploymentUidFailsOnDuplicate");
+    }
+
+    private Response deployApp(String yaml, String deploymentUid) {
+        return client().path("/applications")
+                .query("deploymentUid", deploymentUid)
+                .post(Entity.entity(yaml, "application/x-yaml"));
+    }
+    
     private void deprecateCatalogItem(String symbolicName, String version, boolean deprecated) {
         String id = String.format("%s:%s", symbolicName, version);
         Response response = client().path(String.format("/catalog/entities/%s/deprecated", id))
@@ -696,5 +773,20 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
                             "    type: " + service));
 
         client().path("/catalog").post(yaml);
+    }
+
+    private void assertResponseStatus(Response response, int expectedStatus, Predicate<? super String> expectedBody) {
+        assertResponseStatus(response, Range.singleton(expectedStatus), expectedBody);
+    }
+    
+    private void assertResponseStatus(Response response, int expectedStatus) {
+        assertResponseStatus(response, Range.singleton(expectedStatus), Predicates.alwaysTrue());
+    }
+
+    private void assertResponseStatus(Response response, Range<Integer> expectedStatusRange, Predicate<? super String> expectedBody) {
+        String body = Streams.readFullyString((InputStream)response.getEntity());
+        String errMsg = "response is "+response+"; status="+response.getStatus()+"; reason="+response.getStatusInfo().getReasonPhrase()+"; body="+body;
+        assertTrue(expectedStatusRange.contains(response.getStatus()), errMsg);
+        assertTrue(expectedBody.apply(body), errMsg);
     }
 }
