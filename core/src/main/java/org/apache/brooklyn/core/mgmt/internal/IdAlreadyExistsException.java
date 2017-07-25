@@ -18,25 +18,19 @@
  */
 package org.apache.brooklyn.core.mgmt.internal;
 
-import org.apache.brooklyn.api.entity.Application;
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.mgmt.EntityManager;
+/**
+ * Indicates that there is an id conflict (e.g. when creating an app using a pre-defined id,
+ * using {@code PUT /applications/abcdefghijklm}).
+ */
+public class IdAlreadyExistsException extends RuntimeException {
 
-import com.google.common.annotations.Beta;
-import com.google.common.base.Optional;
+    private static final long serialVersionUID = -602477310528752776L;
 
-public interface EntityManagerInternal extends EntityManager, BrooklynObjectManagerInternal<Entity> {
-
-    /** gets all entities currently known to the application, including entities that are not yet managed */
-    Iterable<Entity> getAllEntitiesInApplication(Application application);
-
-    public Iterable<String> getEntityIds();
+    public IdAlreadyExistsException(String msg) {
+        super(msg);
+    }
     
-    /**
-     * Same as {@link #createEntity(EntitySpec)}, but takes an optional entity id that will be 
-     * used for the entity.
-     */
-    @Beta
-    <T extends Entity> T createEntity(EntitySpec<T> spec, Optional<String> entityId);
+    public IdAlreadyExistsException(String msg, Throwable cause) {
+        super(msg, cause);
+    }
 }

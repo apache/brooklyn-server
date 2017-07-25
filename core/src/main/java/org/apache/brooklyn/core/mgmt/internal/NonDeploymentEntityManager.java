@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 
 public class NonDeploymentEntityManager implements EntityManagerInternal {
@@ -55,6 +56,15 @@ public class NonDeploymentEntityManager implements EntityManagerInternal {
     public <T extends Entity> T createEntity(EntitySpec<T> spec) {
         if (isInitialManagementContextReal()) {
             return initialManagementContext.getEntityManager().createEntity(spec);
+        } else {
+            throw new IllegalStateException("Non-deployment context "+this+" (with no initial management context supplied) is not valid for this operation.");
+        }
+    }
+    
+    @Override
+    public <T extends Entity> T createEntity(EntitySpec<T> spec, Optional<String> entityId) {
+        if (isInitialManagementContextReal()) {
+            return ((EntityManagerInternal)initialManagementContext.getEntityManager()).createEntity(spec, entityId);
         } else {
             throw new IllegalStateException("Non-deployment context "+this+" (with no initial management context supplied) is not valid for this operation.");
         }

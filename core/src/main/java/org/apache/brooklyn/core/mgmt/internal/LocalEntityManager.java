@@ -69,6 +69,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -143,12 +144,18 @@ public class LocalEntityManager implements EntityManagerInternal {
         if (!isRunning()) throw new IllegalStateException("Management context no longer running");
         return entityTypeRegistry;
     }
-    
-    @SuppressWarnings("unchecked")
+
     @Override
     public <T extends Entity> T createEntity(EntitySpec<T> spec) {
+        return createEntity(spec, Optional.absent());
+    }
+    
+    @Beta
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T extends Entity> T createEntity(EntitySpec<T> spec, Optional<String> entityId) {
         try {
-            T entity = entityFactory.createEntity(spec);
+            T entity = entityFactory.createEntity(spec, entityId);
             Entity proxy = ((AbstractEntity)entity).getProxy();
             checkNotNull(proxy, "proxy for entity %s, spec %s", entity, spec);
             
@@ -263,7 +270,9 @@ public class LocalEntityManager implements EntityManagerInternal {
     
     @Override
     public boolean isManaged(Entity e) {
-        return (isRunning() && getEntity(e.getId()) != null);
+        // Confirm we know about this entity (by id), and that it is the same entity instance
+        // (rather than just a different unmanaged entity with the same id).
+        return (isRunning() && getEntity(e.getId()) != null) && (entitiesById.get(e.getId()) == deproxyIfNecessary(e));
     }
     
     boolean isPreRegistered(Entity e) {
@@ -670,23 +679,26 @@ public class LocalEntityManager implements EntityManagerInternal {
         Entity old = entitiesById.get(e.getId());
         
         if (old!=null && mode.wasNotLoaded()) {
-            if (old.equals(e)) {
+            if (old == deproxyIfNecessary(e)) {
                 log.warn("{} redundant call to start management of entity {}; ignoring", this, e);
             } else {
-                throw new IllegalStateException("call to manage entity "+e+" ("+mode+") but different entity "+old+" already known under that id at "+this);
+                throw new IdAlreadyExistsException("call to manage entity "+e+" ("+mode+") but "
+                        + "different entity "+old+" already known under that id '"+e.getId()+"' at "+this);
             }
             return false;
         }
 
         BrooklynLogging.log(log, BrooklynLogging.levelDebugOrTraceIfReadOnly(e),
-            "{} starting management of entity {}", this, e);
+                "{} starting management of entity {}", this, e);
         Entity realE = toRealEntity(e);
         
         Entity oldProxy = entityProxiesById.get(e.getId());
         Entity proxyE;
         if (oldProxy!=null) {
             if (mode.wasNotLoaded()) {
-                throw new IllegalStateException("call to manage entity "+e+" from unloaded state ("+mode+") but already had proxy "+oldProxy+" already known under that id at "+this);
+                throw new IdAlreadyExistsException("call to manage entity "+e+" from unloaded "
+                        + "state ("+mode+") but already had proxy "+oldProxy+" already known "
+                        + "under that id '"+e.getId()+"' at "+this);
             }
             // make the old proxy point at this new delegate
             // (some other tricks done in the call below)
@@ -698,7 +710,7 @@ public class LocalEntityManager implements EntityManagerInternal {
         entityProxiesById.put(e.getId(), proxyE);
         entityTypes.put(e.getId(), realE.getClass().getName());
         entitiesById.put(e.getId(), realE);
-
+        
         preManagedEntitiesById.remove(e.getId());
         if ((e instanceof Application) && (e.getParent()==null)) {
             applications.add((Application)proxyE);
@@ -764,6 +776,7 @@ public class LocalEntityManager implements EntityManagerInternal {
             entities.remove(proxyE);
             entityProxiesById.remove(e.getId());
             entityModesById.remove(e.getId());
+            
             Object old = entitiesById.remove(e.getId());
 
             entityTypes.remove(e.getId());
@@ -868,6 +881,11 @@ public class LocalEntityManager implements EntityManagerInternal {
         return result;
     }
     
+    private Entity deproxyIfNecessary(Entity e) {
+        return (e instanceof AbstractEntity) ? e : Entities.deproxy(e);
+    }
+    
+
     private boolean isRunning() {
         return managementContext.isRunning();
     }
