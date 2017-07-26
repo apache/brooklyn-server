@@ -18,13 +18,14 @@
  */
 package org.apache.brooklyn.core.config.external.vault;
 
-import java.io.UnsupportedEncodingException;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.config.external.AbstractExternalConfigSupplier;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -36,12 +37,10 @@ import org.apache.http.client.HttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonObject;
+import java.io.UnsupportedEncodingException;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public abstract class VaultExternalConfigSupplier extends AbstractExternalConfigSupplier {
     public static final String CHARSET_NAME = "UTF-8";
@@ -106,10 +105,8 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
         try {
             String uri = Urls.mergePaths(endpoint, path);
             LOG.trace("Vault request - GET: {}", uri);
-            LOG.trace("Vault request - headers: {}", headers.toString());
             HttpToolResponse response = HttpTool.httpGet(httpClient, Urls.toUri(uri), headers);
-            LOG.trace("Vault response - code: {} {}", new Object[]{Integer.toString(response.getResponseCode()), response.getReasonPhrase()});
-            LOG.trace("Vault response - headers: {}", response.getHeaderLists().toString());
+            LOG.trace("Vault response - code: {} {}", response.getResponseCode(), response.getReasonPhrase());
             String responseBody = new String(response.getContent(), CHARSET_NAME);
             if (HttpTool.isStatusCodeHealthy(response.getResponseCode())) {
                 return gson.fromJson(responseBody, JsonObject.class);
@@ -125,14 +122,10 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
         try {
             String body = gson.toJson(requestData);
             String uri = Urls.mergePaths(endpoint, path);
-            LOG.debug("Vault request - POST: {}", uri);
-            LOG.debug("Vault request - headers: {}", headers.toString());
-            LOG.debug("Vault request - body: {}", body);
+            LOG.trace("Vault request - POST: {}", uri);
             HttpToolResponse response = HttpTool.httpPost(httpClient, Urls.toUri(uri), headers, body.getBytes(CHARSET_NAME));
-            LOG.debug("Vault response - code: {} {}", new Object[]{Integer.toString(response.getResponseCode()), response.getReasonPhrase()});
-            LOG.debug("Vault response - headers: {}", response.getHeaderLists().toString());
+            LOG.trace("Vault response - code: {} {}", response.getResponseCode(), response.getReasonPhrase());
             String responseBody = new String(response.getContent(), CHARSET_NAME);
-            LOG.debug("Vault response - body: {}", responseBody);
             if (HttpTool.isStatusCodeHealthy(response.getResponseCode())) {
                 return gson.fromJson(responseBody, JsonObject.class);
             } else {
