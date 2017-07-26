@@ -106,10 +106,8 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
         try {
             String uri = Urls.mergePaths(endpoint, path);
             LOG.trace("Vault request - GET: {}", uri);
-            LOG.trace("Vault request - headers: {}", headers.toString());
             HttpToolResponse response = HttpTool.httpGet(httpClient, Urls.toUri(uri), headers);
             LOG.trace("Vault response - code: {} {}", new Object[]{Integer.toString(response.getResponseCode()), response.getReasonPhrase()});
-            LOG.trace("Vault response - headers: {}", response.getHeaderLists().toString());
             String responseBody = new String(response.getContent(), CHARSET_NAME);
             if (HttpTool.isStatusCodeHealthy(response.getResponseCode())) {
                 return gson.fromJson(responseBody, JsonObject.class);
