@@ -104,11 +104,8 @@ public interface ApplicationApi {
             @ApiResponse(code = 412, message = "Application already registered")
     })
     public Response createFromYaml(
-            @ApiParam(
-                    name = "applicationSpec",
-                    value = "App spec in CAMP YAML format",
-                    required = true)
-            String yaml);
+            @ApiParam(name = "applicationSpec", value = "App spec in CAMP YAML format", required = true) String yaml,
+            @ApiParam(value = "Unique deployment id", required = false) @QueryParam("deploymentUid") String deploymentUid);
 
     @POST
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})
@@ -124,8 +121,8 @@ public interface ApplicationApi {
             @ApiParam(
                     name = "applicationSpec",
                     value = "App spec in JSON, YAML, or other (auto-detected) format",
-                    required = true)
-            byte[] autodetectedInput);
+                    required = true) byte[] autodetectedInput,
+            @ApiParam(value = "Unique deployment id", required = false) @QueryParam("deploymentUid") String deploymentUid);
 
     @POST
     @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
@@ -142,7 +139,8 @@ public interface ApplicationApi {
                     name = "applicationSpec",
                     value = "App spec in form-encoded YAML, JSON, or other (auto-detected) format",
                     required = true)
-            @Valid String contents);
+            @Valid String contents,
+            @ApiParam(value = "Unique deployment id", required = false) @QueryParam("deploymentUid") String deploymentUid);
 
     @DELETE
     @Path("/{application}")

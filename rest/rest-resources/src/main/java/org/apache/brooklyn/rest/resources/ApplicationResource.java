@@ -19,9 +19,9 @@
 package org.apache.brooklyn.rest.resources;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static javax.ws.rs.core.Response.Status.ACCEPTED;
 import static javax.ws.rs.core.Response.created;
 import static javax.ws.rs.core.Response.status;
+import static javax.ws.rs.core.Response.Status.ACCEPTED;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 import java.net.URI;
@@ -32,6 +32,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
@@ -49,6 +50,7 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.config.ConstraintViolationException;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
@@ -58,6 +60,7 @@ import org.apache.brooklyn.core.mgmt.entitlement.EntitlementPredicates;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.EntityAndItem;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
+import org.apache.brooklyn.core.mgmt.internal.IdAlreadyExistsException;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
@@ -87,6 +90,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableMap;
@@ -239,7 +243,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     @Override
-    public Response createFromYaml(String yaml) {
+    public Response createFromYaml(String yaml, String deploymentUid) {
         // First of all, see if it's a URL
         Preconditions.checkNotNull(yaml, "Blueprint must not be null");
         URI uri = null;
@@ -266,7 +270,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
         EntitySpec<? extends Application> spec;
         try {
-            spec = createEntitySpecForApplication(yaml);
+            spec = createEntitySpecForApplication(yaml, Optional.fromNullable(deploymentUid));
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             log.warn("Failed REST deployment, could not create spec: "+e);
@@ -285,6 +289,9 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
         try {
             return launch(yaml, spec);
+        } catch (IdAlreadyExistsException e) {
+            log.warn("Failed REST deployment launching "+spec+": "+e);
+            throw WebResourceUtils.throwWebApplicationException(Response.Status.CONFLICT, e, "Error launching blueprint");
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             log.warn("Failed REST deployment launching "+spec+": "+e);
@@ -339,7 +346,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     @Override
-    public Response createPoly(byte[] inputToAutodetectType) {
+    public Response createPoly(byte[] inputToAutodetectType, String deploymentUid) {
         log.debug("Creating app from autodetecting input");
 
         boolean looksLikeLegacy = false;
@@ -361,7 +368,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         String potentialYaml = new String(inputToAutodetectType);
         EntitySpec<? extends Application> spec;
         try {
-            spec = createEntitySpecForApplication(potentialYaml);
+            spec = createEntitySpecForApplication(potentialYaml, Optional.fromNullable(deploymentUid));
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             log.warn("Failed REST deployment, could not create spec (autodetecting): "+e);
@@ -388,9 +395,9 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     @Override
-    public Response createFromForm(String contents) {
+    public Response createFromForm(String contents, String deploymentUid) {
         log.debug("Creating app from form");
-        return createPoly(contents.getBytes());
+        return createPoly(contents.getBytes(), deploymentUid);
     }
 
     @Override
@@ -406,10 +413,22 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         return status(ACCEPTED).entity(ts).build();
     }
 
-    private EntitySpec<? extends Application> createEntitySpecForApplication(String potentialYaml) {
-        return EntityManagementUtils.createEntitySpecForApplication(mgmt(), potentialYaml);
+    private EntitySpec<? extends Application> createEntitySpecForApplication(String potentialYaml, Optional<String> deploymentUid) {
+        EntitySpec<? extends Application> spec = EntityManagementUtils.createEntitySpecForApplication(mgmt(), potentialYaml);
+        if (deploymentUid.isPresent()) {
+            Object existingUidConfig = spec.getConfig().get(BrooklynConfigKeys.DEPLOYMENT_UID);
+            Object existingUidFlag = spec.getFlags().get(BrooklynConfigKeys.DEPLOYMENT_UID.getName());
+            if ((existingUidConfig != null && !deploymentUid.get().equals(existingUidConfig))
+                    || (existingUidFlag != null && !deploymentUid.get().equals(existingUidFlag))) {
+                throw new IllegalArgumentException("Application spec must not contain conflicting config "
+                        + BrooklynConfigKeys.DEPLOYMENT_UID.getName()
+                        + " as well as deploymentUid query parameter being supplied (" + deploymentUid.get()+")");
+            }
+            spec.configure(BrooklynConfigKeys.DEPLOYMENT_UID, deploymentUid.get());
+        }
+        return spec;
     }
-
+    
     private void checkApplicationTypesAreValid(ApplicationSpec applicationSpec) {
         String appType = applicationSpec.getType();
         if (appType != null) {

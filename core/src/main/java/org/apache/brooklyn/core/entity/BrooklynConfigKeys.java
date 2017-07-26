@@ -50,6 +50,11 @@ public class BrooklynConfigKeys {
     @Deprecated /** @deprecated since 0.7.0 use BrooklynServerConfig routines */
     public static final ConfigKey<String> BROOKLYN_DATA_DIR = BrooklynServerConfig.BROOKLYN_DATA_DIR;
 
+    public static final ConfigKey<String> DEPLOYMENT_UID = ConfigKeys.newStringConfigKey(
+            "org.apache.brooklyn.deploymentUid",
+            "An (optional) unique id for an application instance. If present, then no other app "
+                    + "can be deployed with that same deployment uid.");
+    
     public static final ConfigKey<String> ONBOX_BASE_DIR = newStringConfigKey("onbox.base.dir",
             "Default base directory on target machines where Brooklyn config data is stored; " +
             "default depends on the location, either ~/brooklyn-managed-processes or /tmp/brooklyn-${username} on localhost");
