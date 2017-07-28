@@ -49,7 +49,7 @@ import io.swagger.annotations.ApiParam;
 public interface LocationApi {
 
     /**
-     * @deprecated since 0.7.0; use {@link CatalogApi#listLocations(String, String)}
+     * @deprecated since 0.7.0; use {@link CatalogApi#listLocations}
      */
     @GET
     @ApiOperation(value = "Fetch the list of location definitions",

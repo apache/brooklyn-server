@@ -117,11 +117,17 @@ public interface EntityApi {
             @ApiParam(value = "Whether to include subtasks recursively across different entities (default false)", required = false)
             @QueryParam("recurse") @DefaultValue("false") Boolean recurse);
 
-    /** @deprecated since 0.12.0 use {@link #listTasks(String, String, Integer, Boolean)} */
+    /** @deprecated since 0.12.0 use {@link #listTasks(String, String, int, Boolean)} */
+    @GET
+    @Path("/{entity}/activities/deprecated")
+    @ApiOperation(value = "Fetch list of tasks for this entity")
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Could not find application or entity")
+    })
     @Deprecated
     public List<TaskSummary> listTasks(
-        String applicationId,
-        String entityId);
+            @ApiParam(value = "Application ID or name", required = true) @PathParam("application") String applicationId,
+            @ApiParam(value = "Entity ID or name", required = true) @PathParam("entity") String entityId);
         
     @GET
     @Path("/{entity}/activities/{task}")
