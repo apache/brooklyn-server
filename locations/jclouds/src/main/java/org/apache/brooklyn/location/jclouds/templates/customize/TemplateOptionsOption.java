@@ -20,15 +20,25 @@
 package org.apache.brooklyn.location.jclouds.templates.customize;
 
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.MethodCoercions;
+import org.apache.brooklyn.util.core.task.BasicExecutionContext;
+import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.jclouds.compute.options.TemplateOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class TemplateOptionsOption implements TemplateOptionCustomizer {
+public class TemplateOptionsOption implements TemplateOptionCustomizer {
     private static final Logger LOG = LoggerFactory.getLogger(TemplateOptionsOption.class);
 
     @Override
@@ -39,8 +49,22 @@ class TemplateOptionsOption implements TemplateOptionCustomizer {
 
         Class<? extends TemplateOptions> clazz = options.getClass();
         for (final Map.Entry<String, Object> option : optionsMap.entrySet()) {
-            if (option.getValue() != null) {
-                Maybe<?> result = MethodCoercions.tryFindAndInvokeBestMatchingMethod(options, option.getKey(), option.getValue());
+            Object optionValue = option.getValue();
+            if (optionValue != null) {
+
+                try {
+                    final EntityInternal entity = (EntityInternal) BrooklynTaskTags.getTargetOrContextEntity(Tasks.current());
+                    final ExecutionContext exec = (null != entity
+                        ? entity.getExecutionContext()
+                        : BasicExecutionContext.getCurrentExecutionContext());
+                    if (exec != null) {
+                        optionValue = Tasks.resolveDeepValue(optionValue, Object.class, exec);
+                    }
+                } catch (ExecutionException | InterruptedException e) {
+                    Exceptions.propagate(e);
+                }
+
+                Maybe<?> result = MethodCoercions.tryFindAndInvokeBestMatchingMethod(options, option.getKey(), optionValue);
                 if (result.isAbsent()) {
                     LOG.warn("Ignoring request to set template option {} because this is not supported by {}", new Object[]{option.getKey(), clazz.getCanonicalName()});
                 }

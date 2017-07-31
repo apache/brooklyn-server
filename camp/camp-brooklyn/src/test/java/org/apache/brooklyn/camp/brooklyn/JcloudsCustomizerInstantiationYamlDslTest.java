@@ -24,7 +24,10 @@ import static org.testng.Assert.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.NoSuchElementException;
 
+import com.google.common.base.Optional;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
@@ -48,6 +51,7 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 /**
@@ -141,6 +145,7 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends AbstractJcloudsSt
         assertEquals(expected.size(), 0);
     }
 
+
     public static class RecordingLocationCustomizer extends BasicJcloudsLocationCustomizer {
 
         public static final List<CallParams> calls = Lists.newCopyOnWriteArrayList();
@@ -154,7 +159,17 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends AbstractJcloudsSt
         public void setEnabled(Boolean val) {
             this.enabled = val;
         }
-        
+
+        public static TemplateOptions findTemplateOptionsInCustomizerArgs() {
+            for (CallParams call : calls) {
+                Optional<?> templateOptions = Iterables.tryFind(call.args, Predicates.instanceOf(TemplateOptions.class));
+                if (templateOptions.isPresent()) {
+                    return (TemplateOptions) templateOptions.get();
+                }
+            }
+            throw new NoSuchElementException();
+        }
+
         @Override
         public void customize(JcloudsLocation location, ComputeService computeService, TemplateBuilder templateBuilder) {
             if (Boolean.TRUE.equals(enabled)) {
