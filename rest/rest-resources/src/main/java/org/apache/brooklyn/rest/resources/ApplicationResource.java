@@ -32,7 +32,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.regex.Pattern;
 
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
@@ -105,14 +104,6 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     @Context
     private UriInfo uriInfo;
 
-    /**
-     * Only lower-case letters and digits; min 10 chars; max 1024 chars.
-     * 
-     * We are this extreme because some existing entity implementations rely on the entity-id format 
-     * for use in hostnames, etc.
-     */
-    private final Pattern appIdPattern = Pattern.compile("[a-z0-9]{10,1022}");
-    
     private EntityDetail fromEntity(Entity entity) {
         Boolean serviceUp = entity.getAttribute(Attributes.SERVICE_UP);
 
@@ -257,9 +248,6 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     
     @Override
     public Response createFromYamlWithAppId(String yaml, String appId) {
-        if (!appIdPattern.matcher(appId).matches()) {
-            throw new IllegalArgumentException("Invalid appId '"+appId+"'");
-        }
         return createFromYaml(yaml, Optional.of(appId));
     }
     

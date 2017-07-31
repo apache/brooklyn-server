@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
@@ -84,6 +85,14 @@ public class LocalEntityManager implements EntityManagerInternal {
 
     private static final Logger log = LoggerFactory.getLogger(LocalEntityManager.class);
 
+    /**
+     * Regex used for validating entity ids that are passed in, for use when creating an entity.
+     * 
+     * Only lower-case letters and digits; min 10 chars; max 63 chars. We are this extreme because 
+     * some existing entity implementations rely on the entity-id format for use in hostnames, etc.
+     */
+    private static final Pattern ENTITY_ID_PATTERN = Pattern.compile("[a-z0-9]{10,63}");
+    
     private final LocalManagementContext managementContext;
     private final BasicEntityTypeRegistry entityTypeRegistry;
     private final InternalEntityFactory entityFactory;
@@ -154,6 +163,12 @@ public class LocalEntityManager implements EntityManagerInternal {
     @SuppressWarnings("unchecked")
     @Override
     public <T extends Entity> T createEntity(EntitySpec<T> spec, Optional<String> entityId) {
+        if (entityId.isPresent()) {
+            if (!ENTITY_ID_PATTERN.matcher(entityId.get()).matches()) {
+                throw new IllegalArgumentException("Invalid entity id '"+entityId.get()+"'");
+            }
+        }
+        
         try {
             T entity = entityFactory.createEntity(spec, entityId);
             Entity proxy = ((AbstractEntity)entity).getProxy();

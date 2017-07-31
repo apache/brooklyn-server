@@ -687,16 +687,17 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
     public void testDeploymentFailsOnInvalidAppId() throws Exception {
         assertAppIdValid("abcdefghijkl");
         assertAppIdValid("1234567890");
+        assertAppIdValid(com.google.common.base.Strings.repeat("a", 63));
         assertAppIdInvalid("tooshort"); // must be at least 10 chars
         assertAppIdInvalid("a-bcdefghijkl"); // must be letters/digits only
         assertAppIdInvalid("Abcdefghijkl"); // must be lower-case only
-        assertAppIdInvalid(com.google.common.base.Strings.repeat("a", 1025)); // too long
+        assertAppIdInvalid(com.google.common.base.Strings.repeat("a", 64)); // too long
     }
 
     private void assertAppIdInvalid(String appId) {
         String yaml = "{ name: simple-app-yaml, services: [ { type: "+BasicApplication.class.getCanonicalName()+" } ] }";
         Response response = deployApp(yaml, appId);
-        assertResponseStatus(response, 400, StringPredicates.containsLiteral("Invalid appId '"+appId+"'"));
+        assertResponseStatus(response, 400, StringPredicates.containsLiteral("Invalid entity id '"+appId+"'"));
         assertNull(getManagementContext().getEntityManager().getEntity(appId));
     }
     
