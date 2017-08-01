@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
@@ -39,6 +40,7 @@ import org.apache.brooklyn.rest.domain.ApplicationSpec;
 import org.apache.brooklyn.rest.domain.ApplicationSummary;
 import org.apache.brooklyn.rest.domain.Status;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.cxf.endpoint.Server;
@@ -160,6 +162,15 @@ public abstract class BrooklynRestResourceTest extends BrooklynRestApiTest {
 
     protected Status getApplicationStatus(URI uri) {
         return client().path(uri).get(ApplicationSummary.class).getStatus();
+    }
+
+    protected Map<?, ?> getApplicationConfig(URI appUri) {
+        // appUri in a format like "http://localhost:9998/applications/mwk66lso65/config/current-state"; 
+        // Will call /applications/{application}/entities/{entity}/config
+        String[] pathParts = appUri.getPath().split("/");
+        String appId = pathParts[pathParts.length-1];
+        URI configUri = URI.create(Urls.mergePaths(appUri.toString(), "/entities/", appId, "/config/current-state"));
+        return client().path(configUri).get(Map.class);
     }
 
     protected void waitForPageFoundResponse(final String resource, final Class<?> clazz) {

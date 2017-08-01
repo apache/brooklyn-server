@@ -41,6 +41,8 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Optional;
+
 public class InternalEntityFactoryTest {
 
     private ManagementContextInternal mgmt;
@@ -61,7 +63,7 @@ public class InternalEntityFactoryTest {
     @Test
     public void testCreatesEntity() throws Exception {
         EntitySpec<TestApplication> spec = EntitySpec.create(TestApplication.class);
-        TestApplicationImpl app = (TestApplicationImpl) factory.createEntity(spec);
+        TestApplicationImpl app = (TestApplicationImpl) factory.createEntity(spec, Optional.absent());
         
         Entity proxy = app.getProxy();
         assertTrue(proxy instanceof Application, "proxy="+app);
@@ -74,7 +76,7 @@ public class InternalEntityFactoryTest {
     @Test
     public void testCreatesProxy() throws Exception {
         EntitySpec<Application> spec = EntitySpec.create(Application.class).impl(TestApplicationImpl.class);
-        Application app = factory.createEntity(spec);
+        Application app = factory.createEntity(spec, Optional.absent());
         Application proxy = factory.createEntityProxy(spec, app);
         TestApplicationImpl deproxied = (TestApplicationImpl) Entities.deproxy(proxy);
         
@@ -89,18 +91,25 @@ public class InternalEntityFactoryTest {
     }
     
     @Test
+    public void testSetsEntityId() throws Exception {
+        EntitySpec<TestApplication> spec = EntitySpec.create(TestApplication.class);
+        TestApplication app = factory.createEntity(spec, Optional.of("myentityid"));
+        assertEquals(app.getId(), "myentityid");
+    }
+    
+    @Test
     public void testSetsEntityIsLegacyConstruction() throws Exception {
         TestEntity legacy = new TestEntityImpl();
         assertTrue(legacy.isLegacyConstruction());
         
-        TestEntity entity = factory.createEntity(EntitySpec.create(TestEntity.class));
+        TestEntity entity = factory.createEntity(EntitySpec.create(TestEntity.class), Optional.absent());
         assertFalse(entity.isLegacyConstruction());
     }
     
     @Test
     public void testCreatesProxyImplementingAdditionalInterfaces() throws Exception {
         EntitySpec<Application> spec = EntitySpec.create(Application.class).impl(MyApplicationImpl.class).additionalInterfaces(MyInterface.class);
-        Application app = factory.createEntity(spec);
+        Application app = factory.createEntity(spec, Optional.absent());
         Application proxy = factory.createEntityProxy(spec, app);
         
         assertFalse(proxy instanceof MyApplicationImpl, "proxy="+proxy);

@@ -19,9 +19,9 @@
 package org.apache.brooklyn.rest.resources;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static javax.ws.rs.core.Response.Status.ACCEPTED;
 import static javax.ws.rs.core.Response.created;
 import static javax.ws.rs.core.Response.status;
+import static javax.ws.rs.core.Response.Status.ACCEPTED;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 import java.net.URI;
@@ -32,6 +32,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
@@ -58,6 +59,7 @@ import org.apache.brooklyn.core.mgmt.entitlement.EntitlementPredicates;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.EntityAndItem;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
+import org.apache.brooklyn.core.mgmt.internal.IdAlreadyExistsException;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
@@ -87,6 +89,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableMap;
@@ -240,6 +243,15 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
     @Override
     public Response createFromYaml(String yaml) {
+        return createFromYaml(yaml, Optional.absent());
+    }
+    
+    @Override
+    public Response createFromYamlWithAppId(String yaml, String appId) {
+        return createFromYaml(yaml, Optional.of(appId));
+    }
+    
+    protected Response createFromYaml(String yaml, Optional<String> appId) {
         // First of all, see if it's a URL
         Preconditions.checkNotNull(yaml, "Blueprint must not be null");
         URI uri = null;
@@ -284,7 +296,10 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         }
 
         try {
-            return launch(yaml, spec);
+            return launch(yaml, spec, appId);
+        } catch (IdAlreadyExistsException e) {
+            log.warn("Failed REST deployment launching "+spec+": "+e);
+            throw WebResourceUtils.throwWebApplicationException(Response.Status.CONFLICT, e, "Error launching blueprint, id already exists");
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             log.warn("Failed REST deployment launching "+spec+": "+e);
@@ -292,9 +307,9 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         }
     }
 
-    private Response launch(String yaml, EntitySpec<? extends Application> spec) {
+    private Response launch(String yaml, EntitySpec<? extends Application> spec, Optional<String> entityId) {
         try {
-            Application app = EntityManagementUtils.createUnstarted(mgmt(), spec);
+            Application app = EntityManagementUtils.createUnstarted(mgmt(), spec, entityId);
 
             boolean isEntitled = Entitlements.isEntitled(
                     mgmt().getEntitlementManager(),
@@ -374,7 +389,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
         if (spec != null) {
             try {
-                return launch(potentialYaml, spec);
+                return launch(potentialYaml, spec, Optional.absent());
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 log.warn("Failed REST deployment launching "+spec+": "+e);
@@ -409,7 +424,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     private EntitySpec<? extends Application> createEntitySpecForApplication(String potentialYaml) {
         return EntityManagementUtils.createEntitySpecForApplication(mgmt(), potentialYaml);
     }
-
+    
     private void checkApplicationTypesAreValid(ApplicationSpec applicationSpec) {
         String appType = applicationSpec.getType();
         if (appType != null) {
