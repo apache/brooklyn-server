@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ha.MementoCopyMode;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
@@ -617,6 +618,23 @@ public class DslAndRebindYamlTest extends AbstractYamlRebindTest {
         testEntity.sensors().set(TestEntity.NAME, "somefooname");
         AttributeSensor<String> transformedSensor = Sensors.newStringSensor("test.name.transformed");
         EntityAsserts.assertAttributeEqualsEventually(testEntity, transformedSensor, "somebarname");
+    }
+
+    @Test
+    public void testDslTemplateRebind() throws Exception {
+        Entity testEntity = entityWithTemplatedString();
+        Application app2 = rebind(testEntity.getApplication());
+        Entity e2 = Iterables.getOnlyElement(app2.getChildren());
+
+        Assert.assertEquals(getConfigInTask(e2, TestEntity.CONF_NAME), "hello world");
+    }
+
+    protected Entity entityWithTemplatedString() throws Exception {
+        return setupAndCheckTestEntityInBasicYamlWith(
+                "  id: x",
+                "  brooklyn.config:",
+                "    test.sourceName: hello world",
+                "    test.confName: $brooklyn:template(\"${config['test.sourceName']}\")");
     }
 
 }

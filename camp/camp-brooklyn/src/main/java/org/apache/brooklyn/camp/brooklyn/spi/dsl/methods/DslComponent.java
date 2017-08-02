@@ -51,6 +51,7 @@ import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.core.xstream.ObjectWithDefaultStringImplConverter;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -63,6 +64,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Callables;
 import com.thoughtworks.xstream.annotations.XStreamConverter;
@@ -735,6 +737,59 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         public String toString() {
             return DslToStringHelpers.component(component, DslToStringHelpers.fn("sensorName", 
                 sensorName instanceof Sensor ? ((Sensor<?>)sensorName).getName() : sensorName));
+        }
+    }
+
+    public Object template(Object template) {
+        return new DslTemplate(this, template);
+    }
+
+    protected final static class DslTemplate extends BrooklynDslDeferredSupplier<Object> {
+        private static final long serialVersionUID = -585564936781673667L;
+        private DslComponent component;
+        private Object template;
+
+        public DslTemplate(DslComponent component, Object template) {
+            this.component = component;
+            this.template = template;
+        }
+        
+        private String resolveTemplate(boolean immediately) {
+            if (template instanceof String) {
+                return (String)template;
+            }
+            
+            return Tasks.resolving(template)
+                .as(String.class)
+                .context(findExecutionContext(this))
+                .immediately(immediately)
+                .description("Resolving template from " + template)
+                .get();
+        }
+
+        @Override
+        public Maybe<Object> getImmediately() {
+            String resolvedTemplate = resolveTemplate(true);
+
+            Maybe<Entity> targetEntityMaybe = component.getImmediately();
+            if (targetEntityMaybe.isAbsent()) return ImmediateValueNotAvailableException.newAbsentWrapping("Target entity is not available: "+component, targetEntityMaybe);
+            Entity targetEntity = targetEntityMaybe.get();
+
+            String evaluatedTemplate = TemplateProcessor.processTemplateContents(
+                    resolvedTemplate, (EntityInternal)targetEntity, ImmutableMap.<String, Object>of());
+            return Maybe.of(evaluatedTemplate);
+        }
+
+        @Override
+        public Task<Object> newTask() {
+            return Tasks.<Object>builder().displayName("evaluating template "+template ).dynamic(false).body(new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                    Entity targetEntity = component.get();
+                    return TemplateProcessor.processTemplateContents(
+                            resolveTemplate(false), (EntityInternal)targetEntity, ImmutableMap.<String, Object>of());
+                }
+            }).build();
         }
     }
 
