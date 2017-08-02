@@ -833,7 +833,11 @@ public class Enrichers {
         }
     }
 
-    @Beta
+    /**
+     * @deprecated since 0.12.0; see {@link MathAggregatorFunctions};
+     * Will be kept for backwards compatibility with persisted state.
+     */
+    @Deprecated
     private abstract static class ComputingNumber<T extends Number> implements Function<Collection<T>, T> {
         protected final Number defaultValueForUnreportedSensors;
         protected final Number valueToReportIfNoSensors;
@@ -854,28 +858,38 @@ public class Enrichers {
         @Override public abstract T apply(Collection<T> input);
     }
 
-    @Beta
+    /**
+     * @deprecated since 0.12.0; see {@link MathAggregatorFunctions};
+     * Will be made private and kept for backwards compatibility with persisted state.
+     */
+    @Deprecated
     public static class ComputingSum<T extends Number> extends ComputingNumber<T> {
         public ComputingSum(Number defaultValueForUnreportedSensors, Number valueToReportIfNoSensors, TypeToken<T> typeToken) {
             super(defaultValueForUnreportedSensors, valueToReportIfNoSensors, typeToken);
         }
-        @SuppressWarnings({ "rawtypes", "unchecked" })
         @Override public T apply(Collection<T> input) {
             return (T) sum(input, defaultValueForUnreportedSensors, valueToReportIfNoSensors, typeToken);
         }
     }
 
-    @Beta
+    /**
+     * @deprecated since 0.12.0; see {@link MathAggregatorFunctions};
+     * Will be made private and kept for backwards compatibility with persisted state.
+     */
+    @Deprecated
     public static class ComputingAverage<T extends Number> extends ComputingNumber<T> {
         public ComputingAverage(Number defaultValueForUnreportedSensors, Number valueToReportIfNoSensors, TypeToken<T> typeToken) {
             super(defaultValueForUnreportedSensors, valueToReportIfNoSensors, typeToken);
         }
-        @SuppressWarnings({ "rawtypes", "unchecked" })
         @Override public T apply(Collection<T> input) {
             return (T) average(input, defaultValueForUnreportedSensors, valueToReportIfNoSensors, typeToken);
         }
     }
 
+    /**
+     * @deprecated since 0.12.0; see {@link MathAggregatorFunctions};
+     */
+    @Deprecated
     protected static <T extends Number> T average(Collection<T> vals, Number defaultValueForUnreportedSensors, Number valueToReportIfNoSensors, TypeToken<T> type) {
         Double doubleValueToReportIfNoSensors = (valueToReportIfNoSensors == null) ? null : valueToReportIfNoSensors.doubleValue();
         int count = count(vals, defaultValueForUnreportedSensors!=null);
@@ -885,12 +899,14 @@ public class Enrichers {
         return cast(result, type);
     }
     
-    @SuppressWarnings("unchecked")
     protected static <N extends Number> N cast(Number n, TypeToken<? extends N> numberType) {
-        return (N) TypeCoercions.castPrimitive(n, numberType.getRawType());
+        return (N) TypeCoercions.coerce(n, numberType);
     }
 
-    @Beta  //may be moved
+    /**
+     * @deprecated since 0.12.0; see {@link MathAggregatorFunctions};
+     */
+    @Deprecated
     public static <N extends Number> N sum(Iterable<? extends Number> vals, Number valueIfNull, Number valueIfNone, TypeToken<N> type) {
         double result = 0d;
         int count = 0;
@@ -909,6 +925,10 @@ public class Enrichers {
         return cast(result, type);
     }
     
+    /**
+     * @deprecated since 0.12.0; see {@link MathAggregatorFunctions};
+     */
+    @Deprecated
     protected static int count(Iterable<? extends Object> vals, boolean includeNullValues) {
         int result = 0;
         if (vals != null) 
