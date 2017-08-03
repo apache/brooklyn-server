@@ -62,11 +62,11 @@ import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.trait.Changeable;
 import org.apache.brooklyn.core.entity.trait.FailingEntity;
 import org.apache.brooklyn.core.entity.trait.Resizable;
+import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.BlockingEntity;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
@@ -74,7 +74,6 @@ import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -90,15 +89,19 @@ import org.testng.annotations.Test;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Stopwatch;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 
 public class DynamicClusterTest extends AbstractDynamicClusterOrFabricTest {
+
+    private static final Logger LOG = LoggerFactory.getLogger(DynamicClusterTest.class);
 
     private static final int TIMEOUT_MS = 2000;
 
@@ -519,6 +522,139 @@ public class DynamicClusterTest extends AbstractDynamicClusterOrFabricTest {
         }
     }
 
+    // TODO Questionable whether we want this behaviour, but including the test to demonstrate 
+    // what we currently do (and so we can preserve backwards compatibility, if we so choose).
+    //
+    // We report service.isUp=true before start() has completed, as soon as the quorum is up.
+    // This might be surprising for entities that use the cluster's `service.isUp` as a latch
+    // for when the cluster is ready to use.
+    //
+    // The default UP_QUORUM_CHECK is `atLeastOne`.
+    @Test
+    public void testReportsServiceUpAsSoonAsQuorumSize() throws Exception {
+        final Duration shortWait = Duration.millis(50);
+        final CountDownLatch latch1 = new CountDownLatch(1);
+        final CountDownLatch latch2 = new CountDownLatch(1);
+        
+        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
+                .configure("initialSize", 2)
+                .configure("firstMemberSpec", EntitySpec.create(BlockingEntity.class)
+                        .configure(BlockingEntity.STARTUP_LATCH, latch1))
+                .configure("memberSpec", EntitySpec.create(BlockingEntity.class)
+                        .configure(BlockingEntity.STARTUP_LATCH, latch2)));
+        
+        // Invoke start: should report starting
+        Task<Void> task = cluster.invoke(Startable.START, ImmutableMap.of("locations", ImmutableList.of(loc)));
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_UP, false);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STARTING);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, DynamicCluster.GROUP_SIZE, 2);
+
+        // Allow first member to complete: we are now quorate, so should report service.isUp=true;
+        // but will still be starting.
+        latch1.countDown();
+        
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", shortWait), cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STARTING);
+        assertFalse(task.isDone());
+
+        // Allow second member to complete; we are now fully up.
+        latch2.countDown();
+        task.get();
+
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+    }
+    
+    @Test
+    public void testWaitForServiceUpDefaultsToNotChecking() throws Exception {
+        DynamicCluster cluster = app.addChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class))
+                .configure("initialSize", 1));
+
+        // Indicate that the cluster is not healthy 
+        ServiceStateLogic.updateMapSensorEntry(cluster, ServiceStateLogic.SERVICE_NOT_UP_INDICATORS, "simulateNotUpKey", "myVal");
+
+        // Start - expect it to complete promptly
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        app.start(ImmutableList.of());
+        Duration startTime = Duration.of(stopwatch);
+        LOG.info("start-time "+startTime);
+        assertTrue(startTime.isShorterThan(Asserts.DEFAULT_LONG_TIMEOUT), "startTime="+startTime);
+
+        // Should be on-fire
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_UP, false);
+
+        // Clearing the notUp indicator should allow it to recover
+        ServiceStateLogic.updateMapSensorEntry(cluster, ServiceStateLogic.SERVICE_NOT_UP_INDICATORS, "simulateNotUpKey", Entities.REMOVE);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_UP, true);
+    }
+    
+    @Test
+    public void testWaitForServiceFails() throws Exception {
+        DynamicCluster cluster = app.addChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.START_TIMEOUT, Duration.ONE_MILLISECOND)
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class))
+                .configure("initialSize", 1));
+
+        // Indicate that the cluster is not healthy 
+        ServiceStateLogic.updateMapSensorEntry(cluster, ServiceStateLogic.SERVICE_NOT_UP_INDICATORS, "simulateNotUpKey", "myVal");
+
+        // Start - expect it to fail promptly
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        try {
+            app.start(ImmutableList.of());
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "Timeout waiting for SERVICE_UP");
+        }
+        Duration startTime = Duration.of(stopwatch);
+        LOG.info("start-time "+startTime);
+        assertTrue(startTime.isShorterThan(Asserts.DEFAULT_LONG_TIMEOUT), "startTime="+startTime);
+
+        // Should be on-fire
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_UP, false);
+
+        // Clearing the notUp indicator should allow it to recover
+        ServiceStateLogic.updateMapSensorEntry(cluster, ServiceStateLogic.SERVICE_NOT_UP_INDICATORS, "simulateNotUpKey", Entities.REMOVE);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+    }
+    
+    @Test
+    public void testWaitForServiceSucceedsEventually() throws Exception {
+        Map<?,?> veryShortWait = ImmutableMap.of("timeout", Duration.millis(50));
+        
+        DynamicCluster cluster = app.addChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.START_TIMEOUT, Asserts.DEFAULT_LONG_TIMEOUT.multiply(2))
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class))
+                .configure("initialSize", 1));
+
+        // Indicate that the cluster is not healthy 
+        ServiceStateLogic.updateMapSensorEntry(cluster, ServiceStateLogic.SERVICE_NOT_UP_INDICATORS, "simulateNotUpKey", "myVal");
+
+        // Start in a background thread
+        Task<Void> task = app.invoke(Startable.START, ImmutableMap.of("locations", ImmutableList.of()));
+
+        // The member should start, but we should still be waiting for the cluster's service.isUp 
+        EntityAsserts.assertGroupSizeEqualsEventually(cluster, 1);
+        TestEntity member = (TestEntity) Iterables.find(cluster.getChildren(), Predicates.instanceOf(TestEntity.class));
+        EntityAsserts.assertAttributeEqualsEventually(member, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        
+        EntityAsserts.assertAttributeEqualsContinually(veryShortWait, cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STARTING);
+        EntityAsserts.assertAttributeEqualsContinually(veryShortWait, cluster, Attributes.SERVICE_UP, false);
+        assertFalse(task.isDone());
+
+        // Clearing the not-up-indicator will allow it to return successfully
+        ServiceStateLogic.updateMapSensorEntry(cluster, ServiceStateLogic.SERVICE_NOT_UP_INDICATORS, "simulateNotUpKey", Entities.REMOVE);
+
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        task.get(Asserts.DEFAULT_LONG_TIMEOUT);
+    }
+    
     @Test
     public void testInitialQuorumSizeDefaultsToInitialSize() throws Exception {
         final int failNum = 1;
