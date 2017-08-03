@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -42,11 +43,20 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Functions;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 
 public class UpdatingMapTest extends BrooklynAppUnitTestSupport {
+
+    protected AttributeSensor<Object> mySensor = Sensors.newSensor(Object.class, "mySensor");
+    
+    @SuppressWarnings("serial")
+    protected AttributeSensor<Map<String,Object>> mapSensor = Sensors.newSensor(
+            new TypeToken<Map<String,Object>>() {},
+            "mapSensor");
 
     @Test
     public void testUpdateServiceNotUpIndicator() throws Exception {
@@ -78,13 +88,7 @@ public class UpdatingMapTest extends BrooklynAppUnitTestSupport {
     }
     
     @Test
-    @SuppressWarnings("serial")
     public void testUpdateMapUsingDifferentProducer() throws Exception {
-        AttributeSensor<Object> mySensor = Sensors.newSensor(Object.class, "mySensor");
-        AttributeSensor<Map<String,Object>> mapSensor = Sensors.newSensor(
-                new TypeToken<Map<String,Object>>() {},
-                "mapSensor");
-        
         Entity producer = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
         Entity entity = app.createAndManageChild(EntitySpec.create(BasicApplication.class)
@@ -99,6 +103,61 @@ public class UpdatingMapTest extends BrooklynAppUnitTestSupport {
         
         producer.sensors().set(mySensor, "v1");
         EntityAsserts.assertAttributeEqualsEventually(entity, mapSensor, ImmutableMap.of("myKey", "valIsV1"));
+    }
+    
+    @Test
+    public void testUpdateMapEmitsEventOnChange() throws Exception {
+        Entity entity = app.createAndManageChild(EntitySpec.create(BasicApplication.class)
+                .enricher(EnricherSpec.create(UpdatingMap.class)
+                        .configure(UpdatingMap.SOURCE_SENSOR.getName(), mySensor.getName())
+                        .configure(UpdatingMap.TARGET_SENSOR, mapSensor)
+                        .configure(UpdatingMap.KEY_IN_TARGET_SENSOR, "myKey")
+                        .configure(UpdatingMap.COMPUTING, Functions.forMap(MutableMap.of("v1", "valIsV1", "v2", "valIsV2"), "myDefault"))));
+
+        EntityAsserts.assertAttributeEqualsEventually(entity, mapSensor, ImmutableMap.of("myKey", "myDefault"));
+        
+        RecordingSensorEventListener<Map<String, Object>> listener = new RecordingSensorEventListener<>();
+        app.subscriptions().subscribe(entity, mapSensor, listener);
+        
+        entity.sensors().set(mySensor, "v1");
+        EntityAsserts.assertAttributeEqualsEventually(entity, mapSensor, ImmutableMap.of("myKey", "valIsV1"));
+        
+        listener.assertHasEventEventually(Predicates.alwaysTrue());
+        assertEquals(Iterables.getOnlyElement(listener.getEventValues()), ImmutableMap.of("myKey", "valIsV1"));
+    }
+    
+    @Test
+    public void testRemovingIfResultIsNull() throws Exception {
+        Entity entity = app.createAndManageChild(EntitySpec.create(BasicApplication.class)
+                .enricher(EnricherSpec.create(UpdatingMap.class)
+                        .configure(UpdatingMap.SOURCE_SENSOR.getName(), mySensor.getName())
+                        .configure(UpdatingMap.TARGET_SENSOR, mapSensor)
+                        .configure(UpdatingMap.REMOVING_IF_RESULT_IS_NULL, true)
+                        .configure(UpdatingMap.COMPUTING, Functions.forMap(MutableMap.of("v1", "valIsV1"), null))));
+
+        
+        entity.sensors().set(mySensor, "v1");
+        EntityAsserts.assertAttributeEqualsEventually(entity, mapSensor, ImmutableMap.of("mySensor", "valIsV1"));
+
+        entity.sensors().set(mySensor, "different");
+        EntityAsserts.assertAttributeEqualsEventually(entity, mapSensor, ImmutableMap.of());
+    }
+
+    @Test
+    public void testNotRemovingIfResultIsNull() throws Exception {
+        Entity entity = app.createAndManageChild(EntitySpec.create(BasicApplication.class)
+                .enricher(EnricherSpec.create(UpdatingMap.class)
+                        .configure(UpdatingMap.SOURCE_SENSOR.getName(), mySensor.getName())
+                        .configure(UpdatingMap.TARGET_SENSOR, mapSensor)
+                        .configure(UpdatingMap.REMOVING_IF_RESULT_IS_NULL, false)
+                        .configure(UpdatingMap.COMPUTING, Functions.forMap(MutableMap.of("v1", "valIsV1"), null))));
+
+        
+        entity.sensors().set(mySensor, "v1");
+        EntityAsserts.assertAttributeEqualsEventually(entity, mapSensor, ImmutableMap.of("mySensor", "valIsV1"));
+
+        entity.sensors().set(mySensor, "different");
+        EntityAsserts.assertAttributeEqualsEventually(entity, mapSensor, MutableMap.of("mySensor", null));
     }
     
     private void assertMapSensorContainsEventually(Entity entity, AttributeSensor<? extends Map<?, ?>> mapSensor, Map<?, ?> expected) {

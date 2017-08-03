@@ -31,7 +31,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
@@ -70,16 +70,24 @@ public class UpdatingMap<S,TKey,TVal> extends AbstractEnricher implements Sensor
 
     @SetFromFlag("fromSensor")
     public static final ConfigKey<Sensor<?>> SOURCE_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.sourceSensor");
+    
     @SetFromFlag("targetSensor")
     public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.targetSensor");
+    
     @SetFromFlag("key")
     public static final ConfigKey<Object> KEY_IN_TARGET_SENSOR = ConfigKeys.newConfigKey(Object.class, "enricher.updatingMap.keyInTargetSensor",
         "Key to update in the target sensor map, defaulting to the name of the source sensor");
+
     @SetFromFlag("computing")
-    public static final ConfigKey<Function<?, ?>> COMPUTING = ConfigKeys.newConfigKey(new TypeToken<Function<?,?>>() {}, "enricher.updatingMap.computing");
+    public static final ConfigKey<Function<?, ?>> COMPUTING = ConfigKeys.newConfigKey(
+            new TypeToken<Function<?,?>>() {}, 
+            "enricher.updatingMap.computing");
+    
     @SetFromFlag("removingIfResultIsNull")
-    public static final ConfigKey<Boolean> REMOVING_IF_RESULT_IS_NULL = ConfigKeys.newBooleanConfigKey("enricher.updatingMap.removingIfResultIsNull", 
-        "Whether the key in the target map is removed if the result if the computation is null");
+    public static final ConfigKey<Boolean> REMOVING_IF_RESULT_IS_NULL = ConfigKeys.newBooleanConfigKey(
+            "enricher.updatingMap.removingIfResultIsNull", 
+            "Whether the key in the target map is removed if the result if the computation is null",
+            Boolean.TRUE);
 
     protected Entity producer;
     protected AttributeSensor<S> sourceSensor;
@@ -139,37 +147,16 @@ public class UpdatingMap<S,TKey,TVal> extends AbstractEnricher implements Sensor
     protected void onUpdated() {
         try {
             Object v = computing.apply(producer.getAttribute(sourceSensor));
-            if (v == null && !Boolean.FALSE.equals(removingIfResultIsNull)) {
+            if (v == null && Boolean.TRUE.equals(removingIfResultIsNull)) {
                 v = Entities.REMOVE;
             }
             if (v == Entities.UNCHANGED) {
                 // nothing
             } else {
-                // TODO check synchronization
                 TKey key = this.key;
                 if (key==null) key = (TKey) sourceSensor.getName();
-                
-                Map<TKey, TVal> map = entity.getAttribute(targetSensor);
 
-                boolean created = (map==null);
-                if (created) map = MutableMap.of();
-                
-                boolean changed;
-                if (v == Entities.REMOVE) {
-                    changed = map.containsKey(key);
-                    if (changed)
-                        map.remove(key);
-                } else {
-                    TVal oldV = map.get(key);
-                    if (oldV==null)
-                        changed = (v!=null || !map.containsKey(key));
-                    else
-                        changed = !oldV.equals(v);
-                    if (changed)
-                        map.put(key, (TVal)v);
-                }
-                if (changed || created)
-                    emit(targetSensor, map);
+                ServiceStateLogic.updateMapSensorEntry(entity, targetSensor, key, (TVal) v);
             }
         } catch (Throwable t) {
             LOG.warn("Error calculating map update for enricher "+this, t);
