@@ -41,9 +41,7 @@ import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
-import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
 import org.apache.brooklyn.core.entity.trait.FailingEntity;
-import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -52,13 +50,11 @@ import org.apache.brooklyn.core.test.entity.TestApplicationNoEnrichersImpl;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityNoEnrichersImpl;
 import org.apache.brooklyn.enricher.stock.AbstractMultipleSensorAggregator;
-import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.core.task.ValueResolver;
-import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
@@ -180,18 +176,7 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
         assertHealthEventually(app, Lifecycle.ON_FIRE, false);
     }
 
-    // TODO Fails in a full `mvn clean install`, but I can't get it to fail in Eclipse running 
-    // lots of times, or with `mvn test -Dtest=ApplicationLifecycleStateTest`. The failure is:
-    //     java.lang.AssertionError: (Dumped entity info - see log); entity=Application[6q37l8cu]; state=on-fire; up=true; notUpIndicators={}; serviceProblems={service-lifecycle-indicators-from-children-and-members=Required entity not healthy: FailingEntityImpl{id=exz9n1pti0}}
-    //     at org.apache.brooklyn.core.entity.ApplicationLifecycleStateTest.assertUpAndRunningEventually(ApplicationLifecycleStateTest.java:204)
-    //     at org.apache.brooklyn.core.entity.ApplicationLifecycleStateTest.testChildFailuresOnStartButWithQuorumCausesAppToSucceed(ApplicationLifecycleStateTest.java:146)
-    //
-    // See https://github.com/apache/brooklyn-server/pull/452 and https://github.com/apache/brooklyn-server/pull/454 
-    // for further discussion of fix/issue.
-    //
-    // AbstractMultipleSensorAggregator.onEvent sees SERVICE_STATE_ACTUAL events in the wrong order (running, starting) which leads to 
-    // the quorum check failing in ComputeServiceIndicatorsFromChildrenAndMembers.
-    @Test(groups="Broken")
+    @Test
     public void testChildFailuresOnStartButWithQuorumCausesAppToSucceed() throws Exception {
         TestApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
                 .configure(StartableApplication.UP_QUORUM_CHECK, QuorumCheck.QuorumChecks.atLeastOne())
@@ -204,8 +189,7 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
         assertUpAndRunningEventually(app);
     }
 
-    // Same as testChildFailuresOnStartButWithQuorumCausesAppToSucceed
-    @Test(groups="Broken")
+    @Test
     public void testStartsThenChildFailsButWithQuorumCausesAppToSucceed() throws Exception {
         TestApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
                 .configure(StartableApplication.UP_QUORUM_CHECK, QuorumCheck.QuorumChecks.atLeastOne())
@@ -227,8 +211,7 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
         mgmt.getEntityManager().unmanage(app);
     }
 
-    // Same as testChildFailuresOnStartButWithQuorumCausesAppToSucceed
-    @Test(groups="Broken")
+    @Test
     public void testStartsThenChildFailsButWithQuorumCausesAppToStayHealthy() throws Exception {
         TestApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
                 .configure(StartableApplication.UP_QUORUM_CHECK, QuorumCheck.QuorumChecks.atLeastOne())
@@ -245,15 +228,16 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
     }
 
     /**
-     * Sensor value does not match the order of events. For example events are running, starting,
-     * but sensor value is running.
-     * Causes a problem with ComputeServiceIndicatorsFromChildrenAndMembers which will flag the entity
-     * on-fire event though children are running.
+     * Tests concurrent modifications to a sensor, asserting that the last notification the subscribers 
+     * receives equals the last value that sensor has.
      * 
-     * Indeterministic, fails a couple of times per 100 invocations when run with "mvn test" in the
-     * brooklyn-itest docker container.
+     * Prior to this being fixed (see https://github.com/apache/brooklyn-server/pull/622), it caused 
+     * problems in ComputeServiceIndicatorsFromChildrenAndMembers: it saw a child transition 
+     * from "running" to "starting", and thus emitted the on-fire event for the parent entity. As asserted
+     * by this test, the enricher should now always receive the events in the correct order (e.g. "starting",
+     * "running").
      */
-    @Test(groups="Broken")
+    @Test
     public void testSettingSensorFromThreads() {
         final TestApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
         final AttributeSensor<String> TEST_SENSOR = Sensors.newStringSensor("test.sensor");
