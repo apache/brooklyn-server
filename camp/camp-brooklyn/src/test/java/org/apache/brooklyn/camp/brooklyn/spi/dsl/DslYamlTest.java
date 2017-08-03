@@ -38,14 +38,12 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Function;
@@ -801,6 +799,21 @@ public class DslYamlTest extends AbstractYamlTest {
                 "    test.sourceName: hello world",
                 "    dest: $brooklyn:template(\"${config['test.sourceName']}\")");
         assertEquals(getConfigEventually(app, DEST), "hello world");
+    }
+
+    @Test
+    public void testDslTemplateSubstitutions() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    test.sourceName: hello world",
+                "    test.substituteValue: and all",
+                "    dest: ",
+                "      $brooklyn:template:",
+                "      - ${config['test.sourceName']} ${key}",
+                "      - $brooklyn:literal(\"key\"): $brooklyn:config(\"test.substituteValue\")");
+        assertEquals(getConfigEventually(app, DEST), "hello world and all");
     }
 
     @Test

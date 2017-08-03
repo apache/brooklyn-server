@@ -20,6 +20,7 @@ package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -744,14 +745,24 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         return new DslTemplate(this, template);
     }
 
+    public Object template(Object template, Map<?, ?> substitutions) {
+        return new DslTemplate(this, template, substitutions);
+    }
+
     protected final static class DslTemplate extends BrooklynDslDeferredSupplier<Object> {
         private static final long serialVersionUID = -585564936781673667L;
         private DslComponent component;
         private Object template;
+        private Map<?, ?> substitutions;
 
         public DslTemplate(DslComponent component, Object template) {
+            this(component, template, ImmutableMap.of());
+        }
+
+        public DslTemplate(DslComponent component, Object template, Map<?, ?> substitutions) {
             this.component = component;
             this.template = template;
+            this.substitutions = substitutions;
         }
         
         private String resolveTemplate(boolean immediately) {
@@ -766,17 +777,29 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 .description("Resolving template from " + template)
                 .get();
         }
+        
+        @SuppressWarnings("unchecked")
+        private Map<String, ?> resolveSubstitutions(boolean immediately) {
+            return (Map<String, ?>) Tasks.resolving(substitutions)
+                    .as(Object.class)
+                    .context(findExecutionContext(this))
+                    .immediately(immediately)
+                    .deep(true)
+                    .description("Resolving substitutions " + substitutions + " for template " + template)
+                    .get();
+        }
 
         @Override
         public Maybe<Object> getImmediately() {
             String resolvedTemplate = resolveTemplate(true);
+            Map<String, ?> resolvedSubstitutions = resolveSubstitutions(true);
 
             Maybe<Entity> targetEntityMaybe = component.getImmediately();
             if (targetEntityMaybe.isAbsent()) return ImmediateValueNotAvailableException.newAbsentWrapping("Target entity is not available: "+component, targetEntityMaybe);
             Entity targetEntity = targetEntityMaybe.get();
 
             String evaluatedTemplate = TemplateProcessor.processTemplateContents(
-                    resolvedTemplate, (EntityInternal)targetEntity, ImmutableMap.<String, Object>of());
+                    resolvedTemplate, (EntityInternal)targetEntity, resolvedSubstitutions);
             return Maybe.of(evaluatedTemplate);
         }
 
@@ -786,8 +809,9 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 @Override
                 public Object call() throws Exception {
                     Entity targetEntity = component.get();
+                    Map<String, ?> resolvedSubstitutions = resolveSubstitutions(false);
                     return TemplateProcessor.processTemplateContents(
-                            resolveTemplate(false), (EntityInternal)targetEntity, ImmutableMap.<String, Object>of());
+                            resolveTemplate(false), (EntityInternal)targetEntity, resolvedSubstitutions);
                 }
             }).build();
         }
