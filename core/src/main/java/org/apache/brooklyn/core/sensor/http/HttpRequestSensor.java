@@ -56,8 +56,13 @@ public final class HttpRequestSensor<T> extends AddSensor<T> {
     public static final ConfigKey<String> JSON_PATH = ConfigKeys.newStringConfigKey("jsonPath", "JSON path to select in HTTP response; default $", "$");
     public static final ConfigKey<String> USERNAME = ConfigKeys.newStringConfigKey("username", "Username for HTTP request, if required");
     public static final ConfigKey<String> PASSWORD = ConfigKeys.newStringConfigKey("password", "Password for HTTP request, if required");
-    public static final ConfigKey<Map<String, String>> HEADERS = new MapConfigKey(String.class, "headers");
-
+    public static final ConfigKey<Map<String, String>> HEADERS = new MapConfigKey<>(String.class, "headers");
+    
+    public static final ConfigKey<Boolean> PREEMPTIVE_BASIC_AUTH = ConfigKeys.newBooleanConfigKey(
+            "preemptiveBasicAuth",
+            "Whether to pre-emptively including a basic-auth header of the username:password (rather than waiting for a challenge)",
+            Boolean.FALSE);
+    
     public HttpRequestSensor(final ConfigBag params) {
         super(params);
     }
@@ -85,7 +90,7 @@ public final class HttpRequestSensor<T> extends AddSensor<T> {
         final String username = EntityInitializers.resolve(allConfig, USERNAME);
         final String password = EntityInitializers.resolve(allConfig, PASSWORD);
         final Map<String, String> headers = EntityInitializers.resolve(allConfig, HEADERS);
-
+        final Boolean preemptiveBasicAuth = EntityInitializers.resolve(allConfig, PREEMPTIVE_BASIC_AUTH);
         
         HttpPollConfig<T> pollConfig = new HttpPollConfig<T>(sensor)
                 .checkSuccess(HttpValueFunctions.responseCodeEquals(200))
@@ -96,6 +101,7 @@ public final class HttpRequestSensor<T> extends AddSensor<T> {
         HttpFeed.Builder httpRequestBuilder = HttpFeed.builder().entity(entity)
                 .baseUri(uri)
                 .credentialsIfNotNull(username, password)
+                .preemptiveBasicAuth(Boolean.TRUE.equals(preemptiveBasicAuth))
                 .poll(pollConfig);
 
         if (headers != null) {

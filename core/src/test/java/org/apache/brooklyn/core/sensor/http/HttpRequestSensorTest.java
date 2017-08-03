@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.sensor.http;
 
+import static org.testng.Assert.assertEquals;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
@@ -28,15 +30,20 @@ import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.feed.http.HttpFeedTest;
+import org.apache.brooklyn.test.http.RecordingHttpRequestHandler;
 import org.apache.brooklyn.test.http.TestHttpRequestHandler;
 import org.apache.brooklyn.test.http.TestHttpServer;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.http.HttpRequest;
+import org.apache.http.protocol.HttpRequestHandler;
 import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 public class HttpRequestSensorTest {
     final static AttributeSensor<String> SENSOR_STRING = Sensors.newStringSensor("aString");
@@ -47,11 +54,14 @@ public class HttpRequestSensorTest {
 
     private TestHttpServer server;
     private String serverUrl;
+    private RecordingHttpRequestHandler recordingHandler;
 
-    @BeforeClass(alwaysRun=true)
+    @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
+        HttpRequestHandler handler = new TestHttpRequestHandler().header("Content-Type", "application/json").response("{\"myKey\":\"myValue\"}");
+        recordingHandler = new RecordingHttpRequestHandler(handler);
         server = new TestHttpServer()
-            .handler("/myKey/myValue", new TestHttpRequestHandler().header("Content-Type", "application/json").response("{\"myKey\":\"myValue\"}"))
+            .handler("/myKey/myValue", recordingHandler)
             .start();
         serverUrl = server.getUrl();
 
@@ -67,8 +77,8 @@ public class HttpRequestSensorTest {
         server.stop();
     }
 
-    @SuppressWarnings("deprecation")
     @Test
+    @SuppressWarnings("deprecation")
     public void testHttpSensor() throws Exception {
         HttpRequestSensor<Integer> sensor = new HttpRequestSensor<Integer>(ConfigBag.newInstance()
                 .configure(HttpRequestSensor.SENSOR_PERIOD, Duration.millis(100))
@@ -82,4 +92,26 @@ public class HttpRequestSensorTest {
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_STRING, "myValue");
     }
 
+    @Test
+    @SuppressWarnings("deprecation")
+    public void testPreemptiveBasicAuth() throws Exception {
+        HttpRequestSensor<Integer> sensor = new HttpRequestSensor<Integer>(ConfigBag.newInstance()
+                .configure(HttpRequestSensor.PREEMPTIVE_BASIC_AUTH, true)
+                .configure(HttpRequestSensor.USERNAME, "myuser")
+                .configure(HttpRequestSensor.PASSWORD, "mypass")
+                .configure(HttpRequestSensor.SENSOR_PERIOD, Duration.minutes(1))
+                .configure(HttpRequestSensor.SENSOR_NAME, SENSOR_STRING.getName())
+                .configure(HttpRequestSensor.SENSOR_TYPE, TARGET_TYPE)
+                .configure(HttpRequestSensor.JSON_PATH, "$.myKey")
+                .configure(HttpRequestSensor.SENSOR_URI, serverUrl + "/myKey/myValue"));
+        sensor.apply((org.apache.brooklyn.api.entity.EntityLocal)entity);
+        entity.sensors().set(Attributes.SERVICE_UP, true);
+        
+        EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_STRING, "myValue");
+        
+        HttpRequest req = Iterables.getFirst(recordingHandler.getRequests(), null);
+        String headerVal = req.getFirstHeader("Authorization").getValue();
+        String expectedVal = HttpFeedTest.getBasicAuthHeaderVal("myuser", "mypass");
+        assertEquals(headerVal, expectedVal);
+    }
 }

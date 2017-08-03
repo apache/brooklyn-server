@@ -22,6 +22,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -30,6 +31,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityFunctions;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityInternal.FeedSupport;
@@ -42,8 +44,8 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.http.BetterMockWebServer;
-import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.guava.Functionals;
+import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -59,7 +61,9 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.io.BaseEncoding;
 import com.google.mockwebserver.MockResponse;
+import com.google.mockwebserver.RecordedRequest;
 import com.google.mockwebserver.SocketPolicy;
 
 public class HttpFeedTest extends BrooklynAppUnitTestSupport {
@@ -360,7 +364,90 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
         
         server.shutdown();
     }
+    
+    @Test
+    public void testPreemptiveBasicAuth() throws Exception {
+        final String username = "brooklyn";
+        final String password = "hunter2";
 
+        feed = HttpFeed.builder()
+                .entity(entity)
+                .baseUrl(server.getUrl("/"))
+                .credentials(username, password)
+                .preemptiveBasicAuth(true)
+                .poll(new HttpPollConfig<Integer>(SENSOR_INT)
+                        .period(100)
+                        .onSuccess(HttpValueFunctions.responseCode())
+                        .onException(Functions.constant(-1)))
+                .build();
+
+        EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, 200);
+        RecordedRequest req = server.takeRequest();
+        String headerVal = req.getHeader("Authorization");
+        String expectedVal = getBasicAuthHeaderVal(username, password);
+        assertEquals(headerVal, expectedVal);
+    }
+
+    @Test
+    public void testPreemptiveBasicAuthFailsIfNoCredentials() throws Exception {
+        try {
+            feed = HttpFeed.builder()
+                    .entity(entity)
+                    .baseUrl(new URL("http://shouldNeverBeCalled.org"))
+                    .preemptiveBasicAuth(true)
+                    .poll(new HttpPollConfig<Integer>(SENSOR_INT)
+                            .period(100)
+                            .onSuccess(HttpValueFunctions.responseCode())
+                            .onException(Functions.constant(-1)))
+                    .build();
+            Asserts.shouldHaveFailedPreviously();
+        } catch (IllegalArgumentException e) {
+            Asserts.expectedFailureContains(e, "Must not enable preemptiveBasicAuth when there are no credentials");
+        }
+    }
+
+    // Expected behaviour of o.a.http.client is that it first sends the request without credentials,
+    // and then when given a challenge for basic-auth it re-sends the request with the basic-auth header.
+    @Test
+    public void testNonPreemptiveBasicAuth() throws Exception {
+        final String username = "brooklyn";
+        final String password = "hunter2";
+        
+        if (server != null) server.shutdown();
+        server = BetterMockWebServer.newInstanceLocalhost();
+        server.enqueue(new MockResponse()
+                .setResponseCode(401)
+                .addHeader("WWW-Authenticate", "Basic"));
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setBody("Hello World"));
+        server.play();
+
+        feed = HttpFeed.builder()
+                .entity(entity)
+                .baseUrl(server.getUrl("/"))
+                .credentials(username, password)
+                .poll(new HttpPollConfig<Integer>(SENSOR_INT)
+                        .period(Duration.ONE_MINUTE) // so only dealing with first request
+                        .onSuccess(HttpValueFunctions.responseCode())
+                        .onException(Functions.constant(-1)))
+                .build();
+
+        EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, 200);
+        RecordedRequest req = server.takeRequest();
+        assertEquals(req.getHeader("Authorization"), null);
+        
+        RecordedRequest req2 = server.takeRequest();
+        String headerVal = req2.getHeader("Authorization");
+        String expected = getBasicAuthHeaderVal(username, password);
+        assertEquals(headerVal, expected);
+    }
+
+    public static String getBasicAuthHeaderVal(String username, String password) {
+        String toencode = username + (password == null ? "" : ":"+password);
+        return "Basic " + BaseEncoding.base64().encode((toencode).getBytes(StandardCharsets.UTF_8));
+    }
+    
     private void newMultiFeed(URL baseUrl) {
         feed = HttpFeed.builder()
                 .entity(entity)

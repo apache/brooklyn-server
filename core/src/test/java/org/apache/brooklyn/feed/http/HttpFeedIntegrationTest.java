@@ -99,6 +99,15 @@ public class HttpFeedIntegrationTest extends BrooklynAppUnitTestSupport {
 
     @Test(groups = {"Integration"})
     public void testPollsAndParsesHttpGetResponseWithBasicAuthentication() throws Exception {
+        runPollsAndParsesHttpGetResponseWithBasicAuthentication(false);
+    }
+    
+    @Test(groups = {"Integration"})
+    public void testPollsAndParsesHttpGetResponseWithPreemptiveBasicAuthentication() throws Exception {
+        runPollsAndParsesHttpGetResponseWithBasicAuthentication(true);
+    }
+    
+    protected void runPollsAndParsesHttpGetResponseWithBasicAuthentication(boolean preemptiveBasicAuth) throws Exception {
         final String username = "brooklyn";
         final String password = "hunter2";
         httpService = new HttpService(PortRanges.fromString("9000+"))
@@ -111,6 +120,7 @@ public class HttpFeedIntegrationTest extends BrooklynAppUnitTestSupport {
                 .entity(entity)
                 .baseUri(baseUrl)
                 .credentials(username, password)
+                .preemptiveBasicAuth(preemptiveBasicAuth)
                 .poll(new HttpPollConfig<Integer>(SENSOR_INT)
                         .period(100)
                         .onSuccess(HttpValueFunctions.responseCode()))
