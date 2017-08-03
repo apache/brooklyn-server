@@ -28,6 +28,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import com.google.common.collect.ImmutableList;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.jayway.jsonpath.PathNotFoundException;
@@ -118,6 +119,20 @@ public class JsonFunctionsTest {
     public void testGetPath2(){
         String obj = (String) JsonFunctions.getPath("$.europe.uk.edinburgh.lighting").apply(europeMap());
         Assert.assertEquals(obj, "dark");
+    }
+
+    @Test
+    public void testGetPathSizeOfMap(){
+        JsonElement json = JsonFunctions.asJson().apply("{\"mymap\": {\"k1\": \"v1\", \"k2\": \"v2\"}}");
+        Integer obj = (Integer) JsonFunctions.getPath("$.mymap.size()").apply(json);
+        Assert.assertEquals(obj, (Integer)2);
+    }
+
+    @Test
+    public void testGetPathSizeOfList(){
+        JsonElement json = JsonFunctions.asJson().apply("{\"mylist\": [\"a\", \"b\", \"c\"]}");
+        Integer obj = (Integer) JsonFunctions.getPath("$.mylist.size()").apply(json);
+        Assert.assertEquals(obj, (Integer)3);
     }
 
     @Test
