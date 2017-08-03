@@ -24,6 +24,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -47,11 +48,11 @@ import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.util.executor.HttpExecutorFactory;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.http.HttpToolResponse;
-import org.apache.brooklyn.util.http.executor.UsernamePassword;
 import org.apache.brooklyn.util.http.executor.HttpConfig;
 import org.apache.brooklyn.util.http.executor.HttpExecutor;
 import org.apache.brooklyn.util.http.executor.HttpRequest;
 import org.apache.brooklyn.util.http.executor.HttpResponse;
+import org.apache.brooklyn.util.http.executor.UsernamePassword;
 import org.apache.brooklyn.util.http.executor.apacheclient.HttpExecutorImpl;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.time.Duration;
@@ -71,6 +72,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import com.google.common.io.BaseEncoding;
 import com.google.common.io.ByteStreams;
 import com.google.common.reflect.TypeToken;
 
@@ -144,6 +146,7 @@ public class HttpFeed extends AbstractFeed {
         private Credentials credentials;
         private String uniqueTag;
         private HttpExecutor httpExecutor;
+        private Boolean preemptiveBasicAuth;
         private volatile boolean built;
 
         public Builder entity(Entity val) {
@@ -220,6 +223,10 @@ public class HttpFeed extends AbstractFeed {
             }
             return this;
         }
+        public Builder preemptiveBasicAuth(Boolean val) {
+            this.preemptiveBasicAuth = val;
+            return this;
+        }
         public Builder uniqueTag(String uniqueTag) {
             this.uniqueTag = uniqueTag;
             return this;
@@ -227,6 +234,25 @@ public class HttpFeed extends AbstractFeed {
         public Builder httpExecutor(HttpExecutor val) {
             this.httpExecutor = val;
             return this;
+        }
+        public Map<String, String> buildBaseHeaders() {
+            if (Boolean.TRUE.equals(preemptiveBasicAuth)) {
+                Credentials creds = credentials;
+                if (creds == null) {
+                    throw new IllegalArgumentException("Must not enable preemptiveBasicAuth when there are no credentials, in feed for "+baseUri);
+                }
+                String username = checkNotNull(creds.getUserPrincipal().getName(), "username");
+                String password = creds.getPassword();
+                String toencode = username + (password == null ? "" : ":"+password);
+                String headerVal = "Basic " + BaseEncoding.base64().encode((toencode).getBytes(StandardCharsets.UTF_8));
+                
+                return ImmutableMap.<String,String>builder()
+                        .put("Authorization", headerVal)
+                        .putAll(checkNotNull(headers, "headers"))
+                        .build();
+            } else {
+                return ImmutableMap.copyOf(checkNotNull(headers, "headers"));
+            }
         }
         public HttpFeed build() {
             built = true;
@@ -297,8 +323,8 @@ public class HttpFeed extends AbstractFeed {
     }
     
     protected HttpFeed(Builder builder) {
-        setConfig(ONLY_IF_SERVICE_UP, builder.onlyIfServiceUp);
-        Map<String,String> baseHeaders = ImmutableMap.copyOf(checkNotNull(builder.headers, "headers"));
+        config().set(ONLY_IF_SERVICE_UP, builder.onlyIfServiceUp);
+        Map<String,String> baseHeaders = builder.buildBaseHeaders();
 
         HttpExecutor httpExecutor;
         if (builder.httpExecutor != null) {
@@ -344,7 +370,7 @@ public class HttpFeed extends AbstractFeed {
 
             polls.put(new HttpPollIdentifier(httpExecutor, method, baseUriProvider, headers, body, credentials, connectionTimeout, socketTimeout), configCopy);
         }
-        setConfig(POLLS, polls);
+        config().set(POLLS, polls);
         initUniqueTag(builder.uniqueTag, polls.values());
     }
 
