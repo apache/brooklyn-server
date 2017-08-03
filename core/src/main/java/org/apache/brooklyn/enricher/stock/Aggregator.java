@@ -61,7 +61,7 @@ public class Aggregator<T,U> extends AbstractAggregator<T,U> implements SensorEv
             "enricher.transformation.untyped",
             "Specifies a transformation, as a function from a collection to the value, or as a string " +
                     "matching a pre-defined named transformation, such as 'average' (for numbers), " +
-                    "'sum' (for numbers), 'isQuorate' (to compute a quorum), " +
+                    "'sum' (for numbers), 'min' (for numbers), 'max' (for numbers), 'isQuorate' (to compute a quorum), " +
                     "'list' (the default, putting any collection of items into a list), " +
                     "or 'first' (the first value, or null if empty)");
 
@@ -116,13 +116,28 @@ public class Aggregator<T,U> extends AbstractAggregator<T,U> implements SensorEv
         
     @SuppressWarnings({ "rawtypes", "unchecked" })
     protected Function<? super Collection<?>, ?> lookupTransformation(String t1) {
-        if ("average".equalsIgnoreCase(t1)) return new Enrichers.ComputingAverage(null, null, targetSensor.getTypeToken());
-        if ("sum".equalsIgnoreCase(t1)) return new Enrichers.ComputingSum(null, null, targetSensor.getTypeToken());
-        if ("isQuorate".equalsIgnoreCase(t1)) return new Enrichers.ComputingIsQuorate(targetSensor.getTypeToken(),
+        //return MathAggregatorFunctions.computingAverage(
+        TypeToken<U> targetType = targetSensor.getTypeToken();
+        Function<?, ?> result;
+        if ("average".equalsIgnoreCase(t1)) {
+            result = MathAggregatorFunctions.computingAverage(null, null, (TypeToken<? extends Number>) targetType);
+        } else if ("sum".equalsIgnoreCase(t1)) {
+            result = MathAggregatorFunctions.computingSum(null, null, (TypeToken<? extends Number>) targetType);
+        } else if ("min".equalsIgnoreCase(t1)) {
+            result = MathAggregatorFunctions.computingMin(null, null, (TypeToken<? extends Number>) targetType);
+        } else if ("max".equalsIgnoreCase(t1)) {
+            result = MathAggregatorFunctions.computingMax(null, null, (TypeToken<? extends Number>) targetType);
+        } else if ("isQuorate".equalsIgnoreCase(t1)) {
+            result = new Enrichers.ComputingIsQuorate(targetType,
                 QuorumChecks.of(config().get(QUORUM_CHECK_TYPE)), config().get(QUORUM_TOTAL_SIZE));
-        if ("list".equalsIgnoreCase(t1)) return new ComputingList();
-        if ("first".equalsIgnoreCase(t1)) return new FirstOrNull();
-        return null;
+        } else if ("list".equalsIgnoreCase(t1)) {
+            result = new ComputingList();
+        } else if ("first".equalsIgnoreCase(t1)) {
+            result = new FirstOrNull();
+        } else {
+            result = null;
+        }
+        return (Function<? super Collection<?>, ?>) result;
     }
 
     private class ComputingList<TT> implements Function<Collection<TT>, List<TT>> {
