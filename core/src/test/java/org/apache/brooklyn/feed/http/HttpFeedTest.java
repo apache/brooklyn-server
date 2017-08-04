@@ -204,6 +204,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testUsesFailureHandlerOn4xx() throws Exception {
+        if (server != null) server.shutdown();
         server = BetterMockWebServer.newInstanceLocalhost();
         for (int i = 0; i < 100; i++) {
             server.enqueue(new MockResponse()
@@ -232,6 +233,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testUsesExceptionHandlerOn4xxAndNoFailureHandler() throws Exception {
+        if (server != null) server.shutdown();
         server = BetterMockWebServer.newInstanceLocalhost();
         for (int i = 0; i < 100; i++) {
             server.enqueue(new MockResponse()
@@ -332,9 +334,11 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
     }
 
     // because takes a wee while
+    // TODO time-sensitive brittle test - relies on assertion spotting sensor value in first 10 polls (i.e. 1 second)
     @SuppressWarnings("rawtypes")
     @Test(groups="Integration")
     public void testPollsMultiClearsOnSubsequentFailure() throws Exception {
+        if (server != null) server.shutdown();
         server = BetterMockWebServer.newInstanceLocalhost();
         for (int i = 0; i < 10; i++) {
             server.enqueue(new MockResponse()
@@ -366,10 +370,39 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
     }
     
     @Test
+    public void testFailsIfUsernameNull() throws Exception {
+        try {
+            feed = HttpFeed.builder()
+                    .entity(entity)
+                    .baseUrl(new URL("http://shouldNeverBeCalled.org"))
+                    .credentials(null, "Pa55w0rd")
+                    .poll(new HttpPollConfig<Integer>(SENSOR_INT)
+                            .period(100)
+                            .onSuccess(HttpValueFunctions.responseCode())
+                            .onException(Functions.constant(-1)))
+                    .build();
+            Asserts.shouldHaveFailedPreviously();
+        } catch (IllegalArgumentException e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "may not be null");
+        }
+    }
+    
+    @Test
     public void testPreemptiveBasicAuth() throws Exception {
-        final String username = "brooklyn";
-        final String password = "hunter2";
+        runPreemptiveBasicAuth("brooklyn", "hunter2");
+    }
 
+    @Test
+    public void testPreemptiveBasicAuthWithNoPassword() throws Exception {
+        runPreemptiveBasicAuth("brooklyn", null);
+    }
+    
+    @Test
+    public void testPreemptiveBasicAuthWithColonAndWhitespaceInPassword() throws Exception {
+        runPreemptiveBasicAuth("brooklyn", " passwordWith:colon\t ");
+    }
+    
+    protected void runPreemptiveBasicAuth(String username, String password) throws Exception {
         feed = HttpFeed.builder()
                 .entity(entity)
                 .baseUrl(server.getUrl("/"))
@@ -403,6 +436,25 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
             Asserts.shouldHaveFailedPreviously();
         } catch (IllegalArgumentException e) {
             Asserts.expectedFailureContains(e, "Must not enable preemptiveBasicAuth when there are no credentials");
+        }
+    }
+
+    @Test
+    public void testPreemptiveBasicAuthFailsIfUserContainsColon() throws Exception {
+        try {
+            feed = HttpFeed.builder()
+                    .entity(entity)
+                    .baseUrl(new URL("http://shouldNeverBeCalled.org"))
+                    .credentials("userWith:colon", "Pa55w0rd")
+                    .preemptiveBasicAuth(true)
+                    .poll(new HttpPollConfig<Integer>(SENSOR_INT)
+                            .period(100)
+                            .onSuccess(HttpValueFunctions.responseCode())
+                            .onException(Functions.constant(-1)))
+                    .build();
+            Asserts.shouldHaveFailedPreviously();
+        } catch (IllegalArgumentException e) {
+            Asserts.expectedFailureContains(e, "must not contain colon");
         }
     }
 
@@ -444,7 +496,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
     }
 
     public static String getBasicAuthHeaderVal(String username, String password) {
-        String toencode = username + (password == null ? "" : ":"+password);
+        String toencode = username + ":" + (password == null ? "" : password);
         return "Basic " + BaseEncoding.base64().encode((toencode).getBytes(StandardCharsets.UTF_8));
     }
     

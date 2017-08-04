@@ -29,7 +29,6 @@ import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.protocol.HttpRequestHandler;
-import org.testng.Assert;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -57,7 +56,7 @@ public class RecordingHttpRequestHandler implements HttpRequestHandler {
                 return;
             }
         }
-        Assert.fail("No request matching filter "+ filter);
+        Asserts.fail("No request matching filter "+ filter);
     }
 
     public void assertHasRequestEventually(Predicate<? super HttpRequest> filter) {
