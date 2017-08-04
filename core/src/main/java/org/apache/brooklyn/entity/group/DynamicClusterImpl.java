@@ -33,6 +33,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.effector.Effector;
@@ -408,13 +409,18 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         try {
             doStart();
             DynamicTasks.waitForLast();
-            ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
-            
         } catch (Exception e) {
             ServiceProblemsLogic.updateProblemsIndicator(this, START, "start failed with error: "+e);
             ServiceStateLogic.setExpectedStateRunningWithErrors(this);
-            
             throw Exceptions.propagate(e);
+        }
+
+        // Don't set problem-indicator if it's just our waitForServiceUp that fails;
+        // we want to be able to recover if the indicator is subsequently cleared.
+        try {
+            waitForServiceUp();
+        } finally {
+            ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
         }
     }
 
@@ -483,6 +489,17 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         for (Policy it : policies()) {
             it.resume();
         }
+    }
+
+    protected void waitForServiceUp() {
+        Duration timeout = getConfig(START_TIMEOUT);
+        if (timeout != null) {
+            waitForServiceUp(timeout);
+        }
+    }
+    
+    protected void waitForServiceUp(Duration duration) {
+        Entities.waitForServiceUp(this, duration);
     }
 
     protected List<Location> findSubLocations(Location loc) {

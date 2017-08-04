@@ -120,7 +120,7 @@ public class CatalogMakeOsgiBundleTest extends AbstractYamlTest {
                 "- type: " + "basic1";
         Entity app = createAndStartApplication(yaml);
         Entity basic1 = Iterables.getOnlyElement( app.getChildren() );
-        EntityAsserts.assertAttribute(basic1, Sensors.newStringSensor("a.sensor"), Predicates.equalTo("A"));
+        EntityAsserts.assertAttributeEqualsEventually(basic1, Sensors.newStringSensor("a.sensor"), "A");
         
         return basic1;
     }
