@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.feed.http;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -309,7 +311,7 @@ public class JsonFunctions {
         private final String path;
 
         public GetPath(String path) {
-            this.path = path;
+            this.path = checkNotNull(path, "path");
         }
         @SuppressWarnings("unchecked")
         @Override public T apply(JsonElement input) {
