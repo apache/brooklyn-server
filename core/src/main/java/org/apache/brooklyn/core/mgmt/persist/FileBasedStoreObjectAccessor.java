@@ -19,8 +19,10 @@
 package org.apache.brooklyn.core.mgmt.persist;
 
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.SyncFailedException;
 import java.util.Date;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -87,12 +89,33 @@ public class FileBasedStoreObjectAccessor implements PersistenceObjectStore.Stor
     public void put(ByteSource bytes) {
         try {
             FileUtil.setFilePermissionsTo600(tmpFile);
-            Streams.copyClose(bytes.openStream(), new FileOutputStream(tmpFile));
+            final FileOutputStream tempStream = new FileOutputStream(tmpFile);
+            Streams.copyClose(bytes.openStream(), tempStream);
+            syncFileSystem(tempStream.getFD());
             FileBasedObjectStore.moveFile(tmpFile, file);
         } catch (IOException e) {
             throw Exceptions.propagateAnnotated("Problem writing data to file "+file+" (via temporary file "+tmpFile+")", e);
         } catch (InterruptedException e) {
             throw Exceptions.propagate(e);
+        }
+    }
+
+    private void syncFileSystem(final FileDescriptor fd) throws SyncFailedException {
+        // Simple retry a number of times; avoids Repeater to avoid complications of timeouts and separate threads
+        int maxTries = 3;
+
+        SyncFailedException sfe = null;
+        for (int c = 0 ; c < maxTries ; c++) {
+            try {
+                fd.sync();
+                sfe = null;
+                break;
+            } catch (SyncFailedException e) {
+                sfe = e;
+            }
+        }
+        if (sfe != null) {
+            throw sfe;
         }
     }
 
