@@ -798,6 +798,14 @@ public class BrooklynDslCommon {
         }
     }
 
+    public static Object template(Object template) {
+        return new DslComponent(Scope.THIS, "").template(template);
+    }
+
+    public static Object template(Object template, Map<? ,?> substitutions) {
+        return new DslComponent(Scope.THIS, "").template(template, substitutions);
+    }
+
     public static class Functions {
         @DslAccessible
         public static Object regexReplacement(final Object pattern, final Object replacement) {

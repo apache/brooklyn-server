@@ -790,6 +790,74 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), Boolean.TRUE);
     }
 
+    @Test
+    public void testDslTemplate() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    test.sourceName: hello world",
+                "    dest: $brooklyn:template(\"${config['test.sourceName']}\")");
+        assertEquals(getConfigEventually(app, DEST), "hello world");
+    }
+
+    @Test
+    public void testDslTemplateSubstitutions() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    test.sourceName: hello world",
+                "    test.substituteValue: and all",
+                "    dest: ",
+                "      $brooklyn:template:",
+                "      - ${config['test.sourceName']} ${key}",
+                "      - $brooklyn:literal(\"key\"): $brooklyn:config(\"test.substituteValue\")");
+        assertEquals(getConfigEventually(app, DEST), "hello world and all");
+    }
+
+    @Test
+    public void testDslTemplateOnEntity() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    dest: $brooklyn:entity(\"configSource\").template(\"${config['test.sourceName']}\")",
+                "- type: " + BasicApplication.class.getName(),
+                "  id: configSource",
+                "  brooklyn.config:",
+                "    test.sourceName: hello world");
+        assertEquals(getConfigEventually(app.getChildren().iterator().next(), DEST), "hello world");
+    }
+
+    @Test
+    public void testDslMultilineTemplate() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    test.sourceName: hello world",
+                "    dest: ",
+                "      $brooklyn:template:",
+                "      - |",
+                "        ${config['test.sourceName']}");
+        assertEquals(getConfigEventually(app, DEST), "hello world");
+    }
+
+    @Test
+    public void testDslTemplateOverDsl() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    test.value: hello world",
+                "    test.sourceDsl: $brooklyn:config(\"test.value\")",
+                "    test.sourceTemplate: ${config['test.sourceDsl']}",
+                "    dest: $brooklyn:template($brooklyn:config(\"test.sourceTemplate\"))");
+        assertEquals(getConfigEventually(app, DEST), "hello world");
+    }
+
+
     private static <T> T getConfigEventually(final Entity entity, final ConfigKey<T> configKey) throws Exception {
         // Use an executor, in case config().get() blocks forever, waiting for the config value.
         ExecutorService executor = Executors.newSingleThreadExecutor();
