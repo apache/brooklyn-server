@@ -120,7 +120,7 @@ public class WinRmMachineLocationExternalConfigYamlTest extends AbstractYamlTest
             waitForApplicationTasks(app);
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
-            Asserts.expectedFailureOfType(e, NullPointerException.class);
+            Asserts.expectedFailureContains(e, "Must specify exactly one of 'ssh' or 'winrm' for machine");
         }
     }
 

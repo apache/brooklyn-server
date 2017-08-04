@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.base.Preconditions;
 import com.google.common.net.HostAndPort;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -384,7 +385,10 @@ implements MachineProvisioningLocation<T>, Closeable {
             // For backwards compatibility, where peristed state did not have this.
             origConfigs = Maps.newLinkedHashMap();
         }
-        parseMachineConfig((AbstractLocation) machine);
+        if (((AbstractLocation) machine).config().getBag().getAllConfig().get("provider") != null &&
+                ((AbstractLocation) machine).config().getBag().getAllConfig().get("provider").equals("byon")) {
+            parseMachineConfig((AbstractLocation) machine);
+        }
         Map<String, Object> strFlags = ConfigBag.newInstance(flags).getAllConfig();
         Map<String, Object> origConfig = ((ConfigurationSupportInternal)machine.config()).getLocalBag().getAllConfig();
         origConfigs.put(machine, origConfig);
@@ -399,11 +403,13 @@ implements MachineProvisioningLocation<T>, Closeable {
         String winrm =  machine.config().get(ConfigKeys.newStringConfigKey("winrm"));
         machine.config().removeKey(ConfigKeys.newStringConfigKey("winrm"));
 
-        Map<Integer, String> tcpPortMappings = (Map<Integer, String>) machine.config().get(ConfigKeys.newConfigKey(Map.class, "tcpPortMappings"));
-
-        if (ssh == null && winrm == null) {
-            throw new IllegalArgumentException("Must specify exactly one of 'ssh' or 'winrm' for machine: "+machine);
+        if (ssh ==null && winrm == null && machine.config().get(ConfigKeys.newStringConfigKey("address")) != null) {
+            return;
         }
+
+        Preconditions.checkArgument(ssh != null || winrm != null, "Must specify exactly one of 'ssh' or 'winrm' for machine: " + machine);
+
+        Map<Integer, String> tcpPortMappings = (Map<Integer, String>) machine.config().get(ConfigKeys.newConfigKey(Map.class, "tcpPortMappings"));
 
         UserAndHostAndPort userAndHostAndPort;
         String host;
