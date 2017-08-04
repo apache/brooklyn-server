@@ -22,12 +22,14 @@ import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
 import java.io.Closeable;
 import java.io.File;
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.net.HostAndPort;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -45,6 +47,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.WildcardGlobs;
 import org.apache.brooklyn.util.text.WildcardGlobs.PhraseTreatment;
@@ -317,7 +320,7 @@ implements MachineProvisioningLocation<T>, Closeable {
         T desiredMachine = (T) flags.get("desiredMachine");
         ConfigBag allflags = ConfigBag.newInstanceExtending(config().getBag()).putAll(flags);
         Function<Iterable<? extends MachineLocation>, MachineLocation> chooser = allflags.get(MACHINE_CHOOSER);
-        
+
         synchronized (lock) {
             Set<T> a = getAvailable();
             if (a.isEmpty()) {
@@ -381,12 +384,83 @@ implements MachineProvisioningLocation<T>, Closeable {
             // For backwards compatibility, where peristed state did not have this.
             origConfigs = Maps.newLinkedHashMap();
         }
+        parseMachineConfig((AbstractLocation) machine);
         Map<String, Object> strFlags = ConfigBag.newInstance(flags).getAllConfig();
         Map<String, Object> origConfig = ((ConfigurationSupportInternal)machine.config()).getLocalBag().getAllConfig();
         origConfigs.put(machine, origConfig);
         requestPersist();
         
         ((ConfigurationSupportInternal)machine.config()).putAll(strFlags);
+    }
+
+    private void parseMachineConfig(AbstractLocation machine) {
+        String ssh = machine.config().get(ConfigKeys.newStringConfigKey("ssh"));
+        machine.config().removeKey(ConfigKeys.newStringConfigKey("ssh"));
+        String winrm =  machine.config().get(ConfigKeys.newStringConfigKey("winrm"));
+        machine.config().removeKey(ConfigKeys.newStringConfigKey("winrm"));
+
+        Map<Integer, String> tcpPortMappings = (Map<Integer, String>) machine.config().get(ConfigKeys.newConfigKey(Map.class, "tcpPortMappings"));
+
+        if (ssh == null && winrm == null) {
+            throw new IllegalArgumentException("Must specify exactly one of 'ssh' or 'winrm' for machine: "+machine);
+        }
+
+        UserAndHostAndPort userAndHostAndPort;
+        String host;
+        int port;
+        if (ssh != null) {
+            userAndHostAndPort = parseUserAndHostAndPort(ssh, 22);
+        } else {
+            // TODO set to null and rely on the MachineLocation. If not then make a dependency to WinRmMachineLocation and use its config key name.
+            Boolean useHttps = machine.config().get(ConfigKeys.newConfigKey(Boolean.class,"winrm.useHttps"));
+            userAndHostAndPort = parseUserAndHostAndPort(winrm, useHttps != null && useHttps ? 5986 : 5985);
+        }
+
+        // If there is a tcpPortMapping defined for the connection-port, then use that for ssh/winrm machine
+        port = userAndHostAndPort.getHostAndPort().getPort();
+        if (tcpPortMappings != null && tcpPortMappings.containsKey(port)) {
+            String override = tcpPortMappings.get(port);
+            HostAndPort hostAndPortOverride = HostAndPort.fromString(override);
+            if (!hostAndPortOverride.hasPort()) {
+                throw new IllegalArgumentException("Invalid portMapping ('"+override+"') for port "+port+" in machine configuration "+machine.config());
+            }
+            port = hostAndPortOverride.getPort();
+            host = hostAndPortOverride.getHostText().trim();
+        } else {
+            host = userAndHostAndPort.getHostAndPort().getHostText().trim();
+        }
+
+        machine.config().set(ConfigKeys.newStringConfigKey("address"), host);
+        try {
+            InetAddress.getByName(host);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid host '"+host+"' specified in '"+machine+"': "+e);
+        }
+
+        if (userAndHostAndPort.getUser() != null) {
+            machine.config().set(ConfigKeys.newStringConfigKey("user"), userAndHostAndPort.getUser());
+        }
+        if (userAndHostAndPort.getHostAndPort().hasPort()) {
+            machine.config().set(ConfigKeys.newConfigKey(Integer.class,"port"), port);
+        }
+    }
+
+    private UserAndHostAndPort parseUserAndHostAndPort(String val) {
+        String userPart = null;
+        String hostPart = val;
+        if (val.contains("@")) {
+            userPart = val.substring(0, val.indexOf("@"));
+            hostPart = val.substring(val.indexOf("@")+1);
+        }
+        return UserAndHostAndPort.fromParts(userPart, HostAndPort.fromString(hostPart));
+    }
+
+    private UserAndHostAndPort parseUserAndHostAndPort(String val, int defaultPort) {
+        UserAndHostAndPort result = parseUserAndHostAndPort(val);
+        if (!result.getHostAndPort().hasPort()) {
+            result = UserAndHostAndPort.fromParts(result.getUser(), result.getHostAndPort().getHostText(), defaultPort);
+        }
+        return result;
     }
     
     protected void restoreMachineConfig(MachineLocation machine) {
