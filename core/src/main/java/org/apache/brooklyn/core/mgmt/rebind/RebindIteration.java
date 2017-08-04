@@ -351,29 +351,10 @@ public abstract class RebindIteration {
                     exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, br.getMetadata().getId(), br.getMetadata().getSymbolicName(), e);
                 }
             }
-            // Now validate all types
-            Map<RegisteredType, Collection<Throwable>> validationErrors = this.managementContext.getCatalog().validateTypes( installedTypes );
-            if (!validationErrors.isEmpty()) {
-                Map<VersionedName, Map<RegisteredType,Collection<Throwable>>> errorsByBundle = MutableMap.of();
-                for (RegisteredType t: validationErrors.keySet()) {
-                    VersionedName vn = VersionedName.fromString(t.getContainingBundle());
-                    Map<RegisteredType, Collection<Throwable>> errorsInBundle = errorsByBundle.get(vn);
-                    if (errorsInBundle==null) {
-                        errorsInBundle = MutableMap.of();
-                        errorsByBundle.put(vn, errorsInBundle);
-                    }
-                    errorsInBundle.put(t, validationErrors.get(t));
-                }
-                for (VersionedName vn: errorsByBundle.keySet()) {
-                    Map<RegisteredType, Collection<Throwable>> errorsInBundle = errorsByBundle.get(vn);
-                    ManagedBundle b = managementContext.getOsgiManager().get().getManagedBundle(vn);
-                    exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, 
-                        b!=null ? b.getId() : /* just in case it was uninstalled concurrently somehow */ vn.toString(),
-                        vn.getSymbolicName(), 
-                        Exceptions.create("Failed to install "+vn+", types "+errorsInBundle.keySet()+" gave errors",
-                            Iterables.concat(errorsInBundle.values())));
-                }
+            if (!installedTypes.isEmpty()) {
+                validateAllTypes(installedTypes);
             }
+
 
         } else {
             logRebindingDebug("Not rebinding bundles; feature disabled: {}", mementoManifest.getBundleIds());
@@ -490,6 +471,37 @@ public abstract class RebindIteration {
 
         // TODO in read-only mode, perhaps do this less frequently than entities etc, maybe only if things change?
         catInit.populateCatalog(mode, needsInitialItemsLoaded, needsAdditionalItemsLoaded, itemsForResettingCatalog);
+    }
+
+    private void validateAllTypes(Set<RegisteredType> installedTypes) {
+        Stopwatch sw = Stopwatch.createStarted();
+        LOG.debug("Getting catalog to validate all types");
+        final BrooklynCatalog catalog = this.managementContext.getCatalog();
+        LOG.debug("Got catalog in {} now validate", sw.toString());
+        sw.reset(); sw.start();
+        Map<RegisteredType, Collection<Throwable>> validationErrors = catalog.validateTypes( installedTypes );
+        LOG.debug("Validation done in {}", sw.toString());
+        if (!validationErrors.isEmpty()) {
+            Map<VersionedName, Map<RegisteredType,Collection<Throwable>>> errorsByBundle = MutableMap.of();
+            for (RegisteredType t: validationErrors.keySet()) {
+                VersionedName vn = VersionedName.fromString(t.getContainingBundle());
+                Map<RegisteredType, Collection<Throwable>> errorsInBundle = errorsByBundle.get(vn);
+                if (errorsInBundle==null) {
+                    errorsInBundle = MutableMap.of();
+                    errorsByBundle.put(vn, errorsInBundle);
+                }
+                errorsInBundle.put(t, validationErrors.get(t));
+            }
+            for (VersionedName vn: errorsByBundle.keySet()) {
+                Map<RegisteredType, Collection<Throwable>> errorsInBundle = errorsByBundle.get(vn);
+                ManagedBundle b = managementContext.getOsgiManager().get().getManagedBundle(vn);
+                exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE,
+                    b!=null ? b.getId() : /* just in case it was uninstalled concurrently somehow */ vn.toString(),
+                    vn.getSymbolicName(),
+                    Exceptions.create("Failed to install "+vn+", types "+errorsInBundle.keySet()+" gave errors",
+                        Iterables.concat(errorsInBundle.values())));
+            }
+        }
     }
 
     protected void instantiateLocationsAndEntities() {
