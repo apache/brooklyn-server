@@ -80,7 +80,8 @@ public abstract class AbstractAggregator<T,U> extends AbstractEnricher implement
     public static final ConfigKey<Boolean> EXCLUDE_BLANK = ConfigKeys.newBooleanConfigKey(
             "enricher.aggregator.excludeBlank",
             "Whether explicit nulls or blank strings should be excluded (default false); " +
-                    "may only apply if no value filter set", false);
+                    "may only apply if no value filter set", 
+            false);
 
     protected Entity producer;
     protected Sensor<U> targetSensor;

@@ -184,6 +184,36 @@ public class AggregatorYamlTest extends AbstractYamlTest {
     }
     
     @Test
+    public void testListExcludesBlank() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.children:",
+                "    - type: " + TestEntity.class.getName(),
+                "    - type: " + TestEntity.class.getName(),
+                "  brooklyn.enrichers:",
+                "    - type: " + Aggregator.class.getName(),
+                "      brooklyn.config:",
+                "        "+Aggregator.SOURCE_SENSOR.getName()+": myVal",
+                "        "+Aggregator.TARGET_SENSOR.getName()+": myResult",
+                "        "+Aggregator.EXCLUDE_BLANK.getName()+": true",
+                "        "+Aggregator.TRANSFORMATION_UNTYPED.getName()+": list");
+        Entity child1 = Iterables.get(app.getChildren(), 0);
+        Entity child2 = Iterables.get(app.getChildren(), 1);
+
+        EntityAsserts.assertAttributeEqualsEventually(app, myResult, ImmutableList.of());
+
+        child1.sensors().set(myVal, "val1");
+        EntityAsserts.assertAttributeEqualsEventually(app, myResult, ImmutableList.of("val1"));
+        
+        child2.sensors().set(myVal, "val2");
+        EntityAsserts.assertAttributeEqualsEventually(app, myResult, ImmutableList.of("val1", "val2"));
+        
+        child1.sensors().set(myVal, null);
+        EntityAsserts.assertAttributeEqualsEventually(app, myResult, MutableList.of("val2"));
+    }
+    
+    @Test
     public void testFirst() throws Exception {
         Entity app = createAndStartApplication(
                 "services:",
