@@ -242,8 +242,15 @@ public class HttpFeed extends AbstractFeed {
                     throw new IllegalArgumentException("Must not enable preemptiveBasicAuth when there are no credentials, in feed for "+baseUri);
                 }
                 String username = checkNotNull(creds.getUserPrincipal().getName(), "username");
+                if (username == null) {
+                    throw new IllegalArgumentException("Must not enable preemptiveBasicAuth when username is null, in feed for "+baseUri);
+                }
+                if (username.contains(":")) {
+                    throw new IllegalArgumentException("Username must not contain colon when preemptiveBasicAuth is enabled, in feed for "+baseUri);
+                }
+                
                 String password = creds.getPassword();
-                String toencode = username + (password == null ? "" : ":"+password);
+                String toencode = username + ":" + (password == null ? "" : password);
                 String headerVal = "Basic " + BaseEncoding.base64().encode((toencode).getBytes(StandardCharsets.UTF_8));
                 
                 return ImmutableMap.<String,String>builder()
