@@ -27,10 +27,12 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.feed.http.HttpFeedTest;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.http.RecordingHttpRequestHandler;
 import org.apache.brooklyn.test.http.TestHttpRequestHandler;
 import org.apache.brooklyn.test.http.TestHttpServer;
@@ -42,6 +44,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -94,6 +97,32 @@ public class HttpRequestSensorTest {
         entity.sensors().set(Attributes.SERVICE_UP, true);
 
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_STRING, "myValue");
+    }
+
+    // "Integration" because takes a second
+    @Test(groups="Integration")
+    @SuppressWarnings("deprecation")
+    public void testHttpSensorSuppressingDuplicates() throws Exception {
+        RecordingSensorEventListener<String> listener = new RecordingSensorEventListener<>();
+        entity.subscriptions().subscribe(entity, SENSOR_STRING, listener);
+        
+        HttpRequestSensor<Integer> sensor = new HttpRequestSensor<Integer>(ConfigBag.newInstance()
+                .configure(HttpRequestSensor.SUPPRESS_DUPLICATES, true)
+                .configure(HttpRequestSensor.SENSOR_PERIOD, Duration.millis(1))
+                .configure(HttpRequestSensor.SENSOR_NAME, SENSOR_STRING.getName())
+                .configure(HttpRequestSensor.SENSOR_TYPE, STRING_TARGET_TYPE)
+                .configure(HttpRequestSensor.JSON_PATH, "$.myKey")
+                .configure(HttpRequestSensor.SENSOR_URI, serverUrl + "/myKey/myValue"));
+        sensor.apply((org.apache.brooklyn.api.entity.EntityLocal)entity);
+        entity.sensors().set(Attributes.SERVICE_UP, true);
+
+        EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_STRING, "myValue");
+        listener.assertHasEventEventually(Predicates.alwaysTrue());
+        
+        Asserts.succeedsContinually(new Runnable() {
+            @Override public void run() {
+                listener.assertEventCount(1);
+            }});
     }
 
     // TODO Fails because doesn't pick up default value of `JSON_PATH`, which is `$`

@@ -40,6 +40,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.effector.AddSensor;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
 import org.apache.brooklyn.feed.AbstractCommandFeed;
@@ -72,6 +73,11 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
         + "use '~' to always execute in the home dir, or 'custom-feed/' to execute in a custom-feed dir relative to the run dir");
     public static final MapConfigKey<Object> SENSOR_SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT;
 
+    public static final ConfigKey<Boolean> SUPPRESS_DUPLICATES = ConfigKeys.newBooleanConfigKey(
+            "suppressDuplicates", 
+            "Whether to publish the sensor value again, if it is the same as the previous value",
+            Boolean.FALSE);
+
     protected final String command;
     protected final String executionDir;
     protected final Map<String,Object> sensorEnv;
@@ -92,6 +98,8 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Adding SSH sensor {} to {}", name, entity);
         }
+
+        final Boolean suppressDuplicates = EntityInitializers.resolve(params, SUPPRESS_DUPLICATES);
 
         Supplier<Map<String,String>> envSupplier = new Supplier<Map<String,String>>() {
             @Override
@@ -125,6 +133,7 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
                 .period(period)
                 .env(envSupplier)
                 .command(commandSupplier)
+                .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
                 .checkSuccess(SshValueFunctions.exitStatusEquals(0))
                 .onFailureOrException(Functions.constant((T) null))
                 .onSuccess(Functions.compose(new Function<String, T>() {
