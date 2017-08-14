@@ -466,12 +466,7 @@ public class EntityManagementSupport {
         }
         @Override
         public void onEffectorStarting(Effector<?> effector, Object parameters) {
-            try {
-                Entitlements.checkEntitled(getEntitlementManager(), Entitlements.INVOKE_EFFECTOR, EntityAndItem.of(entity, StringAndArgument.of(effector.getName(), parameters)));
-            } catch (Exception e) {
-                if (log.isDebugEnabled()) { log.debug("Error while checking for entitlement {}", effector, e); }
-                Exceptions.propagate(e);
-            }
+            Entitlements.checkEntitled(getEntitlementManager(), Entitlements.INVOKE_EFFECTOR, EntityAndItem.of(entity, StringAndArgument.of(effector.getName(), parameters)));
         }
         @Override
         public void onEffectorCompleted(Effector<?> effector) {
