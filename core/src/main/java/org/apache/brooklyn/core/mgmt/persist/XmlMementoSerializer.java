@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutionException;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
@@ -409,6 +410,11 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         public void marshal(Object source, HierarchicalStreamWriter writer, MarshallingContext context) {
             if (source == null) return;
             AbstractBrooklynObjectSpec<?, ?> spec = (AbstractBrooklynObjectSpec<?, ?>) source;
+
+            // Parameters are used only for API when listing catalog specs to the API
+            // When spec is altered before serialization parameters must be still initialized by BasicSpecParameter#initializeSpecWithExplicitParameters
+            // TODO AbstractBrooklynObjectSpec#parameters to be transient when users cleaned AbstractBrooklynObjectSpec
+            spec.parametersReplace(ImmutableList.of());
             String catalogItemId = spec.getCatalogItemId();
             if (Strings.isNonBlank(catalogItemId)) {
                 // write this field first, so we can peek at it when we read
