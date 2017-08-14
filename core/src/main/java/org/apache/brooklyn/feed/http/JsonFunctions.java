@@ -172,7 +172,7 @@ public class JsonFunctions {
 
     protected static class AsJson implements Function<String, JsonElement> {
         @Override public JsonElement apply(String input) {
-            return new JsonParser().parse(input);
+            return (input != null) ? new JsonParser().parse(input) : null;
         }
     }
 
@@ -315,6 +315,7 @@ public class JsonFunctions {
         }
         @SuppressWarnings("unchecked")
         @Override public T apply(JsonElement input) {
+            if (input == null) return null;
             String jsonString = input.toString();
             Object rawElement = JsonPath.read(jsonString, path);
             return (T) rawElement;
