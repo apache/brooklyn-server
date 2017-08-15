@@ -28,7 +28,6 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import com.google.common.collect.ImmutableList;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.jayway.jsonpath.PathNotFoundException;
@@ -42,6 +41,19 @@ public class JsonFunctionsTest {
                 .root().at("europe").at("france").put("population", 80*1000*1000)
                 .root();
         return new JsonParser().parse( europe.toString() );
+    }
+
+    @Test
+    public void testAsJson() {
+        JsonElement jsonElement = europeMap();
+        String jsonString = jsonElement.toString();
+        JsonElement result = JsonFunctions.asJson().apply(jsonString);
+        Assert.assertEquals(result.toString(), jsonString);
+    }
+
+    @Test
+    public void testAsJsonWithNullReturnsNull() {
+        Assert.assertNull(JsonFunctions.asJson().apply(null));
     }
 
     @Test
@@ -119,6 +131,12 @@ public class JsonFunctionsTest {
     public void testGetPath2(){
         String obj = (String) JsonFunctions.getPath("$.europe.uk.edinburgh.lighting").apply(europeMap());
         Assert.assertEquals(obj, "dark");
+    }
+
+    @Test
+    public void testGetPathWithNullReturnsNull(){
+        Integer obj = (Integer) JsonFunctions.getPath("$.europe.uk.edinburgh.population").apply(null);
+        Assert.assertNull(obj);
     }
 
     @Test

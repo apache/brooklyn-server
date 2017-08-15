@@ -62,6 +62,10 @@ public final class HttpRequestSensor<T> extends AddSensor<T> {
     public static final ConfigKey<String> USERNAME = ConfigKeys.newStringConfigKey("username", "Username for HTTP request, if required");
     public static final ConfigKey<String> PASSWORD = ConfigKeys.newStringConfigKey("password", "Password for HTTP request, if required");
     public static final ConfigKey<Map<String, String>> HEADERS = new MapConfigKey<>(String.class, "headers");
+    public static final ConfigKey<Boolean> SUPPRESS_DUPLICATES = ConfigKeys.newBooleanConfigKey(
+            "suppressDuplicates", 
+            "Whether to publish the sensor value again, if it is the same as the previous value",
+            Boolean.FALSE);
     
     public static final ConfigKey<Boolean> PREEMPTIVE_BASIC_AUTH = ConfigKeys.newBooleanConfigKey(
             "preemptiveBasicAuth",
@@ -96,6 +100,7 @@ public final class HttpRequestSensor<T> extends AddSensor<T> {
         final String password = EntityInitializers.resolve(allConfig, PASSWORD);
         final Map<String, String> headers = EntityInitializers.resolve(allConfig, HEADERS);
         final Boolean preemptiveBasicAuth = EntityInitializers.resolve(allConfig, PREEMPTIVE_BASIC_AUTH);
+        final Boolean suppressDuplicates = EntityInitializers.resolve(allConfig, SUPPRESS_DUPLICATES);
         
         Function<? super HttpToolResponse, T> successFunction;
         if (Strings.isBlank(jsonPath)) {
@@ -109,6 +114,7 @@ public final class HttpRequestSensor<T> extends AddSensor<T> {
                 .checkSuccess(HttpValueFunctions.responseCodeEquals(200))
                 .onFailureOrException(Functions.constant((T) null))
                 .onSuccess(successFunction)
+                .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
                 .period(period);
 
         HttpFeed.Builder httpRequestBuilder = HttpFeed.builder().entity(entity)

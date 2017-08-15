@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddSensor;
+import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
 import org.apache.brooklyn.core.sensor.ssh.SshCommandSensor;
@@ -60,10 +61,15 @@ public final class JmxAttributeSensor<T> extends AddSensor<T> {
     public static final ConfigKey<String> ATTRIBUTE = ConfigKeys.newStringConfigKey("attribute", "JMX attribute to poll in object");
     public static final ConfigKey<Object> DEFAULT_VALUE = ConfigKeys.newConfigKey(Object.class, "defaultValue", "Default value for sensor; normally null");
 
+    public static final ConfigKey<Boolean> SUPPRESS_DUPLICATES = ConfigKeys.newBooleanConfigKey(
+            "suppressDuplicates", 
+            "Whether to publish the sensor value again, if it is the same as the previous value",
+            Boolean.FALSE);
+
     protected final String objectName;
     protected final String attribute;
     protected final Object defaultValue;
-
+    
     public JmxAttributeSensor(final ConfigBag params) {
         super(params);
 
@@ -81,6 +87,8 @@ public final class JmxAttributeSensor<T> extends AddSensor<T> {
     @Override
     public void apply(final EntityLocal entity) {
         super.apply(entity);
+
+        final Boolean suppressDuplicates = EntityInitializers.resolve(params, SUPPRESS_DUPLICATES);
 
         if (entity instanceof UsesJmx) {
             if (LOG.isDebugEnabled()) {
@@ -102,6 +110,7 @@ public final class JmxAttributeSensor<T> extends AddSensor<T> {
                                     .pollAttribute(new JmxAttributePollConfig<T>(sensor)
                                             .objectName(objectName)
                                             .attributeName(attribute)
+                                            .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
                                             .onFailureOrException(Functions.<T>constant((T) defaultValue)))
                                     .build();
                             entity.addFeed(feed);

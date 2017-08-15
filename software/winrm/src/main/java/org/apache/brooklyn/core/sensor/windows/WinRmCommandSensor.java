@@ -18,18 +18,16 @@
  */
 package org.apache.brooklyn.core.sensor.windows;
 
-import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddSensor;
-import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
 import org.apache.brooklyn.feed.CommandPollConfig;
@@ -42,13 +40,15 @@ import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
+import com.google.common.annotations.Beta;
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 
 /** 
  * Configurable {@link EntityInitializer} which adds an WinRm sensor feed running the <code>command</code> supplied
@@ -70,6 +70,11 @@ public final class WinRmCommandSensor<T> extends AddSensor<T> {
         + "use '~' to always execute in the home dir, or 'custom-feed/' to execute in a custom-feed dir relative to the run dir");
     public static final ConfigKey<Map<String, String>> SENSOR_ENVIRONMENT = WinRmTool.ENVIRONMENT;
 
+    public static final ConfigKey<Boolean> SUPPRESS_DUPLICATES = ConfigKeys.newBooleanConfigKey(
+            "suppressDuplicates", 
+            "Whether to publish the sensor value again, if it is the same as the previous value",
+            Boolean.FALSE);
+
     protected final String command;
     protected final String executionDir;
     protected final Map<String,String> sensorEnv;
@@ -90,6 +95,8 @@ public final class WinRmCommandSensor<T> extends AddSensor<T> {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Adding WinRM sensor {} to {}", name, entity);
         }
+
+        final Boolean suppressDuplicates = EntityInitializers.resolve(params, SUPPRESS_DUPLICATES);
 
         Supplier<Map<String,String>> envSupplier = new Supplier<Map<String,String>>() {
             @Override
@@ -123,6 +130,7 @@ public final class WinRmCommandSensor<T> extends AddSensor<T> {
                 .period(period)
                 .env(envSupplier)
                 .command(commandSupplier)
+                .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
                 .checkSuccess(SshValueFunctions.exitStatusEquals(0))
                 .onFailureOrException(Functions.constant((T) null))
                 .onSuccess(Functions.compose(new Function<String, T>() {
