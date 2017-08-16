@@ -1,0 +1,13 @@
+brooklyn.catalog:
+  id: template-and-app
+  version: 0.0.1-SNAPSHOT
+  items:
+  - id: my_app_template
+    itemType: template
+    item:
+      services:
+      - type: my_entity
+  - id: my_entity
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicApplication
