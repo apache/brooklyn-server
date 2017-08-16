@@ -19,13 +19,10 @@
 
 package org.apache.brooklyn.core.catalog.internal;
 
-import static org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType.TEMPLATE;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -155,20 +152,6 @@ public class CatalogBundleLoader {
         } catch (IOException e) {
             throw Exceptions.propagateAnnotated("Error loading Catalog BOM from " + bom, e);
         }
-    }
-
-    private Iterable<? extends CatalogItem<?, ?>> removeApplications(Iterable<? extends CatalogItem<?, ?>> catalogItems) {
-
-        List<CatalogItem<?, ?>> result = MutableList.of();
-
-        for (CatalogItem<?, ?> item : catalogItems) {
-            if (TEMPLATE.equals(item.getCatalogItemType())) {
-                removeFromCatalog(item);
-            } else {
-                result.add(item);
-            }
-        }
-        return result;
     }
 
 }

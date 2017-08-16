@@ -39,6 +39,7 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -354,21 +355,26 @@ class OsgiArchiveInstaller {
             }
             
             osgiManager.checkCorrectlyInstalled(result.getMetadata(), result.bundle);
-            File oldZipIfSet = ((BasicManagedBundle)result.getMetadata()).getTempLocalFileWhenJustUploaded();
-            ((BasicManagedBundle)result.getMetadata()).setTempLocalFileWhenJustUploaded(zipFile);
-            zipFile = null; // don't close/delete it here, we'll use it for uploading, then it will delete it
+            final File oldZipFile; 
             
             if (!updating) { 
-                osgiManager.managedBundlesRecord.addManagedBundle(result);
+                oldZipFile = null;
+                osgiManager.managedBundlesRecord.addManagedBundle(result, zipFile);
                 result.code = OsgiBundleInstallationResult.ResultCode.INSTALLED_NEW_BUNDLE;
                 result.message = "Installed Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" with ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
+                ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
                 mgmt().getRebindManager().getChangeListener().onManaged(result.getMetadata());
             } else {
+                oldZipFile = osgiManager.managedBundlesRecord.updateManagedBundleFile(result, zipFile);
                 result.code = OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE;
                 result.message = "Updated Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" as existing ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
+                ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
                 mgmt().getRebindManager().getChangeListener().onChanged(result.getMetadata());
             }
             log.debug(result.message + " (in osgi container)");
+            // can now delete and close (copy has been made and is available from OsgiManager)
+            zipFile.delete();
+            zipFile = null;
             
             // setting the above before the code below means if there is a problem starting or loading catalog items
             // a user has to remove then add again, or forcibly reinstall;
@@ -384,22 +390,26 @@ class OsgiArchiveInstaller {
             Runnable startRunnable = new Runnable() {
                 private void rollbackBundle() {
                     if (updating) {
-                        if (oldZipIfSet!=null) {
-                            ((BasicManagedBundle)result.getMetadata()).setTempLocalFileWhenJustUploaded(oldZipIfSet);
-                        } else {
-                            // TODO look in persistence
+                        if (oldZipFile==null) {
+                            throw new IllegalStateException("Did not have old ZIP file to install");
                         }
-                        log.debug("Rolling back bundle "+result.getVersionedName()+" to state from "+oldZipIfSet);
+                        log.debug("Rolling back bundle "+result.getVersionedName()+" to state from "+oldZipFile);
+                        osgiManager.managedBundlesRecord.updateManagedBundleFile(result, oldZipFile);
                         try {
-                            result.bundle.update(new FileInputStream(Preconditions.checkNotNull(oldZipIfSet, "Couldn't find contents of old version of bundle")));
+                            result.bundle.update(new FileInputStream(Preconditions.checkNotNull(oldZipFile, "Couldn't find contents of old version of bundle")));
                         } catch (Exception e) {
                             log.error("Error rolling back following failed install of updated "+result.getVersionedName()+"; "
                                 + "installation will likely be corrupted and correct version should be manually installed.", e);
                         }
                         
+                        ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
+                        mgmt().getRebindManager().getChangeListener().onChanged(result.getMetadata());
                     } else {
-                        log.debug("Uninstalling bundle "+result.getVersionedName()+" (rolling back, but no previous version)");
+                        log.debug("Uninstalling bundle "+result.getVersionedName()+" (roll back of failed fresh install, no previous version to revert to)");
                         osgiManager.uninstallUploadedBundle(result.getMetadata());
+                        
+                        ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
+                        mgmt().getRebindManager().getChangeListener().onUnmanaged(result.getMetadata());
                     }
                 }
                 public void run() {
@@ -438,6 +448,9 @@ class OsgiArchiveInstaller {
                             if (itemsFromOldBundle!=null) {
                                 // add back all itemsFromOldBundle (when replacing a bundle)
                                 for (RegisteredType oldItem: itemsFromOldBundle) {
+                                    if (log.isTraceEnabled()) {
+                                        log.trace("RESTORING replaced bundle item "+oldItem+"\n"+RegisteredTypes.getImplementationDataStringForSpec(oldItem));
+                                    }
                                     ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(oldItem, true);
                                 }
                             }
@@ -447,7 +460,12 @@ class OsgiArchiveInstaller {
                                 // in reverse order so if other bundle adds multiple we end up with the real original
                                 Collections.reverse(replaced);
                                 for (RegisteredType oldItem: replaced) {
-                                    ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(oldItem, true);
+                                    if (oldItem!=null) {
+                                        if (log.isTraceEnabled()) {
+                                            log.trace("RESTORING replaced external item "+oldItem+"\n"+RegisteredTypes.getImplementationDataStringForSpec(oldItem));
+                                        }
+                                        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(oldItem, true);
+                                    }
                                 }
                             }
                             

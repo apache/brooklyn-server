@@ -61,7 +61,6 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.CampYamlParser;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
-import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.BasicRegisteredType;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer;
@@ -112,7 +111,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
 /* TODO the complex tree-structured catalogs are only useful when we are relying on those separate catalog classloaders
- * to isolate classpaths. with osgi everything is just put into the "manual additions" catalog. */
+ * to isolate classpaths. with osgi everything is just put into the "manual additions" catalog. Deprecate/remove this. */
 public class BasicBrooklynCatalog implements BrooklynCatalog {
     public static final String POLICIES_KEY = "brooklyn.policies";
     public static final String ENRICHERS_KEY = "brooklyn.enrichers";
@@ -1058,25 +1057,21 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
     
     @SuppressWarnings("unused")  // keep during 0.12.0 until we are decided we won't support this; search for this method name
-    // note that it breaks after rebind since we don't have the JAR -- see notes below
+    // (note that this now could work after rebind since we have the OSGi cache)
     private Collection<CatalogItemDtoAbstract<?, ?>> scanAnnotationsInBundle(ManagementContext mgmt, ManagedBundle containingBundle) {
         CatalogDto dto = CatalogDto.newNamedInstance("Bundle "+containingBundle.getVersionedName().toOsgiString()+" Scanned Catalog", "All annotated Brooklyn entities detected in bundles", "scanning-bundle-"+containingBundle.getVersionedName().toOsgiString());
         CatalogDo subCatalog = new CatalogDo(dto);
         // need access to a JAR to scan this
         String url = null;
-        if (containingBundle instanceof BasicManagedBundle) {
-            File f = ((BasicManagedBundle)containingBundle).getTempLocalFileWhenJustUploaded();
-            if (f!=null) {
-                url = "file:"+f.getAbsolutePath();
-            }
+        File f = ((ManagementContextInternal)mgmt).getOsgiManager().get().getBundleFile(containingBundle);
+        if (f!=null) {
+            url = "file:"+f.getAbsolutePath();
         }
-        // type.getSubPathName(), type, id+".jar", com.google.common.io.Files.asByteSource(f), exceptionHandler);
         if (url==null) {
             url = containingBundle.getUrl();
         }
         if (url==null) {
-            // NOT available after persistence/rebind 
-            // as shown by test in CatalogOsgiVersionMoreEntityRebindTest
+            // should now always be available 
             throw new IllegalArgumentException("Error preparing to scan "+containingBundle.getVersionedName()+": no URL available");
         }
         // org.reflections requires the URL to be "file:" containg ".jar"
