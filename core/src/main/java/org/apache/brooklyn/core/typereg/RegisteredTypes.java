@@ -518,7 +518,21 @@ public class RegisteredTypes {
                 return tryValidateBean(object, type, context);
             }
             
-            protected Maybe<T> visitUnresolved() { 
+            protected Maybe<T> visitUnresolved() {
+                // don't think there are valid times when this comes here?
+                // currently should only used for "templates" which are always for specs,
+                // but callers of that shouldn't be talking to type plan transformers,
+                // they should be calling to main BBTR methods.
+                // do it and alert just in case however.
+                // TODO remove if we don't see any warnings (or when we sort out semantics for template v app v allowed-unresolved better)
+                log.debug("Request for "+this+" to validate UNRESOLVED kind "+type+"; trying as spec");
+                Maybe<T> result = visitSpec();
+                if (result.isPresent()) {
+                    log.warn("Request to use "+this+" from UNRESOLVED state succeeded treating is as a spec");
+                    log.debug("Trace for request to use "+this+" in UNRESOLVED state succeeding", new Throwable("Location of request to use "+this+" in UNRESOLVED state"));
+                    return result;
+                }
+                
                 return Maybe.absent(object+" is not yet resolved");
             }
         }.visit(kind);
