@@ -34,7 +34,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
@@ -337,12 +336,13 @@ public class OsgiManager {
     }
 
     @Beta
-    public void uninstallCatalogItemsFromBundle(VersionedName bundle) {
+    public Iterable<RegisteredType> uninstallCatalogItemsFromBundle(VersionedName bundle) {
         List<RegisteredType> thingsFromHere = ImmutableList.copyOf(getTypesFromBundle( bundle ));
         log.debug("Uninstalling items from bundle "+bundle+": "+thingsFromHere);
         for (RegisteredType t: thingsFromHere) {
             mgmt.getCatalog().deleteCatalogItem(t.getSymbolicName(), t.getVersion());
         }
+        return thingsFromHere;
     }
 
     @Beta
@@ -369,35 +369,27 @@ public class OsgiManager {
         }
     }
 
-    // since 0.12.0 no longer returns items; it installs non-persisted RegisteredTypes to the type registry instead 
+    /** installs RegisteredTypes in the BOM of this bundle into the type registry,
+     * non-persisted but done on rebind for each persisted bundle
+     * 
+     * @param bundle
+     * @param force
+     * @param validate
+     * @param results optional parameter collecting all results, with new type as key, and any type it replaces as value
+     * 
+     * @since 0.12.0
+     */
+    // returns map of new items pointing at any replaced item (for reference / rollback)
     @Beta
-    public void loadCatalogBom(Bundle bundle, boolean force, boolean validate) {
-        loadCatalogBomInternal(mgmt, bundle, force, validate);
-    }
-    
-    private static Iterable<? extends CatalogItem<?, ?>> loadCatalogBomInternal(ManagementContext mgmt, Bundle bundle, boolean force, boolean validate) {
-        Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
-
+    public void loadCatalogBom(Bundle bundle, boolean force, boolean validate, Map<RegisteredType,RegisteredType> result) {
         try {
-            CatalogBundleLoader cl = new CatalogBundleLoader(mgmt);
-            cl.scanForCatalog(bundle, force, validate);
-            catalogItems = null;
+            new CatalogBundleLoader(mgmt).scanForCatalog(bundle, force, validate, result);
             
         } catch (RuntimeException ex) {
-            // TODO uninstall?
-            
-            // TODO confirm -- as of May 2017 we no longer uninstall the bundle if install of catalog items fails;
-            // caller needs to upgrade, or uninstall then reinstall
-            // (this uninstall wouldn't have unmanaged it in brooklyn in any case)
-//                try {
-//                    bundle.uninstall();
-//                } catch (BundleException e) {
-//                    log.error("Cannot uninstall bundle " + bundle.getSymbolicName() + ":" + bundle.getVersion()+" (after error installing catalog items)", e);
-//                }
+            // as of May 2017 we no longer uninstall the bundle here if install of catalog items fails;
+            // the OsgiManager routines which call this method will do this 
             throw new IllegalArgumentException("Error installing catalog items", ex);
         }
-            
-        return catalogItems;
     }
     
     void checkCorrectlyInstalled(OsgiBundleWithUrl bundle, Bundle b) {

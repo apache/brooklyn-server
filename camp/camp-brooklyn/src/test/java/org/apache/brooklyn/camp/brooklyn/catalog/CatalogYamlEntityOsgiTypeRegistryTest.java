@@ -36,14 +36,41 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
     // use OSGi here
     @Override protected boolean disableOsgi() { return false; }
     
-    // use type registry appraoch
+    enum CatalogItemsInstallationMode { ADD_YAML_ITEMS_UNBUNDLED, BUNDLE_BUT_NOT_STARTED, USUAL_OSGI_WAY_AS_BUNDLE_WITH_DEFAULT_NAME, USUAL_OSGI_WAY_AS_ZIP_NO_MANIFEST_NAME_MAYBE_IN_BOM }
+    CatalogItemsInstallationMode itemsInstallMode = null;
+    
+    // use type registry approach
     @Override
     protected void addCatalogItems(String catalogYaml) {
-        addCatalogItemsAsOsgi(mgmt(), catalogYaml, new VersionedName(bundleName(), bundleVersion()), isForceUpdate());
+        switch (itemsInstallMode!=null ? itemsInstallMode : 
+            // this is the default because some "bundles" aren't resolvable or library BOMs loadable in test context
+            CatalogItemsInstallationMode.BUNDLE_BUT_NOT_STARTED) {
+        case ADD_YAML_ITEMS_UNBUNDLED: super.addCatalogItems(catalogYaml); break;
+        case BUNDLE_BUT_NOT_STARTED: 
+            addCatalogItemsAsOsgiWithoutStartingBundles(mgmt(), catalogYaml, new VersionedName(bundleName(), bundleVersion()), isForceUpdate());
+            break;
+        case USUAL_OSGI_WAY_AS_BUNDLE_WITH_DEFAULT_NAME:
+            addCatalogItemsAsOsgiInUsualWay(mgmt(), catalogYaml, new VersionedName(bundleName(), bundleVersion()), isForceUpdate());
+            break;
+        case USUAL_OSGI_WAY_AS_ZIP_NO_MANIFEST_NAME_MAYBE_IN_BOM:
+            addCatalogItemsAsOsgiInUsualWay(mgmt(), catalogYaml, null, isForceUpdate());
+            break;
+        }
     }
 
     protected String bundleName() { return "sample-bundle"; }
     protected String bundleVersion() { return BasicBrooklynCatalog.NO_VERSION; }
+    
+    @Override
+    protected void doTestReplacementFailureLeavesPreviousIntact(boolean bundleHasId) throws Exception {
+        try {
+            itemsInstallMode = bundleHasId ? CatalogItemsInstallationMode.USUAL_OSGI_WAY_AS_ZIP_NO_MANIFEST_NAME_MAYBE_IN_BOM : 
+                CatalogItemsInstallationMode.ADD_YAML_ITEMS_UNBUNDLED;
+            super.doTestReplacementFailureLeavesPreviousIntact(bundleHasId);
+        } finally {
+            itemsInstallMode = null;
+        }
+    }
     
     @Test   // basic test that this approach to adding types works
     public void testAddTypes() throws Exception {

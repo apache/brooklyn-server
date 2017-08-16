@@ -36,6 +36,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -59,6 +60,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 
 // package-private so we can move this one if/when we move OsgiManager
@@ -352,6 +354,7 @@ class OsgiArchiveInstaller {
             }
             
             osgiManager.checkCorrectlyInstalled(result.getMetadata(), result.bundle);
+            File oldZipIfSet = ((BasicManagedBundle)result.getMetadata()).getTempLocalFileWhenJustUploaded();
             ((BasicManagedBundle)result.getMetadata()).setTempLocalFileWhenJustUploaded(zipFile);
             zipFile = null; // don't close/delete it here, we'll use it for uploading, then it will delete it
             
@@ -379,26 +382,76 @@ class OsgiArchiveInstaller {
             // eg rebind code, brooklyn.libraries list -- deferred start allows caller to
             // determine whether not to start or to start all after things are installed
             Runnable startRunnable = new Runnable() {
+                private void rollbackBundle() {
+                    if (updating) {
+                        if (oldZipIfSet!=null) {
+                            ((BasicManagedBundle)result.getMetadata()).setTempLocalFileWhenJustUploaded(oldZipIfSet);
+                        } else {
+                            // TODO look in persistence
+                        }
+                        log.debug("Rolling back bundle "+result.getVersionedName()+" to state from "+oldZipIfSet);
+                        try {
+                            result.bundle.update(new FileInputStream(Preconditions.checkNotNull(oldZipIfSet, "Couldn't find contents of old version of bundle")));
+                        } catch (Exception e) {
+                            log.error("Error rolling back following failed install of updated "+result.getVersionedName()+"; "
+                                + "installation will likely be corrupted and correct version should be manually installed.", e);
+                        }
+                        
+                    } else {
+                        log.debug("Uninstalling bundle "+result.getVersionedName()+" (rolling back, but no previous version)");
+                        osgiManager.uninstallUploadedBundle(result.getMetadata());
+                    }
+                }
                 public void run() {
                     if (start) {
                         try {
                             log.debug("Starting bundle "+result.getVersionedName());
                             result.bundle.start();
                         } catch (BundleException e) {
+                            log.warn("Error starting bundle "+result.getVersionedName()+", uninstalling, restoring any old bundle, then re-throwing error: "+e);
+                            rollbackBundle();
+                            
                             throw Exceptions.propagate(e);
                         }
                     }
         
                     if (loadCatalogBom) {
-                        if (updating) {
-                            osgiManager.uninstallCatalogItemsFromBundle( result.getVersionedName() );
-                            // (ideally removal and addition would be atomic)
-                        }
-                        osgiManager.loadCatalogBom(result.bundle, force, validateTypes);
-                        Iterable<RegisteredType> items = mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(result.getMetadata()));
-                        log.debug("Adding items from bundle "+result.getVersionedName()+": "+items);
-                        for (RegisteredType ci: items) {
-                            result.catalogItemsInstalled.add(ci.getId());
+                        Iterable<RegisteredType> itemsFromOldBundle = null;
+                        Map<RegisteredType, RegisteredType> itemsReplacedHere = null;
+                        try {
+                            if (updating) {
+                                itemsFromOldBundle = osgiManager.uninstallCatalogItemsFromBundle( result.getVersionedName() );
+                                // (ideally removal and addition would be atomic)
+                            }
+                            itemsReplacedHere = MutableMap.of();
+                            osgiManager.loadCatalogBom(result.bundle, force, validateTypes, itemsReplacedHere);
+                            Iterable<RegisteredType> items = mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(result.getMetadata()));
+                            log.debug("Adding items from bundle "+result.getVersionedName()+": "+items);
+                            for (RegisteredType ci: items) {
+                                result.catalogItemsInstalled.add(ci.getId());
+                            }
+                        } catch (Exception e) {
+                            // unable to install new items; rollback bundles
+                            // and reload replaced items
+                            log.warn("Error adding Brooklyn items from bundle "+result.getVersionedName()+", uninstalling, restoring any old bundle and items, then re-throwing error: "+e);
+                            rollbackBundle();
+                            if (itemsFromOldBundle!=null) {
+                                // add back all itemsFromOldBundle (when replacing a bundle)
+                                for (RegisteredType oldItem: itemsFromOldBundle) {
+                                    ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(oldItem, true);
+                                }
+                            }
+                            if (itemsReplacedHere!=null) {
+                                // and restore any items from other bundles (eg wrappers) that were replaced
+                                MutableList<RegisteredType> replaced = MutableList.copyOf(itemsReplacedHere.values());
+                                // in reverse order so if other bundle adds multiple we end up with the real original
+                                Collections.reverse(replaced);
+                                for (RegisteredType oldItem: replaced) {
+                                    ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(oldItem, true);
+                                }
+                            }
+                            
+                            throw Exceptions.propagate(e);
                         }
                     }
                 }

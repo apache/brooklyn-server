@@ -44,6 +44,7 @@ import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiVersionMoreEntityTest;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -497,7 +498,7 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
     @Test
     public void testRebindAfterFailedInstall() throws Exception {
         String appSymbolicName = "my.catalog.app.id.load";
-        String appVersion = "0.1.0";
+        String appVersion = "0.1.0-SNAPSHOT";
         Map<String, ManagedBundle> oldBundles = origManagementContext.getOsgiManager().get().getManagedBundles();
         try {
             addCatalogItems(
@@ -515,6 +516,22 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
         Assert.assertEquals(newBundles, oldBundles, "Bundles: "+newBundles);
 
         rebind();
+    }
+  
+    @Test
+    public void testRebindAfterFailedInstallReplacing() throws Exception {
+        String appSymbolicName = "my.catalog.app.id.load";
+        String appVersion = "0.1.0-SNAPSHOT";
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  id: " + appSymbolicName,
+            "  version: " + appVersion,
+            "  itemType: entity",
+            "  item:",
+            "    type: "+BasicEntity.class.getName());
+        // test below will follow a different path if the bundle is already installed;
+        // it needs to restore the old bundle ZIP input stream from persisted state
+        testRebindAfterFailedInstall();
     }
   
     private Bundle getBundle(ManagementContext mgmt, final String symbolicName) throws Exception {

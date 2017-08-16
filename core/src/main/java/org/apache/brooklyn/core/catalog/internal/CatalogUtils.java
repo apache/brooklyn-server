@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.catalog.internal;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 import javax.annotation.Nullable;
@@ -52,7 +53,9 @@ import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
@@ -65,6 +68,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.Iterables;
 
 public class CatalogUtils {
     private static final Logger log = LoggerFactory.getLogger(CatalogUtils.class);
@@ -185,10 +189,28 @@ public class CatalogUtils {
                 }
                 results.add(result);
             }
+            Map<String, Throwable> errors = MutableMap.of();
             for (OsgiBundleInstallationResult r: results) {
                 if (r.getDeferredStart()!=null) {
-                    r.getDeferredStart().run();
-                    // TODO on failure?
+                    try {
+                        r.getDeferredStart().run();
+                    } catch (Throwable t) {
+                        Exceptions.propagateIfFatal(t);
+                        // above will done rollback for the failed item, but we need consistent behaviour for all libraries;
+                        // for simplicity we simply have each bundle either fully installed or fully rolled back
+                        // (alternative would be to roll back everything)
+                        errors.put(r.getVersionedName().toString(), t);
+                    }
+                }
+            }
+            if (!errors.isEmpty()) {
+                logDebugOrTraceIfRebinding(log, "Tried registering {} libraries, {} succeeded, but failed {} (throwing)", 
+                    new Object[] { libraries.size(), libraries.size() - errors.size(), errors.keySet() });
+                if (errors.size()==1) {
+                    throw Exceptions.propagateAnnotated("Error starting referenced library in Brooklyn bundle "+Iterables.getOnlyElement(errors.keySet()), 
+                        Iterables.getOnlyElement(errors.values()));
+                } else {
+                    throw Exceptions.create("Error starting referenced libraries in Brooklyn bundles "+errors.keySet(), errors.values());                    
                 }
             }
             if (log.isDebugEnabled()) { 

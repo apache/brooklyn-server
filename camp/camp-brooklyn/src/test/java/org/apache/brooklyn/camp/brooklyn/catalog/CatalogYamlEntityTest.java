@@ -23,6 +23,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import java.util.List;
+
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -41,6 +43,7 @@ import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -672,13 +675,31 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testReplacementFailureLeavesPreviousIntact() throws Exception {
+    public void testReplacementFailureLeavesPreviousNamedBundleIntact() throws Exception {
+        doTestReplacementFailureLeavesPreviousIntact(true);
+    }
+    
+    @Test
+    public void testReplacementFailureLeavesPreviousItemFromAnonymousBundleIntact() throws Exception {
+        // for anonymous bundles we have to look at what items from other bundles might have been replaced
+        doTestReplacementFailureLeavesPreviousIntact(false);
+    }
+    
+    protected void doTestReplacementFailureLeavesPreviousIntact(boolean includeBundleName) throws Exception {
         String symbolicName = "my.catalog.app.id.load";
-        addCatalogItems(
+        List<String> lines = MutableList.of(
             "brooklyn.catalog:",
-            "  id: " + symbolicName,
-            "  version: " + TEST_VERSION_SNAPSHOT,
-            "  item: " + BasicEntity.class.getName());
+            "  bundle: testing-replacement",
+            "  version: 0.1-SNAPSHOT",
+            "  items:",
+            "  - ",
+            "    id: " + symbolicName,
+            "    version: " + TEST_VERSION_SNAPSHOT,
+            "    item: " + BasicEntity.class.getName());
+        if (!includeBundleName) {
+            lines.remove(1); lines.remove(1);
+        }
+        addCatalogItems(lines);
 
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION_SNAPSHOT);
         Assert.assertNotNull(item);
@@ -686,11 +707,19 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         assertEquals(item.getSymbolicName(), symbolicName);
 
         try {
-            addCatalogItems(
+            lines = MutableList.of(
                 "brooklyn.catalog:",
-                "  id: " + symbolicName,
-                "  version: " + TEST_VERSION_SNAPSHOT,
-                "  item: " + "DeliberatelyMissing");
+                "  bundle: testing-replacement",
+                "  version: 0.1-SNAPSHOT",
+                "  items:",
+                "  - ",
+                "    id: " + symbolicName,
+                "    version: " + TEST_VERSION_SNAPSHOT,
+                "    item: " + "DeliberatelyMissing");
+            if (!includeBundleName) {
+                lines.remove(1); lines.remove(1);
+            }
+            addCatalogItems(lines);
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
             Asserts.expectedFailureContains(e, "DeliberatelyMissing", symbolicName);
