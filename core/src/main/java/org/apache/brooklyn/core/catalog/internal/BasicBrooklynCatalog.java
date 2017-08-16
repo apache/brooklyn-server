@@ -299,8 +299,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // thread local lets us call to other once then he calls us and we do other code path
             deletingCatalogItem.set(true);
             try {
-                ((BasicBrooklynTypeRegistry) mgmt.getTypeRegistry()).delete(
-                    mgmt.getTypeRegistry().get(symbolicName, version) );
+                RegisteredType item = mgmt.getTypeRegistry().get(symbolicName, version);
+                if (item==null) {
+                    log.debug("Request to delete "+symbolicName+":"+version+" but nothing matching found; ignoring");
+                } else {
+                    ((BasicBrooklynTypeRegistry) mgmt.getTypeRegistry()).delete( item );
+                }
                 return;
             } finally {
                 deletingCatalogItem.remove();
@@ -1385,10 +1389,11 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             } finally {
                 bf.delete();
             }
-            uninstallEmptyWrapperBundles();
             if (result.getCode().isError()) {
+                // TODO rollback installation, restore others?
                 throw new IllegalStateException(result.getMessage());
             }
+            uninstallEmptyWrapperBundles();
             return toLegacyCatalogItems(result.getCatalogItemsInstalled());
 
             // if all items pertaining to an older anonymous catalog.bom bundle have been overridden

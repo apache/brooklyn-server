@@ -384,6 +384,8 @@ public class OsgiManager {
             catalogItems = null;
             
         } catch (RuntimeException ex) {
+            // TODO uninstall?
+            
             // TODO confirm -- as of May 2017 we no longer uninstall the bundle if install of catalog items fails;
             // caller needs to upgrade, or uninstall then reinstall
             // (this uninstall wouldn't have unmanaged it in brooklyn in any case)

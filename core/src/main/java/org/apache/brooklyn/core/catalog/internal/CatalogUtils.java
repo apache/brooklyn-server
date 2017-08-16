@@ -188,6 +188,7 @@ public class CatalogUtils {
             for (OsgiBundleInstallationResult r: results) {
                 if (r.getDeferredStart()!=null) {
                     r.getDeferredStart().run();
+                    // TODO on failure?
                 }
             }
             if (log.isDebugEnabled()) { 

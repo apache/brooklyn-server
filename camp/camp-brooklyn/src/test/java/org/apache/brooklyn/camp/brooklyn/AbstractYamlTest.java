@@ -247,6 +247,7 @@ public abstract class AbstractYamlTest {
             Map<RegisteredType, Collection<Throwable>> validation = mgmt.getCatalog().validateTypes( 
                 mgmt.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(b.get().getVersionedName())) );
             if (!validation.isEmpty()) {
+                // TODO rollback
                 throw Exceptions.propagate("Brooklyn failed to load types: "+validation.keySet(), 
                     Iterables.concat(validation.values()));
             }
@@ -255,8 +256,11 @@ public abstract class AbstractYamlTest {
         }
     }
     
-    protected void deleteCatalogEntity(String catalogItem) {
-        ((BasicBrooklynTypeRegistry) mgmt().getTypeRegistry()).delete(new VersionedName(catalogItem, TEST_VERSION));
+    protected void deleteCatalogEntity(String catalogItemSymbolicName) {
+        deleteCatalogEntity(catalogItemSymbolicName, TEST_VERSION);
+    }
+    protected void deleteCatalogEntity(String catalogItemSymbolicName, String version) {
+        ((BasicBrooklynTypeRegistry) mgmt().getTypeRegistry()).delete(new VersionedName(catalogItemSymbolicName, version));
     }
 
     protected Logger getLogger() {

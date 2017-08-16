@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.policy.Policy;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
@@ -43,6 +44,7 @@ import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiVersionMoreEntityTest;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.Osgis;
@@ -55,6 +57,7 @@ import org.osgi.framework.Bundle;
 import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -490,7 +493,30 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
         Object policyConfigVal = origPolicy.config().get(ConfigKeys.newConfigKey(Object.class, OSGI_ENTITY_CONFIG_NAME));
         assertEquals(getOsgiSimpleObjectsVal(policyConfigVal), "myPolicyVal");
     }
-    
+
+    @Test
+    public void testRebindAfterFailedInstall() throws Exception {
+        String appSymbolicName = "my.catalog.app.id.load";
+        String appVersion = "0.1.0";
+        Map<String, ManagedBundle> oldBundles = origManagementContext.getOsgiManager().get().getManagedBundles();
+        try {
+            addCatalogItems(
+                    "brooklyn.catalog:",
+                    "  id: " + appSymbolicName,
+                    "  version: " + appVersion,
+                    "  itemType: entity",
+                    "  item:",
+                    "    type: DeliberatelyMissing");
+            Asserts.shouldHaveFailedPreviously("Invalid plan was added");
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "DeliberatelyMissing", appSymbolicName);
+        }
+        Map<String, ManagedBundle> newBundles = origManagementContext.getOsgiManager().get().getManagedBundles();
+        Assert.assertEquals(newBundles, oldBundles, "Bundles: "+newBundles);
+
+        rebind();
+    }
+  
     private Bundle getBundle(ManagementContext mgmt, final String symbolicName) throws Exception {
         OsgiManager osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager().get();
         Framework framework = osgiManager.getFramework();
