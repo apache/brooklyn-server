@@ -87,10 +87,20 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     @SuppressWarnings("deprecation")
     @Override
     public Iterable<RegisteredType> getMatching(Predicate<? super RegisteredType> filter) {
-        return Iterables.filter(Iterables.concat(
-                getAllWithoutCatalog(filter),
-                Iterables.transform(mgmt.getCatalog().getCatalogItems(), RegisteredTypes.CI_TO_RT)), 
-            filter);
+        Map<String,RegisteredType> result = MutableMap.of();
+        for (RegisteredType rt: getAllWithoutCatalog(filter)) {
+            result.put(rt.getId(), rt);
+        }
+        for (RegisteredType rt: Iterables.filter(
+                Iterables.transform(mgmt.getCatalog().getCatalogItems(), RegisteredTypes.CI_TO_RT), 
+                filter)) {
+            if (!result.containsKey(rt.getId())) {
+                // shouldn't be using this now
+                log.warn("Item '"+rt.getId()+"' not in type registry; only found in legacy catalog");
+                result.put(rt.getId(), rt);
+            }
+        }
+        return result.values();
     }
 
     @SuppressWarnings("deprecation")

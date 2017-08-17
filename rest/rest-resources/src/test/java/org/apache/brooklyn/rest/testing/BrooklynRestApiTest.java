@@ -148,11 +148,12 @@ public abstract class BrooklynRestApiTest {
             manager.getHighAvailabilityManager().disabled();
             ((LocalManagementContext)manager).generateManagementPlaneId();
 
-            BasicLocationRegistry.addNamedLocationLocalhost(manager);
-            
             new BrooklynCampPlatformLauncherNoServer()
                 .useManagementContext(manager)
                 .launch();
+            
+            // must come after CAMP because this triggers a catalog population
+            BasicLocationRegistry.addNamedLocationLocalhost(manager);
         }
         return manager;
     }
