@@ -32,6 +32,7 @@ import java.security.SecureRandom;
 import java.util.List;
 import java.util.Map;
 
+import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
 
 import org.apache.brooklyn.core.entity.Entities;
@@ -201,6 +202,7 @@ public class BrooklynWebServerTest {
             // which provides the opportunity for the server to interweave between those and close the
             // socket before the client calls startHandshake(), or maybe miss it
             assertTrue((Exceptions.getFirstThrowableOfType(e, SocketException.class) != null)
+                            || (Exceptions.getFirstThrowableOfType(e, SSLException.class) != null)
                     || (Exceptions.getFirstThrowableOfType(e, SSLHandshakeException.class) != null),
                     "Expected to fail due to inability to negotiate");
         }

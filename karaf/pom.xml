@@ -40,7 +40,7 @@
     <lifecycle-mapping-plugin.version>1.0.0</lifecycle-mapping-plugin.version>
 
     <!-- pax-exam -->
-    <pax.exam.version>4.9.1</pax.exam.version>
+    <pax.exam.version>4.11.0</pax.exam.version>
     <pax.url.version>2.5.2</pax.url.version>
     <tinybundles.version>1.0.0</tinybundles.version>
 
