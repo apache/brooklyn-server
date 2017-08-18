@@ -128,7 +128,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     /** Header on bundle indicating it is a wrapped BOM with no other resources */
     public static final String BROOKLYN_WRAPPED_BOM_BUNDLE = "Brooklyn-Wrapped-BOM";
     @VisibleForTesting
-    public static final boolean AUTO_WRAP_CATALOG_YAML_AS_BUNDLE = true;
+    public static final boolean AUTO_WRAP_CATALOG_YAML_AS_BUNDLE = false;
     
     private static final Logger log = LoggerFactory.getLogger(BasicBrooklynCatalog.class);
 
