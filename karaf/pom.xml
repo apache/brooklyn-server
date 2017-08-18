@@ -65,7 +65,6 @@
     <module>httpcomponent-extension</module>
     <module>features</module>
     <module>commands</module>
-    <module>itests</module>
   </modules>
 
   <build>
