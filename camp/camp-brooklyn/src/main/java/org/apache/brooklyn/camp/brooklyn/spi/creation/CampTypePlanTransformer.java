@@ -48,16 +48,29 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
 
     @Override
     protected double scoreForNullFormat(Object planData, RegisteredType type, RegisteredTypeLoadingContext context) {
-        if (type!=null && type.getKind()!=RegisteredTypeKind.SPEC) return 0;
+        double weight;
+        if (type!=null) {
+            if (type.getKind()==RegisteredTypeKind.SPEC) {
+                weight = 1.0;
+            } else if (type.getKind()==RegisteredTypeKind.UNRESOLVED) {
+                // might be a template
+                weight = 0.4;
+            } else {
+                return 0;
+            }
+        } else {
+            // have a plan but no type, weaken slightly
+            weight = 0.8;
+        }
         
         Maybe<Map<?,?>> plan = RegisteredTypes.getAsYamlMap(planData);
         if (plan.isAbsent()) return 0;
-        if (plan.get().containsKey("services")) return 0.8;
-        if (plan.get().containsKey("type")) return 0.4;
+        if (plan.get().containsKey("services")) return weight*0.8;
+        if (plan.get().containsKey("type")) return weight*0.4;
         // TODO these should become legacy
-        if (plan.get().containsKey("brooklyn.locations")) return 0.7;
-        if (plan.get().containsKey("brooklyn.policies")) return 0.7;
-        if (plan.get().containsKey("brooklyn.enrichers")) return 0.7;
+        if (plan.get().containsKey("brooklyn.locations")) return weight*0.7;
+        if (plan.get().containsKey("brooklyn.policies")) return weight*0.7;
+        if (plan.get().containsKey("brooklyn.enrichers")) return weight*0.7;
         return 0;
     }
 
