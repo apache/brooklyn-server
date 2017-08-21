@@ -61,6 +61,8 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
     public static final String KUBERNETES_ENDPOINT = System.getProperty("test.brooklyn-container-service.kubernetes.endpoint", "");
     public static final String IDENTITY = System.getProperty("test.brooklyn-container-service.kubernetes.identity", "");
     public static final String CREDENTIAL = System.getProperty("test.brooklyn-container-service.kubernetes.credential", "");
+    public static final String KUBECONFIG = System.getProperty("test.brooklyn-container-service.kubernetes.kubeconfig", "");
+
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesLocationLiveTest.class);
     protected KubernetesLocation loc;
     protected List<KubernetesMachineLocation> machines;
