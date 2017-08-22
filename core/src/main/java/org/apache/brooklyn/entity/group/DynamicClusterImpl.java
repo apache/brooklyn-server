@@ -595,6 +595,10 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
     @Override
     public Integer resize(Integer desiredSize) {
         synchronized (mutex) {
+            Optional<Integer> optionalMaxSize = Optional.fromNullable(config().get(MAX_SIZE));
+            if (optionalMaxSize.isPresent() && desiredSize > optionalMaxSize.get()) {
+                throw new Resizable.InsufficientCapacityException("Desired cluster size " + desiredSize + " exceeds maximum size of " + optionalMaxSize.get());
+            }
             int originalSize = getCurrentSize();
             int delta = desiredSize - originalSize;
             if (delta != 0) {
