@@ -1003,13 +1003,20 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         Collection<CatalogBundle> parentLibraries = CatalogItemDtoAbstract.parseLibraries(parentLibrariesRaw);
         BrooklynClassLoadingContext loader = CatalogUtils.newClassLoadingContext(mgmt, "<catalog url reference loader>:0.0.0", parentLibraries);
         String yaml;
+        log.debug("Loading referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+" ("+(resultNewFormat!=null ? resultNewFormat.size() : resultLegacyFormat!=null ? resultLegacyFormat.size() : "(unknown)")+" items before load)");
+        if (url.startsWith("http")) {
+            // give greater visibility to these
+            log.info("Loading external referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName()));
+        }
         try {
             yaml = ResourceUtils.create(loader).getResourceAsString(url);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            throw new IllegalStateException("Remote catalog url " + url + " can't be fetched.", e);
+            throw new IllegalStateException("Remote catalog url " + url + " in "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+" can't be fetched.", e);
         }
         collectCatalogItemsFromCatalogBomRoot(yaml, containingBundle, resultLegacyFormat, resultNewFormat, requireValidation, parentMeta, depth, force);
+        log.debug("Loaded referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+", now have "+
+            (resultNewFormat!=null ? resultNewFormat.size() : resultLegacyFormat!=null ? resultLegacyFormat.size() : "(unknown)")+" items");
     }
 
     @SuppressWarnings("unchecked")

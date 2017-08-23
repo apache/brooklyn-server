@@ -98,7 +98,7 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
     public void init() {
         synchronized (reloadLock) {
             BrooklynShutdownHooks.resetShutdownFlag();
-            LOG.debug("OsgiLauncher init");
+            LOG.debug("OsgiLauncher init, catalog "+defaultCatalogLocation);
             catalogInitialization(new CatalogInitialization(String.format("file:%s", defaultCatalogLocation), false, null, false));
             start();
         }

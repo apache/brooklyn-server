@@ -177,16 +177,12 @@ public class OsgiManager {
         /** Updates the bundle file associated with the given record, creating and returning a backup if there was already such a file */ 
         synchronized File updateManagedBundleFile(OsgiBundleInstallationResult result, File fNew) {
             File fCached = fileFor(result.getMetadata());
-            File fBak = null;
+            File fBak = new File(fCached.getAbsolutePath()+".bak");
+            if (fBak.equals(fNew)) {
+                // rolling back
+                throw new IllegalStateException("Cannot update to a backup copy; use rollback instead");
+            }
             if (fCached.exists()) {
-                fBak = new File(fCached.getAbsolutePath()+".bak");
-                if (fBak.equals(fNew)) {
-                    // rolling back
-                    log.debug("Rolling back to back Brooklyn local copy of bundle file "+fCached);
-                    fCached.delete();
-                    fBak.renameTo(fCached);
-                    return null;
-                }
                 log.debug("Replacing and backing up old Brooklyn local copy of bundle file "+fCached);
                 fCached.renameTo(fBak);
             } else {
@@ -198,6 +194,22 @@ public class OsgiManager {
                 throw Exceptions.propagate(e);
             }
             return fBak;
+        }
+        
+        /** Rolls back the officially installed file to a given backup copy of a bundle file, returning the new name of the file */
+        synchronized File rollbackManagedBundleFile(OsgiBundleInstallationResult result, File fBak) {
+            log.debug("Rolling back to back Brooklyn local copy of bundle file "+fBak);
+            if (!fBak.exists()) {
+                throw new IllegalStateException("Cannot rollback to "+fBak+" as file does not exist");
+            }
+            File fCached = fileFor(result.getMetadata());
+            if (fCached.exists()) {
+                fCached.delete();
+            } else {
+                log.warn("No pre-existing bundle file "+fCached+" when rolling back; ignoring");
+            }
+            fBak.renameTo(fCached);
+            return fCached;
         }
     }
     

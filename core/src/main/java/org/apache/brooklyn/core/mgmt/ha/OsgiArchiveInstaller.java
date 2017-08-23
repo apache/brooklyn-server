@@ -394,10 +394,11 @@ class OsgiArchiveInstaller {
                             throw new IllegalStateException("Did not have old ZIP file to install");
                         }
                         log.debug("Rolling back bundle "+result.getVersionedName()+" to state from "+oldZipFile);
-                        osgiManager.managedBundlesRecord.updateManagedBundleFile(result, oldZipFile);
                         try {
-                            result.bundle.update(new FileInputStream(Preconditions.checkNotNull(oldZipFile, "Couldn't find contents of old version of bundle")));
+                            File zipFileNow = osgiManager.managedBundlesRecord.rollbackManagedBundleFile(result, oldZipFile);
+                            result.bundle.update(new FileInputStream(Preconditions.checkNotNull(zipFileNow, "Couldn't find contents of old version of bundle")));
                         } catch (Exception e) {
+                            Exceptions.propagateIfFatal(e);
                             log.error("Error rolling back following failed install of updated "+result.getVersionedName()+"; "
                                 + "installation will likely be corrupted and correct version should be manually installed.", e);
                         }
