@@ -88,7 +88,7 @@ public class CatalogBundleLoader {
 
         final URL bom = bundle.getResource(CatalogBundleLoader.CATALOG_BOM_URL);
         if (null != bom) {
-            LOG.debug("Found catalog BOM in {} {} {}", CatalogUtils.bundleIds(bundle));
+            LOG.debug("Catalog load, found catalog BOM in {} {} {}", CatalogUtils.bundleIds(bundle));
             String bomText = readBom(bom);
             if (mb==null) {
                 LOG.warn("Bundle "+bundle+" containing BOM is not managed by Brooklyn; using legacy item installation");

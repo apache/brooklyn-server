@@ -1003,7 +1003,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         Collection<CatalogBundle> parentLibraries = CatalogItemDtoAbstract.parseLibraries(parentLibrariesRaw);
         BrooklynClassLoadingContext loader = CatalogUtils.newClassLoadingContext(mgmt, "<catalog url reference loader>:0.0.0", parentLibraries);
         String yaml;
-        log.debug("Loading referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+" ("+(resultNewFormat!=null ? resultNewFormat.size() : resultLegacyFormat!=null ? resultLegacyFormat.size() : "(unknown)")+" items before load)");
+        log.debug("Catalog load, loading referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+" ("+(resultNewFormat!=null ? resultNewFormat.size() : resultLegacyFormat!=null ? resultLegacyFormat.size() : "(unknown)")+" items before load)");
         if (url.startsWith("http")) {
             // give greater visibility to these
             log.info("Loading external referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName()));
@@ -1015,7 +1015,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             throw new IllegalStateException("Remote catalog url " + url + " in "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+" can't be fetched.", e);
         }
         collectCatalogItemsFromCatalogBomRoot(yaml, containingBundle, resultLegacyFormat, resultNewFormat, requireValidation, parentMeta, depth, force);
-        log.debug("Loaded referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+", now have "+
+        log.debug("Catalog load, loaded referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+", now have "+
             (resultNewFormat!=null ? resultNewFormat.size() : resultLegacyFormat!=null ? resultLegacyFormat.size() : "(unknown)")+" items");
     }
 
@@ -1464,7 +1464,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     
     @Override @Beta
     public void addTypesFromBundleBom(String yaml, ManagedBundle bundle, boolean forceUpdate, Map<RegisteredType, RegisteredType> result) {
-        log.debug("Adding catalog item to "+mgmt+": "+yaml);
+        log.debug("Catalog load, adding catalog item to "+mgmt+": "+yaml);
         checkNotNull(yaml, "yaml");
         if (result==null) result = MutableMap.of();
         collectCatalogItemsFromCatalogBomRoot(yaml, bundle, null, result, false, MutableMap.of(), 0, forceUpdate);
@@ -1474,13 +1474,15 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     public Map<RegisteredType,Collection<Throwable>> validateTypes(Iterable<RegisteredType> typesToValidate) {
         List<RegisteredType> typesRemainingToValidate = MutableList.copyOf(typesToValidate);
         while (true) {
+            log.debug("Catalog load, starting validation cycle, "+typesRemainingToValidate.size()+" to validate");
             Map<RegisteredType,Collection<Throwable>> result = MutableMap.of();
-            for (RegisteredType t: typesToValidate) {
+            for (RegisteredType t: typesRemainingToValidate) {
                 Collection<Throwable> tr = validateType(t);
                 if (!tr.isEmpty()) {
                     result.put(t, tr);
                 }
             }
+            log.debug("Catalog load, finished validation cycle, "+typesRemainingToValidate.size()+" unvalidated");
             if (result.isEmpty() || result.size()==typesRemainingToValidate.size()) {
                 return result;
             }
