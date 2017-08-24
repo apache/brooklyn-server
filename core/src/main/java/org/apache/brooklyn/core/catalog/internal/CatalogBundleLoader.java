@@ -103,10 +103,11 @@ public class CatalogBundleLoader {
                 this.managementContext.getCatalog().addTypesFromBundleBom(bomText, mb, force, result.mapOfNewToReplaced);
                 if (validate) {
                     Set<RegisteredType> matches = MutableSet.copyOf(this.managementContext.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(mb.getVersionedName())));
-                    if (!matches.equals(result.mapOfNewToReplaced.keySet())) {
+                    if (!(matches.containsAll(result.mapOfNewToReplaced.keySet()) && result.mapOfNewToReplaced.keySet().containsAll(matches))) {
                         // sanity check
                         LOG.warn("Discrepancy in list of Brooklyn items found for "+mb.getVersionedName()+": "+
-                            "installer said "+result.mapOfNewToReplaced+" but registry looking found "+matches);
+                            "installer said "+result.mapOfNewToReplaced.keySet()+" ("+result.mapOfNewToReplaced.keySet().size()+") "+
+                            "but registry search found "+matches+" ("+matches.size()+")");
                     }
                     Map<RegisteredType, Collection<Throwable>> validationErrors = this.managementContext.getCatalog().validateTypes( matches );
                     if (!validationErrors.isEmpty()) {
