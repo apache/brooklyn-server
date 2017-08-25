@@ -522,7 +522,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     @Override
     public void killMachine(String cloudServiceId) {
-        getComputeService().destroyNode(cloudServiceId);
+        // FIXME revert to computeService.destroyNode(cloudServiceId); once JCLOUDS-1332 gets fixed
+        Set<? extends NodeMetadata> destroyed = getComputeService().destroyNodesMatching(withIds(cloudServiceId));
+        LOG.debug("Destroyed nodes %s%n", destroyed);
     }
 
     @Override
