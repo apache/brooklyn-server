@@ -47,6 +47,7 @@ import org.apache.brooklyn.util.text.VersionComparator;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.Version;
+import org.osgi.framework.VersionRange;
 import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -173,19 +174,31 @@ public class Osgis {
             boolean urlMatched = false;
             List<Bundle> result = MutableList.of();
             String v=null, vDep = null;
+            VersionRange vRange = null;
             if (version!=null) {
-                v = BrooklynVersionSyntax.toValidOsgiVersion(version);
-                vDep = OsgiUtils.toOsgiVersion(version);
+                if (isVersionRange(version)) {
+                    vRange = VersionRange.valueOf(version);
+                } else {
+                    v = BrooklynVersionSyntax.toValidOsgiVersion(version);
+                    vDep = OsgiUtils.toOsgiVersion(version);
+                }
             }
             for (Bundle b: framework.getBundleContext().getBundles()) {
                 if (symbolicName!=null && !symbolicName.equals(b.getSymbolicName())) continue;
                 if (version!=null) {
-                    String bv = b.getVersion().toString();
-                    if (!v.equals(bv)) {
-                        if (!vDep.equals(bv)) {
+                    Version bv = b.getVersion();
+                    if (vRange != null) {
+                        if (!vRange.includes(bv)) {
                             continue;
                         }
-                        LOG.warn("Legacy inferred OSGi version string '"+vDep+"' found to match "+symbolicName+":"+version+"; switch to '"+v+"' format to avoid issues with deprecated version syntax");
+                    } else {
+                        String bvString = bv.toString();
+                        if (!v.equals(bvString)) {
+                            if (!vDep.equals(bvString)) {
+                                continue;
+                            }
+                            LOG.warn("Legacy inferred OSGi version string '"+vDep+"' found to match "+symbolicName+":"+version+"; switch to '"+v+"' format to avoid issues with deprecated version syntax");
+                        }
                     }
                 }
                 if (!Predicates.and(predicates).apply(b)) continue;
@@ -261,6 +274,12 @@ public class Osgis {
         public BundleFinder satisfying(Predicate<? super Bundle> predicate) {
             predicates.add(predicate);
             return this;
+        }
+        
+        private boolean isVersionRange(String version) {
+            return (version != null) && (version.length() > 2) 
+                    && (version.charAt(0) == VersionRange.LEFT_OPEN || version.charAt(0) == VersionRange.LEFT_CLOSED)
+                    && (version.charAt(version.length()-1) == VersionRange.RIGHT_OPEN || version.charAt(version.length()-1) == VersionRange.RIGHT_CLOSED);
         }
     }
     
