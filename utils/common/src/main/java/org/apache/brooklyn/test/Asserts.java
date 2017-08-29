@@ -1286,7 +1286,7 @@ public class Asserts {
     public static void expectedFailureContains(Throwable e, String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
         if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)e;
         try {
-            assertStringContains(e.toString(), phrase1ToContain, optionalOtherPhrasesToContain);
+            assertStringContains(Exceptions.collapseText(e), phrase1ToContain, optionalOtherPhrasesToContain);
         } catch (AssertionError ee) {
             rethrowPreferredException(e, ee);
         }
@@ -1296,7 +1296,7 @@ public class Asserts {
     public static void expectedFailureContainsIgnoreCase(Throwable e, String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
         if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)e;
         try {
-            assertStringContainsIgnoreCase(e.toString(), phrase1ToContain, optionalOtherPhrasesToContain);
+            assertStringContainsIgnoreCase(Exceptions.collapseText(e), phrase1ToContain, optionalOtherPhrasesToContain);
         } catch (AssertionError ee) {
             rethrowPreferredException(e, ee);
         }
@@ -1308,7 +1308,7 @@ public class Asserts {
     public static void expectedFailureDoesNotContain(Throwable e, String phrase1ToNotContain, String ...optionalOtherPhrasesToNotContain) {
         if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)e;
         try {
-            assertStringDoesNotContain(e.toString(), phrase1ToNotContain, optionalOtherPhrasesToNotContain);
+            assertStringDoesNotContain(Exceptions.collapseText(e), phrase1ToNotContain, optionalOtherPhrasesToNotContain);
         } catch (AssertionError ee) {
             rethrowPreferredException(e, ee);
         }

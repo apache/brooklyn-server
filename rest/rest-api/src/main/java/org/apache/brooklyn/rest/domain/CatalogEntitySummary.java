@@ -44,6 +44,7 @@ public class CatalogEntitySummary extends CatalogItemSummary {
     public CatalogEntitySummary(
             @JsonProperty("symbolicName") String symbolicName,
             @JsonProperty("version") String version,
+            @JsonProperty("containingBundle") String containingBundle,
             @JsonProperty("name") String name,
             @JsonProperty("javaType") String javaType,
             @JsonProperty("itemType") String itemType,
@@ -57,7 +58,7 @@ public class CatalogEntitySummary extends CatalogItemSummary {
             @JsonProperty("deprecated") boolean deprecated,
             @JsonProperty("links") Map<String, URI> links
         ) {
-        super(symbolicName, version, name, javaType, itemType, planYaml, description, iconUrl, tags, deprecated, links);
+        super(symbolicName, version, containingBundle, name, javaType, itemType, planYaml, description, iconUrl, tags, deprecated, links);
         this.config = config;
         this.sensors = sensors;
         this.effectors = effectors;
@@ -97,6 +98,7 @@ public class CatalogEntitySummary extends CatalogItemSummary {
                 "id='" + getId() + '\'' +
                 ", symbolicName='" + getSymbolicName() + '\'' +
                 ", version='" + getVersion() + '\'' +
+                ", containingBundle='" + getContainingBundle() + '\'' +
                 ", type='" + getType() + '\'' +
                 ", name='" + getName() + '\'' +
                 ", config=" + config +

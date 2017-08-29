@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-import java.io.File;
 import java.util.Map;
 
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
@@ -32,7 +31,6 @@ import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 
-import com.google.common.annotations.Beta;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -43,7 +41,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     private String version;
     private String checksum;
     private String url;
-    private transient File localFileWhenJustUploaded;
+    private transient boolean persistenceNeeded = false;
 
     /** Creates an empty one, with an ID, expecting other fields will be populated. */
     public BasicManagedBundle() {}
@@ -103,16 +101,6 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         this.url = url;
     }
 
-    /** This is cached on the object when just uploaded, then deleted after it has been persisted. */
-    @Beta
-    public void setTempLocalFileWhenJustUploaded(File localFileWhenJustUploaded) {
-        this.localFileWhenJustUploaded = localFileWhenJustUploaded;
-    }
-    @Beta
-    public File getTempLocalFileWhenJustUploaded() {
-        return localFileWhenJustUploaded;
-    }
-    
     @Override
     public String getOsgiUniqueUrl() {
         return "brooklyn:"+getId();
@@ -204,4 +192,13 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     public static ManagedBundle of(CatalogBundle bundleUrl) {
         return new BasicManagedBundle(bundleUrl.getSymbolicName(), bundleUrl.getSuppliedVersionString(), bundleUrl.getUrl());
     }
+
+    public void setPersistenceNeeded(boolean val) {
+        persistenceNeeded |= val;
+    }
+    public boolean getPersistenceNeeded() {
+        return persistenceNeeded;
+        
+    }
+    
 }

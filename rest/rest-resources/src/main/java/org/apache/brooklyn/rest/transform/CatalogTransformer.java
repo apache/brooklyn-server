@@ -107,7 +107,7 @@ public class CatalogTransformer {
             }
         }
         
-        return new CatalogEntitySummary(item.getSymbolicName(), item.getVersion(), item.getDisplayName(),
+        return new CatalogEntitySummary(item.getSymbolicName(), item.getVersion(), item.getContainingBundle(), item.getDisplayName(),
             spec!=null ? spec.getType().getName() : item.getSuperTypes().toString(), 
             spec!=null ? 
                 CatalogItemType.ofTargetClass(spec.getType()).name() : 
@@ -137,7 +137,7 @@ public class CatalogTransformer {
             Exceptions.propagateIfFatal(e);
             log.warn("Invalid item in catalog when converting REST summaries (supplying generic item), at "+item+": "+e, e);
         }
-        return new CatalogItemSummary(item.getSymbolicName(), item.getVersion(), item.getDisplayName(),
+        return new CatalogItemSummary(item.getSymbolicName(), item.getVersion(), item.getContainingBundle(), item.getDisplayName(),
             item.getSuperTypes().toString(), 
             item.getKind()==RegisteredTypeKind.BEAN ? "bean" : "unknown",
             RegisteredTypes.getImplementationDataStringForSpec(item),
@@ -156,7 +156,7 @@ public class CatalogTransformer {
             Exceptions.propagateIfFatal(e);
             log.trace("Unable to create policy spec for "+item+": "+e, e);
         }
-        return new CatalogPolicySummary(item.getSymbolicName(), item.getVersion(), item.getDisplayName(),
+        return new CatalogPolicySummary(item.getSymbolicName(), item.getVersion(), item.getContainingBundle(), item.getDisplayName(),
                 spec!=null ? spec.getType().getName() : item.getSuperTypes().toString(), 
                 CatalogItemType.POLICY.toString(),
                 RegisteredTypes.getImplementationDataStringForSpec(item),
@@ -176,7 +176,7 @@ public class CatalogTransformer {
             Exceptions.propagateIfFatal(e);
             log.trace("Unable to create policy spec for "+item+": "+e, e);
         }
-        return new CatalogEnricherSummary(item.getSymbolicName(), item.getVersion(), item.getDisplayName(),
+        return new CatalogEnricherSummary(item.getSymbolicName(), item.getVersion(), item.getContainingBundle(), item.getDisplayName(),
                 spec!=null ? spec.getType().getName() : item.getSuperTypes().toString(), 
                 CatalogItemType.ENRICHER.toString(),
                 RegisteredTypes.getImplementationDataStringForSpec(item),
@@ -186,7 +186,7 @@ public class CatalogTransformer {
 
     public static CatalogLocationSummary catalogLocationSummary(BrooklynRestResourceUtils b, RegisteredType item, UriBuilder ub) {
         Set<LocationConfigSummary> config = ImmutableSet.of();
-        return new CatalogLocationSummary(item.getSymbolicName(), item.getVersion(), item.getDisplayName(),
+        return new CatalogLocationSummary(item.getSymbolicName(), item.getVersion(), item.getContainingBundle(), item.getDisplayName(),
                 item.getSuperTypes().toString(), 
                 CatalogItemType.LOCATION.toString(),
                 RegisteredTypes.getImplementationDataStringForSpec(item),
@@ -277,7 +277,7 @@ public class CatalogTransformer {
             }
         }
         
-        return new CatalogEntitySummary(item.getSymbolicName(), item.getVersion(), item.getDisplayName(),
+        return new CatalogEntitySummary(item.getSymbolicName(), item.getVersion(), item.getContainingBundle(), item.getDisplayName(),
             item.getJavaType(), item.getCatalogItemType().toString(), item.getPlanYaml(),
             item.getDescription(), tidyIconLink(b, item, item.getIconUrl(), ub),
             makeTags(spec, item), config, sensors, effectors,
@@ -305,7 +305,7 @@ public class CatalogTransformer {
             Exceptions.propagateIfFatal(e);
             log.warn("Invalid item in catalog when converting REST summaries (supplying generic item), at "+item+": "+e, e);
         }
-        return new CatalogItemSummary(item.getSymbolicName(), item.getVersion(), item.getDisplayName(),
+        return new CatalogItemSummary(item.getSymbolicName(), item.getVersion(), item.getContainingBundle(), item.getDisplayName(),
             item.getJavaType(), item.getCatalogItemType().toString(), item.getPlanYaml(),
             item.getDescription(), tidyIconLink(b, item, item.getIconUrl(), ub), item.tags().getTags(), item.isDeprecated(), makeLinks(item, ub));
     }
@@ -322,7 +322,7 @@ public class CatalogTransformer {
             Exceptions.propagateIfFatal(e);
             log.trace("Unable to create policy spec for "+item+": "+e, e);
         }
-        return new CatalogPolicySummary(item.getSymbolicName(), item.getVersion(), item.getDisplayName(),
+        return new CatalogPolicySummary(item.getSymbolicName(), item.getVersion(), item.getContainingBundle(), item.getDisplayName(),
                 item.getJavaType(), item.getCatalogItemType().toString(), item.getPlanYaml(),
                 item.getDescription(), tidyIconLink(b, item, item.getIconUrl(), ub), config,
                 item.tags().getTags(), item.isDeprecated(), makeLinks(item, ub));
@@ -340,7 +340,7 @@ public class CatalogTransformer {
             Exceptions.propagateIfFatal(e);
             log.trace("Unable to create policy spec for "+item+": "+e, e);
         }
-        return new CatalogEnricherSummary(item.getSymbolicName(), item.getVersion(), item.getDisplayName(),
+        return new CatalogEnricherSummary(item.getSymbolicName(), item.getVersion(), item.getContainingBundle(), item.getDisplayName(),
                 item.getJavaType(), item.getCatalogItemType().toString(), item.getPlanYaml(),
                 item.getDescription(), tidyIconLink(b, item, item.getIconUrl(), ub), config,
                 item.tags().getTags(), item.isDeprecated(), makeLinks(item, ub));
@@ -349,7 +349,7 @@ public class CatalogTransformer {
     /** @deprecated since 0.12.0 use {@link RegisteredType} methods instead */  @Deprecated
     public static CatalogLocationSummary catalogLocationSummary(BrooklynRestResourceUtils b, CatalogItem<? extends Location,LocationSpec<?>> item, UriBuilder ub) {
         Set<LocationConfigSummary> config = ImmutableSet.of();
-        return new CatalogLocationSummary(item.getSymbolicName(), item.getVersion(), item.getDisplayName(),
+        return new CatalogLocationSummary(item.getSymbolicName(), item.getVersion(), item.getContainingBundle(), item.getDisplayName(),
                 item.getJavaType(), item.getCatalogItemType().toString(), item.getPlanYaml(),
                 item.getDescription(), tidyIconLink(b, item, item.getIconUrl(), ub), config,
                 item.tags().getTags(), item.isDeprecated(), makeLinks(item, ub));

@@ -100,7 +100,7 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
         synchronized (reloadLock) {
             final Stopwatch startupTimer = Stopwatch.createStarted();
             BrooklynShutdownHooks.resetShutdownFlag();
-            LOG.debug("OsgiLauncher init");
+            LOG.debug("OsgiLauncher init, catalog "+defaultCatalogLocation);
             catalogInitialization(new CatalogInitialization(String.format("file:%s", defaultCatalogLocation), false, null, false));
             start();
             startupTimer.stop();

@@ -20,7 +20,6 @@ package org.apache.brooklyn.core.mgmt.persist;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -76,6 +75,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.NodeList;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
@@ -87,7 +87,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import org.w3c.dom.NodeList;
 
 /** Implementation of the {@link BrooklynMementoPersister} backed by a pluggable
  * {@link PersistenceObjectStore} such as a file system or a jclouds object store */
@@ -338,8 +337,11 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                     LOG.warn("ID mismatch on "+type.toCamelCase()+", "+id+" from path, "+safeXmlId+" from xml");
                 
                 if (type == BrooklynObjectType.MANAGED_BUNDLE) {
-                    // TODO write to temp file, destroy when loaded
+                    // TODO could R/W to cache space directly, rather than memory copy then extra file copy
                     byte[] jarData = readBytes(contentsSubpath+".jar");
+                    if (jarData==null) {
+                        throw new IllegalStateException("No bundle data for "+contentsSubpath);
+                    }
                     builder.bundleJar(id, ByteSource.wrap(jarData));
                 }
                 builder.put(type, xmlId, contents);
@@ -713,19 +715,17 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             }
             
             if (mb instanceof BasicManagedBundle) {
-                final File f = ((BasicManagedBundle)mb).getTempLocalFileWhenJustUploaded();
-                // use the above transient field to know when to upload
-                if (f!=null) {
+                if (((BasicManagedBundle)mb).getPersistenceNeeded()) {
                     futures.add( executor.submit(new Runnable() {
                         @Override
                         public void run() {
-                            if (((BasicManagedBundle)mb).getTempLocalFileWhenJustUploaded()==null) {
+                            if (!((BasicManagedBundle)mb).getPersistenceNeeded()) {
                                 // someone else persisted this (race)
                                 return;
                             }
-                            persist(type.getSubPathName(), type, id+".jar", com.google.common.io.Files.asByteSource(f), exceptionHandler);
-                            ((BasicManagedBundle)mb).setTempLocalFileWhenJustUploaded(null);
-                            f.delete();
+                            persist(type.getSubPathName(), type, id+".jar", com.google.common.io.Files.asByteSource(
+                                ((ManagementContextInternal)mgmt).getOsgiManager().get().getBundleFile(mb)), exceptionHandler);
+                            ((BasicManagedBundle)mb).setPersistenceNeeded(false);
                         } }) );
                 }
             }

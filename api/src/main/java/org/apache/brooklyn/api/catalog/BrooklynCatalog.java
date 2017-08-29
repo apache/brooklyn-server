@@ -27,6 +27,7 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
@@ -99,12 +100,12 @@ public interface BrooklynCatalog {
     /** Adds the given registered types defined in a bundle's catalog BOM; 
      * no validation performed, so caller should do that subsequently after 
      * loading all potential inter-dependent types.
-     * <p>
-     * Nothing is returned but caller can retrieve the results by searching the
-     * type registry for types with the same containing bundle.
+     * Optionally updates a supplied (empty) map containing newly added types as keys
+     * and any previously existing type they replace as values, for reference or for use rolling back
+     * (this is populated with work done so far if the method throws an error).
      */
-    @Beta  // method may move elsewhere
-    public void addTypesFromBundleBom(String yaml, ManagedBundle bundle, boolean forceUpdate);
+    @Beta  // method may move elsewhere, or return type may change
+    public void addTypesFromBundleBom(String yaml, ManagedBundle bundle, boolean forceUpdate, Map<RegisteredType, RegisteredType> result);
     
     /** As {@link #validateType(RegisteredType)} but taking a set of types, returning a map whose keys are
      * those types where validation failed, mapped to the collection of errors validating that type. 
@@ -120,7 +121,7 @@ public interface BrooklynCatalog {
      * for the given registered type.
      */
     @Beta  // method may move elsewhere
-    Collection<Throwable> validateType(RegisteredType typeToValidate);
+    Collection<Throwable> validateType(RegisteredType typeToValidate, @Nullable RegisteredTypeLoadingContext optionalConstraint);
 
 
     /**

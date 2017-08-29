@@ -88,10 +88,20 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     @SuppressWarnings("deprecation")
     @Override
     public Iterable<RegisteredType> getMatching(Predicate<? super RegisteredType> filter) {
-        return Iterables.filter(Iterables.concat(
-                getAllWithoutCatalog(filter),
-                Iterables.transform(mgmt.getCatalog().getCatalogItems(), RegisteredTypes.CI_TO_RT)), 
-            filter);
+        Map<String,RegisteredType> result = MutableMap.of();
+        for (RegisteredType rt: getAllWithoutCatalog(filter)) {
+            result.put(rt.getId(), rt);
+        }
+        for (RegisteredType rt: Iterables.filter(
+                Iterables.transform(mgmt.getCatalog().getCatalogItems(), RegisteredTypes.CI_TO_RT), 
+                filter)) {
+            if (!result.containsKey(rt.getId())) {
+                // shouldn't be using this now
+                log.warn("Item '"+rt.getId()+"' not in type registry; only found in legacy catalog");
+                result.put(rt.getId(), rt);
+            }
+        }
+        return result.values();
     }
 
     @SuppressWarnings("deprecation")
@@ -183,16 +193,21 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
             return createSpec(type, type.getPlan(), type.getSymbolicName(), type.getVersion(), type.getSuperTypes(), constraint, specSuperType);
             
         } else if (type.getKind()==RegisteredTypeKind.UNRESOLVED) {
-            // try just-in-time validation
-            Collection<Throwable> validationErrors = mgmt.getCatalog().validateType(type);
-            if (!validationErrors.isEmpty()) {
-                throw new ReferencedUnresolvedTypeException(type, true, Exceptions.create(validationErrors));
+            if (constraint.getAlreadyEncounteredTypes().contains(type.getSymbolicName())) {
+                throw new UnsupportedTypePlanException("Cannot create spec from type "+type+" (kind "+type.getKind()+"), recursive reference following "+constraint.getAlreadyEncounteredTypes());
+                
+            } else {
+                // try just-in-time validation
+                Collection<Throwable> validationErrors = mgmt.getCatalog().validateType(type, constraint);
+                if (!validationErrors.isEmpty()) {
+                    throw new ReferencedUnresolvedTypeException(type, true, Exceptions.create(validationErrors));
+                }
+                type = mgmt.getTypeRegistry().get(type.getSymbolicName(), type.getVersion());
+                if (type==null || type.getKind()==RegisteredTypeKind.UNRESOLVED) {
+                    throw new ReferencedUnresolvedTypeException(type);
+                }
+                return createSpec(type, constraint, specSuperType);
             }
-            type = mgmt.getTypeRegistry().get(type.getSymbolicName(), type.getVersion());
-            if (type==null || type.getKind()==RegisteredTypeKind.UNRESOLVED) {
-                throw new ReferencedUnresolvedTypeException(type);
-            }
-            return createSpec(type, constraint, specSuperType);
             
         } else {
             throw new UnsupportedTypePlanException("Cannot create spec from type "+type+" (kind "+type.getKind()+")");

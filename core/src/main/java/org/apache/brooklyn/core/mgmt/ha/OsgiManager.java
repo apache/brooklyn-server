@@ -19,6 +19,9 @@
 package org.apache.brooklyn.core.mgmt.ha;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.Arrays;
@@ -34,7 +37,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
@@ -62,6 +64,7 @@ import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.os.Os.DeletionResult;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.repeat.Repeater;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.osgi.framework.Bundle;
@@ -100,14 +103,17 @@ public class OsgiManager {
     
     private boolean reuseFramework;
     private Set<Bundle> bundlesAtStartup;
-    private File osgiCacheDir;
+    /** Used by us to store bundle ZIPs; can be deleted between server runs, repopulated by rebind. */
+    private File brooklynBundlesCacheDir;
+    /** Given to OSGi container for use as its framework cache */
+    private File osgiFrameworkCacheDir;
     final ManagedBundlesRecord managedBundlesRecord = new ManagedBundlesRecord();
-    final Map<VersionedName,ManagedBundle> wrapperBundles = MutableMap.of();
     
-    static class ManagedBundlesRecord {
-        private Map<String, ManagedBundle> managedBundlesByUid = MutableMap.of();
-        private Map<VersionedName, String> managedBundlesUidByVersionedName = MutableMap.of();
-        private Map<String, String> managedBundlesUidByUrl = MutableMap.of();
+    class ManagedBundlesRecord {
+        private final Map<String, ManagedBundle> managedBundlesByUid = MutableMap.of();
+        private final Map<VersionedName, String> managedBundlesUidByVersionedName = MutableMap.of();
+        private final Map<String, String> managedBundlesUidByUrl = MutableMap.of();
+        private final Map<VersionedName,ManagedBundle> wrapperBundles = MutableMap.of();
         
         synchronized Map<String, ManagedBundle> getManagedBundles() {
             return ImmutableMap.copyOf(managedBundlesByUid);
@@ -135,13 +141,75 @@ public class OsgiManager {
             managedBundlesUidByUrl.put(url, id);    
         }
         
-        synchronized void addManagedBundle(OsgiBundleInstallationResult result) {
+        synchronized void addManagedBundle(OsgiBundleInstallationResult result, File f) {
+            updateManagedBundleFile(result, f);
             managedBundlesByUid.put(result.getMetadata().getId(), result.getMetadata());
             managedBundlesUidByVersionedName.put(VersionedName.toOsgiVersionedName(result.getMetadata().getVersionedName()), 
                 result.getMetadata().getId());
             if (Strings.isNonBlank(result.getMetadata().getUrl())) {
                 managedBundlesUidByUrl.put(result.getMetadata().getUrl(), result.getMetadata().getId());
             }
+        }
+
+        private File fileFor(ManagedBundle managedBundle) {
+            return new File(brooklynBundlesCacheDir, managedBundle.getId()+"-"+managedBundle.getVersionedName().toOsgiString()+".jar");
+        }
+        
+        synchronized void addInstalledWrapperBundle(ManagedBundle mb) {
+            wrapperBundles.put(mb.getVersionedName(), mb);
+        }
+        private synchronized void removeInstalledWrapperBundle(ManagedBundle mb) {
+            wrapperBundles.remove(mb.getVersionedName());
+        }
+
+        synchronized boolean remove(ManagedBundle bundleMetadata) {
+            ManagedBundle metadata = managedBundlesRecord.managedBundlesByUid.remove(bundleMetadata.getId());
+            if (metadata==null) {
+                return false;
+            }
+            managedBundlesRecord.managedBundlesUidByVersionedName.remove(bundleMetadata.getVersionedName());
+            managedBundlesRecord.managedBundlesUidByUrl.remove(bundleMetadata.getUrl());
+            removeInstalledWrapperBundle(bundleMetadata);
+            fileFor(bundleMetadata).delete();
+            return true;
+        }
+
+        /** Updates the bundle file associated with the given record, creating and returning a backup if there was already such a file */ 
+        synchronized File updateManagedBundleFile(OsgiBundleInstallationResult result, File fNew) {
+            File fCached = fileFor(result.getMetadata());
+            File fBak = new File(fCached.getAbsolutePath()+".bak");
+            if (fBak.equals(fNew)) {
+                // rolling back
+                throw new IllegalStateException("Cannot update to a backup copy; use rollback instead");
+            }
+            if (fCached.exists()) {
+                log.debug("Replacing and backing up old Brooklyn local copy of bundle file "+fCached);
+                fCached.renameTo(fBak);
+            } else {
+                log.debug("Creating Brooklyn local copy of bundle file "+fCached);
+            }
+            try (FileInputStream fin = new FileInputStream(fNew); FileOutputStream fout = new FileOutputStream(fCached)) {
+                Streams.copy(fin, fout);
+            } catch (IOException e) {
+                throw Exceptions.propagate(e);
+            }
+            return fBak;
+        }
+        
+        /** Rolls back the officially installed file to a given backup copy of a bundle file, returning the new name of the file */
+        synchronized File rollbackManagedBundleFile(OsgiBundleInstallationResult result, File fBak) {
+            log.debug("Rolling back to back Brooklyn local copy of bundle file "+fBak);
+            if (!fBak.exists()) {
+                throw new IllegalStateException("Cannot rollback to "+fBak+" as file does not exist");
+            }
+            File fCached = fileFor(result.getMetadata());
+            if (fCached.exists()) {
+                fCached.delete();
+            } else {
+                log.warn("No pre-existing bundle file "+fCached+" when rolling back; ignoring");
+            }
+            fBak.renameTo(fCached);
+            return fCached;
         }
     }
     
@@ -159,6 +227,9 @@ public class OsgiManager {
         }
         
         try {
+            brooklynBundlesCacheDir = Os.newTempDir("brooklyn-osgi-brooklyn-bundles-cache");
+            Os.deleteOnExitRecursively(brooklynBundlesCacheDir);
+            
             if (mgmt.getConfig().getConfig(REUSE_OSGI)) {
                 reuseFramework = true;
                 
@@ -178,19 +249,19 @@ public class OsgiManager {
                     
                     return;
                 }
-                osgiCacheDir = Os.newTempDir("brooklyn-osgi-reusable-container");
-                Os.deleteOnExitRecursively(osgiCacheDir);
+                osgiFrameworkCacheDir = Os.newTempDir("brooklyn-osgi-reusable-container");
+                Os.deleteOnExitRecursively(osgiFrameworkCacheDir);
                 if (numberOfReusableFrameworksCreated.incrementAndGet()%10==0) {
                     log.warn("Possible leak of reusable OSGi containers ("+numberOfReusableFrameworksCreated+" total)");
                 }
                 
             } else {
-                osgiCacheDir = BrooklynServerPaths.getOsgiCacheDirCleanedIfNeeded(mgmt);
+                osgiFrameworkCacheDir = BrooklynServerPaths.getOsgiCacheDirCleanedIfNeeded(mgmt);
             }
             
             // any extra OSGi startup args could go here
-            framework = Osgis.getFramework(osgiCacheDir.getAbsolutePath(), false);
-            log.debug("OSGi framework container created in "+osgiCacheDir+" mgmt node "+mgmt.getManagementNodeId()+
+            framework = Osgis.getFramework(osgiFrameworkCacheDir.getAbsolutePath(), false);
+            log.debug("OSGi framework container created in "+osgiFrameworkCacheDir+" mgmt node "+mgmt.getManagementNodeId()+
                 (reuseFramework ? "(reusable, "+numberOfReusableFrameworksCreated.get()+" total)" : "") );
             
         } catch (Exception e) {
@@ -228,7 +299,7 @@ public class OsgiManager {
                 OSGI_FRAMEWORK_CONTAINERS_FOR_REUSE.add(framework);
             }
             
-        } else if (BrooklynServerPaths.isOsgiCacheForCleaning(mgmt, osgiCacheDir)) {
+        } else if (BrooklynServerPaths.isOsgiCacheForCleaning(mgmt, osgiFrameworkCacheDir)) {
             // See exception reported in https://issues.apache.org/jira/browse/BROOKLYN-72
             // We almost always fail to delete he OSGi temp directory due to a concurrent modification.
             // Therefore keep trying.
@@ -237,18 +308,21 @@ public class OsgiManager {
                     .until(new Callable<Boolean>() {
                         @Override
                         public Boolean call() {
-                            deletionResult.set(Os.deleteRecursively(osgiCacheDir));
+                            deletionResult.set(Os.deleteRecursively(osgiFrameworkCacheDir));
                             return deletionResult.get().wasSuccessful();
                         }})
                     .limitTimeTo(Duration.ONE_SECOND)
                     .backoffTo(Duration.millis(50))
                     .run();
             if (deletionResult.get().getThrowable()!=null) {
-                log.debug("Unable to delete "+osgiCacheDir+" (possibly being modified concurrently?): "+deletionResult.get().getThrowable());
+                log.debug("Unable to delete "+osgiFrameworkCacheDir+" (possibly being modified concurrently?): "+deletionResult.get().getThrowable());
             }
         }
-        osgiCacheDir = null;
+        osgiFrameworkCacheDir = null;
         framework = null;
+        
+        Os.deleteRecursively(brooklynBundlesCacheDir);
+        brooklynBundlesCacheDir = null;
     }
 
     /** Map of bundles by UID */
@@ -311,18 +385,13 @@ public class OsgiManager {
      * Callers should typically fail if anything from this bundle is in use.
      */
     public void uninstallUploadedBundle(ManagedBundle bundleMetadata) {
-        synchronized (managedBundlesRecord) {
-            ManagedBundle metadata = managedBundlesRecord.managedBundlesByUid.remove(bundleMetadata.getId());
-            if (metadata==null) {
-                throw new IllegalStateException("No such bundle registered: "+bundleMetadata);
-            }
-            managedBundlesRecord.managedBundlesUidByVersionedName.remove(bundleMetadata.getVersionedName());
-            managedBundlesRecord.managedBundlesUidByUrl.remove(bundleMetadata.getUrl());
-            removeInstalledWrapperBundle(bundleMetadata);
+        uninstallCatalogItemsFromBundle( bundleMetadata.getVersionedName() );
+        
+        if (!managedBundlesRecord.remove(bundleMetadata)) {
+            throw new IllegalStateException("No such bundle registered: "+bundleMetadata);
         }
         mgmt.getRebindManager().getChangeListener().onUnmanaged(bundleMetadata);
 
-        uninstallCatalogItemsFromBundle( bundleMetadata.getVersionedName() );
         
         Bundle bundle = framework.getBundleContext().getBundle(bundleMetadata.getOsgiUniqueUrl());
         if (bundle==null) {
@@ -337,12 +406,13 @@ public class OsgiManager {
     }
 
     @Beta
-    public void uninstallCatalogItemsFromBundle(VersionedName bundle) {
+    public Iterable<RegisteredType> uninstallCatalogItemsFromBundle(VersionedName bundle) {
         List<RegisteredType> thingsFromHere = ImmutableList.copyOf(getTypesFromBundle( bundle ));
         log.debug("Uninstalling items from bundle "+bundle+": "+thingsFromHere);
         for (RegisteredType t: thingsFromHere) {
             mgmt.getCatalog().deleteCatalogItem(t.getSymbolicName(), t.getVersion());
         }
+        return thingsFromHere;
     }
 
     @Beta
@@ -369,33 +439,27 @@ public class OsgiManager {
         }
     }
 
-    // since 0.12.0 no longer returns items; it installs non-persisted RegisteredTypes to the type registry instead 
+    /** installs RegisteredTypes in the BOM of this bundle into the type registry,
+     * non-persisted but done on rebind for each persisted bundle
+     * 
+     * @param bundle
+     * @param force
+     * @param validate
+     * @param results optional parameter collecting all results, with new type as key, and any type it replaces as value
+     * 
+     * @since 0.12.0
+     */
+    // returns map of new items pointing at any replaced item (for reference / rollback)
     @Beta
-    public void loadCatalogBom(Bundle bundle, boolean force, boolean validate) {
-        loadCatalogBomInternal(mgmt, bundle, force, validate);
-    }
-    
-    private static Iterable<? extends CatalogItem<?, ?>> loadCatalogBomInternal(ManagementContext mgmt, Bundle bundle, boolean force, boolean validate) {
-        Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
-
+    public void loadCatalogBom(Bundle bundle, boolean force, boolean validate, Map<RegisteredType,RegisteredType> result) {
         try {
-            CatalogBundleLoader cl = new CatalogBundleLoader(mgmt);
-            cl.scanForCatalog(bundle, force, validate);
-            catalogItems = null;
+            new CatalogBundleLoader(mgmt).scanForCatalog(bundle, force, validate, result);
             
         } catch (RuntimeException ex) {
-            // TODO confirm -- as of May 2017 we no longer uninstall the bundle if install of catalog items fails;
-            // caller needs to upgrade, or uninstall then reinstall
-            // (this uninstall wouldn't have unmanaged it in brooklyn in any case)
-//                try {
-//                    bundle.uninstall();
-//                } catch (BundleException e) {
-//                    log.error("Cannot uninstall bundle " + bundle.getSymbolicName() + ":" + bundle.getVersion()+" (after error installing catalog items)", e);
-//                }
+            // as of May 2017 we no longer uninstall the bundle here if install of catalog items fails;
+            // the OsgiManager routines which call this method will do this 
             throw new IllegalArgumentException("Error installing catalog items", ex);
         }
-            
-        return catalogItems;
     }
     
     void checkCorrectlyInstalled(OsgiBundleWithUrl bundle, Bundle b) {
@@ -596,19 +660,16 @@ public class OsgiManager {
 
     // track wrapper bundles lifecvcle specially, to avoid removing it while it's installing
     public void addInstalledWrapperBundle(ManagedBundle mb) {
-        synchronized (wrapperBundles) {
-            wrapperBundles.put(mb.getVersionedName(), mb);
-        }
-    }
-    public void removeInstalledWrapperBundle(ManagedBundle mb) {
-        synchronized (wrapperBundles) {
-            wrapperBundles.remove(mb.getVersionedName());
-        }
+        managedBundlesRecord.addInstalledWrapperBundle(mb);
     }
     public Collection<ManagedBundle> getInstalledWrapperBundles() {
-        synchronized (wrapperBundles) {
-            return MutableSet.copyOf(wrapperBundles.values());
+        synchronized (managedBundlesRecord) {
+            return MutableSet.copyOf(managedBundlesRecord.wrapperBundles.values());
         }
+    }
+
+    public File getBundleFile(ManagedBundle mb) {
+        return managedBundlesRecord.fileFor(mb);
     }
 
 }

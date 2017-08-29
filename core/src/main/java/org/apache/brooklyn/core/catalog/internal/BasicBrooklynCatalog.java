@@ -53,6 +53,7 @@ import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.CatalogClasspathDo.CatalogScanningModes;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
@@ -61,7 +62,6 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.CampYamlParser;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
-import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.BasicRegisteredType;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer;
@@ -112,7 +112,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
 /* TODO the complex tree-structured catalogs are only useful when we are relying on those separate catalog classloaders
- * to isolate classpaths. with osgi everything is just put into the "manual additions" catalog. */
+ * to isolate classpaths. with osgi everything is just put into the "manual additions" catalog. Deprecate/remove this. */
 public class BasicBrooklynCatalog implements BrooklynCatalog {
     public static final String POLICIES_KEY = "brooklyn.policies";
     public static final String ENRICHERS_KEY = "brooklyn.enrichers";
@@ -299,8 +299,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // thread local lets us call to other once then he calls us and we do other code path
             deletingCatalogItem.set(true);
             try {
-                ((BasicBrooklynTypeRegistry) mgmt.getTypeRegistry()).delete(
-                    mgmt.getTypeRegistry().get(symbolicName, version) );
+                RegisteredType item = mgmt.getTypeRegistry().get(symbolicName, version);
+                if (item==null) {
+                    log.debug("Request to delete "+symbolicName+":"+version+" but nothing matching found; ignoring");
+                } else {
+                    ((BasicBrooklynTypeRegistry) mgmt.getTypeRegistry()).delete( item );
+                }
                 return;
             } finally {
                 deletingCatalogItem.remove();
@@ -496,7 +500,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
     /** See comments on {@link #collectCatalogItemsFromItemMetadataBlock(String, ManagedBundle, Map, List, boolean, Map, int, boolean)};
      * this is a shell around that that parses the `brooklyn.catalog` header on the BOM YAML file */
-    private void collectCatalogItemsFromCatalogBomRoot(String yaml, ManagedBundle containingBundle, List<CatalogItemDtoAbstract<?, ?>> result, boolean requireValidation, Map<?, ?> parentMeta, int depth, boolean force) {
+    private void collectCatalogItemsFromCatalogBomRoot(String yaml, ManagedBundle containingBundle, 
+        List<CatalogItemDtoAbstract<?, ?>> resultLegacyFormat, Map<RegisteredType, RegisteredType> resultNewFormat, 
+        boolean requireValidation, Map<?, ?> parentMeta, int depth, boolean force) {
         Map<?,?> itemDef = Yamls.getAs(Yamls.parseAll(yaml), Map.class);
         Map<?,?> catalogMetadata = getFirstAsMap(itemDef, "brooklyn.catalog").orNull();
         if (catalogMetadata==null)
@@ -504,7 +510,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         catalogMetadata = MutableMap.copyOf(catalogMetadata);
 
         collectCatalogItemsFromItemMetadataBlock(Yamls.getTextOfYamlAtPath(yaml, "brooklyn.catalog").getMatchedYamlTextOrWarn(), 
-            containingBundle, catalogMetadata, result, requireValidation, parentMeta, 0, force);
+            containingBundle, catalogMetadata, resultLegacyFormat, resultNewFormat, requireValidation, parentMeta, 0, force);
         
         itemDef.remove("brooklyn.catalog");
         catalogMetadata.remove("item");
@@ -523,7 +529,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 if (rootItemYaml.startsWith(match)) rootItemYaml = Strings.removeFromStart(rootItemYaml, match);
                 else rootItemYaml = Strings.replaceAllNonRegex(rootItemYaml, "\n"+match, "");
             }
-            collectCatalogItemsFromItemMetadataBlock("item:\n"+makeAsIndentedObject(rootItemYaml), containingBundle, rootItem, result, requireValidation, catalogMetadata, 1, force);
+            collectCatalogItemsFromItemMetadataBlock("item:\n"+makeAsIndentedObject(rootItemYaml), containingBundle, rootItem, resultLegacyFormat, resultNewFormat, requireValidation, catalogMetadata, 1, force);
         }
     }
 
@@ -553,6 +559,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
      * @param containingBundle - bundle where this is being loaded, or null
      * @param itemMetadata - map of this item metadata reap
      * @param result - list where items should be added, or add to type registry if null
+     * @param resultNewFormat 
      * @param requireValidation - whether to require items to be validated; if false items might not be valid,
      *     and/or their catalog item types might not be set correctly yet; caller should normally validate later
      *     (useful if we have to load a bunch of things before they can all be validated) 
@@ -561,7 +568,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
      * @param force - whether to force the catalog addition (only applies if result is null)
      */
     @SuppressWarnings("unchecked")
-    private void collectCatalogItemsFromItemMetadataBlock(String sourceYaml, ManagedBundle containingBundle, Map<?,?> itemMetadata, List<CatalogItemDtoAbstract<?, ?>> result, boolean requireValidation, 
+    private void collectCatalogItemsFromItemMetadataBlock(String sourceYaml, ManagedBundle containingBundle, Map<?,?> itemMetadata, List<CatalogItemDtoAbstract<?, ?>> resultLegacyFormat, Map<RegisteredType, RegisteredType> resultNewFormat, boolean requireValidation, 
             Map<?,?> parentMetadata, int depth, boolean force) {
 
         if (sourceYaml==null) sourceYaml = new Yaml().dump(itemMetadata);
@@ -646,12 +653,15 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                     throw new IllegalStateException("Cannot scan for Java catalog items when libraries declared on an ancestor; scanJavaAnnotations should be specified alongside brooklyn.libraries (or ideally those libraries should specify to scan)");
                 }
                 if (scanResult!=null && !scanResult.isEmpty()) {
-                    if (result!=null) {
-                        result.addAll( scanResult );
+                    if (resultLegacyFormat!=null) {
+                        resultLegacyFormat.addAll( scanResult );
                     } else {
-                        // not returning a result; we need to add here
+                        // not returning a result; we need to add here, as type
                         for (CatalogItem item: scanResult) {
+                            RegisteredType replacedInstance = mgmt.getTypeRegistry().get(item.getSymbolicName(), item.getVersion());
                             mgmt.getCatalog().addItem(item);
+                            RegisteredType newInstance = mgmt.getTypeRegistry().get(item.getSymbolicName(), item.getVersion());
+                            updateResultNewFormat(resultNewFormat, replacedInstance, newInstance);
                         }
                     }
                 }
@@ -677,18 +687,19 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             int count = 0;
             for (Object ii: checkType(items, "items", List.class)) {
                 if (ii instanceof String) {
-                    collectUrlReferencedCatalogItems((String) ii, containingBundle, result, requireValidation, catalogMetadata, depth+1, force);
+                    collectUrlReferencedCatalogItems((String) ii, containingBundle, resultLegacyFormat, resultNewFormat, requireValidation, catalogMetadata, depth+1, force);
                 } else {
                     Map<?,?> i = checkType(ii, "entry in items list", Map.class);
                     collectCatalogItemsFromItemMetadataBlock(Yamls.getTextOfYamlAtPath(sourceYaml, "items", count).getMatchedYamlTextOrWarn(),
-                            containingBundle, i, result, requireValidation, catalogMetadata, depth+1, force);
+                            containingBundle, i, resultLegacyFormat, resultNewFormat, requireValidation, catalogMetadata, depth+1, force);
                 }
                 count++;
             }
         }
 
         if (url != null) {
-            collectUrlReferencedCatalogItems(checkType(url, "include in catalog meta", String.class), containingBundle, result, requireValidation, catalogMetadata, depth+1, force);
+            collectUrlReferencedCatalogItems(checkType(url, "include in catalog meta", String.class), containingBundle, 
+                resultLegacyFormat, resultNewFormat, requireValidation, catalogMetadata, depth+1, force);
         }
 
         if (item==null) return;
@@ -712,7 +723,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             log.warn("Name property will be ignored due to the existence of displayName and at least one of id, symbolicName");
         }
 
-        PlanInterpreterGuessingType planInterpreter = new PlanInterpreterGuessingType(null, item, sourceYaml, itemType, libraryBundles, result).reconstruct();
+        PlanInterpreterGuessingType planInterpreter = new PlanInterpreterGuessingType(null, item, sourceYaml, itemType, libraryBundles, resultLegacyFormat).reconstruct();
         Exception resolutionError = null;
         if (!planInterpreter.isResolved()) {
             // don't throw yet, we may be able to add it in an unresolved state
@@ -854,13 +865,13 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         final Boolean catalogDeprecated = Boolean.valueOf(deprecated);
 
         // run again now that we know the ID to catch recursive definitions and possibly other mistakes (itemType inconsistency?)
-        planInterpreter = new PlanInterpreterGuessingType(id, item, sourceYaml, itemType, libraryBundles, result).reconstruct();
+        planInterpreter = new PlanInterpreterGuessingType(id, item, sourceYaml, itemType, libraryBundles, resultLegacyFormat).reconstruct();
         if (resolutionError==null && !planInterpreter.isResolved()) {
             resolutionError = new IllegalStateException("Plan resolution for "+id+" breaks after id and itemType are set; is there a recursive reference or other type inconsistency?\n"+sourceYaml);
         }
         String sourcePlanYaml = planInterpreter.getPlanYaml();
 
-        if (result==null) {
+        if (resultLegacyFormat==null) {
             // horrible API but basically if `result` is null then add to local unpersisted registry instead,
             // without forcing resolution and ignoring errors; this lets us deal with forward references, but
             // we'll have to do a validation step subsequently.  (already we let bundles deal with persistence,
@@ -918,8 +929,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // record original source in case it was changed
             RegisteredTypes.notePlanEquivalentToThis(type, new BasicTypeImplementationPlan(format, sourceYaml));
             
+            RegisteredType replacedInstance = mgmt.getTypeRegistry().get(type.getSymbolicName(), type.getVersion());
             ((BasicBrooklynTypeRegistry) mgmt.getTypeRegistry()).addToLocalUnpersistedTypeRegistry(type, force);
-        
+            updateResultNewFormat(resultNewFormat, replacedInstance, type);
+            
         } else {
             if (resolutionError!=null) {
                 // if there was an error, throw it here
@@ -936,7 +949,18 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 .build();
     
             dto.setManagementContext((ManagementContextInternal) mgmt);
-            result.add(dto);
+            resultLegacyFormat.add(dto);
+        }
+    }
+
+    private void updateResultNewFormat(Map<RegisteredType, RegisteredType> resultNewFormat, RegisteredType replacedInstance,
+        RegisteredType newInstance) {
+        if (resultNewFormat!=null) {
+            if (resultNewFormat.containsKey(newInstance)) {
+                log.debug("Multiple definitions for "+newInstance+" in BOM; only recording one");
+            } else {
+                resultNewFormat.put(newInstance, replacedInstance);
+            }
         }
     }
 
@@ -974,19 +998,26 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return wrapped!=null && wrapped.equalsIgnoreCase("true");
     }
 
-    private void collectUrlReferencedCatalogItems(String url, ManagedBundle containingBundle, List<CatalogItemDtoAbstract<?, ?>> result, boolean requireValidation, Map<Object, Object> parentMeta, int depth, boolean force) {
+    private void collectUrlReferencedCatalogItems(String url, ManagedBundle containingBundle, List<CatalogItemDtoAbstract<?, ?>> resultLegacyFormat, Map<RegisteredType, RegisteredType> resultNewFormat, boolean requireValidation, Map<Object, Object> parentMeta, int depth, boolean force) {
         @SuppressWarnings("unchecked")
         List<?> parentLibrariesRaw = MutableList.copyOf(getFirstAs(parentMeta, Iterable.class, "brooklyn.libraries", "libraries").orNull());
         Collection<CatalogBundle> parentLibraries = CatalogItemDtoAbstract.parseLibraries(parentLibrariesRaw);
         BrooklynClassLoadingContext loader = CatalogUtils.newClassLoadingContext(mgmt, "<catalog url reference loader>:0.0.0", parentLibraries);
         String yaml;
+        log.debug("Catalog load, loading referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+" ("+(resultNewFormat!=null ? resultNewFormat.size() : resultLegacyFormat!=null ? resultLegacyFormat.size() : "(unknown)")+" items before load)");
+        if (url.startsWith("http")) {
+            // give greater visibility to these
+            log.info("Loading external referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName()));
+        }
         try {
             yaml = ResourceUtils.create(loader).getResourceAsString(url);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            throw new IllegalStateException("Remote catalog url " + url + " can't be fetched.", e);
+            throw new IllegalStateException("Remote catalog url " + url + " in "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+" can't be fetched.", e);
         }
-        collectCatalogItemsFromCatalogBomRoot(yaml, containingBundle, result, requireValidation, parentMeta, depth, force);
+        collectCatalogItemsFromCatalogBomRoot(yaml, containingBundle, resultLegacyFormat, resultNewFormat, requireValidation, parentMeta, depth, force);
+        log.debug("Catalog load, loaded referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+", now have "+
+            (resultNewFormat!=null ? resultNewFormat.size() : resultLegacyFormat!=null ? resultLegacyFormat.size() : "(unknown)")+" items");
     }
 
     @SuppressWarnings("unchecked")
@@ -1034,25 +1065,21 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
     
     @SuppressWarnings("unused")  // keep during 0.12.0 until we are decided we won't support this; search for this method name
-    // note that it breaks after rebind since we don't have the JAR -- see notes below
+    // (note that this now could work after rebind since we have the OSGi cache)
     private Collection<CatalogItemDtoAbstract<?, ?>> scanAnnotationsInBundle(ManagementContext mgmt, ManagedBundle containingBundle) {
         CatalogDto dto = CatalogDto.newNamedInstance("Bundle "+containingBundle.getVersionedName().toOsgiString()+" Scanned Catalog", "All annotated Brooklyn entities detected in bundles", "scanning-bundle-"+containingBundle.getVersionedName().toOsgiString());
         CatalogDo subCatalog = new CatalogDo(dto);
         // need access to a JAR to scan this
         String url = null;
-        if (containingBundle instanceof BasicManagedBundle) {
-            File f = ((BasicManagedBundle)containingBundle).getTempLocalFileWhenJustUploaded();
-            if (f!=null) {
-                url = "file:"+f.getAbsolutePath();
-            }
+        File f = ((ManagementContextInternal)mgmt).getOsgiManager().get().getBundleFile(containingBundle);
+        if (f!=null) {
+            url = "file:"+f.getAbsolutePath();
         }
-        // type.getSubPathName(), type, id+".jar", com.google.common.io.Files.asByteSource(f), exceptionHandler);
         if (url==null) {
             url = containingBundle.getUrl();
         }
         if (url==null) {
-            // NOT available after persistence/rebind 
-            // as shown by test in CatalogOsgiVersionMoreEntityRebindTest
+            // should now always be available 
             throw new IllegalArgumentException("Error preparing to scan "+containingBundle.getVersionedName()+": no URL available");
         }
         // org.reflections requires the URL to be "file:" containg ".jar"
@@ -1385,10 +1412,11 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             } finally {
                 bf.delete();
             }
-            uninstallEmptyWrapperBundles();
             if (result.getCode().isError()) {
+                // rollback done by install call above
                 throw new IllegalStateException(result.getMessage());
             }
+            uninstallEmptyWrapperBundles();
             return toLegacyCatalogItems(result.getCatalogItemsInstalled());
 
             // if all items pertaining to an older anonymous catalog.bom bundle have been overridden
@@ -1423,7 +1451,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         log.debug("Adding catalog item to "+mgmt+": "+yaml);
         checkNotNull(yaml, "yaml");
         List<CatalogItemDtoAbstract<?, ?>> result = MutableList.of();
-        collectCatalogItemsFromCatalogBomRoot(yaml, bundle, result, true, ImmutableMap.of(), 0, forceUpdate);
+        collectCatalogItemsFromCatalogBomRoot(yaml, bundle, result, null, true, ImmutableMap.of(), 0, forceUpdate);
 
         // do this at the end for atomic updates; if there are intra-yaml references, we handle them specially
         for (CatalogItemDtoAbstract<?, ?> item: result) {
@@ -1436,23 +1464,26 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
     
     @Override @Beta
-    public void addTypesFromBundleBom(String yaml, ManagedBundle bundle, boolean forceUpdate) {
-        log.debug("Adding catalog item to "+mgmt+": "+yaml);
+    public void addTypesFromBundleBom(String yaml, ManagedBundle bundle, boolean forceUpdate, Map<RegisteredType, RegisteredType> result) {
+        log.debug("Catalog load, adding catalog item to "+mgmt+": "+yaml);
         checkNotNull(yaml, "yaml");
-        collectCatalogItemsFromCatalogBomRoot(yaml, bundle, null, false, MutableMap.of(), 0, forceUpdate);        
+        if (result==null) result = MutableMap.of();
+        collectCatalogItemsFromCatalogBomRoot(yaml, bundle, null, result, false, MutableMap.of(), 0, forceUpdate);
     }
     
     @Override @Beta
     public Map<RegisteredType,Collection<Throwable>> validateTypes(Iterable<RegisteredType> typesToValidate) {
         List<RegisteredType> typesRemainingToValidate = MutableList.copyOf(typesToValidate);
         while (true) {
+            log.debug("Catalog load, starting validation cycle, "+typesRemainingToValidate.size()+" to validate");
             Map<RegisteredType,Collection<Throwable>> result = MutableMap.of();
-            for (RegisteredType t: typesToValidate) {
-                Collection<Throwable> tr = validateType(t);
+            for (RegisteredType t: typesRemainingToValidate) {
+                Collection<Throwable> tr = validateType(t, null);
                 if (!tr.isEmpty()) {
                     result.put(t, tr);
                 }
             }
+            log.debug("Catalog load, finished validation cycle, "+typesRemainingToValidate.size()+" unvalidated");
             if (result.isEmpty() || result.size()==typesRemainingToValidate.size()) {
                 return result;
             }
@@ -1464,8 +1495,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
     
     @Override @Beta
-    public Collection<Throwable> validateType(RegisteredType typeToValidate) {
-        ReferenceWithError<RegisteredType> result = resolve(typeToValidate);
+    public Collection<Throwable> validateType(RegisteredType typeToValidate, RegisteredTypeLoadingContext constraint) {
+        ReferenceWithError<RegisteredType> result = resolve(typeToValidate, constraint);
         if (result.hasError()) {
             if (RegisteredTypes.isTemplate(typeToValidate)) {
                 // ignore for templates
@@ -1487,7 +1518,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
      * a type in an "unresolved" state if things may need to reference it, then call resolve here,
      * then replace what was added with the argument given here. */
     @Beta
-    public ReferenceWithError<RegisteredType> resolve(RegisteredType typeToValidate) {
+    public ReferenceWithError<RegisteredType> resolve(RegisteredType typeToValidate, RegisteredTypeLoadingContext constraint) {
         Throwable inconsistentSuperTypesError=null, specError=null, beanError=null;
         List<Throwable> guesserErrors = MutableList.of();
         
@@ -1525,7 +1556,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // try spec instantiation if we know the BO Type (no point otherwise)
             resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, typeToValidate);
             try {
-                resultO = ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).createSpec(resultT, null, boType.getSpecType());
+                resultO = ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).createSpec(resultT, constraint, boType.getSpecType());
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 specError = e;
@@ -1540,7 +1571,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // try it as a bean
             resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.BEAN, typeToValidate);
             try {
-                resultO = ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).createBean(resultT, null, superJ);
+                resultO = ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).createBean(resultT, constraint, superJ);
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 beanError = e;
@@ -1551,10 +1582,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // ignore if we couldn't resolve as spec
         }
         
-        if (resultO==null) try {
+        if (resultO==null && (constraint==null || constraint.getAlreadyEncounteredTypes().isEmpty())) try {
             // try the legacy PlanInterpreterGuessingType
             // (this is the only place where we will guess specs, so it handles 
-            // most of our traditional catalog items in BOMs)
+            // most of our traditional catalog items in BOMs);
+            // but do not allow this to run if we are expanding a nested definition as that may fail to find recursive loops
+            // (the legacy routines this uses don't support that type of context)
             String yaml = RegisteredTypes.getImplementationDataStringForSpec(typeToValidate);
             PlanInterpreterGuessingType guesser = new PlanInterpreterGuessingType(typeToValidate.getSymbolicName(), Iterables.getOnlyElement( Yamls.parseAll(yaml) ), 
                 yaml, null, CatalogItemDtoAbstract.parseLibraries( typeToValidate.getLibraries() ), null);
@@ -1592,7 +1625,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 
                 if (changedSomething) {
                     // try again with new plan or supertype info
-                    return resolve(resultT);
+                    return resolve(resultT, constraint);
                     
                 } else if (Objects.equal(boType, BrooklynObjectType.of(ciType))) {
                     if (specError==null) {
@@ -1616,7 +1649,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (resultO!=null && resultT!=null) {
             if (resultO instanceof BrooklynObject) {
                 // if it was a bean that points at a BO then switch it to a spec and try to re-validate
-                return resolve(RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, typeToValidate));
+                return resolve(RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, typeToValidate), constraint);
             }
             RegisteredTypes.cacheActualJavaType(resultT, resultO.getClass());
             

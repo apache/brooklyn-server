@@ -31,7 +31,7 @@ public class ReferencedYamlOsgiTest extends ReferencedYamlTest {
     
     @Override
     protected void addCatalogItems(String catalogYaml) {
-        addCatalogItemsAsOsgi(mgmt(), catalogYaml, VersionedName.fromString("sample-bundle:0-SNAPSHOT"), isForceUpdate());
+        addCatalogItemsAsOsgiWithoutStartingBundles(mgmt(), catalogYaml, VersionedName.fromString("sample-bundle:0-SNAPSHOT"), isForceUpdate());
     }
     
     // these are not broken with OSGi

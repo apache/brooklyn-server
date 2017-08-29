@@ -43,6 +43,7 @@ public class CatalogItemSummary implements HasId, HasName, Serializable {
     private final String id;
     private final String symbolicName;
     private final String version;
+    private final String containingBundle;
 
     //needed for backwards compatibility only (json serializer works on fields, not getters)
     @Deprecated
@@ -67,6 +68,7 @@ public class CatalogItemSummary implements HasId, HasName, Serializable {
     public CatalogItemSummary(
             @JsonProperty("symbolicName") String symbolicName,
             @JsonProperty("version") String version,
+            @JsonProperty("containingBundle") String containingBundle,
             @JsonProperty("name") String displayName,
             @JsonProperty("javaType") String javaType,
             @JsonProperty("itemType") String itemType,
@@ -81,6 +83,7 @@ public class CatalogItemSummary implements HasId, HasName, Serializable {
         this.symbolicName = symbolicName;
         this.type = symbolicName;
         this.version = version;
+        this.containingBundle = containingBundle;
         this.name = displayName;
         this.javaType = javaType;
         this.itemType = itemType;
@@ -105,6 +108,10 @@ public class CatalogItemSummary implements HasId, HasName, Serializable {
         return version;
     }
 
+    public String getContainingBundle() {
+        return containingBundle;
+    }
+    
     public String getJavaType() {
         return javaType;
     }
@@ -155,6 +162,7 @@ public class CatalogItemSummary implements HasId, HasName, Serializable {
                 Objects.equals(id, that.id) &&
                 Objects.equals(symbolicName, that.symbolicName) &&
                 Objects.equals(version, that.version) &&
+                Objects.equals(containingBundle, that.containingBundle) &&
                 Objects.equals(type, that.type) &&
                 Objects.equals(itemType, that.itemType) &&
                 Objects.equals(javaType, that.javaType) &&
@@ -168,7 +176,7 @@ public class CatalogItemSummary implements HasId, HasName, Serializable {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, symbolicName, version, type, javaType, itemType, name, description, iconUrl, planYaml, tags, deprecated, links);
+        return Objects.hash(id, symbolicName, version, containingBundle, type, javaType, itemType, name, description, iconUrl, planYaml, tags, deprecated, links);
     }
 
     @Override
@@ -177,6 +185,7 @@ public class CatalogItemSummary implements HasId, HasName, Serializable {
                 "id='" + id + '\'' +
                 ", symbolicName='" + symbolicName + '\'' +
                 ", version='" + version + '\'' +
+                ", containingBundle='" + containingBundle + '\'' +
                 ", type='" + type + '\'' +
                 ", javaType='" + javaType + '\'' +
                 ", itemType='" + itemType + '\'' +

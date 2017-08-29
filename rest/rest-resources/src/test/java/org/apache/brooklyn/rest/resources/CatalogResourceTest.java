@@ -188,7 +188,6 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     }
 
     @Test
-    // osgi may fail in IDE, typically works on mvn CLI though
     public void testRegisterOsgiPolicyTopLevelSyntax() {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
 
@@ -222,6 +221,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     public void testListAllEntities() {
         List<CatalogEntitySummary> entities = client().path("/catalog/entities")
                 .get(new GenericType<List<CatalogEntitySummary>>() {});
+        log.info("Entities: "+entities);
         assertTrue(entities.size() > 0);
     }
 
@@ -237,9 +237,8 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     public void testFilterListOfEntitiesByName() {
         List<CatalogEntitySummary> entities = client().path("/catalog/entities")
                 .query("fragment", "vaNIllasOFTWAREpROCESS").get(new GenericType<List<CatalogEntitySummary>>() {});
+        log.info("Matching entities: " + entities);
         assertEquals(entities.size(), 1);
-
-        log.info("MAtching entities are: " + entities);
 
         List<CatalogEntitySummary> entities2 = client().path("/catalog/entities")
                 .query("regex", "[Vv]an.[alS]+oftware\\w+").get(new GenericType<List<CatalogEntitySummary>>() {});

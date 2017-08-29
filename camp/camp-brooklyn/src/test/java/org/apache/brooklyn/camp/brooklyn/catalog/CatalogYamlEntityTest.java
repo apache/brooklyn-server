@@ -23,11 +23,14 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import java.util.List;
+
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.config.ConfigKey;
@@ -40,6 +43,7 @@ import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -50,6 +54,8 @@ import com.google.common.collect.Iterables;
 
 public class CatalogYamlEntityTest extends AbstractYamlTest {
 
+    protected static final String TEST_VERSION_SNAPSHOT = TEST_VERSION + "-SNAPSHOT";
+    
     @Test
     public void testAddCatalogItemVerySimple() throws Exception {
         String symbolicName = "my.catalog.app.id.load";
@@ -668,6 +674,68 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         deleteCatalogEntity(symbolicNameOuter);
     }
 
+    @Test
+    public void testReplacementFailureLeavesPreviousNamedBundleIntact() throws Exception {
+        doTestReplacementFailureLeavesPreviousIntact(true);
+    }
+    
+    @Test
+    public void testReplacementFailureLeavesPreviousItemFromAnonymousBundleIntact() throws Exception {
+        // for anonymous bundles we have to look at what items from other bundles might have been replaced
+        doTestReplacementFailureLeavesPreviousIntact(false);
+    }
+    
+    protected void doTestReplacementFailureLeavesPreviousIntact(boolean includeBundleName) throws Exception {
+        String symbolicName = "my.catalog.app.id.load";
+        List<String> lines = MutableList.of(
+            "brooklyn.catalog:",
+            "  bundle: testing-replacement",
+            "  version: 0.1-SNAPSHOT",
+            "  items:",
+            "  - ",
+            "    id: " + symbolicName,
+            "    version: " + TEST_VERSION_SNAPSHOT,
+            "    item: " + BasicEntity.class.getName());
+        if (!includeBundleName) {
+            lines.remove(1); lines.remove(1);
+        }
+        addCatalogItems(lines);
+
+        RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION_SNAPSHOT);
+        Assert.assertNotNull(item);
+        assertEquals(item.getKind(), RegisteredTypeKind.SPEC);
+        assertEquals(item.getSymbolicName(), symbolicName);
+
+        try {
+            lines = MutableList.of(
+                "brooklyn.catalog:",
+                "  bundle: testing-replacement",
+                "  version: 0.1-SNAPSHOT",
+                "  items:",
+                "  - ",
+                "    id: " + symbolicName,
+                "    version: " + TEST_VERSION_SNAPSHOT,
+                "    item: " + "DeliberatelyMissing");
+            if (!includeBundleName) {
+                lines.remove(1); lines.remove(1);
+            }
+            addCatalogItems(lines);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "DeliberatelyMissing", symbolicName);
+        }
+
+        RegisteredType item2 = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION_SNAPSHOT);
+        Assert.assertNotNull(item2, "Type was removed when broken item was added");
+        assertEquals(item2.getSymbolicName(), symbolicName);
+        assertEquals(item2.getKind(), RegisteredTypeKind.SPEC, "Type was replaced by broken item");
+        assertEquals(item2, item);
+
+        deleteCatalogEntity(symbolicName, TEST_VERSION_SNAPSHOT);
+        RegisteredType item3 = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION_SNAPSHOT);
+        Assert.assertNull(item3, "Type should have been deleted");
+    }
+    
     private void registerAndLaunchAndAssertSimpleEntity(String symbolicName, String serviceType) throws Exception {
         registerAndLaunchAndAssertSimpleEntity(symbolicName, serviceType, serviceType);
     }

@@ -37,6 +37,7 @@ public class CatalogEnricherSummary extends CatalogItemSummary {
     public CatalogEnricherSummary(
             @JsonProperty("symbolicName") String symbolicName,
             @JsonProperty("version") String version,
+            @JsonProperty("containingBundle") String containingBundle,
             @JsonProperty("name") String name,
             @JsonProperty("javaType") String javaType,
             @JsonProperty("itemType") String itemType,
@@ -48,7 +49,7 @@ public class CatalogEnricherSummary extends CatalogItemSummary {
             @JsonProperty("deprecated") boolean deprecated,
             @JsonProperty("links") Map<String, URI> links
         ) {
-        super(symbolicName, version, name, javaType, itemType, planYaml, description, iconUrl, tags, deprecated, links);
+        super(symbolicName, version, containingBundle, name, javaType, itemType, planYaml, description, iconUrl, tags, deprecated, links);
         // TODO expose config from enrichers
         this.config = (config == null) ? ImmutableSet.<EnricherConfigSummary>of() : config;
     }
