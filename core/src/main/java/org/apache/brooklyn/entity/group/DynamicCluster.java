@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.entity.group;
 
+import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKey;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -174,6 +176,14 @@ public interface DynamicCluster extends AbstractGroup, Cluster, MemberReplaceabl
     @SetFromFlag("clusterMemberId")
     ConfigKey<Integer> CLUSTER_MEMBER_ID = ConfigKeys.newIntegerConfigKey(
             "cluster.member.id", "The unique ID number (sequential) of a member of a cluster");
+
+    ConfigKey<Duration> START_TIMEOUT = newConfigKey(
+            Duration.class,
+            "start.timeout", 
+            "Time to wait (after members' start() effectors return) for SERVICE_UP before failing (default is not to wait)",
+            null);
+
+    ConfigKey<Integer> MAX_SIZE = ConfigKeys.newIntegerConfigKey("cluster.max.size", "Size after which it will throw InsufficientCapacityException", Integer.MAX_VALUE);
 
     @Beta
     @SetFromFlag("maxConcurrentChildCommands")

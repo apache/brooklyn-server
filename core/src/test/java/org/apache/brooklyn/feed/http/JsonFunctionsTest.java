@@ -44,6 +44,19 @@ public class JsonFunctionsTest {
     }
 
     @Test
+    public void testAsJson() {
+        JsonElement jsonElement = europeMap();
+        String jsonString = jsonElement.toString();
+        JsonElement result = JsonFunctions.asJson().apply(jsonString);
+        Assert.assertEquals(result.toString(), jsonString);
+    }
+
+    @Test
+    public void testAsJsonWithNullReturnsNull() {
+        Assert.assertNull(JsonFunctions.asJson().apply(null));
+    }
+
+    @Test
     public void testWalk1() {
         JsonElement pop = JsonFunctions.walk("europe", "france", "population").apply(europeMap());
         Assert.assertEquals( (int)JsonFunctions.cast(Integer.class).apply(pop), 80*1000*1000 );
@@ -118,6 +131,26 @@ public class JsonFunctionsTest {
     public void testGetPath2(){
         String obj = (String) JsonFunctions.getPath("$.europe.uk.edinburgh.lighting").apply(europeMap());
         Assert.assertEquals(obj, "dark");
+    }
+
+    @Test
+    public void testGetPathWithNullReturnsNull(){
+        Integer obj = (Integer) JsonFunctions.getPath("$.europe.uk.edinburgh.population").apply(null);
+        Assert.assertNull(obj);
+    }
+
+    @Test
+    public void testGetPathSizeOfMap(){
+        JsonElement json = JsonFunctions.asJson().apply("{\"mymap\": {\"k1\": \"v1\", \"k2\": \"v2\"}}");
+        Integer obj = (Integer) JsonFunctions.getPath("$.mymap.size()").apply(json);
+        Assert.assertEquals(obj, (Integer)2);
+    }
+
+    @Test
+    public void testGetPathSizeOfList(){
+        JsonElement json = JsonFunctions.asJson().apply("{\"mylist\": [\"a\", \"b\", \"c\"]}");
+        Integer obj = (Integer) JsonFunctions.getPath("$.mylist.size()").apply(json);
+        Assert.assertEquals(obj, (Integer)3);
     }
 
     @Test

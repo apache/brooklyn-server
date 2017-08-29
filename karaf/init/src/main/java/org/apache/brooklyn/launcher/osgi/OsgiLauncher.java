@@ -15,6 +15,7 @@
  */
 package org.apache.brooklyn.launcher.osgi;
 
+import com.google.common.base.Stopwatch;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.core.BrooklynVersionService;
@@ -48,7 +49,7 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
 
     private static final Logger LOG = LoggerFactory.getLogger(OsgiLauncher.class);
     public static final String BROOKLYN_CONFIG_PID = "brooklyn";
-    
+
     private Object reloadLock = new Object();
 
     private BrooklynVersionService brooklynVersion;
@@ -97,10 +98,13 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
     // init-method can't find the start method for some reason, provide an alternative
     public void init() {
         synchronized (reloadLock) {
+            final Stopwatch startupTimer = Stopwatch.createStarted();
             BrooklynShutdownHooks.resetShutdownFlag();
             LOG.debug("OsgiLauncher init");
             catalogInitialization(new CatalogInitialization(String.format("file:%s", defaultCatalogLocation), false, null, false));
             start();
+            startupTimer.stop();
+            LOG.info("Brooklyn initialisation complete after {}", startupTimer.toString());
         }
     }
 
@@ -144,7 +148,7 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
     }
 
 
-    public void setBrooklynProperties(BrooklynProperties brooklynProperties){
+    public void setBrooklynProperties(BrooklynProperties brooklynProperties) {
         brooklynProperties(brooklynProperties);
     }
 

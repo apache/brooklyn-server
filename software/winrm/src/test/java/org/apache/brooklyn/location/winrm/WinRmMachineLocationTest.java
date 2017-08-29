@@ -34,7 +34,7 @@ public class WinRmMachineLocationTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testConfigurePrivateAddresses() throws Exception {
         WinRmMachineLocation host = mgmt.getLocationManager().createLocation(LocationSpec.create(WinRmMachineLocation.class)
-                .configure("address", Networking.getLocalHost())
+                .configure("address", Networking.getReachableLocalHost())
                 .configure(WinRmMachineLocation.PRIVATE_ADDRESSES, ImmutableList.of("1.2.3.4"))
                 .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true));
 

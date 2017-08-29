@@ -196,7 +196,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testConfigurePrivateAddresses() throws Exception {
         SshMachineLocation host2 = mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
-                .configure("address", Networking.getLocalHost())
+                .configure("address", Networking.getReachableLocalHost())
                 .configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableList.of("1.2.3.4"))
                 .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true));
 
@@ -211,7 +211,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testGetMachineIsInessentialOnFailure() throws Exception {
         SshMachineLocation host2 = mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
-                .configure("address", Networking.getLocalHost())
+                .configure("address", Networking.getReachableLocalHost())
                 .configure(SshMachineLocation.SSH_TOOL_CLASS, FailingSshTool.class.getName()));
 
         final Effector<MachineDetails> GET_MACHINE_DETAILS = Effectors.effector(MachineDetails.class, "getMachineDetails")
@@ -314,7 +314,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
     
     @Test
     public void testObtainPortDoesNotUsePreReservedPorts() {
-        host = new SshMachineLocation(MutableMap.of("address", Networking.getLocalHost(), "usedPorts", ImmutableSet.of(8000)));
+        host = new SshMachineLocation(MutableMap.of("address", Networking.getReachableLocalHost(), "usedPorts", ImmutableSet.of(8000)));
         assertEquals(host.obtainPort(PortRanges.fromString("8000")), -1);
         assertEquals(host.obtainPort(PortRanges.fromString("8000+")), 8001);
     }

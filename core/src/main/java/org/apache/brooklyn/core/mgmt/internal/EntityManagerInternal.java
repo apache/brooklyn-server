@@ -20,7 +20,11 @@ package org.apache.brooklyn.core.mgmt.internal;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.EntityManager;
+
+import com.google.common.annotations.Beta;
+import com.google.common.base.Optional;
 
 public interface EntityManagerInternal extends EntityManager, BrooklynObjectManagerInternal<Entity> {
 
@@ -29,4 +33,10 @@ public interface EntityManagerInternal extends EntityManager, BrooklynObjectMana
 
     public Iterable<String> getEntityIds();
     
+    /**
+     * Same as {@link #createEntity(EntitySpec)}, but takes an optional entity id that will be 
+     * used for the entity.
+     */
+    @Beta
+    <T extends Entity> T createEntity(EntitySpec<T> spec, Optional<String> entityId);
 }

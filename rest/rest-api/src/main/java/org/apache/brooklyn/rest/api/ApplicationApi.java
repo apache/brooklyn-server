@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.rest.api;
 
-import io.swagger.annotations.Api;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +27,7 @@ import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -35,15 +35,17 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import org.apache.brooklyn.rest.domain.ApplicationSpec;
 import org.apache.brooklyn.rest.domain.ApplicationSummary;
-import org.apache.brooklyn.rest.domain.EntitySummary;
 import org.apache.brooklyn.rest.domain.EntityDetail;
+import org.apache.brooklyn.rest.domain.EntitySummary;
 
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
+import com.google.common.annotations.Beta;
+
+import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
 
 @Path("/applications")
 @Api("Applications")
@@ -102,7 +104,6 @@ public interface ApplicationApi {
     )
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Undefined entity or location"),
-            @ApiResponse(code = 412, message = "Application already registered")
     })
     public Response createFromYaml(
             @ApiParam(
@@ -111,6 +112,24 @@ public interface ApplicationApi {
                     required = true)
             String yaml);
 
+    @Beta
+    @PUT
+    @Path("/{application}")
+    @Consumes({"application/x-yaml",
+            // see http://stackoverflow.com/questions/332129/yaml-mime-type
+            "text/yaml", "text/x-yaml", "application/yaml"})
+    @ApiOperation(
+            value = "[BETA] Create and start a new application from YAML, with the given id",
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Undefined entity or location"),
+            @ApiResponse(code = 409, message = "Application already registered")
+    })
+    public Response createFromYamlWithAppId(
+            @ApiParam(name = "applicationSpec", value = "App spec in CAMP YAML format", required = true) String yaml,
+            @ApiParam(name = "application", value = "Application id", required = true) @PathParam("application") String appId);
+
     @POST
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})
     @ApiOperation(
@@ -118,8 +137,7 @@ public interface ApplicationApi {
             response = org.apache.brooklyn.rest.domain.TaskSummary.class
     )
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Undefined entity or location"),
-            @ApiResponse(code = 412, message = "Application already registered")
+            @ApiResponse(code = 404, message = "Undefined entity or location")
     })
     public Response createPoly(
             @ApiParam(
@@ -135,8 +153,7 @@ public interface ApplicationApi {
             response = org.apache.brooklyn.rest.domain.TaskSummary.class
     )
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Undefined entity or location"),
-            @ApiResponse(code = 412, message = "Application already registered")
+            @ApiResponse(code = 404, message = "Undefined entity or location")
     })
     public Response createFromForm(
             @ApiParam(

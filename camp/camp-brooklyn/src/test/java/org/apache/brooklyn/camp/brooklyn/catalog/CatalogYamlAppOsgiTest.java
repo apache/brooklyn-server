@@ -28,4 +28,11 @@ public class CatalogYamlAppOsgiTest extends CatalogYamlAppTest {
     protected boolean disableOsgi() {
         return false;
     }
+
+    @Override @Test // here so we can easily test from IDE
+    // currently works in parent but fails here because we don't treat unresolved (template with forward ref) 
+    // as an acceptable type that can be referenced in a blueprint
+    public void testAddTemplateForwardReferenceToEntity() throws Exception {
+        super.testAddTemplateForwardReferenceToEntity();
+    }
 }

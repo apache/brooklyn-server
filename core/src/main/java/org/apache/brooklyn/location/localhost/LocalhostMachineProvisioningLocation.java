@@ -177,7 +177,7 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
         for (int i=0; i<size; i++) {
             Map<Object,Object> flags2 = MutableMap.<Object,Object>builder()
                     .putAll(flags)
-                    .put("address", elvis(address, Networking.getLocalHost()))
+                    .put("address", elvis(address, getLocalhostInetAddress()))
                     .build();
             
             // copy inherited keys for ssh; 
@@ -198,12 +198,15 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
        }
     }
 
-    public static synchronized boolean obtainSpecificPort(InetAddress localAddress, int portNumber) {
+    public static boolean obtainSpecificPort(InetAddress localAddress, int portNumber) {
+        return obtainSpecificPort(localAddress, portNumber, false);
+    }
+    public static synchronized boolean obtainSpecificPort(InetAddress localAddress, int portNumber, Boolean reuseAddr) {
         if (portsInUse.contains(portNumber)) {
             return false;
         } else {
             //see if it is available?
-            if (!checkPortAvailable(localAddress, portNumber)) {
+            if (!checkPortAvailable(localAddress, portNumber, reuseAddr)) {
                 return false;
             }
             portsInUse.add(portNumber);
@@ -212,18 +215,27 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
     }
     /** checks the actual availability of the port on localhost, ie by binding to it; cf {@link Networking#isPortAvailable(int)} */
     public static boolean checkPortAvailable(InetAddress localAddress, int portNumber) {
+        return checkPortAvailable(localAddress, portNumber, false);
+    }
+    public static boolean checkPortAvailable(InetAddress localAddress, int portNumber, Boolean reuseAddr) {
         if (portNumber<1024) {
             if (LOG.isDebugEnabled()) LOG.debug("Skipping system availability check for privileged localhost port "+portNumber);
             return true;
         }
-        return Networking.isPortAvailable(localAddress, portNumber);
+        return Networking.isPortAvailable(localAddress, portNumber, reuseAddr);
     }
     public static int obtainPort(PortRange range) {
-        return obtainPort(getLocalhostInetAddress(), range);
+        return obtainPort(range, false);
+    }
+    public static int obtainPort(PortRange range, Boolean reuseAddr) {    
+        return obtainPort(getLocalhostInetAddress(), range, reuseAddr);
     }
     public static int obtainPort(InetAddress localAddress, PortRange range) {
+        return obtainPort(localAddress, range, false);
+    }
+    public static int obtainPort(InetAddress localAddress, PortRange range, Boolean reuseAddr) {
         for (int p: range)
-            if (obtainSpecificPort(localAddress, p)) return p;
+            if (obtainSpecificPort(localAddress, p, reuseAddr)) return p;
         if (LOG.isDebugEnabled()) LOG.debug("unable to find port in {} on {}; returning -1", range, localAddress);
         return -1;
     }
@@ -309,17 +321,17 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
         @Override
         public LocalhostMachine configure(Map<?,?> properties) {
             if (address==null || !properties.containsKey("address"))
-                address = Networking.getLocalHost();
+                address = getLocalhostInetAddress();
             super.configure(properties);
             return this;
         }
         @Override
         public String getSubnetHostname() {
-           return Networking.getLocalHost().getHostName();
+           return Networking.getReachableLocalHost().getHostName();
         }
         @Override
         public String getSubnetIp() {
-            return Networking.getLocalHost().getHostAddress();
+            return Networking.getReachableLocalHost().getHostAddress();
         }
     }
 

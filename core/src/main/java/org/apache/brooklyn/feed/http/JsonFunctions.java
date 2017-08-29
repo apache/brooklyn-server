@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.feed.http;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -170,7 +172,7 @@ public class JsonFunctions {
 
     protected static class AsJson implements Function<String, JsonElement> {
         @Override public JsonElement apply(String input) {
-            return new JsonParser().parse(input);
+            return (input != null) ? new JsonParser().parse(input) : null;
         }
     }
 
@@ -309,10 +311,11 @@ public class JsonFunctions {
         private final String path;
 
         public GetPath(String path) {
-            this.path = path;
+            this.path = checkNotNull(path, "path");
         }
         @SuppressWarnings("unchecked")
         @Override public T apply(JsonElement input) {
+            if (input == null) return null;
             String jsonString = input.toString();
             Object rawElement = JsonPath.read(jsonString, path);
             return (T) rawElement;

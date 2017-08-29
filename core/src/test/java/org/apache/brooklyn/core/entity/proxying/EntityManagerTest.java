@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.entity.proxying;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 import java.util.ConcurrentModificationException;
@@ -30,9 +31,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
+import org.apache.brooklyn.core.mgmt.internal.IdAlreadyExistsException;
 import org.apache.brooklyn.core.mgmt.internal.LocalEntityManager;
 import org.apache.brooklyn.core.objs.proxy.EntityProxy;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
@@ -47,6 +51,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -112,6 +117,24 @@ public class EntityManagerTest extends BrooklynAppUnitTestSupport {
         Asserts.assertEqualsIgnoringOrder(entityManager.getEntities(), ImmutableList.of(app, entity, child, app2));
         Asserts.assertEqualsIgnoringOrder(entityManager.findEntities(Predicates.instanceOf(TestApplication.class)), ImmutableList.of(app, app2));
         Asserts.assertEqualsIgnoringOrder(entityManager.findEntitiesInApplication(app, Predicates.instanceOf(TestApplication.class)), ImmutableList.of(app));
+    }
+    
+    @Test
+    public void testCreateEntitiesWithDuplicateIdFails() {
+        TestApplication origApp = app;
+        Entity origDeproxiedApp = Entities.deproxy(app);
+        
+        try {
+            TestApplication app2 = ((EntityManagerInternal)entityManager).createEntity(EntitySpec.create(TestApplication.class), Optional.of(app.getId()));
+            Asserts.shouldHaveFailedPreviously("app2="+app2);
+        } catch (IdAlreadyExistsException e) {
+            // success
+        }
+        
+        // Should not have affected the existing app!
+        Entity postApp = entityManager.getEntity(app.getId());
+        assertSame(postApp, origApp);
+        assertSame(Entities.deproxy(postApp), origDeproxiedApp);
     }
     
     // See https://issues.apache.org/jira/browse/BROOKLYN-352

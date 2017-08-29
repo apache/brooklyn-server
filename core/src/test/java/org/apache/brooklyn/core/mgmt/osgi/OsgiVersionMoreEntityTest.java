@@ -62,6 +62,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -117,7 +118,7 @@ public class OsgiVersionMoreEntityTest implements OsgiTestResources {
 
             @SuppressWarnings("unchecked")
             EntitySpec<Entity> spec = (((EntitySpec<Entity>)EntitySpec.create(bundleInterface))).impl(bundleCls);
-            AbstractEntity entityImpl = (AbstractEntity) factory.createEntity(spec);
+            AbstractEntity entityImpl = (AbstractEntity) factory.createEntity(spec, Optional.absent());
             Entity entityProxy = factory.createEntityProxy(spec, entityImpl);
             
             assertTrue(entityProxy instanceof EntityProxy, "proxy="+entityProxy);

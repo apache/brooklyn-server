@@ -18,9 +18,9 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import static org.apache.brooklyn.camp.brooklyn.JcloudsCustomizerInstantiationYamlDslTest
+    .RecordingLocationCustomizer.findTemplateOptionsInCustomizerArgs;
 import static org.testng.Assert.assertEquals;
-
-import java.util.NoSuchElementException;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
@@ -30,7 +30,6 @@ import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.entity.machine.MachineEntity;
-import org.jclouds.compute.options.TemplateOptions;
 import org.jclouds.googlecomputeengine.compute.options.GoogleComputeEngineTemplateOptions;
 import org.jclouds.googlecomputeengine.domain.Instance.ServiceAccount;
 import org.testng.annotations.AfterMethod;
@@ -38,11 +37,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 
 /**
  * Tests that jcouds TemplateOptions are constructed properly from yaml blueprints.
@@ -96,23 +92,17 @@ public class JcloudsTemplateOptionsYamlTest extends AbstractJcloudsStubYamlTest 
                 "          object.fields:",
                 "            enabled: $brooklyn:config(\"enabled\")");
 
-        EntitySpec<?> spec = managementContext.getTypeRegistry().createSpecFromPlan(CampTypePlanTransformer.FORMAT, yaml, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
+        EntitySpec<?> spec = managementContext.getTypeRegistry().createSpecFromPlan(
+            CampTypePlanTransformer.FORMAT, yaml,
+            RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
         Entity app = managementContext.getEntityManager().createEntity(spec);
 
         app.invoke(Startable.START, ImmutableMap.<String, Object>of()).get();
 
-        GoogleComputeEngineTemplateOptions options = (GoogleComputeEngineTemplateOptions) findTemplateOptionsInCustomizerArgs();
+        GoogleComputeEngineTemplateOptions options =
+            (GoogleComputeEngineTemplateOptions) findTemplateOptionsInCustomizerArgs();
         assertEquals(options.serviceAccounts(), ImmutableList.of(
                 ServiceAccount.create("myemail", ImmutableList.of("myscope1", "myscope2"))));
     }
-    
-    private TemplateOptions findTemplateOptionsInCustomizerArgs() {
-        for (RecordingLocationCustomizer.CallParams call : RecordingLocationCustomizer.calls) {
-            Optional<?> templateOptions = Iterables.tryFind(call.args, Predicates.instanceOf(TemplateOptions.class));
-            if (templateOptions.isPresent()) {
-                return (TemplateOptions) templateOptions.get();
-            }
-        }
-        throw new NoSuchElementException();
-    }
+
 }

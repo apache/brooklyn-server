@@ -19,6 +19,7 @@
 package org.apache.brooklyn.util.collections;
 
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
@@ -112,7 +113,9 @@ public interface QuorumCheck {
          */
         @SuppressWarnings({ "rawtypes", "unchecked" })
         public static QuorumCheck newLinearRange(String range, String name) {
-            return LinearRangeQuorumCheck.of(name, (Iterable)Iterables.getOnlyElement( Yamls.parseAll(range) ));
+            Object input = Iterables.getOnlyElement( Yamls.parseAll(range) );
+            if (input instanceof Iterable) return LinearRangeQuorumCheck.of(name, (Iterable)input);
+            throw new IllegalArgumentException("Invalid input to linear range quorum check; should be a list of points (not '"+range+"')");
         }
         
         private static final List<QuorumCheck> NAMED_CHECKS = MutableList
@@ -126,7 +129,21 @@ public interface QuorumCheck {
                         return qc;
                 }
             }
-            return newLinearRange(nameOrRange);
+            // parse YAML
+            Object input = Iterables.getOnlyElement( Yamls.parseAll(nameOrRange) );
+            if (input instanceof Collection) return of((Collection<?>)input);
+            if (input instanceof Integer || input instanceof Long) return of((int)((Number)input));
+            // TODO also accept "50%", and "50%,1"
+            throw new IllegalArgumentException("Unknown quorum check format '"+input+"'");
+        }
+        
+        @SuppressWarnings({ "unchecked", "rawtypes" })
+        public static QuorumCheck of(Collection<?> pointsForLinearRange) {
+            return LinearRangeQuorumCheck.of(null, (Iterable)pointsForLinearRange);
+        }
+        
+        public static QuorumCheck of(Integer constant) {
+            return newInstance(constant, 0.0, constant>0);
         }
     }
     

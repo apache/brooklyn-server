@@ -40,6 +40,7 @@ import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityFunctions;
 import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -51,6 +52,8 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -80,7 +83,15 @@ public class EntityManagementUtils {
 
     /** creates an application from the given app spec, managed by the given management context */
     public static <T extends Application> T createUnstarted(ManagementContext mgmt, EntitySpec<T> spec) {
-        T app = mgmt.getEntityManager().createEntity(spec);
+        return createUnstarted(mgmt, spec, Optional.absent());
+    }
+
+    /**
+     * As {@link #createUnstarted(ManagementContext, EntitySpec)}, but uses the given entity id (if present).
+     */
+    @Beta
+    public static <T extends Application> T createUnstarted(ManagementContext mgmt, EntitySpec<T> spec, Optional<String> entityId) {
+        T app = ((EntityManagerInternal)mgmt.getEntityManager()).createEntity(spec, entityId);
         return app;
     }
 

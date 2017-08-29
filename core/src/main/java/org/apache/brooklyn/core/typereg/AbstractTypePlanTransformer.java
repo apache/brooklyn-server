@@ -113,8 +113,23 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
                         return createBean(type, context);
                     } catch (Exception e) { throw Exceptions.propagate(e); }
                 }
-                @Override protected Object visitUnresolved() { 
-                    throw new IllegalStateException(type+" is not yet resolved");
+                @Override protected Object visitUnresolved() {
+                    try {
+                        // don't think there are valid times when this comes here?
+                        // currently should only used for "templates" which are always for specs,
+                        // but callers of that shouldn't be talking to type plan transformers,
+                        // they should be calling to main BBTR methods.
+                        // do it and alert just in case however.
+                        // TODO remove if we don't see any warnings (or when we sort out semantics for template v app v allowed-unresolved better)
+                        log.debug("Request for "+this+" to validate UNRESOLVED kind "+type+"; trying as spec");
+                        Object result = visitSpec();
+                        log.warn("Request to use "+this+" from UNRESOLVED state succeeded treating is as a spec");
+                        log.debug("Trace for request to use "+this+" in UNRESOLVED state succeeding", new Throwable("Location of request to use "+this+" in UNRESOLVED state"));
+                        return result;
+                    } catch (Exception e) {
+                        Exceptions.propagateIfFatal(e);
+                        throw new IllegalStateException(type+" is in registry but its definition cannot be resolved", e);
+                    }
                 }
             }.visit(type.getKind()), type, context).get();
         } catch (Exception e) {

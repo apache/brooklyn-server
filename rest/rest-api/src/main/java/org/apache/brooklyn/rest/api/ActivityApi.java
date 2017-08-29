@@ -61,11 +61,25 @@ public interface ActivityApi {
     @GET
     @Path("/{task}/children/recurse")
     @ApiOperation(
-            value = "Fetch all child tasks details as Map<String,TaskSummary> map key == Task ID",
+            value = "Fetch all child tasks and their descendants with details as Map<String,TaskSummary> map key == Task ID",
             response = Map.class)
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Could not find task")
     })
+    public Map<String,TaskSummary> getAllChildrenAsMap(
+            @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId,
+            @ApiParam(value = "Max number of tasks to include, or -1 for all (default 200)", required = false) 
+            @QueryParam("limit") @DefaultValue("200") int limit,
+            @ApiParam(value = "Max depth to traverse, or -1 for all (default)", required = false) 
+            @QueryParam("maxDepth") @DefaultValue("-1") int maxDepth);
+
+    /** @deprecated since 0.12.0 use {@link #getAllChildrenAsMap(String, int, int)} with depth -1 */
+    @GET
+    @Path("/{task}/children/recurse/deprecated")
+    @ApiOperation(
+            value = "Fetch all child tasks details as Map<String,TaskSummary> map key == Task ID",
+            response = Map.class)
+    @Deprecated
     public Map<String,TaskSummary> getAllChildrenAsMap(
             @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId);
 

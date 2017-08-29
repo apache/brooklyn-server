@@ -87,7 +87,7 @@ public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
     @Override
     protected SshMachineLocation newHost() {
         return mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
-                .configure("address", Networking.getLocalHost()));
+                .configure("address", Networking.getReachableLocalHost()));
     }
 
     // Overridden just to make it integration (because `newHost()` returns a real ssh'ing host)
@@ -222,7 +222,7 @@ public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
     // For issue #230
     @Test(groups = "Integration")
     public void testOverridingPropertyOnExec() throws Exception {
-        SshMachineLocation host = new SshMachineLocation(MutableMap.of("address", Networking.getLocalHost(), "sshPrivateKeyData", "wrongdata"));
+        SshMachineLocation host = new SshMachineLocation(MutableMap.of("address", Networking.getReachableLocalHost(), "sshPrivateKeyData", "wrongdata"));
         
         OutputStream outStream = new ByteArrayOutputStream();
         String expectedName = Os.user();
@@ -234,7 +234,7 @@ public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
 
     @Test(groups = "Integration", expectedExceptions={IllegalStateException.class, SshException.class})
     public void testSshRunWithInvalidUserFails() throws Exception {
-        SshMachineLocation badHost = new SshMachineLocation(MutableMap.of("user", "doesnotexist", "address", Networking.getLocalHost()));
+        SshMachineLocation badHost = new SshMachineLocation(MutableMap.of("user", "doesnotexist", "address", Networking.getReachableLocalHost()));
         badHost.execScript("mysummary", ImmutableList.of("whoami; exit"));
     }
     

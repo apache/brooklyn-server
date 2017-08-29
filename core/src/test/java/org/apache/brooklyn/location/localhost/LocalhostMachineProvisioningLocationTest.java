@@ -33,6 +33,7 @@ import org.apache.brooklyn.core.location.geo.HostGeoInfo;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.BrooklynNetworkUtils;
 import org.apache.brooklyn.util.net.Networking;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,7 +77,7 @@ public class LocalhostMachineProvisioningLocationTest extends BrooklynMgmtUnitTe
         LocalhostMachineProvisioningLocation provisioner = mgmt.getLocationManager().createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class));
         SshMachineLocation machine = provisioner.obtain();
         assertNotNull(machine);
-        assertEquals(machine.getAddress(), Networking.getLocalHost());
+        assertEquals(machine.getAddress(), BrooklynNetworkUtils.getLocalhostInetAddress());
     }
 
     @Test
@@ -98,12 +99,12 @@ public class LocalhostMachineProvisioningLocationTest extends BrooklynMgmtUnitTe
         // first machine
         SshMachineLocation first = provisioner.obtain();
         assertNotNull(first);
-        assertEquals(first.getAddress(), Networking.getLocalHost());
+        assertEquals(first.getAddress(), Networking.getReachableLocalHost());
 
         // second machine
         SshMachineLocation second = provisioner.obtain();
         assertNotNull(second);
-        assertEquals(second.getAddress(), Networking.getLocalHost());
+        assertEquals(second.getAddress(), Networking.getReachableLocalHost());
 
         // third machine - fails
         try {

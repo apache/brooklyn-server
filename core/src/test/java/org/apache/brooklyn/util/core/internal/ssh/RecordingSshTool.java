@@ -27,6 +27,7 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
 
@@ -183,6 +184,37 @@ public class RecordingSshTool implements SshTool {
     
     public static void setCustomResponse(String cmdRegex, CustomResponse response) {
         customResponses.put(cmdRegex, checkNotNull(response, "response").toGenerator());
+    }
+    
+    /**
+     * The given response generator will be used the first time the cmdRegex matches, and not again.
+     * (However if concurrent executions are happening, multiple may match and use this generator).
+     * 
+     * An example usage of this is to inject a one-off failure, such as a 'launch' failure where
+     * a retry would resolve the problem.
+     */
+    public static void setCustomOneOffResponse(String cmdRegex, CustomResponseGenerator response) {
+        checkNotNull(response, "response");
+        AtomicReference<CustomResponseGenerator> wrapperRef = new AtomicReference<>();
+        CustomResponseGenerator wrapper = new CustomResponseGenerator() {
+            @Override public CustomResponse generate(ExecParams execParams) throws Exception {
+                try {
+                    return response.generate(execParams);
+                } finally {
+                    customResponses.remove(cmdRegex);
+                }
+            }
+        };
+        wrapperRef.set(wrapper);
+        customResponses.put(cmdRegex, wrapper);
+    }
+    
+    /**
+     * The given response will be used the first time the cmdRegex matches, and not again.
+     * (However if concurrent executions are happening, multiple may match and use this generator).
+     */
+    public static void setCustomOneOffResponse(String cmdRegex, CustomResponse response) {
+        setCustomOneOffResponse(cmdRegex, checkNotNull(response, "response").toGenerator());
     }
     
     public static List<ExecCmd> getExecCmds() {

@@ -257,6 +257,18 @@ public class CommonAdaptorTypeCoercions {
                 return QuorumChecks.of(input);
             }
         });
+        registerAdapter(Integer.class, QuorumCheck.class, new Function<Integer,QuorumCheck>() {
+            @Override
+            public QuorumCheck apply(final Integer input) {
+                return QuorumChecks.of(input);
+            }
+        });
+        registerAdapter(Collection.class, QuorumCheck.class, new Function<Collection,QuorumCheck>() {
+            @Override
+            public QuorumCheck apply(final Collection input) {
+                return QuorumChecks.of(input);
+            }
+        });
         registerAdapter(String.class, TimeZone.class, new Function<String,TimeZone>() {
             @Override
             public TimeZone apply(final String input) {

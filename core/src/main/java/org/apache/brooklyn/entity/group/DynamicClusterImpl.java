@@ -33,6 +33,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.effector.Effector;
@@ -408,13 +409,18 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         try {
             doStart();
             DynamicTasks.waitForLast();
-            ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
-            
         } catch (Exception e) {
             ServiceProblemsLogic.updateProblemsIndicator(this, START, "start failed with error: "+e);
             ServiceStateLogic.setExpectedStateRunningWithErrors(this);
-            
             throw Exceptions.propagate(e);
+        }
+
+        // Don't set problem-indicator if it's just our waitForServiceUp that fails;
+        // we want to be able to recover if the indicator is subsequently cleared.
+        try {
+            waitForServiceUp();
+        } finally {
+            ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
         }
     }
 
@@ -483,6 +489,17 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         for (Policy it : policies()) {
             it.resume();
         }
+    }
+
+    protected void waitForServiceUp() {
+        Duration timeout = getConfig(START_TIMEOUT);
+        if (timeout != null) {
+            waitForServiceUp(timeout);
+        }
+    }
+    
+    protected void waitForServiceUp(Duration duration) {
+        Entities.waitForServiceUp(this, duration);
     }
 
     protected List<Location> findSubLocations(Location loc) {
@@ -578,6 +595,10 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
     @Override
     public Integer resize(Integer desiredSize) {
         synchronized (mutex) {
+            Optional<Integer> optionalMaxSize = Optional.fromNullable(config().get(MAX_SIZE));
+            if (optionalMaxSize.isPresent() && desiredSize > optionalMaxSize.get()) {
+                throw new Resizable.InsufficientCapacityException("Desired cluster size " + desiredSize + " exceeds maximum size of " + optionalMaxSize.get());
+            }
             int originalSize = getCurrentSize();
             int delta = desiredSize - originalSize;
             if (delta != 0) {
@@ -847,7 +868,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
             if (entity instanceof Startable) {
                 // First members are used when subsequent members need some attributes from them
                 // before they start; make sure they're in the first batch.
-                boolean privileged = Boolean.TRUE.equals(entity.sensors().get(AbstractGroup.FIRST_MEMBER));
+                boolean privileged = entity.equals(AbstractGroup.getFirst(this));
                 Map<String, ?> args = ImmutableMap.of("locations", MutableList.builder().addIfNotNull(loc).buildImmutable());
                 Task<?> task = newThrottledEffectorTask(entity, Startable.START, args, privileged);
                 tasks.put(entity, task);

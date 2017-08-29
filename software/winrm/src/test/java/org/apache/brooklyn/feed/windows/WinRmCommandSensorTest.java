@@ -22,18 +22,23 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
 import org.apache.brooklyn.core.sensor.windows.WinRmCommandSensor;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.winrm.RecordingWinRmTool;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -77,5 +82,33 @@ public class WinRmCommandSensorTest extends RebindTestFixtureWithApp {
         
         RecordingWinRmTool.setCustomResponse(".*mycommand.*", new RecordingWinRmTool.CustomResponse(0, "myval2", ""));
         EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor("mysensor"), "myval2");
+    }
+    
+    // "Integration" because takes a second 
+    @Test(groups="Integration")
+    public void testSupressingDuplicates() throws Exception {
+        AttributeSensor<String> mySensor = Sensors.newStringSensor("mysensor");
+        
+        RecordingSensorEventListener<String> listener = new RecordingSensorEventListener<>();
+        app().subscriptions().subscribe(null, mySensor, listener);
+        
+        RecordingWinRmTool.setCustomResponse(".*mycommand.*", new RecordingWinRmTool.CustomResponse(0, "myval", ""));
+        
+        Entity entity = app().createAndManageChild(EntitySpec.create(TestEntity.class)
+                .addInitializer(new WinRmCommandSensor<String>(ConfigBag.newInstance(ImmutableMap.of(
+                        HttpRequestSensor.SUPPRESS_DUPLICATES, true,
+                        WinRmCommandSensor.SENSOR_PERIOD, "1ms",
+                        WinRmCommandSensor.SENSOR_COMMAND, "mycommand",
+                        WinRmCommandSensor.SENSOR_NAME, mySensor.getName())))));
+        
+        app().start(ImmutableList.of(loc));
+
+        EntityAsserts.assertAttributeEqualsEventually(entity, mySensor, "myval");
+        listener.assertHasEventEventually(Predicates.alwaysTrue());
+        
+        Asserts.succeedsContinually(new Runnable() {
+            @Override public void run() {
+                listener.assertEventCount(1);
+            }});
     }
 }

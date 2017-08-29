@@ -142,7 +142,7 @@
         <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-databind/${fasterxml.jackson.version}</bundle>
         <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-annotations/${fasterxml.jackson.version}</bundle>
         <bundle dependency="true">mvn:net.minidev/json-smart/${jsonSmart.version}</bundle>
-        <bundle dependency="true">mvn:net.minidev/asm/${minidev.asm.version}</bundle>
+        <bundle dependency="true">mvn:net.minidev/accessors-smart/${minidev.accessors-smart.version}</bundle>
         <bundle dependency="true">mvn:com.thoughtworks.xstream/xstream/${xstream.version}</bundle>
         <bundle dependency="true">mvn:org.freemarker/freemarker/${freemarker.version}</bundle>
         <bundle dependency="true">mvn:com.hierynomus/sshj/${sshj.version}</bundle>

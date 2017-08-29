@@ -99,7 +99,11 @@ public class QuorumChecksTest {
         Assert.assertTrue(q.isQuorate(31, 300));
     }
     
-    
-    
-    
+    @Test
+    public void testConstantQuorum() {
+        QuorumCheck q = QuorumChecks.of("2");
+        Assert.assertTrue(q.isQuorate(2, 2));
+        Assert.assertTrue(q.isQuorate(2, 10));
+        Assert.assertFalse(q.isQuorate(1, 1));
+    }     
 }

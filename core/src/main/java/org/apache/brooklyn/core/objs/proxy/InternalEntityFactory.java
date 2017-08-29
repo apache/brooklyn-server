@@ -63,6 +63,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -171,7 +172,7 @@ public class InternalEntityFactory extends InternalFactory {
      * {@link Entities#manage(Entity)} (if it's in a managed application)
      * or {@link Entities#startManagement(org.apache.brooklyn.api.entity.Application, org.apache.brooklyn.api.management.ManagementContext)}
      * (if it's an application) */
-    public <T extends Entity> T createEntity(EntitySpec<T> spec) {
+    public <T extends Entity> T createEntity(EntitySpec<T> spec, Optional<String> entityId) {
         /* Order is important here. Changed Jul 2014 when supporting children in spec.
          * (Previously was much simpler, and parent was set right after running initializers; and there were no children.)
          * <p>
@@ -186,12 +187,13 @@ public class InternalEntityFactory extends InternalFactory {
         Map<String,Entity> entitiesByEntityId = MutableMap.of();
         Map<String,EntitySpec<?>> specsByEntityId = MutableMap.of();
         
-        T entity = createEntityAndDescendantsUninitialized(spec, entitiesByEntityId, specsByEntityId);
+        T entity = createEntityAndDescendantsUninitialized(spec, entityId, entitiesByEntityId, specsByEntityId);
         initEntityAndDescendants(entity.getId(), entitiesByEntityId, specsByEntityId);
         return entity;
     }
     
-    protected <T extends Entity> T createEntityAndDescendantsUninitialized(EntitySpec<T> spec, Map<String,Entity> entitiesByEntityId, Map<String,EntitySpec<?>> specsByEntityId) {
+    private <T extends Entity> T createEntityAndDescendantsUninitialized(EntitySpec<T> spec, Optional<String> entityId, 
+            Map<String,Entity> entitiesByEntityId, Map<String,EntitySpec<?>> specsByEntityId) {
         if (spec.getFlags().containsKey("parent") || spec.getFlags().containsKey("owner")) {
             throw new IllegalArgumentException("Spec's flags must not contain parent or owner; use spec.parent() instead for "+spec);
         }
@@ -202,7 +204,7 @@ public class InternalEntityFactory extends InternalFactory {
         try {
             Class<? extends T> clazz = getImplementedBy(spec);
             
-            T entity = constructEntity(clazz, spec);
+            T entity = constructEntity(clazz, spec, entityId);
             
             loadUnitializedEntity(entity, spec);
 
@@ -218,7 +220,7 @@ public class InternalEntityFactory extends InternalFactory {
                     log.warn("Child spec "+childSpec+" is already set with parent "+entity+"; how did this happen?!");
                 }
                 childSpec.parent(entity);
-                Entity child = createEntityAndDescendantsUninitialized(childSpec, entitiesByEntityId, specsByEntityId);
+                Entity child = createEntityAndDescendantsUninitialized(childSpec, Optional.absent(), entitiesByEntityId, specsByEntityId);
                 entity.addChild(child);
             }
             
@@ -392,10 +394,9 @@ public class InternalEntityFactory extends InternalFactory {
      * configuration from the {@link EntitySpec} is <b>not</b> normally applied,
      * although for old-style entities flags from the spec are passed to the constructor.
      * <p>
-     * @deprecated since 0.9.0 becoming private
-     */ @Deprecated
-    public <T extends Entity> T constructEntity(Class<? extends T> clazz, EntitySpec<T> spec) {
-        T entity = constructEntityImpl(clazz, spec, null, null);
+     */
+    private <T extends Entity> T constructEntity(Class<? extends T> clazz, EntitySpec<T> spec, Optional<String> entityId) {
+        T entity = constructEntityImpl(clazz, spec, null, entityId);
         if (((AbstractEntity)entity).getProxy() == null) ((AbstractEntity)entity).setProxy(createEntityProxy(spec, entity));
         return entity;
     }
@@ -414,7 +415,7 @@ public class InternalEntityFactory extends InternalFactory {
         checkNotNull(entityId, "entityId");
         checkState(interfaces != null && !Iterables.isEmpty(interfaces), "must have at least one interface for entity %s:%s", clazz, entityId);
         
-        T entity = constructEntityImpl(clazz, null, null, entityId);
+        T entity = constructEntityImpl(clazz, null, null, Optional.of(entityId));
         if (((AbstractEntity)entity).getProxy() == null) {
             Entity proxy = managementContext.getEntityManager().getEntity(entity.getId());
             if (proxy==null) {
@@ -429,11 +430,12 @@ public class InternalEntityFactory extends InternalFactory {
         return entity;
     }
 
-    private <T extends Entity> T constructEntityImpl(Class<? extends T> clazz, EntitySpec<?> optionalSpec, Map<String, ?> optionalConstructorFlags, String optionalEntityId) {
+    private <T extends Entity> T constructEntityImpl(Class<? extends T> clazz, EntitySpec<?> optionalSpec, 
+            Map<String, ?> optionalConstructorFlags, Optional<String> entityId) {
         T entity = construct(clazz, optionalSpec, optionalConstructorFlags);
         
-        if (optionalEntityId != null) {
-            FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", optionalEntityId), entity);
+        if (entityId.isPresent()) {
+            FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", entityId.get()), entity);
         }
         if (entity instanceof AbstractApplication) {
             FlagUtils.setFieldsFromFlags(ImmutableMap.of("mgmt", managementContext), entity);

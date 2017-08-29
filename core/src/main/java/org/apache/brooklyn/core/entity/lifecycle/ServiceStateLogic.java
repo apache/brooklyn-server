@@ -611,8 +611,20 @@ public class ServiceStateLogic {
             }
 
             return "Required entit"+Strings.ies(onesNotHealthy.size())+" not healthy: "+
-                (onesNotHealthy.size()>3 ? onesNotHealthy.get(0)+" and "+(onesNotHealthy.size()-1)+" others"
-                    : Strings.join(onesNotHealthy, ", "));
+                (onesNotHealthy.size()>3 ? nameOfEntity(onesNotHealthy.get(0))+" and "+(onesNotHealthy.size()-1)+" others"
+                    : Strings.join(nameOfEntity(onesNotHealthy), ", "));
+        }
+
+        private List<String> nameOfEntity(List<Entity> entities) {
+            List<String> result = MutableList.of();
+            for (Entity e: entities) result.add(nameOfEntity(e));
+            return result;
+        }
+
+        private String nameOfEntity(Entity entity) {
+            String name = entity.getDisplayName();
+            if (name.contains(entity.getId())) return name;
+            else return name + " ("+entity.getId()+")";
         }
 
         protected void updateMapSensor(AttributeSensor<Map<String, Object>> sensor, Object value) {
