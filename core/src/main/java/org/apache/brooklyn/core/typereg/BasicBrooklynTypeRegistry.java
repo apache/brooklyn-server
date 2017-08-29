@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.typereg;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -188,11 +189,24 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     @Override
     public <SpecT extends AbstractBrooklynObjectSpec<?,?>> SpecT createSpec(RegisteredType type, @Nullable RegisteredTypeLoadingContext constraint, Class<SpecT> specSuperType) {
         Preconditions.checkNotNull(type, "type");
-        if (type.getKind()!=RegisteredTypeKind.SPEC) { 
-            if (type.getKind()==RegisteredTypeKind.UNRESOLVED) throw new ReferencedUnresolvedTypeException(type);
-            else throw new UnsupportedTypePlanException("Cannot create spec from type "+type+" (kind "+type.getKind()+")");
+        if (type.getKind()==RegisteredTypeKind.SPEC) {
+            return createSpec(type, type.getPlan(), type.getSymbolicName(), type.getVersion(), type.getSuperTypes(), constraint, specSuperType);
+            
+        } else if (type.getKind()==RegisteredTypeKind.UNRESOLVED) {
+            // try just-in-time validation
+            Collection<Throwable> validationErrors = mgmt.getCatalog().validateType(type);
+            if (!validationErrors.isEmpty()) {
+                throw new ReferencedUnresolvedTypeException(type, true, Exceptions.create(validationErrors));
+            }
+            type = mgmt.getTypeRegistry().get(type.getSymbolicName(), type.getVersion());
+            if (type==null || type.getKind()==RegisteredTypeKind.UNRESOLVED) {
+                throw new ReferencedUnresolvedTypeException(type);
+            }
+            return createSpec(type, constraint, specSuperType);
+            
+        } else {
+            throw new UnsupportedTypePlanException("Cannot create spec from type "+type+" (kind "+type.getKind()+")");
         }
-        return createSpec(type, type.getPlan(), type.getSymbolicName(), type.getVersion(), type.getSuperTypes(), constraint, specSuperType);
     }
     
     @SuppressWarnings({ "deprecation", "unchecked", "rawtypes" })
@@ -301,7 +315,25 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
             @Override protected T visitBean() { return createBean(type, constraint, optionalResultSuperType); }
             @SuppressWarnings({ "unchecked", "rawtypes" })
             @Override protected T visitSpec() { return (T) createSpec(type, constraint, (Class)optionalResultSuperType); }
-            @Override protected T visitUnresolved() { throw new IllegalArgumentException("Kind-agnostic create method can only be used when the registered type declares its kind, which "+type+" does not"); }
+            @Override protected T visitUnresolved() {
+                try {
+                    // don't think there are valid times when this comes here?
+                    // currently should only used for "templates" which are always for specs,
+                    // but callers of that shouldn't be talking to type plan transformers,
+                    // they should be calling to main BBTR methods.
+                    // do it and alert just in case however.
+                    // TODO remove if we don't see any warnings (or when we sort out semantics for template v app v allowed-unresolved better)
+                    log.debug("Request for "+this+" to create UNRESOLVED kind "+type+"; trying as spec");
+                    T result = visitSpec();
+                    log.warn("Request to use "+this+" from UNRESOLVED state succeeded treating is as a spec");
+                    log.debug("Trace for request to use "+this+" in UNRESOLVED state succeeding", new Throwable("Location of request to use "+this+" in UNRESOLVED state"));
+                    return result;
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    throw new IllegalArgumentException("Kind-agnostic create method only intended for used when the registered type declares its kind, which "+type+" does not, "
+                        + "and failed treating it as a spec: "+e, e);
+                }
+            }
         }.visit(type.getKind());
     }
 

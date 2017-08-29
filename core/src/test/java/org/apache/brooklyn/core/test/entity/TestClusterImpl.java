@@ -59,7 +59,7 @@ public class TestClusterImpl extends DynamicClusterImpl implements TestCluster {
     @Override
     public Integer resize(Integer desiredSize) {
         desiredSizeHistory.add(desiredSize);
-        int achievableSize = Math.min(desiredSize, getConfig(MAX_SIZE));
+        int achievableSize = Math.min(desiredSize, getConfig(TestCluster.MAX_SIZE));
         
         if (achievableSize != size) {
             this.sizeHistory.add(achievableSize);
@@ -67,7 +67,7 @@ public class TestClusterImpl extends DynamicClusterImpl implements TestCluster {
         }
         
         if (desiredSize > achievableSize) {
-            throw new InsufficientCapacityException("Simulating insufficient capacity (desiredSize="+desiredSize+"; maxSize="+getConfig(MAX_SIZE)+"; newSize="+size+")");
+            throw new InsufficientCapacityException("Simulating insufficient capacity (desiredSize="+desiredSize+"; maxSize="+getConfig(TestCluster.MAX_SIZE)+"; newSize="+size+")");
         }
 
         return size;

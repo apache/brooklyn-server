@@ -45,6 +45,7 @@ import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
+import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.policy.autoscaling.SizeHistory.WindowSummary;
 import org.apache.brooklyn.policy.loadbalancing.LoadBalancingPolicy;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -458,6 +459,25 @@ public class AutoScalerPolicy extends AbstractPolicy {
         }
     };
 
+    /**
+     * This should usually be a no-op as the min and max pool sizes are taken into account when
+     * an automatic resize event occurs, however this covers the special case where the user
+     * has manually resized the pool
+     */
+    private SensorEventListener<? super Integer> poolEventHandler = new SensorEventListener<Integer>() {
+        @Override
+        public void onEvent(SensorEvent<Integer> event) {
+            Sensor<Integer> sensor = event.getSensor();
+            Preconditions.checkArgument(sensor.equals(DynamicCluster.GROUP_SIZE), "Unexpected sensor " + sensor);
+            Integer size = event.getValue();
+            if (size > getMaxPoolSize()) {
+                scheduleResize(getMaxPoolSize());
+            } else if (size < getMinPoolSize()) {
+                scheduleResize(getMinPoolSize());
+            }
+        }
+    };
+
     public AutoScalerPolicy() {
     }
     
@@ -687,6 +707,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
         subscriptions().subscribe(poolEntity, getPoolColdSensor(), utilizationEventHandler);
         subscriptions().subscribe(poolEntity, getPoolHotSensor(), utilizationEventHandler);
         subscriptions().subscribe(poolEntity, getPoolOkSensor(), utilizationEventHandler);
+        subscriptions().subscribe(poolEntity, DynamicCluster.GROUP_SIZE, poolEventHandler);
     }
     
     private ThreadFactory newThreadFactory() {

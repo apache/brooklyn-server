@@ -1378,6 +1378,24 @@ public class DynamicClusterTest extends AbstractDynamicClusterOrFabricTest {
         assertEquals(clusterImpl.getChildTaskSemaphore().availablePermits(), 1);
     }
 
+    @Test
+    public void testClusterMaxSize() {
+        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class))
+                .configure(DynamicCluster.INITIAL_SIZE, 2)
+                .configure(DynamicCluster.MAX_SIZE, 6));
+        cluster.start(ImmutableList.of(loc));
+
+        cluster.resize(4);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, DynamicCluster.GROUP_SIZE, 4);
+        try {
+            cluster.resize(8);
+            Asserts.shouldHaveFailedPreviously("Cluster resize should have failed because max size was exceeded");
+        } catch (Exception e) {
+            assertNotNull(Exceptions.getFirstThrowableOfType(e, Resizable.InsufficientCapacityException.class), "Expected InsufficientCapacityException");
+        }
+    }
+
     @ImplementedBy(ThrowOnAsyncStartEntityImpl.class)
     public interface ThrowOnAsyncStartEntity extends TestEntity {
         ConfigKey<Integer> MAX_CONCURRENCY = ConfigKeys.newConfigKey(Integer.class, "concurrency", "max concurrency", 1);

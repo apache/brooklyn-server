@@ -183,6 +183,8 @@ public interface DynamicCluster extends AbstractGroup, Cluster, MemberReplaceabl
             "Time to wait (after members' start() effectors return) for SERVICE_UP before failing (default is not to wait)",
             null);
 
+    ConfigKey<Integer> MAX_SIZE = ConfigKeys.newIntegerConfigKey("cluster.max.size", "Size after which it will throw InsufficientCapacityException", Integer.MAX_VALUE);
+
     @Beta
     @SetFromFlag("maxConcurrentChildCommands")
     ConfigKey<Integer> MAX_CONCURRENT_CHILD_COMMANDS = ConfigKeys.builder(Integer.class)

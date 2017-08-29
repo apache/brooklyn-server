@@ -16,23 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.camp.brooklyn.catalog;
+package org.apache.brooklyn.core.test.entity;
 
-import org.testng.annotations.Test;
+import org.apache.brooklyn.api.entity.ImplementedBy;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.entity.group.DynamicCluster;
 
-// OSGi variant of parent
-@Test
-public class CatalogYamlAppOsgiTest extends CatalogYamlAppTest {
+import java.util.List;
 
-    @Override
-    protected boolean disableOsgi() {
-        return false;
-    }
+/**
+ * Similar to {@link TestCluster}, however the intercepts are simply used to record the resize, and not
+ * mock them, instead delegating to {@link DynamicCluster}
+ */
+@ImplementedBy(TestSizeRecordingClusterImpl.class)
+public interface TestSizeRecordingCluster extends DynamicCluster {
 
-    @Override @Test // here so we can easily test from IDE
-    // currently works in parent but fails here because we don't treat unresolved (template with forward ref) 
-    // as an acceptable type that can be referenced in a blueprint
-    public void testAddTemplateForwardReferenceToEntity() throws Exception {
-        super.testAddTemplateForwardReferenceToEntity();
-    }
+    AttributeSensor<Integer> SIZE_HISTORY_RECORD_COUNT = Sensors.newIntegerSensor("size.history.count", "Number of entries in the size history record");
+
+    List<Integer> getSizeHistory();
+
 }
