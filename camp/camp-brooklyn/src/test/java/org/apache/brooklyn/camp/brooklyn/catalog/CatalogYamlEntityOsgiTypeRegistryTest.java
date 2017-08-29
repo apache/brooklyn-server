@@ -36,7 +36,12 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
     // use OSGi here
     @Override protected boolean disableOsgi() { return false; }
     
-    enum CatalogItemsInstallationMode { ADD_YAML_ITEMS_UNBUNDLED, BUNDLE_BUT_NOT_STARTED, USUAL_OSGI_WAY_AS_BUNDLE_WITH_DEFAULT_NAME, USUAL_OSGI_WAY_AS_ZIP_NO_MANIFEST_NAME_MAYBE_IN_BOM }
+    enum CatalogItemsInstallationMode { 
+        ADD_YAML_ITEMS_UNBUNDLED, 
+        BUNDLE_BUT_NOT_STARTED, 
+        USUAL_OSGI_WAY_AS_BUNDLE_WITH_DEFAULT_NAME, 
+        USUAL_OSGI_WAY_AS_ZIP_NO_MANIFEST_NAME_MAYBE_IN_BOM 
+    }
     CatalogItemsInstallationMode itemsInstallMode = null;
     
     // use type registry approach

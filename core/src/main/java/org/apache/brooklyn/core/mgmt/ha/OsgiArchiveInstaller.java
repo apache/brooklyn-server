@@ -420,7 +420,14 @@ class OsgiArchiveInstaller {
                             result.bundle.start();
                         } catch (BundleException e) {
                             log.warn("Error starting bundle "+result.getVersionedName()+", uninstalling, restoring any old bundle, then re-throwing error: "+e);
-                            rollbackBundle();
+                            try {
+                                rollbackBundle();
+                            } catch (Throwable t) {
+                                Exceptions.propagateIfFatal(t);
+                                log.warn("Error rolling back "+result.getVersionedName()+" after bundle start problem; server may be in inconsistent state (swallowing this error and propagating installation error): "+Exceptions.collapseText(t), t);
+                                throw Exceptions.propagate(new BundleException("Failure installing and rolling back; server may be in inconsistent state regarding bundle "+result.getVersionedName()+". "
+                                    + "Rollback failure ("+Exceptions.collapseText(t)+") detailed in log. Installation error is: "+Exceptions.collapseText(e), e));
+                            }
                             
                             throw Exceptions.propagate(e);
                         }
@@ -445,7 +452,14 @@ class OsgiArchiveInstaller {
                             // unable to install new items; rollback bundles
                             // and reload replaced items
                             log.warn("Error adding Brooklyn items from bundle "+result.getVersionedName()+", uninstalling, restoring any old bundle and items, then re-throwing error: "+Exceptions.collapseText(e));
-                            rollbackBundle();
+                            try {
+                                rollbackBundle();
+                            } catch (Throwable t) {
+                                Exceptions.propagateIfFatal(t);
+                                log.warn("Error rolling back "+result.getVersionedName()+" after catalog install problem; server may be in inconsistent state (swallowing this error and propagating installation error): "+Exceptions.collapseText(t), t);
+                                throw Exceptions.propagate(new BundleException("Failure loading catalog items, and also failed rolling back; server may be in inconsistent state regarding bundle "+result.getVersionedName()+". "
+                                    + "Rollback failure ("+Exceptions.collapseText(t)+") detailed in log. Installation error is: "+Exceptions.collapseText(e), e));
+                            }
                             if (itemsFromOldBundle!=null) {
                                 // add back all itemsFromOldBundle (when replacing a bundle)
                                 for (RegisteredType oldItem: itemsFromOldBundle) {

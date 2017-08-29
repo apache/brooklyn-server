@@ -516,6 +516,8 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
         Assert.assertEquals(newBundles, oldBundles, "Bundles: "+newBundles);
 
         rebind();
+        newBundles = origManagementContext.getOsgiManager().get().getManagedBundles();
+        Assert.assertEquals(newBundles, oldBundles, "Bundles: "+newBundles);
     }
   
     @Test

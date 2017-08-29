@@ -501,8 +501,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     /** See comments on {@link #collectCatalogItemsFromItemMetadataBlock(String, ManagedBundle, Map, List, boolean, Map, int, boolean)};
      * this is a shell around that that parses the `brooklyn.catalog` header on the BOM YAML file */
     private void collectCatalogItemsFromCatalogBomRoot(String yaml, ManagedBundle containingBundle, 
-        List<CatalogItemDtoAbstract<?, ?>> resultLegacyFormat, Map<RegisteredType, RegisteredType> resultNewFormat, 
-        boolean requireValidation, Map<?, ?> parentMeta, int depth, boolean force) {
+            List<CatalogItemDtoAbstract<?, ?>> resultLegacyFormat, Map<RegisteredType, RegisteredType> resultNewFormat, 
+            boolean requireValidation, Map<?, ?> parentMeta, int depth, boolean force) {
         Map<?,?> itemDef = Yamls.getAs(Yamls.parseAll(yaml), Map.class);
         Map<?,?> catalogMetadata = getFirstAsMap(itemDef, "brooklyn.catalog").orNull();
         if (catalogMetadata==null)
@@ -558,14 +558,14 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
      * @param sourceYaml - metadata source for reference
      * @param containingBundle - bundle where this is being loaded, or null
      * @param itemMetadata - map of this item metadata reap
-     * @param result - list where items should be added, or add to type registry if null
-     * @param resultNewFormat 
+     * @param resultLegacyFormat - list where items should be added, or add to type registry if null
+     * @param resultNewFormat - map of new->(old or null) for items added
      * @param requireValidation - whether to require items to be validated; if false items might not be valid,
      *     and/or their catalog item types might not be set correctly yet; caller should normally validate later
      *     (useful if we have to load a bunch of things before they can all be validated) 
      * @param parentMetadata - inherited metadata
      * @param depth - depth this is running in
-     * @param force - whether to force the catalog addition (only applies if result is null)
+     * @param force - whether to force the catalog addition (does not apply in legacy mode where resultLegacyFormat is non-null)
      */
     @SuppressWarnings("unchecked")
     private void collectCatalogItemsFromItemMetadataBlock(String sourceYaml, ManagedBundle containingBundle, Map<?,?> itemMetadata, List<CatalogItemDtoAbstract<?, ?>> resultLegacyFormat, Map<RegisteredType, RegisteredType> resultNewFormat, boolean requireValidation, 
@@ -1073,7 +1073,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         String url = null;
         File f = ((ManagementContextInternal)mgmt).getOsgiManager().get().getBundleFile(containingBundle);
         if (f!=null) {
-            url = "file:"+f.getAbsolutePath();
+            url = "file//:"+f.getAbsolutePath();
         }
         if (url==null) {
             url = containingBundle.getUrl();
