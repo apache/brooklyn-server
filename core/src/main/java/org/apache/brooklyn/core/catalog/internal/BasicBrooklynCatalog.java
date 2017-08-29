@@ -53,6 +53,7 @@ import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.CatalogClasspathDo.CatalogScanningModes;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
@@ -1477,7 +1478,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             log.debug("Catalog load, starting validation cycle, "+typesRemainingToValidate.size()+" to validate");
             Map<RegisteredType,Collection<Throwable>> result = MutableMap.of();
             for (RegisteredType t: typesRemainingToValidate) {
-                Collection<Throwable> tr = validateType(t);
+                Collection<Throwable> tr = validateType(t, null);
                 if (!tr.isEmpty()) {
                     result.put(t, tr);
                 }
@@ -1494,8 +1495,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
     
     @Override @Beta
-    public Collection<Throwable> validateType(RegisteredType typeToValidate) {
-        ReferenceWithError<RegisteredType> result = resolve(typeToValidate);
+    public Collection<Throwable> validateType(RegisteredType typeToValidate, RegisteredTypeLoadingContext constraint) {
+        ReferenceWithError<RegisteredType> result = resolve(typeToValidate, constraint);
         if (result.hasError()) {
             if (RegisteredTypes.isTemplate(typeToValidate)) {
                 // ignore for templates
@@ -1517,7 +1518,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
      * a type in an "unresolved" state if things may need to reference it, then call resolve here,
      * then replace what was added with the argument given here. */
     @Beta
-    public ReferenceWithError<RegisteredType> resolve(RegisteredType typeToValidate) {
+    public ReferenceWithError<RegisteredType> resolve(RegisteredType typeToValidate, RegisteredTypeLoadingContext constraint) {
         Throwable inconsistentSuperTypesError=null, specError=null, beanError=null;
         List<Throwable> guesserErrors = MutableList.of();
         
@@ -1555,7 +1556,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // try spec instantiation if we know the BO Type (no point otherwise)
             resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, typeToValidate);
             try {
-                resultO = ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).createSpec(resultT, null, boType.getSpecType());
+                resultO = ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).createSpec(resultT, constraint, boType.getSpecType());
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 specError = e;
@@ -1570,7 +1571,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // try it as a bean
             resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.BEAN, typeToValidate);
             try {
-                resultO = ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).createBean(resultT, null, superJ);
+                resultO = ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).createBean(resultT, constraint, superJ);
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 beanError = e;
@@ -1581,10 +1582,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // ignore if we couldn't resolve as spec
         }
         
-        if (resultO==null) try {
+        if (resultO==null && (constraint==null || constraint.getAlreadyEncounteredTypes().isEmpty())) try {
             // try the legacy PlanInterpreterGuessingType
             // (this is the only place where we will guess specs, so it handles 
-            // most of our traditional catalog items in BOMs)
+            // most of our traditional catalog items in BOMs);
+            // but do not allow this to run if we are expanding a nested definition as that may fail to find recursive loops
+            // (the legacy routines this uses don't support that type of context)
             String yaml = RegisteredTypes.getImplementationDataStringForSpec(typeToValidate);
             PlanInterpreterGuessingType guesser = new PlanInterpreterGuessingType(typeToValidate.getSymbolicName(), Iterables.getOnlyElement( Yamls.parseAll(yaml) ), 
                 yaml, null, CatalogItemDtoAbstract.parseLibraries( typeToValidate.getLibraries() ), null);
@@ -1622,7 +1625,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 
                 if (changedSomething) {
                     // try again with new plan or supertype info
-                    return resolve(resultT);
+                    return resolve(resultT, constraint);
                     
                 } else if (Objects.equal(boType, BrooklynObjectType.of(ciType))) {
                     if (specError==null) {
@@ -1646,7 +1649,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (resultO!=null && resultT!=null) {
             if (resultO instanceof BrooklynObject) {
                 // if it was a bean that points at a BO then switch it to a spec and try to re-validate
-                return resolve(RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, typeToValidate));
+                return resolve(RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, typeToValidate), constraint);
             }
             RegisteredTypes.cacheActualJavaType(resultT, resultO.getClass());
             

@@ -444,7 +444,7 @@ class OsgiArchiveInstaller {
                         } catch (Exception e) {
                             // unable to install new items; rollback bundles
                             // and reload replaced items
-                            log.warn("Error adding Brooklyn items from bundle "+result.getVersionedName()+", uninstalling, restoring any old bundle and items, then re-throwing error: "+e);
+                            log.warn("Error adding Brooklyn items from bundle "+result.getVersionedName()+", uninstalling, restoring any old bundle and items, then re-throwing error: "+Exceptions.collapseText(e));
                             rollbackBundle();
                             if (itemsFromOldBundle!=null) {
                                 // add back all itemsFromOldBundle (when replacing a bundle)

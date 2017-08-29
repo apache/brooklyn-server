@@ -27,6 +27,7 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
@@ -120,7 +121,7 @@ public interface BrooklynCatalog {
      * for the given registered type.
      */
     @Beta  // method may move elsewhere
-    Collection<Throwable> validateType(RegisteredType typeToValidate);
+    Collection<Throwable> validateType(RegisteredType typeToValidate, @Nullable RegisteredTypeLoadingContext optionalConstraint);
 
 
     /**

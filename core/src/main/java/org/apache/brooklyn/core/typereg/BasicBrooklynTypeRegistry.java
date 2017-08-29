@@ -193,16 +193,21 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
             return createSpec(type, type.getPlan(), type.getSymbolicName(), type.getVersion(), type.getSuperTypes(), constraint, specSuperType);
             
         } else if (type.getKind()==RegisteredTypeKind.UNRESOLVED) {
-            // try just-in-time validation
-            Collection<Throwable> validationErrors = mgmt.getCatalog().validateType(type);
-            if (!validationErrors.isEmpty()) {
-                throw new ReferencedUnresolvedTypeException(type, true, Exceptions.create(validationErrors));
+            if (constraint.getAlreadyEncounteredTypes().contains(type.getSymbolicName())) {
+                throw new UnsupportedTypePlanException("Cannot create spec from type "+type+" (kind "+type.getKind()+"), recursive reference following "+constraint.getAlreadyEncounteredTypes());
+                
+            } else {
+                // try just-in-time validation
+                Collection<Throwable> validationErrors = mgmt.getCatalog().validateType(type, constraint);
+                if (!validationErrors.isEmpty()) {
+                    throw new ReferencedUnresolvedTypeException(type, true, Exceptions.create(validationErrors));
+                }
+                type = mgmt.getTypeRegistry().get(type.getSymbolicName(), type.getVersion());
+                if (type==null || type.getKind()==RegisteredTypeKind.UNRESOLVED) {
+                    throw new ReferencedUnresolvedTypeException(type);
+                }
+                return createSpec(type, constraint, specSuperType);
             }
-            type = mgmt.getTypeRegistry().get(type.getSymbolicName(), type.getVersion());
-            if (type==null || type.getKind()==RegisteredTypeKind.UNRESOLVED) {
-                throw new ReferencedUnresolvedTypeException(type);
-            }
-            return createSpec(type, constraint, specSuperType);
             
         } else {
             throw new UnsupportedTypePlanException("Cannot create spec from type "+type+" (kind "+type.getKind()+")");
