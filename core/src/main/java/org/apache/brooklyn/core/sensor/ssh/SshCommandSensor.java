@@ -99,9 +99,10 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
             LOG.debug("Adding SSH sensor {} to {}", name, entity);
         }
 
-        final Boolean suppressDuplicates = EntityInitializers.resolve(params, SUPPRESS_DUPLICATES);
+        final Boolean suppressDuplicates = EntityInitializers.resolve(getRememberedParams(), SUPPRESS_DUPLICATES);
 
         Supplier<Map<String,String>> envSupplier = new Supplier<Map<String,String>>() {
+            @SuppressWarnings("unchecked")
             @Override
             public Map<String, String> get() {
                 Map<String, Object> env = MutableMap.copyOf(entity.getConfig(BrooklynConfigKeys.SHELL_ENVIRONMENT));

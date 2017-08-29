@@ -121,6 +121,7 @@ public class AddSensor<T> implements EntityInitializer {
 
     // old names, for XML deserializaton compatiblity
     private final String type;
+    /** @deprecated since 0.9.0 and semantics slightly different; accessors should use {@link #getRememberedParams()} */
     private ConfigBag params;
     private Object readResolve() {
         try {

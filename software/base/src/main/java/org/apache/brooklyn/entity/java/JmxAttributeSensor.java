@@ -88,7 +88,7 @@ public final class JmxAttributeSensor<T> extends AddSensor<T> {
     public void apply(final EntityLocal entity) {
         super.apply(entity);
 
-        final Boolean suppressDuplicates = EntityInitializers.resolve(params, SUPPRESS_DUPLICATES);
+        final Boolean suppressDuplicates = EntityInitializers.resolve(getRememberedParams(), SUPPRESS_DUPLICATES);
 
         if (entity instanceof UsesJmx) {
             if (LOG.isDebugEnabled()) {
