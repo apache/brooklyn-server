@@ -81,7 +81,6 @@ import org.apache.brooklyn.core.mgmt.persist.jclouds.JcloudsBlobStoreBasedObject
 import org.apache.brooklyn.location.jclouds.api.JcloudsLocationPublic;
 import org.apache.brooklyn.location.jclouds.networking.JcloudsPortForwarderExtension;
 import org.apache.brooklyn.location.jclouds.networking.creator.DefaultAzureArmNetworkCreator;
-import org.apache.brooklyn.location.jclouds.templates.PortableTemplateBuilder;
 import org.apache.brooklyn.location.jclouds.templates.customize.TemplateBuilderCustomizer;
 import org.apache.brooklyn.location.jclouds.templates.customize.TemplateBuilderCustomizers;
 import org.apache.brooklyn.location.jclouds.templates.customize.TemplateOptionCustomizer;
@@ -1368,23 +1367,16 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     /** returns the jclouds Template which describes the image to be built, for the given config and compute service */
     public Template buildTemplate(ComputeService computeService, ConfigBag config, JcloudsLocationCustomizer customizersDelegate) {
         TemplateBuilder templateBuilder = config.get(TEMPLATE_BUILDER);
-        if (templateBuilder==null) {
-            templateBuilder = new PortableTemplateBuilder<PortableTemplateBuilder<?>>();
+        if (templateBuilder == null) {
+            templateBuilder = computeService.templateBuilder();
         } else {
-            LOG.debug("jclouds using templateBuilder {} as custom base for provisioning in {} for {}", new Object[] {
+            LOG.debug("jclouds using templateBuilder {} as custom base for provisioning in {} for {}", new Object[]{
                     templateBuilder, this, getCreationString(config)});
         }
-        if (templateBuilder instanceof PortableTemplateBuilder<?>) {
-            if (((PortableTemplateBuilder<?>)templateBuilder).imageChooser()==null) {
-                Function<Iterable<? extends Image>, Image> chooser = getImageChooser(computeService, config);
-                templateBuilder.imageChooser(chooser);
-            } else {
-                // an image chooser is already set, so do nothing
-            }
-        } else {
-            // template builder supplied, and we cannot check image chooser status; warn, for now
-            LOG.warn("Cannot check imageChooser status for {} due to manually supplied black-box TemplateBuilder; "
-                + "it is recommended to use a PortableTemplateBuilder if you supply a TemplateBuilder", getCreationString(config));
+
+        Function<Iterable<? extends Image>, Image> imageChooser = getImageChooser(computeService, config);
+        if (imageChooser != null) {
+            templateBuilder.imageChooser(imageChooser);
         }
 
         if (!Strings.isEmpty(config.get(CLOUD_REGION_ID))) {
@@ -1410,34 +1402,30 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
         }
 
-        if (templateBuilder instanceof PortableTemplateBuilder) {
-            ((PortableTemplateBuilder<?>)templateBuilder).attachComputeService(computeService);
-            // do the default last, and only if nothing else specified (guaranteed to be a PTB if nothing else specified)
-            if (groovyTruth(config.get(DEFAULT_IMAGE_ID))) {
-                if (((PortableTemplateBuilder<?>)templateBuilder).isBlank()) {
-                    templateBuilder.imageId(config.get(DEFAULT_IMAGE_ID).toString());
-                }
-            }
+        if (!Strings.isBlank(config.get(DEFAULT_IMAGE_ID))) {
+            templateBuilder.imageId(config.get(DEFAULT_IMAGE_ID).toString());
         }
 
         customizersDelegate.customize(this, computeService, templateBuilder);
 
-        LOG.debug("jclouds using templateBuilder {} for provisioning in {} for {}", new Object[] {
-            templateBuilder, this, getCreationString(config)});
+        LOG.debug("jclouds using templateBuilder {} for provisioning in {} for {}", new Object[]{
+                templateBuilder, this, getCreationString(config)});
 
         // Finally try to build the template
         Template template = null;
         Image image;
         try {
             template = templateBuilder.build();
-            if (template==null) throw new IllegalStateException("No matching template; check image and hardware constraints (e.g. OS, RAM); using "+templateBuilder);
+            if (template == null)
+                throw new IllegalStateException("No matching template; check image and hardware constraints (e.g. OS, RAM); using " + templateBuilder);
             image = template.getImage();
-            LOG.debug("jclouds found template "+template+" (image "+image+") for provisioning in "+this+" for "+getCreationString(config));
-            if (image==null) throw new IllegalStateException("No matching image in template at "+toStringNice()+"; check image constraints (OS, providers, ID); using "+templateBuilder);
+            LOG.debug("jclouds found template " + template + " (image " + image + ") for provisioning in " + this + " for " + getCreationString(config));
+            if (image == null)
+                throw new IllegalStateException("No matching image in template at " + toStringNice() + "; check image constraints (OS, providers, ID); using " + templateBuilder);
         } catch (AuthorizationException e) {
-            LOG.warn("Error resolving template -- not authorized (rethrowing: "+e+"); template is: "+template);
-            throw new IllegalStateException("Not authorized to access cloud "+toStringNice()+"; "+
-                "check identity, credentials, and endpoint (identity='"+getIdentity()+"', credential length "+getCredential().length()+")", e);
+            LOG.warn("Error resolving template -- not authorized (rethrowing: " + e + "); template is: " + template);
+            throw new IllegalStateException("Not authorized to access cloud " + toStringNice() + "; " +
+                    "check identity, credentials, and endpoint (identity='" + getIdentity() + "', credential length " + getCredential().length() + ")", e);
         } catch (Exception e) {
             try {
                 IOException ioe = Exceptions.getFirstThrowableOfType(e, IOException.class);
@@ -1447,17 +1435,16 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 }
                 if (listedAvailableTemplatesOnNoSuchTemplate.compareAndSet(false, true)) {
                     // delay subsequent log.warns (put in synch block) so the "Loading..." message is obvious
-                    LOG.warn("Unable to match required VM template constraints "+templateBuilder+" when trying to provision VM in "+this+" (rethrowing): "+e);
+                    LOG.warn("Unable to match required VM template constraints " + templateBuilder + " when trying to provision VM in " + this + " (rethrowing): " + e);
                     logAvailableTemplates(config);
                 }
             } catch (Exception e2) {
-                LOG.warn("Error loading available images to report (following original error matching template which will be rethrown): "+e2, e2);
-                throw new IllegalStateException("Unable to access cloud "+this+" to resolve "+templateBuilder+": "+e, e);
+                LOG.warn("Error loading available images to report (following original error matching template which will be rethrown): " + e2, e2);
+                throw new IllegalStateException("Unable to access cloud " + this + " to resolve " + templateBuilder + ": " + e, e);
             }
-            throw new IllegalStateException("Unable to match required VM template constraints "+templateBuilder+" when trying to provision VM in "+this+"; "
-                + "see list of images in log. Root cause: "+e, e);
+            throw new IllegalStateException("Unable to match required VM template constraints " + templateBuilder + " when trying to provision VM in " + this + "; "
+                    + "see list of images in log. Root cause: " + e, e);
         }
-        TemplateOptions options = template.getOptions();
 
         // For windows, we need a startup-script to be executed that will enable winrm access.
         // If there is already conflicting userMetadata, then don't replace it (and just warn).
@@ -1472,19 +1459,19 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 String startupScriptKey = "sysprep-specialize-script-cmd";
                 Object metadataMapRaw = config.get(USER_METADATA_MAP);
                 if (metadataMapRaw instanceof Map) {
-                    Map<?,?> metadataMap = (Map<?, ?>) metadataMapRaw;
+                    Map<?, ?> metadataMap = (Map<?, ?>) metadataMapRaw;
                     if (metadataMap.containsKey(startupScriptKey)) {
-                        LOG.warn("Not adding startup-script for Windows VM on "+provider+", because already has key "+startupScriptKey+" in config "+USER_METADATA_MAP.getName());
+                        LOG.warn("Not adding startup-script for Windows VM on " + provider + ", because already has key " + startupScriptKey + " in config " + USER_METADATA_MAP.getName());
                     } else {
                         Map<Object, Object> metadataMapReplacement = MutableMap.copyOf(metadataMap);
                         metadataMapReplacement.put(startupScriptKey, initScript);
                         config.put(USER_METADATA_MAP, metadataMapReplacement);
-                        LOG.debug("Adding startup-script to enable WinRM for Windows VM on "+provider);
+                        LOG.debug("Adding startup-script to enable WinRM for Windows VM on " + provider);
                     }
                 } else if (metadataMapRaw == null) {
                     Map<String, String> metadataMapReplacement = MutableMap.of(startupScriptKey, initScript);
                     config.put(USER_METADATA_MAP, metadataMapReplacement);
-                    LOG.debug("Adding startup-script to enable WinRM for Windows VM on "+provider);
+                    LOG.debug("Adding startup-script to enable WinRM for Windows VM on " + provider);
                 }
             } else {
                 // For AWS and vCloudDirector, we just set user_metadata_string.
@@ -1493,25 +1480,26 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 boolean userMetadataMap = config.containsKey(JcloudsLocationConfig.USER_METADATA_MAP);
                 if (!(userMetadataString || userMetadataMap)) {
                     config.put(JcloudsLocationConfig.USER_METADATA_STRING, WinRmMachineLocation.getDefaultUserMetadataString(config()));
-                    LOG.debug("Adding startup-script to enable WinRM for Windows VM on "+provider);
+                    LOG.debug("Adding startup-script to enable WinRM for Windows VM on " + provider);
                 } else {
-                    LOG.warn("Not adding startup-script for Windows VM on "+provider+", because already has config "
-                            +(userMetadataString ? USER_METADATA_STRING.getName() : USER_METADATA_MAP.getName()));
+                    LOG.warn("Not adding startup-script for Windows VM on " + provider + ", because already has config "
+                            + (userMetadataString ? USER_METADATA_STRING.getName() : USER_METADATA_MAP.getName()));
                 }
             }
         }
+
+        TemplateOptions templateOptions = template.getOptions();
 
         for (Map.Entry<ConfigKey<?>, ? extends TemplateOptionCustomizer> entry : SUPPORTED_TEMPLATE_OPTIONS_PROPERTIES.entrySet()) {
             ConfigKey<?> key = entry.getKey();
             TemplateOptionCustomizer code = entry.getValue();
             if (config.containsKey(key) && config.get(key) != null) {
-                code.apply(options, config, config.get(key));
+                code.apply(templateOptions, config, config.get(key));
             }
         }
 
         return template;
     }
-
 
     /**
      * See {@link https://issues.apache.org/jira/browse/JCLOUDS-1108}.
