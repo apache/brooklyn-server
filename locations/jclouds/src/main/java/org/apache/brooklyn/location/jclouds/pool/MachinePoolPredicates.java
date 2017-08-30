@@ -22,6 +22,7 @@ import java.util.Map;
 
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.Processor;
+import org.jclouds.compute.domain.Template;
 import org.jclouds.domain.Location;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +48,7 @@ public class MachinePoolPredicates {
         return Predicates.not(predicateToExclude);
     }
 
-    public static Predicate<NodeMetadata> matching(final ReusableMachineTemplate template) {
+    public static Predicate<NodeMetadata> matching(final Template template) {
         return new Predicate<NodeMetadata>() {
             @Override
             public boolean apply(NodeMetadata input) {
@@ -82,40 +83,31 @@ public class MachinePoolPredicates {
      * (Caveat: If explicit Hardware, Image, and/or Template were specified in the template,
      * then the hash code probably will not detect it.)   
      **/
-    public static boolean matches(ReusableMachineTemplate template, NodeMetadata m) {
+    public static boolean matches(Template template, NodeMetadata m) {
         try {
             // tags and user metadata
 
-            if (! m.getTags().containsAll( template.getTags(false) )) return false;
+            if (! m.getTags().containsAll( template.getOptions().getTags())) return false;
 
-            if (! isSubMapOf(template.getUserMetadata(false), m.getUserMetadata())) return false;
+            if (! isSubMapOf(template.getOptions().getUserMetadata(), m.getUserMetadata())) return false;
 
 
             // common hardware parameters
+            if (m.getHardware().getRam() < template.getHardware().getRam()) return false;
 
-            if (template.getMinRam()!=null && m.getHardware().getRam() < template.getMinRam()) return false;
-
-            if (template.getMinCores()!=null) {
+            if (template.getHardware().getProcessors().get(0) != null) {
                 double numCores = 0;
                 for (Processor p: m.getHardware().getProcessors()) numCores += p.getCores();
-                if (numCores+0.001 < template.getMinCores()) return false;
+                if (numCores+0.001 < template.getHardware().getProcessors().get(0).getCores()) return false;
             }
 
-            if (template.getIs64bit()!=null) {
-                if (m.getOperatingSystem().is64Bit() != template.getIs64bit()) return false;
-            }
-
-            if (template.getOsFamily()!=null) {
+            if (template.getImage().getOperatingSystem().getFamily() != null) {
                 if (m.getOperatingSystem() == null || 
-                        !template.getOsFamily().equals(m.getOperatingSystem().getFamily())) return false;
+                        !template.getImage().getOperatingSystem().getFamily().equals(m.getOperatingSystem().getFamily())) return false;
             }
-            if (template.getOsNameMatchesRegex()!=null) {
-                if (m.getOperatingSystem() == null || m.getOperatingSystem().getName()==null ||
-                        !m.getOperatingSystem().getName().matches(template.getOsNameMatchesRegex())) return false;
-            }
-
-            if (template.getLocationId()!=null) {
-                if (!isLocationContainedIn(m.getLocation(), template.getLocationId())) return false;
+            
+            if (template.getLocation().getId() != null) {
+                if (!isLocationContainedIn(m.getLocation(), template.getLocation().getId())) return false;
             }
 
             // TODO other TemplateBuilder fields and TemplateOptions
