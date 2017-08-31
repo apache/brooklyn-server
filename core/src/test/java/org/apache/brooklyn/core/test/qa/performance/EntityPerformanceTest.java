@@ -29,6 +29,7 @@ import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.performance.PerformanceTestDescriptor;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -67,6 +68,23 @@ public class EntityPerformanceTest extends AbstractPerformanceTest {
         return 1000;
     }
     
+     @Test(groups={"Integration", "Acceptance"})
+     public void testCreateAndDeleteApp() {
+         int numIterations = numIterations();
+         double minRatePerSec = 100 * PERFORMANCE_EXPECTATION;
+         
+         measure(PerformanceTestDescriptor.create()
+                 .summary("EntityPerformanceTest.testUpdateAttributeWhenNoListeners")
+                 .iterations(numIterations)
+                 .minAcceptablePerSecond(minRatePerSec)
+                 .job(new Runnable() {
+                     @Override
+                     public void run() {
+                         BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+                         app.stop();
+                     }}));
+     }
+
     @Test(groups={"Integration", "Acceptance"})
     public void testUpdateAttributeWhenNoListeners() {
         int numIterations = numIterations();
