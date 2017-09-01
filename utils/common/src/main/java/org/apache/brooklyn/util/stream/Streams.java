@@ -159,10 +159,9 @@ public class Streams {
     public static void copyClose(InputStream input, OutputStream output) {
         try {
             copy(input, output);
-        } catch (RuntimeException e) {
+        } finally {
             closeQuietly(input);
             closeQuietly(output);
-            throw e;
         }
     }
 
