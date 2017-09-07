@@ -21,6 +21,7 @@ package org.apache.brooklyn.api.mgmt.rebind.mementos;
 import java.util.Map;
 
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
+import org.apache.brooklyn.api.objs.HighlightTuple;
 
 /**
  * Represents the state of an policy, so that it can be reconstructed (e.g. after restarting brooklyn).
@@ -32,4 +33,6 @@ import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 public interface PolicyMemento extends Memento {
 
     Map<String, Object> getConfig();
+
+    Map<String, HighlightTuple> getHighlights();
 }

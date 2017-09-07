@@ -19,17 +19,22 @@
 package org.apache.brooklyn.policy.autoscaling;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.objs.HighlightTuple;
+import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
+import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -105,6 +110,7 @@ public class AutoScalerPolicyRebindTest extends RebindTestFixtureWithApp {
         assertEquals(newPolicy.getConfig(AutoScalerPolicy.POOL_OK_SENSOR), POOL_OK_SENSOR);
         assertEquals(newPolicy.getConfig(AutoScalerPolicy.MAX_SIZE_REACHED_SENSOR), MAX_SIZE_REACHED_SENSOR);
         assertEquals(newPolicy.getConfig(AutoScalerPolicy.MAX_REACHED_NOTIFICATION_DELAY), Duration.of(7, TimeUnit.MILLISECONDS));
+        assertTrue(newPolicy.getHighlights().isEmpty());
     }
     
     @Test
@@ -130,5 +136,33 @@ public class AutoScalerPolicyRebindTest extends RebindTestFixtureWithApp {
         
         ((EntityInternal)newCluster).sensors().set(METRIC_SENSOR, 1);
         EntityAsserts.assertGroupSizeEqualsEventually(newCluster, 1);
+    }
+
+    @Test
+    public void testAutoScalerHighlightAfterRebind() throws Exception {
+        origCluster.start(ImmutableList.of(origLoc));
+        origCluster.policies().add(AutoScalerPolicy.builder()
+                .name("myname")
+                .metric(METRIC_SENSOR)
+                .entityWithMetric(origCluster)
+                .metricUpperBound(10)
+                .metricLowerBound(100)
+                .minPoolSize(1)
+                .maxPoolSize(3)
+                .buildSpec());
+
+        Map<String, HighlightTuple> highlights = new HashMap<>();
+        highlights.put("testNameTask",  new HighlightTuple("testDescription", 123L, "testTaskId"));
+
+
+        Policy originalPolicy = origCluster.policies().iterator().next();
+        ((AbstractEntityAdjunct)originalPolicy).setHighlights(highlights);
+
+        TestApplication newApp = rebind();
+
+        DynamicCluster newCluster = (DynamicCluster) Iterables.getOnlyElement(newApp.getChildren());
+        AutoScalerPolicy newPolicy = (AutoScalerPolicy) Iterables.getOnlyElement(newCluster.policies());
+
+        assertEquals(originalPolicy.getHighlights(), newPolicy.getHighlights());
     }
 }

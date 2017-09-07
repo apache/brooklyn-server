@@ -23,6 +23,7 @@ import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -36,6 +37,7 @@ import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
+import org.apache.brooklyn.api.objs.HighlightTuple;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
@@ -109,6 +111,13 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     @SetFromFlag(value="uniqueTag")
     protected String uniqueTag;
 
+    private Map<String, HighlightTuple> highlights = new HashMap<>();
+
+    public static String HIGHLIGHT_NAME_LAST_ACTION = "lastAction";
+    public static String HIGHLIGHT_NAME_LAST_CONFIRMATION= "lastConfirmation";
+    public static String HIGHLIGHT_NAME_LAST_VIOLATION= "lastViolation";
+    public static String HIGHLIGHT_NAME_TRIGGERS = "triggers";
+
     public AbstractEntityAdjunct() {
         this(Collections.emptyMap());
     }
@@ -126,6 +135,10 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
                 FlagUtils.checkRequiredFields(this);
             }
         }
+    }
+
+    protected void addHighlight(String name, HighlightTuple tuple) {
+        highlights.put(name, tuple);
     }
 
     /**
@@ -545,6 +558,23 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         }
         public void setUniqueTag(String uniqueTag) {
             AbstractEntityAdjunct.this.uniqueTag = uniqueTag;
+        }
+    }
+
+    @Override
+    public Map<String, HighlightTuple> getHighlights() {
+        HashMap<String, HighlightTuple> highlightsToReturn = new HashMap<>();
+        highlightsToReturn.putAll(highlights);
+        return highlightsToReturn;
+    }
+
+    /**
+     * Should only be used for rebind
+     * @param highlights
+     */
+    public void setHighlights(Map<String, HighlightTuple> highlights) {
+        if(highlights != null) {
+            this.highlights.putAll(highlights);
         }
     }
 
