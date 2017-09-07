@@ -19,14 +19,12 @@
 
 package org.apache.brooklyn.core.catalog.internal;
 
-import static org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType.TEMPLATE;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -35,6 +33,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.Streams;
@@ -58,41 +57,59 @@ public class CatalogBundleLoader {
         this.managementContext = managementContext;
     }
 
+    /** @deprecated since 0.12.0 use {@link #scanForCatalog(Bundle, boolean, boolean, Map)} */
     public void scanForCatalog(Bundle bundle, boolean force, boolean validate) {
-        scanForCatalogInternal(bundle, force, validate, false);
+        scanForCatalog(bundle, force, validate, null);
+    }
+    
+    public void scanForCatalog(Bundle bundle, boolean force, boolean validate, Map<RegisteredType, RegisteredType> result) {
+        scanForCatalogInternal(bundle, force, validate, false, result);
     }
 
     /** @deprecated since 0.12.0 */
     @Deprecated // scans a bundle which is installed but Brooklyn isn't managing (will probably remove)
     public Iterable<? extends CatalogItem<?, ?>> scanForCatalogLegacy(Bundle bundle, boolean force) {
         LOG.warn("Bundle "+bundle+" being loaded with deprecated legacy loader");
-        return scanForCatalogInternal(bundle, force, true, true);
+        return scanForCatalogInternal(bundle, force, true, true, null).legacyResult;
     }
     
-    private Iterable<? extends CatalogItem<?, ?>> scanForCatalogInternal(Bundle bundle, boolean force, boolean validate, boolean legacy) {
+    private static class TemporaryInternalScanResult {
+        Iterable<? extends CatalogItem<?, ?>> legacyResult;
+        Map<RegisteredType, RegisteredType> mapOfNewToReplaced;
+        
+    }
+    private TemporaryInternalScanResult scanForCatalogInternal(Bundle bundle, boolean force, boolean validate, boolean legacy, Map<RegisteredType, RegisteredType> resultNewFormat) {
         ManagedBundle mb = ((ManagementContextInternal)managementContext).getOsgiManager().get().getManagedBundle(
             new VersionedName(bundle));
 
-        Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
+        TemporaryInternalScanResult result = new TemporaryInternalScanResult();
+        result.legacyResult = MutableList.of();
+        result.mapOfNewToReplaced = resultNewFormat;
 
         final URL bom = bundle.getResource(CatalogBundleLoader.CATALOG_BOM_URL);
         if (null != bom) {
-            LOG.debug("Found catalog BOM in {} {} {}", CatalogUtils.bundleIds(bundle));
+            LOG.debug("Catalog load, found catalog BOM in {} {} {}", CatalogUtils.bundleIds(bundle));
             String bomText = readBom(bom);
             if (mb==null) {
                 LOG.warn("Bundle "+bundle+" containing BOM is not managed by Brooklyn; using legacy item installation");
                 legacy = true;
             }
             if (legacy) {
-                catalogItems = this.managementContext.getCatalog().addItems(bomText, mb, force);
-                for (CatalogItem<?, ?> item : catalogItems) {
+                result.legacyResult = this.managementContext.getCatalog().addItems(bomText, mb, force);
+                for (CatalogItem<?, ?> item : result.legacyResult) {
                     LOG.debug("Added to catalog: {}, {}", item.getSymbolicName(), item.getVersion());
                 }
             } else {
-                this.managementContext.getCatalog().addTypesFromBundleBom(bomText, mb, force);
+                this.managementContext.getCatalog().addTypesFromBundleBom(bomText, mb, force, result.mapOfNewToReplaced);
                 if (validate) {
-                    Map<RegisteredType, Collection<Throwable>> validationErrors = this.managementContext.getCatalog().validateTypes(
-                        this.managementContext.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(mb.getVersionedName())) );
+                    Set<RegisteredType> matches = MutableSet.copyOf(this.managementContext.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(mb.getVersionedName())));
+                    if (!(matches.containsAll(result.mapOfNewToReplaced.keySet()) && result.mapOfNewToReplaced.keySet().containsAll(matches))) {
+                        // sanity check
+                        LOG.warn("Discrepancy in list of Brooklyn items found for "+mb.getVersionedName()+": "+
+                            "installer said "+result.mapOfNewToReplaced.keySet()+" ("+result.mapOfNewToReplaced.keySet().size()+") "+
+                            "but registry search found "+matches+" ("+matches.size()+")");
+                    }
+                    Map<RegisteredType, Collection<Throwable>> validationErrors = this.managementContext.getCatalog().validateTypes( matches );
                     if (!validationErrors.isEmpty()) {
                         throw Exceptions.propagate("Failed to install "+mb.getVersionedName()+", types "+validationErrors.keySet()+" gave errors",
                             Iterables.concat(validationErrors.values()));
@@ -107,7 +124,7 @@ public class CatalogBundleLoader {
             LOG.debug("No BOM found in {} {} {}", CatalogUtils.bundleIds(bundle));
         }
 
-        return catalogItems;
+        return result;
     }
 
     /**
@@ -136,20 +153,6 @@ public class CatalogBundleLoader {
         } catch (IOException e) {
             throw Exceptions.propagateAnnotated("Error loading Catalog BOM from " + bom, e);
         }
-    }
-
-    private Iterable<? extends CatalogItem<?, ?>> removeApplications(Iterable<? extends CatalogItem<?, ?>> catalogItems) {
-
-        List<CatalogItem<?, ?>> result = MutableList.of();
-
-        for (CatalogItem<?, ?> item : catalogItems) {
-            if (TEMPLATE.equals(item.getCatalogItemType())) {
-                removeFromCatalog(item);
-            } else {
-                result.add(item);
-            }
-        }
-        return result;
     }
 
 }

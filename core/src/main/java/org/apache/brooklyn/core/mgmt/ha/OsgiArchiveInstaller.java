@@ -36,8 +36,10 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -59,6 +61,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 
 // package-private so we can move this one if/when we move OsgiManager
@@ -352,20 +355,26 @@ class OsgiArchiveInstaller {
             }
             
             osgiManager.checkCorrectlyInstalled(result.getMetadata(), result.bundle);
-            ((BasicManagedBundle)result.getMetadata()).setTempLocalFileWhenJustUploaded(zipFile);
-            zipFile = null; // don't close/delete it here, we'll use it for uploading, then it will delete it
+            final File oldZipFile; 
             
             if (!updating) { 
-                osgiManager.managedBundlesRecord.addManagedBundle(result);
+                oldZipFile = null;
+                osgiManager.managedBundlesRecord.addManagedBundle(result, zipFile);
                 result.code = OsgiBundleInstallationResult.ResultCode.INSTALLED_NEW_BUNDLE;
                 result.message = "Installed Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" with ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
+                ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
                 mgmt().getRebindManager().getChangeListener().onManaged(result.getMetadata());
             } else {
+                oldZipFile = osgiManager.managedBundlesRecord.updateManagedBundleFile(result, zipFile);
                 result.code = OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE;
                 result.message = "Updated Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" as existing ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
+                ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
                 mgmt().getRebindManager().getChangeListener().onChanged(result.getMetadata());
             }
             log.debug(result.message + " (in osgi container)");
+            // can now delete and close (copy has been made and is available from OsgiManager)
+            zipFile.delete();
+            zipFile = null;
             
             // setting the above before the code below means if there is a problem starting or loading catalog items
             // a user has to remove then add again, or forcibly reinstall;
@@ -379,26 +388,103 @@ class OsgiArchiveInstaller {
             // eg rebind code, brooklyn.libraries list -- deferred start allows caller to
             // determine whether not to start or to start all after things are installed
             Runnable startRunnable = new Runnable() {
+                private void rollbackBundle() {
+                    if (updating) {
+                        if (oldZipFile==null) {
+                            throw new IllegalStateException("Did not have old ZIP file to install");
+                        }
+                        log.debug("Rolling back bundle "+result.getVersionedName()+" to state from "+oldZipFile);
+                        try {
+                            File zipFileNow = osgiManager.managedBundlesRecord.rollbackManagedBundleFile(result, oldZipFile);
+                            result.bundle.update(new FileInputStream(Preconditions.checkNotNull(zipFileNow, "Couldn't find contents of old version of bundle")));
+                        } catch (Exception e) {
+                            Exceptions.propagateIfFatal(e);
+                            log.error("Error rolling back following failed install of updated "+result.getVersionedName()+"; "
+                                + "installation will likely be corrupted and correct version should be manually installed.", e);
+                        }
+                        
+                        ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
+                        mgmt().getRebindManager().getChangeListener().onChanged(result.getMetadata());
+                    } else {
+                        log.debug("Uninstalling bundle "+result.getVersionedName()+" (roll back of failed fresh install, no previous version to revert to)");
+                        osgiManager.uninstallUploadedBundle(result.getMetadata());
+                        
+                        ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
+                        mgmt().getRebindManager().getChangeListener().onUnmanaged(result.getMetadata());
+                    }
+                }
                 public void run() {
                     if (start) {
                         try {
                             log.debug("Starting bundle "+result.getVersionedName());
                             result.bundle.start();
                         } catch (BundleException e) {
+                            log.warn("Error starting bundle "+result.getVersionedName()+", uninstalling, restoring any old bundle, then re-throwing error: "+e);
+                            try {
+                                rollbackBundle();
+                            } catch (Throwable t) {
+                                Exceptions.propagateIfFatal(t);
+                                log.warn("Error rolling back "+result.getVersionedName()+" after bundle start problem; server may be in inconsistent state (swallowing this error and propagating installation error): "+Exceptions.collapseText(t), t);
+                                throw Exceptions.propagate(new BundleException("Failure installing and rolling back; server may be in inconsistent state regarding bundle "+result.getVersionedName()+". "
+                                    + "Rollback failure ("+Exceptions.collapseText(t)+") detailed in log. Installation error is: "+Exceptions.collapseText(e), e));
+                            }
+                            
                             throw Exceptions.propagate(e);
                         }
                     }
         
                     if (loadCatalogBom) {
-                        if (updating) {
-                            osgiManager.uninstallCatalogItemsFromBundle( result.getVersionedName() );
-                            // (ideally removal and addition would be atomic)
-                        }
-                        osgiManager.loadCatalogBom(result.bundle, force, validateTypes);
-                        Iterable<RegisteredType> items = mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(result.getMetadata()));
-                        log.debug("Adding items from bundle "+result.getVersionedName()+": "+items);
-                        for (RegisteredType ci: items) {
-                            result.catalogItemsInstalled.add(ci.getId());
+                        Iterable<RegisteredType> itemsFromOldBundle = null;
+                        Map<RegisteredType, RegisteredType> itemsReplacedHere = null;
+                        try {
+                            if (updating) {
+                                itemsFromOldBundle = osgiManager.uninstallCatalogItemsFromBundle( result.getVersionedName() );
+                                // (ideally removal and addition would be atomic)
+                            }
+                            itemsReplacedHere = MutableMap.of();
+                            osgiManager.loadCatalogBom(result.bundle, force, validateTypes, itemsReplacedHere);
+                            Iterable<RegisteredType> items = mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(result.getMetadata()));
+                            log.debug("Adding items from bundle "+result.getVersionedName()+": "+items);
+                            for (RegisteredType ci: items) {
+                                result.catalogItemsInstalled.add(ci.getId());
+                            }
+                        } catch (Exception e) {
+                            // unable to install new items; rollback bundles
+                            // and reload replaced items
+                            log.warn("Error adding Brooklyn items from bundle "+result.getVersionedName()+", uninstalling, restoring any old bundle and items, then re-throwing error: "+Exceptions.collapseText(e));
+                            try {
+                                rollbackBundle();
+                            } catch (Throwable t) {
+                                Exceptions.propagateIfFatal(t);
+                                log.warn("Error rolling back "+result.getVersionedName()+" after catalog install problem; server may be in inconsistent state (swallowing this error and propagating installation error): "+Exceptions.collapseText(t), t);
+                                throw Exceptions.propagate(new BundleException("Failure loading catalog items, and also failed rolling back; server may be in inconsistent state regarding bundle "+result.getVersionedName()+". "
+                                    + "Rollback failure ("+Exceptions.collapseText(t)+") detailed in log. Installation error is: "+Exceptions.collapseText(e), e));
+                            }
+                            if (itemsFromOldBundle!=null) {
+                                // add back all itemsFromOldBundle (when replacing a bundle)
+                                for (RegisteredType oldItem: itemsFromOldBundle) {
+                                    if (log.isTraceEnabled()) {
+                                        log.trace("RESTORING replaced bundle item "+oldItem+"\n"+RegisteredTypes.getImplementationDataStringForSpec(oldItem));
+                                    }
+                                    ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(oldItem, true);
+                                }
+                            }
+                            if (itemsReplacedHere!=null) {
+                                // and restore any items from other bundles (eg wrappers) that were replaced
+                                MutableList<RegisteredType> replaced = MutableList.copyOf(itemsReplacedHere.values());
+                                // in reverse order so if other bundle adds multiple we end up with the real original
+                                Collections.reverse(replaced);
+                                for (RegisteredType oldItem: replaced) {
+                                    if (oldItem!=null) {
+                                        if (log.isTraceEnabled()) {
+                                            log.trace("RESTORING replaced external item "+oldItem+"\n"+RegisteredTypes.getImplementationDataStringForSpec(oldItem));
+                                        }
+                                        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(oldItem, true);
+                                    }
+                                }
+                            }
+                            
+                            throw Exceptions.propagate(e);
                         }
                     }
                 }

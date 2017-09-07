@@ -57,7 +57,6 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 
 public class CatalogMakeOsgiBundleTest extends AbstractYamlTest {
@@ -138,7 +137,7 @@ public class CatalogMakeOsgiBundleTest extends AbstractYamlTest {
         String customName = "catalog-bundle-1-manual-"+Identifiers.makeRandomId(4);
         
         jf = bm.copyAddingManifest(jf, MutableMap.of(
-                "Manifest-Version", "1.0", 
+                "Manifest-Version", "2.0", 
                 "Bundle-SymbolicName", customName,
                 "Bundle-Version", "0.0.0.SNAPSHOT"));
         

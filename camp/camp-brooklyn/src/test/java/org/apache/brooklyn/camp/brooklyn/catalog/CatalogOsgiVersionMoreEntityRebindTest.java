@@ -408,12 +408,13 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
         }
     }
 
-    @Test(groups="Broken")  // AH think not going to support this; see notes in BasicBrooklynCatalog.scanAnnotationsInBundle
-    // it's hard to get the JAR for scanning, and doesn't fit with the OSGi way
-    public void testRebindJavaScanningBundleInCatalog() throws Exception {
-        CatalogScanOsgiTest.installJavaScanningMoreEntitiesV2(mgmt(), this);
-        rebind();
-        RegisteredType item = mgmt().getTypeRegistry().get(OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
-        Assert.assertNotNull(item, "Scanned item should have been available after rebind");
-    }
+    // could support this now that we have a local cache; but probably not needed; see BasicBrooklynCatalog.scanAnnotationsInBundle
+//    @Test
+//    public void testRebindJavaScanningBundleInCatalog() throws Exception {
+//        CatalogScanOsgiTest.installJavaScanningMoreEntitiesV2(mgmt(), this);
+//        rebind();
+//        RegisteredType item = mgmt().getTypeRegistry().get(OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
+//        Assert.assertNotNull(item, "Scanned item should have been available after rebind");
+//    }
+    
 }

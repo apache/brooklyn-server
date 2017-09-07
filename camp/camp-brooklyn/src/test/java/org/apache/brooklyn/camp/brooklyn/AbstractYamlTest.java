@@ -58,6 +58,7 @@ import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.Streams;
+import org.osgi.framework.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
@@ -232,7 +233,16 @@ public abstract class AbstractYamlTest {
         mgmt().getCatalog().addItems(catalogYaml, forceUpdate);
     }
 
-    public static void addCatalogItemsAsOsgi(ManagementContext mgmt, String catalogYaml, VersionedName bundleName, boolean force) {
+    /*
+     * Have two variants of this as some tests use bundles which can't be started in their environment
+     * but we can load the specific YAML provided (eg they reference libraries who aren't loadable).
+     * 
+     * TODO we should refactor so those tests where dependent bundles can't be started either
+     * have the dependent bundles refactored with java split out from unloadable BOM
+     * or have the full camp parser available so the BOMs can be loaded.
+     * (in other words ideally we'd always use the "usual way" method below this instead of this one.)
+     */
+    public static void addCatalogItemsAsOsgiWithoutStartingBundles(ManagementContext mgmt, String catalogYaml, VersionedName bundleName, boolean force) {
         try {
             BundleMaker bundleMaker = new BundleMaker(mgmt);
             File bf = bundleMaker.createTempZip("test", MutableMap.of(
@@ -241,22 +251,50 @@ public abstract class AbstractYamlTest {
                 new BasicManagedBundle(bundleName.getSymbolicName(), bundleName.getVersionString(), null), 
                 new FileInputStream(bf),
                 false);
-            // bundle not started (no need), and BOM not installed nor validated above; 
+            
+            // bundle not started (no need, and can break), and BOM not installed nor validated above; 
             // do BOM install and validation below manually to test the type registry approach
-            mgmt.getCatalog().addTypesFromBundleBom(catalogYaml, b.get().getMetadata(), force);
+            // but skipping the rollback / uninstall
+            mgmt.getCatalog().addTypesFromBundleBom(catalogYaml, b.get().getMetadata(), force, null);
             Map<RegisteredType, Collection<Throwable>> validation = mgmt.getCatalog().validateTypes( 
                 mgmt.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(b.get().getVersionedName())) );
             if (!validation.isEmpty()) {
-                throw Exceptions.propagate("Brooklyn failed to load types: "+validation.keySet(), 
+                throw Exceptions.propagate("Brooklyn failed to load types (in tests, skipping rollback): "+validation.keySet(), 
                     Iterables.concat(validation.values()));
             }
+            
+
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         }
     }
     
-    protected void deleteCatalogEntity(String catalogItem) {
-        ((BasicBrooklynTypeRegistry) mgmt().getTypeRegistry()).delete(new VersionedName(catalogItem, TEST_VERSION));
+    public static void addCatalogItemsAsOsgiInUsualWay(ManagementContext mgmt, String catalogYaml, VersionedName bundleName, boolean force) {
+        try {
+            BundleMaker bundleMaker = new BundleMaker(mgmt);
+            File bf = bundleMaker.createTempZip("test", MutableMap.of(
+                new ZipEntry(BasicBrooklynCatalog.CATALOG_BOM), new ByteArrayInputStream(catalogYaml.getBytes())));
+            if (bundleName!=null) {
+                bf = bundleMaker.copyAddingManifest(bf, MutableMap.of(
+                    "Manifest-Version", "2.0",
+                    Constants.BUNDLE_SYMBOLICNAME, bundleName.getSymbolicName(),
+                    Constants.BUNDLE_VERSION, bundleName.getOsgiVersion().toString()));
+            }
+            ReferenceWithError<OsgiBundleInstallationResult> b = ((ManagementContextInternal)mgmt).getOsgiManager().get().install(
+                new FileInputStream(bf) );
+
+            b.checkNoError();
+            
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
+    }
+    
+    protected void deleteCatalogEntity(String catalogItemSymbolicName) {
+        deleteCatalogEntity(catalogItemSymbolicName, TEST_VERSION);
+    }
+    protected void deleteCatalogEntity(String catalogItemSymbolicName, String version) {
+        ((BasicBrooklynTypeRegistry) mgmt().getTypeRegistry()).delete(new VersionedName(catalogItemSymbolicName, version));
     }
 
     protected Logger getLogger() {
