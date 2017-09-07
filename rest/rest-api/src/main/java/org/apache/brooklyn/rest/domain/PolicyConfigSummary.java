@@ -20,59 +20,24 @@ package org.apache.brooklyn.rest.domain;
 
 import java.net.URI;
 import java.util.Map;
-import java.util.Objects;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.config.ConfigKey;
 
-public class PolicyConfigSummary extends ConfigSummary {
+//TODO remove? this class has no value over its super
+public class PolicyConfigSummary extends AdjunctConfigSummary {
 
     private static final long serialVersionUID = 4339330833863794513L;
 
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
-    private final Map<String, URI> links;
-
-    public PolicyConfigSummary(
-            @JsonProperty("name") String name,
-            @JsonProperty("type") String type,
-            @JsonProperty("description") String description,
-            @JsonProperty("defaultValue") Object defaultValue,
-            @JsonProperty("reconfigurable") boolean reconfigurable,
-            @JsonProperty("links") Map<String, URI> links) {
-        super(name, type, description, defaultValue, reconfigurable, null, null, null);
-        this.links = (links == null) ? ImmutableMap.<String, URI>of() : ImmutableMap.copyOf(links);
-    }
-
+    @SuppressWarnings("unused") // json deserialization
+    private PolicyConfigSummary() {}
+    
     public PolicyConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
-        super(config, label, priority);
-        this.links = links != null ? ImmutableMap.copyOf(links) : null;
+        super(config, label, priority, links);
     }
 
-    @Override
-    public Map<String, URI> getLinks() {
-        return links;
+    public PolicyConfigSummary(String name, String type, String description, Object defaultValue, boolean reconfigurable,
+        Map<String, URI> links) {
+        super(name, type, description, defaultValue, reconfigurable, links);
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof PolicyConfigSummary)) return false;
-        if (!super.equals(o)) return false;
-        PolicyConfigSummary that = (PolicyConfigSummary) o;
-        return Objects.equals(links, that.links);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(super.hashCode(), links);
-    }
-
-    @Override
-    public String toString() {
-        return "PolicyConfigSummary{" +
-                "links=" + links +
-                '}';
-    }
 }

@@ -1381,43 +1381,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager();
         if (osgiManager.isPresent() && AUTO_WRAP_CATALOG_YAML_AS_BUNDLE) {
             // wrap in a bundle to be managed; need to get bundle and version from yaml
-            Map<?, ?> cm = BasicBrooklynCatalog.getCatalogMetadata(yaml);
-            VersionedName vn = BasicBrooklynCatalog.getVersionedName( cm, false );
-            if (vn==null) {
-                // for better legacy compatibiity, if id specified at root use that
-                String id = (String) cm.get("id");
-                if (Strings.isNonBlank(id)) {
-                    vn = VersionedName.fromString(id);
-                }
-                vn = new VersionedName(vn!=null && Strings.isNonBlank(vn.getSymbolicName()) ? vn.getSymbolicName() : "brooklyn-catalog-bom-"+Identifiers.makeRandomId(8), 
-                    vn!=null && vn.getVersionString()!=null ? vn.getVersionString() : getFirstAs(cm, String.class, "version").or(NO_VERSION));
-            }
-            log.debug("Wrapping supplied BOM as "+vn);
-            Manifest mf = new Manifest();
-            mf.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, vn.getSymbolicName());
-            mf.getMainAttributes().putValue(Constants.BUNDLE_VERSION, vn.getOsgiVersionString());
-            mf.getMainAttributes().putValue(Constants.BUNDLE_MANIFESTVERSION, "2");
-            mf.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), OSGI_MANIFEST_VERSION_VALUE);
-            mf.getMainAttributes().putValue(BROOKLYN_WRAPPED_BOM_BUNDLE, Boolean.TRUE.toString());
-            
-            BundleMaker bm = new BundleMaker(mgmt);
-            File bf = bm.createTempBundle(vn.getSymbolicName(), mf, MutableMap.of(
-                new ZipEntry(CATALOG_BOM), (InputStream) new ByteArrayInputStream(yaml.getBytes())) );
-
-            OsgiBundleInstallationResult result = null;
-            try {
-                result = osgiManager.get().install(null, new FileInputStream(bf), true, true, forceUpdate).get();
-            } catch (FileNotFoundException e) {
-                throw Exceptions.propagate(e);
-            } finally {
-                bf.delete();
-            }
-            if (result.getCode().isError()) {
-                // rollback done by install call above
-                throw new IllegalStateException(result.getMessage());
-            }
-            uninstallEmptyWrapperBundles();
-            return toLegacyCatalogItems(result.getCatalogItemsInstalled());
+            OsgiBundleInstallationResult result = addItemsOsgi(yaml, forceUpdate, osgiManager);
+            return toLegacyCatalogItems(result.getTypesInstalled());
 
             // if all items pertaining to an older anonymous catalog.bom bundle have been overridden
             // we delete those later; see list of wrapper bundles kept in OsgiManager
@@ -1426,10 +1391,73 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return addItems(yaml, null, forceUpdate);
     }
     
+    /** Like {@link #addItems(String, boolean)} but returning the {@link OsgiBundleInstallationResult} for use from new environments.
+     * If not using OSGi the bundle/code/etc fields are null but the types will always be set. */
     @SuppressWarnings("deprecation")
-    private List<CatalogItem<?,?>> toLegacyCatalogItems(Iterable<String> itemIds) {
+    public OsgiBundleInstallationResult addItemsBundleResult(String yaml, boolean forceUpdate) {
+        Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager();
+        if (osgiManager.isPresent() && AUTO_WRAP_CATALOG_YAML_AS_BUNDLE) {
+            // wrap in a bundle to be managed; need to get bundle and version from yaml
+            return addItemsOsgi(yaml, forceUpdate, osgiManager);
+
+            // if all items pertaining to an older anonymous catalog.bom bundle have been overridden
+            // we delete those later; see list of wrapper bundles kept in OsgiManager
+        }
+        // fallback to non-OSGi for tests and other environments
+        List<? extends CatalogItem<?, ?>> items = addItems(yaml, null, forceUpdate);
+        OsgiBundleInstallationResult result = new OsgiBundleInstallationResult();
+        for (CatalogItem<?, ?> ci: items) {
+            RegisteredType rt = mgmt.getTypeRegistry().get(ci.getId());
+            result.getTypesInstalled().add(rt!=null ? rt : RegisteredTypes.of(ci));
+        }
+        return result;
+    }
+
+    protected OsgiBundleInstallationResult addItemsOsgi(String yaml, boolean forceUpdate, Maybe<OsgiManager> osgiManager) {
+        Map<?, ?> cm = BasicBrooklynCatalog.getCatalogMetadata(yaml);
+        VersionedName vn = BasicBrooklynCatalog.getVersionedName( cm, false );
+        if (vn==null) {
+            // for better legacy compatibiity, if id specified at root use that
+            String id = (String) cm.get("id");
+            if (Strings.isNonBlank(id)) {
+                vn = VersionedName.fromString(id);
+            }
+            vn = new VersionedName(vn!=null && Strings.isNonBlank(vn.getSymbolicName()) ? vn.getSymbolicName() : "brooklyn-catalog-bom-"+Identifiers.makeRandomId(8), 
+                vn!=null && vn.getVersionString()!=null ? vn.getVersionString() : getFirstAs(cm, String.class, "version").or(NO_VERSION));
+        }
+        log.debug("Wrapping supplied BOM as "+vn);
+        Manifest mf = new Manifest();
+        mf.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, vn.getSymbolicName());
+        mf.getMainAttributes().putValue(Constants.BUNDLE_VERSION, vn.getOsgiVersionString());
+        mf.getMainAttributes().putValue(Constants.BUNDLE_MANIFESTVERSION, "2");
+        mf.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), OSGI_MANIFEST_VERSION_VALUE);
+        mf.getMainAttributes().putValue(BROOKLYN_WRAPPED_BOM_BUNDLE, Boolean.TRUE.toString());
+        
+        BundleMaker bm = new BundleMaker(mgmt);
+        File bf = bm.createTempBundle(vn.getSymbolicName(), mf, MutableMap.of(
+            new ZipEntry(CATALOG_BOM), (InputStream) new ByteArrayInputStream(yaml.getBytes())) );
+
+        OsgiBundleInstallationResult result = null;
+        try {
+            result = osgiManager.get().install(null, new FileInputStream(bf), true, true, forceUpdate).get();
+        } catch (FileNotFoundException e) {
+            throw Exceptions.propagate(e);
+        } finally {
+            bf.delete();
+        }
+        if (result.getCode().isError()) {
+            // rollback done by install call above
+            throw new IllegalStateException(result.getMessage());
+        }
+        uninstallEmptyWrapperBundles();
+        return result;
+    }
+    
+    @SuppressWarnings("deprecation")
+    private List<CatalogItem<?,?>> toLegacyCatalogItems(Iterable<RegisteredType> list) {
         List<CatalogItem<?,?>> result = MutableList.of();
-        for (String id: itemIds) {
+        for (RegisteredType t: list) {
+            String id = t.getId();
             CatalogItem<?, ?> item = CatalogUtils.getCatalogItemOptionalVersion(mgmt, id);
             if (item==null) {
                 // using new Type Registry (OSGi addition); 
