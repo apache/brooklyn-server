@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.SyncFailedException;
 import java.util.Date;
 
@@ -90,8 +91,15 @@ public class FileBasedStoreObjectAccessor implements PersistenceObjectStore.Stor
         try {
             FileUtil.setFilePermissionsTo600(tmpFile);
             final FileOutputStream tempStream = new FileOutputStream(tmpFile);
-            Streams.copyClose(bytes.openStream(), tempStream);
-            syncFileSystem(tempStream.getFD());
+            final InputStream byteStream = bytes.openStream();
+            try {
+                Streams.copy(byteStream, tempStream);
+                syncFileSystem(tempStream.getFD());
+            } finally {
+                Streams.closeQuietly(byteStream);
+                Streams.closeQuietly(tempStream);
+            }
+
             FileBasedObjectStore.moveFile(tmpFile, file);
         } catch (IOException e) {
             throw Exceptions.propagateAnnotated("Problem writing data to file "+file+" (via temporary file "+tmpFile+")", e);
