@@ -401,9 +401,6 @@ public class BasicExecutionManager implements ExecutionManager {
     }
 
     protected Task<?> submitNewScheduledTask(final Map<?,?> flags, final ScheduledTask task) {
-        tasksById.put(task.getId(), task);
-        totalTaskCount.incrementAndGet();
-        
         beforeSubmitScheduledTaskAllIterations(flags, task);
         
         return submitSubsequentScheduledTask(flags, task);
@@ -680,9 +677,6 @@ public class BasicExecutionManager implements ExecutionManager {
         if (task instanceof ScheduledTask)
             return (Task<T>) submitNewScheduledTask(flags, (ScheduledTask)task);
         
-        tasksById.put(task.getId(), task);
-        totalTaskCount.incrementAndGet();
-        
         beforeSubmitAtomicTask(flags, task);
         
         if (((TaskInternal<T>)task).getJob() == null) 
@@ -741,6 +735,9 @@ public class BasicExecutionManager implements ExecutionManager {
         for (Object tag: BrooklynTaskTags.getTagsFast(task)) {
             tasksWithTagCreating(tag).add(task);
         }
+        
+        tasksById.put(task.getId(), task);
+        totalTaskCount.incrementAndGet();
     }
 
     protected void beforeStartScheduledTaskSubmissionIteration(Map<?,?> flags, Task<?> task) {
