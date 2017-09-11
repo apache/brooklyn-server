@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Supplier;
 
 /**
  * This is a Brooklyn extension to the Java {@link Executor}.
@@ -71,14 +72,29 @@ public interface ExecutionContext extends Executor {
      * Gets the value promptly, or returns {@link Maybe#absent()} if the value is not yet available.
      * It may throw an error if it cannot be determined whether a value is available immediately or not.
      * <p>
-     * Implementations will typically attempt to execute in the current thread, with appropriate
-     * tricks to make it look like it is in a sub-thread, and will attempt to be non-blocking but
-     * if needed they may block.
+     * Implementations will typically act like {@link #get(TaskAdaptable)} with additional
+     * tricks to attempt to be non-blocking, such as recognizing some "immediate" markers.  
      * <p>
-     * Supports {@link Callable} and {@link Runnable} and some {@link Task} targets to be evaluated with "immediate" semantics.
+     * Also supports {@link Callable}, {@link Runnable}, and {@link Supplier} argument types.
      */
     // TODO reference ImmediateSupplier when that class is moved to utils project
     @Beta
     <T> Maybe<T> getImmediately(Object callableOrSupplierOrTask);
 
+    /**
+     * Efficient shortcut for {@link #submit(TaskAdaptable)} followed by an immediate {@link Task#get()}.
+     * <p>
+     * Implementations will typically attempt to execute in the current thread, with appropriate
+     * configuration to make it look like it is in a sub-thread, 
+     * ie registering this as a task and allowing
+     * context methods on tasks to see the given sub-task.
+     * <p>
+     * If the argument has already been submitted it simply blocks on it.
+     * 
+     * @param task
+     * @return result of the task execution
+     */
+    @Beta
+    <T> T get(TaskAdaptable<T> task);
+    
 }

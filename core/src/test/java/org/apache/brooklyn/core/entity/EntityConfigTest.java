@@ -697,6 +697,18 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         assertEquals(getConfigFuture.get(TIMEOUT_MS, TimeUnit.MILLISECONDS), "abc");
         assertEquals(work.callCount.get(), 1);
     }
+    
+    @Test
+    public void testGetConfigRunsInSameThread() throws Exception {
+        Callable<String> job = () -> ""+Thread.currentThread().getId();
+
+        final MyOtherEntity entity = app.addChild(EntitySpec.create(MyOtherEntity.class));
+        assertEquals( ((EntityInternal)entity).getExecutionContext().get(new BasicTask<>(job)), job.call() );
+        
+        // and config also runs in same thread (after validation)
+        entity.config().set(MyOtherEntity.STRING_KEY, new BasicTask<>(job));
+        assertEquals(entity.config().get(MyOtherEntity.STRING_KEY), job.call());
+    }
 
     @ImplementedBy(MyBaseEntityImpl.class)
     public interface MyBaseEntity extends EntityInternal {

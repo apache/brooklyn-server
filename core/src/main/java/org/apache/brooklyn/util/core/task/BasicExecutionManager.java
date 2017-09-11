@@ -703,6 +703,12 @@ public class BasicExecutionManager implements ExecutionManager {
         } else {
             future = runner.submit(job);
         }
+        afterSubmitRecordFuture(task, future);
+        
+        return task;
+    }
+
+    protected <T> void afterSubmitRecordFuture(final Task<T> task, Future<T> future) {
         // SubmissionCallable (above) invokes the listeners on completion;
         // this future allows a caller to add custom listeners
         // (it does not notify the listeners; that's our job);
@@ -714,8 +720,6 @@ public class BasicExecutionManager implements ExecutionManager {
         
         // finally expose the future to callers
         ((TaskInternal<T>)task).initInternalFuture(listenableFuture);
-        
-        return task;
     }
     
     protected void beforeSubmitScheduledTaskAllIterations(Map<?,?> flags, Task<?> task) {

@@ -26,8 +26,12 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -42,7 +46,10 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedEntity;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier.ImmediateUnsupportedException;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.time.CountdownTimer;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,6 +107,106 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     @Override
     public Set<Task<?>> getTasks() { return executionManager.getTasksWithAllTags(tags); }
 
+    @Override
+    public <T> T get(TaskAdaptable<T> task) {
+        final TaskInternal<T> t = (TaskInternal<T>) task.asTask();
+        
+        if (t.isQueuedOrSubmitted()) {
+            if (t.isDone()) {
+                return t.getUnchecked();
+            } else {
+                throw new ImmediateUnsupportedException("Task is in progress and incomplete: "+t);
+            }
+        }
+
+        return runInSameThread(t, new Callable<Maybe<T>>() {
+            public Maybe<T> call() {
+                try {
+                    return Maybe.of(t.getJob().call());
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    return Maybe.absent(e);
+                }
+            }
+        }).get();
+    }
+    
+    private static class SimpleFuture<T> implements Future<T> {
+        boolean cancelled = false;
+        boolean done = false;
+        Maybe<T> result;
+        
+        public synchronized Maybe<T> set(Maybe<T> result) {
+            this.result = result;
+            done = true;
+            notifyAll();
+            return result;
+        }
+
+        @Override
+        public boolean cancel(boolean mayInterruptIfRunning) {
+            cancelled = true;
+            return true;
+        }
+
+        @Override
+        public boolean isCancelled() {
+            return cancelled;
+        }
+
+        @Override
+        public boolean isDone() {
+            return done;
+        }
+
+        @Override
+        public T get() throws InterruptedException, ExecutionException {
+            return result.get();
+        }
+
+        @Override
+        public synchronized T get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+            if (isDone()) return get();
+            CountdownTimer time = CountdownTimer.newInstanceStarted( Duration.of(timeout, unit) );
+            while (!time.isExpired()) {
+                wait(time.getDurationRemaining().lowerBound(Duration.ONE_MILLISECOND).toMilliseconds());
+                if (isDone()) return get();
+            }
+            throw new TimeoutException();
+        }
+    }
+    
+    private <T> Maybe<T> runInSameThread(final Task<T> task, Callable<Maybe<T>> job) {
+        ((TaskInternal<T>)task).getMutableTags().addAll(tags);
+        
+        Task<?> previousTask = BasicExecutionManager.getPerThreadCurrentTask().get();
+        BasicExecutionContext oldExecutionContext = getCurrentExecutionContext();
+        registerPerThreadExecutionContext();
+        ((BasicExecutionManager)executionManager).beforeSubmitInSameThreadTask(null, task);
+
+        SimpleFuture<T> future = new SimpleFuture<>();
+        try {
+            ((BasicExecutionManager)executionManager).afterSubmitRecordFuture(task, future);
+            ((BasicExecutionManager)executionManager).beforeStartInSameThreadTask(null, task);
+
+            // TODO this does not apply the same context-switching logic as submit
+            
+            return future.set(job.call());
+            
+        } catch (Exception e) {
+            future.set(Maybe.absent(e));
+            throw Exceptions.propagate(e);
+            
+        } finally {
+            try {
+                ((BasicExecutionManager)executionManager).afterEndInSameThreadTask(null, task);
+            } finally {
+                BasicExecutionManager.getPerThreadCurrentTask().set(previousTask);
+                perThreadExecutionContext.set(oldExecutionContext);
+            }
+        }
+    }
+    
     /** performs execution without spawning a new task thread, though it does temporarily set a fake task for the purpose of getting context;
      * currently supports {@link Supplier}, {@link Callable}, {@link Runnable}, or {@link Task} instances; 
      * with tasks if it is submitted or in progress,
@@ -110,9 +217,9 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     @SuppressWarnings("unchecked")
     @Override
     public <T> Maybe<T> getImmediately(Object callableOrSupplier) {
-        BasicTask<?> fakeTaskForContext;
+        BasicTask<T> fakeTaskForContext;
         if (callableOrSupplier instanceof BasicTask) {
-            fakeTaskForContext = (BasicTask<?>)callableOrSupplier;
+            fakeTaskForContext = (BasicTask<T>)callableOrSupplier;
             if (fakeTaskForContext.isQueuedOrSubmitted()) {
                 if (fakeTaskForContext.isDone()) {
                     return Maybe.of((T)fakeTaskForContext.getUnchecked());
@@ -122,41 +229,26 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             }
             callableOrSupplier = fakeTaskForContext.getJob();
         } else {
-            fakeTaskForContext = new BasicTask<Object>(MutableMap.of("displayName", "immediate evaluation"));
+            fakeTaskForContext = new BasicTask<T>(MutableMap.of("displayName", "immediate evaluation"));
         }
-        fakeTaskForContext.tags.addAll(tags);
+        final ImmediateSupplier<T> job = callableOrSupplier instanceof ImmediateSupplier ? (ImmediateSupplier<T>) callableOrSupplier 
+            : InterruptingImmediateSupplier.<T>of(callableOrSupplier);
         fakeTaskForContext.tags.add(BrooklynTaskTags.IMMEDIATE_TASK_TAG);
         fakeTaskForContext.tags.add(BrooklynTaskTags.TRANSIENT_TASK_TAG);
-        
-        Task<?> previousTask = BasicExecutionManager.getPerThreadCurrentTask().get();
-        BasicExecutionContext oldExecutionContext = getCurrentExecutionContext();
-        registerPerThreadExecutionContext();
-        ((BasicExecutionManager)executionManager).beforeSubmitInSameThreadTask(null, fakeTaskForContext);
 
-        try {
-            ((BasicExecutionManager)executionManager).beforeStartInSameThreadTask(null, fakeTaskForContext);
-            fakeTaskForContext.cancel();
-            
-            if (!(callableOrSupplier instanceof ImmediateSupplier)) {
-                callableOrSupplier = InterruptingImmediateSupplier.of(callableOrSupplier);
-            }
-            boolean wasAlreadyInterrupted = Thread.interrupted();
-            try {
-                return ((ImmediateSupplier<T>)callableOrSupplier).getImmediately();
-            } finally {
-                if (wasAlreadyInterrupted) {
-                    Thread.currentThread().interrupt();
+        return runInSameThread(fakeTaskForContext, new Callable<Maybe<T>>() {
+            public Maybe<T> call() {
+                fakeTaskForContext.cancel();
+                
+                boolean wasAlreadyInterrupted = Thread.interrupted();
+                try {
+                    return job.getImmediately();
+                } finally {
+                    if (wasAlreadyInterrupted) {
+                        Thread.currentThread().interrupt();
+                    }
                 }
-            }
- 
-        } finally {
-            try {
-                ((BasicExecutionManager)executionManager).afterEndInSameThreadTask(null, fakeTaskForContext);
-            } finally {
-                BasicExecutionManager.getPerThreadCurrentTask().set(previousTask);
-                perThreadExecutionContext.set(oldExecutionContext);
-            }
-        }
+            } });
     }
     
     @SuppressWarnings({ "unchecked", "rawtypes" })

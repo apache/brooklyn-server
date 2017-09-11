@@ -521,5 +521,4 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         }
         return ((EntityInternal)e).getExecutionContext().submit(tb.build());
     }
-
 }
