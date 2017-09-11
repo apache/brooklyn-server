@@ -96,8 +96,14 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                 Iterables.transform(mgmt.getCatalog().getCatalogItemsLegacy(), RegisteredTypes.CI_TO_RT), 
                 filter)) {
             if (!result.containsKey(rt.getId())) {
-                // shouldn't be using this now
-                log.warn("Item '"+rt.getId()+"' not in type registry; only found in legacy catalog");
+                // TODO ideally never come here, however
+                // legacy cataog currently still used for java-scanned annotations; 
+                // hopefully that will be deprecated and removed in near future
+                // (probably after switch to osgi and using catalog.bom --
+                // though it would not be too hard for java scan code in CatalogClasspath.load to
+                // make TypeRegistry instances instead of CatalogItem, esp if we had YOML to write that plan)
+                
+                //log.warn("Item '"+rt.getId()+"' not in type registry; only found in legacy catalog");
                 result.put(rt.getId(), rt);
             }
         }

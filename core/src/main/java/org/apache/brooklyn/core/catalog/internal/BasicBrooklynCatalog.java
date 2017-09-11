@@ -348,13 +348,19 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     public <T,SpecT> CatalogItem<T,SpecT> getCatalogItem(Class<T> type, String id, String version) {
+        CatalogItem<T, SpecT> item = (CatalogItem) getCatalogItemLegacy(type, id, version);
+        if (item!=null) {
+            return item;
+        }
+        
         RegisteredType rt = mgmt.getTypeRegistry().get(id, version);
         if (rt!=null) {
             if (rt.getSuperTypes().contains(type) || rt.getSuperTypes().contains(type.getName())) {
                 return (CatalogItem) RegisteredTypes.toPartialCatalogItem(rt);
             }
         }
-        return getCatalogItemLegacy(type, id, version);
+        
+        return null;
     }
 
     @SuppressWarnings("unchecked")
@@ -1805,10 +1811,14 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             log.debug("Forcing catalog load on access of catalog items");
             load();
         }
-        result.putAll((Map)catalog.getIdCache());
         for (RegisteredType rt: mgmt.getTypeRegistry().getAll()) {
             result.put(rt.getId(), (CatalogItem)RegisteredTypes.toPartialCatalogItem(rt));
         }
+        // prefer locally registered items in this method; prevents conversion to and from RT;
+        // possibly allows different views if there are diff items in catlaog and type registry
+        // but this means at least it is consistent for user if they are consistent;
+        // and can easily live with this until catalog is entirely replaced to TR 
+        result.putAll((Map)catalog.getIdCache());
         return result.values();
     }
     
