@@ -102,7 +102,8 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
     public abstract static class Builder<T, B extends Builder<T,B>> {
         protected String name;
         protected Collection<String> deprecatedNames = ImmutableList.of();
-        protected TypeToken<T> type;
+        protected Class<T> type;
+        protected TypeToken<T> typeToken;
         protected String description;
         protected T defaultValue;
         protected boolean reconfigurable;
@@ -115,17 +116,21 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         public Builder() {
         }
         public Builder(TypeToken<T> type, String name) {
-            this.type = type;
+            this.typeToken = type;
             this.name = name;
         }
         public Builder(Class<T> type, String name) {
-            this(TypeToken.of(type), name);
+            this.type = type;
+            this.name = name;
         }
         public Builder(ConfigKey<T> key) {
             this(key.getName(), key);
         }
+        @SuppressWarnings("unchecked")
         public Builder(String newName, ConfigKey<T> key) {
-            this.type = checkNotNull(key.getTypeToken(), "type");
+            TypeToken<T> tt = key.getTypeToken();
+            this.type = (Class<T>) TypeTokens.getRawTypeIfRaw(tt);
+            this.typeToken = TypeTokens.getTypeTokenIfNotRaw(tt);
             this.name = checkNotNull(newName, "name");
             this.deprecatedNames = checkNotNull(key.getDeprecatedNames(), "deprecatedNames");
             description(key.getDescription());
@@ -145,10 +150,10 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
             return deprecatedNames(val == null ? ImmutableList.of() : ImmutableList.copyOf(val));
         }
         public B type(Class<T> val) {
-            this.type = TypeToken.of(val); return self();
+            this.type = val; return self();
         }
         public B type(TypeToken<T> val) {
-            this.type = val; return self();
+            this.typeToken = val; return self();
         }
         public B description(String val) {
             this.description = val; return self();
@@ -225,32 +230,37 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
     public BasicConfigKey() { /* for gson */ }
 
     public BasicConfigKey(Class<T> type, String name) {
-        this(TypeToken.of(type), name);
+        this(type, null, name, null, null);
     }
 
     public BasicConfigKey(Class<T> type, String name, String description) {
-        this(TypeToken.of(type), name, description);
+        this(type, null, name, description, null);
     }
 
     public BasicConfigKey(Class<T> type, String name, String description, T defaultValue) {
-        this(TypeToken.of(type), name, description, defaultValue);
+        this(type, null, name, description, defaultValue);
     }
 
     public BasicConfigKey(TypeToken<T> type, String name) {
-        this(type, name, name, null);
+        this(null, type, name, name, null);
     }
     
     public BasicConfigKey(TypeToken<T> type, String name, String description) {
-        this(type, name, description, null);
+        this(null, type, name, description, null);
     }
     
     public BasicConfigKey(TypeToken<T> type, String name, String description, T defaultValue) {
+        this(null, type, name, description, defaultValue);
+    }
+    
+    // exactly one of typeC or typeT should be non-null
+    private BasicConfigKey(Class<T> typeC, TypeToken<T> typeT, String name, String description, T defaultValue) {
         this.description = description;
         this.name = checkNotNull(name, "name");
         this.deprecatedNames = ImmutableList.of();
         
-        this.type = TypeTokens.getRawTypeIfRaw(checkNotNull(type, "type"));
-        this.typeToken = TypeTokens.getTypeTokenIfNotRaw(type);
+        this.type = typeC;
+        this.typeToken = typeT;
         
         this.defaultValue = defaultValue;
         this.reconfigurable = false;
@@ -260,8 +270,9 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
     public BasicConfigKey(Builder<T,?> builder) {
         this.name = checkNotNull(builder.name, "name");
         this.deprecatedNames = checkNotNull(builder.deprecatedNames, "deprecatedNames");
-        this.type = TypeTokens.getRawTypeIfRaw(checkNotNull(builder.type, "type"));
-        this.typeToken = TypeTokens.getTypeTokenIfNotRaw(builder.type);
+        TypeTokens.checkCompatibleOneNonNull(builder.type, builder.typeToken);
+        this.type = builder.type;
+        this.typeToken = builder.typeToken;
         this.description = builder.description;
         this.defaultValue = builder.defaultValue;
         this.reconfigurable = builder.reconfigurable;

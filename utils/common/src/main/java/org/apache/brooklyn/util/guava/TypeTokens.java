@@ -68,5 +68,19 @@ public class TypeTokens {
     public static <T> Class<T> getRawRawType(TypeToken<T> token) {
         return (Class)token.getRawType();
     }
+
+    /** Checks that if both type and token are supplied, either exactly one is null, or 
+     * they both refer to the same non-null type */
+    public static <T> void checkCompatibleOneNonNull(Class<? super T> type, TypeToken<T> typeToken) {
+        if ((type==null && typeToken!=null) || (type!=null && typeToken==null)) {
+            return;
+        }
+        if (type==null && typeToken==null) {
+            throw new NullPointerException("Type not set (neither class or type token)");
+        }
+        if (!type.equals(typeToken.getRawType())) {
+            throw new NullPointerException("Invalid types, token is "+typeToken+" (raw "+typeToken.getRawType()+") but class is "+type);
+        }
+    }
     
 }
