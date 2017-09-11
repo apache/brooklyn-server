@@ -24,6 +24,14 @@ import com.google.common.reflect.TypeToken;
 
 public class TypeTokens {
 
+    // creating TypeToken is surprisingly expensive so cache these common ones
+    public static TypeToken<String> STRING = TypeToken.of(String.class);
+    public static TypeToken<Object> OBJECT = TypeToken.of(Object.class);
+    public static TypeToken<Integer> INTEGER = TypeToken.of(Integer.class);
+    public static TypeToken<Boolean> BOOLEAN = TypeToken.of(Boolean.class);
+    public static TypeToken<Double> DOUBLE = TypeToken.of(Double.class);
+    public static TypeToken<Long> LONG = TypeToken.of(Long.class);
+    
     /** returns raw type, if it's raw, else null;
      * used e.g. to set only one of the raw type or the type token,
      * for instance to make serialized output nicer */
@@ -47,9 +55,10 @@ public class TypeTokens {
     }
     
     /** given either a token or a raw type, returns the raw type */
-    public static <T> Class<? super T> getRawType(TypeToken<T> token, Class<? super T> raw) {
+    @SuppressWarnings("unchecked")
+    public static <T,U extends T> Class<T> getRawType(TypeToken<U> token, Class<T> raw) {
         if (raw!=null) return raw;
-        if (token!=null) return token.getRawType();
+        if (token!=null) return (Class<T>) token.getRawType();
         throw new IllegalStateException("Both indicators of type are null");
     }
     
@@ -58,7 +67,15 @@ public class TypeTokens {
     @SuppressWarnings("unchecked")
     public static <T> TypeToken<T> getTypeToken(TypeToken<T> token, Class<? super T> raw) {
         if (token!=null) return token;
-        if (raw!=null) return TypeToken.of((Class<T>)raw);
+        if (raw!=null) {
+            if (String.class.equals(raw)) return (TypeToken<T>) STRING;
+            if (Object.class.equals(raw)) return (TypeToken<T>) OBJECT;
+            if (Integer.class.equals(raw)) return (TypeToken<T>) INTEGER;
+            if (Boolean.class.equals(raw)) return (TypeToken<T>) BOOLEAN;
+            if (Double.class.equals(raw)) return (TypeToken<T>) DOUBLE;
+            if (Long.class.equals(raw)) return (TypeToken<T>) LONG;
+            return TypeToken.of((Class<T>)raw);
+        }
         throw new IllegalStateException("Both indicators of type are null");
     }
 
