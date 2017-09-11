@@ -131,11 +131,11 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         Task<?> previousTask = BasicExecutionManager.getPerThreadCurrentTask().get();
         BasicExecutionContext oldExecutionContext = getCurrentExecutionContext();
         registerPerThreadExecutionContext();
+        ((BasicExecutionManager)executionManager).beforeSubmitInSameThreadTask(null, fakeTaskForContext);
 
-        if (previousTask!=null) fakeTaskForContext.setSubmittedByTask(previousTask);
-        fakeTaskForContext.cancel();
         try {
-            BasicExecutionManager.getPerThreadCurrentTask().set(fakeTaskForContext);
+            ((BasicExecutionManager)executionManager).beforeStartInSameThreadTask(null, fakeTaskForContext);
+            fakeTaskForContext.cancel();
             
             if (!(callableOrSupplier instanceof ImmediateSupplier)) {
                 callableOrSupplier = InterruptingImmediateSupplier.of(callableOrSupplier);
@@ -150,8 +150,12 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             }
  
         } finally {
-            BasicExecutionManager.getPerThreadCurrentTask().set(previousTask);
-            perThreadExecutionContext.set(oldExecutionContext);
+            try {
+                ((BasicExecutionManager)executionManager).afterEndInSameThreadTask(null, fakeTaskForContext);
+            } finally {
+                BasicExecutionManager.getPerThreadCurrentTask().set(previousTask);
+                perThreadExecutionContext.set(oldExecutionContext);
+            }
         }
     }
     

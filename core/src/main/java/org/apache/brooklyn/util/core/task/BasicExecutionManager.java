@@ -721,6 +721,9 @@ public class BasicExecutionManager implements ExecutionManager {
     protected void beforeSubmitAtomicTask(Map<?,?> flags, Task<?> task) {
         internalBeforeSubmit(flags, task);
     }
+    protected void beforeSubmitInSameThreadTask(Map<?,?> flags, Task<?> task) {
+        internalBeforeSubmit(flags, task);
+    }
     /** invoked when a task is submitted */
     protected void internalBeforeSubmit(Map<?,?> flags, Task<?> task) {
         incompleteTaskIds.add(task.getId());
@@ -729,8 +732,8 @@ public class BasicExecutionManager implements ExecutionManager {
         if (currentTask!=null) ((TaskInternal<?>)task).setSubmittedByTask(currentTask);
         ((TaskInternal<?>)task).setSubmitTimeUtc(System.currentTimeMillis());
         
-        if (flags.get("tag")!=null) ((TaskInternal<?>)task).getMutableTags().add(flags.remove("tag"));
-        if (flags.get("tags")!=null) ((TaskInternal<?>)task).getMutableTags().addAll((Collection<?>)flags.remove("tags"));
+        if (flags!=null && flags.get("tag")!=null) ((TaskInternal<?>)task).getMutableTags().add(flags.remove("tag"));
+        if (flags!=null && flags.get("tags")!=null) ((TaskInternal<?>)task).getMutableTags().addAll((Collection<?>)flags.remove("tags"));
 
         for (Object tag: BrooklynTaskTags.getTagsFast(task)) {
             tasksWithTagCreating(tag).add(task);
@@ -741,15 +744,18 @@ public class BasicExecutionManager implements ExecutionManager {
     }
 
     protected void beforeStartScheduledTaskSubmissionIteration(Map<?,?> flags, Task<?> task) {
-        internalBeforeStart(flags, task);
+        internalBeforeStart(flags, task, true);
     }
     protected void beforeStartAtomicTask(Map<?,?> flags, Task<?> task) {
-        internalBeforeStart(flags, task);
+        internalBeforeStart(flags, task, true);
+    }
+    protected void beforeStartInSameThreadTask(Map<?,?> flags, Task<?> task) {
+        internalBeforeStart(flags, task, false);
     }
     
     /** invoked in a task's thread when a task is starting to run (may be some time after submitted), 
      * but before doing any of the task's work, so that we can update bookkeeping and notify callbacks */
-    protected void internalBeforeStart(Map<?,?> flags, Task<?> task) {
+    protected void internalBeforeStart(Map<?,?> flags, Task<?> task, boolean allowJitter) {
         int count = activeTaskCount.incrementAndGet();
         if (count % 1000==0) {
             log.warn("High number of active tasks: task #"+count+" is "+task);
@@ -769,9 +775,12 @@ public class BasicExecutionManager implements ExecutionManager {
             ((TaskInternal<?>)task).setStartTimeUtc(System.currentTimeMillis());
         }
 
-        jitterThreadStart(task);
-
-        invokeCallback(flags.get("newTaskStartCallback"), task);
+        if (allowJitter) {
+            jitterThreadStart(task);
+        }
+        if (flags!=null) {
+            invokeCallback(flags.get("newTaskStartCallback"), task);
+        }
     }
 
     private void jitterThreadStart(Task<?> task) {
@@ -825,6 +834,9 @@ public class BasicExecutionManager implements ExecutionManager {
     protected void afterEndAtomicTask(Map<?,?> flags, Task<?> task) {
         internalAfterEnd(flags, task, true, true);
     }
+    protected void afterEndInSameThreadTask(Map<?,?> flags, Task<?> task) {
+        internalAfterEnd(flags, task, true, true);
+    }
     /** normally (if not interrupted) called once for each call to {@link #internalBeforeSubmit(Map, Task)},
      * and, for atomic tasks and scheduled-task submission iterations where 
      * always called once if {@link #internalBeforeStart(Map, Task)} is invoked and in the same thread as that method */
@@ -835,7 +847,9 @@ public class BasicExecutionManager implements ExecutionManager {
         }
         if (isEndingAllIterations) {
             incompleteTaskIds.remove(task.getId());
-            invokeCallback(flags.get("newTaskEndCallback"), task);
+            if (flags!=null) {
+                invokeCallback(flags.get("newTaskEndCallback"), task);
+            }
             ((TaskInternal<?>)task).setEndTimeUtc(System.currentTimeMillis());
         }
 

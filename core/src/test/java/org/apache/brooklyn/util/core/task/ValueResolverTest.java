@@ -471,7 +471,8 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
     private void assertImmediateFakeTaskFromMethod(CallInfo callInfo, String method) {
         // previously task was null, but now there is a "fake task"
         assertNotNull(callInfo.task);
-        Assert.assertFalse(callInfo.task.isSubmitted());       
+        // it is now submitted in same thread (2017-09)
+        Assert.assertTrue(callInfo.task.isSubmitted());       
         assertContainsCallingMethod(callInfo.stackTrace, method);
     }
     
