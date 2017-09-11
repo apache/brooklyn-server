@@ -76,6 +76,7 @@ public class QueueingSubscriptionManager extends AbstractSubscriptionManager {
     
     @SuppressWarnings("unchecked")
     public synchronized void startDelegatingForSubscribing() {
+        // TODO wrap in same-thread task
         assert delegate!=null;
         for (QueuedSubscription s: queuedSubscriptions) {
             delegate.subscribe(s.flags, s.s);
@@ -86,6 +87,7 @@ public class QueueingSubscriptionManager extends AbstractSubscriptionManager {
     
     @SuppressWarnings("unchecked")
     public synchronized void startDelegatingForPublishing() {
+        // TODO wrap in same-thread task
         assert delegate!=null;
         for (SensorEvent evt: queuedSensorEvents) {
             delegate.publish(evt);

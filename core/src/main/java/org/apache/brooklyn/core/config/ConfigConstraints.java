@@ -112,6 +112,7 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
     abstract Iterable<ConfigKey<?>> getBrooklynObjectTypeConfigKeys();
 
     public Iterable<ConfigKey<?>> getViolations() {
+        // TODO in new task
         return validateAll();
     }
 
