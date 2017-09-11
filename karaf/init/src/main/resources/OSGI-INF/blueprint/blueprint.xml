@@ -74,9 +74,9 @@ limitations under the License.
     </bean>
 
     <bean id="launcher"
-          class="org.apache.brooklyn.launcher.osgi.OsgiLauncher"
-          init-method="init"
-          destroy-method="destroy"
+          class="org.apache.brooklyn.launcher.osgi.OsgiLauncherImpl"
+          init-method="initOsgi"
+          destroy-method="destroyOsgi"
           depends-on="deserializingClassRenamesProvider deserializingJcloudsRenamesProvider">
 
         <property name="brooklynVersion" ref="brooklynVersion" />
@@ -116,6 +116,12 @@ limitations under the License.
         <interfaces>
             <value>org.apache.brooklyn.api.mgmt.ManagementContext</value>
             <value>org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal</value>
+        </interfaces>
+    </service>
+
+    <service ref="launcher">
+        <interfaces>
+            <value>org.apache.brooklyn.launcher.osgi.OsgiLauncher</value>
         </interfaces>
     </service>
 

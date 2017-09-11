@@ -162,7 +162,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
     protected final List<Throwable> errors = Collections.synchronizedList(MutableList.<Throwable>of());
 
     protected Maybe<URI> uri = Maybe.absent();
-    protected CatalogInitialization catalogInitialization;
+    private CatalogInitialization catalogInitialization;
 
     public AbstractManagementContext(BrooklynProperties brooklynProperties) {
         this.managementNodeId = Strings.makeRandomId(8);
