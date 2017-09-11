@@ -25,6 +25,7 @@ import java.util.concurrent.Future;
 
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;
@@ -113,6 +114,7 @@ public interface TaskInternal<T> extends Task<T> {
     void setSubmitTimeUtc(long currentTimeMillis);
 
     void setSubmittedByTask(Task<?> task);
+    void setSubmittedByTask(Maybe<Task<?>> task);
     
     Set<Object> getMutableTags();
 

@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.base.Function;
@@ -115,6 +116,11 @@ public abstract class ForwardingTask<T> extends ForwardingObject implements Task
     @Override
     public Task<?> getSubmittedByTask() {
         return delegate().getSubmittedByTask();
+    }
+
+    @Override
+    public String getSubmittedByTaskId() {
+        return delegate().getSubmittedByTaskId();
     }
 
     @Override
@@ -300,6 +306,11 @@ public abstract class ForwardingTask<T> extends ForwardingObject implements Task
     @Override
     public void setSubmittedByTask(Task<?> task) {
         delegate().setSubmittedByTask(task);
+    }
+
+    @Override
+    public void setSubmittedByTask(Maybe<Task<?>> taskM) {
+        delegate().setSubmittedByTask(taskM);
     }
 
     @Override

@@ -55,6 +55,8 @@ public interface Task<T> extends ListenableFuture<T>, TaskAdaptable<T> {
     
     /** task which submitted this task, if was submitted by a task */
     public Task<?> getSubmittedByTask();
+    /** task which submitted this task, if was submitted by a task */
+    public String getSubmittedByTaskId();
 
     /** The thread where the task is running, if it is running. */
     public Thread getThread();

@@ -43,10 +43,12 @@ import java.util.concurrent.TimeoutException;
 
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.objs.Identifiable;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.Maybe.MaybeSupplier;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -57,10 +59,10 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.Callables;
 import com.google.common.util.concurrent.ExecutionList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -255,6 +257,17 @@ public class BasicTask<T> implements TaskInternal<T> {
     public Task<?> getSubmittedByTask() { 
         if (submittedByTask==null) return null;
         return submittedByTask.orNull(); 
+    }
+    @Override
+    public String getSubmittedByTaskId() {
+        if (submittedByTask==null || submittedByTask.isAbsent()) return null;
+        if (submittedByTask instanceof MaybeSupplier) {
+            Supplier<?> supplier = ((MaybeSupplier<?>)submittedByTask).getSupplier();
+            if (supplier instanceof Identifiable) {
+                return ((Identifiable)supplier).getId();
+            }
+        }
+        return submittedByTask.get().getId();
     }
 
     /** the thread where the task is running, if it is running */
@@ -906,19 +919,13 @@ public class BasicTask<T> implements TaskInternal<T> {
         submitTimeUtc = val;
     }
     
-    private static <T> Task<T> newGoneTaskFor(Task<?> task) {
-        Task<T> t = Tasks.<T>builder().dynamic(false).displayName(task.getDisplayName())
-            .description("Details of the original task "+task+" have been forgotten.")
-            .body(Callables.returning((T)null)).build();
-        ((BasicTask<T>)t).ignoreIfNotRun();
-        return t;
-    }
-    
-    @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     public void setSubmittedByTask(Task<?> task) {
-        // possible optimization, store details but don't create task until later
-        submittedByTask = Maybe.softThen((Task)task, (Maybe)Maybe.of(BasicTask.newGoneTaskFor(task)));
+        setSubmittedByTask(Maybe.of(task));
+    }
+    @Override
+    public void setSubmittedByTask(Maybe<Task<?>> taskM) {
+        submittedByTask = taskM;
     }
     
     @Override

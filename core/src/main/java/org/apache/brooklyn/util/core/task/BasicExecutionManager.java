@@ -57,6 +57,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
@@ -69,8 +70,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.Callables;
 import com.google.common.util.concurrent.ExecutionList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -729,7 +732,9 @@ public class BasicExecutionManager implements ExecutionManager {
         incompleteTaskIds.add(task.getId());
         
         Task<?> currentTask = Tasks.current();
-        if (currentTask!=null) ((TaskInternal<?>)task).setSubmittedByTask(currentTask);
+        if (currentTask!=null) ((TaskInternal<?>)task).setSubmittedByTask(
+                // do this instead of soft reference (2017-09) as soft refs impact GC 
+                Maybe.of(new TaskLookup(this, currentTask)) );
         ((TaskInternal<?>)task).setSubmitTimeUtc(System.currentTimeMillis());
         
         if (flags!=null && flags.get("tag")!=null) ((TaskInternal<?>)task).getMutableTags().add(flags.remove("tag"));
@@ -741,6 +746,33 @@ public class BasicExecutionManager implements ExecutionManager {
         
         tasksById.put(task.getId(), task);
         totalTaskCount.incrementAndGet();
+    }
+    
+    private static class TaskLookup implements Supplier<Task<?>> {
+        // this class is not meant to be serialized, but if it is, make sure exec mgr doesn't sneak in
+        transient BasicExecutionManager mgr;
+        
+        String id;
+        String displayName;
+        public TaskLookup(BasicExecutionManager mgr, Task<?> t) {
+            this.mgr = mgr;
+            id = t.getId();
+            displayName = t.getDisplayName();
+        }
+        @Override
+        public Task<?> get() {
+            if (mgr==null) return gone();
+            Task<?> result = mgr.getTask(id);
+            if (result!=null) return result;
+            return gone();
+        }
+        private <T> Task<T> gone() {
+            Task<T> t = Tasks.<T>builder().dynamic(false).displayName(displayName)
+                .description("Details of the original task "+id+" have been forgotten.")
+                .body(Callables.returning((T)null)).build();
+            ((BasicTask<T>)t).ignoreIfNotRun();
+            return t;
+        }
     }
 
     protected void beforeStartScheduledTaskSubmissionIteration(Map<?,?> flags, Task<?> task) {
@@ -856,7 +888,7 @@ public class BasicExecutionManager implements ExecutionManager {
         if (startedInThisThread) {
             PerThreadCurrentTaskHolder.perThreadCurrentTask.remove();
             //clear thread _after_ endTime set, so we won't get a null thread when there is no end-time
-            if (RENAME_THREADS && startedInThisThread) {
+            if (RENAME_THREADS) {
                 Thread thread = task.getThread();
                 if (thread==null) {
                     log.warn("BasicTask.afterEnd invoked without corresponding beforeStart");
