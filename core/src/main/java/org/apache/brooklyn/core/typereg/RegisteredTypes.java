@@ -150,6 +150,11 @@ public class RegisteredTypes {
         @Override public String getContainingBundle() { return type.getContainingBundle(); }
         @Override public String getVersion() { return type.getVersion(); }
 
+        @Override public void setDeprecated(boolean deprecated) { RegisteredTypes.setDeprecated(type, deprecated); }
+        @Override public void setDisabled(boolean disabled) { RegisteredTypes.setDisabled(type, disabled); }
+        @Override public boolean isDeprecated() { return type.isDeprecated(); }
+        @Override public boolean isDisabled() { return type.isDisabled(); }
+        
         @Override public List<String> getCatalogItemIdSearchPath() { throw new UnsupportedOperationException(); }
         @Override public TagSupport tags() { throw new UnsupportedOperationException(); }
         @Override public RelationSupport<?> relations() { throw new UnsupportedOperationException(); }
@@ -166,10 +171,6 @@ public class RegisteredTypes {
         }
         @Override public String getPlanYaml() { throw new UnsupportedOperationException(); }
         @Override public RebindSupport<CatalogItemMemento> getRebindSupport() { throw new UnsupportedOperationException(); }
-        @Override public void setDeprecated(boolean deprecated) { throw new UnsupportedOperationException(); }
-        @Override public void setDisabled(boolean disabled) { throw new UnsupportedOperationException(); }
-        @Override public boolean isDeprecated() { throw new UnsupportedOperationException(); }
-        @Override public boolean isDisabled() { throw new UnsupportedOperationException(); }
     }
     
     /** Preferred mechanism for defining a bean {@link RegisteredType}. 

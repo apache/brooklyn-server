@@ -25,6 +25,7 @@ import java.util.NoSuchElementException;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
@@ -45,24 +46,50 @@ public interface BrooklynCatalog {
      * {@link CatalogItem#getSymbolicName() symbolicName} 
      * and optionally {@link CatalogItem#getVersion()},
      * taking the best version if the version is {@link #DEFAULT_VERSION} or null,
-     * returning null if no matches are found. */
+     * returning null if no matches are found. 
+     * @deprecated since 0.12.0 use {@link BrooklynTypeRegistry} instead */ 
+    @Deprecated
     CatalogItem<?,?> getCatalogItem(String symbolicName, String version);
+    
+    /** As {@link #getCatalogItem(String, String)} but only looking in legacy catalog
+     * @deprecated since 0.12.0 only provided to allow TypeRegistry to see the legacy items */
+    CatalogItem<?,?> getCatalogItemLegacy(String symbolicName, String version);
 
     /** @return Deletes the item with the given {@link CatalogItem#getSymbolicName()
      * symbolicName} and version
-     * @throws NoSuchElementException if not found */
+     * @throws NoSuchElementException if not found 
+     * @deprecated since 0.12.0 use {@link BrooklynTypeRegistry} instead */
+    @Deprecated
     void deleteCatalogItem(String symbolicName, String version);
 
     /** variant of {@link #getCatalogItem(String, String)} which checks (and casts) type for convenience
-     * (returns null if type does not match) */
+     * (returns null if type does not match)
+     * @deprecated since 0.12.0 use {@link BrooklynTypeRegistry} instead */ 
+    @Deprecated
     <T,SpecT> CatalogItem<T,SpecT> getCatalogItem(Class<T> type, String symbolicName, String version);
+    
+    /** As non-legacy method but only looking in legacy catalog
+     * @deprecated since 0.12.0 only provided to allow TypeRegistry to see the legacy items */
+    <T,SpecT> CatalogItem<T,SpecT> getCatalogItemLegacy(Class<T> type, String symbolicName, String version);
 
-    /** @return All items in the catalog */
+    /** @return All items in the catalog
+     * @deprecated since 0.12.0 use {@link BrooklynTypeRegistry} instead */ 
+    @Deprecated
     <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItems();
 
-    /** convenience for filtering items in the catalog; see CatalogPredicates for useful filters */
-//    XXX
+    /** As non-legacy method but only looking in legacy catalog
+     * @deprecated since 0.12.0 only provided to allow TypeRegistry to see the legacy items */
+    @Deprecated
+    <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItemsLegacy();
+
+    /** convenience for filtering items in the catalog; see CatalogPredicates for useful filters
+     * @deprecated since 0.12.0 use {@link BrooklynTypeRegistry} instead */ 
+    @Deprecated
     <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItems(Predicate<? super CatalogItem<T,SpecT>> filter);
+
+    /** As non-legacy method but only looking in legacy catalog
+     * @deprecated since 0.12.0 only provided to allow TypeRegistry to see the legacy items */
+    <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItemsLegacy(Predicate<? super CatalogItem<T,SpecT>> filter);
 
     /** persists the catalog item to the object store, if persistence is enabled */
     public void persist(CatalogItem<?, ?> catalogItem);
