@@ -20,8 +20,6 @@ package org.apache.brooklyn.entity.software.base;
 
 import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.ImplementedBy;
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
 
 /** 
  * A {@link SoftwareProcess} entity that runs commands from an archive.
@@ -58,5 +56,4 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 @Catalog(name="Vanilla Software Process", description="A software process configured with scripts, e.g. for launch, check-running and stop")
 @ImplementedBy(VanillaSoftwareProcessImpl.class)
 public interface VanillaSoftwareProcess extends AbstractVanillaProcess {
-    ConfigKey<String> LAUNCH_COMMAND = ConfigKeys.newConfigKeyWithDefault(AbstractVanillaProcess.LAUNCH_COMMAND, "./start.sh");
 }
