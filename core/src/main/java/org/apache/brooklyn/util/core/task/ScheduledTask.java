@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.core.task;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
@@ -29,6 +30,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
@@ -116,6 +119,44 @@ public class ScheduledTask extends BasicTask<Object> {
         maxIterations = (Integer) elvis(flags.remove("maxIterations"), null);
         Object cancelFlag = flags.remove("cancelOnException");
         cancelOnException = cancelFlag == null || Boolean.TRUE.equals(cancelFlag);
+    }
+    
+    public static Builder builder(Callable<Task<?>> val) {
+        return new Builder(val);
+    }
+    
+    public static class Builder {
+        Callable<Task<?>> factory;
+
+        String displayName;
+        List<Object> tags = MutableList.of();
+        Duration delay, period;
+        Integer maxInterations;
+        boolean cancelOnException = true;
+        Map<String,Object> flags = MutableMap.of();
+        
+        public Builder(Callable<Task<?>> val) { this.factory = val; }
+        
+        public ScheduledTask build() {
+            return new ScheduledTask(MutableMap.copyOf(flags)
+                    .addIfNotNull("displayName", displayName) 
+                    .addIfNotNull("tags", tags.isEmpty() ? null : tags)
+                    .addIfNotNull("delay", delay) 
+                    .addIfNotNull("period", period) 
+                    .addIfNotNull("maxIterations", maxInterations) 
+                    .addIfNotNull("cancelOnException", cancelOnException) 
+                , factory);
+        }
+        
+        public Builder displayName(String val) { this.displayName = val; return this; }
+        public Builder tag(Object val) { this.tags.add(val); return this; }
+        public Builder tagTransient() { return tag(BrooklynTaskTags.TRANSIENT_TASK_TAG); }
+        public Builder delay(Duration val) { this.delay = val; return this; }
+        public Builder period(Duration val) { this.period = val; return this; }
+        public Builder maxIterations(Integer val) { this.maxInterations = val; return this; }
+        public Builder cancelOnException(boolean val) { this.cancelOnException = val; return this; }
+        public Builder addFlags(Map<String,?> val) { this.flags.putAll(val); return this; }
+
     }
     
     public ScheduledTask delay(Duration d) {

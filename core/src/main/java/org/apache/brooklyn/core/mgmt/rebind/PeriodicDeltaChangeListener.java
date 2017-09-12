@@ -244,8 +244,8 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
                         }}).build();
                 }
             };
-            scheduledTask = (ScheduledTask) executionContext.submit(new ScheduledTask(MutableMap.of("displayName", "scheduled[periodic-persister]",
-                "tags", MutableSet.of(BrooklynTaskTags.TRANSIENT_TASK_TAG)), taskFactory).period(period).delay(period));
+            scheduledTask = (ScheduledTask) executionContext.submit(
+                ScheduledTask.builder(taskFactory).displayName("scheduled:[periodic-persister]").tagTransient().period(period).delay(period).build() );
         }
     }
 
