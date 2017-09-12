@@ -229,6 +229,8 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
             .addAll(s.subscriberExtraExecTags == null ? ImmutableList.of() : s.subscriberExtraExecTags)
             .add(s.subscriberExecutionManagerTag)
             .add(BrooklynTaskTags.SENSOR_TAG)
+            // associate the publish event with the publisher (though on init it might be triggered by subscriber)
+            .addIfNotNull(event.getSource()!=null ? BrooklynTaskTags.tagForTargetEntity(event.getSource()) : null)
             .build()
             .asUnmodifiable();
         
