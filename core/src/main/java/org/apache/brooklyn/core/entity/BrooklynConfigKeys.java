@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.entity;
 
+import static org.apache.brooklyn.core.config.ConfigKeys.newBooleanConfigKey;
 import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKey;
 import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKeyWithPrefix;
 import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
@@ -81,7 +82,8 @@ public class BrooklynConfigKeys {
      * @see #SKIP_ENTITY_START_IF_RUNNING
      */
     public static final ConfigKey<Boolean> SKIP_ENTITY_START = ConfigKeys.builder(Boolean.class)
-            .name("entity.started") 
+            .name("skip.start") 
+            .deprecatedNames("entity.started")
             .description("Whether to skip the startup process entirely (useful for auto-running software, such as in containers)")
             .build();
 
@@ -95,7 +97,8 @@ public class BrooklynConfigKeys {
      * @see #SKIP_ENTITY_START
      */
     public static final ConfigKey<Boolean> SKIP_ENTITY_START_IF_RUNNING = ConfigKeys.builder(Boolean.class)
-            .name("entity.running") 
+            .name("skip.start.ifRunning") 
+            .deprecatedNames("entity.running") 
             .description("Whether to skip the startup process entirely, but only if it already running")
             .build();
 
@@ -105,7 +108,8 @@ public class BrooklynConfigKeys {
      * This will skip the installation phase of the lifecycle, and move directly to customization and launching of the entity.
      */
     public static final ConfigKey<Boolean> SKIP_ENTITY_INSTALLATION = ConfigKeys.builder(Boolean.class)
-            .name("install.skip") 
+            .name("skip.install") 
+            .deprecatedNames("install.skip") 
             .description("Whether to skip the install commands entirely (useful for pre-installed images)")
             .build();
 
@@ -195,51 +199,62 @@ public class BrooklynConfigKeys {
      */
 
     public static final ConfigKey<Boolean> PROVISION_LATCH = ConfigKeys.builder(Boolean.class)
-            .name("provision.latch")
+            .name("latch.provision")
+            .deprecatedNames("provision.latch")
             .description("Latch for blocking machine provisioning; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
             .build();
     public static final ConfigKey<Boolean> START_LATCH = ConfigKeys.builder(Boolean.class)
-            .name("start.latch")
+            .name("latch.start")
+            .deprecatedNames("start.latch")
             .description("Latch for blocking start (done post-provisioning for software processes); if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
             .build();
 
     @Beta // on stop DSLs time out after a minute and unblock; may be easier to fix after https://github.com/apache/brooklyn-server/pull/390
     public static final ConfigKey<Boolean> STOP_LATCH = ConfigKeys.builder(Boolean.class)
-            .name("stop.latch")
+            .name("latch.stop")
+            .deprecatedNames("stop.latch")
             .description("Latch for blocking stop; if non-null will wait for at most 1 minute for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
             .build();
 
     public static final ConfigKey<Boolean> SETUP_LATCH = ConfigKeys.builder(Boolean.class)
-            .name("setup.latch")
+            .name("latch.setup")
+            .deprecatedNames("setup.latch")
             .description("Latch for blocking setup; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
             .build();
     
     public static final ConfigKey<Boolean> PRE_INSTALL_RESOURCES_LATCH = ConfigKeys.builder(Boolean.class)
-            .name("resources.preInstall.latch")
+            .name("latch.preInstall.resources")
+            .deprecatedNames("resources.preInstall.latch") 
             .description("Latch for blocking files being copied before the pre-install; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
             .build();
     public static final ConfigKey<Boolean> INSTALL_RESOURCES_LATCH = ConfigKeys.builder(Boolean.class)
-            .name("resources.install.latch")
+            .name("latch.install.reources")
+            .deprecatedNames("resources.install.latch") 
             .description("Latch for blocking files being copied before the install; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
             .build();
     public static final ConfigKey<Boolean> INSTALL_LATCH = ConfigKeys.builder(Boolean.class)
-            .name("install.latch")
+            .name("latch.install")
+            .deprecatedNames("install.latch")
             .description("Latch for blocking install; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
             .build();
     public static final ConfigKey<Boolean> CUSTOMIZE_RESOURCES_LATCH = ConfigKeys.builder(Boolean.class)
-            .name("resources.customize.latch")
+            .name("latch.customize.resources")
+            .deprecatedNames("resources.customize.latch") 
             .description("Latch for blocking files being copied before customize; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
             .build();
     public static final ConfigKey<Boolean> CUSTOMIZE_LATCH = ConfigKeys.builder(Boolean.class)
-            .name("customize.latch")
+            .name("latch.customize")
+            .deprecatedNames("customize.latch") 
             .description("Latch for blocking customize; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
             .build();
     public static final ConfigKey<Boolean> RUNTIME_RESOURCES_LATCH = ConfigKeys.builder(Boolean.class)
-            .name("resources.runtime.latch")
+            .name("latch.launch.resources")
+            .deprecatedNames("resources.runtime.latch") 
             .description("Latch for blocking files being copied before the launch; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
             .build();
     public static final ConfigKey<Boolean> LAUNCH_LATCH = ConfigKeys.builder(Boolean.class)
-            .name("launch.latch")
+            .name("latch.launch")
+            .deprecatedNames("launch.latch") 
             .description("Latch for blocking luanch; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
             .build();
 
