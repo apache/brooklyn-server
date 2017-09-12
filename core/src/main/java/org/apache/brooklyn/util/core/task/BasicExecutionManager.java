@@ -636,13 +636,12 @@ public class BasicExecutionManager implements ExecutionManager {
                 }
             }
   
-            // no longer run listeners when we say to cancel, they get run when the task really ends
-            // TODO confirm no problems (added 2017-09)
-//            ((TaskInternal<?>)task).runListeners();
+            // note: as of 2017-09 no longer run listeners when we say to cancel, they get run when the task really ends
             return result;
         }
     }
 
+    // NB: intended to be run by task.runListeners, used to run any listeners the manager wants 
     private final class SubmissionListenerToCallManagerListeners<T> implements Runnable {
         private final Task<T> task;
 
@@ -652,13 +651,6 @@ public class BasicExecutionManager implements ExecutionManager {
 
         @Override
         public void run() {
-            // TODO remove after confirmation this is fine; this listener runs as one of the task's listeners
-            // so the task.runListeners will always be no-op
-//            try {
-//                ((TaskInternal<?>)task).runListeners();
-//            } catch (Exception e) {
-//                log.warn("Error running task listeners for task "+task+" done", e);
-//            }
             
             for (ExecutionListener listener : listeners) {
                 try {
