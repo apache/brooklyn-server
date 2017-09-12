@@ -62,28 +62,38 @@ public class ServiceReplacer extends AbstractPolicy {
     // TODO if there are multiple failures perhaps we should abort quickly
     
     public static final BasicNotificationSensor<FailureDescriptor> ENTITY_REPLACEMENT_FAILED = new BasicNotificationSensor<FailureDescriptor>(
-            FailureDescriptor.class, "ha.entityFailed.replacement", "Indicates that an entity replacement attempt has failed");
+            FailureDescriptor.class, 
+            "ha.entityFailed.replacement", 
+            "Indicates that an entity replacement attempt has failed");
 
     @SetFromFlag("setOnFireOnFailure")
-    public static final ConfigKey<Boolean> SET_ON_FIRE_ON_FAILURE = ConfigKeys.newBooleanConfigKey("setOnFireOnFailure", "", true);
+    public static final ConfigKey<Boolean> SET_ON_FIRE_ON_FAILURE = ConfigKeys.newBooleanConfigKey(
+            "setOnFireOnFailure", 
+            "Whether to set the entity as 'ON_FIRE' when failure is detected", 
+            true);
     
     /** monitors this sensor, by default ENTITY_RESTART_FAILED */
     @SetFromFlag("failureSensorToMonitor")
     @SuppressWarnings("rawtypes")
-    public static final ConfigKey<Sensor> FAILURE_SENSOR_TO_MONITOR = new BasicConfigKey<Sensor>(Sensor.class, "failureSensorToMonitor", "", ServiceRestarter.ENTITY_RESTART_FAILED); 
+    public static final ConfigKey<Sensor> FAILURE_SENSOR_TO_MONITOR = new BasicConfigKey<Sensor>(
+            Sensor.class, 
+            "failureSensorToMonitor", 
+            "The sensor, emitted by an entity, used to trigger its replacement. Defaults to 'ha.entityFailed.restart' "
+                    + "(i.e. a 'ServiceRestarter' policy tried and failed to restart the entity)", 
+            ServiceRestarter.ENTITY_RESTART_FAILED); 
 
     /** skips replace if replacement has failed this many times failure re-occurs within this time interval */
     @SetFromFlag("failOnRecurringFailuresInThisDuration")
     public static final ConfigKey<Long> FAIL_ON_RECURRING_FAILURES_IN_THIS_DURATION = ConfigKeys.newLongConfigKey(
             "failOnRecurringFailuresInThisDuration", 
-            "abandon replace if replacement has failed many times within this time interval",
+            "Abandon replace if replacement has failed many times within this time interval",
             5*60*1000L);
 
     /** skips replace if replacement has failed this many times failure re-occurs within this time interval */
     @SetFromFlag("failOnNumRecurringFailures")
     public static final ConfigKey<Integer> FAIL_ON_NUM_RECURRING_FAILURES = ConfigKeys.newIntegerConfigKey(
             "failOnNumRecurringFailures", 
-            "abandon replace if replacement has failed this many times (100% of attempts) within the time interval",
+            "Abandon replace if replacement has failed this many times (100% of attempts) within the time interval",
             5);
 
     @SetFromFlag("ticker")

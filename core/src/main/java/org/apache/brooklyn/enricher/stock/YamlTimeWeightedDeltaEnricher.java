@@ -47,8 +47,11 @@ public class YamlTimeWeightedDeltaEnricher<T extends Number> extends AbstractTra
     Number lastValue;
     long lastTime = -1;
     
-    public static final ConfigKey<Duration> DELTA_PERIOD = ConfigKeys.newConfigKey(Duration.class, "enricher.delta.period",
-        "Duration that this delta should compute for, default per second", Duration.ONE_SECOND);
+    public static final ConfigKey<Duration> DELTA_PERIOD = ConfigKeys.newConfigKey(
+            Duration.class, 
+            "enricher.delta.period",
+            "Duration that this delta should compute for (default is one second)", 
+            Duration.ONE_SECOND);
     
     @Override
     public void setEntity(EntityLocal entity) {

@@ -97,7 +97,7 @@ public class EntityConfigResourceTest extends BrooklynRestResourceTest {
         assertTrue(configKeyOptional.isPresent());
         
         assertEquals(configKeyOptional.get().getType(), "java.lang.String");
-        assertEquals(configKeyOptional.get().getDescription(), "Suggested version");
+        assertEquals(configKeyOptional.get().getDescription(), "The suggested version of the software to be installed");
         assertFalse(configKeyOptional.get().isReconfigurable());
         assertNull(configKeyOptional.get().getDefaultValue());
         assertNull(configKeyOptional.get().getLabel());

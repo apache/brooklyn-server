@@ -20,6 +20,7 @@ package org.apache.brooklyn.entity.stock;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.entity.ImplementedBy;
@@ -37,7 +38,11 @@ import com.google.common.base.Function;
 @ImplementedBy(DelegateEntityImpl.class)
 public interface DelegateEntity extends Entity {
 
-    AttributeSensorAndConfigKey<Entity, Entity> DELEGATE_ENTITY = ConfigKeys.newSensorAndConfigKey(Entity.class, "delegate.entity", "The delegate entity");
+    @CatalogConfig(label = "Delegate")
+    AttributeSensorAndConfigKey<Entity, Entity> DELEGATE_ENTITY = ConfigKeys.newSensorAndConfigKey(
+            Entity.class, 
+            "delegate.entity", 
+            "The delegate entity");
 
     AttributeSensor<String> DELEGATE_ENTITY_LINK = Sensors.newStringSensor("webapp.url", "The delegate entity link");
 

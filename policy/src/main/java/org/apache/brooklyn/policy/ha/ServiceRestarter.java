@@ -57,7 +57,9 @@ public class ServiceRestarter extends AbstractPolicy {
     private static final Logger LOG = LoggerFactory.getLogger(ServiceRestarter.class);
 
     public static final BasicNotificationSensor<FailureDescriptor> ENTITY_RESTART_FAILED = new BasicNotificationSensor<FailureDescriptor>(
-            FailureDescriptor.class, "ha.entityFailed.restart", "Indicates that an entity restart attempt has failed");
+            FailureDescriptor.class, 
+            "ha.entityFailed.restart", 
+            "Indicates that an entity restart attempt has failed");
 
     /** skips retry if a failure re-occurs within this time interval */
     @SetFromFlag("failOnRecurringFailuresInThisDuration")
@@ -68,12 +70,20 @@ public class ServiceRestarter extends AbstractPolicy {
             Duration.minutes(3));
 
     @SetFromFlag("setOnFireOnFailure")
-    public static final ConfigKey<Boolean> SET_ON_FIRE_ON_FAILURE = ConfigKeys.newBooleanConfigKey("setOnFireOnFailure", "", true);
+    public static final ConfigKey<Boolean> SET_ON_FIRE_ON_FAILURE = ConfigKeys.newBooleanConfigKey(
+            "setOnFireOnFailure", 
+            "Whether to set the entity as 'ON_FIRE' if restart fails", 
+            true);
 
     /** monitors this sensor, by default ENTITY_FAILED */
     @SetFromFlag("failureSensorToMonitor")
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    public static final ConfigKey<Sensor<?>> FAILURE_SENSOR_TO_MONITOR = (ConfigKey) ConfigKeys.newConfigKey(Sensor.class, "failureSensorToMonitor", "", HASensors.ENTITY_FAILED); 
+    public static final ConfigKey<Sensor<?>> FAILURE_SENSOR_TO_MONITOR = (ConfigKey) ConfigKeys.newConfigKey(
+            Sensor.class, 
+            "failureSensorToMonitor", 
+            "The sensor, emitted by an entity, used to trigger its restart. Defaults to 'ha.entityFailed' "
+                    + "(i.e. a 'ServiceFailureDetector' policy detected failure)", 
+            HASensors.ENTITY_FAILED); 
     
     protected final AtomicReference<Long> lastFailureTime = new AtomicReference<Long>();
 

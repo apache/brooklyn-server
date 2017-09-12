@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.core.entity;
 
-import static org.apache.brooklyn.core.config.ConfigKeys.newBooleanConfigKey;
 import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKey;
 import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKeyWithPrefix;
 import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
@@ -59,7 +58,9 @@ public class BrooklynConfigKeys {
             false);
 
     // TODO Rename to VERSION, instead of SUGGESTED_VERSION? And declare as BasicAttributeSensorAndConfigKey?
-    public static final ConfigKey<String> SUGGESTED_VERSION = newStringConfigKey("install.version", "Suggested version");
+    public static final ConfigKey<String> SUGGESTED_VERSION = newStringConfigKey(
+            "install.version", 
+            "The suggested version of the software to be installed");
 
     public static final ConfigKey<String> INSTALL_UNIQUE_LABEL = ConfigKeys.newStringConfigKey("install.unique_label",
             "Provides a label which uniquely identifies an installation, used in the computation of the install dir; " +
@@ -77,9 +78,12 @@ public class BrooklynConfigKeys {
      * If this key is set on a {@link Location} then all entities in that location will be treated in this way. This is useful
      * when the location is configured with a particular image containing installed and running services.
      *
-     * @see #ENTITY_RUNNING
+     * @see #SKIP_ENTITY_START_IF_RUNNING
      */
-    public static final ConfigKey<Boolean> SKIP_ENTITY_START = newBooleanConfigKey("entity.started", "Skip the startup process entirely, for running services");
+    public static final ConfigKey<Boolean> SKIP_ENTITY_START = ConfigKeys.builder(Boolean.class)
+            .name("entity.started") 
+            .description("Whether to skip the startup process entirely (useful for auto-running software, such as in containers)")
+            .build();
 
     /**
      * Set this configuration value to true to skip the entity startup process as with {@link #ENTITY_STARTED} if the process or
@@ -88,40 +92,46 @@ public class BrooklynConfigKeys {
      * <p>
      * If this key is set on a {@link Location} then all entities in that location will be treated in this way, again as with {@link #ENTITY_STARTED}.
      *
-     * @see #ENTITY_STARTED
+     * @see #SKIP_ENTITY_START
      */
-    public static final ConfigKey<Boolean> SKIP_ENTITY_START_IF_RUNNING = newBooleanConfigKey("entity.running", "Skip the startup process entirely, if service already running");
+    public static final ConfigKey<Boolean> SKIP_ENTITY_START_IF_RUNNING = ConfigKeys.builder(Boolean.class)
+            .name("entity.running") 
+            .description("Whether to skip the startup process entirely, but only if it already running")
+            .build();
 
     /**
-     * Set this configuration value to true if the entity installation, customization and launch process is to be skipped entirely.
+     * Set this configuration value to true if the entity installation is to be skipped entirely.
      * <p>
-     * This will skip the installation phase of the lifecycle, and move directl;y to customization and launching of the entity.
+     * This will skip the installation phase of the lifecycle, and move directly to customization and launching of the entity.
      */
-    public static final ConfigKey<Boolean> SKIP_ENTITY_INSTALLATION = newBooleanConfigKey("install.skip", "Skip the driver install commands entirely, for pre-installed software");
+    public static final ConfigKey<Boolean> SKIP_ENTITY_INSTALLATION = ConfigKeys.builder(Boolean.class)
+            .name("install.skip") 
+            .description("Whether to skip the install commands entirely (useful for pre-installed images)")
+            .build();
 
     // The implementation in AbstractSoftwareSshDriver runs this command as an SSH command 
     public static final ConfigKey<String> PRE_INSTALL_COMMAND = ConfigKeys.builder(String.class, "pre.install.command")
-            .description("Command to be run prior to the install method being called on the driver")
+            .description("Command to be run prior to the install phase")
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
             .build();
     public static final ConfigKey<String> POST_INSTALL_COMMAND = ConfigKeys.builder(String.class, "post.install.command")
-            .description("Command to be run after the install method being called on the driver")
+            .description("Command to be run after the install phase")
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
             .build();
     public static final ConfigKey<String> PRE_CUSTOMIZE_COMMAND = ConfigKeys.builder(String.class, "pre.customize.command")
-            .description("Command to be run prior to the customize method being called on the driver")
+            .description("Command to be run prior to the customize phase")
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
             .build();
     public static final ConfigKey<String> POST_CUSTOMIZE_COMMAND = ConfigKeys.builder(String.class, "post.customize.command")
-            .description("Command to be run after the customize method being called on the driver")
+            .description("Command to be run after the customize phase")
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
             .build();
     public static final ConfigKey<String> PRE_LAUNCH_COMMAND = ConfigKeys.builder(String.class, "pre.launch.command")
-            .description("Command to be run prior to the launch method being called on the driver")
+            .description("Command to be run prior to the launch phase")
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
             .build();
     public static final ConfigKey<String> POST_LAUNCH_COMMAND = ConfigKeys.builder(String.class, "post.launch.command")
-            .description("Command to be run after the launch method being called on the driver")
+            .description("Command to be run after the launch phase")
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
             .build();
 
@@ -133,7 +143,9 @@ public class BrooklynConfigKeys {
             .build();
 
     // TODO these dirs should also not be reinherited at runtime
-    public static final AttributeSensorAndConfigKey<String, String> INSTALL_DIR = new TemplatedStringAttributeSensorAndConfigKey("install.dir", "Directory for this software to be installed in",
+    public static final AttributeSensorAndConfigKey<String, String> INSTALL_DIR = new TemplatedStringAttributeSensorAndConfigKey(
+            "install.dir", 
+            "Directory in which this software will be installed (if downloading/unpacking artifacts explicitly); uses FreeMarker templating format",
             "${" +
             "config['"+ONBOX_BASE_DIR.getName()+"']!" +
             "config['"+BROOKLYN_DATA_DIR.getName()+"']!" +
@@ -151,7 +163,9 @@ public class BrooklynConfigKeys {
             "((config['install.version']??)?string('_'+(config['install.version']!'X'),''))" +
             ")}");
 
-    public static final AttributeSensorAndConfigKey<String, String> RUN_DIR = new TemplatedStringAttributeSensorAndConfigKey("run.dir", "Directory for this software to be run from",
+    public static final AttributeSensorAndConfigKey<String, String> RUN_DIR = new TemplatedStringAttributeSensorAndConfigKey(
+            "run.dir", 
+            "Directory from which this software to be run; uses FreeMarker templating format",
             "${" +
             "config['"+ONBOX_BASE_DIR.getName()+"']!" +
             "config['"+BROOKLYN_DATA_DIR.getName()+"']!" +
@@ -180,23 +194,59 @@ public class BrooklynConfigKeys {
      * component is up, but this entity does not care about the dependent component's actual config values.
      */
 
-    public static final ConfigKey<Boolean> PROVISION_LATCH = newBooleanConfigKey("provision.latch", "Latch for blocking location provision until ready");
-    public static final ConfigKey<Boolean> START_LATCH = newBooleanConfigKey("start.latch", "Latch for blocking start until ready");
+    public static final ConfigKey<Boolean> PROVISION_LATCH = ConfigKeys.builder(Boolean.class)
+            .name("provision.latch")
+            .description("Latch for blocking machine provisioning; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
+            .build();
+    public static final ConfigKey<Boolean> START_LATCH = ConfigKeys.builder(Boolean.class)
+            .name("start.latch")
+            .description("Latch for blocking start (done post-provisioning for software processes); if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
+            .build();
 
     @Beta // on stop DSLs time out after a minute and unblock; may be easier to fix after https://github.com/apache/brooklyn-server/pull/390
-    public static final ConfigKey<Boolean> STOP_LATCH = newBooleanConfigKey("stop.latch", "Latch for blocking stop until a condition is met; will block for at most 1 minute and then time out");
+    public static final ConfigKey<Boolean> STOP_LATCH = ConfigKeys.builder(Boolean.class)
+            .name("stop.latch")
+            .description("Latch for blocking stop; if non-null will wait for at most 1 minute for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
+            .build();
 
-    public static final ConfigKey<Boolean> SETUP_LATCH = newBooleanConfigKey("setup.latch", "Latch for blocking setup until ready");
-    public static final ConfigKey<Boolean> PRE_INSTALL_RESOURCES_LATCH = newBooleanConfigKey("resources.preInstall.latch", "Latch for blocking pre-install resources until ready");
-    public static final ConfigKey<Boolean> INSTALL_RESOURCES_LATCH = newBooleanConfigKey("resources.install.latch", "Latch for blocking install resources until ready");
-    public static final ConfigKey<Boolean> INSTALL_LATCH = newBooleanConfigKey("install.latch", "Latch for blocking install until ready");
-    public static final ConfigKey<Boolean> RUNTIME_RESOURCES_LATCH = newBooleanConfigKey("resources.runtime.latch", "Latch for blocking runtime resources until ready");
-    public static final ConfigKey<Boolean> CUSTOMIZE_LATCH = newBooleanConfigKey("customize.latch", "Latch for blocking customize until ready");
-    public static final ConfigKey<Boolean> CUSTOMIZE_RESOURCES_LATCH = newBooleanConfigKey("resources.customize.latch", "Latch for blocking customize resources until ready");
-    public static final ConfigKey<Boolean> LAUNCH_LATCH = newBooleanConfigKey("launch.latch", "Latch for blocking launch until ready");
+    public static final ConfigKey<Boolean> SETUP_LATCH = ConfigKeys.builder(Boolean.class)
+            .name("setup.latch")
+            .description("Latch for blocking setup; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
+            .build();
+    
+    public static final ConfigKey<Boolean> PRE_INSTALL_RESOURCES_LATCH = ConfigKeys.builder(Boolean.class)
+            .name("resources.preInstall.latch")
+            .description("Latch for blocking files being copied before the pre-install; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
+            .build();
+    public static final ConfigKey<Boolean> INSTALL_RESOURCES_LATCH = ConfigKeys.builder(Boolean.class)
+            .name("resources.install.latch")
+            .description("Latch for blocking files being copied before the install; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
+            .build();
+    public static final ConfigKey<Boolean> INSTALL_LATCH = ConfigKeys.builder(Boolean.class)
+            .name("install.latch")
+            .description("Latch for blocking install; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
+            .build();
+    public static final ConfigKey<Boolean> CUSTOMIZE_RESOURCES_LATCH = ConfigKeys.builder(Boolean.class)
+            .name("resources.customize.latch")
+            .description("Latch for blocking files being copied before customize; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
+            .build();
+    public static final ConfigKey<Boolean> CUSTOMIZE_LATCH = ConfigKeys.builder(Boolean.class)
+            .name("customize.latch")
+            .description("Latch for blocking customize; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
+            .build();
+    public static final ConfigKey<Boolean> RUNTIME_RESOURCES_LATCH = ConfigKeys.builder(Boolean.class)
+            .name("resources.runtime.latch")
+            .description("Latch for blocking files being copied before the launch; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
+            .build();
+    public static final ConfigKey<Boolean> LAUNCH_LATCH = ConfigKeys.builder(Boolean.class)
+            .name("launch.latch")
+            .description("Latch for blocking luanch; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
+            .build();
 
     public static final ConfigKey<Duration> START_TIMEOUT = newConfigKey(
-            "start.timeout", "Time to wait for process and for SERVICE_UP before failing (in seconds, default 2m)", Duration.seconds(120));
+            "start.timeout", 
+            "Time to wait, after launching, for SERVICE_UP before failing (default to '2m')", 
+            Duration.seconds(120));
 
     /* selected properties from SshTool for external public access (e.g. putting on entities) */
 
@@ -241,7 +291,7 @@ public class BrooklynConfigKeys {
     public static final ConfigKey<Boolean> SSH_CONFIG_NO_DELETE_SCRIPT = newConfigKeyWithPrefix(BROOKLYN_SSH_CONFIG_KEY_PREFIX, ShellTool.PROP_NO_DELETE_SCRIPT);
 
     public static final MapConfigKey<Object> PROVISIONING_PROPERTIES = new MapConfigKey.Builder<Object>(Object.class, "provisioning.properties")
-            .description("Custom properties to be passed in when provisioning a new machine")
+            .description("Custom properties to be passed in to the location when provisioning a new machine")
             .defaultValue(ImmutableMap.<String, Object>of())
             .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)

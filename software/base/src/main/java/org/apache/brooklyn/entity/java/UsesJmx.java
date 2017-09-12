@@ -38,18 +38,25 @@ public interface UsesJmx extends UsesJava {
     public static final int DEFAULT_JMX_PORT = 1099; // RMI port?
 
     @SetFromFlag("useJmx")
-    ConfigKey<Boolean> USE_JMX = ConfigKeys.newConfigKey("jmx.enabled", "JMX enabled", Boolean.TRUE);
+    ConfigKey<Boolean> USE_JMX = ConfigKeys.newConfigKey(
+            "jmx.enabled", 
+            "Whether JMX is enabled", 
+            Boolean.TRUE);
 
     /** Chosen by Java itself by default, setting this will only have any effect if using an agent. */
     @SetFromFlag("jmxPort")
     PortAttributeSensorAndConfigKey JMX_PORT = new PortAttributeSensorAndConfigKey(
-        "jmx.direct.port", "JMX direct/private port (e.g. JMX RMI server port, or JMXMP port, but not RMI registry port)", PortRanges.fromString("31001+"));
+            "jmx.direct.port", 
+            "JMX direct/private port (e.g. JMX RMI server port, or JMXMP port, but not RMI registry port)", 
+            PortRanges.fromString("31001+"));
     
     // Default is deliberately null for this unused config; if we used "31001+" then we'd potentially give this sensor 
     // the value 31001 and jmx.direct.port the value 31002. See https://issues.apache.org/jira/browse/BROOKLYN-98
     /** @deprecated since 0.7.0, kept for rebinding with the anonymous class; code should only ever use {@link #JMX_PORT} */ @Deprecated
     PortAttributeSensorAndConfigKey JMX_PORT_LEGACY = new PortAttributeSensorAndConfigKey(
-            "jmx.direct.port.legacy.NOT_USED", "Legacy definition JMX direct/private port (e.g. JMX RMI server port, or JMXMP port, but not RMI registry port)", null) {
+            "jmx.direct.port.legacy.NOT_USED", 
+            "Legacy definition JMX direct/private port (e.g. JMX RMI server port, or JMXMP port, but not RMI registry port)", 
+            null) {
         private static final long serialVersionUID = 3846846080809179437L;
         @Override protected Integer convertConfigToSensor(PortRange value, Entity entity) {
             // TODO when using JmxAgentModes.NONE we should *not* convert, but leave it null
@@ -67,14 +74,19 @@ public interface UsesJmx extends UsesJava {
             "rmi.registry.port", "RMI registry port, used for discovering JMX (private) port", PortRanges.fromString("1099,19099+"));
 
     @SetFromFlag("jmxContext")
-    AttributeSensorAndConfigKey<String, String> JMX_CONTEXT = ConfigKeys.newStringSensorAndConfigKey("jmx.context", "JMX context path", "jmxrmi");
+    AttributeSensorAndConfigKey<String, String> JMX_CONTEXT = ConfigKeys.newStringSensorAndConfigKey("jmx.context", "JMX context path (defaults to 'jmxrmi')", "jmxrmi");
 
     AttributeSensor<String> JMX_URL = new BasicAttributeSensorAndConfigKey<String>(
-            String.class, "jmx.service.url", "The URL for connecting to the MBean Server");
+            String.class, 
+            "jmx.service.url", 
+            "The URL for connecting to the MBean Server");
 
     /** Forces JMX to be secured, using JMXMP so it gets through firewalls <em>and</em> SSL/TLS. */
     @SetFromFlag("jmxSecure")
-    ConfigKey<Boolean> JMX_SSL_ENABLED = ConfigKeys.newBooleanConfigKey("jmx.ssl.enabled", "JMX over JMXMP enabled with SSL/TLS", Boolean.FALSE);
+    ConfigKey<Boolean> JMX_SSL_ENABLED = ConfigKeys.newBooleanConfigKey(
+            "jmx.ssl.enabled", 
+            "Whether to enable JMX over JMXMP with SSL/TLS", 
+            Boolean.FALSE);
 
     enum JmxAgentModes {
         /** Auto-detect the agent to use based on location. Prefer {@link #JMXMP} except at localhost which uses {@link #JMX_RMI_CUSTOM_AGENT}. */
@@ -105,10 +117,17 @@ public interface UsesJmx extends UsesJava {
             JmxAgentModes.AUTODETECT);
 
     /* Currently these are only used to connect, so only applies where systems set this up themselves. */
-    AttributeSensorAndConfigKey<String, String> JMX_USER = ConfigKeys.newStringSensorAndConfigKey("jmx.user", "JMX username");
-    AttributeSensorAndConfigKey<String, String> JMX_PASSWORD = ConfigKeys.newStringSensorAndConfigKey("jmx.password", "JMX password");
+    AttributeSensorAndConfigKey<String, String> JMX_USER = ConfigKeys.newStringSensorAndConfigKey(
+            "jmx.user", 
+            "Optional JMX username to use when connecting");
     
-    AttributeSensorAndConfigKey<String, String> JMX_AGENT_LOCAL_PATH = ConfigKeys.newStringSensorAndConfigKey("jmx.agent.local.path", "Path to JMX driver on the local machine");
+    AttributeSensorAndConfigKey<String, String> JMX_PASSWORD = ConfigKeys.newStringSensorAndConfigKey(
+            "jmx.password", 
+            "Optional JMX password to use when connecting");
+    
+    AttributeSensorAndConfigKey<String, String> JMX_AGENT_LOCAL_PATH = ConfigKeys.newStringSensorAndConfigKey(
+            "jmx.agent.local.path", 
+            "Optional path to where JMX driver should be installed on the local machine (if using JMXMP or custom agent)");
 
     /*
      * Synopsis of how the keys work for JMX_SSL:

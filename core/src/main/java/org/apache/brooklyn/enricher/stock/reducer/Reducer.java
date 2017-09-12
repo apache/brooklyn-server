@@ -54,18 +54,30 @@ public class Reducer extends AbstractEnricher implements SensorEventListener<Obj
     private static final Logger LOG = LoggerFactory.getLogger(Reducer.class);
 
     @SetFromFlag("producer")
-    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class,
-            "enricher.producer");
-    public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {},
-            "enricher.targetSensor");
-    public static final ConfigKey<List<? extends AttributeSensor<?>>> SOURCE_SENSORS = ConfigKeys.newConfigKey(new TypeToken<List<? extends AttributeSensor<?>>>() {},
-            "enricher.sourceSensors");
+    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(
+            Entity.class,
+            "enricher.producer",
+            "The entity with the trigger sensor (defaults to the enricher's entity)");
+    
+    public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(
+            new TypeToken<Sensor<?>>() {},
+            "enricher.targetSensor",
+            "The sensor that will be set on the associated entity, with the target value");
+
+    public static final ConfigKey<List<? extends AttributeSensor<?>>> SOURCE_SENSORS = ConfigKeys.newConfigKey(
+            new TypeToken<List<? extends AttributeSensor<?>>>() {},
+            "enricher.sourceSensors",
+            "The sensors whose change triggers re-evaluation of the target value");
+
     public static final ConfigKey<Function<List<?>,?>> REDUCER_FUNCTION = ConfigKeys.newConfigKey(new TypeToken<Function<List<?>, ?>>() {},
-            "enricher.reducerFunction");
+            "enricher.reducerFunction",
+            "The function to execute to evaluate the target sensor value");
+    
     @SetFromFlag("transformation")
     public static final ConfigKey<String> REDUCER_FUNCTION_TRANSFORMATION = ConfigKeys.newStringConfigKey(
             "enricher.reducerFunction.transformation",
             "A string matching a pre-defined named reducer function, such as joiner, formatString, etc");
+    
     public static final ConfigKey<Map<String, Object>> PARAMETERS = ConfigKeys.newConfigKey(new TypeToken<Map<String, Object>>() {},
             "enricher.reducerFunction.parameters",
             "A map of parameters to pass into the reducer function");

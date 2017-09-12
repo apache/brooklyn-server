@@ -75,11 +75,15 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
     public static final BasicNotificationSensor<FailureDescriptor> ENTITY_FAILED = HASensors.ENTITY_FAILED;
 
     @SetFromFlag("onlyReportIfPreviouslyUp")
-    public static final ConfigKey<Boolean> ENTITY_FAILED_ONLY_IF_PREVIOUSLY_UP = ConfigKeys.newBooleanConfigKey("onlyReportIfPreviouslyUp", 
-        "Prevents the policy from emitting ENTITY_FAILED if the entity fails on startup (ie has never been up)", true);
+    public static final ConfigKey<Boolean> ENTITY_FAILED_ONLY_IF_PREVIOUSLY_UP = ConfigKeys.newBooleanConfigKey(
+            "onlyReportIfPreviouslyUp", 
+            "Prevents the policy from emitting ENTITY_FAILED if the entity fails on startup (ie has never been up)", 
+            true);
     
-    public static final ConfigKey<Boolean> MONITOR_SERVICE_PROBLEMS = ConfigKeys.newBooleanConfigKey("monitorServiceProblems", 
-        "Whether to monitor service problems, and emit on failures there (if set to false, this monitors only service up)", true);
+    public static final ConfigKey<Boolean> MONITOR_SERVICE_PROBLEMS = ConfigKeys.newBooleanConfigKey(
+            "monitorServiceProblems", 
+            "Whether to monitor service problems, and emit on failures there (if set to false, this monitors only service up)", 
+            true);
 
     @SetFromFlag("serviceOnFireStabilizationDelay")
     public static final ConfigKey<Duration> SERVICE_ON_FIRE_STABILIZATION_DELAY = BasicConfigKey.builder(Duration.class)

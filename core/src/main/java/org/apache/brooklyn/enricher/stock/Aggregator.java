@@ -54,7 +54,8 @@ public class Aggregator<T,U> extends AbstractAggregator<T,U> implements SensorEv
     private static final Logger LOG = LoggerFactory.getLogger(Aggregator.class);
 
     public static final ConfigKey<Sensor<?>> SOURCE_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {},
-            "enricher.sourceSensor");
+            "enricher.sourceSensor",
+            "The sensor whose change triggers re-evaluation of the target value");
     
     @SetFromFlag("transformation")
     public static final ConfigKey<Object> TRANSFORMATION_UNTYPED = ConfigKeys.newConfigKey(Object.class,
@@ -65,18 +66,22 @@ public class Aggregator<T,U> extends AbstractAggregator<T,U> implements SensorEv
                     "'list' (the default, putting any collection of items into a list), " +
                     "or 'first' (the first value, or null if empty)");
 
-    public static final ConfigKey<Function<? super Collection<?>, ?>> TRANSFORMATION = ConfigKeys.newConfigKey(new TypeToken<Function<? super Collection<?>, ?>>() {},
-            "enricher.transformation");
+    public static final ConfigKey<Function<? super Collection<?>, ?>> TRANSFORMATION = ConfigKeys.newConfigKey(
+            new TypeToken<Function<? super Collection<?>, ?>>() {},
+            "enricher.transformation",
+            "A function to be executed to evaluate the target sensor");
     
     /**
      * @see QuorumChecks
      */
     public static final ConfigKey<String> QUORUM_CHECK_TYPE = ConfigKeys.newStringConfigKey(
-            "quorum.check.type", "The requirement to be considered quorate -- possible values: " +
+            "quorum.check.type", 
+            "The requirement to be considered quorate (used with transformation of type 'isQuorate') -- possible values: " +
                     "'all', 'allAndAtLeastOne', 'atLeastOne', 'atLeastOneUnlessEmpty', 'alwaysHealthy'", "allAndAtLeastOne");
 
     public static final ConfigKey<Integer> QUORUM_TOTAL_SIZE = ConfigKeys.newIntegerConfigKey(
-            "quorum.total.size", "The total size to consider when determining if quorate", 1);
+            "quorum.total.size", 
+            "The total size to consider when determining if quorate (used iwth transformation of type 'isQuorate')", 1);
 
     protected Sensor<T> sourceSensor;
     protected Function<? super Collection<T>, ? extends U> transformation;

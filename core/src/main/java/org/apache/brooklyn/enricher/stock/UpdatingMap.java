@@ -66,22 +66,33 @@ public class UpdatingMap<S,TKey,TVal> extends AbstractEnricher implements Sensor
     private static final Logger LOG = LoggerFactory.getLogger(UpdatingMap.class);
 
     public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class,
-            "enricher.producer");
+            "enricher.producer",
+            "The entity with the trigger sensor (defaults to the enricher's entity)");
 
     @SetFromFlag("fromSensor")
-    public static final ConfigKey<Sensor<?>> SOURCE_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.sourceSensor");
+    public static final ConfigKey<Sensor<?>> SOURCE_SENSOR = ConfigKeys.newConfigKey(
+            new TypeToken<Sensor<?>>() {}, 
+            "enricher.sourceSensor",
+            "The sensor whose change triggers re-evaluation of the target value");
     
     @SetFromFlag("targetSensor")
-    public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.targetSensor");
+    public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(
+            new TypeToken<Sensor<?>>() {}, 
+            "enricher.targetSensor",
+            "The map-sensor that will be updated on the associated entity");
+
     
     @SetFromFlag("key")
-    public static final ConfigKey<Object> KEY_IN_TARGET_SENSOR = ConfigKeys.newConfigKey(Object.class, "enricher.updatingMap.keyInTargetSensor",
-        "Key to update in the target sensor map, defaulting to the name of the source sensor");
+    public static final ConfigKey<Object> KEY_IN_TARGET_SENSOR = ConfigKeys.newConfigKey(
+            Object.class, 
+            "enricher.updatingMap.keyInTargetSensor",
+            "Key to update in the target sensor map, defaulting to the name of the source sensor");
 
     @SetFromFlag("computing")
     public static final ConfigKey<Function<?, ?>> COMPUTING = ConfigKeys.newConfigKey(
             new TypeToken<Function<?,?>>() {}, 
-            "enricher.updatingMap.computing");
+            "enricher.updatingMap.computing",
+            "The function to evaluate the value, which will to be set in the target map-sensor. See 'removingIfResultIsNull' for how null is handled.");
     
     @SetFromFlag("removingIfResultIsNull")
     public static final ConfigKey<Boolean> REMOVING_IF_RESULT_IS_NULL = ConfigKeys.newBooleanConfigKey(
