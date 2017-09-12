@@ -97,8 +97,10 @@ public interface TaskInternal<T> extends Task<T> {
     
     Object getExtraStatusText();
 
-    /** On task completion (or cancellation) runs the listeners which have been registered using 
-     * {@link #addListener(Runnable, java.util.concurrent.Executor)}. */
+    /** On task completion runs the listeners which have been registered using 
+     * {@link #addListener(Runnable, java.util.concurrent.Executor)}.
+     * <p>
+     * Doeas not run immediately on cancellation, it waits for the task to recognize it is cancelled. */
     void runListeners();
 
     void setEndTimeUtc(long val);
@@ -126,7 +128,7 @@ public interface TaskInternal<T> extends Task<T> {
      * this returns the "real" task represented by this one */
     Task<?> getProxyTarget();
 
-    /** clearer semantics around cancellation; may be promoted to {@link Task} if we  */
+    /** clearer semantics around cancellation; may be promoted to {@link Task} */
     @Beta
     public boolean cancel(TaskCancellationMode mode);
     

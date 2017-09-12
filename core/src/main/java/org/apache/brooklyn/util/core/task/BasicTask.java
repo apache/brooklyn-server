@@ -46,7 +46,6 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.Identifiable;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.Maybe.MaybeSupplier;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -142,18 +141,6 @@ public class BasicTask<T> implements TaskInternal<T> {
         this(flags, JavaGroovyEquivalents.toCallable(job));
     }
     
-    /**
-     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
-     */
-    @Deprecated
-    public BasicTask(Closure<T> job) { this(GroovyJavaMethods.callableFromClosure(job)); }
-    
-    /**
-     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
-     */
-    @Deprecated
-    public BasicTask(Map<?,?> flags, Closure<T> job) { this(flags, GroovyJavaMethods.callableFromClosure(job)); }
-
     @Override
     public String getId() {
         return id;
@@ -358,11 +345,19 @@ public class BasicTask<T> implements TaskInternal<T> {
     }
 
     @Override
+    public boolean isDone(boolean andTaskNotRunning) {
+        if (!cancelled && !(internalFuture!=null && internalFuture.isDone()) && endTimeUtc<=0) {
+            return false;
+        }
+        if (andTaskNotRunning && cancelled && isBegun() && endTimeUtc<=0) {
+            return false;
+        }
+        return true;
+    }
+    
+    @Override
     public boolean isDone() {
-        // if endTime is set, result might not be completed yet, but it will be set very soon 
-        // (the two values are set close in time, result right after the endTime;
-        // but callback hooks might not see the result yet)
-        return cancelled || (internalFuture!=null && internalFuture.isDone()) || endTimeUtc>0;
+        return isDone(false);
     }
 
     /**
@@ -415,7 +410,6 @@ public class BasicTask<T> implements TaskInternal<T> {
     @Override
     public synchronized boolean blockUntilStarted(Duration timeout) {
         Long endTime = timeout==null ? null : System.currentTimeMillis() + timeout.toMillisecondsRoundingUp();
-        int count = 0;
         while (true) {
             if (cancelled) throw new CancellationException();
             if (startTimeUtc>0) return true;

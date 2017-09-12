@@ -183,8 +183,9 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         BasicExecutionContext oldExecutionContext = getCurrentExecutionContext();
         registerPerThreadExecutionContext();
         ((BasicExecutionManager)executionManager).beforeSubmitInSameThreadTask(null, task);
-
+        
         SimpleFuture<T> future = new SimpleFuture<>();
+        Throwable error = null;
         try {
             ((BasicExecutionManager)executionManager).afterSubmitRecordFuture(task, future);
             ((BasicExecutionManager)executionManager).beforeStartInSameThreadTask(null, task);
@@ -194,12 +195,13 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             return future.set(job.call());
             
         } catch (Exception e) {
+            error = e;
             future.set(Maybe.absent(e));
             throw Exceptions.propagate(e);
             
         } finally {
             try {
-                ((BasicExecutionManager)executionManager).afterEndInSameThreadTask(null, task);
+                ((BasicExecutionManager)executionManager).afterEndInSameThreadTask(null, task, error);
             } finally {
                 BasicExecutionManager.getPerThreadCurrentTask().set(previousTask);
                 perThreadExecutionContext.set(oldExecutionContext);

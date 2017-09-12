@@ -72,6 +72,11 @@ public abstract class ForwardingTask<T> extends ForwardingObject implements Task
     public boolean isDone() {
         return delegate().isDone();
     }
+    
+    @Override
+    public boolean isDone(boolean andTaskNotRunning) {
+        return delegate().isDone(andTaskNotRunning);
+    }
 
     @Override
     public Task<T> asTask() {

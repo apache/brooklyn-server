@@ -173,6 +173,7 @@ public class DynamicSequentialTask<T> extends BasicTask<T> implements HasTaskChi
     
     @Override
     public boolean cancel(TaskCancellationMode mode) {
+        // super is invoked in the method below
         return cancel(mode, null);
     }
     

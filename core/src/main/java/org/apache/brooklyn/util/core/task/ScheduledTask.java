@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;
@@ -178,7 +179,10 @@ public class ScheduledTask extends BasicTask<Object> {
     }
     
     @Override
-    public boolean isDone() {
+    public boolean isDone(boolean andTaskNoLongerRunning) {
+        if (andTaskNoLongerRunning) {
+            return super.isDone(true);
+        }
         return isCancelled() || (maxIterations!=null && maxIterations <= runCount) || (period==null && nextRun!=null && nextRun.isDone());
     }
     
@@ -214,6 +218,14 @@ public class ScheduledTask extends BasicTask<Object> {
     protected boolean doCancel(org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode mode) {
         if (nextRun!=null) {
             ((TaskInternal<?>)nextRun).cancel(mode);
+            try {
+                ((TaskInternal<?>)nextRun).getJob().call();
+                nextRun = null;
+            } catch (CancellationException e) {
+                // expected, ignore
+            } catch (Exception e) {
+                throw Exceptions.propagateAnnotated("Error cancelling scheduled task "+this, e);
+            }
         }
         return super.doCancel(mode);
     }

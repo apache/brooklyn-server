@@ -89,10 +89,6 @@ public abstract class CompoundTask<T> extends BasicTask<List<T>> implements HasT
         for (Object job : jobs) {
             Task subtask;
             if (job instanceof TaskAdaptable) { subtask = ((TaskAdaptable)job).asTask(); }
-            else if (job instanceof Closure)  {
-                log.warn("Use of groovy.lang.Closure is deprecated, in CompoundTask jobs");
-                subtask = new BasicTask<T>((Closure) job);
-            }
             else if (job instanceof Callable) { subtask = new BasicTask<T>((Callable) job); }
             else if (job instanceof Runnable) { subtask = new BasicTask<T>((Runnable) job); }
             
