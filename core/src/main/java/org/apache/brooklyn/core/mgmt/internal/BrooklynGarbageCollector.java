@@ -52,6 +52,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.ExecutionListener;
+import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe.SoftlyPresent;
@@ -301,7 +302,7 @@ public class BrooklynGarbageCollector {
     protected boolean shouldDeleteTaskImmediately(Task<?> task) {
         if (!task.isDone()) return false;
         
-        Set<Object> tags = task.getTags();
+        Set<Object> tags = BrooklynTaskTags.getTagsFast(task);
         if (tags.contains(ManagementContextInternal.TRANSIENT_TASK_TAG))
             return true;
         if (tags.contains(ManagementContextInternal.EFFECTOR_TAG) || tags.contains(ManagementContextInternal.NON_TRANSIENT_TASK_TAG))
@@ -533,7 +534,7 @@ public class BrooklynGarbageCollector {
             for (Task<?> task: tasks) {
                 if (!task.isDone()) continue;
                 
-                Set<Object> tags = task.getTags();
+                Set<Object> tags = TaskTags.getTagsFast(task);
 
                 int categoryTags = 0, tooFullCategoryTags = 0;
                 for (Object tag: tags) {

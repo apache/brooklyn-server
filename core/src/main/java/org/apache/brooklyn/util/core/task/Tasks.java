@@ -253,7 +253,7 @@ public class Tasks {
     public static <T> T tag(@Nullable Task<?> task, Class<T> type, boolean recurseHierarchy) {
         // support null task to make it easier for callers to walk hierarchies
         if (task==null) return null;
-        for (Object tag: task.getTags())
+        for (Object tag: TaskTags.getTagsFast(task))
             if (type.isInstance(tag)) return (T)tag;
         if (!recurseHierarchy) return null;
         return tag(task.getSubmittedByTask(), type, true);

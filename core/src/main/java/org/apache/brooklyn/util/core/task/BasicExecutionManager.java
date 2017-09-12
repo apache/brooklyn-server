@@ -239,7 +239,7 @@ public class BasicExecutionManager implements ExecutionManager {
     }
 
     protected boolean deleteTaskNonRecursive(Task<?> task) {
-        Set<?> tags = checkNotNull(task, "task").getTags();
+        Set<?> tags = TaskTags.getTagsFast(checkNotNull(task, "task"));
         for (Object tag : tags) {
             synchronized (tasksByTag) {
                 Set<Task<?>> tasks = tasksWithTagLiveOrNull(tag);
@@ -669,7 +669,7 @@ public class BasicExecutionManager implements ExecutionManager {
     protected <T> Task<T> submitNewTask(final Map<?,?> flags, final Task<T> task) {
         if (log.isTraceEnabled()) {
             log.trace("Submitting task {} ({}), with flags {}, and tags {}, job {}; caller {}", 
-                new Object[] {task.getId(), task, Sanitizer.sanitize(flags), task.getTags(), 
+                new Object[] {task.getId(), task, Sanitizer.sanitize(flags), BrooklynTaskTags.getTagsFast(task), 
                 (task instanceof TaskInternal ? ((TaskInternal<T>)task).getJob() : "<unavailable>"),
                 Tasks.current() });
             if (Tasks.current()==null && BrooklynTaskTags.isTransient(task)) {
@@ -692,7 +692,7 @@ public class BasicExecutionManager implements ExecutionManager {
         
         // If there's a scheduler then use that; otherwise execute it directly
         Set<TaskScheduler> schedulers = null;
-        for (Object tago: task.getTags()) {
+        for (Object tago: BrooklynTaskTags.getTagsFast(task)) {
             TaskScheduler scheduler = getTaskSchedulerForTag(tago);
             if (scheduler!=null) {
                 if (schedulers==null) schedulers = new LinkedHashSet<TaskScheduler>(2);
@@ -738,7 +738,7 @@ public class BasicExecutionManager implements ExecutionManager {
         if (flags.get("tag")!=null) ((TaskInternal<?>)task).getMutableTags().add(flags.remove("tag"));
         if (flags.get("tags")!=null) ((TaskInternal<?>)task).getMutableTags().addAll((Collection<?>)flags.remove("tags"));
 
-        for (Object tag: ((TaskInternal<?>)task).getTags()) {
+        for (Object tag: BrooklynTaskTags.getTagsFast(task)) {
             tasksWithTagCreating(tag).add(task);
         }
     }

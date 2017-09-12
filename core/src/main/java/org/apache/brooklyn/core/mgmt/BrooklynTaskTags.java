@@ -140,7 +140,7 @@ public class BrooklynTaskTags extends TaskTags {
 
     public static WrappedEntity getWrappedEntityTagOfType(Task<?> t, String wrappingType) {
         if (t==null) return null;
-        return getWrappedEntityTagOfType(t.getTags(), wrappingType);
+        return getWrappedEntityTagOfType( getTagsFast(t), wrappingType);
     }
     public static WrappedEntity getWrappedEntityTagOfType(Collection<?> tags, String wrappingType) {
         for (Object x: tags)
@@ -196,7 +196,7 @@ public class BrooklynTaskTags extends TaskTags {
     }
 
     public static ManagementContext getManagementContext(Task<?> task) {
-        for (Object tag : task.getTags())
+        for (Object tag : getTagsFast(task))
             if ((tag instanceof ManagementContext))
                 return (ManagementContext) tag;
         return null;
@@ -297,7 +297,7 @@ public class BrooklynTaskTags extends TaskTags {
     /** returns the set of tags indicating the streams available on a task */
     public static Set<WrappedStream> streams(Task<?> task) {
         Set<WrappedStream> result = new LinkedHashSet<BrooklynTaskTags.WrappedStream>();
-        for (Object tag: task.getTags()) {
+        for (Object tag: getTagsFast(task)) {
             if (tag instanceof WrappedStream) {
                 result.add((WrappedStream)tag);
             }
@@ -308,7 +308,7 @@ public class BrooklynTaskTags extends TaskTags {
     /** returns the tag for the indicated stream, or null */
     public static WrappedStream stream(Task<?> task, String streamType) {
         if (task==null) return null;
-        for (Object tag: task.getTags())
+        for (Object tag: getTagsFast(task))
             if ((tag instanceof WrappedStream) && ((WrappedStream)tag).streamType.equals(streamType))
                 return (WrappedStream)tag;
         return null;
@@ -432,7 +432,7 @@ public class BrooklynTaskTags extends TaskTags {
     public static EffectorCallTag getEffectorCallTag(Task<?> task, boolean recurse) {
         Task<?> t = task;
         while (t!=null) {
-            for (Object tag: t.getTags()) {
+            for (Object tag: getTagsFast(task)) {
                 if (tag instanceof EffectorCallTag)
                     return (EffectorCallTag)tag;
             }
@@ -473,7 +473,7 @@ public class BrooklynTaskTags extends TaskTags {
 
     public static EntitlementContext getEntitlement(Task<?> task) {
         if (task==null) return null;
-        return getEntitlement(task.getTags());
+        return getEntitlement(getTagsFast(task));
     }
     
     public static EntitlementContext getEntitlement(Collection<?> tags) {

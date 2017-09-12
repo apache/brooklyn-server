@@ -917,6 +917,7 @@ public class BasicTask<T> implements TaskInternal<T> {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     public void setSubmittedByTask(Task<?> task) {
+        // possible optimization, store details but don't create task until later
         submittedByTask = Maybe.softThen((Task)task, (Maybe)Maybe.of(BasicTask.newGoneTaskFor(task)));
     }
     
