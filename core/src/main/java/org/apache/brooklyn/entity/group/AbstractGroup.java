@@ -63,9 +63,13 @@ public interface AbstractGroup extends Entity, Group, Changeable {
     ConfigKey<Boolean> MEMBER_DELEGATE_CHILDREN = ConfigKeys.newBooleanConfigKey(
             "group.members.delegate", "Deprecated: Add delegate child entities for members of the group", Boolean.FALSE);
 
+    /**
+     * @deprecated since 0.12.0, but was only ever used in {@link #MEMBER_DELEGATE_CHILDREN} was set (so effectively deprecated since 0.9.0).
+     */
+    @Deprecated
     ConfigKey<String> MEMBER_DELEGATE_NAME_FORMAT = ConfigKeys.newStringConfigKey(
             "group.members.delegate.nameFormat", 
-            "Delegate members name format string (Use %s for the original entity display name)", 
+            "Deprecated: Delegate members name format string (Use %s for the original entity display name)", 
             "%s");
 
     ConfigKey<QuorumCheck> UP_QUORUM_CHECK = ConfigKeys.newConfigKeyWithDefault(ComputeServiceIndicatorsFromChildrenAndMembers.UP_QUORUM_CHECK, 
