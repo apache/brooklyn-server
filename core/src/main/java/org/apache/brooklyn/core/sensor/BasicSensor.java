@@ -46,21 +46,28 @@ public class BasicSensor<T> implements Sensor<T> {
     private String description;
     private transient List<String> nameParts;
     
-    // FIXME In groovy, fields were `public final` with a default constructor; do we need the gson?
-    public BasicSensor() { /* for gson */ }
+    // constructor for json/gson (can probably be private?)
+    public BasicSensor() {}
 
     /** name is typically a dot-separated identifier; description is optional */
     public BasicSensor(Class<T> type, String name) {
-        this(type, name, name);
+        this(type, null, name, name);
     }
     
     public BasicSensor(Class<T> type, String name, String description) {
-        this(TypeToken.of(type), name, description);
+        this(type, null, name, description);
     }
     
+    @SuppressWarnings("unchecked")
     public BasicSensor(TypeToken<T> typeToken, String name, String description) {
-        this.typeToken = TypeTokens.getTypeTokenIfNotRaw(checkNotNull(typeToken, "typeToken"));
-        this.type = TypeTokens.getRawTypeIfRaw(typeToken);
+        this((Class<T>)TypeTokens.getRawTypeIfRaw(typeToken), TypeTokens.getTypeTokenIfNotRaw(checkNotNull(typeToken, "typeToken")),
+                checkNotNull(name, "name"), description);
+    }
+    
+    protected BasicSensor(Class<T> type, TypeToken<T> typeToken, String name, String description) {
+        TypeTokens.checkCompatibleOneNonNull(type, typeToken);
+        this.typeToken = typeToken;
+        this.type = type;
         this.name = checkNotNull(name, "name");
         this.description = description;
     }

@@ -28,6 +28,7 @@ import java.util.Set;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.time.Duration;
@@ -103,24 +104,27 @@ public class TypeCoercerExtensible implements TypeCoercer {
     
     @Override
     public <T> Maybe<T> tryCoerce(Object input, Class<T> type) {
-        return tryCoerce(input, TypeToken.of(type));
+        return changeExceptionSupplier( tryCoerceInternal(input, null, type) );
     }
 
     @Override
     public <T> Maybe<T> tryCoerce(Object value, TypeToken<T> targetTypeToken) {
-        Maybe<T> result = tryCoerceInternal(value, targetTypeToken);
+        return changeExceptionSupplier( tryCoerceInternal(value, targetTypeToken, null) );
+    }
+
+    protected <T> Maybe<T> changeExceptionSupplier(Maybe<T> result) {
         return Maybe.Absent.changeExceptionSupplier(result, ClassCoercionException.class);
     }
     
     @SuppressWarnings("unchecked")
-    protected <T> Maybe<T> tryCoerceInternal(Object value, TypeToken<T> targetTypeToken) {
+    protected <T> Maybe<T> tryCoerceInternal(Object value, TypeToken<T> targetTypeToken, Class<T> targetType) {
         if (value==null) return Maybe.of((T)null);
-        Class<? super T> targetType = targetTypeToken.getRawType();
         Maybe<T> result = null;
         Maybe<T> firstError = null;
 
         //recursive coercion of parameterized collections and map entries
-        if (targetTypeToken.getType() instanceof ParameterizedType) {
+        targetType = TypeTokens.getRawType(targetTypeToken, targetType);
+        if (targetTypeToken!=null && targetTypeToken.getType() instanceof ParameterizedType) {
             if (value instanceof Iterable && Iterable.class.isAssignableFrom(targetType)) {
                 result = tryCoerceIterable(value, targetTypeToken, targetType);
                 
@@ -154,6 +158,7 @@ public class TypeCoercerExtensible implements TypeCoercer {
         
         if (targetType.isInstance(value)) return Maybe.of( (T) value );
 
+        targetTypeToken = TypeTokens.getTypeToken(targetTypeToken, targetType);
         for (TryCoercer coercer : genericCoercers) {
             result = coercer.tryCoerce(value, targetTypeToken);
             if (result!=null && result.isPresent()) return result;
