@@ -336,7 +336,7 @@ public class CatalogUtils {
     }
 
     /** @deprecated since 0.9.0 use {@link BrooklynTypeRegistry#get(String, org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind, Class)} */
-    // only one item left, in deprecated service resolver
+    // not used
     @Deprecated
     public static <T,SpecT> CatalogItem<T, SpecT> getCatalogItemOptionalVersion(ManagementContext mgmt, Class<T> type, String versionedId) {
         if (looksLikeVersionedId(versionedId)) {

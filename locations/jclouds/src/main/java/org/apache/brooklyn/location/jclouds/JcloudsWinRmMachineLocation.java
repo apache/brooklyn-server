@@ -275,7 +275,10 @@ public class JcloudsWinRmMachineLocation extends WinRmMachineLocation implements
         if (privateAddress.isPresent()) {
             return privateAddress.get();
         }
-        if (groovyTruth(node.getPublicAddresses())) {
+        if (groovyTruth(publicAddresses)) {
+            return publicAddresses.iterator().next();
+        }
+        if (node!=null && groovyTruth(node.getPublicAddresses())) {
             return node.getPublicAddresses().iterator().next();
         }
         return null;

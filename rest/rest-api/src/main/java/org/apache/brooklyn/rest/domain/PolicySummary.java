@@ -27,6 +27,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableMap;
 
+import org.apache.brooklyn.api.objs.HighlightTuple;
+
 public class PolicySummary implements HasName, HasId, Serializable {
 
     private static final long serialVersionUID = -5086680835225136768L;
@@ -37,18 +39,21 @@ public class PolicySummary implements HasName, HasId, Serializable {
     private final String catalogItemId;
     private final Status state;
     private final Map<String, URI> links;
+    private final Map<String, HighlightTuple> highlights;
 
     public PolicySummary(
             @JsonProperty("id") String id,
             @JsonProperty("name") String name,
             @JsonProperty("catalogItemId") String catalogItemId,
             @JsonProperty("state") Status state,
+            @JsonProperty("highlights") Map<String, HighlightTuple> highlights,
             @JsonProperty("links") Map<String, URI> links) {
         this.id = id;
         this.name = name;
         this.catalogItemId = catalogItemId;
         this.state = state;
         this.links = (links == null) ? ImmutableMap.<String, URI> of() : ImmutableMap.copyOf(links);
+        this.highlights = (highlights == null) ? ImmutableMap.of() : ImmutableMap.copyOf(highlights);
     }
 
     @Override
@@ -73,6 +78,10 @@ public class PolicySummary implements HasName, HasId, Serializable {
         return links;
     }
 
+    public Map<String, HighlightTuple> getHighlights() {
+        return highlights;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -82,12 +91,13 @@ public class PolicySummary implements HasName, HasId, Serializable {
                 Objects.equals(name, that.name) &&
                 Objects.equals(catalogItemId, that.catalogItemId) &&
                 state == that.state &&
-                Objects.equals(links, that.links);
+                Objects.equals(highlights, that.highlights) &&
+                Objects.equals(links, that.links) ;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name, catalogItemId, state, links);
+        return Objects.hash(id, name, catalogItemId, state, highlights, links);
     }
 
     @Override
@@ -97,6 +107,7 @@ public class PolicySummary implements HasName, HasId, Serializable {
                 ", name='" + name + '\'' +
                 ", catalogItemId='" + catalogItemId + '\'' +
                 ", state=" + state +
+                ", highlights=" + highlights +
                 ", links=" + links +
                 '}';
     }

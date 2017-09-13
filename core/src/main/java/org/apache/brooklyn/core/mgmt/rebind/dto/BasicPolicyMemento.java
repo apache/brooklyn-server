@@ -22,6 +22,7 @@ import java.io.Serializable;
 import java.util.Map;
 
 import org.apache.brooklyn.api.mgmt.rebind.mementos.PolicyMemento;
+import org.apache.brooklyn.api.objs.HighlightTuple;
 import org.apache.brooklyn.core.config.Sanitizer;
 
 import com.google.common.base.MoreObjects;
@@ -42,14 +43,19 @@ public class BasicPolicyMemento extends AbstractMemento implements PolicyMemento
 
     public static class Builder extends AbstractMemento.Builder<Builder> {
         protected Map<String,Object> config = Maps.newLinkedHashMap();
+        protected Map<String,HighlightTuple> highlights = Maps.newLinkedHashMap();
         
         public Builder from(PolicyMemento other) {
             super.from(other);
             config.putAll(other.getConfig());
+            highlights.putAll(other.getHighlights());
             return this;
         }
         public Builder config(Map<String,?> vals) {
             config.putAll(vals); return this;
+        }
+        public Builder highlights(Map<String,HighlightTuple> vals) {
+            highlights.putAll(vals); return this;
         }
         public PolicyMemento build() {
             return new BasicPolicyMemento(this);
@@ -58,6 +64,7 @@ public class BasicPolicyMemento extends AbstractMemento implements PolicyMemento
     
     private Map<String,Object> config;
     private Map<String, Object> fields;
+    private Map<String, HighlightTuple> highlights;
 
     @SuppressWarnings("unused") // For deserialisation
     private BasicPolicyMemento() {}
@@ -66,6 +73,7 @@ public class BasicPolicyMemento extends AbstractMemento implements PolicyMemento
     protected BasicPolicyMemento(Builder builder) {
         super(builder);
         config = toPersistedMap(builder.config);
+        highlights = toPersistedMap(builder.highlights);
     }
     
     @Deprecated
@@ -84,9 +92,14 @@ public class BasicPolicyMemento extends AbstractMemento implements PolicyMemento
     public Map<String, Object> getConfig() {
         return fromPersistedMap(config);
     }
-    
+
+    @Override
+    public Map<String, HighlightTuple> getHighlights() {
+        return highlights;
+    }
+
     @Override
     protected MoreObjects.ToStringHelper newVerboseStringHelper() {
-        return super.newVerboseStringHelper().add("config", Sanitizer.sanitize(getConfig()));
+        return super.newVerboseStringHelper().add("config", Sanitizer.sanitize(getConfig())).add("highlights", highlights);
     }
 }

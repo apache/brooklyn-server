@@ -125,6 +125,7 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
     private Duration haHeartbeatTimeoutOverride = null;
     private Duration haHeartbeatPeriodOverride = null;
     
+    protected boolean startedPartTwo;
     protected boolean started;
     
     private BrooklynProperties.Factory.Builder brooklynPropertiesBuilder;
@@ -243,6 +244,8 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
 
     @Beta
     public T catalogInitialization(CatalogInitialization catInit) {
+        if (started)
+            throw new IllegalStateException("Cannot set catalog customization after start()");
         if (this.catalogInitialization!=null)
             throw new IllegalStateException("Initial catalog customization already set.");
         this.catalogInitialization = catInit;
@@ -373,12 +376,26 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
      * @return An object containing details of the web server and the management context.
      */
     public T start() {
+        startPartOne();
+        startPartTwo();
+        return self();
+    }
+
+    /**
+     * Starts the web server (with web console) and Brooklyn applications, as per the specifications configured. 
+     * @return An object containing details of the web server and the management context.
+     */
+    protected T startPartOne() {
         if (started) throw new IllegalStateException("Cannot start() or launch() multiple times");
         started = true;
 
         initManagementContext();
 
         CatalogInitialization catInit = ((ManagementContextInternal)managementContext).getCatalogInitialization();
+        if (catalogInitialization != null && catalogInitialization != catInit) { 
+            throw new IllegalStateException("Unexpected catalog initialization: " + catInit + " != " + catalogInitialization);
+        }
+        catalogInitialization = catInit;
 
         markCatalogStartingUp(catInit);
         
@@ -386,9 +403,21 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
         startingUp();
         
         initCamp();
+        
+        return self();
+    }
+
+    /**
+     * Starts the web server (with web console) and Brooklyn applications, as per the specifications configured. 
+     * @return An object containing details of the web server and the management context.
+     */
+    protected T startPartTwo() {
+        if (startedPartTwo) throw new IllegalStateException("Cannot start() or launch() multiple times");
+        startedPartTwo = true;
+        
         handlePersistence();
-        populateCatalog(catInit);
-        markCatalogStarted(catInit);
+        populateCatalog(catalogInitialization);
+        markCatalogStarted(catalogInitialization);
         addLocations();
         markStartupComplete();
         initApps();
@@ -397,6 +426,7 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
         persist();
         return self();
     }
+
 
     protected void persist() {
         if (persistMode != PersistMode.DISABLED) {
@@ -507,7 +537,6 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
         if (catalogInitialization!=null) {
             ((ManagementContextInternal)managementContext).setCatalogInitialization(catalogInitialization);
         }
-        
     }
 
     protected void handleSubsystemStartupError(boolean ignoreSuchErrors, String system, Exception e) {

@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 import static org.apache.brooklyn.util.ssh.BashCommands.sbinPath;
+import static org.jclouds.compute.predicates.NodePredicates.*;
 import static org.jclouds.util.Throwables2.getFirstThrowableOfType;
 
 import java.io.ByteArrayOutputStream;
@@ -145,6 +146,7 @@ import org.jclouds.compute.domain.OsFamily;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.domain.TemplateBuilder;
 import org.jclouds.compute.options.TemplateOptions;
+import org.jclouds.compute.predicates.NodePredicates;
 import org.jclouds.domain.Credentials;
 import org.jclouds.domain.LocationScope;
 import org.jclouds.domain.LoginCredentials;
@@ -520,7 +522,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     @Override
     public void killMachine(String cloudServiceId) {
-        getComputeService().destroyNode(cloudServiceId);
+        // FIXME revert to computeService.destroyNode(cloudServiceId); once JCLOUDS-1332 gets fixed
+        Set<? extends NodeMetadata> destroyed = getComputeService().destroyNodesMatching(withIds(cloudServiceId));
+        LOG.debug("Destroyed nodes %s%n", destroyed);
     }
 
     @Override
@@ -2183,10 +2187,13 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     protected void releaseNode(String instanceId) {
-        ComputeService computeService = null;
+        ComputeService computeService;
         try {
             computeService = getComputeService(config().getBag());
-            computeService.destroyNode(instanceId);
+            // FIXME revert to computeService.destroyNode(instanceId); once JCLOUDS-1332 gets fixed
+            Set<? extends NodeMetadata> destroyed = computeService.destroyNodesMatching(withIds(instanceId));
+            LOG.debug("Destroyed nodes %s%n", destroyed);
+
         } finally {
         /*
             // we don't close the compute service; this means if we provision add'l it is fast;

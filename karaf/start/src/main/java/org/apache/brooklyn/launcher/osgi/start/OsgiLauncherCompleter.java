@@ -16,23 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.api.mgmt.rebind.mementos;
+package org.apache.brooklyn.launcher.osgi.start;
 
-import java.util.Map;
+import static com.google.common.base.Preconditions.checkNotNull;
 
-import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
-import org.apache.brooklyn.api.objs.HighlightTuple;
+import org.apache.brooklyn.launcher.osgi.OsgiLauncher;
 
 /**
- * Represents the state of an policy, so that it can be reconstructed (e.g. after restarting brooklyn).
- * 
- * @see RebindSupport
- * 
- * @author aled
+ * See {@link OsgiLauncher} for explanation.
  */
-public interface PolicyMemento extends Memento {
-
-    Map<String, Object> getConfig();
-
-    Map<String, HighlightTuple> getHighlights();
+public class OsgiLauncherCompleter {
+    private OsgiLauncher launcher;
+    
+    public void setLauncher(OsgiLauncher val) {
+        launcher = checkNotNull(val, "launcher");
+    }
+    
+    public void init() {
+        launcher.startOsgi();
+    }
+    
+    public void destroy() {
+        // no-op; rely on karaf-init to call launcher.destroy()
+    }
 }

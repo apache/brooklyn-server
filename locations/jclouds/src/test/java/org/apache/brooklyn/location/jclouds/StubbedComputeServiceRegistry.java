@@ -37,16 +37,18 @@ import org.jclouds.domain.LoginCredentials;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
 
-    public static interface NodeCreator {
-        public Set<? extends NodeMetadata> createNodesInGroup(String group, int count, Template template) throws RunNodesException;
-        public void destroyNode(String id);
-        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<? super NodeMetadata> filter);
-        public NodeMetadata getCreatedNode(String nodeId);
+    public interface NodeCreator {
+        Set<? extends NodeMetadata> createNodesInGroup(String group, int count, Template template) throws RunNodesException;
+        void destroyNode(String id);
+        Set<? extends NodeMetadata> destroyNodesMatching(Predicate<? super NodeMetadata> filter);
+        Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<? super NodeMetadata> filter);
+        NodeMetadata getCreatedNode(String nodeId);
     }
 
     public static abstract class AbstractNodeCreator implements NodeCreator {
@@ -67,6 +69,14 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
         public void destroyNode(String id) {
             destroyed.add(id);
         }
+
+        @Override
+        public Set<? extends NodeMetadata> destroyNodesMatching(Predicate<? super NodeMetadata> filter) {
+            NodeMetadata only = Iterables.get(created, 0);
+            destroyed.add(only.getId());
+            return ImmutableSet.of(only);
+        }
+        
         @Override
         public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<? super NodeMetadata> filter) {
             return ImmutableSet.of();
@@ -169,6 +179,12 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
         public void destroyNode(String id) {
             nodeCreator.destroyNode(id);
         }
+
+        @Override
+        public Set<? extends NodeMetadata> destroyNodesMatching(Predicate<? super NodeMetadata> filter) {
+            return nodeCreator.destroyNodesMatching(filter);
+        }
+
         @Override
         public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<? super NodeMetadata> filter) {
             return nodeCreator.listNodesDetailsMatching(filter);

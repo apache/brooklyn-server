@@ -23,6 +23,7 @@ import static org.testng.Assert.assertTrue;
 
 import java.util.Map;
 
+import org.apache.brooklyn.api.objs.HighlightTuple;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
@@ -70,6 +71,11 @@ public class BasicPolicyTest extends BrooklynAppUnitTestSupport {
             }
         }
 
+        //make visable for testing
+        @Override
+        protected void addHighlight(String name, HighlightTuple tuple) {
+            super.addHighlight(name, tuple);
+        }
     }
     
     @Test
@@ -106,4 +112,16 @@ public class BasicPolicyTest extends BrooklynAppUnitTestSupport {
         assertEquals(policy.getUniqueTag(), "x");
     }
 
+    @Test
+    public void testHighlights() throws Exception {
+        MyPolicy policy = new MyPolicy();
+
+        HighlightTuple highlight = new HighlightTuple("TEST_DESCRIPTION", 123L, "456");
+        policy.addHighlight("testHighlightName", highlight);
+
+        Map<String, HighlightTuple> highlights = policy.getHighlights();
+
+        assertEquals(1, highlights.size());
+        assertEquals(highlight, highlights.get("testHighlightName"));
+    }
 }

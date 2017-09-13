@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.api.objs;
 
+import java.util.Map;
+
 import javax.annotation.Nullable;
 
 /**
@@ -50,4 +52,5 @@ public interface EntityAdjunct extends BrooklynObject {
      */
     @Nullable String getUniqueTag();
 
+    Map<String, HighlightTuple> getHighlights();
 }
