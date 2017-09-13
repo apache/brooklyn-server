@@ -22,6 +22,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.objs.HighlightTuple;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
@@ -110,6 +112,8 @@ public class ServiceRestarter extends AbstractPolicy {
                     }
                 }
             });
+        addHighlight(HIGHLIGHT_NAME_TRIGGERS, 
+            new HighlightTuple("Listening for "+getConfig(FAILURE_SENSOR_TO_MONITOR).getName(), 0, null));
     }
     
     // TODO semaphores would be better to allow at-most-one-blocking behaviour
@@ -117,6 +121,8 @@ public class ServiceRestarter extends AbstractPolicy {
     // (as has been done in ServiceReplacer)
     protected synchronized void onDetectedFailure(SensorEvent<Object> event) {
         if (isSuspended()) {
+            addHighlight(HIGHLIGHT_NAME_LAST_VIOLATION, 
+                new HighlightTuple("Failure detected but policy suspended", System.currentTimeMillis(), null));
             LOG.warn("ServiceRestarter suspended, so not acting on failure detected at "+entity+" ("+event.getValue()+")");
             return;
         }
@@ -126,12 +132,19 @@ public class ServiceRestarter extends AbstractPolicy {
         Long last = lastFailureTime.getAndSet(current);
         long elapsed = last==null ? -1 : current-last;
         if (elapsed>=0 && elapsed <= getConfig(FAIL_ON_RECURRING_FAILURES_IN_THIS_DURATION).toMilliseconds()) {
+            addHighlight(HIGHLIGHT_NAME_LAST_VIOLATION, 
+                new HighlightTuple("Failure detected but policy ran "+Duration.millis(elapsed)+" ago so not running again", System.currentTimeMillis(), null));
             onRestartFailed("Restart failure (failed again after "+Time.makeTimeStringRounded(elapsed)+") at "+entity+": "+event.getValue());
             return;
         }
         try {
+            addHighlight(HIGHLIGHT_NAME_LAST_VIOLATION, 
+                new HighlightTuple("Failure detected and restart triggered", System.currentTimeMillis(), null));
             ServiceStateLogic.setExpectedState(entity, Lifecycle.STARTING);
-            Entities.invokeEffector(entity, entity, Startable.RESTART).get();
+            Task<Void> t = Entities.invokeEffector(entity, entity, Startable.RESTART);
+            addHighlight(HIGHLIGHT_NAME_LAST_ACTION, 
+                new HighlightTuple("Restart node on failure", System.currentTimeMillis(), t.getId()));
+            t.get();
         } catch (Exception e) {
             onRestartFailed("Restart failure (error "+e+") at "+entity+": "+event.getValue());
         }
