@@ -91,6 +91,11 @@ public class Aggregator<T,U> extends AbstractAggregator<T,U> implements SensorEv
     public Aggregator() {}
 
     @Override
+    protected Collection<Sensor<?>> getSourceSensors() {
+        return Collections.singleton(sourceSensor);
+    }
+    
+    @Override
     @SuppressWarnings("unchecked")
     protected void setEntityLoadingConfig() {
         super.setEntityLoadingConfig();

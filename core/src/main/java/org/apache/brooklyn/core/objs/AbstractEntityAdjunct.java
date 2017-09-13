@@ -592,10 +592,55 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     protected void highlight(String name, String description, @Nullable Task<?> t) {
         highlights.put(name, new HighlightTuple(description, System.currentTimeMillis(), t!=null ? t.getId() : null));
     }
+    
     /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_TRIGGERS} (as ongoing). */
     protected void highlightTriggers(String description) {
         highlightOngoing(HIGHLIGHT_NAME_TRIGGERS, description);
     }
+    protected <T> void highlightTriggers(Sensor<?> s, Object source) {
+        highlightTriggers(Collections.singleton(s), Collections.singleton(source));
+    }
+    protected <T> void highlightTriggers(Iterable<? extends Sensor<? extends T>> s, Object source) {
+        highlightTriggers(s, (Iterable<?>) (source instanceof Iterable ? (Iterable<?>)source : Collections.singleton(source)));
+    }
+    protected <U> void highlightTriggers(Sensor<?> s, Iterable<U> sources) {
+        highlightTriggers(Collections.singleton(s), sources);
+    }
+    protected <T,U> void highlightTriggers(Iterable<? extends Sensor<? extends T>> sensors, Iterable<U> sources) {
+        StringBuilder msg = new StringBuilder("Listening for ");
+        boolean firstWord = true;
+        if (sensors!=null) for (Object s: sensors) {
+            if (s==null) continue;
+            if (!firstWord) { msg.append(", "); } else { firstWord = false; }
+            // s is normally a sensor but forgive other things if caller cheated generics
+            msg.append(s instanceof Sensor ? ((Sensor<?>)s).getName() : s.toString());
+        }
+        if (firstWord) msg.append("<nothing>");
+        
+        firstWord = true;
+        boolean selfWasFirst = false;
+        if (sources!=null) for (Object s: sources) {
+            if (s==null) continue;
+            if (!firstWord) { 
+                msg.append(", "); 
+            } else {
+                if (s.equals(getEntity())) {
+                    // don't log self unless there is another
+                    selfWasFirst = true;
+                    continue;
+                }
+                msg.append(" on ");
+                if (selfWasFirst) {
+                    msg.append("self, ");
+                }
+                firstWord = false; 
+            }
+            if (s.equals(getEntity())) msg.append("self");
+            else msg.append(""+s);
+        }
+        highlightTriggers(msg.toString());
+    }
+
     /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_CONFIRMATION}. */
     protected void highlightConfirmation(String description) {
         highlightNow(HIGHLIGHT_NAME_LAST_CONFIRMATION, description);
@@ -603,6 +648,14 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_ACTION}. */
     protected void highlightAction(String description, Task<?> t) {
         highlight(HIGHLIGHT_NAME_LAST_ACTION, description, t);
+    }
+    /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_ACTION} when publishing a sensor. */
+    protected void highlightActionPublishSensor(Sensor<?> s, Object v) {
+        highlightActionPublishSensor("Publish "+s.getName()+" "+v);
+    }
+    /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_ACTION} when publishing a sensor (freeform text). */
+    protected void highlightActionPublishSensor(String description) {
+        highlight(HIGHLIGHT_NAME_LAST_ACTION, description, null);
     }
     /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_VIOLATION}. */
     protected void highlightViolation(String description) {

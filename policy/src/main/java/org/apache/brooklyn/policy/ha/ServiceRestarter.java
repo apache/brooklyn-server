@@ -111,7 +111,7 @@ public class ServiceRestarter extends AbstractPolicy {
                     }
                 }
             });
-        highlightTriggers("Listening for "+getConfig(FAILURE_SENSOR_TO_MONITOR).getName());
+        highlightTriggers(getConfig(FAILURE_SENSOR_TO_MONITOR), entity);
     }
     
     // TODO semaphores would be better to allow at-most-one-blocking behaviour

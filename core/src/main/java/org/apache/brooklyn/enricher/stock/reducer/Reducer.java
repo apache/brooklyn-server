@@ -113,6 +113,7 @@ public class Reducer extends AbstractEnricher implements SensorEventListener<Obj
         }
 
         subscribedSensors = ImmutableList.copyOf(sensorListTemp);
+        highlightTriggers(subscribedSensors, producer);
     }
     
     // Default implementation, subclasses should override

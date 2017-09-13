@@ -84,4 +84,9 @@ public class HighlightTuple {
         result = 31 * result + (taskId != null ? taskId.hashCode() : 0);
         return result;
     }
+    
+    @Override
+    public String toString() {
+        return "highlight["+description+"; time="+System.currentTimeMillis()+(taskId==null ? "" : "; task="+taskId)+"]";
+    }
 }

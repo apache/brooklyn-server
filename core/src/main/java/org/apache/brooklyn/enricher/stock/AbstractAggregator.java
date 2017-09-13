@@ -20,6 +20,8 @@ package org.apache.brooklyn.enricher.stock;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -33,6 +35,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.trait.Changeable;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringPredicates;
@@ -103,24 +106,31 @@ public abstract class AbstractAggregator<T,U> extends AbstractEnricher implement
         checkState(fromHardcodedProducers != null ^ producer != null, "must specify one of %s (%s) or %s (%s)", 
                 PRODUCER.getName(), producer, FROM_HARDCODED_PRODUCERS.getName(), fromHardcodedProducers);
 
+        List<Object> producers = MutableList.of();
+
         if (fromHardcodedProducers != null) {
             for (Entity producer : Iterables.filter(fromHardcodedProducers, entityFilter)) {
+                producers.add(producer);
                 addProducerHardcoded(producer);
             }
         }
         
         if (isAggregatingMembers()) {
+            producers.add(0, "members");
             setEntityBeforeSubscribingProducerMemberEvents(entity);
             setEntitySubscribeProducerMemberEvents();
             setEntityAfterSubscribingProducerMemberEvents();
         }
         
         if (isAggregatingChildren()) {
+            producers.add(0, "children");
             setEntityBeforeSubscribingProducerChildrenEvents();
             setEntitySubscribingProducerChildrenEvents();
             setEntityAfterSubscribingProducerChildrenEvents();
         }
         
+        highlightTriggers(getSourceSensors(), producers);
+
         onUpdated();
     }
 
@@ -136,6 +146,8 @@ public abstract class AbstractAggregator<T,U> extends AbstractEnricher implement
         
         setEntityLoadingTargetConfig();
     }
+    
+    protected abstract Collection<Sensor<?>> getSourceSensors();
     
     protected Predicate<?> getDefaultValueFilter() {
         if (getConfig(EXCLUDE_BLANK))

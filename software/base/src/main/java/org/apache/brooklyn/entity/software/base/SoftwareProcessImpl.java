@@ -49,6 +49,7 @@ import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.function.FunctionPollConfig;
 import org.apache.brooklyn.location.jclouds.networking.NetworkingEffectors;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -221,11 +222,13 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     public static class UpdatingNotUpFromServiceProcessIsRunning extends AbstractEnricher implements SensorEventListener<Object> {
         public UpdatingNotUpFromServiceProcessIsRunning() {}
         
+        @SuppressWarnings("unchecked")
         @Override
         public void setEntity(EntityLocal entity) {
             super.setEntity(entity);
             subscriptions().subscribe(entity, SERVICE_PROCESS_IS_RUNNING, this);
             subscriptions().subscribe(entity, Attributes.SERVICE_UP, this);
+            highlightTriggers(MutableList.of(SERVICE_PROCESS_IS_RUNNING, Attributes.SERVICE_UP), entity);
             onUpdated();
         }
 

@@ -93,6 +93,7 @@ public class Joiner<T> extends AbstractEnricher implements SensorEventListener<T
         this.sourceSensor = (AttributeSensor<T>) getRequiredConfig(SOURCE_SENSOR);
         this.targetSensor = (Sensor<String>) getRequiredConfig(TARGET_SENSOR);
 
+        highlightTriggers(sourceSensor, producer);
         subscriptions().subscribe(producer, sourceSensor, this);
 
         Object value = producer.getAttribute((AttributeSensor<?>) sourceSensor);

@@ -69,7 +69,7 @@ public class SelectMasterEffectorTest extends BrooklynAppUnitTestSupport {
         super.setUp();
 
         // because the effector calls wait for a state change, use a separate thread to drive that 
-        poller = new Poller<Void>(app, false);
+        poller = new Poller<Void>(app, null, false);
         poller.scheduleAtFixedRate(
             new Callable<Void>() {
                 @Override

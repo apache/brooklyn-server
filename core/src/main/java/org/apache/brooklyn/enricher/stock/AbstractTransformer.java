@@ -31,6 +31,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.sensor.BasicSensorEvent;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.slf4j.Logger;
@@ -138,6 +139,8 @@ public abstract class AbstractTransformer<T,U> extends AbstractEnricher implemen
                 subscriptions().subscribe(MutableMap.of("notifyOfInitialValue", true), producer, (Sensor<?>)sensor, triggerListener);
             }
         }
+        
+        highlightTriggers(MutableList.<Sensor<?>>of(sourceSensor).appendAll(triggerSensors), producer);
     }
 
     /** returns a function for transformation, for immediate use only (not for caching, as it may change) */

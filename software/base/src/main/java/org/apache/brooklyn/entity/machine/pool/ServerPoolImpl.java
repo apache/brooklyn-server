@@ -432,6 +432,7 @@ public class ServerPoolImpl extends DynamicClusterImpl implements ServerPool {
         protected void onEntityEvent(EventType type, Entity member) {
             Boolean isUp = member.getAttribute(Attributes.SERVICE_UP);
             LOG.info("{} in {}: {} service up is {}", new Object[]{type.name(), entity, member, isUp});
+            defaultHighlightAction(type, entity, "Update on %s %s (service "+(isUp==Boolean.TRUE ? "up" : isUp==Boolean.FALSE ? "not up" : "up value not known")+")");
             if (type.equals(EventType.ENTITY_ADDED) || type.equals(EventType.ENTITY_CHANGE)) {
                 if (Boolean.TRUE.equals(isUp)) {
                     ((ServerPoolImpl) entity).serverAdded(member);
