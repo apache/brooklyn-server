@@ -189,7 +189,7 @@ public class BrooklynPersistenceUtils {
                 result.policy(instanceAdjunct.getId(), serializer.toString(newObjectMemento(instanceAdjunct)));
             }
         }
-        for (CatalogItem<?,?> instance: mgmt.getCatalog().getCatalogItems()) {
+        for (CatalogItem<?,?> instance: mgmt.getCatalog().getCatalogItemsLegacy()) {
             result.catalogItem(instance.getId(), serializer.toString(newObjectMemento(instance)));
         }
         OsgiManager osgi = ((LocalManagementContext)mgmt).getOsgiManager().orNull();
