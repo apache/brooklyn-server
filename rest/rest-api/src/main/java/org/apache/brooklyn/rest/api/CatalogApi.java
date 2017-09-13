@@ -47,6 +47,9 @@ import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 
+/** @deprecated since 0.12.0 use /bundle, /type, and /subtype */
+// but we will probably keep this around for a while as many places use it
+@Deprecated
 @Path("/catalog")
 @Api("Catalog")
 @Consumes(MediaType.APPLICATION_JSON)

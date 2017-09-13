@@ -17,19 +17,24 @@ package org.apache.brooklyn.util.osgi;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.util.Comparator;
+
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
+import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.text.VersionComparator;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.Version;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.ComparisonChain;
 
 /** Records a name (string) and version (string),
  * with conveniences for pretty-printing and converting to OSGi format. */
-public class VersionedName {
+public class VersionedName implements Comparable<VersionedName> {
     private final String name;
     private final String v;
     
@@ -172,4 +177,21 @@ public class VersionedName {
         return Maybe.of(new VersionedName(parts[0], parts.length == 2 ? parts[1] : null));
     }
 
+    @Override
+    public int compareTo(VersionedName other) {
+        return VersionedNameComparator.INSTANCE.compare(this, other);
+    }
+
+    public static class VersionedNameComparator implements Comparator<VersionedName> {
+        public static final VersionedNameComparator INSTANCE = new VersionedNameComparator();
+        
+        @Override
+        public int compare(VersionedName o1, VersionedName o2) {
+            return ComparisonChain.start()
+                .compare(o1.getSymbolicName(), o2.getSymbolicName(), NaturalOrderComparator.INSTANCE)
+                .compare(o2.getOsgiVersionString(), o1.getOsgiVersionString(), VersionComparator.INSTANCE)
+                .compare(o2.getVersionString(), o1.getVersionString(), VersionComparator.INSTANCE)
+                .result();
+        }
+    }
 }

@@ -60,6 +60,7 @@ import org.osgi.framework.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
@@ -446,7 +447,7 @@ class OsgiArchiveInstaller {
                             Iterable<RegisteredType> items = mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(result.getMetadata()));
                             log.debug("Adding items from bundle "+result.getVersionedName()+": "+items);
                             for (RegisteredType ci: items) {
-                                result.catalogItemsInstalled.add(ci.getId());
+                                result.addType(ci);
                             }
                         } catch (Exception e) {
                             // unable to install new items; rollback bundles
@@ -494,15 +495,20 @@ class OsgiArchiveInstaller {
                 log.debug(result.message+" (Brooklyn load deferred)");
             } else {
                 startRunnable.run();
-                if (!result.catalogItemsInstalled.isEmpty()) {
+                if (!result.typesInstalled.isEmpty()) {
                     // show fewer info messages, only for 'interesting' and non-deferred installations
                     // (rebind is deferred, as are tests, but REST is not)
                     final int MAX_TO_LIST_EXPLICITLY = 5;
-                    MutableList<String> firstN = MutableList.copyOf(Iterables.limit(result.catalogItemsInstalled, MAX_TO_LIST_EXPLICITLY));
+                    Iterable<String> firstN = Iterables.transform(MutableList.copyOf(Iterables.limit(result.typesInstalled, MAX_TO_LIST_EXPLICITLY)),
+                        new Function<RegisteredType,String>() {
+                            @Override public String apply(RegisteredType input) {
+                                return input.getVersionedName().toString();
+                            }
+                        });
                     log.info(result.message+", items: "+firstN+
-                        (result.catalogItemsInstalled.size() > MAX_TO_LIST_EXPLICITLY ? " (and others, "+result.catalogItemsInstalled.size()+" total)" : "") );
-                    if (log.isDebugEnabled() && result.catalogItemsInstalled.size()>MAX_TO_LIST_EXPLICITLY) {
-                        log.debug(result.message+", all items: "+result.catalogItemsInstalled);
+                        (result.typesInstalled.size() > MAX_TO_LIST_EXPLICITLY ? " (and others, "+result.typesInstalled.size()+" total)" : "") );
+                    if (log.isDebugEnabled() && result.typesInstalled.size()>MAX_TO_LIST_EXPLICITLY) {
+                        log.debug(result.message+", all items: "+result.typesInstalled);
                     }
                 } else {
                     log.debug(result.message+" (into Brooklyn), with no catalog items");
