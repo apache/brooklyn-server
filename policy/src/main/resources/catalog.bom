@@ -49,6 +49,21 @@ brooklyn.catalog:
           Policy that is attached to a Resizable entity and dynamically adjusts its size in 
           response to either keep a metric within a given range, or in response to 
           POOL_COLD and POOL_HOT events
+    - id: org.apache.brooklyn.policy.action.PeriodicEffectorPolicy
+      itemType: policy
+      item:
+        type: org.apache.brooklyn.policy.action.PeriodicEffectorPolicy
+        name: Periodic Effector Execution
+        description: |
+          Policy that executes an effector repeatedly at configurable intervals.
+    - id: org.apache.brooklyn.policy.action.ScheduledEffectorPolicy
+      itemType: policy
+      item:
+        type: org.apache.brooklyn.policy.action.ScheduledEffectorPolicy
+        name: Scheduled Effector Execution
+        description: |
+          Policy that executes an effector at a configurable time or after
+          a configurable delay.
 
 #  Removed from catalog because 'FollowTheSunPool' cannot currently be configured via catalog mechanisms.
 #  Also removing associated 'BalanceableWorkerPool' etc as they are only useful with 'FollowTheSunPool'
