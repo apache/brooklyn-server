@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.core.entity;
 
-import static org.apache.brooklyn.core.config.ConfigKeys.newBooleanConfigKey;
 import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKey;
 import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKeyWithPrefix;
 import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
@@ -260,7 +259,7 @@ public class BrooklynConfigKeys {
 
     public static final ConfigKey<Duration> START_TIMEOUT = newConfigKey(
             "start.timeout", 
-            "Time to wait, after launching, for SERVICE_UP before failing (default to '2m')", 
+            "Time to wait, after launching, for SERVICE_UP before failing", 
             Duration.seconds(120));
 
     /* selected properties from SshTool for external public access (e.g. putting on entities) */

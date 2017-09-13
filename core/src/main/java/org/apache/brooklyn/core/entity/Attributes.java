@@ -54,13 +54,13 @@ public interface Attributes {
     BasicAttributeSensorAndConfigKey<String> DOWNLOAD_URL = new BasicAttributeSensorAndConfigKey<String>(
             String.class, 
             "download.url", 
-            "URL pattern for downloading the installer (will substitute things like ${version} automatically)");
+            "URL for downloading the installer; uses FreeMarker templating format to substitute things like ${version} automatically");
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     BasicAttributeSensorAndConfigKey<Map<String,String>> DOWNLOAD_ADDON_URLS = new BasicAttributeSensorAndConfigKey(
             Map.class, 
             "download.addon.urls", 
-            "URL patterns for downloading named add-ons (will substitute things like ${version} automatically)");
+            "URL for downloading named add-ons; uses FreeMarker templating format to substitute things like ${version} automatically");
 
     /*
      * Port number attributes.
