@@ -259,7 +259,9 @@ public class MementosGenerators {
             Object value = configValueToPersistable(entry.getValue(), policy, key.getName());
             builder.config.put(key.getName(), value); 
         }
-        
+
+        builder.highlights(policy.getHighlights());
+
         Map<String, Object> persistableFlags = MutableMap.<String, Object>builder()
                 .putAll(FlagUtils.getFieldsWithFlagsExcludingModifiers(policy, Modifier.STATIC ^ Modifier.TRANSIENT))
                 .remove("id")

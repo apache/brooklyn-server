@@ -65,7 +65,12 @@ public class PolicyTransformer {
                 .put("entity", entityUri)
                 .build();
 
-        return new PolicySummary(policy.getId(), policy.getDisplayName(), policy.getCatalogItemId(), ApplicationTransformer.statusFromLifecycle(Policies.getPolicyStatus(policy)), links);
+        return new PolicySummary(   policy.getId(),
+                                    policy.getDisplayName(),
+                                    policy.getCatalogItemId(),
+                                    ApplicationTransformer.statusFromLifecycle(Policies.getPolicyStatus(policy)),
+                                    policy.getHighlights(),
+                                    links);
     }
 
     public static PolicyConfigSummary policyConfigSummary(BrooklynRestResourceUtils utils, ApplicationSummary application, Entity entity, Policy policy, ConfigKey<?> config, UriBuilder ub) {

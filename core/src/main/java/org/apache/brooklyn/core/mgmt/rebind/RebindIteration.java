@@ -1228,6 +1228,7 @@ public abstract class RebindIteration {
                 policy = policyFactory.constructPolicy(policyClazz);
                 FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", id), policy);
                 ((AbstractPolicy)policy).setManagementContext(managementContext);
+                ((AbstractPolicy)policy).setHighlights(memento.getHighlights());
 
             } else {
                 LOG.warn("Deprecated rebind of policy without no-arg constructor; " +
