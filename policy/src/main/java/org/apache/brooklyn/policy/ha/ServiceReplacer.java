@@ -29,6 +29,7 @@ import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.Group;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
@@ -116,6 +117,7 @@ public class ServiceReplacer extends AbstractPolicy {
                     // for them; or could write events to a blocking queue and have onDetectedFailure read from that.
                     
                     if (isRunning()) {
+                        highlightViolation("Failure detected");
                         LOG.warn("ServiceReplacer notified; dispatching job for "+entity+" ("+event.getValue()+")");
                         ((EntityInternal)entity).getExecutionContext().submit(MutableMap.of(), new Runnable() {
                             @Override public void run() {
@@ -126,25 +128,45 @@ public class ServiceReplacer extends AbstractPolicy {
                     }
                 }
             });
+        highlightTriggers(failureSensorToMonitor, "members");
     }
     
     // TODO semaphores would be better to allow at-most-one-blocking behaviour
     protected synchronized void onDetectedFailure(SensorEvent<Object> event) {
         final Entity failedEntity = event.getSource();
         final Object reason = event.getValue();
+        String violationText = "Failure detected at "+failedEntity+(reason!=null ? " ("+reason+")" : "");
         
         if (isSuspended()) {
+            highlightViolation(violationText+" but policy is suspended");
             LOG.warn("ServiceReplacer suspended, so not acting on failure detected at "+failedEntity+" ("+reason+", child of "+entity+")");
             return;
         }
 
-        if (isRepeatedlyFailingTooMuch()) {
+
+        Integer failOnNumRecurringFailures = getConfig(FAIL_ON_NUM_RECURRING_FAILURES);
+        long failOnRecurringFailuresInThisDuration = getConfig(FAIL_ON_RECURRING_FAILURES_IN_THIS_DURATION);
+        long oldestPermitted = currentTimeMillis() - failOnRecurringFailuresInThisDuration;
+        // trim old ones
+        for (Iterator<Long> iter = consecutiveReplacementFailureTimes.iterator(); iter.hasNext();) {
+            Long timestamp = iter.next();
+            if (timestamp < oldestPermitted) {
+                iter.remove();
+            } else {
+                break;
+            }
+        }
+        
+        if (consecutiveReplacementFailureTimes.size() >= failOnNumRecurringFailures) {
+            highlightViolation(violationText+" but too many recent failures detected: "
+                + consecutiveReplacementFailureTimes.size()+" in "+failOnRecurringFailuresInThisDuration+" exceeds limit of "+failOnNumRecurringFailures);
             LOG.error("ServiceReplacer not acting on failure detected at "+failedEntity+" ("+reason+", child of "+entity+"), because too many recent replacement failures");
             return;
         }
         
+        highlightViolation(violationText+", triggering restart");
         LOG.warn("ServiceReplacer acting on failure detected at "+failedEntity+" ("+reason+", child of "+entity+")");
-        ((EntityInternal)entity).getExecutionContext().submit(MutableMap.of(), new Runnable() {
+        Task<?> t = ((EntityInternal)entity).getExecutionContext().submit(MutableMap.of(), new Runnable() {
 
             @Override
             public void run() {
@@ -156,28 +178,12 @@ public class ServiceReplacer extends AbstractPolicy {
                         LOG.info("ServiceReplacer: ignoring error reported from stopping failed node "+failedEntity);
                         return;
                     }
+                    highlightViolation(violationText+" and replace attempt failed: "+Exceptions.collapseText(e));
                     onReplacementFailed("Replace failure ("+Exceptions.collapseText(e)+") at "+entity+": "+reason);
                 }
             }
         });
-    }
-
-    private boolean isRepeatedlyFailingTooMuch() {
-        Integer failOnNumRecurringFailures = getConfig(FAIL_ON_NUM_RECURRING_FAILURES);
-        long failOnRecurringFailuresInThisDuration = getConfig(FAIL_ON_RECURRING_FAILURES_IN_THIS_DURATION);
-        long oldestPermitted = currentTimeMillis() - failOnRecurringFailuresInThisDuration;
-        
-        // trim old ones
-        for (Iterator<Long> iter = consecutiveReplacementFailureTimes.iterator(); iter.hasNext();) {
-            Long timestamp = iter.next();
-            if (timestamp < oldestPermitted) {
-                iter.remove();
-            } else {
-                break;
-            }
-        }
-        
-        return (consecutiveReplacementFailureTimes.size() >= failOnNumRecurringFailures);
+        highlightAction("Replacing "+failedEntity, t);
     }
 
     protected long currentTimeMillis() {

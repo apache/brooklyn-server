@@ -133,6 +133,8 @@ public class UpdatingMap<S,TKey,TVal> extends AbstractEnricher implements Sensor
         this.removingIfResultIsNull = getConfig(REMOVING_IF_RESULT_IS_NULL);
 
         subscriptions().subscribe(ImmutableMap.of("notifyOfInitialValue", true), producer, sourceSensor, this);
+        
+        highlightTriggers(sourceSensor, producer);
     }
     
     @Override

@@ -40,6 +40,7 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.group.DynamicCluster;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -110,7 +111,9 @@ public class AutoScalerPolicyRebindTest extends RebindTestFixtureWithApp {
         assertEquals(newPolicy.getConfig(AutoScalerPolicy.POOL_OK_SENSOR), POOL_OK_SENSOR);
         assertEquals(newPolicy.getConfig(AutoScalerPolicy.MAX_SIZE_REACHED_SENSOR), MAX_SIZE_REACHED_SENSOR);
         assertEquals(newPolicy.getConfig(AutoScalerPolicy.MAX_REACHED_NOTIFICATION_DELAY), Duration.of(7, TimeUnit.MILLISECONDS));
-        assertTrue(newPolicy.getHighlights().isEmpty());
+        Asserts.assertSize(newPolicy.getHighlights().keySet(), 1);
+        assertEquals(newPolicy.getHighlights().get(AbstractEntityAdjunct.HIGHLIGHT_NAME_TRIGGERS).getDescription(), 
+            "Listening for "+METRIC_SENSOR.getName());
     }
     
     @Test

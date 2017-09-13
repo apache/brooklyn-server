@@ -33,8 +33,8 @@ public class RestMockSimplePolicy extends AbstractPolicy {
 
     public RestMockSimplePolicy() {
         super();
-        this.addHighlight("testNameTask",  new HighlightTuple("testDescription", 123L, "testTaskId"));
-        this.addHighlight("testNameNoTask",  new HighlightTuple("testDescription", 123L, null));
+        this.setHighlight("testNameTask",  new HighlightTuple("testDescription", 123L, "testTaskId"));
+        this.setHighlight("testNameNoTask",  new HighlightTuple("testDescription", 123L, null));
     }
 
     @SetFromFlag("sampleConfig")

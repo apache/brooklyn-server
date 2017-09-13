@@ -107,6 +107,8 @@ public class Combiner<T,U> extends AbstractEnricher implements SensorEventListen
                 }
             }
         }
+        
+        highlightTriggers(sourceSensors, producer);
     }
 
     @Override

@@ -47,8 +47,6 @@ public abstract class AbstractMultipleSensorAggregator<U> extends AbstractAggreg
 
     public AbstractMultipleSensorAggregator() { }
 
-    protected abstract Collection<Sensor<?>> getSourceSensors();
-
     @Override
     protected void setEntityLoadingConfig() {
         super.setEntityLoadingConfig();

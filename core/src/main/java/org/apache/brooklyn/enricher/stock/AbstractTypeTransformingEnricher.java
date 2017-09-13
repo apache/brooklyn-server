@@ -33,6 +33,7 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
  * @deprecated since 0.7.0; use {@link Enrichers.builder()}
  */
 @Deprecated
+// TODO this has active subclasses so i don't think it should be deprecated; possibly protected was the intention?
 public abstract class AbstractTypeTransformingEnricher<T,U> extends AbstractEnricher implements SensorEventListener<T> {
     
     @SetFromFlag
@@ -66,5 +67,7 @@ public abstract class AbstractTypeTransformingEnricher<T,U> extends AbstractEnri
             if (value!=null)
                 onEvent(new BasicSensorEvent(source, producer, value, -1));
         }
+        
+        highlightTriggers(source, producer);
     }
 }
