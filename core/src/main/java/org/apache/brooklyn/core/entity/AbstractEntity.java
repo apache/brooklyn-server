@@ -1951,6 +1951,11 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             }
             return changed;
         }
+
+        @Override
+        public Iterator<Feed> iterator() {
+            return getFeeds().iterator();
+        }
     }
     
     // -------- SENSORS --------------------

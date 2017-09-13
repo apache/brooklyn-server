@@ -18,9 +18,10 @@
  */
 package org.apache.brooklyn.rest.domain;
 
-/**
- * @author Adam Lowe
- */
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+
+/** Canonical set, similar to {@link Lifecycle}, but cleaned up for outside consumption
+ * and more appropriate for adjunct types */
 public enum Status {
     ACCEPTED,
     STARTING,

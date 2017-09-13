@@ -20,13 +20,17 @@ package org.apache.brooklyn.core.policy;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
+import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.Beta;
 
 import groovy.lang.Closure;
 
@@ -81,11 +85,27 @@ public class Policies {
     }
 
     public static Lifecycle getPolicyStatus(Policy p) {
-        if (p.isRunning()) return Lifecycle.RUNNING;
-        if (p.isDestroyed()) return Lifecycle.DESTROYED;
-        if (p.isSuspended()) return Lifecycle.STOPPED;
-        // TODO could policy be in an error state?
-        return Lifecycle.CREATED;        
+        return inferAdjunctStatus(p);
+    }
+    
+    @Beta
+    public static Lifecycle inferAdjunctStatus(EntityAdjunct a) {
+        if (a.isRunning()) return Lifecycle.RUNNING;
+        if (a.isDestroyed()) return Lifecycle.DESTROYED;
+        
+        // adjuncts don't currently support an "error" state; though that would be useful!
+        
+        if (a instanceof Policy) {
+            if (((Policy)a).isSuspended()) return Lifecycle.STOPPED;
+            return Lifecycle.CREATED;
+        }
+        if (a instanceof Feed) {
+            if (((Feed)a).isSuspended()) return Lifecycle.STOPPED;
+            if (((Feed)a).isActivated()) return Lifecycle.STARTING;
+            return Lifecycle.CREATED;
+        }
+        
+        return Lifecycle.STOPPED;
     }
     
 }

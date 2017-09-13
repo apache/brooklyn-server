@@ -47,6 +47,7 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Maps;
 
 @HaHotStateRequired
+@Deprecated
 public class PolicyResource extends AbstractBrooklynRestResource implements PolicyApi {
 
     private static final Logger log = LoggerFactory.getLogger(PolicyResource.class);

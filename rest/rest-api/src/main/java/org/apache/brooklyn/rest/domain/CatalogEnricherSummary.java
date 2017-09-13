@@ -27,6 +27,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableSet;
 
+/** @deprecated since 0.12.0 new TypeApi returns TypeSummary */
+@Deprecated
 public class CatalogEnricherSummary extends CatalogItemSummary {
 
     private static final long serialVersionUID = -588856488327394445L;

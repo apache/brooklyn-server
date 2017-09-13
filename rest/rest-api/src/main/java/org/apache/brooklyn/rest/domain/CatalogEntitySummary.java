@@ -27,6 +27,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
+/** @deprecated since 0.12.0 new TypeApi returns TypeSummary */
+@Deprecated
 public class CatalogEntitySummary extends CatalogItemSummary {
 
     private static final long serialVersionUID = 1063908984191424539L;

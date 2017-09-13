@@ -32,10 +32,12 @@ import javax.ws.rs.core.UriBuilder;
 import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.render.RendererHints;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.rest.api.ApplicationApi;
 import org.apache.brooklyn.rest.api.CatalogApi;
@@ -46,12 +48,15 @@ import org.apache.brooklyn.rest.domain.EnricherConfigSummary;
 import org.apache.brooklyn.rest.domain.EntityConfigSummary;
 import org.apache.brooklyn.rest.domain.EntitySummary;
 import org.apache.brooklyn.rest.domain.PolicyConfigSummary;
+import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /**
  * @author Adam Lowe
@@ -84,6 +89,7 @@ public class EntityTransformer {
                 .put("config", URI.create(entityUri + "/config"))
                 .put("sensors", URI.create(entityUri + "/sensors"))
                 .put("effectors", URI.create(entityUri + "/effectors"))
+                .put("adjuncts", URI.create(entityUri + "/adjuncts"))
                 .put("policies", URI.create(entityUri + "/policies"))
                 .put("activities", URI.create(entityUri + "/activities"))
                 .put("locations", URI.create(entityUri + "/locations"))
@@ -211,5 +217,20 @@ public class EntityTransformer {
     public static EnricherConfigSummary enricherConfigSummary(SpecParameter<?> input) {
         Double priority = input.isPinned() ? Double.valueOf(1d) : null;
         return enricherConfigSummary(input.getConfigKey(), input.getLabel(), priority, null);
+    }
+    
+    public static Map<String, Object> getConfigValues(BrooklynRestResourceUtils utils, BrooklynObject obj) {
+        // alternatively could do this - should be the same ?
+//        for (ConfigKey<?> key: adjunct.config().findKeysPresent(Predicates.alwaysTrue())) {
+//            result.config(key.getName(), utils.getStringValueForDisplay( adjunct.config().get(key) ));
+//        }
+        
+        Map<String, Object> source = ConfigBag.newInstance(
+            ((BrooklynObjectInternal)obj).config().getInternalConfigMap().getAllConfigInheritedRawValuesIgnoringErrors() ).getAllConfig();
+        Map<String, Object> result = Maps.newLinkedHashMap();
+        for (Map.Entry<String, Object> ek : source.entrySet()) {
+            result.put(ek.getKey(), utils.getStringValueForDisplay(ek.getValue()));
+        }
+        return result;
     }
 }

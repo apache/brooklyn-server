@@ -36,6 +36,8 @@ import java.util.Map;
 @Api("Entity Policies")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+/** @deprecated since 0.12.0 use AdjunctApi */
+@Deprecated
 public interface PolicyApi {
     
     @GET

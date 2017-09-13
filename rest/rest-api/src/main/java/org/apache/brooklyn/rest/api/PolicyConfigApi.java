@@ -18,23 +18,32 @@
  */
 package org.apache.brooklyn.rest.api;
 
-import io.swagger.annotations.Api;
-import org.apache.brooklyn.rest.domain.PolicyConfigSummary;
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
-
-import javax.ws.rs.*;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
 import java.util.List;
 import java.util.Map;
+
+import javax.ws.rs.Consumes;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+
+import org.apache.brooklyn.rest.domain.PolicyConfigSummary;
+
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
 
 @Path("/applications/{application}/entities/{entity}/policies/{policy}/config")
 @Api("Entity Policy Config")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+/** @deprecated since 0.12.0 use AdjunctApi */
+@Deprecated
 public interface PolicyConfigApi {
 
     @GET

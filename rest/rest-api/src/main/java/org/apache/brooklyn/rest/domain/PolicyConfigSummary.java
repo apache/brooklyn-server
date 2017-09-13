@@ -23,7 +23,8 @@ import java.util.Map;
 
 import org.apache.brooklyn.config.ConfigKey;
 
-//TODO remove? this class has no value over its super
+/** @deprecated since 0.12.0 new {@link AdjunctConfigSummary}; this class does nothing additional */
+@Deprecated
 public class PolicyConfigSummary extends AdjunctConfigSummary {
 
     private static final long serialVersionUID = 4339330833863794513L;

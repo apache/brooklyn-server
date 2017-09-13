@@ -189,7 +189,7 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
         void remove(AttributeSensor<?> attribute);
     }
 
-    public interface FeedSupport {
+    public interface FeedSupport extends Iterable<Feed> {
 
         Collection<Feed> getFeeds();
 

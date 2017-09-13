@@ -26,6 +26,8 @@ import java.util.Set;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 
+/** @deprecated since 0.12.0 new TypeApi returns TypeSummary */
+@Deprecated
 public class CatalogLocationSummary extends CatalogItemSummary {
 
     private static final long serialVersionUID = 8420991584336514673L;
