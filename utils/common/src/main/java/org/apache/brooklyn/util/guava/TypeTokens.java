@@ -18,19 +18,24 @@
  */
 package org.apache.brooklyn.util.guava;
 
+import java.util.Map;
+
 import javax.annotation.Nullable;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 
 public class TypeTokens {
 
     // creating TypeToken is surprisingly expensive so cache these common ones
-    public static TypeToken<String> STRING = TypeToken.of(String.class);
-    public static TypeToken<Object> OBJECT = TypeToken.of(Object.class);
-    public static TypeToken<Integer> INTEGER = TypeToken.of(Integer.class);
-    public static TypeToken<Boolean> BOOLEAN = TypeToken.of(Boolean.class);
-    public static TypeToken<Double> DOUBLE = TypeToken.of(Double.class);
-    public static TypeToken<Long> LONG = TypeToken.of(Long.class);
+    public static final Map<Class<?>, TypeToken<?>> COMMON_TYPE_TOKENS = ImmutableMap.<Class<?>, TypeToken<?>>builder()
+        .put(String.class, TypeToken.of(String.class))
+        .put(Object.class, TypeToken.of(Object.class))
+        .put(Integer.class, TypeToken.of(Integer.class))
+        .put(Boolean.class, TypeToken.of(Boolean.class))
+        .put(Double.class, TypeToken.of(Double.class))
+        .put(Long.class, TypeToken.of(Long.class))
+        .build();
     
     /** returns raw type, if it's raw, else null;
      * used e.g. to set only one of the raw type or the type token,
@@ -68,13 +73,9 @@ public class TypeTokens {
     public static <T> TypeToken<T> getTypeToken(TypeToken<T> token, Class<? super T> raw) {
         if (token!=null) return token;
         if (raw!=null) {
-            if (String.class.equals(raw)) return (TypeToken<T>) STRING;
-            if (Object.class.equals(raw)) return (TypeToken<T>) OBJECT;
-            if (Integer.class.equals(raw)) return (TypeToken<T>) INTEGER;
-            if (Boolean.class.equals(raw)) return (TypeToken<T>) BOOLEAN;
-            if (Double.class.equals(raw)) return (TypeToken<T>) DOUBLE;
-            if (Long.class.equals(raw)) return (TypeToken<T>) LONG;
-            return TypeToken.of((Class<T>)raw);
+            TypeToken<?> result = COMMON_TYPE_TOKENS.get(raw);
+            if (result==null) result = TypeToken.of((Class<T>)raw);
+            return (TypeToken<T>) result;
         }
         throw new IllegalStateException("Both indicators of type are null");
     }
@@ -96,7 +97,7 @@ public class TypeTokens {
             throw new NullPointerException("Type not set (neither class or type token)");
         }
         if (!type.equals(typeToken.getRawType())) {
-            throw new NullPointerException("Invalid types, token is "+typeToken+" (raw "+typeToken.getRawType()+") but class is "+type);
+            throw new IllegalStateException("Invalid types, token is "+typeToken+" (raw "+typeToken.getRawType()+") but class is "+type);
         }
     }
     
