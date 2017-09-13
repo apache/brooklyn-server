@@ -401,6 +401,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
             }
         }
         PropagatedRuntimeException wrap = new PropagatedRuntimeException("Error loading catalog item "+details, throwable);
+        log.warn(Exceptions.collapseText(wrap));
         log.debug("Trace for: "+wrap, wrap);
 
         ((ManagementContextInternal)getManagementContext()).errors().add(wrap);

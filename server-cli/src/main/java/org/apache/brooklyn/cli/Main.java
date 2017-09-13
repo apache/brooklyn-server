@@ -23,7 +23,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.io.Console;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -43,6 +42,8 @@ import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.cli.CloudExplorer.BlobstoreGetBlobCommand;
 import org.apache.brooklyn.cli.CloudExplorer.BlobstoreListContainerCommand;
 import org.apache.brooklyn.cli.CloudExplorer.BlobstoreListContainersCommand;
@@ -55,10 +56,7 @@ import org.apache.brooklyn.cli.CloudExplorer.ComputeTerminateInstancesCommand;
 import org.apache.brooklyn.cli.ItemLister.ListAllCommand;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
-import org.apache.brooklyn.core.entity.AbstractApplication;
-import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
@@ -66,6 +64,7 @@ import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.launcher.BrooklynLauncher;
 import org.apache.brooklyn.launcher.BrooklynServerDetails;
@@ -639,8 +638,24 @@ public class Main extends AbstractMain {
         protected void confirmCatalog(CatalogInitialization catInit) {
             // Force load of catalog (so web console is up to date)
             Stopwatch time = Stopwatch.createStarted();
+            Iterable<RegisteredType> all = catInit.getManagementContext().getTypeRegistry().getAll();
+            int errors = 0;
+            for (RegisteredType rt: all) {
+                if (RegisteredTypes.isTemplate(rt)) {
+                    // skip validation of templates, they might contain instructions,
+                    // and additionally they might contain multiple items in which case
+                    // the validation below won't work anyway (you need to go via a deployment plan)
+                } else {
+                    if (rt.getKind()==RegisteredTypeKind.UNRESOLVED) {
+                        errors++;
+                        catInit.handleException(new UserFacingException("Unresolved type in catalog"), rt);
+                    }
+                }
+            }
+
+            // and force resolution of legacy items
             BrooklynCatalog catalog = catInit.getManagementContext().getCatalog();
-            Iterable<CatalogItem<Object, Object>> items = catalog.getCatalogItems();
+            Iterable<CatalogItem<Object, Object>> items = catalog.getCatalogItemsLegacy();
             for (CatalogItem<Object, Object> item: items) {
                 try {
                     if (item.getCatalogItemType()==CatalogItemType.TEMPLATE) {
@@ -658,7 +673,8 @@ public class Main extends AbstractMain {
                     catInit.handleException(throwable, item);
                 }
             }
-            log.debug("Catalog (size "+Iterables.size(items)+") confirmed in "+Duration.of(time));                      
+            
+            log.debug("Catalog (size "+Iterables.size(all)+", of which "+Iterables.size(items)+" legacy) confirmed in "+Duration.of(time)+(errors>0 ? ", errors found ("+errors+")" : ""));
             // nothing else added here
         }
         
