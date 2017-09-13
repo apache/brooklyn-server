@@ -18,18 +18,24 @@
  */
 package org.apache.brooklyn.api.objs;
 
+import javax.annotation.Nullable;
+
+import com.google.common.annotations.Beta;
+
+/** A record of a highlight e.g. attached to an {@link EntityAdjunct}.
+ * <p>
+ *  Time of 0 or negative indicates the highlight is ongoing. Task ID is optional. */
+@Beta
 public class HighlightTuple {
 
     private String description;
     private long time;
     private String taskId;
 
-    //required for JSON de-serialisation
-    private HighlightTuple(){
+    @SuppressWarnings("unused") //required for JSON de-serialisation
+    private HighlightTuple(){}
 
-    }
-
-    public HighlightTuple(String description, long time, String taskId) {
+    public HighlightTuple(String description, long time, @Nullable String taskId) {
         this.description = description;
         this.time = time;
         this.taskId = taskId;
@@ -51,7 +57,7 @@ public class HighlightTuple {
         this.time = time;
     }
 
-    public String getTaskId() {
+    @Nullable public String getTaskId() {
         return taskId;
     }
 

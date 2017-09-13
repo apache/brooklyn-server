@@ -34,6 +34,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.testng.annotations.Test;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 
@@ -71,10 +72,10 @@ public class BasicPolicyTest extends BrooklynAppUnitTestSupport {
             }
         }
 
-        //make visable for testing
+        @VisibleForTesting
         @Override
-        protected void addHighlight(String name, HighlightTuple tuple) {
-            super.addHighlight(name, tuple);
+        protected void setHighlight(String name, HighlightTuple tuple) {
+            super.setHighlight(name, tuple);
         }
     }
     
@@ -117,7 +118,7 @@ public class BasicPolicyTest extends BrooklynAppUnitTestSupport {
         MyPolicy policy = new MyPolicy();
 
         HighlightTuple highlight = new HighlightTuple("TEST_DESCRIPTION", 123L, "456");
-        policy.addHighlight("testHighlightName", highlight);
+        policy.setHighlight("testHighlightName", highlight);
 
         Map<String, HighlightTuple> highlights = policy.getHighlights();
 

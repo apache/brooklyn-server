@@ -29,11 +29,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
@@ -42,7 +45,6 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
@@ -113,9 +115,13 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
 
     private Map<String, HighlightTuple> highlights = new HashMap<>();
 
+    /** Name of a highlight that indicates the last action taken by this adjunct. */
     public static String HIGHLIGHT_NAME_LAST_ACTION = "lastAction";
+    /** Name of a highlight that indicates the last confirmation detected by this adjunct. */
     public static String HIGHLIGHT_NAME_LAST_CONFIRMATION= "lastConfirmation";
+    /** Name of a highlight that indicates the last violation detected by this adjunct. */
     public static String HIGHLIGHT_NAME_LAST_VIOLATION= "lastViolation";
+    /** Name of a highlight that indicates the triggers for this adjunct. */
     public static String HIGHLIGHT_NAME_TRIGGERS = "triggers";
 
     public AbstractEntityAdjunct() {
@@ -135,10 +141,6 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
                 FlagUtils.checkRequiredFields(this);
             }
         }
-    }
-
-    protected void addHighlight(String name, HighlightTuple tuple) {
-        highlights.put(name, tuple);
     }
 
     /**
@@ -568,6 +570,45 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         return highlightsToReturn;
     }
 
+    /** Records a named highlight against this object, for persistence and API access.
+     * See common highlights including {@link #HIGHLIGHT_NAME_LAST_ACTION} and
+     * {@link #HIGHLIGHT_NAME_LAST_CONFIRMATION}.
+     * Also see convenience methods eg  {@link #highlightOngoing(String, String)} and {@link #highlight(String, String, Task)}
+     * and {@link HighlightTuple}. 
+     */
+    protected void setHighlight(String name, HighlightTuple tuple) {
+        highlights.put(name, tuple);
+    }
+
+    /** As {@link #setHighlight(String, HighlightTuple)}, convenience for recording an item which is intended to be ongoing. */
+    protected void highlightOngoing(String name, String description) {
+        highlights.put(name, new HighlightTuple(description, 0, null));
+    }
+    /** As {@link #setHighlight(String, HighlightTuple)}, convenience for recording an item with the current time. */
+    protected void highlightNow(String name, String description) {
+        highlights.put(name, new HighlightTuple(description, System.currentTimeMillis(), null));
+    }
+    /** As {@link #setHighlight(String, HighlightTuple)}, convenience for recording an item with the current time and given task. */
+    protected void highlight(String name, String description, @Nullable Task<?> t) {
+        highlights.put(name, new HighlightTuple(description, System.currentTimeMillis(), t!=null ? t.getId() : null));
+    }
+    /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_TRIGGERS} (as ongoing). */
+    protected void highlightTriggers(String description) {
+        highlightOngoing(HIGHLIGHT_NAME_TRIGGERS, description);
+    }
+    /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_CONFIRMATION}. */
+    protected void highlightConfirmation(String description) {
+        highlightNow(HIGHLIGHT_NAME_LAST_CONFIRMATION, description);
+    }
+    /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_ACTION}. */
+    protected void highlightAction(String description, Task<?> t) {
+        highlight(HIGHLIGHT_NAME_LAST_ACTION, description, t);
+    }
+    /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_VIOLATION}. */
+    protected void highlightViolation(String description) {
+        highlightNow(HIGHLIGHT_NAME_LAST_VIOLATION, description);
+    }
+    
     /**
      * Should only be used for rebind
      * @param highlights
