@@ -93,11 +93,17 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
             result.put(rt.getId(), rt);
         }
         for (RegisteredType rt: Iterables.filter(
-                Iterables.transform(mgmt.getCatalog().getCatalogItems(), RegisteredTypes.CI_TO_RT), 
+                Iterables.transform(mgmt.getCatalog().getCatalogItemsLegacy(), RegisteredTypes.CI_TO_RT), 
                 filter)) {
             if (!result.containsKey(rt.getId())) {
-                // shouldn't be using this now
-                log.warn("Item '"+rt.getId()+"' not in type registry; only found in legacy catalog");
+                // TODO ideally never come here, however
+                // legacy cataog currently still used for java-scanned annotations; 
+                // hopefully that will be deprecated and removed in near future
+                // (probably after switch to osgi and using catalog.bom --
+                // though it would not be too hard for java scan code in CatalogClasspath.load to
+                // make TypeRegistry instances instead of CatalogItem, esp if we had YOML to write that plan)
+                
+                //log.warn("Item '"+rt.getId()+"' not in type registry; only found in legacy catalog");
                 result.put(rt.getId(), rt);
             }
         }
@@ -146,7 +152,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
         }
         
         // missing case is to look for exact version in legacy catalog
-        CatalogItem<?, ?> item = mgmt.getCatalog().getCatalogItem(symbolicNameOrAliasIfNoVersion, version);
+        CatalogItem<?, ?> item = mgmt.getCatalog().getCatalogItemLegacy(symbolicNameOrAliasIfNoVersion, version);
         if (item!=null) 
             return Maybe.of( RegisteredTypes.CI_TO_RT.apply( item ) );
         
@@ -237,7 +243,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
         
         // fallback: look up in (legacy) catalog
         // TODO remove once all transformers are available in the new style
-        CatalogItem item = symbolicName!=null ? (CatalogItem) mgmt.getCatalog().getCatalogItem(symbolicName, version) : null;
+        CatalogItem item = symbolicName!=null ? (CatalogItem) mgmt.getCatalog().getCatalogItemLegacy(symbolicName, version) : null;
         if (item==null) {
             // if not in catalog (because loading a new item?) then look up item based on type
             // (only really used in tests; possibly also for any recursive legacy transformers we might have to create a CI; cross that bridge when we come to it)

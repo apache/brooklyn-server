@@ -283,8 +283,16 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return ImmutableSortedSet.orderedBy(CatalogItemComparator.<T,SpecT>getInstance()).addAll(versions).build();
     }
 
-    @Override
+    @Override @Deprecated
     public CatalogItem<?,?> getCatalogItem(String symbolicName, String version) {
+        CatalogItem<?,?> legacy = getCatalogItemLegacy(symbolicName, version);
+        if (legacy!=null) return legacy;
+        RegisteredType rt = mgmt.getTypeRegistry().get(symbolicName, version);
+        if (rt!=null) return RegisteredTypes.toPartialCatalogItem(rt);
+        return null;
+    }
+    @Override @Deprecated
+    public CatalogItem<?,?> getCatalogItemLegacy(String symbolicName, String version) {
         if (symbolicName == null) return null;
         CatalogItemDo<?, ?> itemDo = getCatalogItemDo(symbolicName, version);
         if (itemDo == null) return null;
@@ -337,9 +345,27 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     public <T,SpecT> CatalogItem<T,SpecT> getCatalogItem(Class<T> type, String id, String version) {
+        CatalogItem<T, SpecT> item = (CatalogItem) getCatalogItemLegacy(type, id, version);
+        if (item!=null) {
+            return item;
+        }
+        
+        RegisteredType rt = mgmt.getTypeRegistry().get(id, version);
+        if (rt!=null) {
+            if (rt.getSuperTypes().contains(type) || rt.getSuperTypes().contains(type.getName())) {
+                return (CatalogItem) RegisteredTypes.toPartialCatalogItem(rt);
+            }
+        }
+        
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T,SpecT> CatalogItem<T,SpecT> getCatalogItemLegacy(Class<T> type, String id, String version) {
         if (id==null || version==null) return null;
         CatalogItem<?,?> result = getCatalogItem(id, version);
         if (result==null) return null;
@@ -1777,8 +1803,29 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    @Override
+    @Deprecated
     public <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItems() {
+        Map<String,CatalogItem<T,SpecT>> result = MutableMap.of();
+        if (!getCatalog().isLoaded()) {
+            // some callers use this to force the catalog to load (maybe when starting as hot_backup without a catalog ?)
+            log.debug("Forcing catalog load on access of catalog items");
+            load();
+        }
+        for (RegisteredType rt: mgmt.getTypeRegistry().getAll()) {
+            result.put(rt.getId(), (CatalogItem)RegisteredTypes.toPartialCatalogItem(rt));
+        }
+        // prefer locally registered items in this method; prevents conversion to and from RT;
+        // possibly allows different views if there are diff items in catlaog and type registry
+        // but this means at least it is consistent for user if they are consistent;
+        // and can easily live with this until catalog is entirely replaced to TR 
+        result.putAll((Map)catalog.getIdCache());
+        return result.values();
+    }
+    
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @Override
+    @Deprecated
+    public <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItemsLegacy() {
         if (!getCatalog().isLoaded()) {
             // some callers use this to force the catalog to load (maybe when starting as hot_backup without a catalog ?)
             log.debug("Forcing catalog load on access of catalog items");
@@ -1788,18 +1835,23 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
     
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    @Override
+    @Override @Deprecated
     public <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItems(Predicate<? super CatalogItem<T,SpecT>> filter) {
+        Iterable<CatalogItem<T,SpecT>> filtered = Iterables.filter(getCatalogItems(), (Predicate) filter);
+        return Iterables.transform(filtered, BasicBrooklynCatalog.<T,SpecT>itemDoToDto());
+    }
+    @Override @Deprecated
+    public <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItemsLegacy(Predicate<? super CatalogItem<T,SpecT>> filter) {
         Iterable<CatalogItemDo<T,SpecT>> filtered = Iterables.filter((Iterable)catalog.getIdCache().values(), (Predicate<CatalogItem<T,SpecT>>)(Predicate) filter);
         return Iterables.transform(filtered, BasicBrooklynCatalog.<T,SpecT>itemDoToDto());
     }
 
-    private static <T,SpecT> Function<CatalogItemDo<T,SpecT>, CatalogItem<T,SpecT>> itemDoToDto() {
-        return new Function<CatalogItemDo<T,SpecT>, CatalogItem<T,SpecT>>() {
+    private static <T,SpecT> Function<CatalogItem<T,SpecT>, CatalogItem<T,SpecT>> itemDoToDto() {
+        return new Function<CatalogItem<T,SpecT>, CatalogItem<T,SpecT>>() {
             @Override
-            public CatalogItem<T,SpecT> apply(@Nullable CatalogItemDo<T,SpecT> item) {
-                if (item==null) return null;
-                return item.getDto();
+            public CatalogItem<T,SpecT> apply(@Nullable CatalogItem<T,SpecT> item) {
+                if (!(item instanceof CatalogItemDo)) return item;
+                return ((CatalogItemDo<T,SpecT>) item).getDto();
             }
         };
     }

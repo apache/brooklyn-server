@@ -29,6 +29,7 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.Attributes;
 
@@ -36,11 +37,15 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.rt.felix.ManifestHelper;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -309,16 +314,22 @@ public class BrooklynVersion implements BrooklynVersionService {
             );
 
             Maybe<OsgiManager> osgi = ((ManagementContextInternal)mgmt).getOsgiManager();
-            for (CatalogItem<?, ?> catalogItem : mgmt.getCatalog().getCatalogItems()) {
-                if (osgi.isPresentAndNonNull()) {
-                    for (CatalogItem.CatalogBundle catalogBundle : catalogItem.getLibraries()) {
+            if (osgi.isPresentAndNonNull()) {
+                for (ManagedBundle b: osgi.get().getManagedBundles().values()) {
+                    Maybe<Bundle> osgiBundle = osgi.get().findBundle(b);
+                    if (osgiBundle.isPresentAndNonNull()) {
+                        bundles.add(osgiBundle.get());
+                    }                    
+                }
+                // TODO remove when everything uses osgi bundles tracked by brooklyn above
+                for (RegisteredType t: mgmt.getTypeRegistry().getAll()) {
+                    for (OsgiBundleWithUrl catalogBundle : t.getLibraries()) {
                         Maybe<Bundle> osgiBundle = osgi.get().findBundle(catalogBundle);
                         if (osgiBundle.isPresentAndNonNull()) {
                             bundles.add(osgiBundle.get());
                         }
                     }
                 }
-
             }
 
             // Set over list in case a bundle is reported more than once (e.g. from classpath and from OSGi).
@@ -332,14 +343,21 @@ public class BrooklynVersion implements BrooklynVersionService {
             }
             return features.build();
         } else {
-            Iterable<URL> manifests = ResourceUtils.create(mgmt).getResources(MANIFEST_PATH);
+            Set<URL> manifests = MutableSet.copyOf(ResourceUtils.create(mgmt).getResources(MANIFEST_PATH));
 
-            for (CatalogItem<?, ?> catalogItem : mgmt.getCatalog().getCatalogItems()) {
-                OsgiBrooklynClassLoadingContext osgiContext = new OsgiBrooklynClassLoadingContext(
-                        mgmt, catalogItem.getCatalogItemId(), catalogItem.getLibraries());
-                manifests = Iterables.concat(manifests, osgiContext.getResources(MANIFEST_PATH));
+            Maybe<OsgiManager> osgi = ((ManagementContextInternal)mgmt).getOsgiManager();
+            if (osgi.isPresentAndNonNull()) {
+                // get manifests for all bundles installed
+                Iterables.addAll(manifests, 
+                    osgi.get().getResources(MANIFEST_PATH, osgi.get().getManagedBundles().values()) );
             }
-
+            
+            // TODO remove when everything uses osgi bundles tracked by brooklyn above
+            for (RegisteredType t: mgmt.getTypeRegistry().getAll()) {
+                OsgiBrooklynClassLoadingContext osgiContext = new OsgiBrooklynClassLoadingContext(mgmt, t.getId(), t.getLibraries());
+                Iterables.addAll(manifests, osgiContext.getResources(MANIFEST_PATH));
+            }
+            
             // Set over list in case a bundle is reported more than once (e.g. from classpath and from OSGi).
             // Not sure of validity of this approach over just reporting duplicates.
             ImmutableSet.Builder<BrooklynFeature> features = ImmutableSet.builder();
