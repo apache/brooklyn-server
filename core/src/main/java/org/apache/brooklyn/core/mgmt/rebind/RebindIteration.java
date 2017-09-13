@@ -1122,12 +1122,13 @@ public abstract class RebindIteration {
                 throw new IllegalStateException("Unable to load "+jType+" for catalog item " + catalogItemId + " for " + contextSuchAsId);
                 
             } else if (BrooklynFeatureEnablement.isEnabled(FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND)) {
-                //Try loading from whichever catalog bundle succeeds.
+                //Try loading from whichever catalog bundle succeeds (legacy CI items only; also disabling this, as no longer needed 2017-09)
                 BrooklynCatalog catalog = managementContext.getCatalog();
-                for (CatalogItem<?, ?> item : catalog.getCatalogItems()) {
+                for (CatalogItem<?, ?> item : catalog.getCatalogItemsLegacy()) {
                     BrooklynClassLoadingContext catalogLoader = CatalogUtils.newClassLoadingContext(managementContext, item);
                     Maybe<Class<?>> catalogClass = catalogLoader.tryLoadClass(jType);
                     if (catalogClass.isPresent()) {
+                        LOG.warn("Found "+jType+" only by scanning catalog item search paths");
                         return new LoadedClass<T>((Class<? extends T>) catalogClass.get(), catalogItemId, reboundSearchPath);
                     }
                 }
