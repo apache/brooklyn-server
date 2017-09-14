@@ -20,13 +20,12 @@ create database visitors;
 use visitors;
 
 
-# the below will create user (and note create user not supported in some dialects)
+# Create two users: 'brooklyn'@'%' and 'brooklyn'@'localhost' with full access
 # default password specified for compatibility with older blueprints that don't provide config;
 # if your blueprint sets the password it can be removed here
 grant usage on *.* to 'brooklyn'@'%' identified by '${config["creation.script.password"]!"br00k11n"}';
-grant all privileges on visitors.* to 'brooklyn'@'%';
 # useful if sockets work also
-grant all privileges on visitors.* to 'brooklyn'@'localhost';
+grant all privileges on *.* to 'brooklyn'@'localhost' identified by '${config["creation.script.password"]!"br00k11n"}';
 
 # drop the anonymous users eg ''@'localhost' and sometimes other local hostnames
 # (necessary for same-host access as these are more restrictive rules that trump the wildcard above)
