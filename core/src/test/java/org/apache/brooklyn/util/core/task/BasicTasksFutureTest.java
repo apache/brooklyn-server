@@ -75,7 +75,7 @@ public class BasicTasksFutureTest {
 
     @Test
     public void testBlockAndGetWithTimeoutsAndListenableFuture() throws InterruptedException {
-        Task<String> t = waitForSemaphore(Duration.FIVE_SECONDS, true, "x");
+        Task<String> t = waitForSemaphore(Duration.FIVE_SECONDS, true, "x", true);
         
         Assert.assertFalse(t.blockUntilEnded(Duration.millis(1)));
         Assert.assertFalse(t.blockUntilEnded(Duration.ZERO));
@@ -149,11 +149,12 @@ public class BasicTasksFutureTest {
         Assert.fail("did not get data for '"+key+"' in time");
     }
 
-    private <T> Task<T> waitForSemaphore(final Duration time, final boolean requireSemaphore, final T result) {
-        return Tasks.<T>builder().body(new Callable<T>() {
+    private <T> Task<T> waitForSemaphore(final Duration time, final boolean requireSemaphore, final T result, boolean dynamic) {
+        return Tasks.<T>builder().dynamic(dynamic).body(new Callable<T>() {
             @Override
             public T call() { 
                 try {
+                    log.info("about to release semaphore");
                     started.release();
                     log.info("waiting up to "+time+" to acquire before returning "+result);
                     if (!waitInTask.tryAcquire(time.toMilliseconds(), TimeUnit.MILLISECONDS)) {
@@ -174,32 +175,43 @@ public class BasicTasksFutureTest {
     }
 
     @Test
-    public void testCancelAfterStartTriggersListenableFuture() throws Exception {
-        doTestCancelTriggersListenableFuture(Duration.millis(50));
+    public void testCancelAfterStartTriggersListenableFutureDynamic() throws Exception {
+        doTestCancelTriggersListenableFuture(Duration.millis(50), true);
     }
     @Test
-    public void testCancelImmediateTriggersListenableFuture() throws Exception {
+    public void testCancelImmediateTriggersListenableFutureDynamic() throws Exception {
         // if cancel fires after submit but before it passes to the executor,
-        // that needs handling separately; this doesn't guarantee this code path,
-        // but it happens sometimes (and it should be handled)
-        
-        // have seen this fail once, not getting "before", but can't see why, may be spurious
-        doTestCancelTriggersListenableFuture(Duration.ZERO);
+        // that needs handling separately as it falls into an edge where the future is set and cancelled
+        // so the executor won't run it, and our wrapper logic doesn't apply; 
+        // this test doesn't guarantee this code path, but makes it likely enough it happens once in a while.
+        doTestCancelTriggersListenableFuture(Duration.ZERO, true);
     }
     @Test
-    public void testCancelBeforeTriggersListenableFuture() throws Exception {
-        // if cancel fires after submit but before it passes to the executor,
-        // that needs handling separately; this doesn't guarantee this code path,
-        // but it happens sometimes (and it should be handled)
-        doTestCancelTriggersListenableFuture(Duration.millis(-50));
+    public void testCancelBeforeTriggersListenableFutureDynamic() throws Exception {
+        doTestCancelTriggersListenableFuture(Duration.millis(-50), true);
     }
-    public void doTestCancelTriggersListenableFuture(Duration delay) throws Exception {
-        Task<String> t = waitForSemaphore(Duration.TEN_SECONDS, true, "x");
+    @Test
+    public void testCancelAfterStartTriggersListenableFutureSimple() throws Exception {
+        doTestCancelTriggersListenableFuture(Duration.millis(50), true);
+    }
+    @Test
+    public void testCancelImmediateTriggersListenableFutureSimple() throws Exception {
+        doTestCancelTriggersListenableFuture(Duration.ZERO, false);
+    }
+    @Test
+    public void testCancelBeforeTriggersListenableFutureSimple() throws Exception {
+        doTestCancelTriggersListenableFuture(Duration.millis(-50), false);
+    }
+    public void doTestCancelTriggersListenableFuture(Duration delay, boolean dynamic) throws Exception {
+        Task<String> t = waitForSemaphore(Duration.TEN_SECONDS, true, "x", dynamic);
         addFutureListener(t, "before");
 
         Stopwatch watch = Stopwatch.createStarted();
         if (delay.isNegative()) {
-            new Thread(() -> { Time.sleep(delay.multiply(-1)); ec.submit(t); }).run(); 
+            new Thread(() -> {
+                Time.sleep(delay.multiply(-1)); 
+                ec.submit(t); 
+            }).start(); 
         } else {
             ec.submit(t);
         }
