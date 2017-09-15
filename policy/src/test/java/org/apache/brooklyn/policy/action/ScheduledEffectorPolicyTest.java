@@ -37,44 +37,42 @@ import com.google.common.collect.Iterables;
 
 public class ScheduledEffectorPolicyTest extends BrooklynAppUnitTestSupport {
 
+    private static final AttributeSensor<Boolean> START = Sensors.newBooleanSensor("start");
+
     @Test
     public void testScheduledEffectorFiresImmediately() {
-        final AttributeSensor<Boolean> start = Sensors.newBooleanSensor("start");
-
-        final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
                 .policy(PolicySpec.create(ScheduledEffectorPolicy.class)
                         .configure(ScheduledEffectorPolicy.EFFECTOR, "myEffector")
                         .configure(ScheduledEffectorPolicy.EFFECTOR_ARGUMENTS, ImmutableMap.of())
                         .configure(ScheduledEffectorPolicy.TIME, "immediately")
-                        .configure(PeriodicEffectorPolicy.START_SENSOR, start)));
+                        .configure(PeriodicEffectorPolicy.START_SENSOR, START)));
         Policy policy = Iterables.tryFind(entity.policies(), Predicates.instanceOf(ScheduledEffectorPolicy.class)).orNull();
         Asserts.assertNotNull(policy);
 
         Asserts.assertTrue(entity.getCallHistory().isEmpty());
         Asserts.assertFalse(policy.config().get(ScheduledEffectorPolicy.RUNNING));
 
-        entity.sensors().set(start, Boolean.TRUE);
+        entity.sensors().set(START, Boolean.TRUE);
         Asserts.eventually(() -> policy.config().get(ScheduledEffectorPolicy.RUNNING), b -> b);
         Asserts.eventually(() -> entity.getCallHistory(), l -> l.contains("myEffector"));
     }
 
     @Test
     public void testScheduledEffectorFiresAfterDelay() {
-        final AttributeSensor<Boolean> start = Sensors.newBooleanSensor("start");
-
-        final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
                 .policy(PolicySpec.create(ScheduledEffectorPolicy.class)
                         .configure(ScheduledEffectorPolicy.EFFECTOR, "myEffector")
                         .configure(ScheduledEffectorPolicy.EFFECTOR_ARGUMENTS, ImmutableMap.of())
                         .configure(ScheduledEffectorPolicy.WAIT, Duration.TEN_SECONDS)
-                        .configure(ScheduledEffectorPolicy.START_SENSOR, start)));
+                        .configure(ScheduledEffectorPolicy.START_SENSOR, START)));
         Policy policy = Iterables.tryFind(entity.policies(), Predicates.instanceOf(ScheduledEffectorPolicy.class)).orNull();
         Asserts.assertNotNull(policy);
 
         Asserts.assertTrue(entity.getCallHistory().isEmpty());
         Asserts.assertFalse(policy.config().get(ScheduledEffectorPolicy.RUNNING));
 
-        entity.sensors().set(start, Boolean.TRUE);
+        entity.sensors().set(START, Boolean.TRUE);
         Asserts.eventually(() -> policy.config().get(ScheduledEffectorPolicy.RUNNING), b -> b);
         sleep(Duration.seconds(5));
         Asserts.eventually(() -> entity.getCallHistory(), l -> !l.contains("myEffector"));
@@ -84,20 +82,18 @@ public class ScheduledEffectorPolicyTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testScheduledEffectorFiresOnSensor() {
-        final AttributeSensor<Boolean> start = Sensors.newBooleanSensor("start");
-
-        final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
                 .policy(PolicySpec.create(ScheduledEffectorPolicy.class)
                         .configure(ScheduledEffectorPolicy.EFFECTOR, "myEffector")
                         .configure(ScheduledEffectorPolicy.EFFECTOR_ARGUMENTS, ImmutableMap.of())
-                        .configure(ScheduledEffectorPolicy.START_SENSOR, start)));
+                        .configure(ScheduledEffectorPolicy.START_SENSOR, START)));
         Policy policy = Iterables.tryFind(entity.policies(), Predicates.instanceOf(ScheduledEffectorPolicy.class)).orNull();
         Asserts.assertNotNull(policy);
 
         Asserts.assertTrue(entity.getCallHistory().isEmpty());
         Asserts.assertFalse(policy.config().get(ScheduledEffectorPolicy.RUNNING));
 
-        entity.sensors().set(start, Boolean.TRUE);
+        entity.sensors().set(START, Boolean.TRUE);
         Asserts.eventually(() -> policy.config().get(ScheduledEffectorPolicy.RUNNING), b -> b);
         sleep(Duration.seconds(5));
         Asserts.eventually(() -> entity.getCallHistory(), l -> !l.contains("myEffector"));

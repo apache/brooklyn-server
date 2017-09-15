@@ -18,18 +18,17 @@
  */
 package org.apache.brooklyn.policy.action;
 
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.DurationPredicates;
-import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,16 +71,7 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
             .build();
 
     public PeriodicEffectorPolicy() {
-        this(MutableMap.<String,Object>of());
-    }
-
-    public PeriodicEffectorPolicy(Map<String,?> props) {
-        super(props);
-    }
-
-    @Override
-    public void setEntity(final EntityLocal entity) {
-        super.setEntity(entity);
+        super();
     }
 
     @Override
@@ -95,8 +85,33 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
             wait = period;
         }
 
-        LOG.debug("{}: Scheduling {} every {} in {}", new Object[] { PeriodicEffectorPolicy.this, effector.getName(),
-                Time.fromDurationToTimeStringRounded().apply(period), Time.fromDurationToTimeStringRounded().apply(wait) });
-        executor.scheduleAtFixedRate(PeriodicEffectorPolicy.this, wait.toMilliseconds(), period.toMilliseconds(), TimeUnit.MILLISECONDS);
+        schedule(wait);
+    }
+
+    @Override
+    public void rebind() {
+        super.rebind();
+
+        // Check if we missed an entire period
+        List<Long> scheduled = config().get(SCHEDULED);
+        if (running.get() && scheduled.isEmpty()) {
+            start();
+        }
+    }
+
+    @Override
+    public synchronized void run() {
+        try {
+            super.run();
+        } finally {
+            Duration period = config().get(PERIOD);
+            String time = config().get(TIME);
+            if (time == null || time.equalsIgnoreCase(NOW) || time.equalsIgnoreCase(IMMEDIATELY)) {
+                schedule(period);
+            } else {
+                Duration wait = getWaitUntil(time);
+                schedule(wait.upperBound(period));
+            }
+        }
     }
 }

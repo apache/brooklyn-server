@@ -37,24 +37,24 @@ import com.google.common.collect.Iterables;
 
 public class PeriodicEffectorPolicyTest extends BrooklynAppUnitTestSupport {
 
+    private static final AttributeSensor<Boolean> START = Sensors.newBooleanSensor("start");
+
     @Test
     public void testPeriodicEffectorFires() {
-        final AttributeSensor<Boolean> start = Sensors.newBooleanSensor("start");
-
-        final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
                 .policy(PolicySpec.create(PeriodicEffectorPolicy.class)
                         .configure(PeriodicEffectorPolicy.EFFECTOR, "myEffector")
                         .configure(PeriodicEffectorPolicy.EFFECTOR_ARGUMENTS, ImmutableMap.of())
                         .configure(PeriodicEffectorPolicy.PERIOD, Duration.ONE_MILLISECOND)
                         .configure(PeriodicEffectorPolicy.TIME, "immediately")
-                        .configure(PeriodicEffectorPolicy.START_SENSOR, start)));
+                        .configure(PeriodicEffectorPolicy.START_SENSOR, START)));
         Policy policy = Iterables.tryFind(entity.policies(), Predicates.instanceOf(PeriodicEffectorPolicy.class)).orNull();
         Asserts.assertNotNull(policy);
 
         Asserts.assertTrue(entity.getCallHistory().isEmpty());
         Asserts.assertFalse(policy.config().get(PeriodicEffectorPolicy.RUNNING));
 
-        entity.sensors().set(start, Boolean.TRUE);
+        entity.sensors().set(START, Boolean.TRUE);
         Asserts.eventually(() -> policy.config().get(PeriodicEffectorPolicy.RUNNING), b -> b);
         Asserts.eventually(() -> entity.getCallHistory(), l -> l.contains("myEffector"));
         int calls = entity.getCallHistory().size();
@@ -63,22 +63,20 @@ public class PeriodicEffectorPolicyTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testPeriodicEffectorFiresAfterDelay() {
-        final AttributeSensor<Boolean> start = Sensors.newBooleanSensor("start");
-
-        final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
                 .policy(PolicySpec.create(PeriodicEffectorPolicy.class)
                         .configure(PeriodicEffectorPolicy.EFFECTOR, "myEffector")
                         .configure(PeriodicEffectorPolicy.EFFECTOR_ARGUMENTS, ImmutableMap.of())
                         .configure(PeriodicEffectorPolicy.PERIOD, Duration.ONE_MILLISECOND)
                         .configure(PeriodicEffectorPolicy.WAIT, Duration.TEN_SECONDS)
-                        .configure(PeriodicEffectorPolicy.START_SENSOR, start)));
+                        .configure(PeriodicEffectorPolicy.START_SENSOR, START)));
         Policy policy = Iterables.tryFind(entity.policies(), Predicates.instanceOf(PeriodicEffectorPolicy.class)).orNull();
         Asserts.assertNotNull(policy);
 
         Asserts.assertTrue(entity.getCallHistory().isEmpty());
         Asserts.assertFalse(policy.config().get(PeriodicEffectorPolicy.RUNNING));
 
-        entity.sensors().set(start, Boolean.TRUE);
+        entity.sensors().set(START, Boolean.TRUE);
         Asserts.eventually(() -> policy.config().get(PeriodicEffectorPolicy.RUNNING), b -> b);
         sleep(Duration.seconds(5));
         Asserts.eventually(() -> entity.getCallHistory(), l -> !l.contains("myEffector"));

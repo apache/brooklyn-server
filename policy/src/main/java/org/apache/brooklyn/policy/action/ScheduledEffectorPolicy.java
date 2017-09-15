@@ -19,27 +19,18 @@
 package org.apache.brooklyn.policy.action;
 
 import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
-import com.google.common.collect.Lists;
-import com.google.common.reflect.TypeToken;
 
 /**
  * A {@link Policy} the executes an {@link Effector} at a specific time in the future.
@@ -57,22 +48,11 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
 
     private static final Logger LOG = LoggerFactory.getLogger(ScheduledEffectorPolicy.class);
 
-    public static final ConfigKey<List<Long>> SCHEDULED = ConfigKeys.builder(new TypeToken<List<Long>>() { })
-            .name("scheduled")
-            .description("List of all scheduled execution start times")
-            .defaultValue(Lists.newCopyOnWriteArrayList())
-            .reconfigurable(true)
-            .build();
-
     public static final AttributeSensor<Boolean> INVOKE_IMMEDIATELY = Sensors.newBooleanSensor("scheduler.invoke.now", "Invoke the configured effector immediately when this becomes true");
     public static final AttributeSensor<Date> INVOKE_AT = Sensors.newSensor(Date.class, "scheduler.invoke.at", "Invoke the configured effector at this time");
 
     public ScheduledEffectorPolicy() {
-        this(MutableMap.<String,Object>of());
-    }
-
-    public ScheduledEffectorPolicy(Map<String,?> props) {
-        super(props);
+        super();
     }
 
     @Override
@@ -84,27 +64,11 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
     }
 
     @Override
-    public void rebind() {
-        super.rebind();
-        List<Long> scheduled = config().get(SCHEDULED);
-        for (Long when : scheduled) {
-            Duration wait = Duration.millis(when - System.currentTimeMillis());
-            if (wait.isPositive()) {
-                schedule(wait);
-            } else {
-                scheduled.remove(when);
-            }
-        }
-    }
-
-    @Override
     public void start() {
         String time = config().get(TIME);
         Duration wait = config().get(WAIT);
 
         if (time != null) {
-            LOG.debug("{}: Scheduling {} at {} (in {})",
-                    new Object[] { this, effector.getName(), time, Time.fromDurationToTimeStringRounded().apply(wait) });
             wait = getWaitUntil(time);
         }
 
@@ -113,35 +77,23 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
         }
     }
 
-    protected void schedule(Duration wait) {
-        List<Long> scheduled = config().get(SCHEDULED);
-        scheduled.add(System.currentTimeMillis() + wait.toMilliseconds());
-
-        LOG.debug("{}: Scheduling {} in {} ({} ms)",
-                new Object[] { this, effector.getName(), Time.fromDurationToTimeStringRounded().apply(wait), wait.toMilliseconds() });
-        executor.schedule(this, wait.toMilliseconds(), TimeUnit.MILLISECONDS);
-    }
-
     @Override
     public void onEvent(SensorEvent<Object> event) {
-        synchronized (mutex) {
-            super.onEvent(event);
+        super.onEvent(event);
 
-            if (running.get()) {
-                if (event.getSensor().getName().equals(INVOKE_AT.getName())) {
-                    String time = (String) event.getValue();
-                    if (time != null) {
-                        schedule(getWaitUntil(time));
-                    }
+        if (running.get()) {
+            if (event.getSensor().getName().equals(INVOKE_AT.getName())) {
+                String time = (String) event.getValue();
+                if (time != null) {
+                    schedule(getWaitUntil(time));
                 }
-                if (event.getSensor().getName().equals(INVOKE_IMMEDIATELY.getName())) {
-                    Boolean invoke = (Boolean) event.getValue();
-                    if (invoke) {
-                        schedule(Duration.ZERO);
-                    }
+            }
+            if (event.getSensor().getName().equals(INVOKE_IMMEDIATELY.getName())) {
+                Boolean invoke = (Boolean) event.getValue();
+                if (invoke) {
+                    schedule(Duration.ZERO);
                 }
             }
         }
     }
-
 }

@@ -23,9 +23,11 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.brooklyn.api.effector.Effector;
@@ -38,11 +40,11 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.DurationPredicates;
@@ -53,6 +55,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.reflect.TypeToken;
 
 @Beta
@@ -103,20 +106,35 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
             .reconfigurable(true)
             .build();
 
-    protected final AtomicBoolean running = new AtomicBoolean(false);
-    protected final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-    protected final Object mutex = new Object[0];
+    public static final ConfigKey<List<Long>> SCHEDULED = ConfigKeys.builder(new TypeToken<List<Long>>() { })
+            .name("scheduled")
+            .description("List of all scheduled execution start times")
+            .defaultValue(Lists.newCopyOnWriteArrayList())
+            .reconfigurable(true)
+            .build();
 
-    protected Effector<?> effector;
+    protected AtomicBoolean running;
+    protected ScheduledExecutorService executor;
+    protected Effector effector;
 
     public AbstractScheduledEffectorPolicy() {
-        this(MutableMap.<String,Object>of());
+        LOG.debug("Created new scheduled effector policy");
     }
 
-    public AbstractScheduledEffectorPolicy(Map<String,?> props) {
-        super(props);
+    @Override
+    public void init() {
+        setup();
     }
 
+    public void setup() {
+        if (executor != null) {
+            executor.shutdownNow();
+        }
+        executor = Executors.newSingleThreadScheduledExecutor();
+        running = new AtomicBoolean(false);
+    }
+
+    @Override
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);
 
@@ -128,9 +146,22 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     @Override
     public void rebind() {
+        setup();
+
         if (config().get(RUNNING)) {
             running.set(true);
-            start();
+        }
+
+        if (running.get()) {
+            List<Long> scheduled = config().get(SCHEDULED);
+            for (Long when : scheduled) {
+                Duration wait = Duration.millis(when - System.currentTimeMillis());
+                if (wait.isPositive()) {
+                    schedule(wait);
+                } else {
+                    scheduled.remove(when);
+                }
+            }
         }
     }
 
@@ -145,15 +176,15 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     @Override
     public void destroy(){
-        super.destroy();
         executor.shutdownNow();
+        super.destroy();
     }
 
     public abstract void start();
 
     protected Effector<?> getEffector() {
         String effectorName = config().get(EFFECTOR);
-        Maybe<Effector<?>> effector = entity.getEntityType().getEffectorByName(effectorName);
+        Maybe<Effector<?>> effector = getEntity().getEntityType().getEffectorByName(effectorName);
         if (effector.isAbsentOrNull()) {
             throw new IllegalStateException("Cannot find effector " + effectorName);
         }
@@ -181,39 +212,46 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
         }
     }
 
-    @Override
-    public void run() {
-        synchronized (mutex) {
-            try {
-                ConfigBag bag = ResolvingConfigBag.newInstanceExtending(getManagementContext(), config().getBag());
-                Map<String, Object> args = EntityInitializers.resolve(bag, EFFECTOR_ARGUMENTS);
-                LOG.debug("{}: Resolving arguments for {}: {}", new Object[] { this, effector.getName(), Iterables.toString(args.keySet()) });
-                Map<String, Object> resolved = (Map) Tasks.resolving(args, Object.class)
-                        .deep(true)
-                        .context(entity)
-                        .get();
+    protected void schedule(Duration wait) {
+        List<Long> scheduled = config().get(SCHEDULED);
+        scheduled.add(System.currentTimeMillis() + wait.toMilliseconds());
 
-                LOG.debug("{}: Invoking effector on {}, {}({})", new Object[] { this, entity, effector.getName(), resolved });
-                Object result = entity.invoke(effector, resolved).getUnchecked();
-                LOG.debug("{}: Effector {} returned {}", new Object[] { this, effector.getName(), result });
-            } catch (Throwable t) {
-                LOG.warn("{}: Exception running {}: {}", new Object[] { this, effector.getName(), t.getMessage() });
-                Exceptions.propagate(t);
-            }
+        executor.schedule(this, wait.toMilliseconds(), TimeUnit.MILLISECONDS);
+    }
+
+    @Override
+    public synchronized void run() {
+        if (effector == null) return;
+        try {
+            ConfigBag bag = ResolvingConfigBag.newInstanceExtending(getManagementContext(), config().getBag());
+            Map<String, Object> args = EntityInitializers.resolve(bag, EFFECTOR_ARGUMENTS);
+            LOG.debug("{}: Resolving arguments for {}: {}", new Object[] { this, effector.getName(), Iterables.toString(args.keySet()) });
+            Map<String, Object> resolved = (Map) Tasks.resolving(args, Object.class)
+                    .deep(true)
+                    .context(entity)
+                    .get();
+
+            LOG.debug("{}: Invoking effector on {}, {}({})", new Object[] { this, entity, effector.getName(), resolved });
+            Object result = entity.invoke(effector, resolved).getUnchecked();
+            LOG.debug("{}: Effector {} returned {}", new Object[] { this, effector.getName(), result });
+        } catch (RuntimeInterruptedException rie) {
+            Thread.interrupted();
+            // TODO sometimes this seems to hang the executor?
+        } catch (Throwable t) {
+            LOG.warn("{}: Exception running {}: {}", new Object[] { this, effector.getName(), t.getMessage() });
+            Exceptions.propagate(t);
         }
     }
 
     @Override
     public void onEvent(SensorEvent<Object> event) {
-        synchronized (mutex) {
-            LOG.debug("{}: Got event {}", this, event);
-            AttributeSensor<Boolean> sensor = config().get(START_SENSOR);
-            if (event.getSensor().getName().equals(sensor.getName())) {
-                Boolean start = (Boolean) event.getValue();
-                if (start && running.compareAndSet(false, true)) {
-                    config().set(RUNNING, true);
-                    start();
-                }
+        LOG.debug("{}: Got event {}", this, event);
+        AttributeSensor<Boolean> sensor = config().get(START_SENSOR);
+        if (event.getSensor().getName().equals(sensor.getName())) {
+            Boolean start = (Boolean) event.getValue();
+            if (start && running.compareAndSet(false, true)) {
+                config().set(RUNNING, true);
+                start();
             }
         }
     }
