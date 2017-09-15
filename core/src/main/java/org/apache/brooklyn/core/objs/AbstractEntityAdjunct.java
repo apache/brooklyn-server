@@ -55,6 +55,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.core.mgmt.internal.SubscriptionTracker;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
@@ -619,7 +620,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         if (sensors==null || Iterables.isEmpty(sensors)) {
             msg.append("<nothing>");
         } else {
-            String sensorsText = StreamSupport.stream(sensors.spliterator(), false)
+            String sensorsText = MutableSet.<Object>copyOf(sensors).stream()
                     .filter(s -> s != null)
                     .map(s -> (s instanceof Sensor ? ((Sensor<?>) s).getName() : s.toString()))
                     .collect(Collectors.joining(", "));
@@ -627,7 +628,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         }
 
         if (sources!=null && !Iterables.isEmpty(sources)) {
-            String sourcesText = StreamSupport.stream(sources.spliterator(), false)
+            String sourcesText = MutableSet.<Object>copyOf(sources).stream()
                     .filter(s -> s != null)
                     .map(s -> (s.equals(getEntity()) ? "self" : s.toString()))
                     .collect(Collectors.joining(", "));
