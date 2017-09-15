@@ -182,21 +182,34 @@ public class BasicTasksFutureTest {
         // if cancel fires after submit but before it passes to the executor,
         // that needs handling separately; this doesn't guarantee this code path,
         // but it happens sometimes (and it should be handled)
+        
+        // have seen this fail once, not getting "before", but can't see why, may be spurious
         doTestCancelTriggersListenableFuture(Duration.ZERO);
+    }
+    @Test
+    public void testCancelBeforeTriggersListenableFuture() throws Exception {
+        // if cancel fires after submit but before it passes to the executor,
+        // that needs handling separately; this doesn't guarantee this code path,
+        // but it happens sometimes (and it should be handled)
+        doTestCancelTriggersListenableFuture(Duration.millis(-50));
     }
     public void doTestCancelTriggersListenableFuture(Duration delay) throws Exception {
         Task<String> t = waitForSemaphore(Duration.TEN_SECONDS, true, "x");
         addFutureListener(t, "before");
 
         Stopwatch watch = Stopwatch.createStarted();
-        ec.submit(t);
+        if (delay.isNegative()) {
+            new Thread(() -> { Time.sleep(delay.multiply(-1)); ec.submit(t); }).run(); 
+        } else {
+            ec.submit(t);
+        }
         
         addFutureListener(t, "during");
 
         log.info("test cancelling "+t+" ("+t.getClass()+") after "+delay);
-        // NB: two different code paths (callers to this method) for notifying futures 
-        // depending whether task is started 
-        Time.sleep(delay);
+        // NB: three different code paths (callers to this method) for notifying futures 
+        // depending whether task is started before, at, or after the cancel 
+        if (!delay.isNegative()) Time.sleep(delay);
 
         synchronized (data) {
             t.cancel(true);
