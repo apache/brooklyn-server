@@ -107,7 +107,7 @@ public class DynamicTasks {
             this.execContext = ((EntityInternal)entity).getExecutionContext();
             return this;
         }
-        private boolean orSubmitInternal() {
+        private boolean orSubmitInternal(boolean samethread) {
             if (!wasQueued()) {
                 if (isQueuedOrSubmitted()) {
                     log.warn("Redundant call to execute "+getTask()+"; skipping");
@@ -118,7 +118,8 @@ public class DynamicTasks {
                         ec = BasicExecutionContext.getCurrentExecutionContext();
                     if (ec==null)
                         throw new IllegalStateException("Cannot execute "+getTask()+" without an execution context; ensure caller is in an ExecutionContext");
-                    ec.submit(getTask());
+                    if (samethread) ec.get(getTask());
+                    else ec.submit(getTask());
                     return true;
                 }
             } else {
@@ -128,7 +129,7 @@ public class DynamicTasks {
         /** causes the task to be submitted (asynchronously) if it hasn't already been,
          * requiring an entity execution context (will try to find a default if not set) */
         public TaskQueueingResult<T> orSubmitAsync() {
-            orSubmitInternal();
+            orSubmitInternal(false);
             return this;
         }
         /** convenience for setting {@link #executionContext(ExecutionContext)} then submitting async */
@@ -141,7 +142,7 @@ public class DynamicTasks {
          * (which assumes all commands complete immediately);
          * requiring an entity execution context (will try to find a default if not set) */
         public TaskQueueingResult<T> orSubmitAndBlock() {
-            if (orSubmitInternal()) task.getUnchecked();
+            orSubmitInternal(true);
             return this;
         }
         /** convenience for setting {@link #executionContext(ExecutionContext)} then submitting blocking */
@@ -288,12 +289,9 @@ public class DynamicTasks {
         return task;
     }
     
-    /** submits/queues the given task if needed, and gets the result (unchecked) 
-     * only permitted in a queueing context (ie a DST main job) if the task is not yet submitted */
-    // things get really confusing if you try to queueInTaskHierarchy -- easy to cause deadlocks!
+    /** submits/queues the given task if needed, and gets the result (unchecked) */
     public static <T> T get(TaskAdaptable<T> t) {
-        // TODO do in foreground?
-        return queueIfNeeded(t).asTask().getUnchecked();
+        return queueIfPossible(t).orSubmitAndBlock().andWaitForSuccess();
     }
 
     /** As {@link #drain(Duration, boolean)} waiting forever and throwing the first error 
