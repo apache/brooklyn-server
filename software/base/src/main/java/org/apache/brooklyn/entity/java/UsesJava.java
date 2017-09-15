@@ -32,7 +32,9 @@ public interface UsesJava {
     /** system properties (-D) to append to JAVA_OPTS; normally accessed through {@link JavaEntityMethods#javaSysProp(String)} */
     @SetFromFlag("javaSysProps")
     public static final MapConfigKey<String> JAVA_SYSPROPS = new MapConfigKey<String>(String.class,
-            "java.sysprops", "Java command line system properties", Maps.<String,String>newLinkedHashMap());
+            "java.sysprops", 
+            "Java command line system properties (converted automatically into the format '-Dkey=value')",
+            Maps.<String,String>newLinkedHashMap());
 
     /**
      * Used to set java options. These options are prepended to the defaults.
@@ -58,8 +60,10 @@ public interface UsesJava {
             "java.opts", "Java command line options", ImmutableSet.<String>of());
 
     public static final ConfigKey<Boolean> CHECK_JAVA_HOSTNAME_BUG = ConfigKeys.newBooleanConfigKey(
-            "java.check.hostname.bug", "Check whether hostname is too long and will likely crash Java" +
-                    "due to bug 7089443", true);
+            "java.check.hostname.bug", 
+            "Check whether hostname is too long and will likely crash Java 1.7 "
+                    + "due to bug http://bugs.java.com/view_bug.do?bug_id=7089443", 
+            true);
 
     @SetFromFlag("javaVersionRequired")
     ConfigKey<String> JAVA_VERSION_REQUIRED = ConfigKeys.newStringConfigKey("java.version.required", "Java version required", "1.7");

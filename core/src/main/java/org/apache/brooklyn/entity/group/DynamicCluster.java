@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
@@ -103,13 +104,16 @@ public interface DynamicCluster extends AbstractGroup, Cluster, MemberReplaceabl
     ConfigKey<String> RESTART_MODE = ConfigKeys.newStringConfigKey(
             "dynamiccluster.restartMode", 
             "How this cluster should handle restarts; "
-            + "by default it is disallowed, but this key can specify a different mode. "
-            + "Modes supported by dynamic cluster are 'off', 'sequential', or 'parallel'. "
-            + "However subclasses can define their own modes or may ignore this.", null);
+                    + "by default it is disallowed, but this key can specify a different mode. "
+                    + "Modes supported by dynamic cluster are 'off', 'sequential', or 'parallel'. "
+                    + "However subclasses can define their own modes or may ignore this.", 
+            null);
 
     @SetFromFlag("quarantineFailedEntities")
     ConfigKey<Boolean> QUARANTINE_FAILED_ENTITIES = ConfigKeys.newBooleanConfigKey(
-            "dynamiccluster.quarantineFailedEntities", "If true, will quarantine entities that fail to start; if false, will get rid of them (i.e. delete them)", true);
+            "dynamiccluster.quarantineFailedEntities", 
+            "If true, will quarantine entities that fail to start; if false, will get rid of them (i.e. delete them)", 
+            true);
 
     @SetFromFlag("quarantineFilter")
     ConfigKey<Predicate<? super Throwable>> QUARANTINE_FILTER = ConfigKeys.newConfigKey(
@@ -132,6 +136,7 @@ public interface DynamicCluster extends AbstractGroup, Cluster, MemberReplaceabl
             "Initial cluster quorum size - number of initial nodes that must have been successfully started to report success (if < 0, then use value of INITIAL_SIZE)",
             -1);
 
+    @CatalogConfig(label = "Member spec")
     @SetFromFlag("memberSpec")
     ConfigKey<EntitySpec<?>> MEMBER_SPEC = ConfigKeys.newConfigKey(
             new TypeToken<EntitySpec<?>>() { },
@@ -140,7 +145,9 @@ public interface DynamicCluster extends AbstractGroup, Cluster, MemberReplaceabl
     @SetFromFlag("firstMemberSpec")
     ConfigKey<EntitySpec<?>> FIRST_MEMBER_SPEC = ConfigKeys.newConfigKey(
             new TypeToken<EntitySpec<?>>() { },
-            "dynamiccluster.firstmemberspec", "entity spec for creating new cluster members, used for the very first member if different", null);
+            "dynamiccluster.firstmemberspec", 
+            "entity spec for creating the first member of the cluster (if unset, will use the member spec for all)", 
+            null);
 
     @SetFromFlag("removalStrategy")
     ConfigKey<Function<Collection<Entity>, Entity>> REMOVAL_STRATEGY = ConfigKeys.newConfigKey(
@@ -183,7 +190,9 @@ public interface DynamicCluster extends AbstractGroup, Cluster, MemberReplaceabl
             "Time to wait (after members' start() effectors return) for SERVICE_UP before failing (default is not to wait)",
             null);
 
-    ConfigKey<Integer> MAX_SIZE = ConfigKeys.newIntegerConfigKey("cluster.max.size", "Size after which it will throw InsufficientCapacityException", Integer.MAX_VALUE);
+    ConfigKey<Integer> MAX_SIZE = ConfigKeys.newIntegerConfigKey("cluster.max.size", 
+            "Size after which it will throw InsufficientCapacityException", 
+            Integer.MAX_VALUE);
 
     @Beta
     @SetFromFlag("maxConcurrentChildCommands")

@@ -52,11 +52,15 @@ public interface Attributes {
 
     // TODO these should switch to being TemplatedStringAttributeSensorAndConfigKey
     BasicAttributeSensorAndConfigKey<String> DOWNLOAD_URL = new BasicAttributeSensorAndConfigKey<String>(
-            String.class, "download.url", "URL pattern for downloading the installer (will substitute things like ${version} automatically)");
+            String.class, 
+            "download.url", 
+            "URL for downloading the installer; uses FreeMarker templating format to substitute things like ${version} automatically");
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     BasicAttributeSensorAndConfigKey<Map<String,String>> DOWNLOAD_ADDON_URLS = new BasicAttributeSensorAndConfigKey(
-            Map.class, "download.addon.urls", "URL patterns for downloading named add-ons (will substitute things like ${version} automatically)");
+            Map.class, 
+            "download.addon.urls", 
+            "URL for downloading named add-ons; uses FreeMarker templating format to substitute things like ${version} automatically");
 
     /*
      * Port number attributes.
@@ -74,7 +78,7 @@ public interface Attributes {
             "http.port", "HTTP port", ImmutableList.of(8080,"18080+"));
     
     PortAttributeSensorAndConfigKey HTTPS_PORT = new PortAttributeSensorAndConfigKey(
-            "https.port", "HTTP port (with SSL/TLS)", ImmutableList.of(8443,"18443+"));
+            "https.port", "HTTPS port (with SSL/TLS)", ImmutableList.of(8443,"18443+"));
                     
     PortAttributeSensorAndConfigKey SSH_PORT = new PortAttributeSensorAndConfigKey("ssh.port", "SSH port", 22);
     PortAttributeSensorAndConfigKey SMTP_PORT = new PortAttributeSensorAndConfigKey("smtp.port", "SMTP port", 25);

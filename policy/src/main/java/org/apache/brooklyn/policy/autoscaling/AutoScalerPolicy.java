@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.brooklyn.api.catalog.Catalog;
+import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.policy.PolicySpec;
@@ -264,10 +265,12 @@ public class AutoScalerPolicy extends AbstractPolicy {
     public static final String POOL_LOW_THRESHOLD_KEY = "pool.low.threshold";
     public static final String POOL_CURRENT_WORKRATE_KEY = "pool.current.workrate";
     
+    @CatalogConfig(label = "Metric")
     @SuppressWarnings("serial")
     @SetFromFlag("metric")
     public static final ConfigKey<AttributeSensor<? extends Number>> METRIC = BasicConfigKey.builder(new TypeToken<AttributeSensor<? extends Number>>() {})
             .name("autoscaler.metric")
+            .description("The (numeric) sensor to use for auto-scaling decisions, keeping it within the given bounds")
             .build();
 
     @SetFromFlag("entityWithMetric")
@@ -276,6 +279,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
             .description("The Entity with the metric that will be monitored")
             .build();
     
+    @CatalogConfig(label = "Metric lower bound")
     @SetFromFlag("metricLowerBound")
     public static final ConfigKey<Number> METRIC_LOWER_BOUND = BasicConfigKey.builder(Number.class)
             .name("autoscaler.metricLowerBound")
@@ -283,6 +287,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
             .reconfigurable(true)
             .build();
     
+    @CatalogConfig(label = "Metric upper bound")
     @SetFromFlag("metricUpperBound")
     public static final ConfigKey<Number> METRIC_UPPER_BOUND = BasicConfigKey.builder(Number.class)
             .name("autoscaler.metricUpperBound")
@@ -325,12 +330,15 @@ public class AutoScalerPolicy extends AbstractPolicy {
     @SetFromFlag("minPeriodBetweenExecs")
     public static final ConfigKey<Duration> MIN_PERIOD_BETWEEN_EXECS = BasicConfigKey.builder(Duration.class)
             .name("autoscaler.minPeriodBetweenExecs")
+            .description("When re-evaluating the desired size, wait at least this duration before computing")
             .defaultValue(Duration.millis(100))
             .build();
     
     @SetFromFlag("resizeUpStabilizationDelay")
     public static final ConfigKey<Duration> RESIZE_UP_STABILIZATION_DELAY = BasicConfigKey.builder(Duration.class)
             .name("autoscaler.resizeUpStabilizationDelay")
+            .description("The required duration of 'sustained load' before scaling up "
+                    + "(i.e. the length of time the metric must be above its upper bound before acting)")
             .defaultValue(Duration.ZERO)
             .reconfigurable(true)
             .build();
@@ -338,6 +346,8 @@ public class AutoScalerPolicy extends AbstractPolicy {
     @SetFromFlag("resizeDownStabilizationDelay")
     public static final ConfigKey<Duration> RESIZE_DOWN_STABILIZATION_DELAY = BasicConfigKey.builder(Duration.class)
             .name("autoscaler.resizeDownStabilizationDelay")
+            .description("The required duration of 'sustained low load' before scaling down "
+                    + "(i.e. the length of time the metric must be belowe its lower bound before acting)")
             .defaultValue(Duration.ZERO)
             .reconfigurable(true)
             .build();
@@ -345,6 +355,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
     @SetFromFlag("minPoolSize")
     public static final ConfigKey<Integer> MIN_POOL_SIZE = BasicConfigKey.builder(Integer.class)
             .name("autoscaler.minPoolSize")
+            .description("The minimum acceptable pool size (never scaling down below this size, and automatically scaling up to this min size if required)")
             .defaultValue(1)
             .reconfigurable(true)
             .build();
@@ -352,12 +363,15 @@ public class AutoScalerPolicy extends AbstractPolicy {
     @SetFromFlag("maxPoolSize")
     public static final ConfigKey<Integer> MAX_POOL_SIZE = BasicConfigKey.builder(Integer.class)
             .name("autoscaler.maxPoolSize")
+            .description("The maximum acceptable pool size (never scaling up above this size, and automatically scaling down to this min size if required)")
             .defaultValue(Integer.MAX_VALUE)
             .reconfigurable(true)
             .build();
 
     public static final ConfigKey<Integer> INSUFFICIENT_CAPACITY_HIGH_WATER_MARK = BasicConfigKey.builder(Integer.class)
             .name("autoscaler.insufficientCapacityHighWaterMark")
+            .description("Level at which we either expect, or experienced, 'InsufficientCapacityException', "
+                    + "so should not attempt to go above this size. This is set automatically if that exception is hit.")
             .defaultValue(null)
             .reconfigurable(true)
             .build();
@@ -365,6 +379,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
     @SetFromFlag("resizeOperator")
     public static final ConfigKey<ResizeOperator> RESIZE_OPERATOR = BasicConfigKey.builder(ResizeOperator.class)
             .name("autoscaler.resizeOperator")
+            .description("The operation to perform for resizing (defaults to calling resize(int) effector on a Resizable entity)")
             .defaultValue(new ResizeOperator() {
                     @Override
                     public Integer resize(Entity entity, Integer desiredSize) {
@@ -376,6 +391,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
     @SetFromFlag("currentSizeOperator")
     public static final ConfigKey<Function<Entity,Integer>> CURRENT_SIZE_OPERATOR = BasicConfigKey.builder(new TypeToken<Function<Entity,Integer>>() {})
             .name("autoscaler.currentSizeOperator")
+            .description("The operation to perform to calculate the current size (defaults to calling getCurrentSize() on a Resizable entity)")
             .defaultValue(new Function<Entity,Integer>() {
                     @Override
                     public Integer apply(Entity entity) {
@@ -387,6 +403,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
     @SetFromFlag("poolHotSensor")
     public static final ConfigKey<BasicNotificationSensor<? extends Map>> POOL_HOT_SENSOR = BasicConfigKey.builder(new TypeToken<BasicNotificationSensor<? extends Map>>() {})
             .name("autoscaler.poolHotSensor")
+            .description("Sensor to subscribe to, for 'pool hot' events. This is an alternative mechanism to keeping the 'metric' within a given range.")
             .defaultValue(DEFAULT_POOL_HOT_SENSOR)
             .build();
 
@@ -394,6 +411,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
     @SetFromFlag("poolColdSensor")
     public static final ConfigKey<BasicNotificationSensor<? extends Map>> POOL_COLD_SENSOR = BasicConfigKey.builder(new TypeToken<BasicNotificationSensor<? extends Map>>() {})
             .name("autoscaler.poolColdSensor")
+            .description("Sensor to subscribe to, for 'pool cold' events. This is an alternative mechanism to keeping the 'metric' within a given range.")
             .defaultValue(DEFAULT_POOL_COLD_SENSOR)
             .build();
 
@@ -401,6 +419,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
     @SetFromFlag("poolOkSensor")
     public static final ConfigKey<BasicNotificationSensor<? extends Map>> POOL_OK_SENSOR = BasicConfigKey.builder(new TypeToken<BasicNotificationSensor<? extends Map>>() {})
             .name("autoscaler.poolOkSensor")
+            .description("Sensor to subscribe to, for 'pool ok' events. This is an alternative mechanism to keeping the 'metric' within a given range.")
             .defaultValue(DEFAULT_POOL_OK_SENSOR)
             .build();
 
@@ -408,7 +427,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
     @SetFromFlag("maxSizeReachedSensor")
     public static final ConfigKey<BasicNotificationSensor<? super MaxPoolSizeReachedEvent>> MAX_SIZE_REACHED_SENSOR = BasicConfigKey.builder(new TypeToken<BasicNotificationSensor<? super MaxPoolSizeReachedEvent>>() {})
             .name("autoscaler.maxSizeReachedSensor")
-            .description("Sensor for which a notification will be emitted (on the associated entity) when " +
+            .description("Sensor by which a notification will be emitted (on the associated entity) when " +
                     "we consistently wanted to resize the pool above the max allowed size, for " +
                     "maxReachedNotificationDelay milliseconds")
             .build();

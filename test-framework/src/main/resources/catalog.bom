@@ -22,27 +22,37 @@ brooklyn.catalog:
     - id: org.apache.brooklyn.test.framework.TestSshCommand
       item:
         type: org.apache.brooklyn.test.framework.TestSshCommand
+        name: Test SSH Command
     - id: org.apache.brooklyn.test.framework.SimpleShellCommandTest
       item:
         type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+        name: [DEPRECATED] Simple Shell Command Test
+        description:  [DEPRECATED] Instead use TestSshCommand
     - id: org.apache.brooklyn.test.framework.ParallelTestCase
       item:
         type: org.apache.brooklyn.test.framework.ParallelTestCase
+        name: Parallel Test Case
     - id: org.apache.brooklyn.test.framework.TestCase
       item:
         type: org.apache.brooklyn.test.framework.TestCase
+        name: Test Case
     - id: org.apache.brooklyn.test.framework.InfrastructureDeploymentTestCase
       item:
         type: org.apache.brooklyn.test.framework.InfrastructureDeploymentTestCase
+        name: Infrastructure Deployment Test Case
     - id: org.apache.brooklyn.test.framework.TestSensor
       item:
         type: org.apache.brooklyn.test.framework.TestSensor
+        name: Test Sensor
     - id: org.apache.brooklyn.test.framework.TestEffector
       item:
         type: org.apache.brooklyn.test.framework.TestEffector
+        name: Test Effector
     - id: org.apache.brooklyn.test.framework.TestHttpCall
       item:
         type: org.apache.brooklyn.test.framework.TestHttpCall
+        name: Test HTTP Call
     - id: org.apache.brooklyn.test.framework.LoopOverGroupMembersTestCase
       item:
         type: org.apache.brooklyn.test.framework.LoopOverGroupMembersTestCase
+        name: Loop Over Group Members Test Case

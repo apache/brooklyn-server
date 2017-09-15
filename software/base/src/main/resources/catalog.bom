@@ -27,20 +27,29 @@ brooklyn.catalog:
     - id: org.apache.brooklyn.entity.software.base.SameServerEntity
       item:
         type: org.apache.brooklyn.entity.software.base.SameServerEntity
+        name: Same Server Entity
+        description: |
+          An entity that, on start, will obtain a machine and pass that to each of its children 
+          by calling their start effectors.
     - id: org.apache.brooklyn.entity.chef.ChefEntity
       item:
         type: org.apache.brooklyn.entity.chef.ChefEntity
+        name: Chef Entity
     - id: org.apache.brooklyn.entity.brooklynnode.BrooklynEntityMirror
       item:
         type: org.apache.brooklyn.entity.brooklynnode.BrooklynEntityMirror
         name: Brooklyn Entity Mirror
-        description: Provides an entity which can sit in one brooklyn 
+        description: |
+          Provides an entity which can sit in one brooklyn
+          domain and reflect the status of an entity via the REST API of another domain.
     - id: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
       item:
         type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
+        name: Empty Software Process
     - id: org.apache.brooklyn.entity.software.base.EmptyWindowsProcess
       item:
         type: org.apache.brooklyn.entity.software.base.EmptyWindowsProcess
+        name: Empty Windows Process
     - id: org.apache.brooklyn.entity.software.base.VanillaWindowsProcess
       item:
         type: org.apache.brooklyn.entity.software.base.VanillaWindowsProcess
@@ -49,6 +58,7 @@ brooklyn.catalog:
     - id: org.apache.brooklyn.entity.java.VanillaJavaApp
       item:
         type: org.apache.brooklyn.entity.java.VanillaJavaApp
+        name: Vanilla Java App
     - id: org.apache.brooklyn.entity.brooklynnode.BrooklynNode
       item:
         type: org.apache.brooklyn.entity.brooklynnode.BrooklynNode
@@ -57,9 +67,12 @@ brooklyn.catalog:
     - id: org.apache.brooklyn.entity.brooklynnode.BrooklynCluster
       item:
         type: org.apache.brooklyn.entity.brooklynnode.BrooklynCluster
+        name: Brooklyn Cluster
     - id: org.apache.brooklyn.entity.brooklynnode.LocalBrooklynNode
       item:
         type: org.apache.brooklyn.entity.brooklynnode.LocalBrooklynNode
+        name: Local Brooklyn Node
+        description: An entity that represents the local Brooklyn server.
     - id: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
       item:
         type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess

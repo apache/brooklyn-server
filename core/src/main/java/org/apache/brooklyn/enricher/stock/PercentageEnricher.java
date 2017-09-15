@@ -67,9 +67,12 @@ public class PercentageEnricher extends AbstractEnricher implements SensorEventL
     public static final ConfigKey<AttributeSensor<Double>> TARGET_SENSOR = ConfigKeys.newConfigKey(
             new TypeToken<AttributeSensor<Double>>() {},
             "enricher.targetSensor",
-            "The sensor on which to emit the ratio");
+            "The sensor to be set on the associated entity with the value computed here");
 
-    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class, "enricher.producer");
+    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(
+            Entity.class, 
+            "enricher.producer",
+            "The entity with the trigger sensor (defaults to the enricher's entity)");
 
     protected AttributeSensor<? extends Number> sourceCurrentSensor;
     protected AttributeSensor<? extends Number> sourceTotalSensor;

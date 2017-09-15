@@ -41,8 +41,10 @@ public interface BasicStartable extends Entity, Startable {
     @SetFromFlag("startLatch")
     ConfigKey<Boolean> START_LATCH = BrooklynConfigKeys.START_LATCH;
 
-    ConfigKey<Locations.LocationsFilter> LOCATIONS_FILTER = ConfigKeys.newConfigKey(Locations.LocationsFilter.class,
-            "brooklyn.locationsFilter", "Provides a hook for customizing locations to be used for a given context");
+    ConfigKey<Locations.LocationsFilter> LOCATIONS_FILTER = ConfigKeys.newConfigKey(
+            Locations.LocationsFilter.class,
+            "brooklyn.locationsFilter", 
+            "Provides a hook for customizing locations to be used for a given context");
 
     /** @deprecated since 0.7.0; use {@link Locations#LocationFilter} */
     @Deprecated

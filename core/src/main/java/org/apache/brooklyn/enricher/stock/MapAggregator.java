@@ -40,8 +40,15 @@ import org.apache.brooklyn.util.collections.MutableMap;
 @SuppressWarnings("serial")
 public class MapAggregator<U> extends AbstractMultipleSensorAggregator<U> {
 
-    public static final ConfigKey<Sensor<?>> KEY_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.keySensor");
-    public static final ConfigKey<Sensor<?>> VALUE_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.valueSensor");
+    public static final ConfigKey<Sensor<?>> KEY_SENSOR = ConfigKeys.newConfigKey(
+            new TypeToken<Sensor<?>>() {}, 
+            "enricher.keySensor",
+            "The sensor to use for the key in the map entry");
+    
+    public static final ConfigKey<Sensor<?>> VALUE_SENSOR = ConfigKeys.newConfigKey(
+            new TypeToken<Sensor<?>>() {}, 
+            "enricher.valueSensor",
+            "The sensor to use for the value in the map entry");
 
     private Sensor<?> keySensor;
     private Sensor<?> valueSensor;
