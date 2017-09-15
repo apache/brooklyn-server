@@ -21,7 +21,6 @@ package org.apache.brooklyn.util.core.task;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -45,6 +44,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedEntity;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier.ImmediateUnsupportedException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -73,23 +73,37 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     final Set<Object> tags = new LinkedHashSet<Object>();
 
     public BasicExecutionContext(ExecutionManager executionManager) {
-        this(Collections.emptyMap(), executionManager);
+        this(executionManager, null);
     }
     
     /**
+     * As {@link #BasicExecutionContext(ExecutionManager, Iterable)} but taking a flags map.
      * Supported flags are {@code tag} and {@code tags}
      * 
      * @see ExecutionManager#submit(Map, TaskAdaptable)
+     * @deprecated since 0.12.0 use {@link #BasicExecutionContext(ExecutionManager, Iterable)}
      */
+    @Deprecated
     public BasicExecutionContext(Map<?, ?> flags, ExecutionManager executionManager) {
+        this(executionManager, MutableSet.of().put(flags.remove("tag")).putAll((Iterable<?>)flags.remove("tag")));
+        if (!flags.isEmpty()) {
+            log.warn("Unexpected flags passed to execution context ("+tags+"): "+flags,
+                new Throwable("Trace for unexpected flags passed to execution context"));
+        }
+    }
+    
+    /**
+     * Creates an execution context which wraps {@link ExecutionManager}
+     * adding the given tags to all tasks submitted through this context.
+     */
+    public BasicExecutionContext(ExecutionManager executionManager, Iterable<Object> tagsForThisContext) {
         this.executionManager = executionManager;
+        if (tagsForThisContext!=null) Iterables.addAll(tags, tagsForThisContext);
 
-        if (flags.get("tag") != null) tags.add(flags.remove("tag"));
-        if (flags.containsKey("tags")) tags.addAll((Collection<?>)flags.remove("tags"));
-
-        // FIXME brooklyn-specific check, just for sanity
+        // brooklyn-specific check, just for sanity
         // the context tag should always be a non-proxy entity, because that is what is passed to effector tasks
         // which may require access to internal methods
+        // (could remove this check if generalizing; it has been here for a long time and the problem seems gone)
         for (Object tag: tags) {
             if (tag instanceof BrooklynTaskTags.WrappedEntity) {
                 if (Proxy.isProxyClass(((WrappedEntity)tag).entity.getClass())) {
