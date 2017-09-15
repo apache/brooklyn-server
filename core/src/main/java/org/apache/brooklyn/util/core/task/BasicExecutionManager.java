@@ -34,6 +34,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -77,6 +78,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Callables;
 import com.google.common.util.concurrent.ExecutionList;
+import com.google.common.util.concurrent.ForwardingFuture.SimpleForwardingFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
@@ -110,10 +112,11 @@ public class BasicExecutionManager implements ExecutionManager {
     private final ExecutorService runner;
         
     private final ScheduledExecutorService delayedRunner;
-    
-    // TODO Could have a set of all knownTasks; but instead we're having a separate set per tag,
-    // so the same task could be listed multiple times if it has multiple tags...
 
+    // inefficient having so many records, and also doing searches through ...
+    // many things in here could be more efficient however (different types of lookup etc),
+    // do that when we need to.
+    
     //access to this field AND to members in this field is synchronized, 
     //to allow us to preserve order while guaranteeing thread-safe
     //(but more testing is needed before we are completely sure it is thread-safe!)
@@ -553,9 +556,11 @@ public class BasicExecutionManager implements ExecutionManager {
             Throwable error = null;
             try {
                 beforeStartAtomicTask(flags, task);
-                if (!task.isCancelled()) {
-                    result = ((TaskInternal<T>)task).getJob().call();
-                } else throw new CancellationException();
+                if (task.isCancelled()) {
+                    afterEndForCancelBeforeStart(flags, task, false);
+                    throw new CancellationException();
+                }
+                result = ((TaskInternal<T>)task).getJob().call();
             } catch(Throwable e) {
                 error = e;
             } finally {
@@ -570,21 +575,33 @@ public class BasicExecutionManager implements ExecutionManager {
         }
     }
 
-    @SuppressWarnings("deprecation")
-    // TODO do we even need a listenable future here?  possibly if someone wants to interrogate the future it might
-    // be interesting, so possibly it is useful that we implement ListenableFuture...
-    private final static class CancellingListenableForwardingFutureForTask<T> extends ListenableForwardingFuture<T> {
+    final static class CancellingListenableForwardingFutureForTask<T> extends SimpleForwardingFuture<T> implements ListenableFuture<T> {
         private final Task<T> task;
         private BasicExecutionManager execMgmt;
-
+        private final ExecutionList listeners;
+        
         private CancellingListenableForwardingFutureForTask(BasicExecutionManager execMgmt, Future<T> delegate, ExecutionList list, Task<T> task) {
-            super(delegate, list);
+            super(delegate);
+            this.listeners = list;
             this.execMgmt = execMgmt;
             this.task = task;
         }
 
         @Override
-        public boolean cancel(TaskCancellationMode mode) {
+        public final boolean cancel(boolean mayInterrupt) {
+            return cancel(TaskCancellationMode.INTERRUPT_TASK_AND_DEPENDENT_SUBMITTED_TASKS);
+        }
+
+        @Override
+        public void addListener(Runnable listener, Executor executor) {
+            listeners.add(listener, executor);
+        }
+
+        public ExecutionList getListeners() {
+            return listeners;
+        }
+        
+        boolean cancel(TaskCancellationMode mode) {
             boolean result = false;
             if (log.isTraceEnabled()) {
                 log.trace("CLFFT cancelling "+task+" mode "+mode);
@@ -616,7 +633,6 @@ public class BasicExecutionManager implements ExecutionManager {
                         }
                     }
                 }
-                // TODO this is inefficient; might want to keep an index on submitted-by
                 for (Task<?> t: execMgmt.getAllTasks()) {
                     if (task.equals(t.getSubmittedByTask())) {
                         if (mode.isAllowedToInterruptAllSubmittedTasks() || BrooklynTaskTags.isTransient(t)) {
@@ -636,7 +652,7 @@ public class BasicExecutionManager implements ExecutionManager {
                 }
             }
   
-            // note: as of 2017-09 no longer run listeners when we say to cancel, they get run when the task really ends
+            execMgmt.afterEndForCancelBeforeStart(null, task, true);
             return result;
         }
     }
@@ -644,14 +660,15 @@ public class BasicExecutionManager implements ExecutionManager {
     // NB: intended to be run by task.runListeners, used to run any listeners the manager wants 
     private final class SubmissionListenerToCallManagerListeners<T> implements Runnable {
         private final Task<T> task;
+        private final CancellingListenableForwardingFutureForTask<T> listenerSource;
 
-        private SubmissionListenerToCallManagerListeners(Task<T> task) {
+        public SubmissionListenerToCallManagerListeners(Task<T> task, CancellingListenableForwardingFutureForTask<T> listenableFuture) {
             this.task = task;
+            listenerSource = listenableFuture;
         }
 
         @Override
         public void run() {
-            
             for (ExecutionListener listener : listeners) {
                 try {
                     listener.onTaskDone(task);
@@ -659,6 +676,8 @@ public class BasicExecutionManager implements ExecutionManager {
                     log.warn("Error running execution listener "+listener+" of task "+task+" done", e);
                 }
             }
+            // run any listeners the task owner has added to its future
+            listenerSource.getListeners().execute();
         }
     }
 
@@ -710,9 +729,9 @@ public class BasicExecutionManager implements ExecutionManager {
         // this future allows a caller to add custom listeners
         // (it does not notify the listeners; that's our job);
         // except on cancel we want to listen
-        ListenableFuture<T> listenableFuture = new CancellingListenableForwardingFutureForTask<T>(this, future, ((TaskInternal<T>)task).getListeners(), task);
+        CancellingListenableForwardingFutureForTask<T> listenableFuture = new CancellingListenableForwardingFutureForTask<T>(this, future, ((TaskInternal<T>)task).getListeners(), task);
         // and we want to make sure *our* (manager) listeners are given suitable callback 
-        ((TaskInternal<T>)task).addListener(new SubmissionListenerToCallManagerListeners<T>(task), runner);
+        ((TaskInternal<T>)task).addListener(new SubmissionListenerToCallManagerListeners<T>(task, listenableFuture), runner);
         // NB: can the above mean multiple callbacks to TaskInternal#runListeners?
         
         // finally expose the future to callers
@@ -875,18 +894,37 @@ public class BasicExecutionManager implements ExecutionManager {
     protected void afterEndInSameThreadTask(Map<?,?> flags, Task<?> task, Throwable error) {
         internalAfterEnd(flags, task, true, true, error);
     }
+    protected void afterEndForCancelBeforeStart(Map<?,?> flags, Task<?> task, boolean calledFromCanceller) {
+        if (calledFromCanceller) {
+            if (task.isBegun()) {
+                // do nothing from canceller thread if task has begin;
+                // we don't want to set end time or listeners prematurely.
+                return ;
+            } else {
+                // normally task won't be submitted by executor, so do some of the end operations.
+                // there is a chance task has begun but not set start time,
+                // in which case _both_ canceller thread and task thread will run this,
+                // but they will happen very close in time so end time is set sensibly by either,
+                // and dedupe will be done based on presence in "incompleteTaskIds"
+                // to ensure listeners and callback only invoked once
+            }
+        }
+        internalAfterEnd(flags, task, !calledFromCanceller, true, null);
+    }
+    
     /** normally (if not interrupted) called once for each call to {@link #internalBeforeSubmit(Map, Task)},
      * and, for atomic tasks and scheduled-task submission iterations where 
      * always called once if {@link #internalBeforeStart(Map, Task)} is invoked and in the same thread as that method */
     protected void internalAfterEnd(Map<?,?> flags, Task<?> task, boolean startedInThisThread, boolean isEndingAllIterations, Throwable error) {
+        boolean taskWasSubmittedAndNotYetEnded = true;
         try {
             if (log.isTraceEnabled()) log.trace(this+" afterEnd, task: "+task);
             if (startedInThisThread) {
                 activeTaskCount.decrementAndGet();
             }
             if (isEndingAllIterations) {
-                incompleteTaskIds.remove(task.getId());
-                if (flags!=null) {
+                taskWasSubmittedAndNotYetEnded = incompleteTaskIds.remove(task.getId());
+                if (flags!=null && taskWasSubmittedAndNotYetEnded) {
                     invokeCallback(flags.get("newTaskEndCallback"), task);
                 }
                 ((TaskInternal<?>)task).setEndTimeUtc(System.currentTimeMillis());
@@ -934,7 +972,8 @@ public class BasicExecutionManager implements ExecutionManager {
                 }
             } finally {
                 synchronized (task) { task.notifyAll(); }
-                if (isEndingAllIterations) {
+                if (isEndingAllIterations && taskWasSubmittedAndNotYetEnded) {
+                    // prevent from running twice on cancellation after start
                     ((TaskInternal<?>)task).runListeners();
                 }
             }

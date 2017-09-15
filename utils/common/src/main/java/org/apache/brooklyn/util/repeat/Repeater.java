@@ -42,6 +42,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.Callables;
 import com.google.common.util.concurrent.MoreExecutors;
 
@@ -246,6 +247,10 @@ public class Repeater implements Callable<Boolean> {
         return backoff(Duration.millis(10), 1.2, finalDelay);
     }
 
+    // TODO support waitingOn to allow notify to interrupt the waits;
+    // however TBC whether such a wake increases iteration count and backoff timer;
+    // probably not as there could be any number of spurious wakes to increment that unexpectedly
+    
     /**
      * Set code fragment that tests if the loop has completed.
      *
@@ -265,6 +270,21 @@ public class Repeater implements Callable<Boolean> {
             @Override
             public Boolean call() throws Exception {
                 return exitCondition.apply(target);
+            }
+        });
+    }
+
+    public <T> Repeater until(final Supplier<T> supplier, final Predicate<T> exitCondition) {
+        Preconditions.checkNotNull(supplier, "supplier must not be null");
+        Preconditions.checkNotNull(exitCondition, "exitCondition must not be null");
+        return until(new Callable<Boolean>() {
+            @Override
+            public Boolean call() throws Exception {
+                return exitCondition.apply(supplier.get());
+            }
+            @Override
+            public String toString() {
+                return supplier.get()+" "+exitCondition.toString();
             }
         });
     }
@@ -350,7 +370,7 @@ public class Repeater implements Callable<Boolean> {
         ReferenceWithError<Boolean> result = runKeepingError();
         result.checkNoError();
         if (!result.get()) {
-            throw new IllegalStateException(description+" unsatisfied after "+Duration.of(timer));
+            throw new IllegalStateException(description+" unsatisfied after "+Duration.of(timer)+": "+exitCondition);
         }
     }
 

@@ -45,6 +45,7 @@ import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.Identifiable;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
+import org.apache.brooklyn.util.core.task.BasicExecutionManager.CancellingListenableForwardingFutureForTask;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.Maybe.MaybeSupplier;
@@ -327,11 +328,10 @@ public class BasicTask<T> implements TaskInternal<T> {
         return true;
     }
     
-    @SuppressWarnings("deprecation")
     protected boolean doCancel(TaskCancellationMode mode) {
         if (internalFuture!=null) { 
-            if (internalFuture instanceof ListenableForwardingFuture) {
-                return ((ListenableForwardingFuture<?>)internalFuture).cancel(mode);
+            if (internalFuture instanceof CancellingListenableForwardingFutureForTask) {
+                return ((CancellingListenableForwardingFutureForTask<?>)internalFuture).cancel(mode);
             } else {
                 return internalFuture.cancel(mode.isAllowedToInterruptTask());
             }
