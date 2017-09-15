@@ -58,7 +58,7 @@ public abstract class AbstractTransformer<T,U> extends AbstractEnricher implemen
     public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(
             new TypeToken<Sensor<?>>() {},
             "enricher.targetSensor",
-            "The sensor that will be set on the associated entity, with the target value");
+            "The sensor to be set on the associated entity with the value computed here");
     
     public static final ConfigKey<List<? extends Sensor<?>>> TRIGGER_SENSORS = ConfigKeys.newConfigKey(
             new TypeToken<List<? extends Sensor<?>>>() {}, 

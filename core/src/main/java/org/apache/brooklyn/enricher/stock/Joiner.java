@@ -56,7 +56,7 @@ public class Joiner<T> extends AbstractEnricher implements SensorEventListener<T
     
     public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {},
             "enricher.targetSensor",
-            "The sensor that will be set on the associated entity, with the target value");
+            "The sensor to be set on the associated entity with the value computed here");
 
     @SetFromFlag("separator")
     public static final ConfigKey<String> SEPARATOR = ConfigKeys.newStringConfigKey(

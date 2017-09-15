@@ -58,7 +58,7 @@ public abstract class AbstractAggregator<T,U> extends AbstractEnricher implement
     public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(
             new TypeToken<Sensor<?>>() {},
             "enricher.targetSensor",
-            "The sensor that will be set on the associated entity, with the target value");
+            "The sensor to be set on the associated entity with the value computed here");
 
     // FIXME this is not just for "members" i think -Alex
     public static final ConfigKey<?> DEFAULT_MEMBER_VALUE = ConfigKeys.newConfigKey(

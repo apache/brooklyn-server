@@ -81,7 +81,7 @@ public class Aggregator<T,U> extends AbstractAggregator<T,U> implements SensorEv
 
     public static final ConfigKey<Integer> QUORUM_TOTAL_SIZE = ConfigKeys.newIntegerConfigKey(
             "quorum.total.size", 
-            "The total size to consider when determining if quorate (used iwth transformation of type 'isQuorate')", 1);
+            "The total size to consider when determining if quorate (used with transformation of type 'isQuorate')", 1);
 
     protected Sensor<T> sourceSensor;
     protected Function<? super Collection<T>, ? extends U> transformation;

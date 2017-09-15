@@ -38,7 +38,7 @@ brooklyn.catalog:
     - id: org.apache.brooklyn.entity.stock.DataEntity
       item:
         type: org.apache.brooklyn.entity.stock.DataEntity
-        name: Basic Entity
+        name: Data Entity
         description: An entity that supplies data as sensor values (periodically evaluating given suppliers).
     - id: org.apache.brooklyn.entity.group.DynamicGroup
       item:

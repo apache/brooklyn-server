@@ -79,7 +79,7 @@ public class UpdatingMap<S,TKey,TVal> extends AbstractEnricher implements Sensor
     public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(
             new TypeToken<Sensor<?>>() {}, 
             "enricher.targetSensor",
-            "The map-sensor that will be updated on the associated entity");
+            "The map-sensor to be updated on the associated entity with the value computed here");
 
     
     @SetFromFlag("key")

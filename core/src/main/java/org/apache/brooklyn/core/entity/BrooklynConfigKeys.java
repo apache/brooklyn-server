@@ -98,7 +98,7 @@ public class BrooklynConfigKeys {
     public static final ConfigKey<Boolean> SKIP_ENTITY_START_IF_RUNNING = ConfigKeys.builder(Boolean.class)
             .name("skip.start.ifRunning") 
             .deprecatedNames("entity.running") 
-            .description("Whether to skip the startup process entirely, but only if it already running")
+            .description("Whether to skip the startup process if the entity is detected as already running")
             .build();
 
     /**
