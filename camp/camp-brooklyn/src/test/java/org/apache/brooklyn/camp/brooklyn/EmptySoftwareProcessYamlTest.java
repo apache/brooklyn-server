@@ -18,37 +18,62 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
-import java.util.Iterator;
+import static org.testng.Assert.assertEquals;
+
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.MachineLocation;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.util.collections.Jsonya;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 @Test
 public class EmptySoftwareProcessYamlTest extends AbstractYamlTest {
     private static final Logger log = LoggerFactory.getLogger(EnrichersYamlTest.class);
 
-    @Test(groups="Integration")
+    @BeforeMethod(alwaysRun=true)
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        RecordingSshTool.clear();
+    }
+    
+    @AfterMethod(alwaysRun=true)
+    @Override
+    public void tearDown() throws Exception {
+        super.tearDown();
+        RecordingSshTool.clear();
+    }
+    
+    @Test
     public void testProvisioningProperties() throws Exception {
         Entity app = createAndStartApplication(
-            "location: localhost",
+            "location:",
+            "  localhost:",
+            "    sshToolClass: "+RecordingSshTool.class.getName(),
+            "    myLocConfig: myval",
             "services:",
             "- type: "+EmptySoftwareProcess.class.getName(),
-            "  provisioning.properties:",
-            "    minRam: 16384");
+            "  brooklyn.config:",
+            "    provisioning.properties:",
+            "      minRam: 16384");
         waitForApplicationTasks(app);
 
         log.info("App started:");
@@ -56,59 +81,46 @@ public class EmptySoftwareProcessYamlTest extends AbstractYamlTest {
         
         EmptySoftwareProcess entity = (EmptySoftwareProcess) app.getChildren().iterator().next();
         Map<String, Object> pp = entity.getConfig(EmptySoftwareProcess.PROVISIONING_PROPERTIES);
-        Assert.assertEquals(pp.get("minRam"), 16384);
-    }
-
-    @Test(groups="Integration")
-    public void testProvisioningPropertiesViaJsonya() throws Exception {
-        Entity app = createAndStartApplication(
-            Jsonya.newInstance()
-                .put("location", "localhost")
-                .at("services").list()
-                .put("type", EmptySoftwareProcess.class.getName())
-                .at("provisioning.properties").put("minRam", 16384)
-                .root().toString());
-        waitForApplicationTasks(app);
-
-        log.info("App started:");
-        Entities.dumpInfo(app);
+        assertEquals(pp.get("minRam"), 16384);
         
-        EmptySoftwareProcess entity = (EmptySoftwareProcess) app.getChildren().iterator().next();
-        Map<String, Object> pp = entity.getConfig(EmptySoftwareProcess.PROVISIONING_PROPERTIES);
-        Assert.assertEquals(pp.get("minRam"), 16384);
+        MachineLocation machine = Locations.findUniqueMachineLocation(entity.getLocations()).get();
+        assertEquals(machine.config().get(ConfigKeys.newConfigKey(Object.class, "myLocConfig")), "myval");
+        assertEquals(machine.config().get(ConfigKeys.newConfigKey(Object.class, "minRam")), 16384);
     }
 
     // for https://github.com/brooklyncentral/brooklyn/issues/1377
-    @Test(groups="Integration")
+    @Test
     public void testWithAppAndEntityLocations() throws Exception {
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: "+EmptySoftwareProcess.class.getName(),
-                "  location: localhost:(name=localhost on entity)",
+                "  location:",
+                "    localhost:(name=localhost on entity):",
+                "      sshToolClass: "+RecordingSshTool.class.getName(),
                 "location: byon:(hosts=\"127.0.0.1\", name=loopback on app)");
         waitForApplicationTasks(app);
         Entities.dumpInfo(app);
         
-        Assert.assertEquals(app.getLocations().size(), 1);
-        Assert.assertEquals(app.getChildren().size(), 1);
-        Entity entity = app.getChildren().iterator().next();
-        
-        Location appLocation = app.getLocations().iterator().next();
+        Location appLocation = Iterables.getOnlyElement(app.getLocations());
         Assert.assertEquals(appLocation.getDisplayName(), "loopback on app");
         
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
         Assert.assertEquals(entity.getLocations().size(), 2);
-        Iterator<Location> entityLocationIterator = entity.getLocations().iterator();
-        Assert.assertEquals(entityLocationIterator.next().getDisplayName(), "localhost on entity");
-        Location actualMachine = entityLocationIterator.next();
-        Assert.assertTrue(actualMachine instanceof SshMachineLocation, "wrong location: "+actualMachine);
+        Location provisioningLoc = Iterables.get(entity.getLocations(), 0);
+        Location machineLoc = Iterables.get(entity.getLocations(), 1);
+        
+        Assert.assertEquals(provisioningLoc.getDisplayName(), "localhost on entity");
+        Assert.assertTrue(machineLoc instanceof SshMachineLocation, "wrong location: "+machineLoc);
         // TODO this, below, probably should be 'localhost on entity', see #1377
-        Assert.assertEquals(actualMachine.getParent().getDisplayName(), "localhost on entity");
+        Assert.assertEquals(machineLoc.getParent().getDisplayName(), "localhost on entity");
     }
     
-    @Test(groups="Integration")
+    @Test
     public void testNoSshing() throws Exception {
         Entity app = createAndStartApplication(
-                "location: byon:(hosts=\"1.2.3.4\")",
+                "location:",
+                "  localhost:",
+                "    sshToolClass: "+RecordingSshTool.class.getName(),
                 "services:",
                 "- type: "+EmptySoftwareProcess.class.getName(),
                 "  brooklyn.config:",
@@ -116,8 +128,10 @@ public class EmptySoftwareProcessYamlTest extends AbstractYamlTest {
                 "    "+BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION.getName()+": true");
         waitForApplicationTasks(app);
 
-        EmptySoftwareProcess entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, EmptySoftwareProcess.class));
+        EmptySoftwareProcess entity = (EmptySoftwareProcess) Iterables.getOnlyElement(app.getChildren());
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
         EntityAsserts.assertAttributeEqualsContinually(entity, Attributes.SERVICE_UP, true);
+        
+        assertEquals(RecordingSshTool.getExecCmds(), ImmutableList.of());
     }
 }
