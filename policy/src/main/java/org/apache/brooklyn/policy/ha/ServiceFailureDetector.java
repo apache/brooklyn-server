@@ -241,7 +241,7 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                         publishEntityFailedTime = now + republishDelay.toMilliseconds();
                         recomputeIn = Math.min(recomputeIn, republishDelay.toMilliseconds());
                     }
-                    entity.sensors().emit(HASensors.ENTITY_FAILED, new HASensors.FailureDescriptor(entity, getFailureDescription(now)));
+                    emit(HASensors.ENTITY_FAILED, new HASensors.FailureDescriptor(entity, getFailureDescription(now)));
                     config().set(LAST_PUBLISHED, LastPublished.FAILED);
                 } else {
                     recomputeIn = Math.min(recomputeIn, delayBeforeCheck);
@@ -252,7 +252,7 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                     if (LOG.isDebugEnabled()) LOG.debug("{} publishing recovered (state={}; currentRecoveryStartTime={}; now={}", 
                             new Object[] {this, state, Time.makeDateString(currentRecoveryStartTime), Time.makeDateString(now)});
                     publishEntityRecoveredTime = null;
-                    entity.sensors().emit(HASensors.ENTITY_RECOVERED, new HASensors.FailureDescriptor(entity, null));
+                    emit(HASensors.ENTITY_RECOVERED, new HASensors.FailureDescriptor(entity, null));
                     config().set(LAST_PUBLISHED, LastPublished.RECOVERED);
                 } else {
                     recomputeIn = Math.min(recomputeIn, delayBeforeCheck);
