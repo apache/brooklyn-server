@@ -133,16 +133,15 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             }
         }
 
-        return runInSameThread(t, new Callable<Maybe<T>>() {
-            public Maybe<T> call() {
-                try {
+        try {
+            return runInSameThread(t, new Callable<Maybe<T>>() {
+                public Maybe<T> call() throws Exception {
                     return Maybe.of(t.getJob().call());
-                } catch (Exception e) {
-                    Exceptions.propagateIfFatal(e);
-                    return Maybe.absent(e);
                 }
-            }
-        }).get();
+            }).get();
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
     }
     
     private static class SimpleFuture<T> implements Future<T> {
@@ -190,7 +189,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         }
     }
     
-    private <T> Maybe<T> runInSameThread(final Task<T> task, Callable<Maybe<T>> job) {
+    private <T> Maybe<T> runInSameThread(final Task<T> task, Callable<Maybe<T>> job) throws Exception {
         ((TaskInternal<T>)task).getMutableTags().addAll(tags);
         
         Task<?> previousTask = BasicExecutionManager.getPerThreadCurrentTask().get();
@@ -209,9 +208,11 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             return future.set(job.call());
             
         } catch (Exception e) {
-            error = e;
             future.set(Maybe.absent(e));
-            throw Exceptions.propagate(e);
+            Exceptions.propagateIfInterrupt(e);
+            error = e;
+            // error above will be rethrown by `afterEnd`
+            return null;  // not actually returned
             
         } finally {
             try {
@@ -252,19 +253,23 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         fakeTaskForContext.tags.add(BrooklynTaskTags.IMMEDIATE_TASK_TAG);
         fakeTaskForContext.tags.add(BrooklynTaskTags.TRANSIENT_TASK_TAG);
 
-        return runInSameThread(fakeTaskForContext, new Callable<Maybe<T>>() {
-            public Maybe<T> call() {
-                fakeTaskForContext.cancel();
-                
-                boolean wasAlreadyInterrupted = Thread.interrupted();
-                try {
-                    return job.getImmediately();
-                } finally {
-                    if (wasAlreadyInterrupted) {
-                        Thread.currentThread().interrupt();
+        try {
+            return runInSameThread(fakeTaskForContext, new Callable<Maybe<T>>() {
+                public Maybe<T> call() {
+                    fakeTaskForContext.cancel();
+                    
+                    boolean wasAlreadyInterrupted = Thread.interrupted();
+                    try {
+                        return job.getImmediately();
+                    } finally {
+                        if (wasAlreadyInterrupted) {
+                            Thread.currentThread().interrupt();
+                        }
                     }
-                }
-            } });
+                } });
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
     }
     
     @SuppressWarnings({ "unchecked", "rawtypes" })
