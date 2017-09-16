@@ -20,6 +20,8 @@ package org.apache.brooklyn.enricher.stock;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -33,6 +35,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.trait.Changeable;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringPredicates;
@@ -50,18 +53,26 @@ public abstract class AbstractAggregator<T,U> extends AbstractEnricher implement
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractAggregator.class);
 
-    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class,
-            "enricher.producer", "The entity whose children/members will be aggregated");
+    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(
+            Entity.class,
+            "enricher.producer", 
+            "The entity whose children/members will be aggregated");
 
-    public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {},
-            "enricher.targetSensor");
+    public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(
+            new TypeToken<Sensor<?>>() {},
+            "enricher.targetSensor",
+            "The sensor to be set on the associated entity with the value computed here");
 
     // FIXME this is not just for "members" i think -Alex
-    public static final ConfigKey<?> DEFAULT_MEMBER_VALUE = ConfigKeys.newConfigKey(Object.class,
-            "enricher.defaultMemberValue");
+    public static final ConfigKey<?> DEFAULT_MEMBER_VALUE = ConfigKeys.newConfigKey(
+            Object.class,
+            "enricher.defaultMemberValue",
+            "The value to use for a new producer if its source sensor is null");
 
-    public static final ConfigKey<Set<? extends Entity>> FROM_HARDCODED_PRODUCERS = ConfigKeys.newConfigKey(new TypeToken<Set<? extends Entity>>() {},
-            "enricher.aggregating.fromHardcodedProducers");
+    public static final ConfigKey<Set<? extends Entity>> FROM_HARDCODED_PRODUCERS = ConfigKeys.newConfigKey(
+            new TypeToken<Set<? extends Entity>>() {},
+            "enricher.aggregating.fromHardcodedProducers",
+            "The producers to be aggregated (this an alternative way of configuring it, rather than using members or children)");
 
     public static final ConfigKey<Boolean> FROM_MEMBERS = ConfigKeys.newBooleanConfigKey(
             "enricher.aggregating.fromMembers",
@@ -72,11 +83,16 @@ public abstract class AbstractAggregator<T,U> extends AbstractEnricher implement
             "enricher.aggregating.fromChildren",
             "Whether this enricher looks at children; this is the default for non-Group producers");
 
-    public static final ConfigKey<Predicate<? super Entity>> ENTITY_FILTER = ConfigKeys.newConfigKey(new TypeToken<Predicate<? super Entity>>() {},
-            "enricher.aggregating.entityFilter");
+    public static final ConfigKey<Predicate<? super Entity>> ENTITY_FILTER = ConfigKeys.newConfigKey(
+            new TypeToken<Predicate<? super Entity>>() {},
+            "enricher.aggregating.entityFilter",
+            "A filter of the possible producers");
 
-    public static final ConfigKey<Predicate<?>> VALUE_FILTER = ConfigKeys.newConfigKey(new TypeToken<Predicate<?>>() {},
-            "enricher.aggregating.valueFilter");
+    public static final ConfigKey<Predicate<?>> VALUE_FILTER = ConfigKeys.newConfigKey(
+            new TypeToken<Predicate<?>>() {},
+            "enricher.aggregating.valueFilter",
+            "A filter of the possible producers, based on their sensor value");
+    
     public static final ConfigKey<Boolean> EXCLUDE_BLANK = ConfigKeys.newBooleanConfigKey(
             "enricher.aggregator.excludeBlank",
             "Whether explicit nulls or blank strings should be excluded (default false); " +
@@ -103,24 +119,31 @@ public abstract class AbstractAggregator<T,U> extends AbstractEnricher implement
         checkState(fromHardcodedProducers != null ^ producer != null, "must specify one of %s (%s) or %s (%s)", 
                 PRODUCER.getName(), producer, FROM_HARDCODED_PRODUCERS.getName(), fromHardcodedProducers);
 
+        List<Object> producers = MutableList.of();
+
         if (fromHardcodedProducers != null) {
             for (Entity producer : Iterables.filter(fromHardcodedProducers, entityFilter)) {
+                producers.add(producer);
                 addProducerHardcoded(producer);
             }
         }
         
         if (isAggregatingMembers()) {
+            producers.add(0, "members");
             setEntityBeforeSubscribingProducerMemberEvents(entity);
             setEntitySubscribeProducerMemberEvents();
             setEntityAfterSubscribingProducerMemberEvents();
         }
         
         if (isAggregatingChildren()) {
+            producers.add(0, "children");
             setEntityBeforeSubscribingProducerChildrenEvents();
             setEntitySubscribingProducerChildrenEvents();
             setEntityAfterSubscribingProducerChildrenEvents();
         }
         
+        highlightTriggers(getSourceSensors(), producers);
+
         onUpdated();
     }
 
@@ -136,6 +159,8 @@ public abstract class AbstractAggregator<T,U> extends AbstractEnricher implement
         
         setEntityLoadingTargetConfig();
     }
+    
+    protected abstract Collection<Sensor<?>> getSourceSensors();
     
     protected Predicate<?> getDefaultValueFilter() {
         if (getConfig(EXCLUDE_BLANK))

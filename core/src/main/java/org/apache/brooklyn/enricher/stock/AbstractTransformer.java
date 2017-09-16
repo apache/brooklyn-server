@@ -31,6 +31,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.sensor.BasicSensorEvent;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.slf4j.Logger;
@@ -45,14 +46,20 @@ public abstract class AbstractTransformer<T,U> extends AbstractEnricher implemen
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractTransformer.class);
 
-    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class,
-            "enricher.producer");
+    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(
+            Entity.class,
+            "enricher.producer",
+            "The entity with the trigger sensor (defaults to the enricher's entity)");
 
-    public static final ConfigKey<Sensor<?>> SOURCE_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {},
-            "enricher.sourceSensor");
+    public static final ConfigKey<Sensor<?>> SOURCE_SENSOR = ConfigKeys.newConfigKey(
+            new TypeToken<Sensor<?>>() {},
+            "enricher.sourceSensor",
+            "The sensor whose change triggers re-evaluation of the target value");
 
-    public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {},
-            "enricher.targetSensor");
+    public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(
+            new TypeToken<Sensor<?>>() {},
+            "enricher.targetSensor",
+            "The sensor to be set on the associated entity with the value computed here");
     
     public static final ConfigKey<List<? extends Sensor<?>>> TRIGGER_SENSORS = ConfigKeys.newConfigKey(
             new TypeToken<List<? extends Sensor<?>>>() {}, 
@@ -138,6 +145,8 @@ public abstract class AbstractTransformer<T,U> extends AbstractEnricher implemen
                 subscriptions().subscribe(MutableMap.of("notifyOfInitialValue", true), producer, (Sensor<?>)sensor, triggerListener);
             }
         }
+        
+        highlightTriggers(MutableList.<Sensor<?>>of(sourceSensor).appendAll(triggerSensors), producer);
     }
 
     /** returns a function for transformation, for immediate use only (not for caching, as it may change) */

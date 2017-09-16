@@ -23,42 +23,68 @@ brooklyn.catalog:
     - id: org.apache.brooklyn.entity.group.QuarantineGroup
       item:
         type: org.apache.brooklyn.entity.group.QuarantineGroup
+        name: Quarantine Group
+        description: A grouping for entities that are in quarantine (i.e. removed from the main cluster)
     - id: org.apache.brooklyn.entity.group.BasicGroup
       item:
         type: org.apache.brooklyn.entity.group.BasicGroup
+        name: Basic Group
+        description: A grouping of entities
     - id: org.apache.brooklyn.entity.stock.BasicEntity
       item:
         type: org.apache.brooklyn.entity.stock.BasicEntity
+        name: Basic Entity
+        description: The simplest basic entity (can be useful for testing)
     - id: org.apache.brooklyn.entity.stock.DataEntity
       item:
         type: org.apache.brooklyn.entity.stock.DataEntity
+        name: Data Entity
+        description: An entity that supplies data as sensor values (periodically evaluating given suppliers).
     - id: org.apache.brooklyn.entity.group.DynamicGroup
       item:
         type: org.apache.brooklyn.entity.group.DynamicGroup
+        name: Dynamic Group
+        description: A grouping of entities, where membership of the group is based on a given filter.
     - id: org.apache.brooklyn.entity.stock.DelegateEntity
       item:
         type: org.apache.brooklyn.entity.stock.DelegateEntity
+        name: Delegate Entity
+        description: An entity that mirrors another entity (mirroring its sensors)
     - id: org.apache.brooklyn.entity.group.DynamicRegionsFabric
       item:
         type: org.apache.brooklyn.entity.group.DynamicRegionsFabric
+        name: Dynamic Regions Fabric
+        description: A 'fabric' (see 'Dynamic Fabric') that allows new locations to be added/removed. 
     - id: org.apache.brooklyn.core.server.entity.BrooklynMetrics
       item:
         type: org.apache.brooklyn.core.server.entity.BrooklynMetrics
+        name: Brooklyn Metrics
+        description: An entity that gives information about this Brooklyn server.
     - id: org.apache.brooklyn.entity.stock.BasicApplication
       item:
         type: org.apache.brooklyn.entity.stock.BasicApplication
+        name: Basic Application
+        description: The simplest application.
     - id: org.apache.brooklyn.entity.stock.BasicStartable
       item:
         type: org.apache.brooklyn.entity.stock.BasicStartable
+        name: Basic Startable
+        description: Provides a pass-through Startable entity, which can control the location(s) passed to its children.
     - id: org.apache.brooklyn.entity.group.DynamicCluster
       item:
         type: org.apache.brooklyn.entity.group.DynamicCluster
+        name: Dynamic Cluster
+        description: A cluster of entities that can dynamically increase or decrease the number of members.
     - id: org.apache.brooklyn.entity.group.DynamicMultiGroup
       item:
         type: org.apache.brooklyn.entity.group.DynamicMultiGroup
+        name: Dynamic Multi Group
+        description: Similar to 'Dynamic Group', but with multiple child groups. Entities are added to the child groups based on a supplied filter. 
     - id: org.apache.brooklyn.entity.group.DynamicFabric
       item:
         type: org.apache.brooklyn.entity.group.DynamicFabric
+        name: Dynamic Fabric
+        description: The 'fabric' creates and starts an entity in each of its locations.
 
   - itemType: enricher
     items:
@@ -66,51 +92,78 @@ brooklyn.catalog:
       itemType: enricher
       item:
         type: org.apache.brooklyn.core.network.OnPublicNetworkEnricher
+        name: Public Network Advertiser
+        description: Advertises entity's public mapped ports. This can be used with sensors of type URI, HostAndPort or plain integer port values
     - id: org.apache.brooklyn.core.network.OnSubnetNetworkEnricher
       itemType: enricher
       item:
         type: org.apache.brooklyn.core.network.OnSubnetNetworkEnricher
+        name: Subnet Network Advertiser
+        description: Advertises entity's subnet mapped ports. This can be used with sensors of type URI, HostAndPort or plain integer port values
     - id: org.apache.brooklyn.enricher.stock.Aggregator
       itemType: enricher
       item:
         type: org.apache.brooklyn.enricher.stock.Aggregator
+        name: Aggregator
+        description: Aggregates sensors from multiple entities into a single sensor value
     - id: org.apache.brooklyn.enricher.stock.Combiner
       itemType: enricher
       item:
         type: org.apache.brooklyn.enricher.stock.Combiner
+        name: Combiner
+        description: Combines and apply a transformation to sensors of an entity
     - id: org.apache.brooklyn.enricher.stock.Joiner
       itemType: enricher
       item:
         type: org.apache.brooklyn.enricher.stock.Joiner
+        name: Joiner
+        description: Joins entity's sensors into another one, i.e. creates a comma separated string from a list
     - id: org.apache.brooklyn.enricher.stock.MapAggregator
       itemType: enricher
       item:
         type: org.apache.brooklyn.enricher.stock.MapAggregator
+        name: Map Aggregator
+        description: Aggregates a pair of sensors on multiple children and/or members that are used as key-value pairs in a generated Map
     - id: org.apache.brooklyn.enricher.stock.PercentageEnricher
       itemType: enricher
       item:
         type: org.apache.brooklyn.enricher.stock.PercentageEnricher
+        name: Percentage Transformer
+        description: Computes and advertises the percentage based on a current and total values
     - id: org.apache.brooklyn.enricher.stock.Propagator
       itemType: enricher
       item:
         type: org.apache.brooklyn.enricher.stock.Propagator
+        name: Propagator
+        description: Propagates sensors from one entity to another
     - id: org.apache.brooklyn.enricher.stock.Transformer
       itemType: enricher
       item:
         type: org.apache.brooklyn.enricher.stock.Transformer
+        name: Transformer
+        description: Transforms sensors of an entity
     - id: org.apache.brooklyn.enricher.stock.UpdatingMap
       itemType: enricher
       item:
         type: org.apache.brooklyn.enricher.stock.UpdatingMap
+        name: Map Updater
+        description: Updates an entry in a sensor Map
     - id: org.apache.brooklyn.enricher.stock.YamlRollingTimeWindowMeanEnricher
       itemType: enricher
       item:
         type: org.apache.brooklyn.enricher.stock.YamlRollingTimeWindowMeanEnricher
+        name: YAML Rolling Average
+        description: Transforms sensor data into a rolling average based on a time window.")
     - id: org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher
       itemType: enricher
       item:
         type: org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher
+        name: YAML Time-weighted Delta
+        description: Converts an absolute count sensor into a delta sensor
     - id: org.apache.brooklyn.enricher.stock.reducer.Reducer
       itemType: enricher
       item:
         type: org.apache.brooklyn.enricher.stock.reducer.Reducer
+        name: Reducer
+        description: Applies a transformation to a sensor
+        

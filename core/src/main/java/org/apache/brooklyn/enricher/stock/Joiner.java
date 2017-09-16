@@ -47,31 +47,42 @@ public class Joiner<T> extends AbstractEnricher implements SensorEventListener<T
     private static final Logger LOG = LoggerFactory.getLogger(Joiner.class);
 
     public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class,
-            "enricher.producer");
+            "enricher.producer",
+            "The entity that has the source sensors (defaults to the entity that the enricher is attached to)");
+    
     public static final ConfigKey<Sensor<?>> SOURCE_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {},
-            "enricher.sourceSensor");
+            "enricher.sourceSensor",
+            "The sensor (expected to be of type Map or Iterable) whose change triggers re-evaluation of the target value");
+    
     public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {},
-            "enricher.targetSensor");
+            "enricher.targetSensor",
+            "The sensor to be set on the associated entity with the value computed here");
+
     @SetFromFlag("separator")
     public static final ConfigKey<String> SEPARATOR = ConfigKeys.newStringConfigKey(
             "enricher.joiner.separator",
             "Separator string to insert between each argument", ",");
+    
     @SetFromFlag("keyValueSeparator")
     public static final ConfigKey<String> KEY_VALUE_SEPARATOR = ConfigKeys.newStringConfigKey(
             "enricher.joiner.keyValueSeparator",
             "Separator string to insert between each key-value pair", "=");
+    
     @SetFromFlag("joinMapEntries")
     public static final ConfigKey<Boolean> JOIN_MAP_ENTRIES = ConfigKeys.newBooleanConfigKey(
             "enricher.joiner.joinMapEntries",
             "Whether to add map entries as key-value pairs or just use the value, defaulting to false", false);
+    
     @SetFromFlag("quote")
     public static final ConfigKey<Boolean> QUOTE = ConfigKeys.newBooleanConfigKey(
             "enricher.joiner.quote",
             "Whether to bash-escape each parameter and wrap in double-quotes, defaulting to true", true);
+    
     @SetFromFlag("minimum")
     public static final ConfigKey<Integer> MINIMUM = ConfigKeys.newIntegerConfigKey(
             "enricher.joiner.minimum",
             "Minimum number of elements to join; if fewer than this, sets null; default 0 (no minimum)");
+    
     @SetFromFlag("maximum")
     public static final ConfigKey<Integer> MAXIMUM = ConfigKeys.newIntegerConfigKey(
             "enricher.joiner.maximum",
@@ -93,6 +104,7 @@ public class Joiner<T> extends AbstractEnricher implements SensorEventListener<T
         this.sourceSensor = (AttributeSensor<T>) getRequiredConfig(SOURCE_SENSOR);
         this.targetSensor = (Sensor<String>) getRequiredConfig(TARGET_SENSOR);
 
+        highlightTriggers(sourceSensor, producer);
         subscriptions().subscribe(producer, sourceSensor, this);
 
         Object value = producer.getAttribute((AttributeSensor<?>) sourceSensor);

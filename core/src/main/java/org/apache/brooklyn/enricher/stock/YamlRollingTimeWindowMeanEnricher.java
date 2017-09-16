@@ -57,11 +57,16 @@ import com.google.common.base.Function;
 @Catalog(name = "YAML Rolling Average", description = "Transforms sensor data into a rolling average based on a time window.")
 public class YamlRollingTimeWindowMeanEnricher<T extends Number> extends AbstractTransformer<T,Double> {
     
-    public static ConfigKey<Duration> WINDOW_DURATION = ConfigKeys.newConfigKey(Duration.class, "enricher.window.duration",
-        "Duration for which this window should store data, default one minute", Duration.ONE_MINUTE);
+    public static ConfigKey<Duration> WINDOW_DURATION = ConfigKeys.newConfigKey(
+            Duration.class, 
+            "enricher.window.duration",
+            "Duration for which this window should store data, default one minute", 
+            Duration.ONE_MINUTE);
 
-    public static ConfigKey<Double> CONFIDENCE_REQUIRED_TO_PUBLISH = ConfigKeys.newDoubleConfigKey("enricher.window.confidenceRequired",
-        "Minimum confidence level (ie period covered) required to publish a rolling average", 0.8d);
+    public static ConfigKey<Double> CONFIDENCE_REQUIRED_TO_PUBLISH = ConfigKeys.newDoubleConfigKey(
+            "enricher.window.confidenceRequired",
+            "Minimum confidence level (ie period covered) required to publish a rolling average", 
+            0.8d);
 
     public static class ConfidenceQualifiedNumber {
         final Double value;
