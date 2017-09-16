@@ -768,8 +768,8 @@ public class AutoScalerPolicy extends AbstractPolicy {
                         int desiredSize = Math.min(max, Math.max(min, currentSize));
 
                         if (currentSize != desiredSize) {
-                            if (LOG.isInfoEnabled()) LOG.info("{} resizing pool {} immediateley from {} to {} (due to new pool size limits)", new Object[] {this, poolEntity, currentSize, desiredSize});
-                            getResizeOperator().resize(poolEntity, desiredSize);
+                            if (LOG.isInfoEnabled()) LOG.info("{} resizing pool {} triggering resize computation due to new pool size limits, current {} exceeds bound of {}", new Object[] {this, poolEntity, currentSize, desiredSize});
+                            resizeNow("Size "+currentSize+" not in new bounds");
                         }
                         
                     } catch (Exception e) {
