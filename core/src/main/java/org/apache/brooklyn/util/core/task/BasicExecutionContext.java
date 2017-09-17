@@ -25,6 +25,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -169,11 +170,21 @@ public class BasicExecutionContext extends AbstractExecutionContext {
 
         @Override
         public boolean isDone() {
-            return done;
+            return done || cancelled;
         }
 
         @Override
         public T get() throws InterruptedException, ExecutionException {
+            if (!isDone()) {
+                synchronized (this) {
+                    while (!isDone()) {
+                        wait(1000);
+                    }
+                }
+            }
+            if (isCancelled() && !done) {
+                throw new CancellationException();
+            }
             return result.get();
         }
 
@@ -203,7 +214,10 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             ((BasicExecutionManager)executionManager).afterSubmitRecordFuture(task, future);
             ((BasicExecutionManager)executionManager).beforeStartInSameThreadTask(null, task);
 
-            // TODO this does not apply the same context-switching logic as submit
+            // TODO this does not apply the same context-switching logic as submit;
+            // means if task on X submits via this method a non-child (non-queued) task for an effector on Y,
+            // a request to get all of X's tasks recursively won't pick up the call on Y
+            // (because parent tasks don't have records of submitted tasks unless they are children) 
             
             return future.set(job.call());
             
@@ -256,6 +270,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         try {
             return runInSameThread(fakeTaskForContext, new Callable<Maybe<T>>() {
                 public Maybe<T> call() {
+                    // TODO do we really want to cancel? means if it submits other things they won't run, even if they return immediately
                     fakeTaskForContext.cancel();
                     
                     boolean wasAlreadyInterrupted = Thread.interrupted();
@@ -303,43 +318,44 @@ public class BasicExecutionContext extends AbstractExecutionContext {
              * (e.g. where entity X is invoking an effector on Y, it will start in X's context, 
              * but the effector should run in Y's context).
              * 
-             * if X is invoking an effector on himself in his own context, or a sensor or other task, it will not come in to this block.
+             * we need to make sure there is a reference from this execution context to the submitted task,
+             * IE the submitted task is a child of something in this execution context.
+             * this ensures it shows up via the REST API and in the UI; without it we lose the reference to the child when browsing in the context of the parent.
+             * 
+             * if it is queued or it is already recorded as a child we can simply submit in target context;
+             * but if not we need to wrap it in a task running in this context with the submitted task as a child to have that reference.
              */
             final ExecutionContext tc = ((EntityInternal)target).getExecutionContext();
             if (log.isDebugEnabled())
                 log.debug("Switching task context on execution of "+task+": from "+this+" to "+target+" (in "+Tasks.current()+")");
             
+            final Task<T> t;
             if (task instanceof Task<?>) {
-                final Task<T> t = (Task<T>)task;
-                if (!Tasks.isQueuedOrSubmitted(t) && (!(Tasks.current() instanceof HasTaskChildren) || 
-                        !Iterables.contains( ((HasTaskChildren)Tasks.current()).getChildren(), t ))) {
-                    // this task is switching execution context boundaries _and_ it is not a child and not yet queued,
-                    // so wrap it in a task running in this context to keep a reference to the child
-                    // (this matters when we are navigating in the GUI; without it we lose the reference to the child 
-                    // when browsing in the context of the parent)
-                    return submit(Tasks.<T>builder().displayName("Cross-context execution: "+t.getDescription()).dynamic(true).body(new Callable<T>() {
-                        @Override
-                        public T call() { 
-                            return DynamicTasks.get(t); 
-                        }
-                    }).build());
-                } else {
-                    // if we are already tracked by parent, just submit it 
+                t = (Task<T>)task;
+                if (Tasks.isQueuedOrSubmitted(t) ||
+                        ((Tasks.current() instanceof HasTaskChildren) && Iterables.contains( ((HasTaskChildren)Tasks.current()).getChildren(), t ))) {
+                    // we are already tracked by parent, just submit it 
                     return tc.submit(t);
                 }
             } else {
-                // as above, but here we are definitely not a child (what we are submitting isn't even a task)
-                // (will only come here if properties defines tags including a target entity, which probably never happens) 
-                submit(Tasks.<T>builder().displayName("Cross-context execution").dynamic(true).body(() -> {
-                    if (task instanceof Callable) {
-                        return DynamicTasks.queue( Tasks.<T>builder().dynamic(false).body((Callable<T>)task).build() ).getUnchecked();
-                    } else if (task instanceof Runnable) {
-                        return DynamicTasks.queue( Tasks.<T>builder().dynamic(false).body((Runnable)task).build() ).getUnchecked();
-                    } else {
-                        throw new IllegalArgumentException("Unhandled task type: "+task+"; type="+(task!=null ? task.getClass() : "null"));
-                    }
-                }).build());
+                // for callables and runnables there is definitely no record
+                if (task instanceof Callable) {
+                    t = Tasks.<T>builder().dynamic(false).body((Callable<T>)task).build();
+                } else if (task instanceof Runnable) {
+                    t = Tasks.<T>builder().dynamic(false).body((Runnable)task).build();
+                } else {
+                    throw new IllegalArgumentException("Unhandled task type: "+task+"; type="+(task!=null ? task.getClass() : "null"));
+                }                
             }
+                
+            return submit(
+                // 2017-09 changed, doesn't have to be a dynamic task; can be a simple sequential task wrapping the child
+                Tasks.<T>builder().displayName("Cross-context execution: "+t.getDescription()).dynamic(false).parallel(false).body(new Callable<T>() {
+                    @Override
+                    public T call() { 
+                        return tc.get(t); 
+                    }
+                }).build() );
         }
 
         EntitlementContext entitlementContext = BrooklynTaskTags.getEntitlement(taskTags);

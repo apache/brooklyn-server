@@ -234,7 +234,7 @@ public class Tasks {
         return sequential(name, asTasks(Iterables.toArray(tasks, TaskAdaptable.class)));
     }
     private static Task<List<?>> sequentialInternal(String name, Task<?>[] tasks) {
-        return Tasks.<List<?>>builder().displayName(name).parallel(false).add(tasks).build();
+        return Tasks.<List<?>>builder().displayName(name).dynamic(false).parallel(false).add(tasks).build();
     }
     private static TaskFactory<?> sequentialInternal(final String name, final TaskFactory<?> ...taskFactories) {
         return new TaskFactory<TaskAdaptable<?>>() {
