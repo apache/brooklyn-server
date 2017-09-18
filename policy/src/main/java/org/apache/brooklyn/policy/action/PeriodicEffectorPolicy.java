@@ -21,12 +21,9 @@ package org.apache.brooklyn.policy.action;
 import java.util.List;
 
 import org.apache.brooklyn.api.effector.Effector;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.DurationPredicates;
 import org.slf4j.Logger;
