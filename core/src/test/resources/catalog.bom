@@ -17,4 +17,4 @@
 
 brooklyn.catalog:
   bundle: org.apache.brooklyn.core-tests
-  version: "0.12.0-SNAPSHOT" # BROOKLYN_VERSION
+  version: "0.12.0" # BROOKLYN_VERSION
