@@ -671,6 +671,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (scanJavaAnnotations==null || !scanJavaAnnotations) {
             // don't scan
         } else {
+            log.warn("Deprecated use of scanJavaAnnotations" + (containingBundle != null ? " in bundle " + containingBundle.getVersionedName() : ""));
+            
             if (isNoBundleOrSimpleWrappingBundle(mgmt, containingBundle)) {
                 Collection<CatalogItemDtoAbstract<?, ?>> scanResult;
                 // BOMs wrapped in JARs, or without JARs, have special treatment
@@ -1076,11 +1078,19 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return oldValue;
     }
 
+    /**
+     * @deprecated since 1.0.0; Catalog annotation is deprecated.
+     */
+    @Deprecated
     private Collection<CatalogItemDtoAbstract<?, ?>> scanAnnotationsFromLocalNonBundleClasspath(ManagementContext mgmt, Map<?, ?> catalogMetadata, ManagedBundle containingBundle) {
         CatalogDto dto = CatalogDto.newNamedInstance("Local Scanned Catalog", "All annotated Brooklyn entities detected in the classpath", "scanning-local-classpath");
         return scanAnnotationsInternal(mgmt, new CatalogDo(dto), catalogMetadata, containingBundle);
     }
     
+    /**
+     * @deprecated since 1.0.0; Catalog annotation is deprecated.
+     */
+    @Deprecated
     private Collection<CatalogItemDtoAbstract<?, ?>> scanAnnotationsLegacyInListOfLibraries(ManagementContext mgmt, Collection<? extends OsgiBundleWithUrl> libraries, Map<?, ?> catalogMetadata, ManagedBundle containingBundle) {
         CatalogDto dto = CatalogDto.newNamedInstance("Bundles Scanned Catalog", "All annotated Brooklyn entities detected in bundles", "scanning-bundles-classpath-"+libraries.hashCode());
         List<String> urls = MutableList.of();
@@ -1104,6 +1114,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return scanAnnotationsInternal(mgmt, subCatalog, catalogMetadata, containingBundle);
     }
     
+    /**
+     * @deprecated since 1.0.0; Catalog annotation is deprecated.
+     */
+    @Deprecated
     @SuppressWarnings("unused")  // keep during 0.12.0 until we are decided we won't support this; search for this method name
     // (note that this now could work after rebind since we have the OSGi cache)
     private Collection<CatalogItemDtoAbstract<?, ?>> scanAnnotationsInBundle(ManagementContext mgmt, ManagedBundle containingBundle) {
@@ -1136,6 +1150,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         }
     }
 
+    /**
+     * @deprecated since 1.0.0; Catalog annotation is deprecated.
+     */
+    @Deprecated
     private Collection<CatalogItemDtoAbstract<?, ?>> scanAnnotationsInternal(ManagementContext mgmt, CatalogDo subCatalog, Map<?, ?> catalogMetadata, ManagedBundle containingBundle) {
         subCatalog.mgmt = mgmt;
         subCatalog.setClasspathScanForEntities(CatalogScanningModes.ANNOTATIONS);
