@@ -228,8 +228,14 @@ public interface JcloudsLocationConfigPublic extends CloudLocationConfig {
     public static final ConfigKey<Integer> MAX_CONCURRENT_MACHINE_CREATIONS = ConfigKeys.newIntegerConfigKey(
             "maxConcurrentMachineCreations", "Maximum number of concurrent machine-creations", Integer.MAX_VALUE);
 
+    public static final ConfigKey<Integer> MAX_CONCURRENT_MACHINE_DELETIONS = ConfigKeys.newIntegerConfigKey(
+            "maxConcurrentMachineDeletions", "Maximum number of concurrent machine-deletions", Integer.MAX_VALUE);
+
     public static final ConfigKey<Semaphore> MACHINE_CREATION_SEMAPHORE = ConfigKeys.newConfigKey(
             Semaphore.class, "machineCreationSemaphore", "Semaphore for controlling concurrent machine creation", null);
+    
+    public static final ConfigKey<Semaphore> MACHINE_DELETION_SEMAPHORE = ConfigKeys.newConfigKey(
+            Semaphore.class, "machineDeletionSemaphore", "Semaphore for controlling concurrent machine deletion", null);
     
     @SuppressWarnings("serial")
     public static final ConfigKey<Map<String,Object>> TEMPLATE_OPTIONS = ConfigKeys.newConfigKey(
