@@ -28,9 +28,11 @@ import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
@@ -133,6 +135,10 @@ public class ServiceRestarter extends AbstractPolicy {
             LOG.warn("ServiceRestarter suspended, so not acting on failure detected at "+entity+" ("+event.getValue()+")");
             return;
         }
+        if (isEntityStopping()) {
+            highlightViolation("Failure detected but entity stopping");
+            LOG.info("Entity stopping, so ServiceRestarter not acting on failure detected at "+entity+" ("+event.getValue()+")");
+        }
 
         LOG.warn("ServiceRestarter acting on failure detected at "+entity+" ("+event.getValue()+")");
         long current = System.currentTimeMillis();
@@ -154,6 +160,13 @@ public class ServiceRestarter extends AbstractPolicy {
         }
     }
 
+    protected boolean isEntityStopping() {
+        if (entity == null) return false;
+        Transition expectedState = entity.sensors().get(Attributes.SERVICE_STATE_EXPECTED);
+        Lifecycle state = (expectedState != null) ? expectedState.getState() : null;
+        return (state == Lifecycle.STOPPING) || (state == Lifecycle.STOPPED) || (state == Lifecycle.DESTROYED);
+    }
+    
     protected void onRestartFailed(String msg) {
         LOG.warn("ServiceRestarter failed for "+entity+": "+msg);
         if (getConfig(SET_ON_FIRE_ON_FAILURE)) {
