@@ -115,7 +115,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     protected AtomicBoolean running;
     protected ScheduledExecutorService executor;
-    protected Effector effector;
+    protected Effector<?> effector;
 
     public AbstractScheduledEffectorPolicy() {
         LOG.debug("Created new scheduled effector policy");
@@ -150,9 +150,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
         if (config().get(RUNNING)) {
             running.set(true);
-        }
 
-        if (running.get()) {
             List<Long> scheduled = config().get(SCHEDULED);
             for (Long when : scheduled) {
                 Duration wait = Duration.millis(when - System.currentTimeMillis());
@@ -175,7 +173,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
     }
 
     @Override
-    public void destroy(){
+    public void destroy() {
         executor.shutdownNow();
         super.destroy();
     }
