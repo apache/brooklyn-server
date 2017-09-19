@@ -22,22 +22,17 @@ package org.apache.brooklyn.policy.action;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
-import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
-public class PeriodicEffectorPolicyTest extends BrooklynAppUnitTestSupport {
-
-    private static final AttributeSensor<Boolean> START = Sensors.newBooleanSensor("start");
+public class PeriodicEffectorPolicyTest extends AbstractEffectorPolicyTest {
 
     @Test
     public void testPeriodicEffectorFires() {
@@ -55,20 +50,19 @@ public class PeriodicEffectorPolicyTest extends BrooklynAppUnitTestSupport {
         Asserts.assertFalse(policy.config().get(PeriodicEffectorPolicy.RUNNING));
 
         entity.sensors().set(START, Boolean.TRUE);
-        Asserts.eventually(() -> policy.config().get(PeriodicEffectorPolicy.RUNNING), b -> b);
-        Asserts.eventually(() -> entity.getCallHistory(), l -> l.contains("myEffector"));
-        int calls = entity.getCallHistory().size();
-        Asserts.eventually(() -> entity.getCallHistory().size(), i -> i > (calls + 500));
+        assertConfigEqualsEventually(policy, PeriodicEffectorPolicy.RUNNING, true);
+        assertCallHistoryEventually(entity, "myEffector", 2);
     }
 
-    @Test
+    // Integration because of long wait
+    @Test(groups="Integration")
     public void testPeriodicEffectorFiresAfterDelay() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
                 .policy(PolicySpec.create(PeriodicEffectorPolicy.class)
                         .configure(PeriodicEffectorPolicy.EFFECTOR, "myEffector")
                         .configure(PeriodicEffectorPolicy.EFFECTOR_ARGUMENTS, ImmutableMap.of())
                         .configure(PeriodicEffectorPolicy.PERIOD, Duration.ONE_MILLISECOND)
-                        .configure(PeriodicEffectorPolicy.WAIT, Duration.TEN_SECONDS)
+                        .configure(PeriodicEffectorPolicy.WAIT, Duration.FIVE_SECONDS)
                         .configure(PeriodicEffectorPolicy.START_SENSOR, START)));
         Policy policy = Iterables.tryFind(entity.policies(), Predicates.instanceOf(PeriodicEffectorPolicy.class)).orNull();
         Asserts.assertNotNull(policy);
@@ -77,20 +71,53 @@ public class PeriodicEffectorPolicyTest extends BrooklynAppUnitTestSupport {
         Asserts.assertFalse(policy.config().get(PeriodicEffectorPolicy.RUNNING));
 
         entity.sensors().set(START, Boolean.TRUE);
-        Asserts.eventually(() -> policy.config().get(PeriodicEffectorPolicy.RUNNING), b -> b);
-        sleep(Duration.seconds(5));
-        Asserts.eventually(() -> entity.getCallHistory(), l -> !l.contains("myEffector"));
-        sleep(Duration.seconds(5));
-        Asserts.eventually(() -> entity.getCallHistory(), l -> l.contains("myEffector"));
-        int calls = entity.getCallHistory().size();
-        Asserts.eventually(() -> entity.getCallHistory().size(), i -> i > (calls + 500));
+        assertConfigEqualsEventually(policy, PeriodicEffectorPolicy.RUNNING, true);
+        assertCallHistoryNeverContinually(entity, "myEffector");
+        
+        Time.sleep(Duration.seconds(5));
+        assertCallHistoryEventually(entity, "myEffector", 2);
     }
 
-    private void sleep(Duration duration) {
-        try {
-            Thread.sleep(duration.toMilliseconds());
-        } catch (InterruptedException ie) {
-            Exceptions.propagate(ie);  
-        }
+    @Test
+    public void testSuspendsAndResumes() {
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
+                .policy(PolicySpec.create(PeriodicEffectorPolicy.class)
+                        .configure(PeriodicEffectorPolicy.EFFECTOR, "myEffector")
+                        .configure(PeriodicEffectorPolicy.EFFECTOR_ARGUMENTS, ImmutableMap.of())
+                        .configure(PeriodicEffectorPolicy.PERIOD, Duration.ONE_MILLISECOND)
+                        .configure(PeriodicEffectorPolicy.TIME, "immediately")
+                        .configure(PeriodicEffectorPolicy.START_SENSOR, START)));
+        Policy policy = Iterables.tryFind(entity.policies(), Predicates.instanceOf(PeriodicEffectorPolicy.class)).orNull();
+        Asserts.assertNotNull(policy);
+
+        entity.sensors().set(START, Boolean.TRUE);
+        assertCallHistoryContainsEventually(entity, "myEffector");
+        
+        policy.suspend();
+        assertCallsStopEventually(entity, "myEffector");
+        entity.clearCallHistory();
+        
+        policy.resume();
+        assertCallHistoryContainsEventually(entity, "myEffector");
+    }
+    
+    @Test
+    public void testSuspendsAndResumeBeforeTriggered() {
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
+                .policy(PolicySpec.create(PeriodicEffectorPolicy.class)
+                        .configure(PeriodicEffectorPolicy.EFFECTOR, "myEffector")
+                        .configure(PeriodicEffectorPolicy.EFFECTOR_ARGUMENTS, ImmutableMap.of())
+                        .configure(PeriodicEffectorPolicy.PERIOD, Duration.ONE_MILLISECOND)
+                        .configure(PeriodicEffectorPolicy.TIME, "immediately")
+                        .configure(PeriodicEffectorPolicy.START_SENSOR, START)));
+        Policy policy = Iterables.tryFind(entity.policies(), Predicates.instanceOf(PeriodicEffectorPolicy.class)).orNull();
+        Asserts.assertNotNull(policy);
+
+        policy.suspend();
+        policy.resume();
+        assertCallHistoryNeverContinually(entity, "myEffector");
+        
+        entity.sensors().set(START, Boolean.TRUE);
+        assertCallHistoryContainsEventually(entity, "myEffector");
     }
 }
