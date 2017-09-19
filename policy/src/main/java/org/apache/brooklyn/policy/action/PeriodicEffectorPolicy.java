@@ -86,28 +86,30 @@ public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
     }
 
     @Override
-    public void rebind() {
-        super.rebind();
-
-        // Check if we missed an entire period
-        List<Long> scheduled = config().get(SCHEDULED);
-        if (running.get() && scheduled.isEmpty()) {
+    protected List<Long> resubmitOnResume() {
+        List<Long> scheduled = super.resubmitOnResume();
+        
+        if (scheduled.isEmpty()) {
+            // We missed an entire period; re-calculate (rather than relying on run's finally block)
             start();
         }
+        return scheduled;
     }
-
+    
     @Override
     public synchronized void run() {
         try {
             super.run();
         } finally {
-            Duration period = config().get(PERIOD);
-            String time = config().get(TIME);
-            if (time == null || time.equalsIgnoreCase(NOW) || time.equalsIgnoreCase(IMMEDIATELY)) {
-                schedule(period);
-            } else {
-                Duration wait = getWaitUntil(time);
-                schedule(wait.upperBound(period));
+            if (isRunning() && getManagementContext().isRunning()) {
+                Duration period = config().get(PERIOD);
+                String time = config().get(TIME);
+                if (time == null || time.equalsIgnoreCase(NOW) || time.equalsIgnoreCase(IMMEDIATELY)) {
+                    schedule(period);
+                } else {
+                    Duration wait = getWaitUntil(time);
+                    schedule(wait.upperBound(period));
+                }
             }
         }
     }

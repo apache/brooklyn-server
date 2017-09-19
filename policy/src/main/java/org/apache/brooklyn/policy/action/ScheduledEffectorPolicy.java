@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * A {@link Policy} the executes an {@link Effector} at a specific time in the future.
@@ -59,8 +60,8 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
     public void setEntity(final EntityLocal entity) {
         super.setEntity(entity);
 
-        subscriptions().subscribe(entity, INVOKE_IMMEDIATELY, this);
-        subscriptions().subscribe(entity, INVOKE_AT, this);
+        subscriptions().subscribe(ImmutableMap.of("notifyOfInitialValue", true), entity, INVOKE_IMMEDIATELY, this);
+        subscriptions().subscribe(ImmutableMap.of("notifyOfInitialValue", true), entity, INVOKE_AT, this);
     }
 
     @Override
@@ -89,7 +90,7 @@ public class ScheduledEffectorPolicy extends AbstractScheduledEffectorPolicy {
                 }
             }
             if (event.getSensor().getName().equals(INVOKE_IMMEDIATELY.getName())) {
-                Boolean invoke = (Boolean) event.getValue();
+                Boolean invoke = Boolean.TRUE.equals(event.getValue());
                 if (invoke) {
                     schedule(Duration.ZERO);
                 }

@@ -40,6 +40,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -53,9 +54,9 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.reflect.TypeToken;
 
 @Beta
@@ -101,7 +102,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     public static final ConfigKey<Boolean> RUNNING = ConfigKeys.builder(Boolean.class)
             .name("running")
-            .description("Set if the executor has started")
+            .description("[INTERNAL] Set if the executor has started")
             .defaultValue(Boolean.FALSE)
             .reconfigurable(true)
             .build();
@@ -109,7 +110,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
     public static final ConfigKey<List<Long>> SCHEDULED = ConfigKeys.builder(new TypeToken<List<Long>>() { })
             .name("scheduled")
             .description("List of all scheduled execution start times")
-            .defaultValue(Lists.newCopyOnWriteArrayList())
+            .defaultValue(ImmutableList.of())
             .reconfigurable(true)
             .build();
 
@@ -123,6 +124,12 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
     @Override
     public void init() {
+        setup();
+    }
+
+    @Override
+    public void rebind() {
+        // Called before setEntity; therefore don't do any real work here that might cause us to reference the entity
         setup();
     }
 
@@ -140,29 +147,39 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
         effector = getEffector();
 
+        if (Boolean.TRUE.equals(config().get(RUNNING))) {
+            running.set(true);
+            resubmitOnResume();
+        }
+
         AttributeSensor<Boolean> sensor = config().get(START_SENSOR);
-        subscriptions().subscribe(entity, sensor, this);
+        subscriptions().subscribe(ImmutableMap.of("notifyOfInitialValue", true), entity, sensor, this);
     }
 
     @Override
-    public void rebind() {
-        setup();
-
-        if (config().get(RUNNING)) {
-            running.set(true);
-
-            List<Long> scheduled = config().get(SCHEDULED);
-            for (Long when : scheduled) {
-                Duration wait = Duration.millis(when - System.currentTimeMillis());
-                if (wait.isPositive()) {
-                    schedule(wait);
-                } else {
-                    scheduled.remove(when);
-                }
-            }
+    public void resume() {
+        super.resume();
+        
+        if (running.get()) {
+            resubmitOnResume();
         }
     }
-
+    
+    protected List<Long> resubmitOnResume() {
+        List<Long> scheduled = config().get(SCHEDULED);
+        List<Long> updatedScheduled = MutableList.copyOf(scheduled);
+        for (Long when : scheduled) {
+            Duration wait = Duration.millis(when - System.currentTimeMillis());
+            if (wait.isPositive()) {
+                scheduleInExecutor(wait);
+            } else {
+                updatedScheduled.remove(when);
+            }
+        }
+        config().set(SCHEDULED, updatedScheduled);
+        return updatedScheduled;
+    }
+    
     @Override
     protected <T> void doReconfigureConfig(ConfigKey<T> key, T val) {
         if (key.isReconfigurable()) {
@@ -178,13 +195,14 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
         super.destroy();
     }
 
+    
     public abstract void start();
 
     protected Effector<?> getEffector() {
         String effectorName = config().get(EFFECTOR);
         Maybe<Effector<?>> effector = getEntity().getEntityType().getEffectorByName(effectorName);
         if (effector.isAbsentOrNull()) {
-            throw new IllegalStateException("Cannot find effector " + effectorName);
+            throw new IllegalStateException("Cannot find effector " + effectorName + " on entity " + getEntity());
         }
         return effector.get();
     }
@@ -196,8 +214,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
         try {
             Calendar now = Calendar.getInstance();
             Calendar when = Calendar.getInstance();
-            boolean formatted = time.contains(":"); // FIXME deprecated TimeDuration coercion
-            Date parsed = formatted ? FORMATTER.parse(time) : new Date(Long.parseLong(time) * 1000);
+            Date parsed = parseTime(time);
             when.setTime(parsed);
             when.set(now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DATE));
             if (when.before(now)) {
@@ -210,16 +227,35 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
         }
     }
 
+    protected Date parseTime(String time) throws ParseException {
+        boolean formatted = time.contains(":"); // FIXME deprecated TimeDuration coercion
+        if (formatted) {
+            synchronized (FORMATTER) {
+                // DateFormat is not thread-safe; docs say to use one-per-thread, or to synchronize externally
+                return FORMATTER.parse(time);
+            }
+        } else {
+            return new Date(Long.parseLong(time) * 1000);
+        }
+    }
+    
     protected void schedule(Duration wait) {
-        List<Long> scheduled = config().get(SCHEDULED);
+        List<Long> scheduled = MutableList.copyOf(config().get(SCHEDULED));
         scheduled.add(System.currentTimeMillis() + wait.toMilliseconds());
+        config().set(SCHEDULED, scheduled);
 
+        scheduleInExecutor(wait);
+    }
+
+    private void scheduleInExecutor(Duration wait) {
         executor.schedule(this, wait.toMilliseconds(), TimeUnit.MILLISECONDS);
     }
 
     @Override
     public synchronized void run() {
         if (effector == null) return;
+        if (!(isRunning() && getManagementContext().isRunning())) return;
+
         try {
             ConfigBag bag = ResolvingConfigBag.newInstanceExtending(getManagementContext(), config().getBag());
             Map<String, Object> args = EntityInitializers.resolve(bag, EFFECTOR_ARGUMENTS);
@@ -233,8 +269,8 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
             Object result = entity.invoke(effector, resolved).getUnchecked();
             LOG.debug("{}: Effector {} returned {}", new Object[] { this, effector.getName(), result });
         } catch (RuntimeInterruptedException rie) {
-            Thread.interrupted();
-            // TODO sometimes this seems to hang the executor?
+            // Gracefully stop
+            Thread.currentThread().interrupt();
         } catch (Throwable t) {
             LOG.warn("{}: Exception running {}: {}", new Object[] { this, effector.getName(), t.getMessage() });
             Exceptions.propagate(t);
@@ -246,7 +282,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
         LOG.debug("{}: Got event {}", this, event);
         AttributeSensor<Boolean> sensor = config().get(START_SENSOR);
         if (event.getSensor().getName().equals(sensor.getName())) {
-            Boolean start = (Boolean) event.getValue();
+            Boolean start = Boolean.TRUE.equals(event.getValue());
             if (start && running.compareAndSet(false, true)) {
                 config().set(RUNNING, true);
                 start();

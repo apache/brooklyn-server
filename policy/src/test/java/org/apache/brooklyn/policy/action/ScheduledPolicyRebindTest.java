@@ -18,12 +18,18 @@
  */
 package org.apache.brooklyn.policy.action;
 
+import static org.testng.Assert.assertTrue;
+
+import java.util.List;
+
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
-import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
@@ -53,20 +59,16 @@ public class ScheduledPolicyRebindTest extends RebindTestFixtureWithApp {
                         .configure(PeriodicEffectorPolicy.START_SENSOR, START)));
 
         origEntity.sensors().set(START, Boolean.TRUE);
-        Asserts.eventually(() -> origEntity.getCallHistory(), l -> l.contains("myEffector"));
+        assertCallHistoryContainsEventually(origEntity, "myEffector");
 
-        Policy origPolicy = Iterables.tryFind(origEntity.policies(), Predicates.instanceOf(PeriodicEffectorPolicy.class)).orNull();
-        Asserts.assertNotNull(origPolicy);
-        newApp = rebind();
-        ((AbstractPolicy) origPolicy).destroy();
-        TestEntity newEntity = (TestEntity) Iterables.tryFind(newApp.getChildren(), Predicates.instanceOf(TestEntity.class)).orNull();
-        Asserts.assertNotNull(newEntity);
-        Policy newPolicy = Iterables.tryFind(newEntity.policies(), Predicates.instanceOf(PeriodicEffectorPolicy.class)).orNull();
-        Asserts.assertNotNull(newPolicy);
+        newApp = rebind(RebindOptions.create().terminateOrigManagementContext(true));
 
-        Asserts.eventually(() -> newPolicy.config().get(PeriodicEffectorPolicy.RUNNING), b -> b);
+        TestEntity newEntity = (TestEntity) Iterables.find(newApp.getChildren(), Predicates.instanceOf(TestEntity.class));
+        Policy newPolicy = Iterables.find(newEntity.policies(), Predicates.instanceOf(PeriodicEffectorPolicy.class));
+
+        assertConfigEqualsEventually(newPolicy, PeriodicEffectorPolicy.RUNNING, true);
         int calls = newEntity.getCallHistory().size();
-        Asserts.eventually(() -> newEntity.getCallHistory().size(), i -> i > (calls + 500));
+        assertCallHistoryEventually(newEntity, "myEffector", calls + 2);
     }
 
     @Test
@@ -75,25 +77,20 @@ public class ScheduledPolicyRebindTest extends RebindTestFixtureWithApp {
                 .policy(PolicySpec.create(PeriodicEffectorPolicy.class)
                         .configure(PeriodicEffectorPolicy.EFFECTOR, "myEffector")
                         .configure(PeriodicEffectorPolicy.EFFECTOR_ARGUMENTS, ImmutableMap.of())
-                        .configure(PeriodicEffectorPolicy.PERIOD, Duration.seconds(1))
+                        .configure(PeriodicEffectorPolicy.PERIOD, Duration.millis(100))
                         .configure(PeriodicEffectorPolicy.TIME, "immediately")
                         .configure(PeriodicEffectorPolicy.START_SENSOR, START)));
 
         origEntity.sensors().set(START, Boolean.TRUE);
-        Asserts.eventually(() -> origEntity.getCallHistory(), l -> l.contains("myEffector"));
+        assertCallHistoryContainsEventually(origEntity, "myEffector");
 
-        Policy origPolicy = Iterables.tryFind(origEntity.policies(), Predicates.instanceOf(PeriodicEffectorPolicy.class)).orNull();
-        Asserts.assertNotNull(origPolicy);
-        newApp = rebind();
-        ((AbstractPolicy) origPolicy).destroy();
-        TestEntity newEntity = (TestEntity) Iterables.tryFind(newApp.getChildren(), Predicates.instanceOf(TestEntity.class)).orNull();
-        Asserts.assertNotNull(newEntity);
-        Policy newPolicy = Iterables.tryFind(newEntity.policies(), Predicates.instanceOf(PeriodicEffectorPolicy.class)).orNull();
-        Asserts.assertNotNull(newPolicy);
+        newApp = rebind(RebindOptions.create().terminateOrigManagementContext(true));
 
-        Asserts.eventually(() -> newPolicy.config().get(PeriodicEffectorPolicy.RUNNING), b -> b);
-        int calls = newEntity.getCallHistory().size();
-        Asserts.eventually(() -> newEntity.getCallHistory().size(), i -> i > (calls + 5));
+        TestEntity newEntity = (TestEntity) Iterables.find(newApp.getChildren(), Predicates.instanceOf(TestEntity.class));
+        Policy newPolicy = Iterables.find(newEntity.policies(), Predicates.instanceOf(PeriodicEffectorPolicy.class));
+
+        assertConfigEqualsEventually(newPolicy, PeriodicEffectorPolicy.RUNNING, true);
+        assertCallHistoryContainsEventually(newEntity, "myEffector");
     }
 
     @Test
@@ -106,23 +103,35 @@ public class ScheduledPolicyRebindTest extends RebindTestFixtureWithApp {
                         .configure(PeriodicEffectorPolicy.TIME, "immediately")
                         .configure(PeriodicEffectorPolicy.START_SENSOR, START)));
 
-        Policy origPolicy = Iterables.tryFind(origEntity.policies(), Predicates.instanceOf(PeriodicEffectorPolicy.class)).orNull();
-        Asserts.assertNotNull(origPolicy);
-        newApp = rebind();
-        ((AbstractPolicy) origPolicy).destroy();
-        TestEntity newEntity = (TestEntity) Iterables.tryFind(newApp.getChildren(), Predicates.instanceOf(TestEntity.class)).orNull();
-        Asserts.assertNotNull(newEntity);
-        Policy newPolicy = Iterables.tryFind(newEntity.policies(), Predicates.instanceOf(PeriodicEffectorPolicy.class)).orNull();
-        Asserts.assertNotNull(newPolicy);
+        newApp = rebind(RebindOptions.create().terminateOrigManagementContext(true));
+        
+        TestEntity newEntity = (TestEntity) Iterables.find(newApp.getChildren(), Predicates.instanceOf(TestEntity.class));
+        Policy newPolicy = Iterables.find(newEntity.policies(), Predicates.instanceOf(PeriodicEffectorPolicy.class));
 
         Asserts.assertFalse(newPolicy.config().get(PeriodicEffectorPolicy.RUNNING));
         Asserts.assertFalse(newEntity.getCallHistory().contains("myEffector"));
-        Asserts.assertFalse(origEntity.getCallHistory().contains("myEffector"));
 
         newEntity.sensors().set(START, Boolean.TRUE);
-        Asserts.eventually(() -> newPolicy.config().get(PeriodicEffectorPolicy.RUNNING), b -> b);
-        Asserts.eventually(() -> newEntity.getCallHistory(), l -> l.contains("myEffector"));
-        int calls = newEntity.getCallHistory().size();
-        Asserts.eventually(() -> newEntity.getCallHistory().size(), i -> i > (calls + 500));
+        assertConfigEqualsEventually(newPolicy, PeriodicEffectorPolicy.RUNNING, true);
+        assertCallHistoryEventually(newEntity, "myEffector", 2);
+    }
+    
+    private <T> void assertConfigEqualsEventually(Configurable obj, ConfigKey<T> running, T val) {
+        Asserts.eventually(() -> obj.config().get(running), Predicates.equalTo(val));
+    }
+
+    private void assertCallHistoryContainsEventually(TestEntity entity, String effector) {
+        assertCallHistoryEventually(entity, effector, 1);
+    }
+
+    private void assertCallHistoryEventually(TestEntity entity, String effector, int minSize) {
+        Asserts.succeedsEventually(new Runnable() {
+            public void run() {
+                List<String> callHistory = entity.getCallHistory();
+                synchronized (callHistory) {
+                    int size = Iterables.size(Iterables.filter(callHistory, Predicates.equalTo("myEffector")));
+                    assertTrue(size >= minSize, "size="+size);
+                }
+            }});
     }
 }
