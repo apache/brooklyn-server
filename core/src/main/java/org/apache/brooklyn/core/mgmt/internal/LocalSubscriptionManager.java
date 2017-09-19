@@ -106,6 +106,7 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
         Entity producer = s.producer;
         Sensor<T> sensor= s.sensor;
         s.subscriber = getSubscriber(flags, s);
+        s.subscriptionDescription = getSubscriptionDescription(flags, s);
         if (flags.containsKey("tags") || flags.containsKey("tag")) {
             Iterable<?> tags = (Iterable<?>) flags.get("tags");
             Object tag = flags.get("tag");
@@ -255,6 +256,10 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
         description.append(sourceName==null ? "<null-source>" : sourceName);
         description.append(" publishing to ");
         description.append(s.subscriber instanceof Entity ? ((Entity)s.subscriber).getId() : s.subscriber);
+        if (Strings.isNonBlank(s.subscriptionDescription)) {
+            description.append(", ");
+            description.append(s.subscriptionDescription);
+        }
         
         if (includeDescriptionForSensorTask(event)) {
             name.append(" ");

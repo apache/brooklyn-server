@@ -55,6 +55,7 @@ public class QueueingSubscriptionManager extends AbstractSubscriptionManager {
         QueuedSubscription<T> qs = new QueuedSubscription<T>();
         qs.flags = flags;
         s.subscriber = getSubscriber(flags, s);
+        s.subscriptionDescription = getSubscriptionDescription(flags, s);
         qs.s = s;
         queuedSubscriptions.add(qs);
         return s;

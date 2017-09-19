@@ -263,7 +263,8 @@ public abstract class AbstractManagementContext implements ManagementContextInte
     @Override
     public SubscriptionContext getSubscriptionContext(Entity e, EntityAdjunct a) {
         // BSC is a thin wrapper around SM so fine to create a new one here
-        Map<String, ?> flags = ImmutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(e), BrooklynTaskTags.tagForContextAdjunct(a)));
+        Map<String, ?> flags = ImmutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(e), BrooklynTaskTags.tagForContextAdjunct(a)),
+            "subscriptionDescription", "adjunct "+a.getId());
         return new BasicSubscriptionContext(flags, getSubscriptionManager(), e);
     }
 
