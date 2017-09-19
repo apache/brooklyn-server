@@ -42,6 +42,7 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.BasicSensorEvent;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -260,6 +261,8 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
             "displayName", name.toString(),
             "description", description.toString());
         
+        boolean isEntityStarting = s.subscriber instanceof Entity && isInitial;
+        // will have entity (and adjunct) execution context from tags, so can skip getting exec context
         em.submit(execFlags, new Runnable() {
             @Override
             public String toString() {
@@ -272,6 +275,22 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
             @Override
             public void run() {
                 try {
+                    if (isEntityStarting) {
+                        /* don't let sub deliveries start until this is completed;
+                         * this is a pragmatic way to ensure the publish events 
+                         * if submitted during management starting, aren't executed
+                         * until after management is starting.
+                         *   without this we can get deadlocks as this goes to publish,
+                         * has the attribute sensors lock, and waits on the publish lock
+                         * (any of management support, local subs, queueing subs).
+                         * meanwhile the management startup has those three locks,
+                         * then goes to publish and in the process looks up a sensor value.
+                         *   usually this is not an issue because some other task
+                         * does something (eg entity.getExecutionContext()) which
+                         * also has a wait-on-management-support semantics.
+                         */
+                        synchronized (((EntityInternal)s.subscriber).getManagementSupport()) {}
+                    }
                     int count = s.eventCount.incrementAndGet();
                     if (count > 0 && count % 1000 == 0) LOG.debug("{} events for subscriber {}", count, s);
                     
