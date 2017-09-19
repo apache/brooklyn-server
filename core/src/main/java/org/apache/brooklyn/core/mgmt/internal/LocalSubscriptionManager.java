@@ -145,8 +145,13 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
                 LOG.warn("Cannot notifyOfInitialValue for subscription with non-attribute sensor: "+s);
             } else {
                 if (LOG.isTraceEnabled()) LOG.trace("sending initial value of {} -> {} to {}", new Object[] {s.producer, s.sensor, s});
-                T val = (T) s.producer.getAttribute((AttributeSensor<?>) s.sensor);
-                submitPublishEvent(s, new BasicSensorEvent<T>(s.sensor, s.producer, val), true);
+                em.submit(
+                    MutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(s.producer)),
+                        "displayName", "Initial publication of "+s.sensor.getName()),
+                    () -> {
+                        T val = (T) s.producer.getAttribute((AttributeSensor<?>) s.sensor);
+                        submitPublishEvent(s, new BasicSensorEvent<T>(s.sensor, s.producer, val), true);
+                    });
             }
         }
         
