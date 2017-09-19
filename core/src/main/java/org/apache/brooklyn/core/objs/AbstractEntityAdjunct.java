@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 import javax.annotation.Nullable;
 
@@ -37,6 +36,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -54,12 +54,15 @@ import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.SubscriptionTracker;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,6 +89,8 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     @Deprecated
     protected Map<String,Object> leftoverProperties = Maps.newLinkedHashMap();
 
+    /** @deprecated since 0.12.0, going private, use {@link #getExecutionContext()} */
+    @Deprecated
     protected transient ExecutionContext execution;
 
     private final BasicConfigurationSupport config = new BasicConfigurationSupport();
@@ -213,6 +218,14 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         return _legacyNoConstructionInit;
     }
 
+    /** If the entity has been set, returns the execution context indicating this adjunct.
+     * Primarily intended for this adjunct to execute tasks, but in some cases, mainly low level,
+     * it may make sense for other components to execute tasks against this adjunct. */
+    @Beta
+    public ExecutionContext getExecutionContext() {
+        return execution;
+    }
+    
     @Override
     public ConfigurationSupportInternal config() {
         return config;
@@ -276,7 +289,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
             synchronized (AbstractEntityAdjunct.this) {
                 if (_subscriptionTracker!=null) return _subscriptionTracker;
                 if (entity==null) return null;
-                _subscriptionTracker = new SubscriptionTracker(((EntityInternal)entity).subscriptions().getSubscriptionContext());
+                _subscriptionTracker = new SubscriptionTracker(getManagementContext().getSubscriptionContext(entity, AbstractEntityAdjunct.this));
                 return _subscriptionTracker;
             }
         }
@@ -334,7 +347,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
 
         @Override
         protected ExecutionContext getContext() {
-            return AbstractEntityAdjunct.this.execution;
+            return AbstractEntityAdjunct.this.getExecutionContext();
         }
 
         @Override
@@ -402,10 +415,21 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         this.name = name;
     }
 
+    @Override
+    public ManagementContext getManagementContext() {
+        ManagementContext result = super.getManagementContext();
+        if (result!=null) return result;
+        if (entity!=null) {
+            return ((EntityInternal)entity).getManagementContext();
+        }
+        return null;
+    }
+    
     public void setEntity(EntityLocal entity) {
         if (destroyed.get()) throw new IllegalStateException("Cannot set entity on a destroyed entity adjunct");
         this.entity = entity;
-        this.execution = ((EntityInternal) entity).getExecutionContext();
+        this.execution = new BasicExecutionContext( getManagementContext().getExecutionManager(),
+                MutableList.of(BrooklynTaskTags.tagForContextAdjunct(this), BrooklynTaskTags.tagForContextEntity(entity)) );
         if (entity!=null && getCatalogItemId() == null) {
             setCatalogItemIdAndSearchPath(entity.getCatalogItemId(), entity.getCatalogItemIdSearchPath());
         }

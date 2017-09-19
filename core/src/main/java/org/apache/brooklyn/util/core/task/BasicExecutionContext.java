@@ -44,6 +44,7 @@ import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedEntity;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedItem;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -107,8 +108,8 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         // which may require access to internal methods
         // (could remove this check if generalizing; it has been here for a long time and the problem seems gone)
         for (Object tag: tags) {
-            if (tag instanceof BrooklynTaskTags.WrappedEntity) {
-                if (Proxy.isProxyClass(((WrappedEntity)tag).entity.getClass())) {
+            if (tag instanceof BrooklynTaskTags.WrappedItem) {
+                if (Proxy.isProxyClass(((WrappedItem<?>)tag).unwrap().getClass())) {
                     log.warn(""+this+" has entity proxy in "+tag);
                 }
             }

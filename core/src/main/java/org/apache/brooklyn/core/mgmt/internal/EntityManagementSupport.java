@@ -84,8 +84,8 @@ public class EntityManagementSupport {
     
     protected transient ManagementContext initialManagementContext;
     protected transient ManagementContext managementContext;
-    protected transient SubscriptionContext subscriptionContext;
-    protected transient ExecutionContext executionContext;
+    protected transient volatile SubscriptionContext subscriptionContext;
+    protected transient volatile ExecutionContext executionContext;
     
     protected final AtomicBoolean managementContextUsable = new AtomicBoolean(false);
     protected final AtomicBoolean currentlyDeployed = new AtomicBoolean(false);
@@ -357,19 +357,25 @@ public class EntityManagementSupport {
         return (managementContextUsable.get()) ? managementContext : nonDeploymentManagementContext;
     }    
     
-    public synchronized ExecutionContext getExecutionContext() {
+    public ExecutionContext getExecutionContext() {
         if (executionContext!=null) return executionContext;
         if (managementContextUsable.get()) {
-            executionContext = managementContext.getExecutionContext(entity);
-            return executionContext;
+            synchronized (this) {
+                if (executionContext!=null) return executionContext;
+                executionContext = managementContext.getExecutionContext(entity);
+                return executionContext;
+            }
         }
         return nonDeploymentManagementContext.getExecutionContext(entity);
     }
-    public synchronized SubscriptionContext getSubscriptionContext() {
+    public SubscriptionContext getSubscriptionContext() {
         if (subscriptionContext!=null) return subscriptionContext;
         if (managementContextUsable.get()) {
-            subscriptionContext = managementContext.getSubscriptionContext(entity);
-            return subscriptionContext;
+            synchronized (this) {
+                if (subscriptionContext!=null) return subscriptionContext;
+                subscriptionContext = managementContext.getSubscriptionContext(entity);
+                return subscriptionContext;
+            }
         }
         return nonDeploymentManagementContext.getSubscriptionContext(entity);
     }

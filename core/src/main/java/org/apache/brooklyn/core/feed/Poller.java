@@ -139,7 +139,7 @@ public class Poller<V> {
         
         for (final Callable<?> oneOffJob : oneOffJobs) {
             Task<?> task = Tasks.builder().dynamic(false).body((Callable<Object>) oneOffJob).displayName("Poll").description("One-time poll job "+oneOffJob).build();
-            oneOffTasks.add(((EntityInternal)entity).getExecutionContext().submit(task));
+            oneOffTasks.add(feed.getExecutionContext().submit(task));
         }
         
         Duration minPeriod = null;

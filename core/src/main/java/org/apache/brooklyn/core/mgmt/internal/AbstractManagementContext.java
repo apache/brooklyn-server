@@ -51,6 +51,7 @@ import org.apache.brooklyn.api.mgmt.entitlement.EntitlementManager;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityManager;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.StringConfigMap;
@@ -256,6 +257,13 @@ public abstract class AbstractManagementContext implements ManagementContextInte
     public SubscriptionContext getSubscriptionContext(Entity e) {
         // BSC is a thin wrapper around SM so fine to create a new one here
         Map<String, ?> flags = ImmutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(e)));
+        return new BasicSubscriptionContext(flags, getSubscriptionManager(), e);
+    }
+    
+    @Override
+    public SubscriptionContext getSubscriptionContext(Entity e, EntityAdjunct a) {
+        // BSC is a thin wrapper around SM so fine to create a new one here
+        Map<String, ?> flags = ImmutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(e), BrooklynTaskTags.tagForContextAdjunct(a)));
         return new BasicSubscriptionContext(flags, getSubscriptionManager(), e);
     }
 

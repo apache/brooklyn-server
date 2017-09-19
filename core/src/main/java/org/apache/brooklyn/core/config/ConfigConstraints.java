@@ -25,6 +25,7 @@ import java.util.List;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.config.ConfigKey;
@@ -114,8 +115,12 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
     abstract Iterable<ConfigKey<?>> getBrooklynObjectTypeConfigKeys();
 
     public Iterable<ConfigKey<?>> getViolations() {
-        if (getBrooklynObject() instanceof EntityInternal) {
-            return ((EntityInternal) getBrooklynObject()).getExecutionContext().get(
+        ExecutionContext exec = 
+            getBrooklynObject() instanceof EntityInternal ? ((EntityInternal)getBrooklynObject()).getExecutionContext() :
+            // getBrooklynObject() instanceof AbstractEntityAdjunct ? ((AbstractEntityAdjunct)getBrooklynObject()).getExecutionContext() :
+            null;
+        if (exec!=null) {
+            return exec.get(
                 Tasks.<Iterable<ConfigKey<?>>>builder().dynamic(false).displayName("Validating config").body(
                     () -> validateAll() ).build() );
         } else {

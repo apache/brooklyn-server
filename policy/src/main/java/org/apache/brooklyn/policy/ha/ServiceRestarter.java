@@ -112,10 +112,7 @@ public class ServiceRestarter extends AbstractPolicy {
                     
                     if (isRunning()) {
                         LOG.info("ServiceRestarter notified; dispatching job for "+entity+" ("+event.getValue()+")");
-                        ((EntityInternal)entity).getExecutionContext().submit(MutableMap.of(), new Runnable() {
-                            @Override public void run() {
-                                onDetectedFailure(event);
-                            }});
+                        getExecutionContext().submit(() -> onDetectedFailure(event));
                     } else {
                         LOG.warn("ServiceRestarter not running, so not acting on failure detected at "+entity+" ("+event.getValue()+")");
                     }

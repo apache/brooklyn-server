@@ -129,10 +129,7 @@ public class ServiceReplacer extends AbstractPolicy {
                     if (isRunning()) {
                         highlightViolation("Failure detected");
                         LOG.warn("ServiceReplacer notified; dispatching job for "+entity+" ("+event.getValue()+")");
-                        ((EntityInternal)entity).getExecutionContext().submit(MutableMap.of(), new Runnable() {
-                            @Override public void run() {
-                                onDetectedFailure(event);
-                            }});
+                        getExecutionContext().submit(() -> onDetectedFailure(event));
                     } else {
                         LOG.warn("ServiceReplacer not running, so not acting on failure detected at "+entity+" ("+event.getValue()+", child of "+entity+")");
                     }
@@ -176,10 +173,7 @@ public class ServiceReplacer extends AbstractPolicy {
         
         highlightViolation(violationText+", triggering restart");
         LOG.warn("ServiceReplacer acting on failure detected at "+failedEntity+" ("+reason+", child of "+entity+")");
-        Task<?> t = ((EntityInternal)entity).getExecutionContext().submit(MutableMap.of(), new Runnable() {
-
-            @Override
-            public void run() {
+        Task<?> t = getExecutionContext().submit(() -> {
                 try {
                     Entities.invokeEffectorWithArgs(entity, entity, MemberReplaceable.REPLACE_MEMBER, failedEntity.getId()).get();
                     consecutiveReplacementFailureTimes.clear();
@@ -191,8 +185,7 @@ public class ServiceReplacer extends AbstractPolicy {
                     highlightViolation(violationText+" and replace attempt failed: "+Exceptions.collapseText(e));
                     onReplacementFailed("Replace failure ("+Exceptions.collapseText(e)+") at "+entity+": "+reason);
                 }
-            }
-        });
+            });
         highlightAction("Replacing "+failedEntity, t);
     }
 

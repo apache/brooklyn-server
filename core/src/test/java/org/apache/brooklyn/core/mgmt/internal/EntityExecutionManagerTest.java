@@ -40,6 +40,7 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedEntity;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedItem;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
@@ -318,8 +319,8 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
             if (tag instanceof Entity && ((Entity)tag).getId().equals(eId)) {
                 fail("tags contains unmanaged entity "+tag);
             }
-            if ((tag instanceof WrappedEntity) && ((WrappedEntity)tag).entity.getId().equals(eId) 
-                    && ((WrappedEntity)tag).wrappingType.equals(BrooklynTaskTags.CONTEXT_ENTITY)) {
+            if ((tag instanceof WrappedEntity) && ((WrappedEntity)tag).unwrap().getId().equals(eId) 
+                    && ((WrappedItem<?>)tag).getWrappingType().equals(BrooklynTaskTags.CONTEXT_ENTITY)) {
                 fail("tags contains unmanaged entity (wrapped) "+tag);
             }
         }

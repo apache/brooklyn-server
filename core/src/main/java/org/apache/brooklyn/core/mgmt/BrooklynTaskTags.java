@@ -34,6 +34,7 @@ import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.core.mgmt.internal.AbstractManagementContext;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
@@ -59,13 +60,14 @@ import com.google.common.collect.ImmutableSet;
 /** Provides utilities for making Tasks easier to work with in Brooklyn.
  * Main thing at present is to supply (and find) wrapped entities for tasks to understand the
  * relationship of the entity to the task.
- * TODO Longer term it would be better to remove 'tags' on Tasks and use a strongly typed context object.
+ * <p>
+ * Eventually it may be better to replace these 'tags' on Tasks with strongly typed context objects.
  * (Tags there are used mainly for determining who called it (caller), what they called it on (target entity),
  * and what type of task it is (effector, schedule/sensor, etc).)
  */
 public class BrooklynTaskTags extends TaskTags {
 
-    private static final Logger log = LoggerFactory.getLogger(BrooklynTaskTags.WrappedEntity.class);
+    private static final Logger log = LoggerFactory.getLogger(BrooklynTaskTags.class);
 
     /** Tag for tasks which are running on behalf of the management server, rather than any entity */
     public static final String BROOKLYN_SERVER_TASK_TAG = "BROOKLYN-SERVER";
@@ -85,36 +87,65 @@ public class BrooklynTaskTags extends TaskTags {
 
     // ------------- entity tags -------------------------
     
-    public static class WrappedEntity {
+    public abstract static class WrappedItem<T> {
+        /** @deprecated since 0.12.0 going private; use {@link #getWrappingType()} */
+        @Deprecated
         public final String wrappingType;
-        public final Entity entity;
-        protected WrappedEntity(String wrappingType, Entity entity) {
+        protected WrappedItem(String wrappingType) {
             Preconditions.checkNotNull(wrappingType);
-            Preconditions.checkNotNull(entity);
             this.wrappingType = wrappingType;
-            this.entity = entity;
+        }
+        public abstract T unwrap();
+        public String getWrappingType() {
+            return wrappingType;
         }
         @Override
         public String toString() {
-            return "Wrapped["+wrappingType+":"+entity+"]";
+            return "Wrapped["+getWrappingType()+":"+unwrap()+"]";
         }
         @Override
         public int hashCode() {
-            return Objects.hashCode(entity, wrappingType);
+            return Objects.hashCode(unwrap(), getWrappingType());
         }
         @Override
         public boolean equals(Object obj) {
             if (this==obj) return true;
-            if (!(obj instanceof WrappedEntity)) return false;
+            if (!(obj instanceof WrappedItem)) return false;
             return 
-                Objects.equal(entity, ((WrappedEntity)obj).entity) &&
-                Objects.equal(wrappingType, ((WrappedEntity)obj).wrappingType);
+                Objects.equal(unwrap(), ((WrappedItem<?>)obj).unwrap()) &&
+                Objects.equal(getWrappingType(), ((WrappedItem<?>)obj).getWrappingType());
         }
+    }
+    public static class WrappedEntity extends WrappedItem<Entity> {
+        /** @deprecated since 0.12.0 going private; use {@link #unwrap()} */
+        @Deprecated
+        public final Entity entity;
+        protected WrappedEntity(String wrappingType, Entity entity) {
+            super(wrappingType);
+            this.entity = Preconditions.checkNotNull(entity);
+        }
+        @Override
+        public Entity unwrap() {
+            return entity;
+        }
+    }
+    public static class WrappedObject<T> extends WrappedItem<T> {
+        private final T object;
+        protected WrappedObject(String wrappingType, T object) {
+            super(wrappingType);
+            this.object = Preconditions.checkNotNull(object);
+        }
+        @Override
+        public T unwrap() {
+            return object;
+        }        
     }
     
     public static final String CONTEXT_ENTITY = "contextEntity";
     public static final String CALLER_ENTITY = "callerEntity";
     public static final String TARGET_ENTITY = "targetEntity";
+    
+    public static final String CONTEXT_ADJUNCT = "contextAdjunct";
     
     /**
      * Marks a task as running in the context of the entity. This means
@@ -137,6 +168,15 @@ public class BrooklynTaskTags extends TaskTags {
     public static WrappedEntity tagForTargetEntity(Entity entity) {
         return new WrappedEntity(TARGET_ENTITY, entity);
     }
+
+    /**
+     * As {@link #tagForContextEntity(Entity)} but wrapping an adjunct.
+     * Tasks with this tag will also have a {@link #tagForContextEntity(Entity)}.
+     */
+    public static WrappedObject<EntityAdjunct> tagForContextAdjunct(EntityAdjunct adjunct) {
+        return new WrappedObject<EntityAdjunct>(CONTEXT_ADJUNCT, adjunct);
+    }
+    
 
     public static WrappedEntity getWrappedEntityTagOfType(Task<?> t, String wrappingType) {
         if (t==null) return null;
