@@ -235,6 +235,10 @@ public class BrooklynTaskTags extends TaskTags {
         return em.getTasksWithTag(tagForContextEntity(e));
     }
 
+    public static Set<Task<?>> getTasksInAdjunctContext(ExecutionManager em, EntityAdjunct a) {
+        return em.getTasksWithTag(tagForContextAdjunct(a));
+    }
+
     public static ManagementContext getManagementContext(Task<?> task) {
         for (Object tag : getTagsFast(task))
             if ((tag instanceof ManagementContext))

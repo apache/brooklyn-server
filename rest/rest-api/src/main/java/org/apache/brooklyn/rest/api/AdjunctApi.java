@@ -23,6 +23,7 @@ import java.util.Map;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -36,6 +37,7 @@ import org.apache.brooklyn.rest.domain.AdjunctDetail;
 import org.apache.brooklyn.rest.domain.AdjunctSummary;
 import org.apache.brooklyn.rest.domain.ConfigSummary;
 import org.apache.brooklyn.rest.domain.Status;
+import org.apache.brooklyn.rest.domain.TaskSummary;
 
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -230,4 +232,21 @@ public interface AdjunctApi {
             @PathParam("config") String configKeyName,
             @ApiParam(name = "value", value = "New value for the configuration", required = true)
             Object value);
+    
+
+    @GET
+    @Path("/{adjunct}/activities")
+    @ApiOperation(value = "Fetch list of tasks for this adjunct")
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Could not find application, entity, or adjunct")
+    })
+    public List<TaskSummary> listTasks(
+            @ApiParam(value = "Application ID or name", required = true) @PathParam("application") String applicationId,
+            @ApiParam(value = "Entity ID or name", required = true) @PathParam("entity") String entityId,
+            @ApiParam(value = "Adjunct ID or name", required = true) @PathParam("adjunct") String adjunctToken,
+            @ApiParam(value = "Max number of tasks, or -1 for all (default 200)", required = false) 
+            @QueryParam("limit") @DefaultValue("200") int limit,
+            @ApiParam(value = "Whether to include subtasks recursively across different entities (default false)", required = false)
+            @QueryParam("recurse") @DefaultValue("false") Boolean recurse);
+
 }
