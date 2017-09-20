@@ -239,6 +239,11 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         }
     }
     
+    @Override
+    public <T> Maybe<T> getImmediately(Task<T> callableOrSupplier) {
+        return getImmediately((Object) callableOrSupplier);
+    }
+    
     /** performs execution without spawning a new task thread, though it does temporarily set a fake task for the purpose of getting context;
      * currently supports {@link Supplier}, {@link Callable}, {@link Runnable}, or {@link Task} instances; 
      * with tasks if it is submitted or in progress,

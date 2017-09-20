@@ -52,11 +52,21 @@ public interface ExecutionContext extends Executor {
      */
     <T> Task<T> submit(Map<?,?> properties, Callable<T> callable);
 
-    /** {@link ExecutionManager#submit(Runnable) */
+    /** {@link ExecutionManager#submit(Runnable) 
+     * @deprecated since 0.12.0 pass a display name or a more detailed map */
+    @Deprecated
     Task<?> submit(Runnable runnable);
  
-    /** {@link ExecutionManager#submit(Callable) */
+    /** {@link ExecutionManager#submit(Callable)
+     * @deprecated since 0.12.0 pass a display name or a more detailed map */
+    @Deprecated
     <T> Task<T> submit(Callable<T> callable);
+
+    /** {@link ExecutionManager#submit(String Runnable) */
+    Task<?> submit(String displayName, Runnable runnable);
+ 
+    /** {@link ExecutionManager#submit(String, Callable) */
+    <T> Task<T> submit(String displayName, Callable<T> callable);
 
     /** See {@link ExecutionManager#submit(Map, TaskAdaptable)}. */
     <T> Task<T> submit(TaskAdaptable<T> task);
@@ -80,6 +90,9 @@ public interface ExecutionContext extends Executor {
     // TODO reference ImmediateSupplier when that class is moved to utils project
     @Beta
     <T> Maybe<T> getImmediately(Object callableOrSupplierOrTask);
+    /** As {@link #getImmediately(Object)} but strongly typed for a task. */
+    @Beta
+    <T> Maybe<T> getImmediately(Task<T> callableOrSupplierOrTask);
 
     /**
      * Efficient shortcut for {@link #submit(TaskAdaptable)} followed by an immediate {@link Task#get()}.
