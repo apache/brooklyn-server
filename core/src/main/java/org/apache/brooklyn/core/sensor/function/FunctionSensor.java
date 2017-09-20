@@ -28,7 +28,6 @@ import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.function.FunctionPollConfig;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,7 +76,6 @@ public final class FunctionSensor<T> extends AddSensor<T> {
 
         FunctionPollConfig<?, T> pollConfig = new FunctionPollConfig<Object, T>(sensor)
                 .callable(function)
-                .onSuccess(TypeCoercions.function((Class<T>)sensor.getType()))
                 .onFailureOrException(Functions.constant((T) null))
                 .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
                 .period(period);
