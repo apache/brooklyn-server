@@ -147,7 +147,7 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
             } else {
                 if (LOG.isTraceEnabled()) LOG.trace("sending initial value of {} -> {} to {}", new Object[] {s.producer, s.sensor, s});
                 em.submit(
-                    MutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(s.producer)),
+                    MutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(s.producer), BrooklynTaskTags.SENSOR_TAG),
                         "displayName", "Initial publication of "+s.sensor.getName()),
                     () -> {
                         T val = (T) s.producer.getAttribute((AttributeSensor<?>) s.sensor);

@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -46,6 +47,7 @@ import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
@@ -149,6 +151,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         for (Task<?> t: tasks) {
             if (t instanceof ScheduledTask) continue;
             if (t.getTags().contains(BrooklynTaskTags.SENSOR_TAG)) continue;
+            if (t.getDisplayName().contains("Validating")) continue;
             result.add(t);
         }
         return result;
@@ -294,8 +297,6 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         forceGc();
         stopCondition.set(true);
 
-        // might need an eventually here, if the internal job completion and GC is done in the background
-        // (if there are no test failures for a few months, since Sept 2014, then we can remove this comment)
         assertTaskMaxCountForEntityEventually(e, 2);
     }
 
@@ -343,7 +344,15 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         forceGc();
         Collection<Task<?>> t2 = em.getAllTasks();
 
-        Assert.assertEquals(t1.size(), t2.size(), "lists are different:\n"+t1+"\n"+t2+"\n");
+        // no tasks from first batch were GC'd
+        Asserts.assertSize(MutableList.builder().addAll(t1).removeAll(t2).build(), 0);
+
+        // and we expect just the add/remove cycle at parent, and service problems
+        Set<String> newOnes = MutableList.<Task<?>>builder().addAll(t2).removeAll(t1).build().stream().map(
+            (t) -> t.getDisplayName()).collect(Collectors.toSet());
+        Function<String,String> prefix = (s) -> "sensor "+app.getId()+":"+s;
+        Assert.assertEquals(newOnes, MutableSet.of(
+            prefix.apply("entity.children.removed"), prefix.apply("entity.children.added"), prefix.apply("service.problems"))); 
     }
 
     /**
