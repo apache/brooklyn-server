@@ -57,6 +57,7 @@ import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
@@ -796,6 +797,7 @@ public class BasicExecutionManager implements ExecutionManager {
                 .description("Details of the original task have been forgotten.")
                 .body(Callables.returning((T)null)).build();
             ((BasicTask<T>)t).ignoreIfNotRun();
+            ((BasicTask<T>)t).cancelled = true;
             return t;
         }
     }
