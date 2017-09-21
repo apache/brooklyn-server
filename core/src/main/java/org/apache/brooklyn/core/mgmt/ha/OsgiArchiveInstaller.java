@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.mgmt.ha;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,6 +35,7 @@ import java.util.zip.ZipFile;
 
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -198,9 +200,26 @@ class OsgiArchiveInstaller {
                 
                 if (zipIn!=null) {
                     // found input stream for existing osgi bundle
+                    
                 } else if (existingBrooklynInstalledBundle.isAbsent() || force) {
-                    // reload 
-                    zipIn = ResourceUtils.create(mgmt()).getResourceFromUrl(suppliedKnownBundleMetadata.getUrl());
+                    // reload
+                    String url = suppliedKnownBundleMetadata.getUrl();
+                    if (BrooklynVersion.isDevelopmentEnvironment() && url.startsWith("system:file:")) {
+                        // in live dists the url is usually mvn: but in dev/test karaf will prefix it with system;
+                        // leave the url alone so we correctly dedupe when considering whether to update, but create a zip file
+                        // so that things work consistently in dev/test (in particular ClassLoaderUtilsTest passes).
+                        // pretty sure we have to do this, even if not replacing the osgi bundle, because we need to
+                        // get a handle on the zip file (although we could skip if not doing persistence - but that feels even worse than this!)
+                        try {
+                            url = Strings.removeFromStart(url, "system:");
+                            File zipTemp = new BundleMaker(ResourceUtils.create()).createJarFromClasspathDir(url);
+                            zipIn = new FileInputStream( zipTemp );
+                        } catch (FileNotFoundException e) {
+                            throw Exceptions.propagate(e);
+                        }
+                    } else {
+                        zipIn = ResourceUtils.create(mgmt()).getResourceFromUrl(url);
+                    }
                 } else {
                     // already installed, not forced, just say already installed
                     // (even if snapshot as this is a reference by URL, not uploaded content) 
@@ -217,6 +236,12 @@ class OsgiArchiveInstaller {
         try (FileOutputStream fos = new FileOutputStream(zipFile)) {
             Streams.copy(zipIn, fos);
             zipIn.close();
+            try (ZipFile zf = new ZipFile(zipFile)) {
+                // validate it is a valid ZIP, otherwise errors are more obscure later.
+                // can happen esp if user supplies a file://path/to/folder/ as the URL.openStream returns a list of that folder (!) 
+                // the error thrown by the below is useful enough, and caller will wrap with suppliedKnownBundleMetadata details
+                zf.entries();
+            }
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         } finally {

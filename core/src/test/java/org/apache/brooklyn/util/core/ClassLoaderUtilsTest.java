@@ -58,7 +58,6 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.maven.MavenArtifact;
 import org.apache.brooklyn.util.maven.MavenRetriever;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
-import org.apache.brooklyn.util.osgi.OsgiUtils;
 import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.launch.Framework;
@@ -216,7 +215,10 @@ public class ClassLoaderUtilsTest {
         
         mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         Bundle bundle = getBundle(mgmt, "org.apache.brooklyn.core");
-        Entity entity = createSimpleEntity(bundle.getLocation(), clazz);
+        String url = bundle.getLocation();
+        // NB: the above will be a system:file: url when running tests against target/classes/ -- but
+        // OSGi manager will accept that if running in dev mode
+        Entity entity = createSimpleEntity(url, clazz);
         
         ClassLoaderUtils cluMgmt = new ClassLoaderUtils(getClass(), mgmt);
         ClassLoaderUtils cluClass = new ClassLoaderUtils(clazz);
