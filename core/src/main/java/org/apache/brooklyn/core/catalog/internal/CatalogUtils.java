@@ -215,8 +215,8 @@ public class CatalogUtils {
             }
             if (log.isDebugEnabled()) { 
                 logDebugOrTraceIfRebinding(log, 
-                    "Registered {} bundles in {}",
-                    new Object[]{libraries.size(), Time.makeTimeStringRounded(timer)});
+                    "Registered {} bundle{} in {}",
+                    new Object[]{libraries.size(), Strings.s(libraries.size()), Time.makeTimeStringRounded(timer)});
             }
         }
     }
