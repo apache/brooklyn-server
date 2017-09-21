@@ -35,7 +35,6 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
@@ -46,6 +45,7 @@ import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.rest.api.CatalogApi;
 import org.apache.brooklyn.rest.domain.ApiError;
+import org.apache.brooklyn.rest.domain.BundleInstallationRestResult;
 import org.apache.brooklyn.rest.domain.CatalogEnricherSummary;
 import org.apache.brooklyn.rest.domain.CatalogEntitySummary;
 import org.apache.brooklyn.rest.domain.CatalogItemSummary;
@@ -53,7 +53,7 @@ import org.apache.brooklyn.rest.domain.CatalogLocationSummary;
 import org.apache.brooklyn.rest.domain.CatalogPolicySummary;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.CatalogTransformer;
-import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
+import org.apache.brooklyn.rest.transform.TypeTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -149,36 +149,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
     }
 
-    public static class BundleInstallationRestResult {
-        // as Osgi result, but without bundle, and with maps of catalog items installed
-        
-        String message;
-        String bundle;
-        OsgiBundleInstallationResult.ResultCode code;
-        
-        Map<String,Object> types;
-        
-        public String getMessage() {
-            return message;
-        }
-        
-        public static BundleInstallationRestResult of(OsgiBundleInstallationResult in, ManagementContext mgmt, BrooklynRestResourceUtils brooklynU, UriInfo ui) {
-            BundleInstallationRestResult result = new BundleInstallationRestResult();
-            result.message = in.getMessage();
-            result.bundle = in.getVersionedName() != null ? in.getVersionedName().toString() : "";
-            result.code = in.getCode();
-            if (in.getCatalogItemsInstalled()!=null) {
-                result.types = MutableMap.of();
-                for (String id: in.getCatalogItemsInstalled()) {
-                    RegisteredType ci = mgmt.getTypeRegistry().get(id);
-                    CatalogItemSummary summary = CatalogTransformer.catalogItemSummary(brooklynU, ci, ui.getBaseUriBuilder());
-                    result.types.put(id, summary);
-                }
-            }
-            return result;
-        }
-    }
-    
     @Override
     @Beta
     public Response createFromArchive(byte[] zipInput, boolean detail, boolean forceUpdate) {
@@ -202,11 +172,11 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 log.trace("Unable to create from archive, returning 400: "+result.getError().getMessage(), result.getError());
             }
             return ApiError.builder().errorCode(Status.BAD_REQUEST).message(result.getWithoutError().getMessage())
-                .data(BundleInstallationRestResult.of(result.getWithoutError(), mgmt(), brooklyn(), ui)).build().asJsonResponse();
+                .data(TypeTransformer.bundleInstallationResult(result.getWithoutError(), mgmt(), brooklyn(), ui)).build().asJsonResponse();
         }
 
-        BundleInstallationRestResult resultR = BundleInstallationRestResult.of(result.get(), mgmt(), brooklyn(), ui);
-        return Response.status(Status.CREATED).entity( detail ? resultR : resultR.types ).build();
+        BundleInstallationRestResult resultR = TypeTransformer.bundleInstallationResult(result.get(), mgmt(), brooklyn(), ui);
+        return Response.status(Status.CREATED).entity( detail ? resultR : resultR.getTypes() ).build();
     }
 
     private Response buildCreateResponse(Iterable<RegisteredType> catalogItems) {

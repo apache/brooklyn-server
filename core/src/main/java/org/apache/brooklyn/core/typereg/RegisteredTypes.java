@@ -65,7 +65,6 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
@@ -407,12 +406,50 @@ public class RegisteredTypes {
      * to see whether any inherit from the given {@link Class} */
     public static boolean isAnyTypeSubtypeOf(Set<Object> candidateTypes, Class<?> superType) {
         if (superType == Object.class) return true;
-        return isAnyTypeOrSuperSatisfying(candidateTypes, Predicates.assignableFrom(superType));
+        return isAnyTypeOrSuper(candidateTypes, new Predicate<Object>() {
+            @Override
+            public boolean apply(Object input) {
+                return input instanceof Class && superType.isAssignableFrom( (Class<?>)input );
+            }
+        });
     }
 
     /** 
      * Queries recursively the given types (either {@link Class} or {@link RegisteredType}) 
-     * to see whether any java superclasses satisfy the given {@link Predicate} */
+     * to see whether any inherit from the given type either in the registry or a java class  */
+    public static boolean isAnyTypeSubtypeOf(Set<Object> candidateTypes, String superType) {
+        if (Object.class.getName().equals(superType)) return true;
+        return isAnyTypeOrSuper(candidateTypes, new Predicate<Object>() {
+            @Override
+            public boolean apply(Object input) {
+                if (input instanceof Class) input = ((Class<?>)input).getName();
+                return superType.equals(input);
+            }
+        });
+    }
+
+    /** 
+     * Queries recursively the given types (either {@link Class} or {@link RegisteredType}) 
+     * to see whether any superclasses satisfy the given {@link Predicate} comparing as string or class */
+    public static boolean isAnyTypeOrSuper(Set<Object> candidateTypes, Predicate<Object> filter) {
+        for (Object st: candidateTypes) {
+            if (filter.apply(st)) return true;
+        }
+        for (Object st: candidateTypes) {
+            if (st instanceof RegisteredType) {
+                if (isAnyTypeOrSuper(((RegisteredType)st).getSuperTypes(), filter)) return true;
+            }
+        }
+        return false;
+    }
+
+    /** 
+     * Queries recursively the given types (either {@link Class} or {@link RegisteredType}) 
+     * to see whether any java superclasses satisfy the given {@link Predicate} on the {@link Class} 
+     * @deprecated since 0.12.0 use {@link #isAnyTypeOrSuper(Set, Predicate)} accepting any object in the predicate,
+     * typically allowing string equivalence although it is valid to restrict to {@link Class} comparison
+     * (might be stricter in some OSGi cases) */
+    @Deprecated
     public static boolean isAnyTypeOrSuperSatisfying(Set<Object> candidateTypes, Predicate<Class<?>> filter) {
         for (Object st: candidateTypes) {
             if (st instanceof Class) {

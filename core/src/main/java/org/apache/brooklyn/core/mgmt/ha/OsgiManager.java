@@ -46,6 +46,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.CatalogBundleLoader;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
@@ -373,6 +374,11 @@ public class OsgiManager {
         return installer.install();
     }
     
+    /** Convenience for {@link #uninstallUploadedBundle(ManagedBundle, boolean)} without forcing, and throwing on error */
+    public OsgiBundleInstallationResult uninstallUploadedBundle(ManagedBundle bundleMetadata) {
+        return uninstallUploadedBundle(bundleMetadata, false).get();
+    }
+    
     /**
      * Removes this bundle from Brooklyn management, 
      * removes all catalog items it defined,
@@ -382,27 +388,78 @@ public class OsgiManager {
      * behaviour of such things is not guaranteed. They will work for many things
      * but attempts to load new classes may fail.
      * <p>
-     * Callers should typically fail if anything from this bundle is in use.
+     * Callers should typically fail prior to invoking if anything from this bundle is in use.
+     * <p>
+     * This does not throw but returns a reference containing errors and result for caller to inspect and handle. 
      */
-    public void uninstallUploadedBundle(ManagedBundle bundleMetadata) {
-        uninstallCatalogItemsFromBundle( bundleMetadata.getVersionedName() );
+    public ReferenceWithError<OsgiBundleInstallationResult> uninstallUploadedBundle(ManagedBundle bundleMetadata, boolean force) {
+        OsgiBundleInstallationResult result = new OsgiBundleInstallationResult();
+        result.metadata = bundleMetadata;
+        List<Throwable> errors = MutableList.of();
+        boolean uninstalledItems = false;
         
-        if (!managedBundlesRecord.remove(bundleMetadata)) {
-            throw new IllegalStateException("No such bundle registered: "+bundleMetadata);
-        }
-        mgmt.getRebindManager().getChangeListener().onUnmanaged(bundleMetadata);
-
-        
-        Bundle bundle = framework.getBundleContext().getBundle(bundleMetadata.getOsgiUniqueUrl());
-        if (bundle==null) {
-            throw new IllegalStateException("No such bundle installed: "+bundleMetadata);
-        }
         try {
-            bundle.stop();
-            bundle.uninstall();
-        } catch (BundleException e) {
-            throw Exceptions.propagate(e);
+            try {
+                Iterable<RegisteredType> itemsRemoved = uninstallCatalogItemsFromBundle( bundleMetadata.getVersionedName() );
+                for (RegisteredType t: itemsRemoved) result.addType(t);
+                uninstalledItems = true;
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                if (!force) Exceptions.propagate(e);
+                log.warn("Error uninstalling catalog items of "+bundleMetadata+": "+e);
+                errors.add(e);
+            }
+            
+            if (!managedBundlesRecord.remove(bundleMetadata)) {
+                Exception e = new IllegalStateException("No such bundle registered with Brooklyn when uninstalling: "+bundleMetadata);
+                if (!force) Exceptions.propagate(e);
+                log.warn(e.getMessage());
+                errors.add(e);
+            }
+            try {
+                mgmt.getRebindManager().getChangeListener().onUnmanaged(bundleMetadata);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                if (!force) Exceptions.propagate(e);
+                log.warn("Error handling unmanagement of "+bundleMetadata+": "+e);
+                errors.add(e);            
+            }
+            
+            Bundle bundle = framework.getBundleContext().getBundle(bundleMetadata.getOsgiUniqueUrl());
+            result.bundle = bundle;
+            if (bundle==null) {
+                Exception e = new IllegalStateException("No such bundle installed in OSGi when uninstalling: "+bundleMetadata);
+                if (!force) Exceptions.propagate(e);
+                log.warn(e.getMessage());
+                errors.add(e);
+            } else {
+                try {
+                    bundle.stop();
+                    bundle.uninstall();
+                } catch (BundleException e) {
+                    Exceptions.propagateIfFatal(e);
+                    if (!force) Exceptions.propagate(e);
+                    log.warn("Error stopping and uninstalling "+bundleMetadata+": "+e);
+                    errors.add(e);            
+                }
+            }
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            if (!force) Exceptions.propagate(e);
+            log.warn("Error removing "+bundleMetadata+": "+e);
+            errors.add(e);            
         }
+        
+        if (errors.isEmpty()) {
+            result.message = "Uninstalled "+bundleMetadata+" (type count "+result.typesInstalled.size()+", OSGi "+result.bundle+")";
+            result.code = ResultCode.BUNDLE_REMOVED;
+            return ReferenceWithError.newInstanceWithoutError(result);
+        }
+        
+        RuntimeException e = Exceptions.create("Error removing bundle "+bundleMetadata, errors);
+        result.message = Exceptions.collapseText(e);
+        result.code = uninstalledItems ? ResultCode.ERROR_REMOVING_BUNDLE_OTHER : ResultCode.ERROR_REMOVING_BUNDLE_IN_USE;
+        return ReferenceWithError.newInstanceThrowingError(result, e);
     }
 
     @Beta

@@ -175,6 +175,31 @@ public class RegisteredTypePredicates {
         }
     }
 
+    /** Filters for the symbolic name or alias matching the given typeName. */
+    public static Predicate<RegisteredType> nameOrAlias(final String typeName) {
+        return nameOrAlias(Predicates.equalTo(typeName));
+    }
+    public static Predicate<RegisteredType> nameOrAlias(final Predicate<? super String> filter) {
+        return new NameOrAliasMatches(filter);
+    }
+    
+    private static class NameOrAliasMatches implements Predicate<RegisteredType> {
+        private final Predicate<? super String> filter;
+        
+        public NameOrAliasMatches(Predicate<? super String> filter) {
+            this.filter = filter;
+        }
+        @Override
+        public boolean apply(@Nullable RegisteredType item) {
+            if (item==null) return false;
+            if (filter.apply(item.getSymbolicName())) return true;
+            for (String alias: item.getAliases()) {
+                if (filter.apply(alias)) return true;
+            }
+            return false;
+        }
+    }
+
     public static Predicate<RegisteredType> tag(final Object tag) {
         return tags(CollectionFunctionals.any(Predicates.equalTo(tag)));
     }
@@ -194,27 +219,42 @@ public class RegisteredTypePredicates {
         }
     }
 
-    public static <T> Predicate<RegisteredType> anySuperType(final Predicate<Class<T>> filter) {
+    public static <T> Predicate<RegisteredType> anySuperType(final Predicate<Object> filter) {
         return new AnySuperTypeMatches(filter);
     }
-    @SuppressWarnings({ "unchecked", "rawtypes" })
     public static Predicate<RegisteredType> subtypeOf(final Class<?> filter) {
         // the assignableFrom predicate checks if this class is assignable from the subsequent *input*.
         // in other words, we're checking if any input is a subtype of this class
-        return anySuperType((Predicate)Predicates.assignableFrom(filter));
+        return anySuperType(new Predicate<Object>() {
+            @Override
+            public boolean apply(Object input) {
+                if (!(input instanceof Class)) return false;
+                return filter.isAssignableFrom((Class<?>)input);
+            }
+        });
+    }
+    public static Predicate<RegisteredType> subtypeOf(final String filter) {
+        // the assignableFrom predicate checks if this class is assignable from the subsequent *input*.
+        // in other words, we're checking if any input is a subtype of this class
+        return anySuperType(new Predicate<Object>() {
+            @Override
+            public boolean apply(Object input) {
+                if (input instanceof Class) input = ((Class<?>)input).getName();
+                return filter.equals(input);
+            }
+        });
     }
     
     private static class AnySuperTypeMatches implements Predicate<RegisteredType> {
-        private final Predicate<Class<?>> filter;
+        private final Predicate<Object> filter;
         
-        @SuppressWarnings({ "rawtypes", "unchecked" })
-        private AnySuperTypeMatches(Predicate filter) {
+        private AnySuperTypeMatches(Predicate<Object> filter) {
             this.filter = filter;
         }
         @Override
         public boolean apply(@Nullable RegisteredType item) {
             if (item==null) return false;
-            return RegisteredTypes.isAnyTypeOrSuperSatisfying(item.getSuperTypes(), filter);
+            return RegisteredTypes.isAnyTypeOrSuper(item.getSuperTypes(), filter);
         }
     }
     

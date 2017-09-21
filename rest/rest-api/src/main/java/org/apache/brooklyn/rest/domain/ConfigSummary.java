@@ -30,6 +30,8 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.collections.Jsonya;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.base.Function;
@@ -42,19 +44,24 @@ public abstract class ConfigSummary implements HasName, Serializable {
 
     private final String name;
     private final String type;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final Object defaultValue;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final String description;
     @JsonSerialize
     private final boolean reconfigurable;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final String label;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final Double priority;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final List<Map<String, String>> possibleValues;
 
+    // json deserialization
+    ConfigSummary() {
+        this(null, null, null, null, false, null, null, null);
+    }
+    
     protected ConfigSummary(
             @JsonProperty("name") String name,
             @JsonProperty("type") String type,

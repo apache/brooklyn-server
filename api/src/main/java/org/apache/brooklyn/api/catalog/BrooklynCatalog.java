@@ -84,7 +84,6 @@ public interface BrooklynCatalog {
 
     /** convenience for filtering items in the catalog; see CatalogPredicates for useful filters
      * @deprecated since 0.12.0 use {@link BrooklynTypeRegistry} instead */ 
-    @Deprecated
     <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItems(Predicate<? super CatalogItem<T,SpecT>> filter);
 
     /** As non-legacy method but only looking in legacy catalog
