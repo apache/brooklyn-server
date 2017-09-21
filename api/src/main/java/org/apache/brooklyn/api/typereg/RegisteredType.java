@@ -21,6 +21,8 @@ package org.apache.brooklyn.api.typereg;
 import java.util.Collection;
 import java.util.Set;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -112,9 +114,10 @@ public interface RegisteredType extends Identifiable {
          * this may be null if the relevant transformer was not declared when created,
          * but in general we should look to determine the kind as early as possible 
          * and use that to retrieve the appropriate such transformer */
+        @Nullable 
         String getPlanFormat();
         /** data for the implementation; may be more specific */
-        Object getPlanData();
+        Object getPlanData(); // TODO unclear if this is allowed to return null; most (?) usages do a null check
         
         @Override boolean equals(Object obj);
         @Override int hashCode();
