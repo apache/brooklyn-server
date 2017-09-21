@@ -20,7 +20,6 @@ package org.apache.brooklyn.core.sensor.http;
 
 import static org.testng.Assert.assertEquals;
 
-import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -28,11 +27,14 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
+import org.apache.brooklyn.core.feed.AttributePollHandler;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.feed.http.HttpFeedTest;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.test.LogWatcher;
+import org.apache.brooklyn.test.LogWatcher.EventPredicates;
 import org.apache.brooklyn.test.http.RecordingHttpRequestHandler;
 import org.apache.brooklyn.test.http.TestHttpRequestHandler;
 import org.apache.brooklyn.test.http.TestHttpServer;
@@ -44,9 +46,12 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+
+import ch.qos.logback.classic.spi.ILoggingEvent;
 
 public class HttpRequestSensorTest {
     final static AttributeSensor<String> SENSOR_STRING = Sensors.newStringSensor("aString");
@@ -55,7 +60,7 @@ public class HttpRequestSensorTest {
     final static String OBJECT_TARGET_TYPE = "java.lang.Object";
 
     private TestApplication app;
-    private Entity entity;
+    private TestEntity entity;
 
     private TestHttpServer server;
     private String serverUrl;
@@ -69,6 +74,7 @@ public class HttpRequestSensorTest {
             .handler("/nonjson", new TestHttpRequestHandler().header("Content-Type", "text/plain").response("myresponse"))
             .handler("/jsonstring", new TestHttpRequestHandler().header("Content-Type", "application/json").response("\"myValue\""))
             .handler("/myKey/myValue", recordingHandler)
+            .handler("/null", new TestHttpRequestHandler().header("Content-Type", "application/json").response("null"))
             .start();
         serverUrl = server.getUrl();
 
@@ -85,7 +91,6 @@ public class HttpRequestSensorTest {
     }
 
     @Test
-    @SuppressWarnings("deprecation")
     public void testHttpSensor() throws Exception {
         HttpRequestSensor<Integer> sensor = new HttpRequestSensor<Integer>(ConfigBag.newInstance()
                 .configure(HttpRequestSensor.SENSOR_PERIOD, Duration.millis(100))
@@ -93,15 +98,45 @@ public class HttpRequestSensorTest {
                 .configure(HttpRequestSensor.SENSOR_TYPE, STRING_TARGET_TYPE)
                 .configure(HttpRequestSensor.JSON_PATH, "$.myKey")
                 .configure(HttpRequestSensor.SENSOR_URI, serverUrl + "/myKey/myValue"));
-        sensor.apply((org.apache.brooklyn.api.entity.EntityLocal)entity);
+        sensor.apply(entity);
         entity.sensors().set(Attributes.SERVICE_UP, true);
 
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_STRING, "myValue");
     }
 
+    // See https://issues.apache.org/jira/browse/BROOKLYN-538
+    @Test(groups="Broken", enabled=false)
+    public void testHttpSensorParsesNull() throws Exception {
+        // The following code fails with the exception reported in BROOKLYN-538
+        //     com.jayway.jsonpath.JsonPath.read("null", "$");
+        // The test illustrates that we log.warn about this.
+
+        HttpRequestSensor<Integer> sensor = new HttpRequestSensor<Integer>(ConfigBag.newInstance()
+                .configure(HttpRequestSensor.SENSOR_PERIOD, Duration.millis(100))
+                .configure(HttpRequestSensor.SENSOR_NAME, SENSOR_STRING.getName())
+                .configure(HttpRequestSensor.SENSOR_TYPE, STRING_TARGET_TYPE)
+                .configure(HttpRequestSensor.JSON_PATH, "$")
+                .configure(HttpRequestSensor.SENSOR_URI, serverUrl + "/null"));
+        
+        String loggerName = AttributePollHandler.class.getName();
+        ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.WARN;
+        Predicate<ILoggingEvent> filter = EventPredicates.containsMessage("unable to compute");
+        LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter);
+
+        watcher.start();
+        try {
+            sensor.apply(entity);
+            entity.sensors().set(Attributes.SERVICE_UP, true);
+            EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_STRING, null);
+
+            watcher.assertNoEventContinually();
+        } finally {
+            watcher.close();
+        }
+    }
+
     // "Integration" because takes a second
     @Test(groups="Integration")
-    @SuppressWarnings("deprecation")
     public void testHttpSensorSuppressingDuplicates() throws Exception {
         RecordingSensorEventListener<String> listener = new RecordingSensorEventListener<>();
         entity.subscriptions().subscribe(entity, SENSOR_STRING, listener);
@@ -113,7 +148,7 @@ public class HttpRequestSensorTest {
                 .configure(HttpRequestSensor.SENSOR_TYPE, STRING_TARGET_TYPE)
                 .configure(HttpRequestSensor.JSON_PATH, "$.myKey")
                 .configure(HttpRequestSensor.SENSOR_URI, serverUrl + "/myKey/myValue"));
-        sensor.apply((org.apache.brooklyn.api.entity.EntityLocal)entity);
+        sensor.apply(entity);
         entity.sensors().set(Attributes.SERVICE_UP, true);
 
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_STRING, "myValue");
@@ -127,21 +162,19 @@ public class HttpRequestSensorTest {
 
     // TODO Fails because doesn't pick up default value of `JSON_PATH`, which is `$`
     @Test(groups="Broken")
-    @SuppressWarnings("deprecation")
     public void testDefaultJsonPath() throws Exception {
         HttpRequestSensor<Integer> sensor = new HttpRequestSensor<Integer>(ConfigBag.newInstance()
                 .configure(HttpRequestSensor.SENSOR_PERIOD, Duration.millis(100))
                 .configure(HttpRequestSensor.SENSOR_NAME, SENSOR_STRING.getName())
                 .configure(HttpRequestSensor.SENSOR_TYPE, STRING_TARGET_TYPE)
                 .configure(HttpRequestSensor.SENSOR_URI, serverUrl + "/jsonstring"));
-        sensor.apply((org.apache.brooklyn.api.entity.EntityLocal)entity);
+        sensor.apply(entity);
         entity.sensors().set(Attributes.SERVICE_UP, true);
 
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_STRING, "myValue");
     }
 
     @Test
-    @SuppressWarnings("deprecation")
     public void testPreemptiveBasicAuth() throws Exception {
         HttpRequestSensor<Integer> sensor = new HttpRequestSensor<Integer>(ConfigBag.newInstance()
                 .configure(HttpRequestSensor.PREEMPTIVE_BASIC_AUTH, true)
@@ -152,7 +185,7 @@ public class HttpRequestSensorTest {
                 .configure(HttpRequestSensor.SENSOR_TYPE, STRING_TARGET_TYPE)
                 .configure(HttpRequestSensor.JSON_PATH, "$.myKey")
                 .configure(HttpRequestSensor.SENSOR_URI, serverUrl + "/myKey/myValue"));
-        sensor.apply((org.apache.brooklyn.api.entity.EntityLocal)entity);
+        sensor.apply(entity);
         entity.sensors().set(Attributes.SERVICE_UP, true);
         
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_STRING, "myValue");
@@ -164,7 +197,6 @@ public class HttpRequestSensorTest {
     }
     
     @Test
-    @SuppressWarnings("deprecation")
     public void testDoNotParseJson() throws Exception {
         HttpRequestSensor<Integer> sensor = new HttpRequestSensor<Integer>(ConfigBag.newInstance()
                 .configure(HttpRequestSensor.SENSOR_PERIOD, Duration.minutes(1))
@@ -172,14 +204,13 @@ public class HttpRequestSensorTest {
                 .configure(HttpRequestSensor.SENSOR_TYPE, STRING_TARGET_TYPE)
                 .configure(HttpRequestSensor.JSON_PATH, "")
                 .configure(HttpRequestSensor.SENSOR_URI, serverUrl + "/myKey/myValue"));
-        sensor.apply((org.apache.brooklyn.api.entity.EntityLocal)entity);
+        sensor.apply(entity);
         entity.sensors().set(Attributes.SERVICE_UP, true);
         
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_STRING, "{\"myKey\":\"myValue\"}");
     }
     
     @Test
-    @SuppressWarnings("deprecation")
     public void testNonJson() throws Exception {
         HttpRequestSensor<Integer> sensor = new HttpRequestSensor<Integer>(ConfigBag.newInstance()
                 .configure(HttpRequestSensor.SENSOR_PERIOD, Duration.minutes(1))
@@ -187,7 +218,7 @@ public class HttpRequestSensorTest {
                 .configure(HttpRequestSensor.SENSOR_TYPE, STRING_TARGET_TYPE)
                 .configure(HttpRequestSensor.JSON_PATH, "")
                 .configure(HttpRequestSensor.SENSOR_URI, serverUrl + "/nonjson"));
-        sensor.apply((org.apache.brooklyn.api.entity.EntityLocal)entity);
+        sensor.apply(entity);
         entity.sensors().set(Attributes.SERVICE_UP, true);
         
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_STRING, "myresponse");
