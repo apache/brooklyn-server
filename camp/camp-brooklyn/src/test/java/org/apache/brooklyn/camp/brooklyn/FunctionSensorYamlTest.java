@@ -38,7 +38,7 @@ public class FunctionSensorYamlTest extends AbstractYamlRebindTest {
     private static final Logger log = LoggerFactory.getLogger(FunctionSensorYamlTest.class);
 
     final static AttributeSensor<String> SENSOR_STRING = Sensors.newStringSensor("aString");
-    final static String TARGET_TYPE = "java.lang.String";
+    final static AttributeSensor<Integer> SENSOR_INT = Sensors.newIntegerSensor("anInt");
 
     public static class MyCallable implements Callable<Object> {
         public static AtomicReference<Object> val = new AtomicReference<>();
@@ -62,7 +62,7 @@ public class FunctionSensorYamlTest extends AbstractYamlRebindTest {
             "    brooklyn.config:",
             "      "+FunctionSensor.SENSOR_PERIOD.getName()+": 100ms",
             "      "+FunctionSensor.SENSOR_NAME.getName()+": " + SENSOR_STRING.getName(),
-            "      "+FunctionSensor.SENSOR_TYPE.getName()+": " + TARGET_TYPE,
+            "      "+FunctionSensor.SENSOR_TYPE.getName()+": String",
             "      "+FunctionSensor.FUNCTION.getName()+":",
             "        $brooklyn:object:",
             "          type: "+MyCallable.class.getName());
@@ -80,6 +80,40 @@ public class FunctionSensorYamlTest extends AbstractYamlRebindTest {
 
         MyCallable.val.set("third");
         EntityAsserts.assertAttributeEqualsEventually(newEntity, SENSOR_STRING, "third");
+    }
+
+    @Test
+    public void testFunctionSensorCoerces() throws Exception {
+        MyCallable.val.set("1");
+        
+        Entity app = createAndStartApplication(
+            "services:",
+            "- type: " + TestEntity.class.getName(),
+            "  brooklyn.config:",
+            "    onbox.base.dir.skipResolution: true",
+            "  brooklyn.initializers:",
+            "  - type: "+FunctionSensor.class.getName(),
+            "    brooklyn.config:",
+            "      "+FunctionSensor.SENSOR_PERIOD.getName()+": 100ms",
+            "      "+FunctionSensor.SENSOR_NAME.getName()+": " + SENSOR_INT.getName(),
+            "      "+FunctionSensor.SENSOR_TYPE.getName()+": int",
+            "      "+FunctionSensor.FUNCTION.getName()+":",
+            "        $brooklyn:object:",
+            "          type: "+MyCallable.class.getName());
+        waitForApplicationTasks(app);
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+
+        EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, 1);
+        
+        MyCallable.val.set("1");
+        EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, 1);
+        
+        // Rebind, and confirm that it resumes polling
+        Application newApp = rebind();
+        Entity newEntity = Iterables.getOnlyElement(newApp.getChildren());
+
+        MyCallable.val.set("3");
+        EntityAsserts.assertAttributeEqualsEventually(newEntity, SENSOR_INT, 3);
     }
 
     @Override
