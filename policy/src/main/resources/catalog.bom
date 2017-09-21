@@ -101,8 +101,8 @@ brooklyn.catalog:
     - id: org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher
       item:
         type: org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher
-        name: [DEPRECATED] Rolling Mean in Time Window
-        description: [DEPRECATED] Prefer YamlRollingTimeWindowMeanEnricher
+        name: "[DEPRECATED] Rolling Mean in Time Window"
+        description: "[DEPRECATED] Prefer YamlRollingTimeWindowMeanEnricher"
     - id: org.apache.brooklyn.policy.enricher.TimeFractionDeltaEnricher
       item:
         type: org.apache.brooklyn.policy.enricher.TimeFractionDeltaEnricher
@@ -113,8 +113,8 @@ brooklyn.catalog:
     - id: org.apache.brooklyn.policy.enricher.TimeWeightedDeltaEnricher
       item:
         type: org.apache.brooklyn.policy.enricher.TimeWeightedDeltaEnricher
-        name: [DEPRECATED] Time Weighted Delta
-        description: [DEPRECATED] prefer 'YamlTimeWeightedDeltaEnricher'
+        name: "[DEPRECATED] Time Weighted Delta"
+        description: "[DEPRECATED] prefer 'YamlTimeWeightedDeltaEnricher'"
     - id: org.apache.brooklyn.policy.ha.ServiceFailureDetector
       item:
         type: org.apache.brooklyn.policy.ha.ServiceFailureDetector
