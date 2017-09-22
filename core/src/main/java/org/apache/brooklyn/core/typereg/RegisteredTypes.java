@@ -446,7 +446,7 @@ public class RegisteredTypes {
     /** 
      * Queries recursively the given types (either {@link Class} or {@link RegisteredType}) 
      * to see whether any java superclasses satisfy the given {@link Predicate} on the {@link Class} 
-     * @deprecated since 0.12.0 use {@link #isAnyTypeOrSuper(Set, Predicate)} accepting any object in the predicate,
+     * @deprecated since 0.13.0 use {@link #isAnyTypeOrSuper(Set, Predicate)} accepting any object in the predicate,
      * typically allowing string equivalence although it is valid to restrict to {@link Class} comparison
      * (might be stricter in some OSGi cases) */
     @Deprecated
