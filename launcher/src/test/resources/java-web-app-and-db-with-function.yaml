@@ -27,10 +27,11 @@ services:
     proxy.http.port: 9210+
     java.sysprops: 
       brooklyn.example.db.url: $brooklyn:formatString("jdbc:%s%s?user=%s\\&password=%s",
-         component("db").attributeWhenReady("datastore.url"), "visitors", "brooklyn", "br00k11n")
+         component("db").attributeWhenReady("datastore.url"), "visitors", "brooklyn", $brooklyn:external("brooklyn-demo-sample", "hidden-brooklyn-password"))
 - serviceType: org.apache.brooklyn.entity.database.mysql.MySqlNode
   id: db
   name: My DB
   location: localhost
   brooklyn.config:
+    creation.script.password: $brooklyn:external("brooklyn-demo-sample", "hidden-brooklyn-password")
     creationScriptUrl: classpath://visitors-creation-script.sql

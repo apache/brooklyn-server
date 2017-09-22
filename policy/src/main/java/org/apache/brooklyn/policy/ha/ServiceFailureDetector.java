@@ -75,11 +75,15 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
     public static final BasicNotificationSensor<FailureDescriptor> ENTITY_FAILED = HASensors.ENTITY_FAILED;
 
     @SetFromFlag("onlyReportIfPreviouslyUp")
-    public static final ConfigKey<Boolean> ENTITY_FAILED_ONLY_IF_PREVIOUSLY_UP = ConfigKeys.newBooleanConfigKey("onlyReportIfPreviouslyUp", 
-        "Prevents the policy from emitting ENTITY_FAILED if the entity fails on startup (ie has never been up)", true);
+    public static final ConfigKey<Boolean> ENTITY_FAILED_ONLY_IF_PREVIOUSLY_UP = ConfigKeys.newBooleanConfigKey(
+            "onlyReportIfPreviouslyUp", 
+            "Prevents the policy from emitting ENTITY_FAILED if the entity fails on startup (ie has never been up)", 
+            true);
     
-    public static final ConfigKey<Boolean> MONITOR_SERVICE_PROBLEMS = ConfigKeys.newBooleanConfigKey("monitorServiceProblems", 
-        "Whether to monitor service problems, and emit on failures there (if set to false, this monitors only service up)", true);
+    public static final ConfigKey<Boolean> MONITOR_SERVICE_PROBLEMS = ConfigKeys.newBooleanConfigKey(
+            "monitorServiceProblems", 
+            "Whether to monitor service problems, and emit on failures there (if set to false, this monitors only service up)", 
+            true);
 
     @SetFromFlag("serviceOnFireStabilizationDelay")
     public static final ConfigKey<Duration> SERVICE_ON_FIRE_STABILIZATION_DELAY = BasicConfigKey.builder(Duration.class)
@@ -237,7 +241,7 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                         publishEntityFailedTime = now + republishDelay.toMilliseconds();
                         recomputeIn = Math.min(recomputeIn, republishDelay.toMilliseconds());
                     }
-                    entity.sensors().emit(HASensors.ENTITY_FAILED, new HASensors.FailureDescriptor(entity, getFailureDescription(now)));
+                    emit(HASensors.ENTITY_FAILED, new HASensors.FailureDescriptor(entity, getFailureDescription(now)));
                     config().set(LAST_PUBLISHED, LastPublished.FAILED);
                 } else {
                     recomputeIn = Math.min(recomputeIn, delayBeforeCheck);
@@ -248,7 +252,7 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                     if (LOG.isDebugEnabled()) LOG.debug("{} publishing recovered (state={}; currentRecoveryStartTime={}; now={}", 
                             new Object[] {this, state, Time.makeDateString(currentRecoveryStartTime), Time.makeDateString(now)});
                     publishEntityRecoveredTime = null;
-                    entity.sensors().emit(HASensors.ENTITY_RECOVERED, new HASensors.FailureDescriptor(entity, null));
+                    emit(HASensors.ENTITY_RECOVERED, new HASensors.FailureDescriptor(entity, null));
                     config().set(LAST_PUBLISHED, LastPublished.RECOVERED);
                 } else {
                     recomputeIn = Math.min(recomputeIn, delayBeforeCheck);

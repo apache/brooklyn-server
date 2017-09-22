@@ -162,9 +162,15 @@ public class Propagator extends AbstractEnricher implements SensorEventListener<
 
         if (propagatingAll) {
             subscriptions().subscribe(producer, null, this);
+            highlightTriggers("Listening for all sensors on "+producer);
         } else {
             for (Sensor<?> sensor : sensorMapping.keySet()) {
                 subscriptions().subscribe(producer, sensor, this);
+            }
+            if (sensorMapping.keySet().size() > 3) {
+                highlightTriggers("Listening for "+sensorMapping.keySet()+" sensors on "+producer);
+            } else {
+                highlightTriggers(sensorMapping.keySet(), producer);
             }
         }
         

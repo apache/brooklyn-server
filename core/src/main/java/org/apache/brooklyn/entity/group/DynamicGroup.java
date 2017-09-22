@@ -41,8 +41,10 @@ public interface DynamicGroup extends AbstractGroup {
 
     @SuppressWarnings("serial")
     @SetFromFlag("entityFilter")
-    ConfigKey<Predicate<? super Entity>> ENTITY_FILTER = ConfigKeys.newConfigKey(new TypeToken<Predicate<? super Entity>>() { },
-            "dynamicgroup.entityfilter", "Filter for entities which will automatically be in the group");
+    ConfigKey<Predicate<? super Entity>> ENTITY_FILTER = ConfigKeys.newConfigKey(
+            new TypeToken<Predicate<? super Entity>>() { },
+            "dynamicgroup.entityfilter", 
+            "Filter for entities which will automatically be in the group");
 
     AttributeSensor<Boolean> RUNNING = Sensors.newBooleanSensor(
             "dynamicgroup.running", "Whether the entity is running, and will automatically update group membership");

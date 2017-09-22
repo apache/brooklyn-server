@@ -16,77 +16,107 @@
 # under the License.
 
 brooklyn.catalog:
-    version: "0.12.0-SNAPSHOT" # BROOKLYN_VERSION
+  version: "0.13.0-SNAPSHOT" # BROOKLYN_VERSION
+  items:
+
+  - itemType: policy
     items:
     - id: org.apache.brooklyn.policy.ha.ConnectionFailureDetector
-      itemType: policy
       item:
         type: org.apache.brooklyn.policy.ha.ConnectionFailureDetector
         name: Connection Failure Detector
-        description: HA policy for monitoring a host:port, 
+        description: HA policy for monitoring a host:port, emitting an event if the connection is lost/restored
     - id: org.apache.brooklyn.policy.ha.ServiceRestarter
-      itemType: policy
       item:
         type: org.apache.brooklyn.policy.ha.ServiceRestarter
         name: Service Restarter
-        description: HA policy for restarting a service automatically, 
+        description: HA policy for restarting a service automatically, and for emitting an events if the service repeatedly fails
     - id: org.apache.brooklyn.policy.ha.SshMachineFailureDetector
-      itemType: policy
       item:
         type: org.apache.brooklyn.policy.ha.SshMachineFailureDetector
         name: Ssh Connectivity Failure Detector
-        description: HA policy for monitoring an SshMachine, 
-#    removed from catalog because it cannot currently be configured via catalog mechanisms
-#    - id: org.apache.brooklyn.policy.followthesun.FollowTheSunPool
-#      item:
-#        type: org.apache.brooklyn.policy.followthesun.FollowTheSunPool
-    - id: org.apache.brooklyn.policy.loadbalancing.BalanceableWorkerPool
-      itemType: entity
-      item:
-        type: org.apache.brooklyn.policy.loadbalancing.BalanceableWorkerPool
+        description: HA policy for monitoring an SshMachine, emitting an event if the connection is lost/restored
     - id: org.apache.brooklyn.policy.ha.ServiceReplacer
-      itemType: policy
       item:
         type: org.apache.brooklyn.policy.ha.ServiceReplacer
         name: Service Replacer
         description: HA policy for replacing a failed member of a group
-    - id: org.apache.brooklyn.policy.loadbalancing.ItemsInContainersGroup
-      itemType: entity
-      item:
-        type: org.apache.brooklyn.policy.loadbalancing.ItemsInContainersGroup
     - id: org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy
-      itemType: policy
       item:
         type: org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy
         name: Auto-scaler
-        description: Policy that is attached to a Resizable entity and dynamically 
+        description: |
+          Policy that is attached to a Resizable entity and dynamically adjusts its size in 
+          response to either keep a metric within a given range, or in response to 
+          POOL_COLD and POOL_HOT events
+    - id: org.apache.brooklyn.policy.action.PeriodicEffectorPolicy
+      itemType: policy
+      item:
+        type: org.apache.brooklyn.policy.action.PeriodicEffectorPolicy
+        name: Periodic Effector Execution
+        description: |
+          Policy that executes an effector repeatedly at configurable intervals.
+    - id: org.apache.brooklyn.policy.action.ScheduledEffectorPolicy
+      itemType: policy
+      item:
+        type: org.apache.brooklyn.policy.action.ScheduledEffectorPolicy
+        name: Scheduled Effector Execution
+        description: |
+          Policy that executes an effector at a configurable time or after
+          a configurable delay.
 
-    # Enrichers
+#  Removed from catalog because 'FollowTheSunPool' cannot currently be configured via catalog mechanisms.
+#  Also removing associated 'BalanceableWorkerPool' etc as they are only useful with 'FollowTheSunPool'
+#  - itemType: entity
+#    items:
+#    - id: org.apache.brooklyn.policy.followthesun.FollowTheSunPool
+#      item:
+#        type: org.apache.brooklyn.policy.followthesun.FollowTheSunPool
+#    - id: org.apache.brooklyn.policy.loadbalancing.BalanceableWorkerPool
+#      item:
+#        type: org.apache.brooklyn.policy.loadbalancing.BalanceableWorkerPool
+#    - id: org.apache.brooklyn.policy.loadbalancing.ItemsInContainersGroup
+#      item:
+#        type: org.apache.brooklyn.policy.loadbalancing.ItemsInContainersGroup
+
+  - itemType: enricher
+    items:
     - id: org.apache.brooklyn.policy.enricher.DeltaEnricher
-      itemType: enricher
       item:
         type: org.apache.brooklyn.policy.enricher.DeltaEnricher
+        name: Delta
+        description: Converts an absolute sensor into a delta sensor (i.e. the diff between the current and previous value)
     - id: org.apache.brooklyn.policy.enricher.HttpLatencyDetector
-      itemType: enricher
       item:
         type: org.apache.brooklyn.policy.enricher.HttpLatencyDetector
+        name: HTTP Latency Detector
+        description: Computes latency in accessing a URL, normally by periodically polling that URL
     - id: org.apache.brooklyn.policy.enricher.RollingMeanEnricher
-      itemType: enricher
       item:
         type: org.apache.brooklyn.policy.enricher.RollingMeanEnricher
+        name: Rolling Mean
+        description: |
+          Transforms a sensor into a rolling average based on a fixed window size. 
+          This is useful for smoothing sample type metrics, such as latency or CPU time.
     - id: org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher
-      itemType: enricher
       item:
         type: org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher
+        name: "[DEPRECATED] Rolling Mean in Time Window"
+        description: "[DEPRECATED] Prefer YamlRollingTimeWindowMeanEnricher"
     - id: org.apache.brooklyn.policy.enricher.TimeFractionDeltaEnricher
-      itemType: enricher
       item:
         type: org.apache.brooklyn.policy.enricher.TimeFractionDeltaEnricher
+        name: Time-fraction Delta
+        description: |
+          Converts an absolute measure of time into a fraction of time, 
+          based on the delta between consecutive values and the elapsed time between those values.
     - id: org.apache.brooklyn.policy.enricher.TimeWeightedDeltaEnricher
-      itemType: enricher
       item:
         type: org.apache.brooklyn.policy.enricher.TimeWeightedDeltaEnricher
+        name: "[DEPRECATED] Time Weighted Delta"
+        description: "[DEPRECATED] prefer 'YamlTimeWeightedDeltaEnricher'"
     - id: org.apache.brooklyn.policy.ha.ServiceFailureDetector
-      itemType: enricher
       item:
         type: org.apache.brooklyn.policy.ha.ServiceFailureDetector
+        name: Service Failure Detector
+        description: Emits a new sensor if the current entity fails

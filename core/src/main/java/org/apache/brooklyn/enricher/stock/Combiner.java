@@ -55,15 +55,30 @@ public class Combiner<T,U> extends AbstractEnricher implements SensorEventListen
 
     private static final Logger LOG = LoggerFactory.getLogger(Combiner.class);
 
-    public static ConfigKey<Function<?, ?>> TRANSFORMATION = ConfigKeys.newConfigKey(new TypeToken<Function<?, ?>>() {}, "enricher.transformation");
+    public static ConfigKey<Function<?, ?>> TRANSFORMATION = ConfigKeys.newConfigKey(
+            new TypeToken<Function<?, ?>>() {}, 
+            "enricher.transformation",
+            "The function to be applied, to combine the sensor values");
 
-    public static ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class, "enricher.producer");
+    public static ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(
+            Entity.class, 
+            "enricher.producer",
+            "The entity that has the source sensors (defaults to the entity that the enricher is attached to)");
 
-    public static ConfigKey<Set<Sensor<?>>> SOURCE_SENSORS = ConfigKeys.newConfigKey(new TypeToken<Set<Sensor<?>>>() {}, "enricher.sourceSensors");
+    public static ConfigKey<Set<Sensor<?>>> SOURCE_SENSORS = ConfigKeys.newConfigKey(
+            new TypeToken<Set<Sensor<?>>>() {}, 
+            "enricher.sourceSensors",
+            "The source sensors to be combined");
 
-    public static ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.targetSensor");
+    public static ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(
+            new TypeToken<Sensor<?>>() {}, 
+            "enricher.targetSensor",
+            "The sensor to be set on the associated entity with the value computed here");
 
-    public static final ConfigKey<Predicate<?>> VALUE_FILTER = ConfigKeys.newConfigKey(new TypeToken<Predicate<?>>() {}, "enricher.aggregating.valueFilter");
+    public static final ConfigKey<Predicate<?>> VALUE_FILTER = ConfigKeys.newConfigKey(
+            new TypeToken<Predicate<?>>() {}, 
+            "enricher.aggregating.valueFilter",
+            "A filter of the source sensors to include, based on their sensor values");
 
     protected Function<? super Collection<T>, ? extends U> transformation;
     protected Entity producer;
@@ -107,6 +122,8 @@ public class Combiner<T,U> extends AbstractEnricher implements SensorEventListen
                 }
             }
         }
+        
+        highlightTriggers(sourceSensors, producer);
     }
 
     @Override

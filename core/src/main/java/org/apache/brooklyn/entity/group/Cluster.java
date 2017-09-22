@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.entity.group;
 
+import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.entity.trait.Resizable;
@@ -29,6 +30,7 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
  */
 public interface Cluster extends Group, Startable, Resizable {
     
+    @CatalogConfig(label = "Initial size")
     @SetFromFlag("initialSize")
     BasicConfigKey<Integer> INITIAL_SIZE = new BasicConfigKey<Integer>(
             Integer.class, "cluster.initial.size", "Initial cluster size", 1);

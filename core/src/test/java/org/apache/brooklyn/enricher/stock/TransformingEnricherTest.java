@@ -75,9 +75,10 @@ public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
 
         producer.enrichers().add(Enrichers.builder()
                 .transforming(intSensorA)
-                //.computing(MathFunctions.times(2)) // TODO calling it before "publishing" means it doesn't check return type!
+                .computing(MathFunctions.times(2))
                 .publishing(target)
-                .computing((Function)MathFunctions.times(2)) // TODO doesn't match strongly typed int->long
+                // note: if `computing` comes later, we lose some type inference, have to give explicit types or go unchecked
+                //.computing((Function)MathFunctions.times(2))
                 .build());
 
         EntityAsserts.assertAttributeEqualsEventually(producer, target, 6L);
@@ -157,7 +158,7 @@ public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
         // Doing nasty casting here, but in YAML we could easily get passed this.
         producer.enrichers().add(EnricherSpec.create(Transformer.class)
                 .configure(Transformer.TARGET_SENSOR, target)
-                .configure(Transformer.TRIGGER_SENSORS, (List<Sensor<?>>)(List)ImmutableList.of(intSensorA.getName(), intSensorB.getName()))
+                .configure(Transformer.TRIGGER_SENSORS, (List<Sensor<?>>)(List<?>)ImmutableList.of(intSensorA.getName(), intSensorB.getName()))
                 .configure(Transformer.PRODUCER, producer)
                 .configure(Transformer.TARGET_VALUE, new DeferredSupplier<Long>() {
                     @Override public Long get() {

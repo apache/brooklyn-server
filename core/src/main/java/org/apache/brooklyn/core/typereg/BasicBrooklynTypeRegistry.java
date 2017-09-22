@@ -193,13 +193,13 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     }
 
     @Override
-    public <SpecT extends AbstractBrooklynObjectSpec<?,?>> SpecT createSpec(RegisteredType type, @Nullable RegisteredTypeLoadingContext constraint, Class<SpecT> specSuperType) {
+    public <SpecT extends AbstractBrooklynObjectSpec<?,?>> SpecT createSpec(RegisteredType type, @Nullable RegisteredTypeLoadingContext constraint, @Nullable Class<SpecT> specSuperType) {
         Preconditions.checkNotNull(type, "type");
         if (type.getKind()==RegisteredTypeKind.SPEC) {
             return createSpec(type, type.getPlan(), type.getSymbolicName(), type.getVersion(), type.getSuperTypes(), constraint, specSuperType);
             
         } else if (type.getKind()==RegisteredTypeKind.UNRESOLVED) {
-            if (constraint.getAlreadyEncounteredTypes().contains(type.getSymbolicName())) {
+            if (constraint != null && constraint.getAlreadyEncounteredTypes().contains(type.getSymbolicName())) {
                 throw new UnsupportedTypePlanException("Cannot create spec from type "+type+" (kind "+type.getKind()+"), recursive reference following "+constraint.getAlreadyEncounteredTypes());
                 
             } else {
@@ -225,13 +225,13 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
             RegisteredType type,
             TypeImplementationPlan plan,
             @Nullable String symbolicName, @Nullable String version, Set<Object> superTypes,
-            @Nullable RegisteredTypeLoadingContext constraint, Class<SpecT> specSuperType) {
+            @Nullable RegisteredTypeLoadingContext constraint, @Nullable Class<SpecT> specSuperType) {
         // TODO type is only used to call to "transform"; we should perhaps change transform so it doesn't need the type?
         if (constraint!=null) {
             if (constraint.getExpectedKind()!=null && constraint.getExpectedKind()!=RegisteredTypeKind.SPEC) {
                 throw new IllegalStateException("Cannot create spec with constraint "+constraint);
             }
-            if (constraint.getAlreadyEncounteredTypes().contains(symbolicName)) {
+            if (symbolicName != null && constraint.getAlreadyEncounteredTypes().contains(symbolicName)) {
                 // avoid recursive cycle
                 // TODO implement using java if permitted
             }
@@ -254,7 +254,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
             }
             item = CatalogItemBuilder.newItem(ciType, 
                     symbolicName!=null ? symbolicName : Identifiers.makeRandomId(8), 
-                        version!=null ? version : BasicBrooklynCatalog.DEFAULT_VERSION)
+                    version!=null ? version : BasicBrooklynCatalog.DEFAULT_VERSION)
                 .plan((String)plan.getPlanData())
                 .build();
         }
@@ -284,13 +284,13 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     }
 
     @Override
-    public <SpecT extends AbstractBrooklynObjectSpec<?, ?>> SpecT createSpecFromPlan(String planFormat, Object planData, RegisteredTypeLoadingContext optionalConstraint, Class<SpecT> optionalSpecSuperType) {
+    public <SpecT extends AbstractBrooklynObjectSpec<?, ?>> SpecT createSpecFromPlan(@Nullable String planFormat, Object planData, @Nullable RegisteredTypeLoadingContext optionalConstraint, @Nullable Class<SpecT> optionalSpecSuperType) {
         return createSpec(RegisteredTypes.anonymousRegisteredType(RegisteredTypeKind.SPEC, new BasicTypeImplementationPlan(planFormat, planData)),
             optionalConstraint, optionalSpecSuperType);
     }
 
     @Override
-    public <T> T createBean(RegisteredType type, RegisteredTypeLoadingContext constraint, Class<T> optionalResultSuperType) {
+    public <T> T createBean(RegisteredType type, @Nullable RegisteredTypeLoadingContext constraint, @Nullable Class<T> optionalResultSuperType) {
         Preconditions.checkNotNull(type, "type");
         if (type.getKind()!=RegisteredTypeKind.BEAN) { 
             if (type.getKind()==RegisteredTypeKind.UNRESOLVED) throw new ReferencedUnresolvedTypeException(type);
@@ -314,13 +314,13 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     }
 
     @Override
-    public <T> T createBeanFromPlan(String planFormat, Object planData, RegisteredTypeLoadingContext optionalConstraint, Class<T> optionalSuperType) {
+    public <T> T createBeanFromPlan(String planFormat, Object planData, @Nullable RegisteredTypeLoadingContext optionalConstraint, @Nullable Class<T> optionalSuperType) {
         return createBean(RegisteredTypes.anonymousRegisteredType(RegisteredTypeKind.BEAN, new BasicTypeImplementationPlan(planFormat, planData)),
             optionalConstraint, optionalSuperType);
     }
     
     @Override
-    public <T> T create(RegisteredType type, RegisteredTypeLoadingContext constraint, Class<T> optionalResultSuperType) {
+    public <T> T create(RegisteredType type, @Nullable RegisteredTypeLoadingContext constraint, @Nullable Class<T> optionalResultSuperType) {
         Preconditions.checkNotNull(type, "type");
         return new RegisteredTypeKindVisitor<T>() { 
             @Override protected T visitBean() { return createBean(type, constraint, optionalResultSuperType); }
@@ -349,7 +349,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     }
 
     @Override
-    public <T> T createFromPlan(Class<T> requiredSuperTypeHint, String planFormat, Object planData, RegisteredTypeLoadingContext optionalConstraint) {
+    public <T> T createFromPlan(Class<T> requiredSuperTypeHint, @Nullable String planFormat, Object planData, @Nullable RegisteredTypeLoadingContext optionalConstraint) {
         if (AbstractBrooklynObjectSpec.class.isAssignableFrom(requiredSuperTypeHint)) {
             @SuppressWarnings({ "unchecked", "rawtypes" })
             T result = (T) createSpecFromPlan(planFormat, planData, optionalConstraint, (Class)requiredSuperTypeHint);

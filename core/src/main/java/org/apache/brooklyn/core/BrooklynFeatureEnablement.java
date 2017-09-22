@@ -146,7 +146,7 @@ public class BrooklynFeatureEnablement {
         setDefault(FEATURE_DEFAULT_STANDBY_IS_HOT_PROPERTY, false);
         setDefault(FEATURE_RENAME_THREADS, false);
         setDefault(FEATURE_JITTER_THREADS, false);
-        setDefault(FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND, true);
+        setDefault(FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND, false);
         setDefault(FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND, false);
         setDefault(FEATURE_SSH_ASYNC_EXEC, false);
         setDefault(FEATURE_VALIDATE_LOCATION_SSH_KEYS, true);

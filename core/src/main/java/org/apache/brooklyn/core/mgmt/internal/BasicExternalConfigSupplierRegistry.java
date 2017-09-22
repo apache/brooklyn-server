@@ -26,7 +26,9 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
+import org.apache.brooklyn.core.config.external.InPlaceExternalConfigSupplier;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -46,18 +48,26 @@ public class BasicExternalConfigSupplierRegistry implements ExternalConfigSuppli
 
     private static final Logger LOG = LoggerFactory.getLogger(BasicExternalConfigSupplierRegistry.class);
 
+    public static final String DEMO_SAMPLE_PROVIDER = "brooklyn-demo-sample";
+    public static final String DEMO_SAMPLE_PROVIDER_PASSWORD_KEY = "hidden-brooklyn-password";
+    public static final String DEMO_SAMPLE_PROVIDER_PASSWORD_VALUE = "br00k11n";
+    
     private final Map<String, ExternalConfigSupplier> providersByName = Maps.newLinkedHashMap();
     private final Object providersMapMutex = new Object();
 
     public BasicExternalConfigSupplierRegistry(ManagementContext mgmt) {
+        addProvider(DEMO_SAMPLE_PROVIDER, new InPlaceExternalConfigSupplier(mgmt, DEMO_SAMPLE_PROVIDER,
+            MutableMap.of(DEMO_SAMPLE_PROVIDER_PASSWORD_KEY, DEMO_SAMPLE_PROVIDER_PASSWORD_VALUE)));
         updateFromBrooklynProperties(mgmt);
     }
 
     @Override
     public void addProvider(String name, ExternalConfigSupplier supplier) {
         synchronized (providersMapMutex) {
-            if (providersByName.containsKey(name))
+            if (providersByName.containsKey(name) && !DEMO_SAMPLE_PROVIDER.equals(name)) {
+                // allow demo to be overridden
                 throw new IllegalArgumentException("Provider already registered with name '" + name + "'");
+            }
             providersByName.put(name, supplier);
         }
         LOG.info("Added external config supplier named '" + name + "': " + supplier);
