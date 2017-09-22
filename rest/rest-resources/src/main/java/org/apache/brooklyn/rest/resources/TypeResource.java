@@ -48,6 +48,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
@@ -55,6 +56,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 
 @HaHotStateRequired
+@Beta
 public class TypeResource extends AbstractBrooklynRestResource implements TypeApi {
 
     private static final Logger log = LoggerFactory.getLogger(TypeResource.class);

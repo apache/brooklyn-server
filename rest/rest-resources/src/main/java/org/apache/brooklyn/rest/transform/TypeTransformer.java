@@ -79,10 +79,10 @@ public class TypeTransformer {
     }
 
     private static <T extends TypeSummary> T embellish(T result, RegisteredType item, boolean detail, BrooklynRestResourceUtils b, UriBuilder ub) {
-        result.getExtraFields().put("links", makeLinks(item, ub));
+        result.setExtraField("links", makeLinks(item, ub));
         
         if (RegisteredTypes.isTemplate(item)) {
-            result.getExtraFields().put("template", true);
+            result.setExtraField("template", true);
         }
         if (item.getIconUrl()!=null) {
             result.setIconUrl(tidyIconLink(b, item, item.getIconUrl(), ub));
@@ -103,7 +103,7 @@ public class TypeTransformer {
                         config.add(EntityTransformer.adjunctConfigSummary(input));
                     }
                     
-                    result.getExtraFields().put("config", config);
+                    result.setExtraField("config", config);
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
                     log.trace("Unable to create spec for "+item+": "+e, e);
@@ -111,7 +111,7 @@ public class TypeTransformer {
                 
             } else if (RegisteredTypes.isSubtypeOf(item, Location.class)) {
                 // TODO include config on location specs?  (wasn't done previously so not needed, but good for completeness)
-                result.getExtraFields().put("config", Collections.emptyMap());
+                result.setExtraField("config", Collections.emptyMap());
             }
         }
         return result;
@@ -135,9 +135,9 @@ public class TypeTransformer {
             for (Effector<?> x: type.getEffectors())
                 effectors.add(EffectorTransformer.effectorSummaryForCatalog(x));
             
-            result.getExtraFields().put("config", config);
-            result.getExtraFields().put("sensors", sensors);
-            result.getExtraFields().put("effectors", effectors);
+            result.setExtraField("config", config);
+            result.setExtraField("sensors", sensors);
+            result.setExtraField("effectors", effectors);
         
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
@@ -152,19 +152,22 @@ public class TypeTransformer {
         }
     }
 
-    public static BundleSummary bundleSummary(BrooklynRestResourceUtils brooklyn, ManagedBundle b, UriBuilder baseUriBuilder, ManagementContext mgmt) {
+    public static BundleSummary bundleSummary(BrooklynRestResourceUtils brooklyn, ManagedBundle b, UriBuilder baseUriBuilder, ManagementContext mgmt, boolean detail) {
         BundleSummary result = new BundleSummary(b);
-        for (RegisteredType t: mgmt.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(b))) {
-            result.addType(summary(brooklyn, t, baseUriBuilder));
+        if (detail) {
+            result.setExtraField("osgiVersion", b.getOsgiVersionString());
+            result.setExtraField("checksum", b.getChecksum());            
+        }
+        if (detail) {
+            for (RegisteredType t: mgmt.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(b))) {
+                result.addType(summary(brooklyn, t, baseUriBuilder));
+            }
         }
         return result;
     }
     
     public static BundleSummary bundleDetails(BrooklynRestResourceUtils brooklyn, ManagedBundle b, UriBuilder baseUriBuilder, ManagementContext mgmt) {
-        BundleSummary result = bundleSummary(brooklyn, b, baseUriBuilder, mgmt);
-        result.getExtraFields().put("osgiVersion", b.getOsgiVersionString());
-        result.getExtraFields().put("checksum", b.getChecksum());
-        return result;
+        return bundleSummary(brooklyn, b, baseUriBuilder, mgmt, true);
     }
 
     public static BundleInstallationRestResult bundleInstallationResult(OsgiBundleInstallationResult in, ManagementContext mgmt, BrooklynRestResourceUtils brooklynU, UriInfo ui) {

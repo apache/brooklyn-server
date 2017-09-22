@@ -60,6 +60,7 @@ public class Entitlements {
     
     // ------------------- individual permissions
     
+    // TODO applies to bundles and registered types; should pass object or probably better add more entitlements?
     public static EntitlementClass<String> SEE_CATALOG_ITEM = new BasicEntitlementClassDefinition<String>("catalog.see", String.class); 
     public static EntitlementClass<Object> ADD_CATALOG_ITEM = new BasicEntitlementClassDefinition<Object>("catalog.add", Object.class); 
     public static EntitlementClass<StringAndArgument> MODIFY_CATALOG_ITEM = new BasicEntitlementClassDefinition<StringAndArgument>("catalog.modify", StringAndArgument.class); 

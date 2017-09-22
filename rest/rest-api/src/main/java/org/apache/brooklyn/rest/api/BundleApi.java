@@ -54,9 +54,13 @@ public interface BundleApi {
             responseContainer = "List")
     public List<BundleSummary> list(
         @ApiParam(name = "versions", value = "Whether to list 'latest' for each symbolic-name or 'all' versions", 
-            required = false, defaultValue = "latest")
+        required = false, defaultValue = "latest")
         @QueryParam("versions")
-        String versions);
+        String versions,
+        @ApiParam(name = "detail", value = "Whether to include types and other detail info, default 'false'", 
+        required = false, defaultValue = "false")
+        @QueryParam("detail")
+        boolean detail);
 
     @Path("/{symbolicName}")
     @GET
@@ -66,7 +70,11 @@ public interface BundleApi {
     public List<BundleSummary> listVersions(
         @ApiParam(name = "symbolicName", value = "Bundle name to query", required = true)
         @PathParam("symbolicName")
-        String symbolicName);
+        String symbolicName,
+        @ApiParam(name = "detail", value = "Whether to include types and other detail info, default 'false'", 
+        required = false, defaultValue = "false")
+        @QueryParam("detail")
+        boolean detail);
 
     @Path("/{symbolicName}/{version}")
     @GET

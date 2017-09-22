@@ -34,7 +34,10 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.ImmutableSet;
 
+/** Summary info of {@link RegisteredType} items in the catalog.
+ * See {@link TypeDetail} for further information. */
 public class TypeSummary implements Comparable<TypeSummary> {
 
     private final String symbolicName;
@@ -52,7 +55,7 @@ public class TypeSummary implements Comparable<TypeSummary> {
     @JsonInclude(value=Include.NON_EMPTY)
     private Set<String> aliases;
     @JsonInclude(value=Include.NON_EMPTY)
-    private Set<Object> supertypes;
+    private Set<String> supertypes;
     @JsonInclude(value=Include.NON_EMPTY)
     private Set<Object> tags;
 
@@ -88,7 +91,10 @@ public class TypeSummary implements Comparable<TypeSummary> {
         iconUrl = t.getIconUrl();
         
         aliases = t.getAliases();
-        supertypes = t.getSuperTypes();
+        supertypes = ImmutableSet.copyOf(t.getSuperTypes().stream().map(s ->
+            s instanceof Class ? ((Class<?>)s).getName() :
+            s instanceof RegisteredType ? ((RegisteredType)s).getId() :
+            s.toString()).iterator());
         tags = t.getTags();
 
         deprecated = t.isDeprecated();
@@ -172,7 +178,7 @@ public class TypeSummary implements Comparable<TypeSummary> {
         return aliases;
     }
 
-    public Set<Object> getSupertypes() {
+    public Set<String> getSupertypes() {
         return supertypes;
     }
 
