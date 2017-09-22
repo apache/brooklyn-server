@@ -20,26 +20,25 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
-import static org.testng.Assert.assertTrue;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 
-import com.google.common.base.Optional;
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.location.BasicMachineLocationCustomizer;
+import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.entity.trait.Startable;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.entity.machine.MachineEntity;
 import org.apache.brooklyn.location.jclouds.BasicJcloudsLocationCustomizer;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.location.jclouds.JcloudsMachineLocation;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.domain.Template;
@@ -50,6 +49,9 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -81,6 +83,7 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends AbstractJcloudsSt
     @Override
     public void setUp() throws Exception {
         RecordingLocationCustomizer.clear();
+        RecordingMachineCustomizer.clear();
         super.setUp();
     }
     
@@ -91,6 +94,7 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends AbstractJcloudsSt
             super.tearDown();
         } finally {
             RecordingLocationCustomizer.clear();
+            RecordingMachineCustomizer.clear();
         }
     }
     
@@ -106,45 +110,64 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends AbstractJcloudsSt
                 "    metrics.usage.retrieve: false",
                 "    enabled: true",
                 "    provisioning.properties:",
-                "      customizer:",
-                "        $brooklyn:object:",
-                "          type: " + RecordingLocationCustomizer.class.getName(),
-                "          object.fields:",
-                "            enabled: $brooklyn:config(\"enabled\")");
+                "      customizers:",
+                "        - $brooklyn:object:",
+                "            type: " + RecordingLocationCustomizer.class.getName(),
+                "            object.fields:",
+                "              enabled: $brooklyn:config(\"enabled\")");
 
         EntitySpec<?> spec = managementContext.getTypeRegistry().createSpecFromPlan(CampTypePlanTransformer.FORMAT, yaml, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
         Entity app = managementContext.getEntityManager().createEntity(spec);
 
+        // On start(), assert customize calls are made
         app.invoke(Startable.START, ImmutableMap.<String, Object>of()).get();
+        RecordingLocationCustomizer.assertCallsEqual("customize1", "customize2", "customize3", "customize4");
 
-        assertEquals(RecordingLocationCustomizer.calls.size(), 4,
-                "Assert all customize functions called: size=" + RecordingLocationCustomizer.calls.size() + "; calls=" + RecordingLocationCustomizer.calls);
-
-        // Assert same instance used for all calls
-        RecordingLocationCustomizer firstInstance = RecordingLocationCustomizer.calls.get(0).instance;
-        for (RecordingLocationCustomizer.CallParams call : RecordingLocationCustomizer.calls) {
+        // Assert same instance used for all calls during provisioning (may be different instance on stop)
+        RecordingLocationCustomizer firstInstance = (RecordingLocationCustomizer) RecordingLocationCustomizer.calls.get(0).instance;
+        for (CallParams call : RecordingLocationCustomizer.calls) {
             assertSame(call.instance, firstInstance);
         }
 
-        assertCallsMade("customize1", "customize2", "customize3", "customize4");
-
+        // On stop, assert pre- and post- release are made
         app.invoke(Startable.STOP, ImmutableMap.<String, Object>of()).get();
-        // assert that pre and post release have now been called
-        assertEquals(RecordingLocationCustomizer.calls.size(), 6,
-            "assert that pre and post release have now been called: "
-            + "size=" + RecordingLocationCustomizer.calls.size() + "; calls=" + RecordingLocationCustomizer.calls);
-        assertCallsMade("customize1", "customize2", "customize3", "customize4", "preRelease", "postRelease");
+        RecordingLocationCustomizer.assertCallsEqual("customize1", "customize2", "customize3", "customize4", "preRelease", "postRelease");
     }
 
-    private void assertCallsMade(String ...values) {
-        List<String> expected = MutableList.of();
-        expected.addAll(Arrays.asList(values));
-        for (RecordingLocationCustomizer.CallParams parm : RecordingLocationCustomizer.calls) {
-            assertTrue(expected.remove(parm.method));
-        }
-        assertEquals(expected.size(), 0);
-    }
+    @Test
+    public void testMachineCustomizers() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "location: " + LOCATION_CATALOG_ID,
+                "services:\n" +
+                "- type: " + MachineEntity.class.getName(),
+                "  brooklyn.config:",
+                "    onbox.base.dir.skipResolution: true",
+                "    sshMonitoring.enabled: false",
+                "    metrics.usage.retrieve: false",
+                "    enabled: true",
+                "    provisioning.properties:",
+                "      machineCustomizers:",
+                "        - $brooklyn:object:",
+                "            type: " + RecordingMachineCustomizer.class.getName(),
+                "            object.fields:",
+                "              enabled: $brooklyn:config(\"enabled\")");
 
+        EntitySpec<?> spec = managementContext.getTypeRegistry().createSpecFromPlan(CampTypePlanTransformer.FORMAT, yaml, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
+        Entity app = managementContext.getEntityManager().createEntity(spec);
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+
+        // On start, assert customize is called
+        app.invoke(Startable.START, ImmutableMap.<String, Object>of()).get();
+        SshMachineLocation machine = Machines.findUniqueMachineLocation(entity.getLocations(), SshMachineLocation.class).get();
+
+        RecordingMachineCustomizer.assertCallsEqual("customize");
+        RecordingMachineCustomizer.calls.get(0).assertCallEquals("customize", ImmutableList.of(machine));
+
+        // On stop, assert preRelease is called
+        app.invoke(Startable.STOP, ImmutableMap.<String, Object>of()).get();
+        RecordingMachineCustomizer.assertCallsEqual("customize", "preRelease");
+        RecordingMachineCustomizer.calls.get(1).assertCallEquals("preRelease", ImmutableList.of(machine));
+    }
 
     public static class RecordingLocationCustomizer extends BasicJcloudsLocationCustomizer {
 
@@ -152,6 +175,15 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends AbstractJcloudsSt
 
         public static void clear() {
             calls.clear();
+        }
+
+        static void assertCallsEqual(String... values) {
+            List<String> expected = ImmutableList.copyOf(values);
+            List<String> actual = new ArrayList<>();
+            for (CallParams parm : calls) {
+                actual.add(parm.method);
+            }
+            assertEquals(actual, expected, "actual="+actual+"; expected="+expected);
         }
 
         private Boolean enabled;
@@ -211,17 +243,61 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends AbstractJcloudsSt
                 calls.add(new CallParams(this, "postRelease", MutableList.of(machine)));
             }
         }
+    }
+    
+    public static class RecordingMachineCustomizer extends BasicMachineLocationCustomizer {
 
-        public static class CallParams {
-            RecordingLocationCustomizer instance;
-            String method;
-            List<?> args;
+        public static final List<CallParams> calls = Lists.newCopyOnWriteArrayList();
 
-            public CallParams(RecordingLocationCustomizer instance, String method, List<?> args) {
-                this.instance = instance;
-                this.method = method;
-                this.args = args;
+        public static void clear() {
+            calls.clear();
+        }
+
+        static void assertCallsEqual(String... values) {
+            List<String> expected = ImmutableList.copyOf(values);
+            List<String> actual = new ArrayList<>();
+            for (CallParams parm : calls) {
+                actual.add(parm.method);
+            }
+            assertEquals(actual, expected, "actual="+actual+"; expected="+expected);
+        }
+
+        private Boolean enabled;
+
+        public void setEnabled(Boolean val) {
+            this.enabled = val;
+        }
+        
+        @Override
+        public void customize(MachineLocation machine) {
+            if (Boolean.TRUE.equals(enabled)) {
+                calls.add(new CallParams(this, "customize", MutableList.of(machine)));
             }
         }
+        
+        @Override
+        public void preRelease(MachineLocation machine) {
+            if (Boolean.TRUE.equals(enabled)) {
+                calls.add(new CallParams(this, "preRelease", MutableList.of(machine)));
+            }
+        }
+    }
+    
+    public static class CallParams {
+        Object instance;
+        String method;
+        List<?> args;
+
+        public CallParams(Object instance, String method, List<?> args) {
+            this.instance = instance;
+            this.method = method;
+            this.args = args;
+        }
+        
+        void assertCallEquals(String expectedMethod, List<?> expectedArgs) {
+            assertEquals(method, expectedMethod);
+            assertEquals(args, expectedArgs);
+        }
+        
     }
 }
