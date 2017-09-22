@@ -89,9 +89,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
-public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTest {
+public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
 
-    private static final Logger log = LoggerFactory.getLogger(BundleAndTypeAndSubtypeResourcesTest.class);
+    private static final Logger log = LoggerFactory.getLogger(BundleAndTypeResourcesTest.class);
     
     private static String TEST_VERSION = "0.1.2";
     private static String TEST_LASTEST_VERSION = "0.1.3";
@@ -143,7 +143,8 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
                 "  item:",
                 "    type: org.apache.brooklyn.core.test.entity.TestEntity");
 
-        Response response = client().path("/bundles")
+        Response response = client().path("/catalog/bundles")
+                .header(HttpHeaders.CONTENT_TYPE, "application/yaml")
                 .post(yaml);
 
         assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
@@ -152,7 +153,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
         TypeSummary installedItem = installed.getTypes().get(symbolicName+":"+TEST_VERSION);
         Assert.assertNotNull(installedItem, ""+installed.getTypes());
 
-        TypeDetail entityItem = client().path("/types/"+symbolicName + "/" + TEST_VERSION)
+        TypeDetail entityItem = client().path("/catalog/types/"+symbolicName + "/" + TEST_VERSION)
                 .get(TypeDetail.class);
 
         Assert.assertEquals(new TypeSummary(entityItem), installedItem);
@@ -163,11 +164,11 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
         assertEquals(entityItem.getVersion(), TEST_VERSION);
 
         // also check it's included in various lists
-        List<TypeSummary> list1 = client().path("/types/"+symbolicName).get(new GenericType<List<TypeSummary>>() {});
+        List<TypeSummary> list1 = client().path("/catalog/types/"+symbolicName).get(new GenericType<List<TypeSummary>>() {});
         assertEquals(list1, MutableList.of(installedItem));
-        List<TypeSummary> list2 = client().path("/types").get(new GenericType<List<TypeSummary>>() {});
+        List<TypeSummary> list2 = client().path("/catalog/types").get(new GenericType<List<TypeSummary>>() {});
         Assert.assertTrue(list2.contains(installedItem), ""+list2);
-        List<TypeSummary> list3 = client().path("/subtypes/entity").get(new GenericType<List<TypeSummary>>() {});
+        List<TypeSummary> list3 = client().path("/catalog/types").query("supertype", "entity").get(new GenericType<List<TypeSummary>>() {});
         Assert.assertTrue(list3.contains(installedItem), ""+list3);
         
         // and internally let's check we have libraries
@@ -178,7 +179,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
         assertEquals(Iterables.getOnlyElement(libs).getUrl(), bundleUrl);
 
         // now let's check other things on the item
-        URI expectedIconUrl = URI.create(getEndpointAddress() + "/types/" + symbolicName + "/" + entityItem.getVersion()+"/icon").normalize();
+        URI expectedIconUrl = URI.create(getEndpointAddress() + "/catalog/types/" + symbolicName + "/" + entityItem.getVersion()+"/icon").normalize();
         assertEquals(entityItem.getDisplayName(), "My Catalog App");
         assertEquals(entityItem.getDescription(), "My description");
         assertEquals(entityItem.getIconUrl(), expectedIconUrl.getPath());
@@ -196,7 +197,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
             }
         }
 
-        byte[] iconData = client().path("/types/" + symbolicName + "/" + TEST_VERSION+"/icon").get(byte[].class);
+        byte[] iconData = client().path("/catalog/types/" + symbolicName + "/" + TEST_VERSION+"/icon").get(byte[].class);
         assertEquals(iconData.length, 43);
     }
 
@@ -220,7 +221,8 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
                 "  item:",
                 "    type: " + policyType);
 
-        TypeSummary installedItem = Iterables.getOnlyElement( client().path("/bundles")
+        TypeSummary installedItem = Iterables.getOnlyElement( client().path("/catalog/bundles")
+                .header(HttpHeaders.CONTENT_TYPE, "application/yaml")
                 .post(yaml, BundleInstallationRestResult.class).getTypes().values() );
 
         assertEquals(installedItem.getSymbolicName(), symbolicName);
@@ -230,27 +232,27 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
 
     @Test
     public void testFilterListOfEntitiesByName() {
-        List<TypeSummary> entities = client().path("/types")
+        List<TypeSummary> entities = client().path("/catalog/types")
                 .query("fragment", "vaNIllasOFTWAREpROCESS").get(new GenericType<List<TypeSummary>>() {});
         log.info("Matching entities: " + entities);
         assertEquals(entities.size(), 1);
 
-        entities = client().path("/subtypes/entity")
+        entities = client().path("/catalog/types").query("supertype", "entity")
                 .query("fragment", "vaNIllasOFTWAREpROCESS").get(new GenericType<List<TypeSummary>>() {});
         log.info("Matching entities: " + entities);
         assertEquals(entities.size(), 1);
 
-        List<TypeSummary> entities2 = client().path("/types")
+        List<TypeSummary> entities2 = client().path("/catalog/types")
                 .query("regex", "[Vv]an.[alS]+oftware\\w+").get(new GenericType<List<TypeSummary>>() {});
         assertEquals(entities2.size(), 1);
 
         assertEquals(entities, entities2);
     
-        entities = client().path("/subtypes/entity")
+        entities = client().path("/catalog/types").query("supertype", "entity")
                 .query("fragment", "bweqQzZ").get(new GenericType<List<TypeSummary>>() {});
         Asserts.assertSize(entities, 0);
 
-        entities = client().path("/subtypes/entity")
+        entities = client().path("/catalog/types").query("supertype", "entity")
                 .query("regex", "bweq+z+").get(new GenericType<List<TypeSummary>>() {});
         Asserts.assertSize(entities, 0);
     }
@@ -259,7 +261,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
     public void testGetCatalogEntityIconDetails() throws IOException {
         String catalogItemId = "testGetCatalogEntityIconDetails";
         addTestCatalogItemAsEntity(catalogItemId);
-        Response response = client().path(URI.create("/types/" + catalogItemId + "/" + TEST_VERSION + "/icon"))
+        Response response = client().path(URI.create("/catalog/types/" + catalogItemId + "/" + TEST_VERSION + "/icon"))
                 .get();
         response.bufferEntity();
         Assert.assertEquals(response.getStatus(), 200);
@@ -285,12 +287,12 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
                 "  item:",
                 "    type: " + service);
 
-        client().path("/bundles").post(yaml);
+        client().path("/catalog/bundles").header(HttpHeaders.CONTENT_TYPE, "application/yaml").post(yaml);
     }
 
     @Test
     public void testListPolicies() {
-        Set<TypeSummary> policies = client().path("/subtypes/policy")
+        Set<TypeSummary> policies = client().path("/catalog/types").query("supertype", "policy")
                 .get(new GenericType<Set<TypeSummary>>() {});
 
         assertTrue(policies.size() > 0);
@@ -317,7 +319,8 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
                 "    type: " + locationType);
 
         // Create location item
-        Map<String, TypeSummary> items = client().path("/bundles")
+        Map<String, TypeSummary> items = client().path("/catalog/bundles")
+                .header(HttpHeaders.CONTENT_TYPE, "application/yaml")
                 .post(yaml, BundleInstallationRestResult.class).getTypes();
         TypeSummary locationItem = Iterables.getOnlyElement(items.values());
 
@@ -325,11 +328,11 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
         assertEquals(locationItem.getVersion(), TEST_VERSION);
 
         // Retrieve location item
-        TypeDetail location = client().path("/types/"+symbolicName+"/"+TEST_VERSION).get(TypeDetail.class);
+        TypeDetail location = client().path("/catalog/types/"+symbolicName+"/"+TEST_VERSION).get(TypeDetail.class);
         assertEquals(location.getSymbolicName(), symbolicName);
 
         // Retrieve all locations
-        Set<TypeSummary> locations = client().path("/subtypes/location")
+        Set<TypeSummary> locations = client().path("/catalog/types").query("supertype", "location")
                 .get(new GenericType<Set<TypeSummary>>() {});
         boolean found = false;
         for (TypeSummary contender : locations) {
@@ -341,21 +344,21 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
         Assert.assertTrue(found, "contenders="+locations);
         
         // Delete
-        Response deleteResponse = client().path("/bundles/"+locationItem.getContainingBundle().replaceAll(":", "/"))
+        Response deleteResponse = client().path("/catalog/bundles/"+locationItem.getContainingBundle().replaceAll(":", "/"))
                 .delete();
         assertEquals(deleteResponse.getStatus(), Response.Status.OK.getStatusCode());
         BundleInstallationRestResult deletionResponse = deleteResponse.readEntity(BundleInstallationRestResult.class);
         Assert.assertEquals(deletionResponse.getBundle(), symbolicName+":"+TEST_VERSION);
         Assert.assertEquals(deletionResponse.getTypes().keySet(), MutableSet.of(symbolicName+":"+TEST_VERSION));
 
-        Response getPostDeleteResponse = client().path("/types/"+symbolicName+"/"+TEST_VERSION)
+        Response getPostDeleteResponse = client().path("/catalog/types/"+symbolicName+"/"+TEST_VERSION)
                 .get();
         assertEquals(getPostDeleteResponse.getStatus(), Response.Status.NOT_FOUND.getStatusCode());
     }
 
     @Test
     public void testListEnrichers() {
-        Set<TypeSummary> enrichers = client().path("/subtypes/enricher")
+        Set<TypeSummary> enrichers = client().path("/catalog/types").query("supertype", "enricher")
                 .get(new GenericType<Set<TypeSummary>>() {});
 
         assertTrue(enrichers.size() > 0);
@@ -382,7 +385,8 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
                 "    type: " + enricherType);
 
         // Create location item
-        Map<String, TypeSummary> items = client().path("/bundles")
+        Map<String, TypeSummary> items = client().path("/catalog/bundles")
+                .header(HttpHeaders.CONTENT_TYPE, "application/yaml")
                 .post(yaml, BundleInstallationRestResult.class).getTypes();
         TypeSummary enricherItem = Iterables.getOnlyElement(items.values());
 
@@ -390,12 +394,12 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
         assertEquals(enricherItem.getVersion(), TEST_VERSION);
 
         // Retrieve location item
-        TypeSummary enricher = client().path("/types/"+symbolicName+"/"+TEST_VERSION)
+        TypeSummary enricher = client().path("/catalog/types/"+symbolicName+"/"+TEST_VERSION)
                 .get(TypeSummary.class);
         assertEquals(enricher.getSymbolicName(), symbolicName);
 
         // Retrieve all locations
-        Set<TypeSummary> enrichers = client().path("/subtypes/enricher")
+        Set<TypeSummary> enrichers = client().path("/catalog/types").query("supertype", "enricher")
                 .get(new GenericType<Set<TypeSummary>>() {});
         boolean found = false;
         for (TypeSummary contender : enrichers) {
@@ -428,7 +432,8 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
                 "  item:",
                 "    type: " + enricherType);
 
-        TypeSummary installedItem = Iterables.getOnlyElement( client().path("/bundles")
+        TypeSummary installedItem = Iterables.getOnlyElement( client().path("/catalog/bundles")
+                .header(HttpHeaders.CONTENT_TYPE, "application/yaml")
                 .post(yaml, BundleInstallationRestResult.class).getTypes().values() );
 
         assertEquals(installedItem.getSymbolicName(), symbolicName);
@@ -448,24 +453,24 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
                 "  item:",
                 "    type: org.apache.brooklyn.core.test.entity.TestEntity");
 
-        client().path("/bundles")
+        client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/yaml")
                 .post(yaml);
 
-        BundleSummary getInstalledBundle = client().path("/bundles/"+symbolicName+"/"+TEST_VERSION)
+        BundleSummary getInstalledBundle = client().path("/catalog/bundles/"+symbolicName+"/"+TEST_VERSION)
             .get(BundleSummary.class);
         assertEquals(getInstalledBundle.getSymbolicName(), symbolicName);
         assertEquals(getInstalledBundle.getVersion(), TEST_VERSION);
         Asserts.assertNotNull(getInstalledBundle.getTypes(), "expected 'types' in: "+getInstalledBundle.getExtraFields());
         Asserts.assertStringContains(""+getInstalledBundle.getTypes(), "My Catalog App");
 
-        Response deleteResponse = client().path("/bundles/"+symbolicName+"/"+TEST_VERSION)
+        Response deleteResponse = client().path("/catalog/bundles/"+symbolicName+"/"+TEST_VERSION)
                 .delete();
 
         assertEquals(deleteResponse.getStatus(), Response.Status.OK.getStatusCode());
         // contents of delete tested in delete location method
 
-        Response getPostDeleteResponse = client().path("/bundles/"+symbolicName+"/"+TEST_VERSION)
+        Response getPostDeleteResponse = client().path("/catalog/bundles/"+symbolicName+"/"+TEST_VERSION)
                 .get();
         assertEquals(getPostDeleteResponse.getStatus(), Response.Status.NOT_FOUND.getStatusCode());
     }
@@ -485,7 +490,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
                 "  item:",
                 "    type: org.apache.brooklyn.core.test.entity.TestEntity");
 
-        Response response = client().path("/bundles")
+        Response response = client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-yaml")
                 .post(yaml);
 
@@ -513,7 +518,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
     public void testInvalidArchive() throws Exception {
         File f = Os.newTempFile("osgi", "zip");
 
-        Response response = client().path("/bundles")
+        Response response = client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
                 .post(Streams.readFully(new FileInputStream(f)));
 
@@ -525,7 +530,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
     public void testArchiveWithoutBom() throws Exception {
         File f = createZip(ImmutableMap.<String, String>of());
 
-        Response response = client().path("/bundles")
+        Response response = client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
                 .post(Streams.readFully(new FileInputStream(f)));
 
@@ -544,7 +549,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
                 "  item:",
                 "    type: org.apache.brooklyn.core.test.entity.TestEntity")));
 
-        Response response = client().path("/bundles")
+        Response response = client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
                 .post(Streams.readFully(new FileInputStream(f)));
 
@@ -564,7 +569,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
                 "  item:",
                 "    type: org.apache.brooklyn.core.test.entity.TestEntity")));
 
-        Response response = client().path("/bundles")
+        Response response = client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
                 .post(Streams.readFully(new FileInputStream(f)));
 
@@ -585,7 +590,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
                 "  item:",
                 "    type: org.apache.brooklyn.core.test.entity.TestEntity")));
 
-        Response response = client().path("/bundles")
+        Response response = client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
                 .post(Streams.readFully(new FileInputStream(f)));
 
@@ -617,7 +622,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
                         "Bundle-Version: " + version,
                         "Bundle-ManifestVersion: " + version)));
 
-        Response response = client().path("/bundles")
+        Response response = client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
                 .post(Streams.readFully(new FileInputStream(f)));
 
@@ -651,7 +656,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
                         "Bundle-Version: " + wrongVersion,
                         "Bundle-ManifestVersion: " + wrongVersion)));
 
-        Response response = client().path("/bundles")
+        Response response = client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
                 .post(Streams.readFully(new FileInputStream(f)));
 
@@ -685,13 +690,13 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
         
         f = bm.copyAdding(f, MutableMap.of(new ZipEntry("catalog.bom"), (InputStream) new ByteArrayInputStream(bom.getBytes())));
 
-        Response response = client().path("/bundles")
+        Response response = client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
                 .post(Streams.readFully(new FileInputStream(f)));
         
         assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
 
-        TypeSummary entityItem = client().path("/types/"+symbolicName + "/" + version)
+        TypeSummary entityItem = client().path("/catalog/types/"+symbolicName + "/" + version)
                 .get(TypeSummary.class);
 
         assertEquals(entityItem.getSymbolicName(), symbolicName);
@@ -709,7 +714,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
         assertEquals(lib.getSuppliedVersionString(), version);
 
         // now let's check other things on the item
-        URI expectedIconUrl = URI.create(getEndpointAddress() + "/types/" + symbolicName + "/" + entityItem.getVersion()+"/icon").normalize();
+        URI expectedIconUrl = URI.create(getEndpointAddress() + "/catalog/types/" + symbolicName + "/" + entityItem.getVersion()+"/icon").normalize();
         assertEquals(entityItem.getDisplayName(), "My Catalog App");
         assertEquals(entityItem.getDescription(), "My description");
         assertEquals(entityItem.getIconUrl(), expectedIconUrl.getPath());
@@ -727,7 +732,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
             }
         }
 
-        byte[] iconData = client().path("/types/" + symbolicName + "/" + version + "/icon").get(byte[].class);
+        byte[] iconData = client().path("/catalog/types/" + symbolicName + "/" + version + "/icon").get(byte[].class);
         assertEquals(iconData.length, 43);
     }
 
@@ -757,14 +762,14 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
 
         f = bm.copyAdding(f, MutableMap.of(new ZipEntry("catalog.bom"), (InputStream) new ByteArrayInputStream(bom.getBytes())));
 
-        Response response = client().path("/bundles")
+        Response response = client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
                 .post(Streams.readFully(new FileInputStream(f)));
 
 
         assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
 
-        TypeDetail entityItem = client().path("/types/"+symbolicName + "/" + version)
+        TypeDetail entityItem = client().path("/catalog/types/"+symbolicName + "/" + version)
                 .get(TypeDetail.class);
 
         Assert.assertNotNull(entityItem.getPlan().getData());
@@ -786,7 +791,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
 
         // now let's check other things on the item
         assertEquals(entityItem.getDescription(), "My description");
-        URI expectedIconUrl = URI.create(getEndpointAddress() + "/types/" + symbolicName + "/" + entityItem.getVersion() + "/icon").normalize();
+        URI expectedIconUrl = URI.create(getEndpointAddress() + "/catalog/types/" + symbolicName + "/" + entityItem.getVersion() + "/icon").normalize();
         assertEquals(entityItem.getIconUrl(), expectedIconUrl.getPath());
         assertEquals(item.getIconUrl(), "classpath:" + iconPath);
 
@@ -799,7 +804,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
             assertTrue(actualInterfaces.containsAll(expectedInterfaces), "actual="+actualInterfaces);
         }
     
-        byte[] iconData = client().path("/types/" + symbolicName + "/" + version + "/icon").get(byte[].class);
+        byte[] iconData = client().path("/catalog/types/" + symbolicName + "/" + version + "/icon").get(byte[].class);
         assertEquals(iconData.length, 43);
 
         // Check that the catalog item is useable (i.e. can deploy the entity)
@@ -863,7 +868,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
         addTestCatalogItem(symbolicName, itemType, TEST_VERSION, serviceType);
         addTestCatalogItem(symbolicName, itemType, TEST_LASTEST_VERSION, serviceType);
 
-        TypeSummary application = client().path("/types/" + symbolicName + "/latest")
+        TypeSummary application = client().path("/catalog/types/" + symbolicName + "/latest")
                 .get(TypeSummary.class);
         assertEquals(application.getVersion(), TEST_LASTEST_VERSION);
     }
@@ -875,11 +880,11 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
         
         String symbolicName = "latest.catalog.application.id";
 
-        TypeSummary application = client().path("/types/" + symbolicName + "/LaTeSt")
+        TypeSummary application = client().path("/catalog/types/" + symbolicName + "/LaTeSt")
                 .get(TypeSummary.class);
         assertEquals(application.getVersion(), TEST_LASTEST_VERSION);
 
-        application = client().path("/types/" + symbolicName + "/LATEST")
+        application = client().path("/catalog/types/" + symbolicName + "/LATEST")
                 .get(TypeSummary.class);
         assertEquals(application.getVersion(), TEST_LASTEST_VERSION);
     }
@@ -893,7 +898,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
         addTestCatalogItem(symbolicName, itemType, TEST_VERSION, serviceType);
         addTestCatalogItem(symbolicName, itemType, TEST_LASTEST_VERSION, serviceType);
 
-        TypeSummary application = client().path("/types/" + symbolicName + "/latest")
+        TypeSummary application = client().path("/catalog/types/" + symbolicName + "/latest")
                 .get(TypeSummary.class);
         assertEquals(application.getVersion(), TEST_LASTEST_VERSION);
     }
@@ -907,7 +912,7 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
         addTestCatalogItem(symbolicName, itemType, TEST_VERSION, serviceType);
         addTestCatalogItem(symbolicName, itemType, TEST_LASTEST_VERSION, serviceType);
 
-        TypeSummary application = client().path("/types/" + symbolicName + "/latest")
+        TypeSummary application = client().path("/catalog/types/" + symbolicName + "/latest")
                 .get(TypeSummary.class);
         assertEquals(application.getVersion(), TEST_LASTEST_VERSION);
     }
@@ -945,22 +950,22 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
                 "  item:",
                 "    type: org.apache.brooklyn.core.test.entity.TestEntity");
 
-        client().path("/bundles").post(initialYaml);
+        client().path("/catalog/bundles").header(HttpHeaders.CONTENT_TYPE, "application/yaml").post(initialYaml);
 
-        TypeDetail initialApplication = client().path("/types/" + symbolicName + "/" + TEST_VERSION)
+        TypeDetail initialApplication = client().path("/catalog/types/" + symbolicName + "/" + TEST_VERSION)
                 .get(TypeDetail.class);
         assertEquals(initialApplication.getDisplayName(), initialName);
         assertEquals(initialApplication.getDescription(), initialDescription);
 
-        Response invalidResponse = client().path("/bundles").post(updatedYaml);
+        Response invalidResponse = client().path("/catalog/bundles").header(HttpHeaders.CONTENT_TYPE, "application/yaml").post(updatedYaml);
 
         assertEquals(invalidResponse.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
 
-        Response validResponse = client().path("/bundles").query("force", true).post(updatedYaml);
+        Response validResponse = client().path("/catalog/bundles").query("force", true).header(HttpHeaders.CONTENT_TYPE, "application/yaml").post(updatedYaml);
 
         assertEquals(validResponse.getStatus(), Response.Status.CREATED.getStatusCode());
 
-        TypeSummary application = client().path("/types/" + symbolicName + "/" + TEST_VERSION)
+        TypeSummary application = client().path("/catalog/types/" + symbolicName + "/" + TEST_VERSION)
                 .get(TypeSummary.class);
         assertEquals(application.getDisplayName(), updatedName);
         assertEquals(application.getDescription(), updatedDescription);
@@ -997,29 +1002,29 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
                 "  item:",
                 "    type: org.apache.brooklyn.core.test.entity.TestEntity")));
 
-        client().path("/bundles")
+        client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
                 .post(Streams.readFully(new FileInputStream(initialZip)));
 
-        TypeSummary initialEntity = client().path("/types/" + symbolicName + "/" + TEST_VERSION)
+        TypeSummary initialEntity = client().path("/catalog/types/" + symbolicName + "/" + TEST_VERSION)
                 .get(TypeSummary.class);
         assertEquals(initialEntity.getDisplayName(), initialName);
         assertEquals(initialEntity.getDescription(), initialDescription);
 
-        Response invalidResponse = client().path("/bundles")
+        Response invalidResponse = client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
                 .post(Streams.readFully(new FileInputStream(updatedZip)));
 
         assertEquals(invalidResponse.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
 
-        Response validResponse = client().path("/bundles")
+        Response validResponse = client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
                 .query("force", true)
                 .post(Streams.readFully(new FileInputStream(updatedZip)));
 
         assertEquals(validResponse.getStatus(), Response.Status.CREATED.getStatusCode());
 
-        TypeSummary entity = client().path("/types/" + symbolicName + "/" + TEST_VERSION)
+        TypeSummary entity = client().path("/catalog/types/" + symbolicName + "/" + TEST_VERSION)
                 .get(TypeSummary.class);
         assertEquals(entity.getDisplayName(), updatedName);
         assertEquals(entity.getDescription(), updatedDescription);
@@ -1056,29 +1061,29 @@ public class BundleAndTypeAndSubtypeResourcesTest extends BrooklynRestResourceTe
                 "  item:",
                 "    type: org.apache.brooklyn.core.test.entity.TestEntity")));
 
-        client().path("/bundles")
+        client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
                 .post(Streams.readFully(new FileInputStream(initialJar)));
 
-        TypeSummary initialEntity = client().path("/types/" + symbolicName + "/" + TEST_VERSION)
+        TypeSummary initialEntity = client().path("/catalog/types/" + symbolicName + "/" + TEST_VERSION)
                 .get(TypeSummary.class);
         assertEquals(initialEntity.getDisplayName(), initialName);
         assertEquals(initialEntity.getDescription(), initialDescription);
 
-        Response invalidResponse = client().path("/bundles")
+        Response invalidResponse = client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
                 .post(Streams.readFully(new FileInputStream(updatedJar)));
 
         assertEquals(invalidResponse.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
 
-        Response validResponse = client().path("/bundles")
+        Response validResponse = client().path("/catalog/bundles")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
                 .query("force", true)
                 .post(Streams.readFully(new FileInputStream(updatedJar)));
 
         assertEquals(validResponse.getStatus(), Response.Status.CREATED.getStatusCode());
 
-        TypeSummary entity = client().path("/types/" + symbolicName + "/" + TEST_VERSION)
+        TypeSummary entity = client().path("/catalog/types/" + symbolicName + "/" + TEST_VERSION)
                 .get(TypeSummary.class);
         assertEquals(entity.getDisplayName(), updatedName);
         assertEquals(entity.getDescription(), updatedDescription);

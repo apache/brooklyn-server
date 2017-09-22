@@ -19,7 +19,6 @@
 package org.apache.brooklyn.rest.resources;
 
 import java.io.ByteArrayInputStream;
-import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -44,7 +43,6 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.osgi.VersionedName.VersionedNameComparator;
-import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -168,22 +166,4 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
         return Response.status(Status.CREATED).entity( resultR ).build();
     }
 
-    @Override
-    public Response createAutodetecting(byte[] item, Boolean force) {
-        Throwable yamlException = null;
-        try {
-            MutableList.copyOf( Yamls.parseAll(new InputStreamReader(new ByteArrayInputStream(item))) );
-        } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
-            yamlException = e;
-        }
-        
-        if (yamlException==null) {
-            // treat as yaml if it parsed
-            return createFromYaml(new String(item), force);
-        }
-        
-        return createFromArchive(item, force);
-    }
 }
-
