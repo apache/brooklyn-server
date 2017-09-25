@@ -19,60 +19,39 @@
 package org.apache.brooklyn.rest.domain;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.config.ConfigKey;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+/** @deprecated since 0.13.0 no different to ConfigSummary, use that */
+@Deprecated
 public class PolicyConfigSummary extends ConfigSummary {
 
     private static final long serialVersionUID = 4339330833863794513L;
 
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
-    private final Map<String, URI> links;
-
+    @SuppressWarnings("unused") // json deserialization
+    private PolicyConfigSummary() {}
+    
     public PolicyConfigSummary(
             @JsonProperty("name") String name,
             @JsonProperty("type") String type,
             @JsonProperty("description") String description,
             @JsonProperty("defaultValue") Object defaultValue,
             @JsonProperty("reconfigurable") boolean reconfigurable,
+            @JsonProperty("label") String label,
+            @JsonProperty("priority") Double priority,
+            @JsonProperty("possibleValues") List<Map<String, String>> possibleValues,
+            @JsonProperty("pinned") Boolean pinned,
+            @JsonProperty("constraints") List<String> constraints,
             @JsonProperty("links") Map<String, URI> links) {
-        super(name, type, description, defaultValue, reconfigurable, null, null, null);
-        this.links = (links == null) ? ImmutableMap.<String, URI>of() : ImmutableMap.copyOf(links);
+        super(name, type, description, defaultValue, reconfigurable, label, priority, possibleValues, pinned, constraints, links);
     }
-
+    
     public PolicyConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
-        super(config, label, priority);
-        this.links = links != null ? ImmutableMap.copyOf(links) : null;
+        super(config, label, priority, null, links);
     }
 
-    @Override
-    public Map<String, URI> getLinks() {
-        return links;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof PolicyConfigSummary)) return false;
-        if (!super.equals(o)) return false;
-        PolicyConfigSummary that = (PolicyConfigSummary) o;
-        return Objects.equals(links, that.links);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(super.hashCode(), links);
-    }
-
-    @Override
-    public String toString() {
-        return "PolicyConfigSummary{" +
-                "links=" + links +
-                '}';
-    }
 }
