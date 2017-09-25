@@ -80,12 +80,12 @@ public interface ExecutionManager {
 //    public Set<Task<?>> getAllTasks();
 
     /** see {@link #submit(Map, TaskAdaptable)} 
-     * @deprecated since 0.12.0 pass displayName or map */
+     * @deprecated since 0.13.0 pass displayName or map */
     @Deprecated
     public Task<?> submit(Runnable r);
 
     /** see {@link #submit(Map, TaskAdaptable)} 
-     * @deprecated since 0.12.0 pass displayName or map */
+     * @deprecated since 0.13.0 pass displayName or map */
     @Deprecated
     public <T> Task<T> submit(Callable<T> r);
 

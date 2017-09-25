@@ -84,7 +84,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
      * Supported flags are {@code tag} and {@code tags}
      * 
      * @see ExecutionManager#submit(Map, TaskAdaptable)
-     * @deprecated since 0.12.0 use {@link #BasicExecutionContext(ExecutionManager, Iterable)}
+     * @deprecated since 0.13.0 use {@link #BasicExecutionContext(ExecutionManager, Iterable)}
      */
     @Deprecated
     public BasicExecutionContext(Map<?, ?> flags, ExecutionManager executionManager) {

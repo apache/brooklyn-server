@@ -89,7 +89,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     @Deprecated
     protected Map<String,Object> leftoverProperties = Maps.newLinkedHashMap();
 
-    /** @deprecated since 0.12.0, going private, use {@link #getExecutionContext()} */
+    /** @deprecated since 0.13.0, going private, use {@link #getExecutionContext()} */
     @Deprecated
     protected transient ExecutionContext execution;
 
