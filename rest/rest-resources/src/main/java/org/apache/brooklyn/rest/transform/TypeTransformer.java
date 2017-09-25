@@ -50,9 +50,9 @@ import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.rest.api.TypeApi;
-import org.apache.brooklyn.rest.domain.AdjunctConfigSummary;
 import org.apache.brooklyn.rest.domain.BundleInstallationRestResult;
 import org.apache.brooklyn.rest.domain.BundleSummary;
+import org.apache.brooklyn.rest.domain.ConfigSummary;
 import org.apache.brooklyn.rest.domain.EffectorSummary;
 import org.apache.brooklyn.rest.domain.EntityConfigSummary;
 import org.apache.brooklyn.rest.domain.SensorSummary;
@@ -96,11 +96,11 @@ public class TypeTransformer {
                     RegisteredTypes.isSubtypeOf(item, Policy.class) || RegisteredTypes.isSubtypeOf(item, Enricher.class) || RegisteredTypes.isSubtypeOf(item, Feed.class)
                     ) {
                 try {
-                    Set<AdjunctConfigSummary> config = Sets.newLinkedHashSet();
+                    Set<ConfigSummary> config = Sets.newLinkedHashSet();
                     
                     AbstractBrooklynObjectSpec<?,?> spec = b.getTypeRegistry().createSpec(item, null, null);
                     for (final SpecParameter<?> input : spec.getParameters()){
-                        config.add(EntityTransformer.adjunctConfigSummary(input));
+                        config.add(EntityTransformer.configSummary(input));
                     }
                     
                     result.setExtraField("config", config);

@@ -96,7 +96,8 @@ public class PolicyTransformer {
 
         return new PolicyConfigSummary(config.getName(), config.getTypeName(), config.getDescription(), 
                 PolicyConfigResource.getStringValueForDisplay(utils, policy, config.getDefaultValue()), 
-                config.isReconfigurable(), 
+                config.isReconfigurable(),
+                null, null, null, null, null, 
                 links);
     }
 }
