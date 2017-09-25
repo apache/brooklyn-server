@@ -18,8 +18,8 @@
 brooklyn.catalog:
   version: "0.13.0-SNAPSHOT" # BROOKLYN_VERSION
 
-  items:
-  - classpath://org.apache.brooklyn.core:0.13.0-SNAPSHOT:catalog.bom # BROOKLYN_VERSION
-  - classpath://org.apache.brooklyn.policy:0.13.0-SNAPSHOT:catalog.bom # BROOKLYN_VERSION
-  - classpath://org.apache.brooklyn.software-base:0.13.0-SNAPSHOT:catalog.bom # BROOKLYN_VERSION
-  - classpath://org.apache.brooklyn.test-framework:0.13.0-SNAPSHOT:catalog.bom # BROOKLYN_VERSION
+  brooklyn.libraries:
+  - mvn:org.apache.brooklyn/brooklyn-core/0.13.0-SNAPSHOT # BROOKLYN_VERSION
+  - mvn:org.apache.brooklyn/brooklyn-policy/0.13.0-SNAPSHOT # BROOKLYN_VERSION
+  - mvn:org.apache.brooklyn/brooklyn-software-base/0.13.0-SNAPSHOT # BROOKLYN_VERSION
+  - mvn:org.apache.brooklyn/brooklyn-test-framework/0.13.0-SNAPSHOT # BROOKLYN_VERSION
