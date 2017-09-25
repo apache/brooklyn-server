@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.cli.lister;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -29,7 +28,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.Catalog;
-import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.EntityType;
@@ -47,8 +45,8 @@ import org.apache.brooklyn.rest.domain.ConfigSummary;
 import org.apache.brooklyn.rest.domain.EffectorSummary;
 import org.apache.brooklyn.rest.domain.SensorSummary;
 import org.apache.brooklyn.rest.domain.SummaryComparators;
+import org.apache.brooklyn.rest.transform.ConfigTransformer;
 import org.apache.brooklyn.rest.transform.EffectorTransformer;
-import org.apache.brooklyn.rest.transform.EntityTransformer;
 import org.apache.brooklyn.rest.transform.SensorTransformer;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
@@ -138,9 +136,7 @@ public class ItemDescriptors {
             Set<EffectorSummary> effectors = Sets.newTreeSet(SummaryComparators.nameComparator());
 
             for (ConfigKey<?> x: type.getConfigKeys()) {
-                Field field = dynamicType.getConfigKeyField(x.getName());
-                CatalogConfig annotation = field==null ? null : field.getAnnotation(CatalogConfig.class);
-                config.add(EntityTransformer.configSummary(null, null, null, x, annotation));
+                config.add(ConfigTransformer.of(x).uiMetadata(dynamicType.getConfigKeyField(x.getName())).transform());
             }
             result.put("config", config);
             
@@ -205,7 +201,7 @@ public class ItemDescriptors {
         if (!headingsOnly) {
             AtomicInteger priority = new AtomicInteger(0);
             for (SpecParameter<?> param: spec.getParameters()) {
-                config.add(EntityTransformer.configSummary(null, null, null, param, priority));
+                config.add(ConfigTransformer.of(param).uiIncrementAndSetPriorityIfPinned(priority).transform());
             }
             itemDescriptor.put("config", config);
         }

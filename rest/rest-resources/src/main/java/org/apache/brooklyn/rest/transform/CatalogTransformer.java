@@ -71,6 +71,8 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
+/** @deprecated since 0.13.0 use RegisteredType methods */
+@Deprecated
 public class CatalogTransformer {
 
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(CatalogTransformer.class);
@@ -87,9 +89,9 @@ public class CatalogTransformer {
             EntityDynamicType typeMap = BrooklynTypes.getDefinedEntityType(spec.getType());
             EntityType type = typeMap.getSnapshot();
 
-            AtomicInteger paramPriorityCnt = new AtomicInteger();
+            AtomicInteger priority = new AtomicInteger();
             for (SpecParameter<?> input: spec.getParameters())
-                config.add(EntityTransformer.entityConfigSummary(input, paramPriorityCnt));
+                config.add(ConfigTransformer.of(input).uiIncrementAndSetPriorityIfPinned(priority).transformLegacyEntityConfig());
             for (Sensor<?> x: type.getSensors())
                 sensors.add(SensorTransformer.sensorSummaryForCatalog(x));
             for (Effector<?> x: type.getEffectors())
@@ -149,8 +151,9 @@ public class CatalogTransformer {
         PolicySpec<?> spec = null;
         try{
             spec = b.getTypeRegistry().createSpec(item, null, PolicySpec.class);
-            for (final SpecParameter<?> input : spec.getParameters()){
-                config.add(EntityTransformer.policyConfigSummary(input));
+            AtomicInteger priority = new AtomicInteger();
+            for (SpecParameter<?> input: spec.getParameters()) {
+                config.add(ConfigTransformer.of(input).uiIncrementAndSetPriorityIfPinned(priority).transformLegacyPolicyConfig());
             }
         }catch (Exception e) {
             Exceptions.propagateIfFatal(e);
@@ -169,8 +172,9 @@ public class CatalogTransformer {
         EnricherSpec<?> spec = null;
         try{
             spec = b.getTypeRegistry().createSpec(item, null, EnricherSpec.class);
-            for (final SpecParameter<?> input : spec.getParameters()){
-                config.add(EntityTransformer.enricherConfigSummary(input));
+            AtomicInteger priority = new AtomicInteger();
+            for (SpecParameter<?> input: spec.getParameters()) {
+                config.add(ConfigTransformer.of(input).uiIncrementAndSetPriorityIfPinned(priority).transformLegacyEnricherConfig());
             }
         }catch (Exception e) {
             Exceptions.propagateIfFatal(e);
@@ -257,9 +261,9 @@ public class CatalogTransformer {
             EntityDynamicType typeMap = BrooklynTypes.getDefinedEntityType(spec.getType());
             EntityType type = typeMap.getSnapshot();
 
-            AtomicInteger paramPriorityCnt = new AtomicInteger();
+            AtomicInteger priority = new AtomicInteger();
             for (SpecParameter<?> input: spec.getParameters())
-                config.add(EntityTransformer.entityConfigSummary(input, paramPriorityCnt));
+                config.add(ConfigTransformer.of(input).uiIncrementAndSetPriorityIfPinned(priority).transformLegacyEntityConfig());
             for (Sensor<?> x: type.getSensors())
                 sensors.add(SensorTransformer.sensorSummaryForCatalog(x));
             for (Effector<?> x: type.getEffectors())
@@ -315,8 +319,9 @@ public class CatalogTransformer {
         final Set<PolicyConfigSummary> config = Sets.newLinkedHashSet();
         try{
             final PolicySpec<?> spec = (PolicySpec<?>) b.getCatalog().peekSpec(item);
-            for (final SpecParameter<?> input : spec.getParameters()){
-                config.add(EntityTransformer.policyConfigSummary(input));
+            AtomicInteger priority = new AtomicInteger();
+            for (SpecParameter<?> input: spec.getParameters()) {
+                config.add(ConfigTransformer.of(input).uiIncrementAndSetPriorityIfPinned(priority).transformLegacyPolicyConfig());
             }
         }catch (Exception e) {
             Exceptions.propagateIfFatal(e);
@@ -333,8 +338,9 @@ public class CatalogTransformer {
         final Set<EnricherConfigSummary> config = Sets.newLinkedHashSet();
         try{
             final EnricherSpec<?> spec = (EnricherSpec<?>) b.getCatalog().peekSpec(item);
-            for (final SpecParameter<?> input : spec.getParameters()){
-                config.add(EntityTransformer.enricherConfigSummary(input));
+            AtomicInteger priority = new AtomicInteger();
+            for (SpecParameter<?> input: spec.getParameters()) {
+                config.add(ConfigTransformer.of(input).uiIncrementAndSetPriorityIfPinned(priority).transformLegacyEnricherConfig());
             }
         }catch (Exception e) {
             Exceptions.propagateIfFatal(e);

@@ -23,22 +23,17 @@ import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
 import java.net.URI;
 import java.util.Map;
 
-import javax.annotation.Nullable;
 import javax.ws.rs.core.UriBuilder;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
-import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.policy.Policies;
 import org.apache.brooklyn.rest.api.AdjunctApi;
-import org.apache.brooklyn.rest.api.ApplicationApi;
-import org.apache.brooklyn.rest.api.EntityApi;
 import org.apache.brooklyn.rest.domain.AdjunctDetail;
 import org.apache.brooklyn.rest.domain.AdjunctSummary;
-import org.apache.brooklyn.rest.domain.ConfigSummary;
 import org.apache.brooklyn.rest.domain.Status;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -62,7 +57,7 @@ public class AdjunctTransformer {
     public static AdjunctDetail adjunctDetail(BrooklynRestResourceUtils utils, Entity entity, EntityAdjunct adjunct, UriBuilder ub) {
         AdjunctDetail result = embellish(new AdjunctDetail(adjunct), entity, adjunct, ub);
         for (ConfigKey<?> key: adjunct.config().findKeysDeclared(Predicates.alwaysTrue())) {
-            result.parameter(configSummary(utils, ub, entity, adjunct, key));
+            result.parameter(ConfigTransformer.of(key).on(entity, adjunct).includeLinks(ub, false, true).transform());
         }
         result.config(EntityTransformer.getConfigValues(utils, adjunct));
         return result;
@@ -74,8 +69,10 @@ public class AdjunctTransformer {
         links.put("self", serviceUriBuilder(ub, AdjunctApi.class, "get").build(entity.getApplicationId(), entity.getId(), adjunct.getId()));
         
         if (detail) {
-            links.put("application", serviceUriBuilder(ub, ApplicationApi.class, "get").build(entity.getApplicationId()));
-            links.put("entity", serviceUriBuilder(ub, EntityApi.class, "get").build(entity.getApplicationId(), entity.getId()));
+            links.put("application", EntityTransformer.applicationUri(entity.getApplication(), ub) );
+            links.put("entity", EntityTransformer.entityUri(entity, ub) );
+            links.put("adjunct", adjunctUri(entity, adjunct, ub) );
+            
             links.put("config", serviceUriBuilder(ub, AdjunctApi.class, "listConfig").build(entity.getApplicationId(), entity.getId(), adjunct.getId()));
             links.put("status", serviceUriBuilder(ub, AdjunctApi.class, "getStatus").build(entity.getApplicationId(), entity.getId(), adjunct.getId()));
             if (adjunct instanceof Policy || adjunct instanceof Feed) {
@@ -92,25 +89,8 @@ public class AdjunctTransformer {
         return ApplicationTransformer.statusFromLifecycle( Policies.inferAdjunctStatus(adjunct) );
     }
 
-    public static ConfigSummary configSummary(BrooklynRestResourceUtils utils, UriBuilder ub, @Nullable Entity entity, @Nullable EntityAdjunct adjunct, SpecParameter<?> input) {
-        Double priority = input.isPinned() ? Double.valueOf(1d) : null;
-        return configSummary(utils, ub, entity, adjunct, input.getConfigKey(), input.getLabel(), priority, input.isPinned());
+    public static URI adjunctUri(Entity entity, EntityAdjunct adjunct, UriBuilder ub) {
+        return serviceUriBuilder(ub, AdjunctApi.class, "get").build(entity.getApplicationId(), entity.getId(), adjunct.getId());
     }
 
-    public static ConfigSummary configSummary(BrooklynRestResourceUtils utils, UriBuilder ub, Entity entity, EntityAdjunct adjunct, ConfigKey<?> config) {
-        // TODO get catalog info from other sources?
-        // see EntityTransformer.configSummary
-        return configSummary(utils, ub, entity, adjunct, config, null, null, null);
-    }
-    public static ConfigSummary configSummary(BrooklynRestResourceUtils utils, UriBuilder ub, @Nullable Entity entity, @Nullable EntityAdjunct adjunct, ConfigKey<?> config, String label, Double priority, Boolean pinned) {
-        URI configUri = entity==null ? null : serviceUriBuilder(ub, AdjunctApi.class, "getConfig").build(entity.getApplicationId(), entity.getId(), adjunct.getId(), config.getName());
-        Map<String, URI> links = MutableMap.<String, URI>builder()
-                .putIfNotNull("self", configUri)
-                // no point in including app/entity on every summary shown in a list
-                // (this is only ever used in a list, as self points at the value)
-                .build();
-
-        // TODO get actions, see EntityTransformer.configSummary
-        return new ConfigSummary(config, label, priority, pinned, links);
-    }
 }

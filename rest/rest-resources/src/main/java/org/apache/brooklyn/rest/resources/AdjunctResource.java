@@ -49,6 +49,7 @@ import org.apache.brooklyn.rest.domain.Status;
 import org.apache.brooklyn.rest.domain.SummaryComparators;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.AdjunctTransformer;
+import org.apache.brooklyn.rest.transform.ConfigTransformer;
 import org.apache.brooklyn.rest.transform.EntityTransformer;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
@@ -215,7 +216,7 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
 
         List<ConfigSummary> result = Lists.newArrayList();
         for (ConfigKey<?> key : adjunct.config().findKeysPresent(Predicates.alwaysTrue())) {
-            result.add(AdjunctTransformer.configSummary(brooklyn(), ui.getBaseUriBuilder(), entity, adjunct, key));
+            result.add(ConfigTransformer.of(key).on(entity, adjunct).includeLinks(ui.getBaseUriBuilder(), false, true).transform());
         }
         return result;
     }

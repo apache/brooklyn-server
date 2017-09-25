@@ -100,7 +100,7 @@ public class TypeTransformer {
                     AbstractBrooklynObjectSpec<?,?> spec = b.getTypeRegistry().createSpec(item, null, null);
                     AtomicInteger priority = new AtomicInteger(0);
                     for (final SpecParameter<?> input : spec.getParameters()){
-                        config.add(EntityTransformer.configSummary(null, null, null, input, priority));
+                        config.add(ConfigTransformer.of(input).uiIncrementAndSetPriorityIfPinned(priority).transform());
                     }
                     
                     result.setExtraField("config", config);
@@ -127,9 +127,9 @@ public class TypeTransformer {
             EntityDynamicType typeMap = BrooklynTypes.getDefinedEntityType(spec.getType());
             EntityType type = typeMap.getSnapshot();
    
-            AtomicInteger paramPriorityCnt = new AtomicInteger();
+            AtomicInteger priority = new AtomicInteger();
             for (SpecParameter<?> input: spec.getParameters())
-                config.add(EntityTransformer.configSummary(null, null, null, input, paramPriorityCnt));
+                config.add(ConfigTransformer.of(input).uiIncrementAndSetPriorityIfPinned(priority).transform());
             for (Sensor<?> x: type.getSensors())
                 sensors.add(SensorTransformer.sensorSummaryForCatalog(x));
             for (Effector<?> x: type.getEffectors())

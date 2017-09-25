@@ -34,7 +34,7 @@ import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.EntityAndItem;
 import org.apache.brooklyn.rest.api.EntityConfigApi;
 import org.apache.brooklyn.rest.domain.ConfigSummary;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
-import org.apache.brooklyn.rest.transform.EntityTransformer;
+import org.apache.brooklyn.rest.transform.ConfigTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -70,7 +70,7 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
                         new Object[] {Entitlements.getEntitlementContext().user(), key.getName(), entity});
                 continue;
             }
-            result.add(EntityTransformer.configSummary(brooklyn(), ui.getBaseUriBuilder(), entity, key));
+            result.add(ConfigTransformer.of(key).on(entity).includeLinks(ui.getBaseUriBuilder(), true, true).transform());
         }
         
         return result;
