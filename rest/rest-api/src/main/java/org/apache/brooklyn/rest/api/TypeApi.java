@@ -33,14 +33,17 @@ import javax.ws.rs.core.Response;
 import org.apache.brooklyn.rest.domain.TypeDetail;
 import org.apache.brooklyn.rest.domain.TypeSummary;
 
+import com.google.common.annotations.Beta;
+
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 
-@Path("/types")
-@Api("Types")
+@Path("/catalog/types")
+@Api("Catalog Types")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
+@Beta
 public interface TypeApi {
 
     @GET
@@ -48,13 +51,16 @@ public interface TypeApi {
             response = TypeSummary.class,
             responseContainer = "List")
     public List<TypeSummary> list(
+        @ApiParam(name = "supertype", value = "Supertype to require (beta, currently intended only for 'entity', 'policy', 'enricher', and 'location')", required = false)
+        @QueryParam("supertype")
+        String supertype,
         @ApiParam(name = "versions", value = "Whether to list 'latest' of each symbolic-name or 'all' versions", 
-            required = false, defaultValue = "latest")
+        required = false, defaultValue = "latest")
         @QueryParam("versions")
         String versions,
-        @ApiParam(name = "regex", value = "Regular expression to search for")
+        @ApiParam(name = "regex", value = "Regular expression to search for (in name and description)")
         @QueryParam("regex") @DefaultValue("") String regex,
-        @ApiParam(name = "fragment", value = "Substring case-insensitive to search for")
+        @ApiParam(name = "fragment", value = "Substring case-insensitive to search for (in name and description)")
         @QueryParam("fragment") @DefaultValue("") String fragment);
 
     @Path("/{nameOrAlias}")

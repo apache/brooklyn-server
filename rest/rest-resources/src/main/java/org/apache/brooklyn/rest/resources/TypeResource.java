@@ -27,6 +27,11 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriBuilder;
 
+import org.apache.brooklyn.api.entity.Application;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.policy.Policy;
+import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
@@ -48,6 +53,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
@@ -55,6 +61,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 
 @HaHotStateRequired
+@Beta
 public class TypeResource extends AbstractBrooklynRestResource implements TypeApi {
 
     private static final Logger log = LoggerFactory.getLogger(TypeResource.class);
@@ -73,9 +80,23 @@ public class TypeResource extends AbstractBrooklynRestResource implements TypeAp
     }
     
     @Override
-    public List<TypeSummary> list(String versions, String regex, String fragment) {
+    public List<TypeSummary> list(String supertype, String versions, String regex, String fragment) {
         List<Predicate<RegisteredType>> filters = MutableList.<Predicate<RegisteredType>>of()
             .append(RegisteredTypePredicates.entitledToSee(mgmt()));
+        if (Strings.isNonBlank(supertype)) {
+            // rewrite certain well known ones
+            // (in future this should happen automatically as Entity.class should be known as user-friendly name 'entity') 
+            if ("entity".equals(supertype)) supertype = Entity.class.getName();
+            else if ("enricher".equals(supertype)) supertype = Enricher.class.getName();
+            else if ("policy".equals(supertype)) supertype = Policy.class.getName();
+            else if ("location".equals(supertype)) supertype = Location.class.getName();
+            // TODO application probably isn't at all interesting; keep it for backward compatibility,
+            // and meanwhile sort out things like "template" vs "quick launch"
+            // (probably adding tags on the API)
+            else if ("application".equals(supertype)) supertype = Application.class.getName();
+            
+            filters.add(RegisteredTypePredicates.subtypeOf(supertype));
+        }
         if (TypeResource.isLatestOnly(versions, true)) {
             // TODO inefficient - does n^2 comparisons where n is sufficient
             // create RegisteredTypes.filterBestVersions to do a list after the initial parse

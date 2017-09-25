@@ -40,6 +40,7 @@ import org.jclouds.compute.domain.Template;
 import org.jclouds.domain.LoginCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -109,6 +110,7 @@ public class JcloudsMaxConcurrencyStubbedTest extends AbstractJcloudsStubbedUnit
         deletionConcurrencyMonitor = new ConcurrencyMonitor();
     }
     
+    @AfterMethod(alwaysRun=true)
     @Override
     public void tearDown() throws Exception {
         try {
@@ -187,16 +189,16 @@ public class JcloudsMaxConcurrencyStubbedTest extends AbstractJcloudsStubbedUnit
         
         initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of(JcloudsLocation.MAX_CONCURRENT_MACHINE_DELETIONS, 2));
 
-        List<JcloudsSshMachineLocation> machines = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
-            machines.add(obtainMachine());
+            obtainMachine();
         }
+        assertEquals(machines.size(), 3, "machines="+machines);
 
         List<ListenableFuture<?>> futures = new ArrayList<>();
-        for (final JcloudsSshMachineLocation machine : machines) {
+        for (final JcloudsMachineLocation machine : machines) {
             futures.add(executor.submit(new Callable<Void>() {
                 public Void call() throws Exception {
-                    jcloudsLocation.release(machine);
+                    releaseMachine(machine);
                     return null;
                 }}));
         }

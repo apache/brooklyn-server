@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.typereg;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 
 import com.google.common.base.Objects;
@@ -26,7 +28,7 @@ public class BasicTypeImplementationPlan implements TypeImplementationPlan {
     final String format;
     final Object data;
     
-    public BasicTypeImplementationPlan(String format, Object data) {
+    public BasicTypeImplementationPlan(@Nullable String format, Object data) {
         this.format = format;
         this.data = data;
     }

@@ -23,8 +23,9 @@ import java.util.Map;
 
 import org.apache.brooklyn.config.ConfigKey;
 
-// TODO remove? this class has no value over its super
-public class EnricherConfigSummary extends AdjunctConfigSummary {
+/** @deprecated since 0.13.0 no different to ConfigSummary, use that */
+@Deprecated
+public class EnricherConfigSummary extends ConfigSummary {
 
     private static final long serialVersionUID = 4339330833863794513L;
 
@@ -32,12 +33,7 @@ public class EnricherConfigSummary extends AdjunctConfigSummary {
     private EnricherConfigSummary() {}
     
     public EnricherConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
-        super(config, label, priority, links);
-    }
-
-    public EnricherConfigSummary(String name, String type, String description, Object defaultValue, boolean reconfigurable,
-        Map<String, URI> links) {
-        super(name, type, description, defaultValue, reconfigurable, links);
+        super(config, label, priority, null, links);
     }
 
 }

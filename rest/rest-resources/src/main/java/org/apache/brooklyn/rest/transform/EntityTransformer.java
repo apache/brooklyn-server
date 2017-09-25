@@ -41,7 +41,7 @@ import org.apache.brooklyn.rest.api.ApplicationApi;
 import org.apache.brooklyn.rest.api.CatalogApi;
 import org.apache.brooklyn.rest.api.EntityApi;
 import org.apache.brooklyn.rest.api.EntityConfigApi;
-import org.apache.brooklyn.rest.domain.AdjunctConfigSummary;
+import org.apache.brooklyn.rest.domain.ConfigSummary;
 import org.apache.brooklyn.rest.domain.EnricherConfigSummary;
 import org.apache.brooklyn.rest.domain.EntityConfigSummary;
 import org.apache.brooklyn.rest.domain.EntitySummary;
@@ -125,8 +125,8 @@ public class EntityTransformer {
         return new EntityConfigSummary(config, label, priority, pinned, mapOfLinks);
     }
 
-    public static AdjunctConfigSummary adjunctConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
-        return new AdjunctConfigSummary(config, label, priority, links);
+    public static ConfigSummary configSummary(ConfigKey<?> config, String label, Double priority, Boolean pinned, Map<String, URI> links) {
+        return new ConfigSummary(config, label, priority, pinned, links);
     }
 
     public static PolicyConfigSummary policyConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
@@ -198,9 +198,10 @@ public class EntityTransformer {
         return entityConfigSummary(input.getConfigKey(), input.getLabel(), priority, input.isPinned(), null);
     }
 
-    public static AdjunctConfigSummary adjunctConfigSummary(SpecParameter<?> input) {
+    public static ConfigSummary configSummary(SpecParameter<?> input) {
+        // could increment priority, or take from annotation, or introduce new field
         Double priority = input.isPinned() ? Double.valueOf(1d) : null;
-        return policyConfigSummary(input.getConfigKey(), input.getLabel(), priority, null);
+        return configSummary(input.getConfigKey(), input.getLabel(), priority, input.isPinned(), null);
     }
 
     public static PolicyConfigSummary policyConfigSummary(SpecParameter<?> input) {

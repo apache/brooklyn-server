@@ -71,6 +71,9 @@ public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest implement
 
     @Test
     public void testBrooklynManagedBundleInstall() throws Exception {
+
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), BROOKLYN_TEST_MORE_ENTITIES_V1_PATH);
+
         OsgiBundleInstallationResult br = ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
             new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V1_URL) ).get();
         Assert.assertEquals(br.getVersionedName().toString(), BROOKLYN_TEST_MORE_ENTITIES_SYMBOLIC_NAME_FULL+":"+"0.1.0");
