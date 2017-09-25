@@ -19,6 +19,7 @@
 package org.apache.brooklyn.rest.transform;
 
 import static com.google.common.collect.Iterables.transform;
+import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
 
 import java.lang.reflect.Field;
 import java.net.URI;
@@ -26,13 +27,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.ws.rs.core.UriBuilder;
+
 import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.rest.api.ApplicationApi;
+import org.apache.brooklyn.rest.api.CatalogApi;
+import org.apache.brooklyn.rest.api.EntityApi;
+import org.apache.brooklyn.rest.api.EntityConfigApi;
+import org.apache.brooklyn.rest.domain.ConfigSummary;
 import org.apache.brooklyn.rest.domain.EnricherConfigSummary;
 import org.apache.brooklyn.rest.domain.EntityConfigSummary;
 import org.apache.brooklyn.rest.domain.EntitySummary;
@@ -43,13 +52,6 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import javax.ws.rs.core.UriBuilder;
-import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
-import org.apache.brooklyn.rest.api.ApplicationApi;
-import org.apache.brooklyn.rest.api.CatalogApi;
-import org.apache.brooklyn.rest.api.EntityApi;
-import org.apache.brooklyn.rest.api.EntityConfigApi;
-import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
 
 /**
  * @author Adam Lowe
@@ -123,6 +125,10 @@ public class EntityTransformer {
         return new EntityConfigSummary(config, label, priority, pinned, mapOfLinks);
     }
 
+    public static ConfigSummary configSummary(ConfigKey<?> config, String label, Double priority, Boolean pinned, Map<String, URI> links) {
+        return new ConfigSummary(config, label, priority, pinned, links);
+    }
+
     public static PolicyConfigSummary policyConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
         return new PolicyConfigSummary(config, label, priority, links);
     }
@@ -190,6 +196,12 @@ public class EntityTransformer {
         // though will push the items in an unordered set - so give them means to recover the correct order.
         Double priority = input.isPinned() ? Double.valueOf(paramPriorityCnt.incrementAndGet()) : null;
         return entityConfigSummary(input.getConfigKey(), input.getLabel(), priority, input.isPinned(), null);
+    }
+
+    public static ConfigSummary configSummary(SpecParameter<?> input) {
+        // could increment priority, or take from annotation, or introduce new field
+        Double priority = input.isPinned() ? Double.valueOf(1d) : null;
+        return configSummary(input.getConfigKey(), input.getLabel(), priority, input.isPinned(), null);
     }
 
     public static PolicyConfigSummary policyConfigSummary(SpecParameter<?> input) {

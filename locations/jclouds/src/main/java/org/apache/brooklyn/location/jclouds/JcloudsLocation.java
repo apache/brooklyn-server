@@ -23,7 +23,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 import static org.apache.brooklyn.util.ssh.BashCommands.sbinPath;
-import static org.jclouds.compute.predicates.NodePredicates.*;
+import static org.jclouds.compute.predicates.NodePredicates.withIds;
 import static org.jclouds.util.Throwables2.getFirstThrowableOfType;
 
 import java.io.ByteArrayOutputStream;
@@ -48,7 +48,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import javax.xml.ws.WebServiceException;
 
-import com.google.common.primitives.Ints;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -146,7 +145,6 @@ import org.jclouds.compute.domain.OsFamily;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.domain.TemplateBuilder;
 import org.jclouds.compute.options.TemplateOptions;
-import org.jclouds.compute.predicates.NodePredicates;
 import org.jclouds.domain.Credentials;
 import org.jclouds.domain.LocationScope;
 import org.jclouds.domain.LoginCredentials;
@@ -183,6 +181,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.net.HostAndPort;
+import com.google.common.primitives.Ints;
 
 /**
  * For provisioning and managing VMs in a particular provider/region, using jclouds.
@@ -252,6 +251,14 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
             config().set(MACHINE_CREATION_SEMAPHORE, new Semaphore(maxConcurrent, true));
         }
+
+        if (getConfig(MACHINE_DELETION_SEMAPHORE) == null) {
+            Integer maxConcurrent = getConfig(MAX_CONCURRENT_MACHINE_DELETIONS);
+            if (maxConcurrent == null || maxConcurrent < 1) {
+                throw new IllegalStateException(MAX_CONCURRENT_MACHINE_DELETIONS.getName() + " must be >= 1, but was "+maxConcurrent);
+            }
+            config().set(MACHINE_DELETION_SEMAPHORE, new Semaphore(maxConcurrent, true));
+        }
         return this;
     }
 
@@ -275,6 +282,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 .parent(this)
                 .configure(config().getLocalBag().getAllConfig())  // FIXME Should this just be inherited?
                 .configure(MACHINE_CREATION_SEMAPHORE, getMachineCreationSemaphore())
+                .configure(MACHINE_DELETION_SEMAPHORE, getMachineDeletionSemaphore())
                 .configure(newFlags));
     }
 
@@ -378,6 +386,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     protected Semaphore getMachineCreationSemaphore() {
         return checkNotNull(getConfig(MACHINE_CREATION_SEMAPHORE), MACHINE_CREATION_SEMAPHORE.getName());
+    }
+
+    protected Semaphore getMachineDeletionSemaphore() {
+        return checkNotNull(getConfig(MACHINE_DELETION_SEMAPHORE), MACHINE_DELETION_SEMAPHORE.getName());
     }
 
     protected CloudMachineNamer getCloudMachineNamer(ConfigBag config) {
@@ -2105,6 +2117,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     @Override
     public void release(MachineLocation rawMachine) {
+        Duration preSemaphoreTimestamp = null;
+        Duration semaphoreTimestamp = null;
+        Duration destroyTimestamp = null;
+        Stopwatch destroyingStopwatch = Stopwatch.createStarted();
+
         String instanceId = vmInstanceIds.remove(rawMachine);
         if (instanceId == null) {
             LOG.info("Attempted release of unknown machine "+rawMachine+" in "+toString());
@@ -2142,14 +2159,34 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
 
         try {
-            releaseNode(instanceId);
-        } catch (Exception e) {
-            LOG.error("Problem releasing machine "+machine+" in "+this+", instance id "+instanceId+
-                    "; ignoring and continuing, "
-                    + (tothrow==null ? "will throw subsequently" : "swallowing due to previous error")+": "+e, e);
-            if (tothrow==null) tothrow = e;
-        }
+            preSemaphoreTimestamp = Duration.of(destroyingStopwatch);
+            Semaphore machineDeletionSemaphore = getMachineDeletionSemaphore();
+            boolean acquired = machineDeletionSemaphore.tryAcquire(0, TimeUnit.SECONDS);
+            if (!acquired) {
+                LOG.info("Waiting in {} for machine-deletion permit ({} other queuing requests already)", new Object[] {this, machineDeletionSemaphore.getQueueLength()});
+                Stopwatch blockStopwatch = Stopwatch.createStarted();
+                machineDeletionSemaphore.acquire();
+                LOG.info("Acquired in {} machine-deletion permit, after waiting {}", this, Time.makeTimeStringRounded(blockStopwatch));
+            } else {
+                LOG.debug("Acquired in {} machine-deletion permit immediately", this);
+            }
+            semaphoreTimestamp = Duration.of(destroyingStopwatch);
 
+            try {
+                releaseNode(instanceId);
+                destroyTimestamp = Duration.of(destroyingStopwatch);
+            } catch (Exception e) {
+                LOG.error("Problem releasing machine "+machine+" in "+this+", instance id "+instanceId+
+                        "; ignoring and continuing, "
+                        + (tothrow==null ? "will throw subsequently" : "swallowing due to previous error")+": "+e, e);
+                if (tothrow==null) tothrow = e;
+            } finally {
+                machineDeletionSemaphore.release();
+            }
+        } catch (InterruptedException e) {
+            throw Exceptions.propagate(e);
+        }
+        
         removeChild(machine);
 
         try {
@@ -2162,8 +2199,24 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
         
         if (tothrow != null) {
+            LOG.error("Problem releasing machine " + machine + " (propagating) " 
+                    + " after "+Duration.of(destroyingStopwatch).toStringRounded()
+                    + (semaphoreTimestamp != null ? " ("
+                            + "semaphore obtained in "+Duration.of(semaphoreTimestamp).subtract(preSemaphoreTimestamp).toStringRounded()+";"
+                            + (destroyTimestamp != null ? " node destroyed in "+Duration.of(destroyTimestamp).subtract(semaphoreTimestamp).toStringRounded() : "")
+                            + ")"
+                            : "")
+                    + ": "+tothrow.getMessage());
+            
             throw Exceptions.propagate(tothrow);
         }
+        
+        String logMessage = "Released machine " + machine +":"
+                + " total time "+Duration.of(destroyingStopwatch).toStringRounded()
+                + " ("
+                + "semaphore obtained in "+Duration.of(semaphoreTimestamp).subtract(preSemaphoreTimestamp).toStringRounded()+";"
+                + " node destroyed in "+Duration.of(destroyTimestamp).subtract(semaphoreTimestamp).toStringRounded()+")";
+        LOG.info(logMessage);
     }
 
     protected void releaseSafely(MachineLocation machine) {

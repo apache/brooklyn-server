@@ -89,7 +89,6 @@ public abstract class AbstractLoadBalancingPolicyTest extends BrooklynAppUnitTes
         
         model = new DefaultBalanceablePoolModel<Entity, Entity>("pool-model");
         
-        app = TestApplication.Factory.newManagedInstanceForTests();
         containerGroup = app.createAndManageChild(EntitySpec.create(DynamicGroup.class)
                 .displayName("containerGroup")
                 .configure(DynamicGroup.ENTITY_FILTER, Predicates.instanceOf(MockContainerEntity.class)));

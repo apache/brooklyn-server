@@ -16,7 +16,7 @@
 # under the License.
 
 brooklyn.catalog:
-    version: "0.12.0-SNAPSHOT" # BROOKLYN_VERSION
+    version: "0.13.0-SNAPSHOT" # BROOKLYN_VERSION
     itemType: entity
     items:
     - id: org.apache.brooklyn.test.framework.TestSshCommand
@@ -26,8 +26,8 @@ brooklyn.catalog:
     - id: org.apache.brooklyn.test.framework.SimpleShellCommandTest
       item:
         type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
-        name: [DEPRECATED] Simple Shell Command Test
-        description:  [DEPRECATED] Instead use TestSshCommand
+        name: "[DEPRECATED] Simple Shell Command Test"
+        description:  "[DEPRECATED] Instead use TestSshCommand"
     - id: org.apache.brooklyn.test.framework.ParallelTestCase
       item:
         type: org.apache.brooklyn.test.framework.ParallelTestCase

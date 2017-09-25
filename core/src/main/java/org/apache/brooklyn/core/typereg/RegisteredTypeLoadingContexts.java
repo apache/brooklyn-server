@@ -175,8 +175,10 @@ public class RegisteredTypeLoadingContexts {
     }
         
     /** given a spec, returns the class of the item it targets, for instance returns {@link Entity} given {@link EntitySpec};
-     * see also {@link #lookupSpecTypeForTarget(Class)} */
-    static <T extends AbstractBrooklynObjectSpec<?,?>> Class<? extends BrooklynObject> lookupTargetTypeForSpec(Class<T> specSuperType) {
+     * see also {@link #lookupSpecTypeForTarget(Class)},
+     * If given null, returns {@link BrooklynObject}
+     */
+    static <T extends AbstractBrooklynObjectSpec<?,?>> Class<? extends BrooklynObject> lookupTargetTypeForSpec(@Nullable Class<T> specSuperType) {
         if (specSuperType==null) return BrooklynObject.class;
         BrooklynObjectType best = null;
 

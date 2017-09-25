@@ -35,6 +35,7 @@ import org.testng.Assert;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.base.Supplier;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -89,6 +90,17 @@ public class RecordingSensorEventListener<T> implements SensorEventListener<T>, 
     public Iterable<T> getEventValues() {
         return FluentIterable.from(events)
                 .transform(new GetValueFunction<T>());
+    }
+
+    /**
+     * @return A supplier that returns the latest live read-only view of recorded events.
+     */
+    public Supplier<Iterable<T>> getEventValuesSupplier() {
+        return new Supplier<Iterable<T>>() {
+            @Override public Iterable<T> get() {
+                return getEventValues();
+            }
+        };
     }
 
     /**

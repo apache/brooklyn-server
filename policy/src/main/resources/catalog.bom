@@ -16,7 +16,7 @@
 # under the License.
 
 brooklyn.catalog:
-  version: "0.12.0-SNAPSHOT" # BROOKLYN_VERSION
+  version: "0.13.0-SNAPSHOT" # BROOKLYN_VERSION
   items:
 
   - itemType: policy
@@ -49,6 +49,21 @@ brooklyn.catalog:
           Policy that is attached to a Resizable entity and dynamically adjusts its size in 
           response to either keep a metric within a given range, or in response to 
           POOL_COLD and POOL_HOT events
+    - id: org.apache.brooklyn.policy.action.PeriodicEffectorPolicy
+      itemType: policy
+      item:
+        type: org.apache.brooklyn.policy.action.PeriodicEffectorPolicy
+        name: Periodic Effector Execution
+        description: |
+          Policy that executes an effector repeatedly at configurable intervals.
+    - id: org.apache.brooklyn.policy.action.ScheduledEffectorPolicy
+      itemType: policy
+      item:
+        type: org.apache.brooklyn.policy.action.ScheduledEffectorPolicy
+        name: Scheduled Effector Execution
+        description: |
+          Policy that executes an effector at a configurable time or after
+          a configurable delay.
 
 #  Removed from catalog because 'FollowTheSunPool' cannot currently be configured via catalog mechanisms.
 #  Also removing associated 'BalanceableWorkerPool' etc as they are only useful with 'FollowTheSunPool'
@@ -86,8 +101,8 @@ brooklyn.catalog:
     - id: org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher
       item:
         type: org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher
-        name: [DEPRECATED] Rolling Mean in Time Window
-        description: [DEPRECATED] Prefer YamlRollingTimeWindowMeanEnricher
+        name: "[DEPRECATED] Rolling Mean in Time Window"
+        description: "[DEPRECATED] Prefer YamlRollingTimeWindowMeanEnricher"
     - id: org.apache.brooklyn.policy.enricher.TimeFractionDeltaEnricher
       item:
         type: org.apache.brooklyn.policy.enricher.TimeFractionDeltaEnricher
@@ -98,8 +113,8 @@ brooklyn.catalog:
     - id: org.apache.brooklyn.policy.enricher.TimeWeightedDeltaEnricher
       item:
         type: org.apache.brooklyn.policy.enricher.TimeWeightedDeltaEnricher
-        name: [DEPRECATED] Time Weighted Delta
-        description: [DEPRECATED] prefer 'YamlTimeWeightedDeltaEnricher'
+        name: "[DEPRECATED] Time Weighted Delta"
+        description: "[DEPRECATED] prefer 'YamlTimeWeightedDeltaEnricher'"
     - id: org.apache.brooklyn.policy.ha.ServiceFailureDetector
       item:
         type: org.apache.brooklyn.policy.ha.ServiceFailureDetector

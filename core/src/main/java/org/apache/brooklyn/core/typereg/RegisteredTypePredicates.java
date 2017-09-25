@@ -20,6 +20,8 @@ package org.apache.brooklyn.core.typereg;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.util.Set;
+
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Application;
@@ -175,6 +177,31 @@ public class RegisteredTypePredicates {
         }
     }
 
+    /** Filters for the symbolic name or alias matching the given typeName. */
+    public static Predicate<RegisteredType> nameOrAlias(final String typeName) {
+        return nameOrAlias(Predicates.equalTo(typeName));
+    }
+    public static Predicate<RegisteredType> nameOrAlias(final Predicate<? super String> filter) {
+        return new NameOrAliasMatches(filter);
+    }
+    
+    private static class NameOrAliasMatches implements Predicate<RegisteredType> {
+        private final Predicate<? super String> filter;
+        
+        public NameOrAliasMatches(Predicate<? super String> filter) {
+            this.filter = filter;
+        }
+        @Override
+        public boolean apply(@Nullable RegisteredType item) {
+            if (item==null) return false;
+            if (filter.apply(item.getSymbolicName())) return true;
+            for (String alias: item.getAliases()) {
+                if (filter.apply(alias)) return true;
+            }
+            return false;
+        }
+    }
+
     public static Predicate<RegisteredType> tag(final Object tag) {
         return tags(CollectionFunctionals.any(Predicates.equalTo(tag)));
     }
@@ -194,27 +221,84 @@ public class RegisteredTypePredicates {
         }
     }
 
-    public static <T> Predicate<RegisteredType> anySuperType(final Predicate<Class<T>> filter) {
-        return new AnySuperTypeMatches(filter);
+    public static <T> Predicate<RegisteredType> anySuperType(final Predicate<Object> filter) {
+        return new AnySuperTypeSatisfies(filter);
     }
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    /** True for any {@link RegisteredType} which has a type ancestor (or self)
+     * registered type which is equal to the given {@link RegisteredType} */
+    public static Predicate<RegisteredType> subtypeOf(final RegisteredType filter) {
+        return anySuperType(Predicates.equalTo(filter));
+    }
+    /** True for any {@link RegisteredType} which has a type ancestor
+     * class which is equal to or a subtype of the given class */
     public static Predicate<RegisteredType> subtypeOf(final Class<?> filter) {
         // the assignableFrom predicate checks if this class is assignable from the subsequent *input*.
         // in other words, we're checking if any input is a subtype of this class
-        return anySuperType((Predicate)Predicates.assignableFrom(filter));
+        return anySuperType(new IsSubtypeOfClass(filter));
+    }
+    private static class IsSubtypeOfClass implements Predicate<Object> {
+        private Class<?> filter;
+        public IsSubtypeOfClass(Class<?> filter) {
+            this.filter = filter;
+        }
+        @Override
+        public boolean apply(Object input) {
+            if (!(input instanceof Class)) return false;
+            return filter.isAssignableFrom((Class<?>)input);
+        }
+    }
+    /** True for any {@link RegisteredType} which has a type ancestor (or self)
+     * whose registered type name or ID equals the string, or class name equals the string */
+    public static Predicate<RegisteredType> subtypeOf(final String filter) {
+        return anySuperType(new EqualsClassOrTypeName(filter));
+    }
+    private static class EqualsClassOrTypeName implements Predicate<Object> {
+        private String filter;
+        public EqualsClassOrTypeName(String typeOrClassOrName) {
+            this.filter = typeOrClassOrName;
+        }
+        @Override
+        public boolean apply(Object input) {
+            if (input instanceof RegisteredType) {
+                return ((RegisteredType)input).getSymbolicName().equals(filter) || ((RegisteredType)input).getSymbolicName().equals(filter);
+            }
+            if (input instanceof Class) input = ((Class<?>)input).getName();
+            return filter.equals(input);
+        }
     }
     
+    /** @deprecated since 0.13.0 use {@link AnySuperTypeSatisfies}, kept for persistence compatibility */
+    @SuppressWarnings("unused")
+    @Deprecated
     private static class AnySuperTypeMatches implements Predicate<RegisteredType> {
         private final Predicate<Class<?>> filter;
         
-        @SuppressWarnings({ "rawtypes", "unchecked" })
-        private AnySuperTypeMatches(Predicate filter) {
+        private AnySuperTypeMatches(Predicate<Class<?>> filter) {
             this.filter = filter;
         }
         @Override
         public boolean apply(@Nullable RegisteredType item) {
             if (item==null) return false;
-            return RegisteredTypes.isAnyTypeOrSuperSatisfying(item.getSuperTypes(), filter);
+            
+            Set<Object> candidateTypes = item.getSuperTypes();
+            for (Object st: candidateTypes) {
+                if (st instanceof Class && filter.apply((Class<?>)st)) return true;
+            }
+            return false;
+        }
+    }
+    
+    private static class AnySuperTypeSatisfies implements Predicate<RegisteredType> {
+        private final Predicate<Object> filter;
+        
+        private AnySuperTypeSatisfies(Predicate<Object> filter) {
+            this.filter = filter;
+        }
+        @Override
+        public boolean apply(@Nullable RegisteredType item) {
+            if (item==null) return false;
+            if (filter.apply(item)) return true;
+            return RegisteredTypes.isAnyTypeOrSuper(item.getSuperTypes(), filter);
         }
     }
     

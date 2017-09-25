@@ -26,6 +26,7 @@ import org.apache.brooklyn.rest.resources.AccessResource;
 import org.apache.brooklyn.rest.resources.ActivityResource;
 import org.apache.brooklyn.rest.resources.ApidocResource;
 import org.apache.brooklyn.rest.resources.ApplicationResource;
+import org.apache.brooklyn.rest.resources.BundleResource;
 import org.apache.brooklyn.rest.resources.CatalogResource;
 import org.apache.brooklyn.rest.resources.EffectorResource;
 import org.apache.brooklyn.rest.resources.EntityConfigResource;
@@ -37,6 +38,7 @@ import org.apache.brooklyn.rest.resources.PolicyResource;
 import org.apache.brooklyn.rest.resources.ScriptResource;
 import org.apache.brooklyn.rest.resources.SensorResource;
 import org.apache.brooklyn.rest.resources.ServerResource;
+import org.apache.brooklyn.rest.resources.TypeResource;
 import org.apache.brooklyn.rest.resources.UsageResource;
 import org.apache.brooklyn.rest.util.DefaultExceptionMapper;
 import org.apache.brooklyn.rest.util.FormMapProvider;
@@ -46,14 +48,14 @@ import com.google.common.collect.Iterables;
 
 import io.swagger.jaxrs.listing.SwaggerSerializers;
 
-
-@SuppressWarnings("deprecation")
 public class BrooklynRestApi {
 
     public static Iterable<AbstractBrooklynRestResource> getBrooklynRestResources() {
         List<AbstractBrooklynRestResource> resources = new ArrayList<>();
         resources.add(new LocationResource());
         resources.add(new CatalogResource());
+        resources.add(new TypeResource());
+        resources.add(new BundleResource());
         resources.add(new ApplicationResource());
         resources.add(new EntityResource());
         resources.add(new EntityConfigResource());
