@@ -44,7 +44,7 @@ public interface VanillaWindowsProcess extends AbstractVanillaProcess {
     @CatalogConfig(label = "Install PowerShell command", priority=5.5)
     ConfigKey<String> INSTALL_POWERSHELL_COMMAND = ConfigKeys.builder(String.class, "install.powershell.command")
             .description("powershell command to run during the install phase")
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
     @CatalogConfig(label = "Install Command", priority=5)
@@ -53,7 +53,7 @@ public interface VanillaWindowsProcess extends AbstractVanillaProcess {
     @CatalogConfig(label = "Customize PowerShell command", priority=4.5)
     ConfigKey<String> CUSTOMIZE_POWERSHELL_COMMAND = ConfigKeys.builder(String.class, "customize.powershell.command")
             .description("powershell command to run during the customization phase")
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
     @CatalogConfig(label = "Customize command", priority=4)
@@ -62,7 +62,7 @@ public interface VanillaWindowsProcess extends AbstractVanillaProcess {
     @CatalogConfig(label = "Launch PowerShell command", priority=3.5)
     ConfigKey<String> LAUNCH_POWERSHELL_COMMAND = ConfigKeys.builder(String.class, "launch.powershell.command")
             .description("command to run to launch the process")
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
     @CatalogConfig(label = "Launch Command", priority=3)
@@ -71,7 +71,7 @@ public interface VanillaWindowsProcess extends AbstractVanillaProcess {
     @CatalogConfig(label = "Check-running PowerShell Command", priority=2.5)
     ConfigKey<String> CHECK_RUNNING_POWERSHELL_COMMAND = ConfigKeys.builder(String.class, "checkRunning.powershell.command")
             .description("command to determine whether the process is running")
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
     @CatalogConfig(label = "Check-running Command", priority=2)
@@ -80,7 +80,7 @@ public interface VanillaWindowsProcess extends AbstractVanillaProcess {
     @CatalogConfig(label = "Stop PowerShell Command", priority=1.5)
     ConfigKey<String> STOP_POWERSHELL_COMMAND = ConfigKeys.builder(String.class, "stop.powershell.command")
             .description("command to run to stop the process")
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
     @CatalogConfig(label = "Stop Command", priority=1)
@@ -88,32 +88,32 @@ public interface VanillaWindowsProcess extends AbstractVanillaProcess {
 
     ConfigKey<String> PRE_INSTALL_POWERSHELL_COMMAND = ConfigKeys.builder(String.class, "pre.install.powershell.command")
             .description("powershell command to run during the pre-install phase")
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
     ConfigKey<String> POST_INSTALL_POWERSHELL_COMMAND = ConfigKeys.builder(String.class, "post.install.powershell.command")
             .description("powershell command to run during the post-install phase")
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
     ConfigKey<String> PRE_CUSTOMIZE_POWERSHELL_COMMAND = ConfigKeys.builder(String.class, "pre.customize.powershell.command")
             .description("powershell command to run during the pre-customize phase")
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
     ConfigKey<String> POST_CUSTOMIZE_POWERSHELL_COMMAND = ConfigKeys.builder(String.class, "post.customize.powershell.command")
             .description("powershell command to run during the post-customize phase")
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
     ConfigKey<String> PRE_LAUNCH_POWERSHELL_COMMAND = ConfigKeys.builder(String.class, "pre.launch.powershell.command")
             .description("powershell command to run during the pre-launch phase")
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
     ConfigKey<String> POST_LAUNCH_POWERSHELL_COMMAND = ConfigKeys.builder(String.class, "post.launch.powershell.command")
             .description("powershell command to run during the post-launch phase")
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
     ConfigKey<Boolean> PRE_INSTALL_REBOOT_REQUIRED = ConfigKeys.newBooleanConfigKey("pre.install.reboot.required",

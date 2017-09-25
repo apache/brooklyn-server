@@ -528,7 +528,6 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
      * @see #INBOUND_PORTS_AUTO_INFER
      * @see #INBOUND_PORTS_CONFIG_REGEX
      */
-    @SuppressWarnings("serial")
     protected Collection<Integer> getRequiredOpenPorts() {
         Set<Integer> ports = MutableSet.copyOf(getConfig(REQUIRED_OPEN_LOGIN_PORTS));
         Boolean portsAutoInfer = getConfig(INBOUND_PORTS_AUTO_INFER);

@@ -18,7 +18,7 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
-import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
 
 public class EmptySoftwareProcessImpl extends SoftwareProcessImpl implements EmptySoftwareProcess {
 
@@ -33,7 +33,7 @@ public class EmptySoftwareProcessImpl extends SoftwareProcessImpl implements Emp
         if (isSshMonitoringEnabled()) {
             connectServiceUpIsRunning();
         } else {
-            sensors().set(Attributes.SERVICE_UP, true);
+            ServiceNotUpLogic.clearNotUpIndicator(this, SERVICE_PROCESS_IS_RUNNING);
         }
     }
 

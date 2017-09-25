@@ -18,12 +18,25 @@
  */
 package org.apache.brooklyn.util.guava;
 
+import java.util.Map;
+
 import javax.annotation.Nullable;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 
 public class TypeTokens {
 
+    // creating TypeToken is surprisingly expensive so cache these common ones
+    public static final Map<Class<?>, TypeToken<?>> COMMON_TYPE_TOKENS = ImmutableMap.<Class<?>, TypeToken<?>>builder()
+        .put(String.class, TypeToken.of(String.class))
+        .put(Object.class, TypeToken.of(Object.class))
+        .put(Integer.class, TypeToken.of(Integer.class))
+        .put(Boolean.class, TypeToken.of(Boolean.class))
+        .put(Double.class, TypeToken.of(Double.class))
+        .put(Long.class, TypeToken.of(Long.class))
+        .build();
+    
     /** returns raw type, if it's raw, else null;
      * used e.g. to set only one of the raw type or the type token,
      * for instance to make serialized output nicer */
@@ -47,9 +60,10 @@ public class TypeTokens {
     }
     
     /** given either a token or a raw type, returns the raw type */
-    public static <T> Class<? super T> getRawType(TypeToken<T> token, Class<? super T> raw) {
+    @SuppressWarnings("unchecked")
+    public static <T,U extends T> Class<T> getRawType(TypeToken<U> token, Class<T> raw) {
         if (raw!=null) return raw;
-        if (token!=null) return token.getRawType();
+        if (token!=null) return (Class<T>) token.getRawType();
         throw new IllegalStateException("Both indicators of type are null");
     }
     
@@ -58,7 +72,11 @@ public class TypeTokens {
     @SuppressWarnings("unchecked")
     public static <T> TypeToken<T> getTypeToken(TypeToken<T> token, Class<? super T> raw) {
         if (token!=null) return token;
-        if (raw!=null) return TypeToken.of((Class<T>)raw);
+        if (raw!=null) {
+            TypeToken<?> result = COMMON_TYPE_TOKENS.get(raw);
+            if (result==null) result = TypeToken.of((Class<T>)raw);
+            return (TypeToken<T>) result;
+        }
         throw new IllegalStateException("Both indicators of type are null");
     }
 
@@ -67,6 +85,20 @@ public class TypeTokens {
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public static <T> Class<T> getRawRawType(TypeToken<T> token) {
         return (Class)token.getRawType();
+    }
+
+    /** Checks that if both type and token are supplied, either exactly one is null, or 
+     * they both refer to the same non-null type */
+    public static <T> void checkCompatibleOneNonNull(Class<? super T> type, TypeToken<T> typeToken) {
+        if ((type==null && typeToken!=null) || (type!=null && typeToken==null)) {
+            return;
+        }
+        if (type==null && typeToken==null) {
+            throw new NullPointerException("Type not set (neither class or type token)");
+        }
+        if (!type.equals(typeToken.getRawType())) {
+            throw new IllegalStateException("Invalid types, token is "+typeToken+" (raw "+typeToken.getRawType()+") but class is "+type);
+        }
     }
     
 }

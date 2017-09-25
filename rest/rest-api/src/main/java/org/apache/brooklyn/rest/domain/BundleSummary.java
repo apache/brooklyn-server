@@ -21,6 +21,7 @@ package org.apache.brooklyn.rest.domain;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -35,6 +36,12 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.google.common.collect.ComparisonChain;
 
+/** Summary info of {@link ManagedBundle} bundles in the catalog providing types,
+ * essentially the symbolic name and version.
+ * Extra fields listing the types may be added.
+ * <p>
+ * These are comparable in alpha-then-version order with most recent preferring non-snapshot versions first,
+ * as per {@link VersionComparator}. */
 public class BundleSummary implements Comparable<BundleSummary> {
 
     private final String symbolicName;

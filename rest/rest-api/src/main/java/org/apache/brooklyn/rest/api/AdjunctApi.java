@@ -32,9 +32,9 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import org.apache.brooklyn.rest.domain.AdjunctConfigSummary;
 import org.apache.brooklyn.rest.domain.AdjunctDetail;
 import org.apache.brooklyn.rest.domain.AdjunctSummary;
+import org.apache.brooklyn.rest.domain.ConfigSummary;
 import org.apache.brooklyn.rest.domain.Status;
 
 import io.swagger.annotations.Api;
@@ -170,12 +170,12 @@ public interface AdjunctApi {
     @GET
     @Path("/{adjunct}/config")
     @ApiOperation(value = "Fetch the config keys for a specific adjunct",
-            response = org.apache.brooklyn.rest.domain.AdjunctConfigSummary.class,
+            response = org.apache.brooklyn.rest.domain.ConfigSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Could not find application or entity or adjunct")
     })
-    public List<AdjunctConfigSummary> listConfig(
+    public List<ConfigSummary> listConfig(
             @ApiParam(value = "Application ID or name", required = true)
             @PathParam("application") final String application,
             @ApiParam(value = "Entity ID or name", required = true)

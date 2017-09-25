@@ -53,6 +53,7 @@ public interface BrooklynCatalog {
     
     /** As {@link #getCatalogItem(String, String)} but only looking in legacy catalog
      * @deprecated since 0.12.0 only provided to allow TypeRegistry to see the legacy items */
+    @Deprecated
     CatalogItem<?,?> getCatalogItemLegacy(String symbolicName, String version);
 
     /** @return Deletes the item with the given {@link CatalogItem#getSymbolicName()
@@ -70,6 +71,7 @@ public interface BrooklynCatalog {
     
     /** As non-legacy method but only looking in legacy catalog
      * @deprecated since 0.12.0 only provided to allow TypeRegistry to see the legacy items */
+    @Deprecated
     <T,SpecT> CatalogItem<T,SpecT> getCatalogItemLegacy(Class<T> type, String symbolicName, String version);
 
     /** @return All items in the catalog
@@ -84,10 +86,12 @@ public interface BrooklynCatalog {
 
     /** convenience for filtering items in the catalog; see CatalogPredicates for useful filters
      * @deprecated since 0.12.0 use {@link BrooklynTypeRegistry} instead */ 
+    @Deprecated
     <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItems(Predicate<? super CatalogItem<T,SpecT>> filter);
 
     /** As non-legacy method but only looking in legacy catalog
      * @deprecated since 0.12.0 only provided to allow TypeRegistry to see the legacy items */
+    @Deprecated
     <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItemsLegacy(Predicate<? super CatalogItem<T,SpecT>> filter);
 
     /** persists the catalog item to the object store, if persistence is enabled */

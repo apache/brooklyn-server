@@ -24,6 +24,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
+/** As {@link TypeSummary} but including plan information. */
 public class TypeDetail extends TypeSummary {
 
     public static class TypeImplementationPlanSummary {
@@ -42,7 +43,7 @@ public class TypeDetail extends TypeSummary {
             return data;
         }
     }
-    private final TypeImplementationPlanSummary plan;
+    private TypeImplementationPlanSummary plan;
     
     /** Constructor for JSON deserialization use only. */
     TypeDetail() {

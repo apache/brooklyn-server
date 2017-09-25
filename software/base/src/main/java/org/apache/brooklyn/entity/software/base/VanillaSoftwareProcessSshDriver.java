@@ -156,10 +156,14 @@ public class VanillaSoftwareProcessSshDriver extends AbstractSoftwareProcessSshD
 
     @Override
     public void launch() {
-        newScript(LAUNCHING)
-            .failOnNonZeroResultCode()
-            .body.append(getEntity().getConfig(VanillaSoftwareProcess.LAUNCH_COMMAND))
-            .execute();
+        String launchCommand = getEntity().getConfig(VanillaSoftwareProcess.LAUNCH_COMMAND);
+        
+        if (Strings.isNonBlank(launchCommand)) {
+            newScript(LAUNCHING)
+                .failOnNonZeroResultCode()
+                .body.append(launchCommand)
+                .execute();
+        }
     }
 
     @Override

@@ -48,7 +48,9 @@ public class SshMachineFailureDetector extends AbstractFailureDetector {
     public static final BasicNotificationSensor<FailureDescriptor> CONNECTION_RECOVERED = HASensors.CONNECTION_RECOVERED;
 
     public static final ConfigKey<Duration> CONNECT_TIMEOUT = ConfigKeys.newDurationConfigKey(
-            "ha.sshConnection.timeout", "How long to wait for conneciton before declaring failure", Duration.TEN_SECONDS);
+            "ha.sshConnection.timeout", 
+            "How long to wait for conneciton before declaring failure", 
+            Duration.TEN_SECONDS);
 
     @Override
     public void init() {

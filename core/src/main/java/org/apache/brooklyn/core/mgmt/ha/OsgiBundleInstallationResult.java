@@ -61,7 +61,7 @@ public class OsgiBundleInstallationResult {
         public boolean isError() { return isError; }
     }
     final List<RegisteredType> typesInstalled = MutableList.of();
-    /** @deprecated since 0.12.0 use {@link #typesInstalled} */
+    /** @deprecated since 0.13.0 use {@link #typesInstalled} */
     @Deprecated
     private final List<String> catalogItemsInstalled = MutableList.of();
     
@@ -80,7 +80,7 @@ public class OsgiBundleInstallationResult {
     public List<RegisteredType> getTypesInstalled() {
         return typesInstalled;
     }
-    /** @deprecated since 0.12.0 use {@link #getTypesInstalled()} */
+    /** @deprecated since 0.13.0 use {@link #getTypesInstalled()} */
     @Deprecated
     public List<String> getCatalogItemsInstalled() {
         return ImmutableList.copyOf(catalogItemsInstalled);

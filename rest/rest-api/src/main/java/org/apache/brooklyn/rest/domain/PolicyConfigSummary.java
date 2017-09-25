@@ -19,26 +19,39 @@
 package org.apache.brooklyn.rest.domain;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.config.ConfigKey;
 
-/** @deprecated since 0.12.0 new {@link AdjunctConfigSummary}; this class does nothing additional */
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+/** @deprecated since 0.13.0 no different to ConfigSummary, use that */
 @Deprecated
-public class PolicyConfigSummary extends AdjunctConfigSummary {
+public class PolicyConfigSummary extends ConfigSummary {
 
     private static final long serialVersionUID = 4339330833863794513L;
 
     @SuppressWarnings("unused") // json deserialization
     private PolicyConfigSummary() {}
     
-    public PolicyConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
-        super(config, label, priority, links);
+    public PolicyConfigSummary(
+            @JsonProperty("name") String name,
+            @JsonProperty("type") String type,
+            @JsonProperty("description") String description,
+            @JsonProperty("defaultValue") Object defaultValue,
+            @JsonProperty("reconfigurable") boolean reconfigurable,
+            @JsonProperty("label") String label,
+            @JsonProperty("priority") Double priority,
+            @JsonProperty("possibleValues") List<Map<String, String>> possibleValues,
+            @JsonProperty("pinned") Boolean pinned,
+            @JsonProperty("constraints") List<String> constraints,
+            @JsonProperty("links") Map<String, URI> links) {
+        super(name, type, description, defaultValue, reconfigurable, label, priority, possibleValues, pinned, constraints, links);
     }
-
-    public PolicyConfigSummary(String name, String type, String description, Object defaultValue, boolean reconfigurable,
-        Map<String, URI> links) {
-        super(name, type, description, defaultValue, reconfigurable, links);
+    
+    public PolicyConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
+        super(config, label, priority, null, links);
     }
 
 }

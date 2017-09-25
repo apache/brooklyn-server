@@ -37,7 +37,7 @@ public class AdjunctDetail extends AdjunctSummary {
     @JsonInclude(Include.NON_EMPTY)
     private Set<Object> tags;
     @JsonInclude(Include.NON_EMPTY)
-    final Set<AdjunctConfigSummary> parameters = MutableSet.of();
+    final Set<ConfigSummary> parameters = MutableSet.of();
     final Map<String,Object> config = MutableMap.of();
 
     // for json
@@ -57,7 +57,7 @@ public class AdjunctDetail extends AdjunctSummary {
         return tags;
     }
     
-    public AdjunctDetail parameter(AdjunctConfigSummary p) {
+    public AdjunctDetail parameter(ConfigSummary p) {
         parameters.add(p); return this;
     }
 

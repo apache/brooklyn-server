@@ -40,9 +40,16 @@ import com.google.common.net.HostAndPort;
         + "emitting an event if the connection is lost/restored")
 public class ConnectionFailureDetector extends AbstractFailureDetector {
 
-    public static final ConfigKey<HostAndPort> ENDPOINT = ConfigKeys.newConfigKey(HostAndPort.class, "connectionFailureDetector.endpoint");
+    public static final ConfigKey<HostAndPort> ENDPOINT = ConfigKeys.newConfigKey(
+            HostAndPort.class, 
+            "connectionFailureDetector.endpoint",
+            "The host:port to be checked periodically");
 
-    public static final ConfigKey<Duration> POLL_PERIOD = ConfigKeys.newConfigKey(Duration.class, "connectionFailureDetector.pollPeriod", "", Duration.ONE_SECOND);
+    public static final ConfigKey<Duration> POLL_PERIOD = ConfigKeys.newConfigKey(
+            Duration.class, 
+            "connectionFailureDetector.pollPeriod", 
+            "The poll period for checking that the endpoint is reachable", 
+            Duration.ONE_SECOND);
 
     public static final BasicNotificationSensor<FailureDescriptor> CONNECTION_FAILED = HASensors.CONNECTION_FAILED;
 
@@ -61,7 +68,8 @@ public class ConnectionFailureDetector extends AbstractFailureDetector {
     @SetFromFlag("connectionRecoveredStabilizationDelay")
     public static final ConfigKey<Duration> CONNECTION_RECOVERED_STABILIZATION_DELAY = BasicConfigKey.builder(Duration.class)
             .name("connectionFailureDetector.serviceRecoveredStabilizationDelay")
-            .description("For a failed connection, time period for which the connection must be consistently up for (e.g. doesn't report up-down-up) before concluding recovered")
+            .description("For a failed connection, time period for which the connection must be consistently up for "
+                    + "(e.g. doesn't report up-down-up) before concluding recovered")
             .defaultValue(Duration.ZERO)
             .build();
 

@@ -87,7 +87,7 @@ public class BrooklynVersion implements BrooklynVersionService {
     // may be useful:
 //    private static final String OSGI_BRANCH_PROPERTY_NAME = "Implementation-Branch";
 
-    private final static String VERSION_FROM_STATIC = "0.12.0-SNAPSHOT"; // BROOKLYN_VERSION
+    private final static String VERSION_FROM_STATIC = "0.13.0-SNAPSHOT"; // BROOKLYN_VERSION
     private static final AtomicReference<Boolean> IS_DEV_ENV = new AtomicReference<Boolean>();
 
     private static final String BROOKLYN_FEATURE_PREFIX = "Brooklyn-Feature-";

@@ -19,7 +19,6 @@
 package org.apache.brooklyn.rest.resources;
 
 import java.io.ByteArrayInputStream;
-import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -44,7 +43,6 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.osgi.VersionedName.VersionedNameComparator;
-import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,16 +56,18 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
     private static final String LATEST = "latest";
 
     @Override
-    public List<BundleSummary> list(String versions) {
-        return list(TypeResource.isLatestOnly(versions, true), Predicates.alwaysTrue());
+    public List<BundleSummary> list(String versions, boolean detail) {
+        return list(Predicates.alwaysTrue(), TypeResource.isLatestOnly(versions, true), detail);
     }
     
-    private List<BundleSummary> list(boolean onlyLatest, Predicate<String> symbolicNameFilter) {
+    private List<BundleSummary> list(Predicate<String> symbolicNameFilter, boolean onlyLatest, boolean detail) {
         
         Map<VersionedName,ManagedBundle> bundles = new TreeMap<>(VersionedNameComparator.INSTANCE);
         for (ManagedBundle b: ((ManagementContextInternal)mgmt()).getOsgiManager().get().getManagedBundles().values()) {
+            if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, b.getId())) {
+                continue;
+            }
             if (symbolicNameFilter.apply(b.getSymbolicName())) {
-                // TODO entitlements for bundles
                 VersionedName key = onlyLatest ? new VersionedName(b.getSymbolicName(), LATEST) : b.getVersionedName();
                 ManagedBundle oldBundle = bundles.get(key);
                 if (oldBundle==null || oldBundle.getVersionedName().compareTo(b.getVersionedName()) > 0) {
@@ -75,20 +75,20 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
                 }
             }
         }
-        return toBundleSummary(bundles.values());
+        return toBundleSummary(bundles.values(), detail);
     }
 
-    private List<BundleSummary> toBundleSummary(Iterable<ManagedBundle> sortedItems) {
+    private List<BundleSummary> toBundleSummary(Iterable<ManagedBundle> sortedItems, boolean detail) {
         List<BundleSummary> result = MutableList.of();
         for (ManagedBundle t: sortedItems) {
-            result.add(TypeTransformer.bundleSummary(brooklyn(), t, ui.getBaseUriBuilder(), mgmt()));
+            result.add(TypeTransformer.bundleSummary(brooklyn(), t, ui.getBaseUriBuilder(), mgmt(), detail));
         }
         return result;
     }
 
     @Override
-    public List<BundleSummary> listVersions(String symbolicName) {
-        return list(false, Predicates.equalTo(symbolicName));
+    public List<BundleSummary> listVersions(String symbolicName, boolean detail) {
+        return list(Predicates.equalTo(symbolicName), false, detail);
     }
 
     @Override
@@ -98,10 +98,11 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
     }
 
     protected ManagedBundle lookup(String symbolicName, String version) {
-        // TODO entitlements for bundles
-
         ManagedBundle b = ((ManagementContextInternal)mgmt()).getOsgiManager().get().getManagedBundle(new VersionedName(symbolicName, version));
         if (b==null) {
+            throw WebResourceUtils.notFound("Bundle with id '%s:%s' not found", symbolicName, version);
+        }
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, b.getId())) {
             throw WebResourceUtils.notFound("Bundle with id '%s:%s' not found", symbolicName, version);
         }
         return b;
@@ -165,22 +166,4 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
         return Response.status(Status.CREATED).entity( resultR ).build();
     }
 
-    @Override
-    public Response createAutodetecting(byte[] item, Boolean force) {
-        Throwable yamlException = null;
-        try {
-            MutableList.copyOf( Yamls.parseAll(new InputStreamReader(new ByteArrayInputStream(item))) );
-        } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
-            yamlException = e;
-        }
-        
-        if (yamlException==null) {
-            // treat as yaml if it parsed
-            return createFromYaml(new String(item), force);
-        }
-        
-        return createFromArchive(item, force);
-    }
 }
-

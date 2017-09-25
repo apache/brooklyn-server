@@ -18,7 +18,7 @@
 #
 name: java-cluster-db-example
 services:
-- serviceType: org.apache.brooklyn.entity.webapp.ControlledDynamicWebAppCluster
+- type: org.apache.brooklyn.entity.webapp.ControlledDynamicWebAppCluster
   name: My Web
   location: localhost
   brooklyn.config:
@@ -27,10 +27,11 @@ services:
     proxy.http.port: 9210+
     java.sysprops: 
       brooklyn.example.db.url: $brooklyn:formatString("jdbc:%s%s?user=%s&password=%s",
-         component("db").attributeWhenReady("datastore.url"), "visitors", "brooklyn", "br00k11n")
-- serviceType: org.apache.brooklyn.entity.database.mysql.MySqlNode
+         component("db").attributeWhenReady("datastore.url"), "visitors", "brooklyn", external("brooklyn-demo-sample", "hidden-brooklyn-password"))
+- type: org.apache.brooklyn.entity.database.mysql.MySqlNode
   id: db
   name: My DB
   location: localhost
   brooklyn.config:
+    creation.script.password: $brooklyn:external("brooklyn-demo-sample", "hidden-brooklyn-password")
     datastore.creation.script.url: classpath://visitors-creation-script.sql

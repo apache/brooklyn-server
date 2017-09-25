@@ -42,8 +42,8 @@ import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 
-@Path("/bundles")
-@Api("Bundles")
+@Path("/catalog/bundles")
+@Api("Catalog Bundles")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 public interface BundleApi {
@@ -54,9 +54,13 @@ public interface BundleApi {
             responseContainer = "List")
     public List<BundleSummary> list(
         @ApiParam(name = "versions", value = "Whether to list 'latest' for each symbolic-name or 'all' versions", 
-            required = false, defaultValue = "latest")
+        required = false, defaultValue = "latest")
         @QueryParam("versions")
-        String versions);
+        String versions,
+        @ApiParam(name = "detail", value = "Whether to include types and other detail info, default 'false'", 
+        required = false, defaultValue = "false")
+        @QueryParam("detail")
+        boolean detail);
 
     @Path("/{symbolicName}")
     @GET
@@ -66,7 +70,11 @@ public interface BundleApi {
     public List<BundleSummary> listVersions(
         @ApiParam(name = "symbolicName", value = "Bundle name to query", required = true)
         @PathParam("symbolicName")
-        String symbolicName);
+        String symbolicName,
+        @ApiParam(name = "detail", value = "Whether to include types and other detail info, default 'false'", 
+        required = false, defaultValue = "false")
+        @QueryParam("detail")
+        boolean detail);
 
     @Path("/{symbolicName}/{version}")
     @GET
@@ -136,23 +144,4 @@ public interface BundleApi {
             @QueryParam("force") @DefaultValue("false")
             Boolean force);
 
-    @POST
-    @Consumes // anything (if doesn't match other methods with specific content types
-    @ApiOperation(
-            value = "Adds types to the registry from the given item, autodetecting type as ZIP/JAR or BOM YAML",
-            response = BundleInstallationRestResult.class
-    )
-    @ApiResponses(value = {
-            @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
-            @ApiResponse(code = 201, message = "Catalog items added successfully")
-    })
-    public Response createAutodetecting(
-            @ApiParam(
-                    name = "item",
-                    value = "Item to install, as JAR/ZIP or Catalog YAML (autodetected)",
-                    required = true)
-                    byte[] item,
-            @ApiParam(name = "force", value = "Whether to forcibly remove it, even if in use and/or errors", required = false, defaultValue = "false")
-            @QueryParam("force") @DefaultValue("false")
-            Boolean force);
 }

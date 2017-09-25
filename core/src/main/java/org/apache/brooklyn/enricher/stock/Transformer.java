@@ -21,6 +21,7 @@ package org.apache.brooklyn.enricher.stock;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import org.apache.brooklyn.api.catalog.Catalog;
+import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.config.ConfigKey;
@@ -42,12 +43,22 @@ public class Transformer<T,U> extends AbstractTransformer<T,U> {
     private static final Logger LOG = LoggerFactory.getLogger(Transformer.class);
 
     // exactly one of these should be supplied to set a value
-    public static final ConfigKey<Object> TARGET_VALUE = ConfigKeys.newConfigKey(Object.class,
-            "enricher.targetValue");
-    public static final ConfigKey<Function<?, ?>> TRANSFORMATION_FROM_VALUE = ConfigKeys.newConfigKey(new TypeToken<Function<?, ?>>() {},
-            "enricher.transformation");
-    public static final ConfigKey<Function<?, ?>> TRANSFORMATION_FROM_EVENT = ConfigKeys.newConfigKey(new TypeToken<Function<?, ?>>() {},
-            "enricher.transformation.fromevent");
+    @CatalogConfig(label = "Target value")
+    public static final ConfigKey<Object> TARGET_VALUE = ConfigKeys.newConfigKey(
+            Object.class,
+            "enricher.targetValue",
+            "The value for the target sensor. This can use the Brooklyn DSL, which will be "
+                    + "re-evaluated each time the trigger sensor(s) change");
+
+    public static final ConfigKey<Function<?, ?>> TRANSFORMATION_FROM_VALUE = ConfigKeys.newConfigKey(
+            new TypeToken<Function<?, ?>>() {},
+            "enricher.transformation",
+            "A function for computing the target sensor's new value (will be passed the trigger sensor's value each time)");
+
+    public static final ConfigKey<Function<?, ?>> TRANSFORMATION_FROM_EVENT = ConfigKeys.newConfigKey(
+            new TypeToken<Function<?, ?>>() {},
+            "enricher.transformation.fromevent",
+            "A function for computing the target sensor's new value (will be passed the trigger sensor's change-event each time)");
 
     public Transformer() { }
     

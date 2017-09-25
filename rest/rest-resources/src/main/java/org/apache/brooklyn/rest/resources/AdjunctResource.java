@@ -42,9 +42,9 @@ import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.rest.api.AdjunctApi;
-import org.apache.brooklyn.rest.domain.AdjunctConfigSummary;
 import org.apache.brooklyn.rest.domain.AdjunctDetail;
 import org.apache.brooklyn.rest.domain.AdjunctSummary;
+import org.apache.brooklyn.rest.domain.ConfigSummary;
 import org.apache.brooklyn.rest.domain.Status;
 import org.apache.brooklyn.rest.domain.SummaryComparators;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
@@ -208,14 +208,14 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
     // ---- config ----
     
     @Override
-    public List<AdjunctConfigSummary> listConfig(
+    public List<ConfigSummary> listConfig(
             final String application, final String entityToken, final String adjunctToken) {
         Entity entity = brooklyn().getEntity(application, entityToken);
         EntityAdjunct adjunct = brooklyn().getAdjunct(entity, adjunctToken);
 
-        List<AdjunctConfigSummary> result = Lists.newArrayList();
+        List<ConfigSummary> result = Lists.newArrayList();
         for (ConfigKey<?> key : adjunct.config().findKeysPresent(Predicates.alwaysTrue())) {
-            result.add(AdjunctTransformer.configSummary(brooklyn(), entity, adjunct, key, ui.getBaseUriBuilder()));
+            result.add(AdjunctTransformer.configSummary(brooklyn(), ui.getBaseUriBuilder(), entity, adjunct, key));
         }
         return result;
     }

@@ -39,7 +39,6 @@ import org.apache.brooklyn.rest.resources.PolicyResource;
 import org.apache.brooklyn.rest.resources.ScriptResource;
 import org.apache.brooklyn.rest.resources.SensorResource;
 import org.apache.brooklyn.rest.resources.ServerResource;
-import org.apache.brooklyn.rest.resources.SubtypeResource;
 import org.apache.brooklyn.rest.resources.TypeResource;
 import org.apache.brooklyn.rest.resources.UsageResource;
 import org.apache.brooklyn.rest.util.DefaultExceptionMapper;
@@ -57,7 +56,6 @@ public class BrooklynRestApi {
         resources.add(new LocationResource());
         resources.add(new CatalogResource());
         resources.add(new TypeResource());
-        resources.add(new SubtypeResource());
         resources.add(new BundleResource());
         resources.add(new ApplicationResource());
         resources.add(new EntityResource());

@@ -46,14 +46,20 @@ public abstract class AbstractTransformer<T,U> extends AbstractEnricher implemen
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractTransformer.class);
 
-    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class,
-            "enricher.producer");
+    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(
+            Entity.class,
+            "enricher.producer",
+            "The entity with the trigger sensor (defaults to the enricher's entity)");
 
-    public static final ConfigKey<Sensor<?>> SOURCE_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {},
-            "enricher.sourceSensor");
+    public static final ConfigKey<Sensor<?>> SOURCE_SENSOR = ConfigKeys.newConfigKey(
+            new TypeToken<Sensor<?>>() {},
+            "enricher.sourceSensor",
+            "The sensor whose change triggers re-evaluation of the target value");
 
-    public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {},
-            "enricher.targetSensor");
+    public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(
+            new TypeToken<Sensor<?>>() {},
+            "enricher.targetSensor",
+            "The sensor to be set on the associated entity with the value computed here");
     
     public static final ConfigKey<List<? extends Sensor<?>>> TRIGGER_SENSORS = ConfigKeys.newConfigKey(
             new TypeToken<List<? extends Sensor<?>>>() {}, 

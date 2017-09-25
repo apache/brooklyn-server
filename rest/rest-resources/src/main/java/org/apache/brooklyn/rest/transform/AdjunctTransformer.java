@@ -23,10 +23,12 @@ import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
 import java.net.URI;
 import java.util.Map;
 
+import javax.annotation.Nullable;
 import javax.ws.rs.core.UriBuilder;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
+import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.config.ConfigKey;
@@ -34,16 +36,14 @@ import org.apache.brooklyn.core.policy.Policies;
 import org.apache.brooklyn.rest.api.AdjunctApi;
 import org.apache.brooklyn.rest.api.ApplicationApi;
 import org.apache.brooklyn.rest.api.EntityApi;
-import org.apache.brooklyn.rest.domain.AdjunctConfigSummary;
 import org.apache.brooklyn.rest.domain.AdjunctDetail;
 import org.apache.brooklyn.rest.domain.AdjunctSummary;
-import org.apache.brooklyn.rest.domain.ApplicationSummary;
+import org.apache.brooklyn.rest.domain.ConfigSummary;
 import org.apache.brooklyn.rest.domain.Status;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableMap;
 
 /**
  * Converts from Brooklyn entities to restful API summary objects
@@ -62,7 +62,7 @@ public class AdjunctTransformer {
     public static AdjunctDetail adjunctDetail(BrooklynRestResourceUtils utils, Entity entity, EntityAdjunct adjunct, UriBuilder ub) {
         AdjunctDetail result = embellish(new AdjunctDetail(adjunct), entity, adjunct, ub);
         for (ConfigKey<?> key: adjunct.config().findKeysDeclared(Predicates.alwaysTrue())) {
-            result.parameter(configSummary(utils, entity, adjunct, key, ub));
+            result.parameter(configSummary(utils, ub, entity, adjunct, key));
         }
         result.config(EntityTransformer.getConfigValues(utils, adjunct));
         return result;
@@ -92,26 +92,25 @@ public class AdjunctTransformer {
         return ApplicationTransformer.statusFromLifecycle( Policies.inferAdjunctStatus(adjunct) );
     }
 
-    public static AdjunctConfigSummary configSummary(BrooklynRestResourceUtils utils, ApplicationSummary application, Entity entity, EntityAdjunct adjunct, ConfigKey<?> config, UriBuilder ub) {
-        return configSummary(utils, entity, adjunct, config, ub);
+    public static ConfigSummary configSummary(BrooklynRestResourceUtils utils, UriBuilder ub, @Nullable Entity entity, @Nullable EntityAdjunct adjunct, SpecParameter<?> input) {
+        Double priority = input.isPinned() ? Double.valueOf(1d) : null;
+        return configSummary(utils, ub, entity, adjunct, input.getConfigKey(), input.getLabel(), priority, input.isPinned());
     }
 
-    public static AdjunctConfigSummary configSummary(BrooklynRestResourceUtils utils, Entity entity, EntityAdjunct adjunct, ConfigKey<?> config, UriBuilder ub) {
-        URI applicationUri = serviceUriBuilder(ub, ApplicationApi.class, "get").build(entity.getApplicationId());
-        URI entityUri = serviceUriBuilder(ub, EntityApi.class, "get").build(entity.getApplicationId(), entity.getId());
-        URI adjunctUri = serviceUriBuilder(ub, AdjunctApi.class, "get").build(entity.getApplicationId(), entity.getId(), adjunct.getId());
-        URI configUri = serviceUriBuilder(ub, AdjunctApi.class, "getConfig").build(entity.getApplicationId(), entity.getId(), adjunct.getId(), config.getName());
-
-        Map<String, URI> links = ImmutableMap.<String, URI>builder()
-                .put("self", configUri)
-                .put("application", applicationUri)
-                .put("entity", entityUri)
-                .put("policy", adjunctUri)
+    public static ConfigSummary configSummary(BrooklynRestResourceUtils utils, UriBuilder ub, Entity entity, EntityAdjunct adjunct, ConfigKey<?> config) {
+        // TODO get catalog info from other sources?
+        // see EntityTransformer.configSummary
+        return configSummary(utils, ub, entity, adjunct, config, null, null, null);
+    }
+    public static ConfigSummary configSummary(BrooklynRestResourceUtils utils, UriBuilder ub, @Nullable Entity entity, @Nullable EntityAdjunct adjunct, ConfigKey<?> config, String label, Double priority, Boolean pinned) {
+        URI configUri = entity==null ? null : serviceUriBuilder(ub, AdjunctApi.class, "getConfig").build(entity.getApplicationId(), entity.getId(), adjunct.getId(), config.getName());
+        Map<String, URI> links = MutableMap.<String, URI>builder()
+                .putIfNotNull("self", configUri)
+                // no point in including app/entity on every summary shown in a list
+                // (this is only ever used in a list, as self points at the value)
                 .build();
 
-        return new AdjunctConfigSummary(config.getName(), config.getTypeName(), config.getDescription(), 
-                utils.getStringValueForDisplay(config.getDefaultValue()), 
-                config.isReconfigurable(), 
-                links);
+        // TODO get actions, see EntityTransformer.configSummary
+        return new ConfigSummary(config, label, priority, pinned, links);
     }
 }

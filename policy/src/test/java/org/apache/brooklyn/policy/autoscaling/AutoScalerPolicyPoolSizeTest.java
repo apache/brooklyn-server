@@ -30,6 +30,8 @@ import org.apache.brooklyn.core.test.entity.TestCluster;
 import org.apache.brooklyn.core.test.entity.TestSizeRecordingCluster;
 import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -64,7 +66,7 @@ public class AutoScalerPolicyPoolSizeTest extends BrooklynAppUnitTestSupport {
                 .configure(AutoScalerPolicy.RESIZE_OPERATOR, new ResizeOperator() {
                     @Override
                     public Integer resize(Entity entity, Integer desiredSize) {
-                        LOG.info("resizing to " + desiredSize);
+                        LOG.info("test policy resizing to " + desiredSize);
                         resizes.add(desiredSize);
                         return ((Resizable) entity).resize(desiredSize);
                     }
@@ -101,10 +103,18 @@ public class AutoScalerPolicyPoolSizeTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testResizeDown() throws Exception {
         EntityAsserts.assertAttributeEqualsEventually(cluster, TestCluster.GROUP_SIZE, CLUSTER_INIITIAL_SIZE);
+        // temporarily increase, otherwise the policy can sometimes kick in to resize down before size 6 is reached
+        policy.config().set(AutoScalerPolicy.MAX_POOL_SIZE, CLUSTER_MAX_SIZE + 2);
         cluster.resize(CLUSTER_MAX_SIZE + 2);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, TestSizeRecordingCluster.SIZE_HISTORY_RECORD_COUNT, 2);
+        Assert.assertEquals((int)cluster.getSizeHistory().get(0), CLUSTER_INIITIAL_SIZE, "history: "+cluster.getSizeHistory());
+        Assert.assertEquals((int)cluster.getSizeHistory().get(1), CLUSTER_MAX_SIZE + 2, "history: "+cluster.getSizeHistory());
+
+        policy.config().set(AutoScalerPolicy.MIN_POOL_SIZE, CLUSTER_MAX_SIZE);
+        policy.config().set(AutoScalerPolicy.MAX_POOL_SIZE, CLUSTER_MAX_SIZE);
         EntityAsserts.assertAttributeEqualsEventually(cluster, TestSizeRecordingCluster.SIZE_HISTORY_RECORD_COUNT, 3);
-        Assert.assertEquals((int)cluster.getSizeHistory().get(0), CLUSTER_INIITIAL_SIZE);
-        Assert.assertEquals((int)cluster.getSizeHistory().get(1), CLUSTER_MAX_SIZE + 2);
-        Assert.assertEquals((int)cluster.getSizeHistory().get(2), CLUSTER_MAX_SIZE);
+        Assert.assertEquals((int)cluster.getSizeHistory().get(0), CLUSTER_INIITIAL_SIZE, "history: "+cluster.getSizeHistory());
+        Assert.assertEquals((int)cluster.getSizeHistory().get(1), CLUSTER_MAX_SIZE + 2, "history: "+cluster.getSizeHistory());
+        Assert.assertEquals((int)cluster.getSizeHistory().get(2), CLUSTER_MAX_SIZE, "history: "+cluster.getSizeHistory());
     }
 }

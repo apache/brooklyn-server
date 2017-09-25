@@ -28,6 +28,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import javax.annotation.Nullable;
 
@@ -53,6 +55,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.core.mgmt.internal.SubscriptionTracker;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
@@ -65,6 +68,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
 
@@ -582,62 +586,57 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
 
     /** As {@link #setHighlight(String, HighlightTuple)}, convenience for recording an item which is intended to be ongoing. */
     protected void highlightOngoing(String name, String description) {
-        highlights.put(name, new HighlightTuple(description, 0, null));
+        setHighlight(name, new HighlightTuple(description, 0, null));
     }
     /** As {@link #setHighlight(String, HighlightTuple)}, convenience for recording an item with the current time. */
     protected void highlightNow(String name, String description) {
-        highlights.put(name, new HighlightTuple(description, System.currentTimeMillis(), null));
+        setHighlight(name, new HighlightTuple(description, System.currentTimeMillis(), null));
     }
     /** As {@link #setHighlight(String, HighlightTuple)}, convenience for recording an item with the current time and given task. */
     protected void highlight(String name, String description, @Nullable Task<?> t) {
-        highlights.put(name, new HighlightTuple(description, System.currentTimeMillis(), t!=null ? t.getId() : null));
+        setHighlight(name, new HighlightTuple(description, System.currentTimeMillis(), t!=null ? t.getId() : null));
     }
     
     /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_TRIGGERS} (as ongoing). */
     protected void highlightTriggers(String description) {
         highlightOngoing(HIGHLIGHT_NAME_TRIGGERS, description);
     }
+    /** As {@link #highlightTriggers(String)} but convenience to generate a message given a sensor and source (entity or string description) */
     protected <T> void highlightTriggers(Sensor<?> s, Object source) {
         highlightTriggers(Collections.singleton(s), Collections.singleton(source));
     }
+    /** As {@link #highlightTriggers(String)} but convenience to generate a message given a list of sensors and source (entity or string description) */
     protected <T> void highlightTriggers(Iterable<? extends Sensor<? extends T>> s, Object source) {
         highlightTriggers(s, (Iterable<?>) (source instanceof Iterable ? (Iterable<?>)source : Collections.singleton(source)));
     }
+    /** As {@link #highlightTriggers(String)} but convenience to generate a message given a sensor and list of sources (entity or string description) */
     protected <U> void highlightTriggers(Sensor<?> s, Iterable<U> sources) {
         highlightTriggers(Collections.singleton(s), sources);
     }
+    /** As {@link #highlightTriggers(String)} but convenience to generate a message given a list of sensors and list of sources (entity or string description) */
     protected <T,U> void highlightTriggers(Iterable<? extends Sensor<? extends T>> sensors, Iterable<U> sources) {
         StringBuilder msg = new StringBuilder("Listening for ");
-        boolean firstWord = true;
-        if (sensors!=null) for (Object s: sensors) {
-            if (s==null) continue;
-            if (!firstWord) { msg.append(", "); } else { firstWord = false; }
-            // s is normally a sensor but forgive other things if caller cheated generics
-            msg.append(s instanceof Sensor ? ((Sensor<?>)s).getName() : s.toString());
+
+        if (sensors==null || Iterables.isEmpty(sensors)) {
+            msg.append("<nothing>");
+        } else {
+            String sensorsText = MutableSet.<Object>copyOf(sensors).stream()
+                    .filter(s -> s != null)
+                    .map(s -> (s instanceof Sensor ? ((Sensor<?>) s).getName() : s.toString()))
+                    .collect(Collectors.joining(", "));
+            msg.append(sensorsText);
         }
-        if (firstWord) msg.append("<nothing>");
-        
-        firstWord = true;
-        boolean selfWasFirst = false;
-        if (sources!=null) for (Object s: sources) {
-            if (s==null) continue;
-            if (!firstWord) { 
-                msg.append(", "); 
-            } else {
-                if (s.equals(getEntity())) {
-                    // don't log self unless there is another
-                    selfWasFirst = true;
-                    continue;
-                }
-                msg.append(" on ");
-                if (selfWasFirst) {
-                    msg.append("self, ");
-                }
-                firstWord = false; 
+
+        if (sources!=null && !Iterables.isEmpty(sources)) {
+            String sourcesText = MutableSet.<Object>copyOf(sources).stream()
+                    .filter(s -> s != null)
+                    .map(s -> (s.equals(getEntity()) ? "self" : s.toString()))
+                    .collect(Collectors.joining(", "));
+            if (!"self".equals(sourcesText)) {
+                msg.append(" on ").append(sourcesText);
             }
-            if (s.equals(getEntity())) msg.append("self");
-            else msg.append(""+s);
         }
+
         highlightTriggers(msg.toString());
     }
 

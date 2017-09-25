@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
+import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
@@ -41,6 +42,7 @@ public class PerformanceTestUtils {
     private static final Logger LOG = LoggerFactory.getLogger(PerformanceTestUtils.class);
 
     private static boolean hasLoggedProcessCpuTimeUnavailable;
+    private static boolean hasLoggedProcessCpuLoadUnavailable;
     
     public static long getProcessCpuTime() {
         try {
@@ -50,7 +52,35 @@ public class PerformanceTestUtils {
         } catch (Exception e) {
             if (!hasLoggedProcessCpuTimeUnavailable) {
                 hasLoggedProcessCpuTimeUnavailable = true;
-                LOG.warn("ProcessCPuTime not available in local JVM MXBean "+ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME+" (only available in sun JVM?)");
+                LOG.warn("ProcessCuuTime not available in local JVM MXBean "+ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME+" (only available in sun JVM?)");
+            }
+            return -1;
+        }
+    }
+    
+    public static double getProcessCpuTime(Duration period) {
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        long prevCpuTime = getProcessCpuTime();
+        if (prevCpuTime==-1) {
+            return -1;
+        }
+        Time.sleep(period);
+        long currentCpuTime = getProcessCpuTime();
+
+        long elapsedTime = stopwatch.elapsed(TimeUnit.MILLISECONDS);
+        return (elapsedTime > 0) ? ((double)currentCpuTime-prevCpuTime) / TimeUnit.MILLISECONDS.toNanos(elapsedTime) : -1;
+    }
+    
+    /** Not very fine-grained so not very useful; use {@link #getProcessCpuTime(Duration)} */ 
+    public static double getProcessCpuAverage() {
+        try {
+            MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+            ObjectName osMBeanName = ObjectName.getInstance(ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME);
+            return (Double) mbeanServer.getAttribute(osMBeanName, "ProcessCpuLoad");
+        } catch (Exception e) {
+            if (!hasLoggedProcessCpuLoadUnavailable) {
+                hasLoggedProcessCpuLoadUnavailable = true;
+                LOG.warn("ProcessCpuLoad not available in local JVM MXBean "+ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME+" (only available in sun JVM?)");
             }
             return -1;
         }
@@ -75,28 +105,22 @@ public class PerformanceTestUtils {
         Future<?> future = executor.submit(new Runnable() {
                 @Override public void run() {
                     try {
-                        long prevCpuTime = getProcessCpuTime();
-                        if (prevCpuTime == -1) {
+                        if (getProcessCpuTime() == -1) {
                             LOG.warn("ProcessCPuTime not available; cannot sample; aborting");
                             return;
                         }
                         while (true) {
-                            Stopwatch stopwatch = Stopwatch.createStarted();
-                            Thread.sleep(period.toMilliseconds());
-                            long currentCpuTime = getProcessCpuTime();
-                            
-                            long elapsedTime = stopwatch.elapsed(TimeUnit.MILLISECONDS);
-                            double fractionCpu = (elapsedTime > 0) ? ((double)currentCpuTime-prevCpuTime) / TimeUnit.MILLISECONDS.toNanos(elapsedTime) : -1;
-                            prevCpuTime = currentCpuTime;
-                            
+                            Stopwatch timerForReporting = Stopwatch.createStarted();
+                            double fractionCpu = getProcessCpuTime(period);
+                            long elapsedTime = timerForReporting.elapsed(TimeUnit.MILLISECONDS);
                             LOG.info("CPU fraction over last {} was {} ({})", new Object[] {
-                                    Time.makeTimeStringRounded(elapsedTime), fractionCpu, loggingContext});
+                                    Time.makeTimeStringRounded(elapsedTime), ((int)(1000*fractionCpu))/1000.0, loggingContext});
                             
                             if (cpuFractions != null) {
                                 cpuFractions.add(fractionCpu);
                             }
                         }
-                    } catch (InterruptedException e) {
+                    } catch (RuntimeInterruptedException e) {
                         return; // graceful termination
                     } finally {
                         executor.shutdownNow();

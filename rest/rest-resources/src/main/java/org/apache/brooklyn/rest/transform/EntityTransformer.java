@@ -43,7 +43,7 @@ import org.apache.brooklyn.rest.api.ApplicationApi;
 import org.apache.brooklyn.rest.api.CatalogApi;
 import org.apache.brooklyn.rest.api.EntityApi;
 import org.apache.brooklyn.rest.api.EntityConfigApi;
-import org.apache.brooklyn.rest.domain.AdjunctConfigSummary;
+import org.apache.brooklyn.rest.domain.ConfigSummary;
 import org.apache.brooklyn.rest.domain.EnricherConfigSummary;
 import org.apache.brooklyn.rest.domain.EntityConfigSummary;
 import org.apache.brooklyn.rest.domain.EntitySummary;
@@ -126,58 +126,78 @@ public class EntityTransformer {
             }));
     }
 
+    /** @deprecated since 0.13.0 use {@link #configSummary(BrooklynRestResourceUtils, UriBuilder, Entity, ConfigKey, String, Double, Boolean) */
+    @Deprecated
     public static EntityConfigSummary entityConfigSummary(ConfigKey<?> config, String label, Double priority, Boolean pinned, Map<String, URI> links) {
-        Map<String, URI> mapOfLinks =  links==null ? null : ImmutableMap.copyOf(links);
-        return new EntityConfigSummary(config, label, priority, pinned, mapOfLinks);
+        return new EntityConfigSummary(config, label, priority, pinned, links);
     }
 
-    public static AdjunctConfigSummary adjunctConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
-        return new AdjunctConfigSummary(config, label, priority, links);
-    }
-
+    /** @deprecated since 0.13.0 use {@link AdjunctTransformer#configSummary(BrooklynRestResourceUtils, UriBuilder, Entity, org.apache.brooklyn.api.objs.EntityAdjunct, ConfigKey, String, Double, Boolean)} */
+    @Deprecated
     public static PolicyConfigSummary policyConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
         return new PolicyConfigSummary(config, label, priority, links);
     }
 
+    /** @deprecated since 0.13.0 use {@link AdjunctTransformer#configSummary(BrooklynRestResourceUtils, UriBuilder, Entity, org.apache.brooklyn.api.objs.EntityAdjunct, ConfigKey, String, Double, Boolean)} */
+    @Deprecated
     public static EnricherConfigSummary enricherConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
         return new EnricherConfigSummary(config, label, priority, links);
     }
 
     /** generates a representation for a given config key, 
      * with label inferred from annoation in the entity class,
-     * and links pointing to the entity and the applicaiton */
+     * and links pointing to the entity and the application 
+     * @deprecated since 0.13.0 use {@link #configSummary(BrooklynRestResourceUtils, UriBuilder, Entity, ConfigKey)} */
+    @Deprecated
     public static EntityConfigSummary entityConfigSummary(Entity entity, ConfigKey<?> config, UriBuilder ub) {
-      /*
-       * following code nearly there to get the @CatalogConfig annotation
-       * in the class and use that to populate a label
-       */
+        return (EntityConfigSummary) configSummary(null, ub, entity, config);
+    }
+    
+    public static ConfigSummary configSummary(BrooklynRestResourceUtils utils, UriBuilder ub, Entity entity, ConfigKey<?> config) {
+        // TODO get catalog/display info
+        
+        /*
+         * following code nearly there to get the @CatalogConfig annotation
+         * in the class and use that to populate a label
+         */
 
-//    EntityDynamicType typeMap = 
-//            ((AbstractEntity)entity).getMutableEntityType();
-//      // above line works if we can cast; line below won't work, but there should some way
-//      // to get back the handle to the spec from an entity local, which then *would* work
-//            EntityTypes.getDefinedEntityType(entity.getClass());
+//      EntityDynamicType typeMap = 
+//              ((AbstractEntity)entity).getMutableEntityType();
+//        // above line works if we can cast; line below won't work, but there should some way
+//        // to get back the handle to the spec from an entity local, which then *would* work
+//              EntityTypes.getDefinedEntityType(entity.getClass());
 
-//    String label = typeMap.getConfigKeyField(config.getName());
-        String label = null;
-        Double priority = null;
-
-        URI applicationUri = serviceUriBuilder(ub, ApplicationApi.class, "get").build(entity.getApplicationId());
-        URI entityUri = serviceUriBuilder(ub, EntityApi.class, "get").build(entity.getApplicationId(), entity.getId());
-        URI selfUri = serviceUriBuilder(ub, EntityConfigApi.class, "get").build(entity.getApplicationId(), entity.getId(), config.getName());
+//      String label = typeMap.getConfigKeyField(config.getName());
+        return configSummary(null, ub, entity, config, null);
+    }
+    public static ConfigSummary configSummary(BrooklynRestResourceUtils utils, UriBuilder ub, Entity entity, ConfigKey<?> config, CatalogConfig annotation) {
+        String label = annotation==null ? null : annotation.label();
+        Double priority = annotation==null ? null : annotation.priority();
+        boolean pinned = annotation!=null && annotation.pinned();
+        return configSummary(utils, ub, entity, config, label, priority, pinned);
+    }
+    public static ConfigSummary configSummary(BrooklynRestResourceUtils utils, UriBuilder ub, Entity entity, ConfigKey<?> config, String label, Double priority, Boolean pinned) {
+        // entity can be null if coming from catalog
+        URI applicationUri = entity==null ? null : serviceUriBuilder(ub, ApplicationApi.class, "get").build(entity.getApplicationId());
+        URI entityUri = entity==null ? null : serviceUriBuilder(ub, EntityApi.class, "get").build(entity.getApplicationId(), entity.getId());
+        URI selfUri = entity==null ? null : serviceUriBuilder(ub, EntityConfigApi.class, "get").build(entity.getApplicationId(), entity.getId(), config.getName());
         
         MutableMap.Builder<String, URI> lb = MutableMap.<String, URI>builder()
-            .put("self", selfUri)
-            .put("application", applicationUri)
-            .put("entity", entityUri)
-            .put("action:json", selfUri);
+            .putIfNotNull("self", selfUri)
+            // TODO wasteful including these on every item as it is just a list, remove
+            .putIfNotNull("application", applicationUri)
+            .putIfNotNull("entity", entityUri)
+            // TODO is this json or a display value?
+            .putIfNotNull("action:json", selfUri);
 
         Iterable<RendererHints.NamedAction> hints = Iterables.filter(RendererHints.getHintsFor(config), RendererHints.NamedAction.class);
         for (RendererHints.NamedAction na : hints) {
-            SensorTransformer.addNamedAction(lb, na, entity.getConfig(config), config, entity);
+            if (entity!=null) {
+                SensorTransformer.addNamedAction(lb, na, entity.getConfig(config), config, entity);
+            }
         }
     
-        return entityConfigSummary(config, label, priority, null, lb.build());
+        return new EntityConfigSummary(config, label, priority, pinned, lb.build());
     }
 
     public static URI applicationUri(Application entity, UriBuilder ub) {
@@ -188,6 +208,8 @@ public class EntityTransformer {
         return serviceUriBuilder(ub, EntityApi.class, "get").build(entity.getApplicationId(), entity.getId());
     }
     
+    /** @deprecated since 0.13.0 use {@link #configSummary(BrooklynRestResourceUtils, UriBuilder, Entity, ConfigKey, CatalogConfig) */
+    @Deprecated
     public static EntityConfigSummary entityConfigSummary(ConfigKey<?> config, Field configKeyField) {
         CatalogConfig catalogConfig = configKeyField!=null ? configKeyField.getAnnotation(CatalogConfig.class) : null;
         String label = catalogConfig==null ? null : catalogConfig.label();
@@ -196,6 +218,8 @@ public class EntityTransformer {
         return entityConfigSummary(config, label, priority, pinned, null);
     }
 
+    /** @deprecated since 0.13.0 use {@link #configSummary(BrooklynRestResourceUtils, UriBuilder, Entity, ConfigKey, AtomicInteger) */
+    @Deprecated
     public static EntityConfigSummary entityConfigSummary(SpecParameter<?> input, AtomicInteger paramPriorityCnt) {
         // Increment the priority because the config container is a set. Server-side we are using an ordered set
         // which results in correctly ordered items on the wire (as a list). Clients which use the java bindings
@@ -204,16 +228,39 @@ public class EntityTransformer {
         return entityConfigSummary(input.getConfigKey(), input.getLabel(), priority, input.isPinned(), null);
     }
 
-    public static AdjunctConfigSummary adjunctConfigSummary(SpecParameter<?> input) {
+    /** @deprecated since 0.13.0 use {@link #configSummary(BrooklynRestResourceUtils, UriBuilder, Entity, SpecParameter) */
+    @Deprecated
+    public static ConfigSummary configSummary(SpecParameter<?> input) {
+        // TODO could increment priority, or take from annotation, or introduce new field
         Double priority = input.isPinned() ? Double.valueOf(1d) : null;
-        return policyConfigSummary(input.getConfigKey(), input.getLabel(), priority, null);
+        return new EntityConfigSummary(input.getConfigKey(), input.getLabel(), priority, input.isPinned(), null);
     }
 
+    
+    public static ConfigSummary configSummary(BrooklynRestResourceUtils utils, UriBuilder ub, Entity entity, SpecParameter<?> input, AtomicInteger paramPriorityCnt) {
+        // Increment the priority because the config container is a set. Server-side we are using an ordered set
+        // which results in correctly ordered items on the wire (as a list). Clients which use the java bindings
+        // though will push the items in an unordered set - so give them means to recover the correct order.
+        Double priority = input.isPinned() ? Double.valueOf(paramPriorityCnt.incrementAndGet()) : null;
+        return configSummary(utils, ub, entity, input.getConfigKey(), input.getLabel(), priority, input.isPinned());
+    }
+
+    public static ConfigSummary configSummary(BrooklynRestResourceUtils utils, UriBuilder ub, Entity entity, SpecParameter<?> input) {
+        // TODO allow taking priority from a setting somewhere?
+        // (this just sets priority 1 if no value specified)
+        return configSummary(utils, ub, entity, input, new AtomicInteger(0));
+    }
+
+
+    /** @deprecated since 0.13.0 use {@link AdjunctTransformer#configSummary(BrooklynRestResourceUtils, UriBuilder, Entity, org.apache.brooklyn.api.objs.EntityAdjunct, SpecParameter)} */
+    @Deprecated
     public static PolicyConfigSummary policyConfigSummary(SpecParameter<?> input) {
         Double priority = input.isPinned() ? Double.valueOf(1d) : null;
         return policyConfigSummary(input.getConfigKey(), input.getLabel(), priority, null);
     }
 
+    /** @deprecated since 0.13.0 use {@link AdjunctTransformer#configSummary(BrooklynRestResourceUtils, UriBuilder, Entity, org.apache.brooklyn.api.objs.EntityAdjunct, SpecParameter)} */
+    @Deprecated
     public static EnricherConfigSummary enricherConfigSummary(SpecParameter<?> input) {
         Double priority = input.isPinned() ? Double.valueOf(1d) : null;
         return enricherConfigSummary(input.getConfigKey(), input.getLabel(), priority, null);

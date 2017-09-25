@@ -19,7 +19,7 @@
 name: java-cluster-db-example
 location: localhost
 services:
-- serviceType: org.apache.brooklyn.entity.webapp.ControlledDynamicWebAppCluster
+- type: org.apache.brooklyn.entity.webapp.ControlledDynamicWebAppCluster
   name: My Web
   brooklyn.config:
     wars.root: http://search.maven.org/remotecontent?filepath=io/brooklyn/example/brooklyn-example-hello-world-sql-webapp/0.6.0-M2/brooklyn-example-hello-world-sql-webapp-0.6.0-M2.war
@@ -29,13 +29,14 @@ services:
       brooklyn.example.db.url: 
         # alternate syntax
         $brooklyn:formatString:
-        - jdbc:%s%s?user=%s\&password=%s
+        - jdbc:%s%s?user=%s&password=%s
         - $brooklyn:component("db").attributeWhenReady("datastore.url")
         - visitors
         - brooklyn
-        - br00k11n
-- serviceType: org.apache.brooklyn.entity.database.mysql.MySqlNode
+        - $brooklyn:external("brooklyn-demo-sample", "hidden-brooklyn-password")
+- type: org.apache.brooklyn.entity.database.mysql.MySqlNode
   name: My DB
   id: db
   brooklyn.config:
+    creation.script.password: $brooklyn:external("brooklyn-demo-sample", "hidden-brooklyn-password")
     datastore.creation.script.url: classpath://visitors-creation-script.sql

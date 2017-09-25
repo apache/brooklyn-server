@@ -18,16 +18,18 @@
  */
 package org.apache.brooklyn.cli.lister;
 
-import java.net.URI;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.Catalog;
+import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.EntityType;
@@ -41,8 +43,8 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.objs.BrooklynDynamicType;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
+import org.apache.brooklyn.rest.domain.ConfigSummary;
 import org.apache.brooklyn.rest.domain.EffectorSummary;
-import org.apache.brooklyn.rest.domain.EntityConfigSummary;
 import org.apache.brooklyn.rest.domain.SensorSummary;
 import org.apache.brooklyn.rest.domain.SummaryComparators;
 import org.apache.brooklyn.rest.transform.EffectorTransformer;
@@ -131,12 +133,14 @@ public class ItemDescriptors {
         }
         
         if (!headingsOnly) {
-            Set<EntityConfigSummary> config = Sets.newTreeSet(SummaryComparators.nameComparator());
+            Set<ConfigSummary> config = Sets.newTreeSet(SummaryComparators.nameComparator());
             Set<SensorSummary> sensors = Sets.newTreeSet(SummaryComparators.nameComparator());
             Set<EffectorSummary> effectors = Sets.newTreeSet(SummaryComparators.nameComparator());
 
             for (ConfigKey<?> x: type.getConfigKeys()) {
-                config.add(EntityTransformer.entityConfigSummary(x, dynamicType.getConfigKeyField(x.getName())));
+                Field field = dynamicType.getConfigKeyField(x.getName());
+                CatalogConfig annotation = field==null ? null : field.getAnnotation(CatalogConfig.class);
+                config.add(EntityTransformer.configSummary(null, null, null, x, annotation));
             }
             result.put("config", config);
             
@@ -184,7 +188,7 @@ public class ItemDescriptors {
     public static Map<String, Object> toItemDescriptor(BrooklynCatalog catalog, CatalogItem<?, ?> item, boolean headingsOnly) {
         Map<String,Object> itemDescriptor = MutableMap.of();
         AbstractBrooklynObjectSpec<?,?> spec = catalog.peekSpec(item);
-        List<EntityConfigSummary> config = new ArrayList<>();
+        List<ConfigSummary> config = new ArrayList<>();
 
         if (item.getDisplayName() != null) {
             itemDescriptor.put("name", item.getDisplayName());
@@ -199,19 +203,9 @@ public class ItemDescriptors {
         itemDescriptor.put("iconUrl", blankIfNull(item.getIconUrl()));
 
         if (!headingsOnly) {
-            double priorityCounter = 0.0d;
+            AtomicInteger priority = new AtomicInteger(0);
             for (SpecParameter<?> param: spec.getParameters()) {
-                Double priority;
-                if (param.isPinned()) {
-                    priority = priorityCounter;
-                    priorityCounter++;
-                } else {
-                    priority = null;
-                }
-
-                EntityConfigSummary entityConfigSummary = EntityTransformer.entityConfigSummary(param.getConfigKey(),
-                    param.getLabel(), priority, param.isPinned(), MutableMap.<String,URI>of());
-                config.add(entityConfigSummary);
+                config.add(EntityTransformer.configSummary(null, null, null, param, priority));
             }
             itemDescriptor.put("config", config);
         }
