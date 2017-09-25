@@ -805,7 +805,11 @@ public class Asserts {
     public static <T> void eventually(Supplier<? extends T> supplier, Predicate<T> predicate, Duration timeout) {
         eventually(supplier, predicate, timeout, null, null);
     }
-    
+
+    /** As {@link #eventually(Supplier, Predicate, Duration, Duration, String)} when no object is going to be notified. */
+    public static <T> void eventually(Supplier<? extends T> supplier, Predicate<T> predicate, Duration timeout, Duration period, String errMsg) {
+        eventually(supplier, predicate, timeout, period, errMsg, null);
+    }
     /** Asserts that eventually the supplier gives a value accepted by the predicate. 
      * Tests periodically and succeeds as soon as the supplier gives an allowed value.
      * Other arguments can be null.
@@ -814,9 +818,12 @@ public class Asserts {
      * @param predicate the {@link Predicate} to apply to each value given by the supplier
      * @param timeout how long to wait, default {@link #DEFAULT_LONG_TIMEOUT}
      * @param period how often to check, default quite often so you won't notice but letting the CPU do work
-     * @param errMsg an error message to display if not satisfied, in addition to the last-tested supplied value and the predicate
+     * @param errMsg optional error message to display if not satisfied, in addition to the last-tested supplied value and the predicate
+     * @param notifyObject optional object that will be notified of change and should pre-empt the period to redo the check
      */
-    public static <T> void eventually(Supplier<? extends T> supplier, Predicate<T> predicate, Duration timeout, Duration period, String errMsg) {
+    public static <T> void eventually(Supplier<? extends T> supplier, Predicate<T> predicate, Duration timeout, Duration period, String errMsg, Object notifyObject) {
+        // TODO use Repeater (there are too many args here)
+        
         if (timeout==null) timeout = DEFAULT_LONG_TIMEOUT;
         if (period==null) period = DEFAULT_SHORT_PERIOD;
         CountdownTimer timeleft = timeout.countdownTimer();
@@ -824,7 +831,19 @@ public class Asserts {
         T supplied;
         int count = 0;
         do {
-            if (count++ > 0) Duration.sleep(period);
+            if (count++ > 0) {
+                if (notifyObject!=null) {
+                    synchronized (notifyObject) {
+                        try {
+                            notifyObject.wait(period.toMilliseconds());
+                        } catch (InterruptedException e) {
+                            throw Exceptions.propagate(e);
+                        }
+                    }
+                } else {
+                    Duration.sleep(period);
+                }
+            }
             supplied = supplier.get();
             if (predicate.apply(supplied)) return;
         } while (timeleft.isNotExpired());

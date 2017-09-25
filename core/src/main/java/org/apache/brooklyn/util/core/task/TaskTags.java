@@ -25,6 +25,7 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 
 public class TaskTags {
@@ -63,12 +64,19 @@ public class TaskTags {
 
     public static boolean hasTag(Task<?> task, Object tag) {
         if (task==null) return false;
-        return task.getTags().contains(tag);
+        return getTagsFast(task).contains(tag);
     }
     
     public static <U,V extends TaskAdaptable<U>> V markInessential(V task) {
         addTagDynamically(task, INESSENTIAL_TASK);
         return task;
+    }
+
+    @Beta
+    public static Set<Object> getTagsFast(Task<?> task) {
+        if (task==null) return null;
+        if (task instanceof BasicTask) return ((BasicTask<?>)task).getMutableTags();
+        return task.getTags();
     }
 
 }

@@ -52,19 +52,18 @@ public class ScheduledExecutionTest {
     
     @Test
     public void testScheduledTask() throws Exception {
-        int PERIOD = 20;
+        Duration PERIOD = Duration.millis(20);
         BasicExecutionManager m = new BasicExecutionManager("mycontextid");
         final AtomicInteger i = new AtomicInteger(0);
-        ScheduledTask t = new ScheduledTask(MutableMap.of("delay", 2*PERIOD, "period", PERIOD, "maxIterations", 5), new Callable<Task<?>>() {
-            @Override
-            public Task<?> call() throws Exception {
-                return new BasicTask<Integer>(new Callable<Integer>() {
-                    @Override
-                    public Integer call() {
-                        log.debug("task running: "+Tasks.current()+" "+Tasks.current().getStatusDetail(false));
+        ScheduledTask t = ScheduledTask.builder(() -> new BasicTask<Integer>(() -> {
+                        log.info("task running: "+Tasks.current()+" "+Tasks.current().getStatusDetail(false));
                         return i.incrementAndGet();
-                    }});
-            }});
+                    }))
+                .displayName("test-1")
+                .delay(PERIOD.multiply(2))
+                .period(PERIOD)
+                .maxIterations(5)
+                .build();
     
         log.info("submitting {} {}", t, t.getStatusDetail(false));
         m.submit(t);

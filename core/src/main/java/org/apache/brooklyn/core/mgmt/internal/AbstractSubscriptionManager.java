@@ -30,6 +30,7 @@ import org.apache.brooklyn.api.mgmt.SubscriptionManager;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -145,6 +146,10 @@ public abstract class AbstractSubscriptionManager implements SubscriptionManager
 
     protected <T> Object getSubscriber(Map<String, Object> flags, Subscription<T> s) {
         return s.subscriber!=null ? s.subscriber : flags.containsKey("subscriber") ? flags.remove("subscriber") : s.listener;
+    }
+
+    protected <T> String getSubscriptionDescription(Map<String, Object> flags, Subscription<T> s) {
+        return s.subscriptionDescription!=null ? s.subscriptionDescription : flags.containsKey("subscriptionDescription") ? Strings.toString(flags.remove("subscriptionDescription")) : null;
     }
 
 }

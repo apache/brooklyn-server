@@ -106,9 +106,9 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
             }
         };
 
-        Task<T> t = Tasks.<T>builder().body(job)
-                .displayName("Resolving dependent value")
-                .description("Resolving "+key.getName())
+        Task<T> t = Tasks.<T>builder().dynamic(false).body(job)
+                .displayName("Resolving config "+key.getName())
+                .description("Internal non-blocking structured key resolution")
                 .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
                 .build();
         try {
@@ -125,17 +125,13 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
      * See {@link #getNonBlockingResolvingStructuredKey(ConfigKey)}.
      */
     protected <T> Maybe<T> getNonBlockingResolvingSimple(ConfigKey<T> key) {
-        // TODO See AbstractConfigMapImpl.getConfigImpl, for how it looks up the "container" of the
-        // key, so that it gets the right context entity etc.
-
-        // getRaw returns Maybe(val) if the key was explicitly set (where val can be null)
-        // or Absent if the config key was unset.
         Object unresolved = getRaw(key).or(key.getDefaultValue());
         Maybe<Object> resolved = Tasks.resolving(unresolved)
                 .as(Object.class)
                 .immediately(true)
                 .deep(true)
                 .context(getContext())
+                .description("Resolving raw value of simple config "+key)
                 .getMaybe();
         if (resolved.isAbsent()) return Maybe.Absent.<T>castAbsent(resolved);
         

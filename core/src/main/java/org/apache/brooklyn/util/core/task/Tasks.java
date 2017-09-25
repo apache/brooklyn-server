@@ -234,7 +234,7 @@ public class Tasks {
         return sequential(name, asTasks(Iterables.toArray(tasks, TaskAdaptable.class)));
     }
     private static Task<List<?>> sequentialInternal(String name, Task<?>[] tasks) {
-        return Tasks.<List<?>>builder().displayName(name).parallel(false).add(tasks).build();
+        return Tasks.<List<?>>builder().displayName(name).dynamic(false).parallel(false).add(tasks).build();
     }
     private static TaskFactory<?> sequentialInternal(final String name, final TaskFactory<?> ...taskFactories) {
         return new TaskFactory<TaskAdaptable<?>>() {
@@ -253,7 +253,7 @@ public class Tasks {
     public static <T> T tag(@Nullable Task<?> task, Class<T> type, boolean recurseHierarchy) {
         // support null task to make it easier for callers to walk hierarchies
         if (task==null) return null;
-        for (Object tag: task.getTags())
+        for (Object tag: TaskTags.getTagsFast(task))
             if (type.isInstance(tag)) return (T)tag;
         if (!recurseHierarchy) return null;
         return tag(task.getSubmittedByTask(), type, true);

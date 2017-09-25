@@ -139,36 +139,33 @@ public class Poller<V> {
         
         for (final Callable<?> oneOffJob : oneOffJobs) {
             Task<?> task = Tasks.builder().dynamic(false).body((Callable<Object>) oneOffJob).displayName("Poll").description("One-time poll job "+oneOffJob).build();
-            oneOffTasks.add(((EntityInternal)entity).getExecutionContext().submit(task));
+            oneOffTasks.add(feed.getExecutionContext().submit(task));
         }
         
         Duration minPeriod = null;
         for (final PollJob<V> pollJob : pollJobs) {
             final String scheduleName = pollJob.handler.getDescription();
             if (pollJob.pollPeriod.compareTo(Duration.ZERO) > 0) {
-                Callable<Task<?>> pollingTaskFactory = new Callable<Task<?>>() {
-                    @Override
-                    public Task<?> call() {
-                        DynamicSequentialTask<Void> task = new DynamicSequentialTask<Void>(MutableMap.of("displayName", scheduleName, "entity", entity), 
-                            new Callable<Void>() { @Override public Void call() {
-                                if (!Entities.isManaged(entity)) {
-                                    return null;
-                                }
-                                if (onlyIfServiceUp && !Boolean.TRUE.equals(entity.getAttribute(Attributes.SERVICE_UP))) {
-                                    return null;
-                                }
-                                pollJob.wrappedJob.run();
-                                return null; 
-                            } } );
-                        BrooklynTaskTags.setTransient(task);
-                        return task;
-                    }
-                };
-                Map<String, ?> taskFlags = MutableMap.of("displayName", "scheduled:" + scheduleName);
-                ScheduledTask task = new ScheduledTask(taskFlags, pollingTaskFactory)
+                ScheduledTask t = ScheduledTask.builder(() -> {
+                            DynamicSequentialTask<Void> task = new DynamicSequentialTask<Void>(MutableMap.of("displayName", scheduleName, "entity", entity), 
+                                new Callable<Void>() { @Override public Void call() {
+                                    if (!Entities.isManaged(entity)) {
+                                        return null;
+                                    }
+                                    if (onlyIfServiceUp && !Boolean.TRUE.equals(entity.getAttribute(Attributes.SERVICE_UP))) {
+                                        return null;
+                                    }
+                                    pollJob.wrappedJob.run();
+                                    return null; 
+                                } } );
+                            BrooklynTaskTags.setTransient(task);
+                            return task;
+                        })
+                        .displayName("scheduled:" + scheduleName)
                         .period(pollJob.pollPeriod)
-                        .cancelOnException(false);
-                tasks.add(Entities.submit(entity, task));
+                        .cancelOnException(false)
+                        .build();
+                tasks.add(Entities.submit(entity, t));
                 if (minPeriod==null || (pollJob.pollPeriod.isShorterThan(minPeriod))) {
                     minPeriod = pollJob.pollPeriod;
                 }

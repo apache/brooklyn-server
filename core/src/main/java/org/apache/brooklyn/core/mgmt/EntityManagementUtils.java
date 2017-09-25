@@ -91,8 +91,11 @@ public class EntityManagementUtils {
      */
     @Beta
     public static <T extends Application> T createUnstarted(ManagementContext mgmt, EntitySpec<T> spec, Optional<String> entityId) {
-        T app = ((EntityManagerInternal)mgmt.getEntityManager()).createEntity(spec, entityId);
-        return app;
+        return mgmt.getServerExecutionContext().get(Tasks.<T>builder().dynamic(false)
+            .displayName("Creating entity "+
+                (Strings.isNonBlank(spec.getDisplayName()) ? spec.getDisplayName() : spec.getType().getName()) )
+            .body(() -> ((EntityManagerInternal)mgmt.getEntityManager()).createEntity(spec, entityId))
+            .build() );
     }
 
     /** as {@link #createUnstarted(ManagementContext, EntitySpec)} but for a string plan (e.g. camp yaml) */

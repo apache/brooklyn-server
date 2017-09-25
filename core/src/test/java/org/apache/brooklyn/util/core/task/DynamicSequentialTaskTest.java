@@ -50,7 +50,6 @@ import org.testng.annotations.Test;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -87,6 +86,7 @@ public class DynamicSequentialTaskTest {
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         if (em != null) {
+            log.debug("tearing down");
             // need to await termination, otherwise interrupted-but-still-running threads 
             // may update the cancellations/messages and interfere with subsequent tests
             Assert.assertTrue(em.shutdownNow(Duration.FIVE_SECONDS));
@@ -250,7 +250,7 @@ public class DynamicSequentialTaskTest {
     
     @Test
     public void testCancellationModeAndSubmitted() throws Exception {
-        // seems actually to be the logging which causes this to take ~50ms ?
+        // used to spend time waiting for end time to be set; now listens for notify which makes it go faster
         
         doTestCancellationModeAndSubmitted(true, TaskCancellationMode.DO_NOT_INTERRUPT, false, false);
         
@@ -304,24 +304,21 @@ public class DynamicSequentialTaskTest {
             throw new IllegalStateException("Invalid cancellationMode: "+cancellationMode);
         }
 
-        // the cancelled task always reports cancelled and done
+        // the cancelled task always reports cancelled and done right away
         Assert.assertEquals(t.isDone(), true);
         Assert.assertEquals(t.isCancelled(), true);
-        // end time might not be set for another fraction of a second
         if (expectedTaskInterrupted) { 
-            Asserts.eventually(new Supplier<Number>() {
-                @Override public Number get() { return t.getEndTimeUtc(); }}, 
-                MathPredicates.<Number>greaterThanOrEqual(0));
+            // end time might not be set for another fraction of a second, when task truly ended, but should be set soon if task was interrupted
+            Asserts.eventually( () -> t.getEndTimeUtc(), MathPredicates.greaterThanOrEqual(0), null, null, null, t );
         } else {
+            // if interrupts not allowed, time should not be set until long delay expires
             Assert.assertTrue(t.getEndTimeUtc() < 0, "Wrong end time: "+t.getEndTimeUtc());
         }
         
         if (expectedSubtaskCancelled) {
             Asserts.eventually(Suppliers.ofInstance(t1), TaskPredicates.isDone());
             Assert.assertTrue(t1.isCancelled());
-            Asserts.eventually(new Supplier<Number>() {
-                @Override public Number get() { return t1.getEndTimeUtc(); }}, 
-                MathPredicates.<Number>greaterThanOrEqual(0));
+            Asserts.eventually( () -> t1.getEndTimeUtc(), MathPredicates.greaterThanOrEqual(0), null, null, null, t );
         } else {
             Time.sleep(TINY_TIME);
             Assert.assertFalse(t1.isCancelled());

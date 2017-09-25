@@ -42,6 +42,7 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.BasicSensorEvent;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -105,6 +106,7 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
         Entity producer = s.producer;
         Sensor<T> sensor= s.sensor;
         s.subscriber = getSubscriber(flags, s);
+        s.subscriptionDescription = getSubscriptionDescription(flags, s);
         if (flags.containsKey("tags") || flags.containsKey("tag")) {
             Iterable<?> tags = (Iterable<?>) flags.get("tags");
             Object tag = flags.get("tag");
@@ -144,8 +146,13 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
                 LOG.warn("Cannot notifyOfInitialValue for subscription with non-attribute sensor: "+s);
             } else {
                 if (LOG.isTraceEnabled()) LOG.trace("sending initial value of {} -> {} to {}", new Object[] {s.producer, s.sensor, s});
-                T val = (T) s.producer.getAttribute((AttributeSensor<?>) s.sensor);
-                submitPublishEvent(s, new BasicSensorEvent<T>(s.sensor, s.producer, val), true);
+                em.submit(
+                    MutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(s.producer), BrooklynTaskTags.SENSOR_TAG),
+                        "displayName", "Initial publication of "+s.sensor.getName()),
+                    () -> {
+                        T val = (T) s.producer.getAttribute((AttributeSensor<?>) s.sensor);
+                        submitPublishEvent(s, new BasicSensorEvent<T>(s.sensor, s.producer, val), true);
+                    });
             }
         }
         
@@ -229,6 +236,8 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
             .addAll(s.subscriberExtraExecTags == null ? ImmutableList.of() : s.subscriberExtraExecTags)
             .add(s.subscriberExecutionManagerTag)
             .add(BrooklynTaskTags.SENSOR_TAG)
+            // associate the publish event with the publisher (though on init it might be triggered by subscriber)
+            .addIfNotNull(event.getSource()!=null ? BrooklynTaskTags.tagForTargetEntity(event.getSource()) : null)
             .build()
             .asUnmodifiable();
         
@@ -247,6 +256,10 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
         description.append(sourceName==null ? "<null-source>" : sourceName);
         description.append(" publishing to ");
         description.append(s.subscriber instanceof Entity ? ((Entity)s.subscriber).getId() : s.subscriber);
+        if (Strings.isNonBlank(s.subscriptionDescription)) {
+            description.append(", ");
+            description.append(s.subscriptionDescription);
+        }
         
         if (includeDescriptionForSensorTask(event)) {
             name.append(" ");
@@ -258,6 +271,8 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
             "displayName", name.toString(),
             "description", description.toString());
         
+        boolean isEntityStarting = s.subscriber instanceof Entity && isInitial;
+        // will have entity (and adjunct) execution context from tags, so can skip getting exec context
         em.submit(execFlags, new Runnable() {
             @Override
             public String toString() {
@@ -270,6 +285,22 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
             @Override
             public void run() {
                 try {
+                    if (isEntityStarting) {
+                        /* don't let sub deliveries start until this is completed;
+                         * this is a pragmatic way to ensure the publish events 
+                         * if submitted during management starting, aren't executed
+                         * until after management is starting.
+                         *   without this we can get deadlocks as this goes to publish,
+                         * has the attribute sensors lock, and waits on the publish lock
+                         * (any of management support, local subs, queueing subs).
+                         * meanwhile the management startup has those three locks,
+                         * then goes to publish and in the process looks up a sensor value.
+                         *   usually this is not an issue because some other task
+                         * does something (eg entity.getExecutionContext()) which
+                         * also has a wait-on-management-support semantics.
+                         */
+                        synchronized (((EntityInternal)s.subscriber).getManagementSupport()) {}
+                    }
                     int count = s.eventCount.incrementAndGet();
                     if (count > 0 && count % 1000 == 0) LOG.debug("{} events for subscriber {}", count, s);
                     

@@ -434,7 +434,11 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                         // (should discourage this in favour of task factories which can be transiently interrupted?)
                         BrooklynTaskTags.addTagDynamically(task, BrooklynTaskTags.NON_TRANSIENT_TASK_TAG);
                     }
-                    exec.submit(task);
+                    if (timer!=null || Thread.currentThread().isInterrupted()) {
+                        exec.submit(task);
+                    } else {
+                        exec.get(task);
+                    }
                 }
             }
 
@@ -483,7 +487,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                     String description = getDescription();
                     TaskBuilder<Object> tb = Tasks.<Object>builder()
                             .body(callable)
-                            .displayName("Resolving dependent value")
+                            .displayName("Resolving dependent value of deferred supplier")
                             .description(description);
                     if (isTransientTask) tb.tag(BrooklynTaskTags.TRANSIENT_TASK_TAG);
                     

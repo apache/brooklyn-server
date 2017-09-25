@@ -37,6 +37,7 @@ class Subscription<T> implements SubscriptionHandle {
     public Object subscriberExecutionManagerTag;
     /** whether the tag was supplied by user, in which case we should not clear execution semantics */
     public boolean subscriberExecutionManagerTagSupplied;
+    public String subscriptionDescription;
     public Iterable<?> subscriberExtraExecTags;
     public final Entity producer;
     public final Sensor<T> sensor;

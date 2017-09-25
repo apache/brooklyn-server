@@ -309,7 +309,7 @@ public class InternalEntityFactory extends InternalFactory {
          * which currently show up at the top level once the initializer task completes.
          * TODO It would be nice if these schedule tasks were grouped in a bucket! 
          */
-        ((EntityInternal)entity).getExecutionContext().submit(Tasks.builder().dynamic(false).displayName("Entity initialization")
+        ((EntityInternal)entity).getExecutionContext().get(Tasks.builder().dynamic(false).displayName("Entity initialization")
                 .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
                 .body(new Runnable() {
             @Override
@@ -354,7 +354,7 @@ public class InternalEntityFactory extends InternalFactory {
                     initEntityAndDescendants(child.getId(), entitiesByEntityId, specsByEntityId);
                 }
             }
-        }).build()).getUnchecked();
+        }).build());
     }
     
     /**

@@ -355,7 +355,7 @@ public class RebindManagerImpl implements RebindManager {
             }
         };
         readOnlyTask = (ScheduledTask) managementContext.getServerExecutionContext().submit(
-            new ScheduledTask(MutableMap.of("displayName", "Periodic read-only rebind"), taskFactory).period(periodicPersistPeriod));
+            ScheduledTask.builder(taskFactory).displayName("scheduled:[periodic-read-only-rebind]").period(periodicPersistPeriod).build() );
     }
     
     @Override
@@ -520,15 +520,7 @@ public class RebindManagerImpl implements RebindManager {
         ExecutionContext ec = BasicExecutionContext.getCurrentExecutionContext();
         if (ec == null) {
             ec = managementContext.getServerExecutionContext();
-            Task<List<Application>> task = ec.submit(new Callable<List<Application>>() {
-                @Override public List<Application> call() throws Exception {
-                    return rebindImpl(classLoader, exceptionHandler, mode);
-                }});
-            try {
-                return task.get();
-            } catch (Exception e) {
-                throw Exceptions.propagate(e);
-            }
+            return ec.get(Tasks.<List<Application>>builder().displayName("rebind").dynamic(false).body(() -> rebindImpl(classLoader, exceptionHandler, mode)).build());
         } else {
             return rebindImpl(classLoader, exceptionHandler, mode);
         }

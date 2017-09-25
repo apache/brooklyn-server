@@ -589,7 +589,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         } else {
             if (pollingTask!=null) pollingTask.cancel(true);
             
-            ScheduledTask task = new ScheduledTask(MutableMap.of("period", pollPeriod, "displayName", "scheduled:[HA poller task]"), taskFactory);
+            ScheduledTask task = ScheduledTask.builder(taskFactory).period(pollPeriod).displayName("scheduled:[HA poller task]").tagTransient().build();
             pollingTask = managementContext.getExecutionManager().submit(task);
         }
     }

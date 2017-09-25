@@ -183,27 +183,38 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
             public T get() {
                 return value.get();
             }
-            @Override
-            public boolean isNull() {
-                // should always be false as per Optional contract
-                return get()==null;
-            }
         };
         return absent();
     }
     
-    public static <T> Maybe<T> of(final Supplier<T> value) {
+    @SuppressWarnings("unused")
+    private static <T> Maybe<T> ofOldKeptForDeserializationOfAnonymousInnerClass(final Supplier<T> value) {
         return new AbstractPresent<T>() {
             private static final long serialVersionUID = -5735268814211401356L;
             @Override
             public T get() {
                 return value.get();
             }
-            @Override
-            public boolean isNull() {
-                return get()==null;
-            }
         };
+    }
+    
+    public static <T> Maybe<T> of(final Supplier<T> value) {
+        return new MaybeSupplier<T>(value);
+    }
+    
+    public static class MaybeSupplier<T> extends AbstractPresent<T> {
+        private static final long serialVersionUID = -823731500051341455L;
+        private Supplier<T> supplier;
+        public MaybeSupplier(Supplier<T> value) {
+            this.supplier = value;
+        }
+        @Override
+        public T get() {
+            return supplier.get();
+        }
+        public Supplier<T> getSupplier() {
+            return supplier;
+        }
     }
     
     /** returns a Maybe containing the next element in the iterator, or absent if none */ 
@@ -278,10 +289,6 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
             @Override
             public V get() {
                 return f.apply(Maybe.this.get());
-            }
-            @Override
-            public boolean isNull() {
-                return get()==null;
             }
         };
         return absent();
@@ -392,6 +399,10 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
         protected AbstractPresent() {
         }
         @Override
+        public boolean isNull() {
+            return get()==null;
+        }
+        @Override
         public boolean isPresent() {
             return true;
         }
@@ -406,10 +417,6 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
         @Override
         public T get() {
             return value;
-        }
-        @Override
-        public boolean isNull() {
-            return value==null;
         }
     }
 

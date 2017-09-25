@@ -79,11 +79,21 @@ public interface ExecutionManager {
 //    /** returns all tasks known to this manager (immutable) */
 //    public Set<Task<?>> getAllTasks();
 
-    /** see {@link #submit(Map, TaskAdaptable)} */
+    /** see {@link #submit(Map, TaskAdaptable)} 
+     * @deprecated since 0.13.0 pass displayName or map */
+    @Deprecated
     public Task<?> submit(Runnable r);
 
+    /** see {@link #submit(Map, TaskAdaptable)} 
+     * @deprecated since 0.13.0 pass displayName or map */
+    @Deprecated
+    public <T> Task<T> submit(Callable<T> r);
+
     /** see {@link #submit(Map, TaskAdaptable)} */
-    public <T> Task<T> submit(Callable<T> c);
+    public Task<?> submit(String displayName, Runnable c);
+
+    /** see {@link #submit(Map, TaskAdaptable)} */
+    public <T> Task<T> submit(String displayName, Callable<T> c);
 
     /** see {@link #submit(Map, TaskAdaptable)} */
     public <T> Task<T> submit(TaskAdaptable<T> task);

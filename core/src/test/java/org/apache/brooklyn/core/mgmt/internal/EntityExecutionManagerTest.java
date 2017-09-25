@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -40,14 +41,18 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedEntity;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedItem;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.ExecutionListener;
+import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -129,16 +134,27 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         return Tasks.builder().displayName(name).dynamic(false).body(Callables.returning(null));
     }
 
-    protected void assertTaskCountForEntityEventually(final Entity entity, final int expectedCount) {
+    protected void assertImportantTaskCountForEntityEventually(final Entity entity, final int expectedCount) {
         // Dead task (and initialization task) should have been GC'd on completion.
         // However, the GC'ing happens in a listener, executed in a different thread - the task.get()
         // doesn't block for it. Therefore can't always guarantee it will be GC'ed by now.
         Asserts.succeedsEventually(new Runnable() {
             @Override public void run() {
-                forceGc();
-                Collection<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(((EntityInternal)entity).getManagementContext().getExecutionManager(), entity);
+                forceGc();  
+                Collection<Task<?>> tasks = removeSystemTasks(BrooklynTaskTags.getTasksInEntityContext(((EntityInternal)entity).getManagementContext().getExecutionManager(), entity));
                 Assert.assertEquals(tasks.size(), expectedCount, "Tasks were "+tasks);
             }});
+    }
+
+    static Set<Task<?>> removeSystemTasks(Iterable<Task<?>> tasks) {
+        Set<Task<?>> result = MutableSet.of();
+        for (Task<?> t: tasks) {
+            if (t instanceof ScheduledTask) continue;
+            if (t.getTags().contains(BrooklynTaskTags.SENSOR_TAG)) continue;
+            if (t.getDisplayName().contains("Validating")) continue;
+            result.add(t);
+        }
+        return result;
     }
 
     // Needed because of https://issues.apache.org/jira/browse/BROOKLYN-401
@@ -149,7 +165,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         Asserts.succeedsEventually(new Runnable() {
             @Override public void run() {
                 forceGc();
-                Collection<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(((EntityInternal)entity).getManagementContext().getExecutionManager(), entity);
+                Collection<Task<?>> tasks = removeSystemTasks( BrooklynTaskTags.getTasksInEntityContext(((EntityInternal)entity).getManagementContext().getExecutionManager(), entity) );
                 Assert.assertTrue(tasks.size() <= expectedMaxCount,
                         "Expected tasks count max of " + expectedMaxCount + ". Tasks were "+tasks);
             }});
@@ -161,8 +177,8 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         final Task<?> task = runEmptyTaskWithNameAndTags(e, "should-be-kept", ManagementContextInternal.NON_TRANSIENT_TASK_TAG);
         runEmptyTaskWithNameAndTags(e, "should-be-gcd", ManagementContextInternal.TRANSIENT_TASK_TAG);
         
-        assertTaskCountForEntityEventually(e, 1);
-        Collection<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(app.getManagementContext().getExecutionManager(), e);
+        assertImportantTaskCountForEntityEventually(e, 1);
+        Collection<Task<?>> tasks = removeSystemTasks( BrooklynTaskTags.getTasksInEntityContext(app.getManagementContext().getExecutionManager(), e) );
         assertEquals(tasks, ImmutableList.of(task), "Mismatched tasks, got: "+tasks);
     }
 
@@ -281,8 +297,6 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         forceGc();
         stopCondition.set(true);
 
-        // might need an eventually here, if the internal job completion and GC is done in the background
-        // (if there are no test failures for a few months, since Sept 2014, then we can remove this comment)
         assertTaskMaxCountForEntityEventually(e, 2);
     }
 
@@ -306,8 +320,8 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
             if (tag instanceof Entity && ((Entity)tag).getId().equals(eId)) {
                 fail("tags contains unmanaged entity "+tag);
             }
-            if ((tag instanceof WrappedEntity) && ((WrappedEntity)tag).entity.getId().equals(eId) 
-                    && ((WrappedEntity)tag).wrappingType.equals(BrooklynTaskTags.CONTEXT_ENTITY)) {
+            if ((tag instanceof WrappedEntity) && ((WrappedEntity)tag).unwrap().getId().equals(eId) 
+                    && ((WrappedItem<?>)tag).getWrappingType().equals(BrooklynTaskTags.CONTEXT_ENTITY)) {
                 fail("tags contains unmanaged entity (wrapped) "+tag);
             }
         }
@@ -320,7 +334,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         // allow background enrichers to complete
         Time.sleep(Duration.ONE_SECOND);
         forceGc();
-        List<Task<?>> t1 = em.getAllTasks();
+        Collection<Task<?>> t1 = em.getAllTasks();
 
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         entity.sensors().set(TestEntity.NAME, "bob");
@@ -328,9 +342,17 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         Entities.destroy(entity);
         Time.sleep(Duration.ONE_SECOND);
         forceGc();
-        List<Task<?>> t2 = em.getAllTasks();
+        Collection<Task<?>> t2 = em.getAllTasks();
 
-        Assert.assertEquals(t1.size(), t2.size(), "lists are different:\n"+t1+"\n"+t2+"\n");
+        // no tasks from first batch were GC'd
+        Asserts.assertSize(MutableList.builder().addAll(t1).removeAll(t2).build(), 0);
+
+        // and we expect just the add/remove cycle at parent, and service problems
+        Set<String> newOnes = MutableList.<Task<?>>builder().addAll(t2).removeAll(t1).build().stream().map(
+            (t) -> t.getDisplayName()).collect(Collectors.toSet());
+        Function<String,String> prefix = (s) -> "sensor "+app.getId()+":"+s;
+        Assert.assertEquals(newOnes, MutableSet.of(
+            prefix.apply("entity.children.removed"), prefix.apply("entity.children.added"), prefix.apply("service.problems"))); 
     }
 
     /**
@@ -521,5 +543,4 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         }
         return ((EntityInternal)e).getExecutionContext().submit(tb.build());
     }
-
 }

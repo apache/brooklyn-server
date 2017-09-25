@@ -186,7 +186,7 @@ public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTracki
 
         // Try to resolve the configuration in the env Map
         try {
-            env = (Map<String, Object>) Tasks.resolveDeepValue(env, Object.class, ((EntityInternal) entity).getExecutionContext());
+            env = (Map<String, Object>) Tasks.resolveDeepValue(env, Object.class, getExecutionContext());
         } catch (InterruptedException | ExecutionException e) {
             throw Exceptions.propagate(e);
         }

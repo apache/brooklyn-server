@@ -225,9 +225,8 @@ public class ChefAttributeFeed extends AbstractFeed {
             @Override
             public SshPollValue call() throws Exception {
                 ProcessTaskWrapper<String> taskWrapper = knifeTaskFactory.newTask();
-                final ExecutionContext executionContext = ((EntityInternal) entity).getExecutionContext();
                 log.debug("START: Running knife to query attributes of Chef node {}", nodeName);
-                executionContext.submit(taskWrapper);
+                getExecutionContext().submit(taskWrapper);
                 taskWrapper.block();
                 log.debug("DONE:  Running knife to query attributes of Chef node {}", nodeName);
                 return new SshPollValue(null, taskWrapper.getExitCode(), taskWrapper.getStdout(), taskWrapper.getStderr());
@@ -235,7 +234,7 @@ public class ChefAttributeFeed extends AbstractFeed {
         };
 
         getPoller().scheduleAtFixedRate(
-                new CallInEntityExecutionContext<SshPollValue>(entity, getAttributesFromKnife),
+                new CallInExecutionContext<SshPollValue>(this, getAttributesFromKnife),
                 new SendChefAttributesToSensors(entity, polls),
                 minPeriod);
     }
@@ -269,20 +268,19 @@ public class ChefAttributeFeed extends AbstractFeed {
      *
      * @param <T> The type of the {@link Callable}.
      */
-    private static class CallInEntityExecutionContext<T> implements Callable<T> {
+    private static class CallInExecutionContext<T> implements Callable<T> {
 
         private final Callable<T> job;
-        private Entity entity;
+        private AbstractFeed feed;
 
-        private CallInEntityExecutionContext(Entity entity, Callable<T> job) {
+        private CallInExecutionContext(AbstractFeed feed, Callable<T> job) {
             this.job = job;
-            this.entity = entity;
+            this.feed = feed;
         }
 
         @Override
         public T call() throws Exception {
-            final ExecutionContext executionContext = ((EntityInternal) entity).getExecutionContext();
-            return executionContext.submit(Maps.newHashMap(), job).get();
+            return feed.getExecutionContext().submit(Maps.newHashMap(), job).get();
         }
     }
 
