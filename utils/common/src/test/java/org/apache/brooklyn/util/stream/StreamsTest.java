@@ -19,7 +19,9 @@
 package org.apache.brooklyn.util.stream;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 
+import org.apache.brooklyn.util.text.Strings;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -33,4 +35,19 @@ public class StreamsTest {
             );
 
     }
+    
+    @Test
+    public void testComparison() throws IOException {
+        Assert.assertTrue(Streams.compare(Streams.newInputStreamWithContents("hello"), Streams.newInputStreamWithContents("hello")));
+        Assert.assertFalse(Streams.compare(Streams.newInputStreamWithContents("hello"), Streams.newInputStreamWithContents("hello2")));
+        Assert.assertFalse(Streams.compare(Streams.newInputStreamWithContents("hello2"), Streams.newInputStreamWithContents("hello")));
+        Assert.assertFalse(Streams.compare(null, Streams.newInputStreamWithContents("hello")));
+        Assert.assertTrue(Streams.compare(null, null));
+        // test across byte buffers
+        Assert.assertTrue(Streams.compare(Streams.newInputStreamWithContents(Strings.repeat("hello", 1000)), 
+            Streams.newInputStreamWithContents(Strings.repeat("hello", 1000))));
+        Assert.assertFalse(Streams.compare(Streams.newInputStreamWithContents(Strings.repeat("hello", 1000)+"1"), 
+            Streams.newInputStreamWithContents(Strings.repeat("hello", 1000)+"2")));
+    }
+
 }

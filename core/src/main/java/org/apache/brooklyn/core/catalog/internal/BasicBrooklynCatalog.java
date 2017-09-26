@@ -1782,7 +1782,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         //assume forceUpdate for backwards compatibility
         log.debug("Adding manual catalog item to "+mgmt+": "+item);
         checkNotNull(item, "item");
-        CatalogUtils.installLibraries(mgmt, item.getLibraries());
+        //don't activate bundles; only intended for legacy tests where that might not work
+        CatalogUtils.installLibraries(mgmt, item.getLibraries(), false);
         if (manualAdditionsCatalog==null) loadManualAdditionsCatalog();
         manualAdditionsCatalog.addEntry(getAbstractCatalogItem(item));
     }
