@@ -25,18 +25,15 @@ import java.util.List;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
-import org.apache.brooklyn.core.catalog.CatalogLoadMode;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ResourceUtils;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.FatalRuntimeException;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Strings;
@@ -222,8 +219,6 @@ public class CatalogInitialization implements ManagementContextInjectable {
     }
 
     private void populateCatalogImpl(BasicBrooklynCatalog catalog, boolean needsInitialItemsLoaded, boolean needsAdditionsLoaded, Collection<CatalogItem<?, ?>> optionalItemsForResettingCatalog) {
-        applyCatalogLoadMode();
-        
         if (optionalItemsForResettingCatalog!=null) {
             catalog.reset(optionalItemsForResettingCatalog);
         }
@@ -332,35 +327,6 @@ public class CatalogInitialization implements ManagementContextInjectable {
     protected void populateViaCallbacks(BasicBrooklynCatalog catalog) {
         for (Function<CatalogInitialization, Void> callback: callbacks)
             callback.apply(this);
-    }
-
-    private Object setFromCLMMutex = new Object();
-    private boolean setFromCatalogLoadMode = false;
-
-    /** @deprecated since introduced in 0.7.0, only for legacy compatibility with 
-     * {@link CatalogLoadMode} {@link BrooklynServerConfig#CATALOG_LOAD_MODE},
-     * allowing control of catalog loading from a brooklyn property */
-    @Deprecated
-    public void applyCatalogLoadMode() {
-        synchronized (setFromCLMMutex) {
-            if (setFromCatalogLoadMode) return;
-            setFromCatalogLoadMode = true;
-            Maybe<Object> clmm = ((ManagementContextInternal)managementContext).getConfig().getConfigLocalRaw(BrooklynServerConfig.CATALOG_LOAD_MODE);
-            if (clmm.isAbsent()) return;
-            org.apache.brooklyn.core.catalog.CatalogLoadMode clm = TypeCoercions.coerce(clmm.get(), org.apache.brooklyn.core.catalog.CatalogLoadMode.class);
-            log.warn("Legacy CatalogLoadMode "+clm+" set: applying, but this should be changed to use new CLI --catalogXxx commands");
-            switch (clm) {
-            case LOAD_BROOKLYN_CATALOG_URL:
-                reset = true;
-                break;
-            case LOAD_BROOKLYN_CATALOG_URL_IF_NO_PERSISTED_STATE:
-                // now the default
-                break;
-            case LOAD_PERSISTED_STATE:
-                disallowLocal = true;
-                break;
-            }
-        }
     }
 
     /** Creates the catalog based on parameters set here, if not yet loaded,

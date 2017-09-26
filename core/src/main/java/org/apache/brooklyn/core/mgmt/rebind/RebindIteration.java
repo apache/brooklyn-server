@@ -403,7 +403,6 @@ public abstract class RebindIteration {
         
         Collection<CatalogItem<?, ?>> catalogItems = rebindContext.getCatalogItems();
         CatalogInitialization catInit = managementContext.getCatalogInitialization();
-        catInit.applyCatalogLoadMode();
         Collection<CatalogItem<?,?>> itemsForResettingCatalog = null;
         boolean needsInitialItemsLoaded, needsAdditionalItemsLoaded;
         if (rebindManager.persistCatalogItemsEnabled) {
