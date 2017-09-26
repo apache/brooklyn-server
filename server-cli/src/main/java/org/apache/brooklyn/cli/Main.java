@@ -26,7 +26,6 @@ import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -229,16 +228,6 @@ public class Main extends AbstractMain {
                 + "loaded on first run, or when persistence is off/empty or the catalog is reset")
         public String catalogInitial;
 
-        // Unfortunately does not support arity of 1 or more; only exactly n
-        @Option(name = { "--catalogAdd" }, title = "catalog bom URIs to add",
-            description = "Specifies one or more catalog.bom URIs (or files) to be added to the catalog, as a comma-separated list")
-        public String catalogAdd;
-
-        @Option(name = { "--catalogForce" }, 
-            description = "Specifies that catalog items added via the CLI should be forcibly added, "
-                + "replacing any identical versions already registered (use with care!)")
-        public boolean catalogForce;
-
         @Option(name = { "-p", "--port" }, title = "port number",
                 description = "Use this port for the brooklyn management web console and REST API; "
                     + "default is 8081+ for http, 8443+ for https.")
@@ -420,8 +409,7 @@ public class Main extends AbstractMain {
     
                 launcher = createLauncher();
 
-                List<String> catalogsAdd = Strings.isBlank(catalogAdd) ? ImmutableList.<String>of() : JavaStringEscapes.unwrapJsonishListIfPossible(catalogAdd);
-                CatalogInitialization catInit = new CatalogInitialization(catalogInitial, catalogsAdd, catalogForce);
+                CatalogInitialization catInit = new CatalogInitialization(catalogInitial);
                 catInit.addPopulationCallback(new Function<CatalogInitialization,Void>() {
                     @Override
                     public Void apply(CatalogInitialization catInit) {
@@ -815,8 +803,6 @@ public class Main extends AbstractMain {
                     .add("startupContinueOnWebErrors", startupContinueOnWebErrors)
                     .add("startupFailOnManagedAppsErrors", startupFailOnManagedAppsErrors)
                     .add("catalogInitial", catalogInitial)
-                    .add("catalogAdd", catalogAdd)
-                    .add("catalogForce", catalogForce)
                     .add("stopWhichAppsOnShutdown", stopWhichAppsOnShutdown)
                     .add("stopOnKeyPress", stopOnKeyPress)
                     .add("localBrooklynProperties", localBrooklynProperties)
