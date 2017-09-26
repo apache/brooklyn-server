@@ -485,21 +485,6 @@ public class RebindManagerImpl implements RebindManager {
     }
     
     @Override
-    public List<Application> rebind() {
-        return rebind(null, null, null);
-    }
-    
-    @Override
-    public List<Application> rebind(final ClassLoader classLoader) {
-        return rebind(classLoader, null, null);
-    }
-
-    @Override
-    public List<Application> rebind(final ClassLoader classLoader, final RebindExceptionHandler exceptionHandler) {
-        return rebind(classLoader, exceptionHandler, null);
-    }
-    
-    @Override
     public List<Application> rebind(ClassLoader classLoaderO, RebindExceptionHandler exceptionHandlerO, ManagementNodeState modeO) {
         final ClassLoader classLoader = classLoaderO!=null ? classLoaderO :
             managementContext.getCatalogClassLoader();

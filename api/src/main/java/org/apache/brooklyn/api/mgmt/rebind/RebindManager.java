@@ -59,13 +59,6 @@ public interface RebindManager {
     @VisibleForTesting
     public BrooklynMementoPersister getPersister();
 
-    /** @deprecated since 0.7; use {@link #rebind(ClassLoader, RebindExceptionHandler, ManagementNodeState)} */ @Deprecated
-    public List<Application> rebind();
-    
-    /** @deprecated since 0.7; use {@link #rebind(ClassLoader, RebindExceptionHandler, ManagementNodeState)} */ @Deprecated
-    public List<Application> rebind(ClassLoader classLoader);
-    /** @deprecated since 0.7; use {@link #rebind(ClassLoader, RebindExceptionHandler, ManagementNodeState)} */ @Deprecated
-    public List<Application> rebind(ClassLoader classLoader, RebindExceptionHandler exceptionHandler);
     /** Causes this management context to rebind, loading data from the given backing store.
      * use wisely, as this can cause local entities to be completely lost, or will throw in many other situations.
      * in general it may be invoked for a new node becoming {@link ManagementNodeState#MASTER} 
