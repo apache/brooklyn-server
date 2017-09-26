@@ -229,10 +229,6 @@ public class Main extends AbstractMain {
                 + "loaded on first run, or when persistence is off/empty or the catalog is reset")
         public String catalogInitial;
 
-        @Option(name = { "--catalogReset" }, 
-            description = "Specifies that any catalog items which have been persisted should be cleared")
-        public boolean catalogReset;
-
         // Unfortunately does not support arity of 1 or more; only exactly n
         @Option(name = { "--catalogAdd" }, title = "catalog bom URIs to add",
             description = "Specifies one or more catalog.bom URIs (or files) to be added to the catalog, as a comma-separated list")
@@ -425,7 +421,7 @@ public class Main extends AbstractMain {
                 launcher = createLauncher();
 
                 List<String> catalogsAdd = Strings.isBlank(catalogAdd) ? ImmutableList.<String>of() : JavaStringEscapes.unwrapJsonishListIfPossible(catalogAdd);
-                CatalogInitialization catInit = new CatalogInitialization(catalogInitial, catalogReset, catalogsAdd, catalogForce);
+                CatalogInitialization catInit = new CatalogInitialization(catalogInitial, catalogsAdd, catalogForce);
                 catInit.addPopulationCallback(new Function<CatalogInitialization,Void>() {
                     @Override
                     public Void apply(CatalogInitialization catInit) {
@@ -820,7 +816,6 @@ public class Main extends AbstractMain {
                     .add("startupFailOnManagedAppsErrors", startupFailOnManagedAppsErrors)
                     .add("catalogInitial", catalogInitial)
                     .add("catalogAdd", catalogAdd)
-                    .add("catalogReset", catalogReset)
                     .add("catalogForce", catalogForce)
                     .add("stopWhichAppsOnShutdown", stopWhichAppsOnShutdown)
                     .add("stopOnKeyPress", stopOnKeyPress)

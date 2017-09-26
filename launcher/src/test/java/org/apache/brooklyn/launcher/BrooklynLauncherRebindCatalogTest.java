@@ -61,7 +61,7 @@ public class BrooklynLauncherRebindCatalogTest {
     }
     
     private BrooklynLauncher newLauncherForTests(String persistenceDir) {
-        CatalogInitialization catalogInitialization = new CatalogInitialization(CATALOG_INITIAL, false, null, false);
+        CatalogInitialization catalogInitialization = new CatalogInitialization(CATALOG_INITIAL, null, false);
         BrooklynLauncher launcher = BrooklynLauncher.newInstance()
                 .brooklynProperties(LocalManagementContextForTests.builder(true).buildProperties())
                 .catalogInitialization(catalogInitialization)

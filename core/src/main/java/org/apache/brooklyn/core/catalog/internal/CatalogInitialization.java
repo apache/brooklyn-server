@@ -53,9 +53,8 @@ public class CatalogInitialization implements ManagementContextInjectable {
     /*
 
     A1) if not persisting, go to B1
-    A2) if --catalog-reset, delete persisted catalog items
-    A3) if there is a persisted catalog (and it wasn't not deleted by A2), read it and go to C1
-    A4) go to B1
+    A2) if there is a persisted catalog, read it and go to C1
+    A3) go to B1
 
     B1) look for --catalog-initial, if so read it, then go to C1
     B2) look for BrooklynServerConfig.BROOKLYN_CATALOG_URL, if so, read it, supporting YAML, then go to C1
@@ -72,7 +71,6 @@ public class CatalogInitialization implements ManagementContextInjectable {
     private static final Logger log = LoggerFactory.getLogger(CatalogInitialization.class);
     
     private String initialUri;
-    private boolean reset;
     private List<String> additionsUris;
     private boolean force;
 
@@ -95,12 +93,11 @@ public class CatalogInitialization implements ManagementContextInjectable {
     private Object populatingCatalogMutex = new Object();
     
     public CatalogInitialization() {
-        this(null, false, ImmutableList.<String>of(), false);
+        this(null, ImmutableList.<String>of(), false);
     }
 
-    public CatalogInitialization(String initialUri, boolean reset, Iterable<String> additionUris, boolean force) {
+    public CatalogInitialization(String initialUri, Iterable<String> additionUris, boolean force) {
         this.initialUri = initialUri;
-        this.reset = reset;
         this.additionsUris = (additionUris != null) ? ImmutableList.copyOf(additionUris) : ImmutableList.<String>of();
         this.force = force;
     }
@@ -130,10 +127,6 @@ public class CatalogInitialization implements ManagementContextInjectable {
     
     public ManagementContext getManagementContext() {
         return Preconditions.checkNotNull(managementContext, "management context has not been injected into "+this);
-    }
-
-    public boolean isInitialResetRequested() {
-        return reset;
     }
 
     /** Returns true if the canonical initialization has completed, 

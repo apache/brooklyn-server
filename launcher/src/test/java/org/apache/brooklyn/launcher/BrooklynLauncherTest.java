@@ -272,7 +272,7 @@ public class BrooklynLauncherTest {
     @Test  // takes a bit of time because starts webapp, but also tests rest api so useful
     public void testErrorsCaughtByApiAndRestApiWorks() throws Exception {
         launcher = newLauncherForTests(true)
-                .catalogInitialization(new CatalogInitialization(null, false, null, false).addPopulationCallback(new Function<CatalogInitialization, Void>() {
+                .catalogInitialization(new CatalogInitialization(null, null, false).addPopulationCallback(new Function<CatalogInitialization, Void>() {
                     @Override
                     public Void apply(CatalogInitialization input) {
                         throw new RuntimeException("deliberate-exception-for-testing");
