@@ -194,7 +194,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     public void reset(CatalogDto dto, boolean failOnLoadError) {
         specCache.invalidate();
         // Unregister all existing persisted items.
-        for (CatalogItem<?, ?> toRemove : getCatalogItems()) {
+        for (CatalogItem<?, ?> toRemove : getCatalogItemsLegacy()) {
             if (log.isTraceEnabled()) {
                 log.trace("Scheduling item for persistence removal: {}", toRemove.getId());
             }
@@ -209,7 +209,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         this.manualAdditionsCatalog = null;
         
         // Inject management context into and persist all the new entries.
-        for (CatalogItem<?, ?> entry : getCatalogItems()) {
+        for (CatalogItem<?, ?> entry : getCatalogItemsLegacy()) {
             boolean setManagementContext = false;
             if (entry instanceof CatalogItemDo) {
                 CatalogItemDo<?, ?> cid = CatalogItemDo.class.cast(entry);
