@@ -100,12 +100,7 @@ public interface RebindManager {
     @VisibleForTesting
     /** waits for any needed or pending writes to complete */
     public void waitForPendingComplete(Duration duration, boolean canTrigger) throws InterruptedException, TimeoutException;
-    /** Forcibly performs persistence, in the foreground 
-     * @deprecated since 0.7.0; use {@link #forcePersistNow(boolean, PersistenceExceptionHandler)}, 
-     * default parameter here is false to mean incremental, with null/default exception handler */
-    @Deprecated
-    @VisibleForTesting
-    public void forcePersistNow();
+
     /** Forcibly performs persistence, in the foreground, either full (all entities) or incremental;
      * if no exception handler specified, the default one from the persister is used.
      * <p>

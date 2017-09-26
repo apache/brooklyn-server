@@ -455,12 +455,6 @@ public class RebindManagerImpl implements RebindManager {
 
     @Override
     @VisibleForTesting
-    public void forcePersistNow() {
-        forcePersistNow(false, null);
-    }
-
-    @Override
-    @VisibleForTesting
     public void forcePersistNow(boolean full, PersistenceExceptionHandler exceptionHandler) {
         if (persistenceStoreAccess == null || persistenceRealChangeListener == null) {
             LOG.info("Skipping forced persist; no persistence mechanism available");
