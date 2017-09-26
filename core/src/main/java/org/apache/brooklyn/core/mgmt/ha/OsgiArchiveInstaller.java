@@ -174,7 +174,14 @@ class OsgiArchiveInstaller {
                         } else {
                             // if bundle is not brooklyn-managed we want to make it be so
                             // and for that we need to find a URL.
-                            // some things declare usable locations, though these might be maven and 
+                            // the getLocation() _might_ be usable, or might be totally opaque;
+                            // in tests we rely on the block below (see system:file:) and things
+                            // being explicitly set, but in live and rebind deployments the URL
+                            // in practice with karaf how we package it is of the form mvn:...
+                            // which _does_ work in this block, so we will be able to do most
+                            // things which rely on taking osgi-installed bundles into brooklyn mgmt
+                            // (and if not don't think it's a big deal, we just uninstall and reinstall
+                            // sometimes or fail with a reasonable error message)
                             String candidateUrl = existingOsgiInstalledBundle.get().getLocation();
                             log.debug("Detected bundle "+suppliedKnownBundleMetadata+" installed to OSGi but not Brooklyn; trying to find a URL to get bundle binary, candidate "+candidateUrl);
                             if (Strings.isBlank(candidateUrl)) {
