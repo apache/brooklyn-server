@@ -22,6 +22,7 @@ import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
 
 import java.io.File;
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -29,10 +30,16 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.mgmt.usage.ManagementNodeStateListener;
+import org.apache.brooklyn.core.mgmt.usage.UsageListener;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.reflect.TypeToken;
 
 /** Config keys for the brooklyn server */
 public class BrooklynServerConfig {
@@ -96,6 +103,19 @@ public class BrooklynServerConfig {
             + "if false, the persistence store will be overwritten with changes (but files not removed if they are unreadable); "
             + "if null or not set, the legacy beahviour of creating backups where possible (e.g. file system) is currently used; "
             + "this key is DEPRECATED in favor of promotion and demotion specific flags now defaulting to true");
+
+    @SuppressWarnings("serial")
+    public static final ConfigKey<List<ManagementNodeStateListener>> MANAGEMENT_NODE_STATE_LISTENERS = ConfigKeys.newConfigKey(
+            new TypeToken<List<ManagementNodeStateListener>>() {},
+            "brooklyn.managementNodeState.listeners",
+            "Optional list of ManagementNodeStateListener instances",
+            ImmutableList.<ManagementNodeStateListener>of());
+
+    public static final ConfigKey<Duration> MANAGEMENT_NODE_STATE_LISTENER_TERMINATION_TIMEOUT = ConfigKeys.newConfigKey(
+            Duration.class,
+            "brooklyn.managementNodeState.listeners.timeout",
+            "Timeout on termination, to wait for queue of management-node-state listener events to be processed",
+            Duration.TEN_SECONDS);
 
     public static final ConfigKey<String> BROOKLYN_CATALOG_URL = ConfigKeys.newStringConfigKey("brooklyn.catalog.url",
         "The URL of a custom catalog.bom to load");
