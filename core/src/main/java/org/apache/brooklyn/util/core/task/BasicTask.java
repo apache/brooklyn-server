@@ -43,11 +43,9 @@ import java.util.concurrent.TimeoutException;
 
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.objs.Identifiable;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.guava.Maybe.MaybeSupplier;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -58,7 +56,6 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
-import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -204,6 +201,7 @@ public class BasicTask<T> implements TaskInternal<T> {
     protected long startTimeUtc = -1;
     protected long endTimeUtc = -1;
     protected Maybe<Task<?>> submittedByTask;
+    protected String submittedByTaskId;
 
     protected volatile Thread thread = null;
     protected volatile boolean cancelled = false;
@@ -247,14 +245,9 @@ public class BasicTask<T> implements TaskInternal<T> {
     }
     @Override
     public String getSubmittedByTaskId() {
+        if (submittedByTaskId!=null) return submittedByTaskId;
         if (submittedByTask==null || submittedByTask.isAbsent()) return null;
-        if (submittedByTask instanceof MaybeSupplier) {
-            Supplier<?> supplier = ((MaybeSupplier<?>)submittedByTask).getSupplier();
-            if (supplier instanceof Identifiable) {
-                return ((Identifiable)supplier).getId();
-            }
-        }
-        return submittedByTask.get().getId();
+        throw new IllegalStateException("Task was set up with a submitted task but no task ID");
     }
 
     /** the thread where the task is running, if it is running */
@@ -917,11 +910,12 @@ public class BasicTask<T> implements TaskInternal<T> {
     
     @Override
     public void setSubmittedByTask(Task<?> task) {
-        setSubmittedByTask(Maybe.of(task));
+        setSubmittedByTask(Maybe.of(task), task==null ? null : task.getId());
     }
     @Override
-    public void setSubmittedByTask(Maybe<Task<?>> taskM) {
+    public void setSubmittedByTask(Maybe<Task<?>> taskM, String taskId) {
         submittedByTask = taskM;
+        submittedByTaskId = taskId;
     }
     
     @Override

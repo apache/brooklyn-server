@@ -116,7 +116,8 @@ public interface TaskInternal<T> extends Task<T>, TaskInternalCancellableWithMod
     void setSubmitTimeUtc(long currentTimeMillis);
 
     void setSubmittedByTask(Task<?> task);
-    void setSubmittedByTask(Maybe<Task<?>> task);
+    /** Variant of {@link #setSubmittedByTask(Task)} which allows better support for GC'd tasks. */
+    void setSubmittedByTask(Maybe<Task<?>> task, String taskId);
     
     Set<Object> getMutableTags();
 

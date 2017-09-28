@@ -755,7 +755,8 @@ public class BasicExecutionManager implements ExecutionManager {
             Task<?> currentTask = Tasks.current();
             if (currentTask!=null) ((TaskInternal<?>)task).setSubmittedByTask(
                     // do this instead of soft reference (2017-09) as soft refs impact GC 
-                    Maybe.of(new TaskLookup(this, currentTask)) );
+                    Maybe.of(new TaskLookup(this, currentTask)),
+                    currentTask.getId());
         }
         ((TaskInternal<?>)task).setSubmitTimeUtc(System.currentTimeMillis());
         

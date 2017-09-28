@@ -314,8 +314,8 @@ public abstract class ForwardingTask<T> extends ForwardingObject implements Task
     }
 
     @Override
-    public void setSubmittedByTask(Maybe<Task<?>> taskM) {
-        delegate().setSubmittedByTask(taskM);
+    public void setSubmittedByTask(Maybe<Task<?>> taskM, String taskId) {
+        delegate().setSubmittedByTask(taskM, taskId);
     }
 
     @Override
