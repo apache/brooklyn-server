@@ -574,7 +574,7 @@ public class BasicExecutionManager implements ExecutionManager {
         }
     }
 
-    final static class CancellingListenableForwardingFutureForTask<T> extends SimpleForwardingFuture<T> implements ListenableFuture<T> {
+    final static class CancellingListenableForwardingFutureForTask<T> extends SimpleForwardingFuture<T> implements ListenableFuture<T>, TaskInternalCancellableWithMode {
         private final Task<T> task;
         private BasicExecutionManager execMgmt;
         private final ExecutionList listeners;
@@ -600,7 +600,8 @@ public class BasicExecutionManager implements ExecutionManager {
             return listeners;
         }
         
-        boolean cancel(TaskCancellationMode mode) {
+        @Override
+        public boolean cancel(TaskCancellationMode mode) {
             boolean result = false;
             if (log.isTraceEnabled()) {
                 log.trace("CLFFT cancelling "+task+" mode "+mode);
