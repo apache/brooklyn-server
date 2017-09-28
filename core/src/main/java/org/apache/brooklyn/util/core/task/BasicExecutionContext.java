@@ -99,7 +99,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
      * Creates an execution context which wraps {@link ExecutionManager}
      * adding the given tags to all tasks submitted through this context.
      */
-    public BasicExecutionContext(ExecutionManager executionManager, Iterable<Object> tagsForThisContext) {
+    public BasicExecutionContext(ExecutionManager executionManager, Iterable<?> tagsForThisContext) {
         this.executionManager = executionManager;
         if (tagsForThisContext!=null) Iterables.addAll(tags, tagsForThisContext);
 
@@ -129,11 +129,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         final TaskInternal<T> t = (TaskInternal<T>) task.asTask();
         
         if (t.isQueuedOrSubmitted()) {
-            if (t.isDone()) {
-                return t.getUnchecked();
-            } else {
-                throw new ImmediateUnsupportedException("Task is in progress and incomplete: "+t);
-            }
+            return t.getUnchecked();
         }
         
         ContextSwitchingInfo<T> switchContextWrapper = getContextSwitchingTask(t, Collections.emptyList(), false);
@@ -152,6 +148,8 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         }
     }
     
+    // could perhaps use Guava's SettableFuture -- though would have to take care re 
+    // supporting set(Maybe<T>)
     private static class SimpleFuture<T> implements Future<T> {
         boolean cancelled = false;
         boolean done = false;
@@ -207,6 +205,12 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         }
     }
     
+    /** Internal utility method to avoid replication between 
+     * implementations in {@link #get(Task)} and {@link #getImmediately(Object)}.
+     * The two submit different jobs but after doing a lot of the same setup and catch/finally.
+     * Logic re return type is a little fiddly given the differences but should be clearer
+     * seeing how the two work (as opposed to this method being designed as something
+     * more generally useful). */
     private <T> Maybe<T> runInSameThread(final Task<T> task, Callable<Maybe<T>> job) throws Exception {
         ((TaskInternal<T>)task).getMutableTags().addAll(tags);
         
@@ -283,10 +287,14 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         try {
             return runInSameThread(fakeTaskForContext, new Callable<Maybe<T>>() {
                 public Maybe<T> call() {
-                    // TODO could try to make this work for more types of tasks by not cancelling, it just interrupting;
-                    // however the biggest place "getImmediate" fails is with DSTs where interrupting is sufficient to abort them
-                    // unnecessarily, as queue.andWait attempts to block (again, unnecessarily, but not a straightforward fix).
-                    // limited success of getImmediately is okay -- but no harm in expanding coverage by resolving that and removing cancel.
+                    // could try to make this work for more types of tasks by not cancelling, just interrupting;
+                    // however there is a danger that immediate-submission tasks are leaked if we don't cancel.
+                    // for instance with DSTs the thread interrupt may apply only to the main job queue.andWait blocking,
+                    // leaving other tasks leaked.
+                    //
+                    // this method is best-effort so fine if it doesn't succeed.  good if we can expand
+                    // coverage but NOT at the expense of major leaks of course!
+                    //
                     // see WIP test in EffectorSayHiTest
                     fakeTaskForContext.cancel();
                     

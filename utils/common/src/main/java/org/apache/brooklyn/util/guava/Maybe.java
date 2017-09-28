@@ -204,7 +204,7 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
     
     public static class MaybeSupplier<T> extends AbstractPresent<T> {
         private static final long serialVersionUID = -823731500051341455L;
-        private Supplier<T> supplier;
+        private final Supplier<T> supplier;
         public MaybeSupplier(Supplier<T> value) {
             this.supplier = value;
         }

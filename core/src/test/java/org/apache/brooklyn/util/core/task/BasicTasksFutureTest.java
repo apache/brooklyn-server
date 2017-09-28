@@ -176,7 +176,7 @@ public class BasicTasksFutureTest {
 
     @Test
     public void testCancelAfterStartTriggersListenableFutureDynamic() throws Exception {
-        doTestCancelTriggersListenableFuture(Duration.millis(50), true);
+        doTestCancelTriggersListenableFuture(null, Duration.millis(50), true);
     }
     @Test
     public void testCancelImmediateTriggersListenableFutureDynamic() throws Exception {
@@ -184,32 +184,32 @@ public class BasicTasksFutureTest {
         // that needs handling separately as it falls into an edge where the future is set and cancelled
         // so the executor won't run it, and our wrapper logic doesn't apply; 
         // this test doesn't guarantee this code path, but makes it likely enough it happens once in a while.
-        doTestCancelTriggersListenableFuture(Duration.ZERO, true);
+        doTestCancelTriggersListenableFuture(null, Duration.ZERO, true);
     }
     @Test
     public void testCancelBeforeTriggersListenableFutureDynamic() throws Exception {
-        doTestCancelTriggersListenableFuture(Duration.millis(-50), true);
+        doTestCancelTriggersListenableFuture(Duration.millis(50), null, true);
     }
     @Test
     public void testCancelAfterStartTriggersListenableFutureSimple() throws Exception {
-        doTestCancelTriggersListenableFuture(Duration.millis(50), true);
+        doTestCancelTriggersListenableFuture(null, Duration.millis(50), true);
     }
     @Test
     public void testCancelImmediateTriggersListenableFutureSimple() throws Exception {
-        doTestCancelTriggersListenableFuture(Duration.ZERO, false);
+        doTestCancelTriggersListenableFuture(null, Duration.ZERO, false);
     }
     @Test
     public void testCancelBeforeTriggersListenableFutureSimple() throws Exception {
-        doTestCancelTriggersListenableFuture(Duration.millis(-50), false);
+        doTestCancelTriggersListenableFuture(Duration.millis(50), null, false);
     }
-    public void doTestCancelTriggersListenableFuture(Duration delay, boolean dynamic) throws Exception {
+    public void doTestCancelTriggersListenableFuture(Duration delayBeforeSubmit, Duration delayBeforeCancel, boolean dynamic) throws Exception {
         Task<String> t = waitForSemaphore(Duration.TEN_SECONDS, true, "x", dynamic);
         addFutureListener(t, "before");
 
         Stopwatch watch = Stopwatch.createStarted();
-        if (delay.isNegative()) {
+        if (delayBeforeSubmit!=null) {
             new Thread(() -> {
-                Time.sleep(delay.multiply(-1)); 
+                Time.sleep(delayBeforeSubmit); 
                 ec.submit(t); 
             }).start(); 
         } else {
@@ -218,10 +218,11 @@ public class BasicTasksFutureTest {
         
         addFutureListener(t, "during");
 
-        log.info("test cancelling "+t+" ("+t.getClass()+") after "+delay);
+        log.info("test cancelling "+t+" ("+t.getClass()+") after "+delayBeforeCancel+
+            ", submit delay "+delayBeforeSubmit);
         // NB: three different code paths (callers to this method) for notifying futures 
         // depending whether task is started before, at, or after the cancel 
-        if (!delay.isNegative()) Time.sleep(delay);
+        if (delayBeforeCancel!=null) Time.sleep(delayBeforeCancel);
 
         synchronized (data) {
             t.cancel(true);
