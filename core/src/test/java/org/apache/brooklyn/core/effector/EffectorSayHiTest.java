@@ -110,7 +110,7 @@ public class EffectorSayHiTest extends BrooklynAppUnitTestSupport {
     }
     
     @Test(groups="WIP")  // see comments at BasicExecutionContext.getImmediately
-    // FIXME
+    // TODO this will be fixed soon by #835
     public void testInvocationGetImmediately() throws Exception {
         assertEquals(((EntityInternal)e).getExecutionContext()
             .getImmediately( Effectors.invocation(e, MyEntity.SAY_HI_1, ImmutableMap.of("name", "Bob", "greeting", "hi")) ), "hi Bob");

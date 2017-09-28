@@ -281,10 +281,14 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         try {
             return runInSameThread(fakeTaskForContext, new Callable<Maybe<T>>() {
                 public Maybe<T> call() {
-                    // TODO could try to make this work for more types of tasks by not cancelling, it just interrupting;
-                    // however the biggest place "getImmediate" fails is with DSTs where interrupting is sufficient to abort them
-                    // unnecessarily, as queue.andWait attempts to block (again, unnecessarily, but not a straightforward fix).
-                    // limited success of getImmediately is okay -- but no harm in expanding coverage by resolving that and removing cancel.
+                    // could try to make this work for more types of tasks by not cancelling, just interrupting;
+                    // however there is a danger that immediate-submission tasks are leaked if we don't cancel.
+                    // for instance with DSTs the thread interrupt may apply only to the main job queue.andWait blocking,
+                    // leaving other tasks leaked.
+                    //
+                    // this method is best-effort so fine if it doesn't succeed.  good if we can expand
+                    // coverage but NOT at the expense of major leaks of course!
+                    //
                     // see WIP test in EffectorSayHiTest
                     fakeTaskForContext.cancel();
                     

@@ -75,7 +75,13 @@ public interface ExecutionContext extends Executor {
      * Implementations will typically act like {@link #get(TaskAdaptable)} with additional
      * tricks to attempt to be non-blocking, such as recognizing some "immediate" markers.  
      * <p>
-     * Also supports {@link Callable}, {@link Runnable}, and {@link Supplier} argument types.
+     * Supports {@link Callable}, {@link Runnable}, and {@link Supplier} argument types as well as {@link Task}.
+     * <p>
+     * This executes the given code, and in the case of {@link Task} it may cancel it, 
+     * so the caller should not use this if the argument is going to be used later and
+     * is expected to be pristine.  Supply a {@link TaskFactory} if this method's {@link Task#cancel(boolean)}
+     * is problematic, or consider other utilities (such as ValueResolver with immediate(true)
+     * in a downstream project).
      */
     // TODO reference ImmediateSupplier when that class is moved to utils project
     @Beta
