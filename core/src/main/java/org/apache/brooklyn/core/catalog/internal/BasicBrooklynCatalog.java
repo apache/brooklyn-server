@@ -433,7 +433,21 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     public <T, SpecT extends AbstractBrooklynObjectSpec<? extends T, SpecT>> SpecT createSpec(CatalogItem<T, SpecT> item) {
         if (item == null) return null;
         CatalogItemDo<T,SpecT> loadedItem = (CatalogItemDo<T, SpecT>) getCatalogItemDo(item.getSymbolicName(), item.getVersion());
-        if (loadedItem == null) throw new RuntimeException(item+" not in catalog; cannot create spec");
+
+        if (loadedItem == null) {
+            RegisteredType registeredType = mgmt.getTypeRegistry().get(item.getSymbolicName(), item.getVersion());
+            if(registeredType == null) {
+                throw new RuntimeException(item + " not in catalog; cannot create spec");
+            }
+
+            AbstractBrooklynObjectSpec<?, ?> spec = mgmt.getTypeRegistry().createSpec(registeredType, null, null);
+            if(spec == null) {
+                throw new RuntimeException("Problem loading spec for type "+registeredType);
+            }
+
+            return (SpecT)spec;
+        }
+
         if (loadedItem.getSpecType()==null) return null;
         
         SpecT spec = internalCreateSpecLegacy(mgmt, loadedItem, MutableSet.<String>of(), true);
