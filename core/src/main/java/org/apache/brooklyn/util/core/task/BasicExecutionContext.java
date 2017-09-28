@@ -287,17 +287,6 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         try {
             return runInSameThread(fakeTaskForContext, new Callable<Maybe<T>>() {
                 public Maybe<T> call() {
-                    // could try to make this work for more types of tasks by not cancelling, just interrupting;
-                    // however there is a danger that immediate-submission tasks are leaked if we don't cancel.
-                    // for instance with DSTs the thread interrupt may apply only to the main job queue.andWait blocking,
-                    // leaving other tasks leaked.
-                    //
-                    // this method is best-effort so fine if it doesn't succeed.  good if we can expand
-                    // coverage but NOT at the expense of major leaks of course!
-                    //
-                    // see WIP test in EffectorSayHiTest
-                    fakeTaskForContext.cancel();
-                    
                     boolean wasAlreadyInterrupted = Thread.interrupted();
                     try {
                         return job.getImmediately();
@@ -305,6 +294,13 @@ public class BasicExecutionContext extends AbstractExecutionContext {
                         if (wasAlreadyInterrupted) {
                             Thread.currentThread().interrupt();
                         }
+                        // we've acknowledged that getImmediate may wreck (cancel) the task,
+                        // their first priority is to prevent them from leaking;
+                        // however previously we did the cancel before running, 
+                        // doing it after means more tasks successfully execute 
+                        // (the interrupt is sufficient to prevent them blocking); 
+                        // see test EffectorSayHiTest.testInvocationGetImmediately
+                        fakeTaskForContext.cancel();
                     }
                 } });
         } catch (Exception e) {
