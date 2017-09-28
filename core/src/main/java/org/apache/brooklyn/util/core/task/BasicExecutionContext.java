@@ -98,7 +98,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
      * Creates an execution context which wraps {@link ExecutionManager}
      * adding the given tags to all tasks submitted through this context.
      */
-    public BasicExecutionContext(ExecutionManager executionManager, Iterable<Object> tagsForThisContext) {
+    public BasicExecutionContext(ExecutionManager executionManager, Iterable<?> tagsForThisContext) {
         this.executionManager = executionManager;
         if (tagsForThisContext!=null) Iterables.addAll(tags, tagsForThisContext);
 
@@ -128,11 +128,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         final TaskInternal<T> t = (TaskInternal<T>) task.asTask();
         
         if (t.isQueuedOrSubmitted()) {
-            if (t.isDone()) {
-                return t.getUnchecked();
-            } else {
-                throw new ImmediateUnsupportedException("Task is in progress and incomplete: "+t);
-            }
+            return t.getUnchecked();
         }
         
         ContextSwitchingInfo<T> switchContextWrapper = getContextSwitchingTask(t, Collections.emptyList(), false);
@@ -151,6 +147,8 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         }
     }
     
+    // could perhaps use Guava's SettableFuture -- though would have to take care re 
+    // supporting set(Maybe<T>)
     private static class SimpleFuture<T> implements Future<T> {
         boolean cancelled = false;
         boolean done = false;
@@ -206,6 +204,12 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         }
     }
     
+    /** Internal utility method to avoid replication between 
+     * implementations in {@link #get(Task)} and {@link #getImmediately(Object)}.
+     * The two submit different jobs but after doing a lot of the same setup and catch/finally.
+     * Logic re return type is a little fiddly given the differences but should be clearer
+     * seeing how the two work (as opposed to this method being designed as something
+     * more generally useful). */
     private <T> Maybe<T> runInSameThread(final Task<T> task, Callable<Maybe<T>> job) throws Exception {
         ((TaskInternal<T>)task).getMutableTags().addAll(tags);
         

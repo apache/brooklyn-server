@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -278,13 +279,15 @@ public class Repeater implements Callable<Boolean> {
         Preconditions.checkNotNull(supplier, "supplier must not be null");
         Preconditions.checkNotNull(exitCondition, "exitCondition must not be null");
         return until(new Callable<Boolean>() {
+            private Maybe<T> lastValue = Maybe.absent();
             @Override
             public Boolean call() throws Exception {
-                return exitCondition.apply(supplier.get());
+                lastValue = Maybe.ofAllowingNull(supplier.get());
+                return exitCondition.apply(lastValue.get());
             }
             @Override
             public String toString() {
-                return supplier.get()+" "+exitCondition.toString();
+                return ""+(lastValue.isPresent() ? lastValue.get() : supplier) + " " + exitCondition;
             }
         });
     }

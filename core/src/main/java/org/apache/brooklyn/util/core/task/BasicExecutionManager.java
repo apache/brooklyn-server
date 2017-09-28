@@ -263,7 +263,7 @@ public class BasicExecutionManager implements ExecutionManager {
         incompleteTaskIds.remove(task.getId());
         if (removed!=null && removed.isSubmitted() && !removed.isDone(true)) {
             Entity context = BrooklynTaskTags.getContextEntity(removed);
-            if (!Entities.isManaged(context)) {
+            if (context!=null && !Entities.isManaged(context)) {
                 log.debug("Forgetting about active task on unmanagement of "+context+": "+removed);
             } else {
                 log.warn("Deleting submitted task before completion: "+removed+"; this task will continue to run in the background outwith "+this+", but perhaps it should have been cancelled?");
@@ -470,7 +470,6 @@ public class BasicExecutionManager implements ExecutionManager {
                         }
                         Object result;
                         try {
-                            lastError = null;
                             result = oldJob.call();
                             task.lastThrownType = null;
                         } catch (Exception e) {
