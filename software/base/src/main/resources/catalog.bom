@@ -31,10 +31,6 @@ brooklyn.catalog:
         description: |
           An entity that, on start, will obtain a machine and pass that to each of its children 
           by calling their start effectors.
-    - id: org.apache.brooklyn.entity.chef.ChefEntity
-      item:
-        type: org.apache.brooklyn.entity.chef.ChefEntity
-        name: Chef Entity
     - id: org.apache.brooklyn.entity.brooklynnode.BrooklynEntityMirror
       item:
         type: org.apache.brooklyn.entity.brooklynnode.BrooklynEntityMirror
