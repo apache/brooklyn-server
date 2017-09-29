@@ -1455,6 +1455,11 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
     protected OsgiBundleInstallationResult addItemsOsgi(String yaml, boolean forceUpdate, Maybe<OsgiManager> osgiManager) {
         Map<?, ?> cm = BasicBrooklynCatalog.getCatalogMetadata(yaml);
+
+        if(cm == null) {
+            throw new IllegalStateException("No catalog meta data supplied. brooklyn.catalog must be specified");
+        }
+
         VersionedName vn = BasicBrooklynCatalog.getVersionedName( cm, false );
         if (vn==null) {
             // for better legacy compatibiity, if id specified at root use that
