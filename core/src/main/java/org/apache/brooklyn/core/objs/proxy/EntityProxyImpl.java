@@ -209,7 +209,7 @@ public class EntityProxyImpl implements java.lang.reflect.InvocationHandler {
                     TaskAdaptable<?> task = ((EffectorWithBody)eff).getBody().newTask(delegate, eff, ConfigBag.newInstance(parameters));
                     // as per LocalManagementContext.runAtEntity(Entity entity, TaskAdaptable<T> task) 
                     TaskTags.markInessential(task);
-                    result = DynamicTasks.queueIfPossible(task.asTask()).orSubmitAsync(delegate).andWaitForSuccess();
+                    result = DynamicTasks.get(task.asTask(), delegate);
                 } else {
                     result = m.invoke(delegate, nonNullArgs);
                 }

@@ -41,6 +41,16 @@ import com.google.common.collect.Iterables;
 
 /** 
  * Contains static methods which detect and use the current {@link TaskQueueingContext} to execute tasks.
+ * <p>
+ * Queueing is supported by some task contexts (eg {@link DynamicSequentialTask}) to let that task
+ * build up a complex sequence of tasks and logic. This utility class gives conveniences to allow:
+ * <p>
+ * <li> "queue-if-possible-else-submit-async", so that it is backgrounded, using queueing semantics if available;
+ * <li> "queue-if-possible-else-submit-blocking", so that it is in the queue if there is one, else it will complete synchronously;
+ * <li> "queue-if-possible-else-submit-and-in-both-cases-block", so that it is returned immediately, but waits in its queue if there is one.
+ * <p>
+ * Over time the last mode has been the most prevalent and {@link #get(TaskAdaptable)} is introduced here
+ * as a convenience.  If a timeout is desired then the first should be used.
  * 
  * @since 0.6.0
  */
@@ -126,36 +136,50 @@ public class DynamicTasks {
                 return false;
             }
         }
-        /** causes the task to be submitted (asynchronously) if it hasn't already been,
-         * requiring an entity execution context (will try to find a default if not set) */
+        /** Causes the task to be submitted (asynchronously) if it hasn't already been,
+         * such as if a previous {@link DynamicTasks#queueIfPossible(TaskAdaptable)} did not have a queueing context.
+         * <p>
+         * An {@link #executionContext(ExecutionContext)} should typically have been set
+         * (or use {@link #orSubmitAsync(Entity)}).
+         */
         public TaskQueueingResult<T> orSubmitAsync() {
             orSubmitInternal(false);
             return this;
         }
-        /** convenience for setting {@link #executionContext(ExecutionContext)} then submitting async */
+        /** Convenience for setting {@link #executionContext(Entity)} then {@link #orSubmitAsync()}. */
         public TaskQueueingResult<T> orSubmitAsync(Entity entity) {
             executionContext(entity);
             return orSubmitAsync();
         }
-        /** causes the task to be submitted *synchronously* if it hasn't already been submitted;
-         * useful in contexts such as libraries where callers may be either on a legacy call path 
-         * (which assumes all commands complete immediately);
-         * requiring an entity execution context (will try to find a default if not set) */
+        /** Alternative to {@link #orSubmitAsync()} but where, if the submission is needed
+         * (usually because a previous {@link DynamicTasks#queueIfPossible(TaskAdaptable)} did not have a queueing context)
+         * it will wait until execution completes (and in fact will execute the task in this thread,
+         * as per {@link ExecutionContext#get(TaskAdaptable)}. 
+         * <p>
+         * If the task is already queued, this method does nothing, not even blocks,
+         * to permit cases where a caller is building up a set of tasks to be executed sequentially:
+         * with a queueing context the caller can line them all up, but without that the caller needs this task
+         * finished before submitting subsequent tasks. 
+         * <p>
+         * If blocking is desired in all cases and this call should fail on task failure, invoke {@link #andWaitForSuccess()} on the result,
+         * or consider using {@link DynamicTasks#get(TaskAdaptable)} instead of this method,
+         * or {@link DynamicTasks#get(TaskAdaptable, Entity)} if an execuiton context a la {@link #orSubmitAndBlock(Entity)} is needed. */
         public TaskQueueingResult<T> orSubmitAndBlock() {
             orSubmitInternal(true);
             return this;
         }
-        /** convenience for setting {@link #executionContext(ExecutionContext)} then submitting blocking */
+        /** Variant of {@link #orSubmitAndBlock()} doing what {@link #orSubmitAsync(Entity)} does for {@link #orSubmitAsync()}. */
         public TaskQueueingResult<T> orSubmitAndBlock(Entity entity) {
             executionContext(entity);
             return orSubmitAndBlock();
         }
-        /** blocks for the task to be completed
+        /** Blocks for the task to be completed, throwing if there are any errors
+         * and otherwise returning the value.
          * <p>
-         * needed in any context where subsequent commands assume the task has completed.
+         * In addition to cases where a result is wanted, this is needed in any context where subsequent commands assume the task has completed.
          * not needed in a context where the task is simply being built up and queued.
          * <p>
-         * throws if there are any errors
+         * 
          */
         public T andWaitForSuccess() {
             return task.getUnchecked();
@@ -170,7 +194,7 @@ public class DynamicTasks {
     /**
      * Tries to add the task to the current addition context if there is one, otherwise does nothing.
      * <p/>
-     * Call {@link TaskQueueingResult#orSubmitAsync() orSubmitAsync()} on the returned
+     * Call {@link TaskQueueingResult#orSubmitAsync()} on the returned
      * {@link TaskQueueingResult TaskQueueingResult} to handle execution of tasks in a
      * {@link BasicExecutionContext}.
      */
@@ -331,6 +355,11 @@ public class DynamicTasks {
      * {@link Task#getUnchecked()} or {@link Task#blockUntilEnded()} */
     public static <T> Task<T> submit(TaskAdaptable<T> task, Entity entity) {
         return queueIfPossible(task).orSubmitAsync(entity).asTask();
+    }
+    
+    /** queues the task if possible and waits for the result, otherwise executes synchronously as per {@link ExecutionContext#get(TaskAdaptable)} */
+    public static <T> T get(TaskAdaptable<T> task, Entity e) {
+        return queueIfPossible(task).orSubmitAndBlock(e).andWaitForSuccess();
     }
 
     /** Breaks the parent-child relation between Tasks.current() and the task passed,

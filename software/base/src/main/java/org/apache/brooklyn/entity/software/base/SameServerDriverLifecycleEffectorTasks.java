@@ -111,10 +111,7 @@ public class SameServerDriverLifecycleEffectorTasks extends MachineLifecycleEffe
 
     @Override
     protected String startProcessesAtMachine(Supplier<MachineLocation> machineS) {
-        DynamicTasks.queueIfPossible(StartableMethods.startingChildren(entity(), machineS.get()))
-                .orSubmitAsync(entity())
-                .getTask()
-                .getUnchecked();
+        DynamicTasks.get(StartableMethods.startingChildren(entity(), machineS.get()), entity());
         DynamicTasks.waitForLast();
         return "children started";
     }
