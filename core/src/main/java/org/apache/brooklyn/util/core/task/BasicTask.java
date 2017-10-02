@@ -56,6 +56,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -910,11 +911,11 @@ public class BasicTask<T> implements TaskInternal<T> {
     
     @Override
     public void setSubmittedByTask(Task<?> task) {
-        setSubmittedByTask(Maybe.of(task), task==null ? null : task.getId());
+        setSubmittedByTask(Maybe.ofDisallowingNull(task), task==null ? null : task.getId());
     }
     @Override
     public void setSubmittedByTask(Maybe<Task<?>> taskM, String taskId) {
-        submittedByTask = taskM;
+        submittedByTask = Preconditions.checkNotNull(taskM);
         submittedByTaskId = taskId;
     }
     
