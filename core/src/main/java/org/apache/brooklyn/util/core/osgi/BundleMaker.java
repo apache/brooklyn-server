@@ -359,7 +359,14 @@ public class BundleMaker {
         if (startPos<0) {
             throw new IllegalStateException("URL of "+item+" does not appear relative to root "+root);
         }
-        String itemE = item.substring(startPos + root.length()+1);
+        String itemE = item.substring(startPos + root.length());
+        itemE = Strings.removeFromStart(itemE, "/");
+        
+        if (Strings.isEmpty(itemE)) {
+            // Can happen if we're given an empty folder. addUrlDirToZipRecursively will have returned false, so 
+            // will try to add it as a file.
+            return; 
+        }
         if (!filter.apply(itemE)) {
             return;
         }
