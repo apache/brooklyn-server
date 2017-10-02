@@ -1826,6 +1826,42 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
 
     @Override @Deprecated /** @deprecated see super */
+    public void addCatalogLegacyItemsOnRebind(Iterable<? extends CatalogItem<?,?>> items) {
+        addCatalogLegacyItemsOnRebind(items, true);
+    }
+    
+    private void addCatalogLegacyItemsOnRebind(Iterable<? extends CatalogItem<?,?>> items, boolean failOnLoadError) {
+        specCache.invalidate();
+        
+        log.debug("Adding manual catalog items to "+mgmt+": "+items);
+        checkNotNull(items, "item");
+        for (CatalogItem<?,?> item : items) {
+            CatalogItemDtoAbstract<?,?> cdto;
+            if (item instanceof CatalogItemDtoAbstract) {
+                cdto = (CatalogItemDtoAbstract<?,?>) item;
+            } else if (item instanceof CatalogItemDo && ((CatalogItemDo<?,?>)item).getDto() instanceof CatalogItemDtoAbstract) {
+                cdto = (CatalogItemDtoAbstract<?,?>) ((CatalogItemDo<?,?>)item).getDto();
+            } else {
+                throw new IllegalArgumentException("Expected items of type "+CatalogItemDtoAbstract.class.getSimpleName());
+            }
+            cdto.setManagementContext((ManagementContextInternal) mgmt);
+            
+            try {
+                CatalogUtils.installLibraries(mgmt, item.getLibraries());
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                if (failOnLoadError) {
+                    Exceptions.propagateAnnotated("Loading bundles for catalog item " + item.getCatalogItemId() + " failed", e);
+                } else {
+                    log.error("Loading bundles for catalog item " + item + " failed: " + e.getMessage(), e);
+                }
+            }
+            catalog.addEntry((CatalogItemDtoAbstract<?,?>)item);
+        }
+        catalog.load(mgmt, null, failOnLoadError);
+    }
+
+    @Override @Deprecated /** @deprecated see super */
     public CatalogItem<?,?> addItem(Class<?> type) {
         //assume forceUpdate for backwards compatibility
         log.debug("Adding manual catalog item to "+mgmt+": "+type);

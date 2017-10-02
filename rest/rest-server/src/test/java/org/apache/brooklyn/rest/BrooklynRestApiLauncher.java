@@ -37,6 +37,7 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.rest.filter.CorsImplSupplierFilter;
 import org.apache.brooklyn.rest.filter.CsrfTokenFilter;
 import org.apache.brooklyn.rest.filter.EntitlementContextFilter;
@@ -167,7 +168,7 @@ public class BrooklynRestApiLauncher {
 
     public Server start() {
         if (this.mgmt == null) {
-            mgmt = new LocalManagementContext();
+            mgmt = new LocalManagementContextForTests();
         }
         BrooklynCampPlatformLauncherAbstract platform = new BrooklynCampPlatformLauncherNoServer()
                 .useManagementContext(mgmt)

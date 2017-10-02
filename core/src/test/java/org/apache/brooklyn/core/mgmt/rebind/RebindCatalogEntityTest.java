@@ -116,9 +116,9 @@ public class RebindCatalogEntityTest extends RebindTestFixture<StartableApplicat
     
     @Test(invocationCount=100, groups="Integration")
     public void testRestoresAppFromCatalogClassloaderManyTimes() throws Exception {
-	    // Need to fix package name and rebuild brooklyn-AppInCatalog.jar
-    	//  or better add it as a new test-bundles subproject
-    	testRestoresAppFromCatalogClassloader();
+        // Need to fix package name and rebuild brooklyn-AppInCatalog.jar
+        //  or better add it as a new test-bundles subproject
+        testRestoresAppFromCatalogClassloader();
     }
     
     // TODO Not using RebindTestUtils.rebind(mementoDir, getClass().getClassLoader());

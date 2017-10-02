@@ -140,7 +140,9 @@ public abstract class BrooklynRestApiTest {
     protected synchronized ManagementContext getManagementContext() {
         if (manager==null) {
             if (useLocalScannedCatalog()) {
-                manager = new LocalManagementContext();
+                manager = LocalManagementContextForTests.builder(true)
+                        .enableOsgiReusable()
+                        .build();
                 forceUseOfDefaultCatalogWithJavaClassPath();
             } else {
                 manager = new LocalManagementContextForTests();

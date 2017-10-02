@@ -213,6 +213,17 @@ public interface BrooklynCatalog {
     void addItem(CatalogItem<?,?> item);
 
     /**
+     * adds the given items to the catalog, similar to {@link #reset(Collection)} but where it 
+     * just adds without removing the existing content. Note this is very different from 
+     * {@link #addItem(CatalogItem)}, which adds to the 'manual' catalog.
+     *
+     * @since 0.13.0 (only for legacy backwards compatibility)
+     * @deprecated since 0.13.0; instead use bundles in persisted state!
+     */
+    @Deprecated
+    void addCatalogLegacyItemsOnRebind(Iterable<? extends CatalogItem<?,?>> items);
+
+    /**
      * Creates a catalog item and adds it to the 'manual' catalog,
      * with the corresponding Class definition (loaded by a classloader)
      * registered and available in the classloader.

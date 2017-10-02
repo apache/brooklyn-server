@@ -18,27 +18,39 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Dictionary;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
+import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -47,19 +59,24 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.FatalRuntimeException;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
+import org.apache.brooklyn.util.exceptions.UserFacingException;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
+import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 @Beta
@@ -82,25 +99,26 @@ public class CatalogInitialization implements ManagementContextInjectable {
      */
 
     private static final Logger log = LoggerFactory.getLogger(CatalogInitialization.class);
-    
+
     private String initialUri;
 
-    private boolean disallowLocal = false;
-    private List<Function<CatalogInitialization, Void>> callbacks = MutableList.of();
-    /** has run an unofficial initialization (i.e. an early load, triggered by an early read of the catalog) */
-    private boolean hasRunUnofficialInitialization = false; 
+    /** has run the initial catalog initialization */
+    private boolean hasRunInitialCatalogInitialization = false; 
+
     /** has run an official initialization, but it is not a permanent one (e.g. during a hot standby mode, or a run failed) */
-    private boolean hasRunTransientOfficialInitialization = false; 
+    private boolean hasRunPersistenceInitialization = false; 
+
     /** has run an official initialization which is permanent (node is master, and the new catalog is now set) */
     private boolean hasRunFinalInitialization = false;
-    /** is running a populate method; used to prevent recursive loops */
-    private boolean isPopulating = false;
-    
+
     private ManagementContextInternal managementContext;
     private boolean isStartingUp = false;
     private boolean failOnStartupErrors = false;
     
-    private Object populatingCatalogMutex = new Object();
+    /** is running a populate method; used to prevent recursive loops */
+    private boolean isPopulatingInitial = false;
+
+    private final Object populatingCatalogMutex = new Object();
     
     public CatalogInitialization() {
         this(null);
@@ -112,7 +130,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
     
     @Override
     public void setManagementContext(ManagementContext managementContext) {
-        Preconditions.checkNotNull(managementContext, "management context");
+        checkNotNull(managementContext, "management context");
         if (this.managementContext!=null && managementContext!=this.managementContext)
             throw new IllegalStateException("Cannot switch management context, from "+this.managementContext+" to "+managementContext);
         this.managementContext = (ManagementContextInternal) managementContext;
@@ -128,88 +146,70 @@ public class CatalogInitialization implements ManagementContextInjectable {
         this.failOnStartupErrors = startupFailOnCatalogErrors;
     }
 
-    public CatalogInitialization addPopulationCallback(Function<CatalogInitialization, Void> callback) {
-        callbacks.add(callback);
-        return this;
-    }
-    
     public ManagementContextInternal getManagementContext() {
-        return Preconditions.checkNotNull(managementContext, "management context has not been injected into "+this);
+        return checkNotNull(managementContext, "management context has not been injected into "+this);
     }
 
     /** Returns true if the canonical initialization has completed, 
      * that is, an initialization which is done when a node is rebinded as master
      * (or an initialization done by the startup routines when not running persistence);
      * see also {@link #hasRunAnyInitialization()}. */
-    public boolean hasRunFinalInitialization() { return hasRunFinalInitialization; }
-    
-    /** Returns true if an official initialization has run,
-     * even if it was a transient run, e.g. so that the launch sequence can tell whether rebind has triggered initialization */
-    public boolean hasRunOfficialInitialization() { return hasRunFinalInitialization || hasRunTransientOfficialInitialization; }
-    
-    /** Returns true if the initializer has run at all,
-     * including transient initializations which might be needed before a canonical becoming-master rebind,
-     * for instance because the catalog is being accessed before loading rebind information
-     * (done by {@link #populateUnofficial(BasicBrooklynCatalog)}) */
-    public boolean hasRunAnyInitialization() { return hasRunFinalInitialization || hasRunTransientOfficialInitialization || hasRunUnofficialInitialization; }
-
-    /**
-     * This method will almost certainly be changed. It is an interim step, to move the catalog-initialization
-     * decisions and logic out of {@link org.apache.brooklyn.core.mgmt.rebind.RebindIteration} and into 
-     * a single place. We can then make smarter decisions about what to do with the persisted state's catalog.
-     * 
-     * @param mode
-     * @param persistedState
-     * @param exceptionHandler
-     * @param rebindLogger
-     */
-    @Beta
-    public void populateCatalog(ManagementNodeState mode, PersistedCatalogState persistedState, RebindExceptionHandler exceptionHandler, RebindLogger rebindLogger) {
-        // Always installing the bundles from persisted state
-        installBundles(mode, persistedState, exceptionHandler, rebindLogger);
-        
-        // Decide whether to add the persisted catalog items, or to use the "initial items".
-        // Logic copied (unchanged) from RebindIteration.installBundlesAndRebuildCatalog.
-        boolean isEmpty = persistedState.isEmpty();
-        Collection<CatalogItem<?,?>> itemsForResettingCatalog = null;
-        boolean needsInitialItemsLoaded;
-        boolean needsAdditionalItemsLoaded;
-        if (!isEmpty) {
-            rebindLogger.debug("RebindManager clearing local catalog and loading from persisted state");
-            itemsForResettingCatalog = persistedState.getLegacyCatalogItems();
-            needsInitialItemsLoaded = false;
-            // only apply "add" if we haven't yet done so while in MASTER mode
-            needsAdditionalItemsLoaded = !hasRunFinalInitialization();
-        } else {
-            if (hasRunFinalInitialization()) {
-                rebindLogger.debug("RebindManager has already done the final official run, not doing anything (even though persisted state empty)");
-                needsInitialItemsLoaded = false;
-                needsAdditionalItemsLoaded = false;
-            } else {
-                rebindLogger.debug("RebindManager loading initial catalog locally because persisted state empty and the final official run has not yet been performed");
-                needsInitialItemsLoaded = true;
-                needsAdditionalItemsLoaded = true;
-            }
-        }
-
-        // TODO in read-only mode, perhaps do this less frequently than entities etc, maybe only if things change?
-        populateCatalog(mode, needsInitialItemsLoaded, needsAdditionalItemsLoaded, itemsForResettingCatalog);
+    private boolean hasRunFinalInitialization() {
+        return hasRunFinalInitialization;
     }
     
-    /** makes or updates the mgmt catalog, based on the settings in this class 
-     * @param nodeState the management node for which this is being read; if master, then we expect this run to be the last one,
-     *   and so subsequent applications should ignore any initialization data (e.g. on a subsequent promotion to master, 
-     *   after a master -> standby -> master cycle)
-     * @param needsInitialItemsLoaded whether the catalog needs the initial items loaded
-     * @param needsAdditionalItemsLoaded whether the catalog needs the additions loaded
-     * @param optionalExplicitItemsForResettingCatalog
-     *   if supplied, the catalog is reset to contain only these items, before calling any other initialization
-     *   for use primarily when rebinding
+    private boolean hasRunInitialCatalogInitialization() {
+        return hasRunInitialCatalogInitialization;
+    }
+    
+    /**
+     * Returns true if we have added catalog bundles/items from persisted state.
      */
-    public void populateCatalog(ManagementNodeState nodeState, boolean needsInitialItemsLoaded, boolean needsAdditionsLoaded, Collection<CatalogItem<?, ?>> optionalExplicitItemsForResettingCatalog) {
+    private boolean hasRunPersistenceInitialization() {
+        return hasRunFinalInitialization || hasRunPersistenceInitialization;
+    }
+    
+    /**
+     * Returns true if the initializer has run at all.
+     */
+    @VisibleForTesting
+    @Beta
+    public boolean hasRunAnyInitialization() {
+        return hasRunFinalInitialization || hasRunInitialCatalogInitialization || hasRunPersistenceInitialization;
+    }
+
+    /**
+     * Populates the initial catalog (i.e. from the initial .bom file).
+     * 
+     * Expected to be called exactly once at startup.
+     */
+    public void populateInitialCatalogOnly() {
         if (log.isDebugEnabled()) {
-            String message = "Populating catalog for "+nodeState+", needsInitial="+needsInitialItemsLoaded+", needsAdditional="+needsAdditionsLoaded+", explicitItems="+(optionalExplicitItemsForResettingCatalog==null ? "null" : optionalExplicitItemsForResettingCatalog.size())+"; from "+JavaClassNames.callerNiceClassAndMethod(1);
-            if (!ManagementNodeState.isHotProxy(nodeState)) {
+            log.debug("Populating only the initial catalog; from "+JavaClassNames.callerNiceClassAndMethod(1));
+        }
+        synchronized (populatingCatalogMutex) {
+            if (hasRunInitialCatalogInitialization()) {
+                throw new IllegalStateException("Catalog initialization called to populate only initial, even though it has already run it");
+            }
+
+            populateInitialCatalogImpl(true);
+            onFinalCatalog();
+        }
+    }
+
+    /**
+     * Adds the given persisted catalog items.
+     * 
+     * Can be called multiple times, e.g.:
+     * <ul>
+     *   <li>if "hot-standby" then will be called repeatedly, as we rebind to the persisted state
+     *   <li> if being promoted to master then we will be called (and may already have been called for "hot-standby").
+     * </ul>
+     */
+    public void populateInitialAndPersistedCatalog(ManagementNodeState mode, PersistedCatalogState persistedState, RebindExceptionHandler exceptionHandler, RebindLogger rebindLogger) {
+        if (log.isDebugEnabled()) {
+            String message = "Add persisted catalog for "+mode+", persistedBundles="+persistedState.getBundles().size()+", legacyItems="+persistedState.getLegacyCatalogItems().size()+"; from "+JavaClassNames.callerNiceClassAndMethod(1);
+            if (!ManagementNodeState.isHotProxy(mode)) {
                 log.debug(message);
             } else {
                 // in hot modes, make this message trace so we don't get too much output then
@@ -217,75 +217,184 @@ public class CatalogInitialization implements ManagementContextInjectable {
             }
         }
         synchronized (populatingCatalogMutex) {
-            try {
-                if (hasRunFinalInitialization() && (needsInitialItemsLoaded || needsAdditionsLoaded)) {
-                    // if we have already run "final" then we should only ever be used to reset the catalog, 
-                    // not to initialize or add; e.g. we are being given a fixed list on a subsequent master rebind after the initial master rebind 
-                    log.warn("Catalog initialization called to populate initial, even though it has already run the final official initialization");
-                }
-                isPopulating = true;
-                BasicBrooklynCatalog catalog = (BasicBrooklynCatalog) managementContext.getCatalog();
-                if (!catalog.getCatalog().isLoaded()) {
-                    catalog.load();
-                } else {
-                    if (needsInitialItemsLoaded && hasRunAnyInitialization()) {
-                        // an indication that something caused it to load early; not severe, but unusual
-                        if (hasRunTransientOfficialInitialization) {
-                            log.debug("Catalog initialization now populating, but has noted a previous official run which was not final (probalby loaded while in a standby mode, or a previous run failed); overwriting any items installed earlier");
-                        } else {
-                            log.warn("Catalog initialization now populating, but has noted a previous unofficial run (it may have been an early web request); overwriting any items installed earlier");
-                        }
-                        catalog.reset(ImmutableList.<CatalogItem<?,?>>of());
+            if (hasRunFinalInitialization()) {
+                log.warn("Catalog initialization called to add persisted catalog, even though it has already run the final 'master' initialization; mode="+mode+" (perhaps previously demoted from master?)");      
+                hasRunFinalInitialization = false;
+            }
+            if (hasRunPersistenceInitialization()) {
+                // Multiple calls; will need to reset (only way to clear out the previous persisted state's catalog)
+                if (log.isDebugEnabled()) {
+                    String message = "Catalog initialization repeated call to add persisted catalog, resetting catalog (including initial) to start from clean slate; mode="+mode;
+                    if (!ManagementNodeState.isHotProxy(mode)) {
+                        log.debug(message);
+                    } else {
+                        // in hot modes, make this message trace so we don't get too much output then
+                        log.trace(message);
                     }
                 }
-
-                populateCatalogImpl(catalog, needsInitialItemsLoaded, needsAdditionsLoaded, optionalExplicitItemsForResettingCatalog);
-                if (nodeState == ManagementNodeState.MASTER) {
-                    // TODO ideally this would remain false until it has *persisted* the changed catalog;
-                    // if there is a subsequent startup failure the forced additions will not be persisted,
-                    // but nor will they be loaded on a subsequent run.
-                    // callers will have to restart a brooklyn, or reach into this class to change this field,
-                    // or (recommended) manually adjust the catalog.
-                    // TODO also, if a node comes up in standby, the addition might not take effector for a while
-                    //
-                    // however since these options are mainly for use on the very first brooklyn run, it's not such a big deal; 
-                    // once up and running the typical way to add items is via the REST API
-                    hasRunFinalInitialization = true;
-                }
-            } catch (Throwable e) {
-                log.warn("Error populating catalog (rethrowing): "+e, e);
-                throw Exceptions.propagate(e);
-            } finally {
-                if (!hasRunFinalInitialization) {
-                    hasRunTransientOfficialInitialization = true;
-                }
-                isPopulating = false;
+            } else if (hasRunInitialCatalogInitialization()) {
+                throw new IllegalStateException("Catalog initialization already run for initial catalog by mechanism other than populating persisted state; mode="+mode);      
+            }
+            
+            populateInitialCatalogImpl(true);
+            addPersistedCatalogImpl(persistedState, exceptionHandler, rebindLogger);
+            
+            if (mode == ManagementNodeState.MASTER) {
+                // TODO ideally this would remain false until it has *persisted* the changed catalog;
+                // if there is a subsequent startup failure the forced additions will not be persisted,
+                // but nor will they be loaded on a subsequent run.
+                // callers will have to restart a brooklyn, or reach into this class to change this field,
+                // or (recommended) manually adjust the catalog.
+                // TODO also, if a node comes up in standby, the addition might not take effector for a while
+                //
+                // however since these options are mainly for use on the very first brooklyn run, it's not such a big deal; 
+                // once up and running the typical way to add items is via the REST API
+                onFinalCatalog();
             }
         }
     }
 
-    private void populateCatalogImpl(BasicBrooklynCatalog catalog, boolean needsInitialItemsLoaded, boolean needsAdditionsLoaded, Collection<CatalogItem<?, ?>> optionalItemsForResettingCatalog) {
-        if (optionalItemsForResettingCatalog!=null) {
-            catalog.reset(optionalItemsForResettingCatalog);
+    /**
+     * Populates the initial catalog, but not via an official code-path.
+     * 
+     * Expected to be called only during tests, where the test has not gone through the same 
+     * management-context lifecycle as is done in BasicLauncher.
+     * 
+     * Subsequent calls will fail to things like {@link #populateInitialCatalog()} or 
+     * {@link #populateInitialAndPersistedCatalog(ManagementNodeState, PersistedCatalogState, RebindExceptionHandler, RebindLogger)}.
+     */
+    @VisibleForTesting
+    @Beta
+    public void unofficialPopulateInitialCatalog() {
+        if (log.isDebugEnabled()) {
+            log.debug("Unofficially populate initial catalog; should be used only by tests! Called from "+JavaClassNames.callerNiceClassAndMethod(1));
+        }
+        synchronized (populatingCatalogMutex) {
+            if (hasRunInitialCatalogInitialization()) {
+                return;
+            }
+
+            populateInitialCatalogImpl(true);
+        }
+    }
+
+    public void handleException(Throwable throwable, Object details) {
+        if (throwable instanceof InterruptedException)
+            throw new RuntimeInterruptedException((InterruptedException) throwable);
+        if (throwable instanceof RuntimeInterruptedException)
+            throw (RuntimeInterruptedException) throwable;
+
+        if (details instanceof CatalogItem) {
+            if (((CatalogItem<?,?>)details).getCatalogItemId() != null) {
+                details = ((CatalogItem<?,?>)details).getCatalogItemId();
+            }
+        }
+        PropagatedRuntimeException wrap = new PropagatedRuntimeException("Error loading catalog item "+details, throwable);
+        log.warn(Exceptions.collapseText(wrap));
+        log.debug("Trace for: "+wrap, wrap);
+
+        getManagementContext().errors().add(wrap);
+        
+        if (isStartingUp && failOnStartupErrors) {
+            throw new FatalRuntimeException("Unable to load catalog item "+details, wrap);
+        }
+    }
+    
+    private void confirmCatalog() {
+        // Force load of catalog (so web console is up to date)
+        Stopwatch time = Stopwatch.createStarted();
+        Iterable<RegisteredType> all = getManagementContext().getTypeRegistry().getAll();
+        int errors = 0;
+        for (RegisteredType rt: all) {
+            if (RegisteredTypes.isTemplate(rt)) {
+                // skip validation of templates, they might contain instructions,
+                // and additionally they might contain multiple items in which case
+                // the validation below won't work anyway (you need to go via a deployment plan)
+            } else {
+                if (rt.getKind()==RegisteredTypeKind.UNRESOLVED) {
+                    errors++;
+                    handleException(new UserFacingException("Unresolved type in catalog"), rt);
+                }
+            }
+        }
+
+        // and force resolution of legacy items
+        BrooklynCatalog catalog = getManagementContext().getCatalog();
+        Iterable<CatalogItem<Object, Object>> items = catalog.getCatalogItemsLegacy();
+        for (CatalogItem<Object, Object> item: items) {
+            try {
+                if (item.getCatalogItemType()==CatalogItemType.TEMPLATE) {
+                    // skip validation of templates, they might contain instructions,
+                    // and additionally they might contain multiple items in which case
+                    // the validation below won't work anyway (you need to go via a deployment plan)
+                } else {
+                    AbstractBrooklynObjectSpec<?, ?> spec = catalog.peekSpec(item);
+                    if (spec instanceof EntitySpec) {
+                        BrooklynTypes.getDefinedEntityType(((EntitySpec<?>)spec).getType());
+                    }
+                    log.debug("Catalog loaded spec "+spec+" for item "+item);
+                }
+            } catch (Throwable throwable) {
+                handleException(throwable, item);
+            }
         }
         
-        if (needsInitialItemsLoaded) {
-            populateInitial(catalog);
-        }
+        log.debug("Catalog (size "+Iterables.size(all)+", of which "+Iterables.size(items)+" legacy) confirmed in "+Duration.of(time)+(errors>0 ? ", errors found ("+errors+")" : ""));
+        // nothing else added here
+    }
 
-        if (needsAdditionsLoaded) {
-            populateViaCallbacks(catalog);
+    private void populateInitialCatalogImpl(boolean reset) {
+        assert Thread.holdsLock(populatingCatalogMutex);
+        
+        if (isPopulatingInitial) {
+            // Avoid recursively loops, where getCatalog() calls unofficialPopulateInitialCatalog(), but populateInitialCatalogImpl() also calls getCatalog()
+            return;
+        }
+        
+        isPopulatingInitial = true;
+        try {
+            BasicBrooklynCatalog catalog = (BasicBrooklynCatalog) managementContext.getCatalog();
+            if (!catalog.getCatalog().isLoaded()) {
+                catalog.load();
+            } else {
+                if (reset) {
+                    catalog.reset(ImmutableList.<CatalogItem<?,?>>of());
+                }
+            }
+
+            populateViaInitialBomImpl(catalog);
+
+        } catch (Throwable e) {
+            log.warn("Error populating catalog (rethrowing): "+e, e);
+            throw Exceptions.propagate(e);
+        } finally {
+            isPopulatingInitial = false;
+            hasRunInitialCatalogInitialization = true;
         }
     }
 
-    protected void populateInitial(BasicBrooklynCatalog catalog) {
-        if (disallowLocal) {
-            if (!hasRunFinalInitialization()) {
-                log.debug("CLI initial catalog not being read when local catalog load mode is disallowed.");
-            }
-            return;
-        }
+    private void addPersistedCatalogImpl(PersistedCatalogState persistedState, RebindExceptionHandler exceptionHandler, RebindLogger rebindLogger) {
+        assert Thread.holdsLock(populatingCatalogMutex);
 
+        try {
+            // Always installing the bundles from persisted state
+            installBundles(persistedState.getBundles(), exceptionHandler, rebindLogger);
+            
+            BrooklynCatalog catalog = managementContext.getCatalog();
+            catalog.addCatalogLegacyItemsOnRebind(persistedState.getLegacyCatalogItems());
+        } finally {
+            hasRunPersistenceInitialization = true;
+        }
+    }
+    
+    private void onFinalCatalog() {
+        assert Thread.holdsLock(populatingCatalogMutex);
+        
+        hasRunFinalInitialization = true;
+        confirmCatalog();
+    }
+
+    private void populateViaInitialBomImpl(BasicBrooklynCatalog catalog) {
 //        B1) look for --catalog-initial, if so read it, then go to C1
 //        B2) look for BrooklynServerConfig.BROOKLYN_CATALOG_URL, if so, read it, supporting YAML, then go to C1
 //        B3) look for ~/.brooklyn/catalog.bom, if exists, read it then go to C1
@@ -341,70 +450,18 @@ public class CatalogInitialization implements ManagementContextInjectable {
         }
     }
 
-    protected void populateViaCallbacks(BasicBrooklynCatalog catalog) {
-        for (Function<CatalogInitialization, Void> callback: callbacks)
-            callback.apply(this);
-    }
-
-    /** Creates the catalog based on parameters set here, if not yet loaded,
-     * but ignoring persisted state and warning if persistence is on and we are starting up
-     * (because the official persistence is preferred and the catalog will be subsequently replaced);
-     * for use when the catalog is accessed before persistence is completed. 
-     * <p>
-     * This method is primarily used during testing, which in many cases does not enforce the full startup order
-     * and which wants a local catalog in any case. It may also be invoked if a client requests the catalog
-     * while the server is starting up. */
-    public void populateUnofficial(BasicBrooklynCatalog catalog) {
-        synchronized (populatingCatalogMutex) {
-            // check isPopulating in case this method gets called from inside another populate call
-            if (hasRunAnyInitialization() || isPopulating) return;
-            log.debug("Populating catalog unofficially ("+catalog+")");
-            isPopulating = true;
-            try {
-                if (isStartingUp) {
-                    log.warn("Catalog access requested when not yet initialized; populating best effort rather than through recommended pathway. Catalog data may be replaced subsequently.");
-                }
-                populateCatalogImpl(catalog, true, true, null);
-            } finally {
-                hasRunUnofficialInitialization = true;
-                isPopulating = false;
-            }
-        }
-    }
-
-    public void handleException(Throwable throwable, Object details) {
-        if (throwable instanceof InterruptedException)
-            throw new RuntimeInterruptedException((InterruptedException) throwable);
-        if (throwable instanceof RuntimeInterruptedException)
-            throw (RuntimeInterruptedException) throwable;
-
-        if (details instanceof CatalogItem) {
-            if (((CatalogItem<?,?>)details).getCatalogItemId() != null) {
-                details = ((CatalogItem<?,?>)details).getCatalogItemId();
-            }
-        }
-        PropagatedRuntimeException wrap = new PropagatedRuntimeException("Error loading catalog item "+details, throwable);
-        log.warn(Exceptions.collapseText(wrap));
-        log.debug("Trace for: "+wrap, wrap);
-
-        getManagementContext().errors().add(wrap);
-        
-        if (isStartingUp && failOnStartupErrors) {
-            throw new FatalRuntimeException("Unable to load catalog item "+details, wrap);
-        }
-    }
-    
-    private void installBundles(ManagementNodeState mode, PersistedCatalogState persistedState, RebindExceptionHandler exceptionHandler, RebindLogger rebindLogger) {
+    private void installBundles(Map<VersionedName, InstallableManagedBundle> bundles, RebindExceptionHandler exceptionHandler, RebindLogger rebindLogger) {
         List<OsgiBundleInstallationResult> installs = MutableList.of();
 
         // Install the bundles
-        for (String bundleId : persistedState.getBundleIds()) {
+        for (Map.Entry<VersionedName, InstallableManagedBundle> entry : bundles.entrySet()) {
+            VersionedName bundleId = entry.getKey();
+            InstallableManagedBundle installableBundle = entry.getValue();
             rebindLogger.debug("RebindManager installing bundle {}", bundleId);
-            InstallableManagedBundle installableBundle = persistedState.getInstallableManagedBundle(bundleId);
             try (InputStream in = installableBundle.getInputStream()) {
                 installs.add(installBundle(installableBundle.getManagedBundle(), in));
             } catch (Exception e) {
-                exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, bundleId, installableBundle.getManagedBundle().getSymbolicName(), e);
+                exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, bundleId.toString(), installableBundle.getManagedBundle().getSymbolicName(), e);
             }
         }
         
@@ -461,11 +518,11 @@ public class CatalogInitialization implements ManagementContextInjectable {
     /** install the bundles into brooklyn and osgi, but do not start nor validate;
      * caller (rebind) will do that manually, doing each step across all bundles before proceeding 
      * to prevent reference errors */
-    public OsgiBundleInstallationResult installBundle(ManagedBundle bundle, InputStream zipInput) {
+    private OsgiBundleInstallationResult installBundle(ManagedBundle bundle, InputStream zipInput) {
         return getManagementContext().getOsgiManager().get().installDeferredStart(bundle, zipInput, false).get();
     }
     
-    public void startBundle(OsgiBundleInstallationResult br) throws BundleException {
+    private void startBundle(OsgiBundleInstallationResult br) throws BundleException {
         if (br.getDeferredStart()!=null) {
             br.getDeferredStart().run();
         }
@@ -481,26 +538,27 @@ public class CatalogInitialization implements ManagementContextInjectable {
         public InputStream getInputStream() throws IOException;
     }
     
-    public interface PersistedCatalogState {
-
-        /**
-         * Whether the persisted state is entirely empty.
-         */
-        public boolean isEmpty();
-
-        /**
-         * The persisted catalog items (from the {@code /catalog} sub-directory of the persisted state).
-         */
-        public Collection<CatalogItem<?,?>> getLegacyCatalogItems();
+    public static class PersistedCatalogState {
+        private final Map<VersionedName, InstallableManagedBundle> bundles;
+        private final Collection<CatalogItem<?, ?>> legacyCatalogItems;
         
+        public PersistedCatalogState(Map<VersionedName, InstallableManagedBundle> bundles, Collection<CatalogItem<?, ?>> legacyCatalogItems) {
+            this.bundles = checkNotNull(bundles, "bundles");
+            this.legacyCatalogItems = checkNotNull(legacyCatalogItems, "legacyCatalogItems");
+        }
+
         /**
          * The persisted bundles (from the {@code /bundles} sub-directory of the persisted state).
          */
-        public Set<String> getBundleIds();
+        public Map<VersionedName, InstallableManagedBundle> getBundles() {
+            return bundles;
+        }
         
         /**
-         * Loads the details of a particular bundle, so it can be installed.
+         * The persisted catalog items (from the {@code /catalog} sub-directory of the persisted state).
          */
-        public InstallableManagedBundle getInstallableManagedBundle(String id);
+        public Collection<CatalogItem<?,?>> getLegacyCatalogItems() {
+            return legacyCatalogItems;
+        }
     }
 }

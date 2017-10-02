@@ -421,12 +421,6 @@ public abstract class AbstractManagementContext implements ManagementContextInte
 
     @Override
     public BrooklynCatalog getCatalog() {
-        if (!getCatalogInitialization().hasRunAnyInitialization()) {
-            // catalog init is needed; normally this will be done from start sequence,
-            // but if accessed early -- and in tests -- we will load it here
-            getCatalogInitialization().setManagementContext(this);
-            getCatalogInitialization().populateUnofficial(catalog);
-        }
         return catalog;
     }
     
@@ -505,7 +499,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         return uri;
     }
     
-    private Object catalogInitMutex = new Object();
+    private final Object catalogInitMutex = new Object();
     @Override
     public CatalogInitialization getCatalogInitialization() {
         synchronized (catalogInitMutex) {

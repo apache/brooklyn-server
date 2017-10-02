@@ -109,6 +109,7 @@ import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -350,42 +351,14 @@ public abstract class RebindIteration {
             }
         }
         
-        class PersistedCatalogStateImpl implements CatalogInitialization.PersistedCatalogState {
-            private final boolean isEmpty;
-            private final Collection<CatalogItem<?, ?>> legacyCatalogItems;
-            private final Map<String, ? extends InstallableManagedBundle> bundles;
-            
-            PersistedCatalogStateImpl(boolean isEmpty, Collection<CatalogItem<?, ?>> legacyCatalogItems, Map<String, ? extends InstallableManagedBundle> bundles) {
-                this.isEmpty = isEmpty;
-                this.legacyCatalogItems = legacyCatalogItems;
-                this.bundles = bundles;
-            }
-            
-            @Override public boolean isEmpty() {
-                return isEmpty;
-            }
-
-            @Override public Collection<CatalogItem<?, ?>> getLegacyCatalogItems() {
-                return legacyCatalogItems;
-            }
-
-            @Override public Set<String> getBundleIds() {
-                return bundles.keySet();
-            }
-
-            @Override public InstallableManagedBundle getInstallableManagedBundle(String id) {
-                return bundles.get(id);
-            }
-        }
-        
-        Map<String, InstallableManagedBundleImpl> bundles = new LinkedHashMap<>();
+        Map<VersionedName, InstallableManagedBundle> bundles = new LinkedHashMap<>();
         Collection<CatalogItem<?,?>> legacyCatalogItems = new ArrayList<>();
         
         // Find the bundles
         if (rebindManager.persistBundlesEnabled) {
             for (ManagedBundleMemento bundleMemento : mementoManifest.getBundles().values()) {
                 ManagedBundle managedBundle = instantiator.newManagedBundle(bundleMemento);
-                bundles.put(bundleMemento.getId(), new InstallableManagedBundleImpl(bundleMemento, managedBundle));
+                bundles.put(managedBundle.getVersionedName(), new InstallableManagedBundleImpl(bundleMemento, managedBundle));
             }
         } else {
             logRebindingDebug("Not rebinding bundles; feature disabled: {}", mementoManifest.getBundleIds());
@@ -433,10 +406,10 @@ public abstract class RebindIteration {
 
 
         // Delegates to CatalogInitialization; see notes there.
-        CatalogInitialization.PersistedCatalogState persistedCatalogState = new PersistedCatalogStateImpl(isEmpty, legacyCatalogItems, bundles);
+        CatalogInitialization.PersistedCatalogState persistedCatalogState = new CatalogInitialization.PersistedCatalogState(bundles, legacyCatalogItems);
         
         CatalogInitialization catInit = managementContext.getCatalogInitialization();
-        catInit.populateCatalog(mode, persistedCatalogState, exceptionHandler, rebindLogger);
+        catInit.populateInitialAndPersistedCatalog(mode, persistedCatalogState, exceptionHandler, rebindLogger);
     }
 
     protected void instantiateLocationsAndEntities() {

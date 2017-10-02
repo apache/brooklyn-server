@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.test.entity;
 
 import java.util.Map;
 
+import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
@@ -209,4 +210,15 @@ public class LocalManagementContextForTests extends LocalManagementContext {
         return builder(true).enableOsgiReusable().build();
     }
 
+    @Override
+    public BrooklynCatalog getCatalog() {
+        if (!getCatalogInitialization().hasRunAnyInitialization()) {
+            // Before catalog init, the catalog will be empty.
+            // Normally the BasicLauncher (either the classic BrooklynLauncher or the OsgiLauncher)
+            // will have ensured the catalog initialization is called. But for tests, the lifecycle
+            // for the management context is unfortunately different.
+            getCatalogInitialization().unofficialPopulateInitialCatalog();
+        }
+        return catalog;
+    }
 }
