@@ -47,7 +47,6 @@ import org.apache.brooklyn.core.entity.EntityFunctions;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
-import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.util.time.Duration;
@@ -100,7 +99,6 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
     @Override
     protected LocalManagementContext createOrigManagementContext() {
         BrooklynProperties properties = BrooklynProperties.Factory.newDefault();
-        properties.put(BrooklynServerConfig.CATALOG_LOAD_MODE, org.apache.brooklyn.core.catalog.CatalogLoadMode.LOAD_BROOKLYN_CATALOG_URL);
         return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
                 .properties(properties)
                 .persistPeriodMillis(getPersistPeriodMillis())

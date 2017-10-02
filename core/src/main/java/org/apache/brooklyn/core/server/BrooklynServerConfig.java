@@ -28,7 +28,6 @@ import java.util.Map;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
-import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.mgmt.usage.ManagementNodeStateListener;
 import org.apache.brooklyn.core.mgmt.usage.UsageListener;
@@ -119,13 +118,6 @@ public class BrooklynServerConfig {
 
     public static final ConfigKey<String> BROOKLYN_CATALOG_URL = ConfigKeys.newStringConfigKey("brooklyn.catalog.url",
         "The URL of a custom catalog.bom to load");
-
-    /** @deprecated since 0.7.0 replaced by {@link CatalogInitialization}; also note, default removed 
-     * (it was overridden anyway, and in almost all cases the new behaviour is still the default behaviour) */
-    @Deprecated
-    public static final ConfigKey<org.apache.brooklyn.core.catalog.CatalogLoadMode> CATALOG_LOAD_MODE = ConfigKeys.newConfigKey(org.apache.brooklyn.core.catalog.CatalogLoadMode.class,
-            "brooklyn.catalog.mode",
-            "The mode the management context should use to load the catalog when first starting");
 
     /** string used in places where the management node ID is needed to resolve a path */
     public static final String MANAGEMENT_NODE_ID_PROPERTY = "brooklyn.mgmt.node.id";

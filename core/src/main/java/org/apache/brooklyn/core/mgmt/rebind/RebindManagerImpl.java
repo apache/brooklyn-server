@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -211,14 +210,6 @@ public class RebindManagerImpl implements RebindManager {
     public void setPeriodicPersistPeriod(Duration period) {
         if (persistenceStoreAccess!=null) throw new IllegalStateException("Cannot set period after persister is generated.");
         this.periodicPersistPeriod = period;
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@link #setPeriodicPersistPeriod(Duration)}
-     */
-    @Deprecated
-    public void setPeriodicPersistPeriod(long periodMillis) {
-        setPeriodicPersistPeriod(Duration.of(periodMillis, TimeUnit.MILLISECONDS));
     }
 
     public boolean isPersistenceRunning() {
@@ -455,12 +446,6 @@ public class RebindManagerImpl implements RebindManager {
 
     @Override
     @VisibleForTesting
-    public void forcePersistNow() {
-        forcePersistNow(false, null);
-    }
-
-    @Override
-    @VisibleForTesting
     public void forcePersistNow(boolean full, PersistenceExceptionHandler exceptionHandler) {
         if (persistenceStoreAccess == null || persistenceRealChangeListener == null) {
             LOG.info("Skipping forced persist; no persistence mechanism available");
@@ -482,21 +467,6 @@ public class RebindManagerImpl implements RebindManager {
     @Override
     public ChangeListener getChangeListener() {
         return persistencePublicChangeListener;
-    }
-    
-    @Override
-    public List<Application> rebind() {
-        return rebind(null, null, null);
-    }
-    
-    @Override
-    public List<Application> rebind(final ClassLoader classLoader) {
-        return rebind(classLoader, null, null);
-    }
-
-    @Override
-    public List<Application> rebind(final ClassLoader classLoader, final RebindExceptionHandler exceptionHandler) {
-        return rebind(classLoader, exceptionHandler, null);
     }
     
     @Override
