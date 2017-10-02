@@ -227,7 +227,7 @@ public class BrooklynConfigKeys {
             .description("Latch for blocking files being copied before the pre-install; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
             .build();
     public static final ConfigKey<Boolean> INSTALL_RESOURCES_LATCH = ConfigKeys.builder(Boolean.class)
-            .name("latch.install.reources")
+            .name("latch.install.resources")
             .deprecatedNames("resources.install.latch") 
             .description("Latch for blocking files being copied before the install; if non-null will wait for this to resolve (normal use is with '$brooklyn:attributeWhenReady')")
             .build();
