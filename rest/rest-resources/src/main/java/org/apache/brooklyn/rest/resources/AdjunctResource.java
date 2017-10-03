@@ -106,7 +106,7 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
     // TODO would like to make 'config' arg optional but jersey complains if we do
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Override
-    public AdjunctSummary addAdjunct(String application, String entityToken, String adjunctTypeName, Map<String, String> config) {
+    public AdjunctDetail addAdjunct(String application, String entityToken, String adjunctTypeName, Map<String, String> config) {
         Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, entity)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
@@ -227,7 +227,7 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
         EntityAdjunct adjunct = brooklyn().getAdjunct(entity, adjunctToken);
 
         List<ConfigSummary> result = Lists.newArrayList();
-        for (ConfigKey<?> key : adjunct.config().findKeysPresent(Predicates.alwaysTrue())) {
+        for (ConfigKey<?> key : adjunct.config().findKeysDeclared(Predicates.alwaysTrue())) {
             result.add(ConfigTransformer.of(key).on(entity, adjunct).includeLinks(ui.getBaseUriBuilder(), false, true).transform());
         }
         return result;
@@ -237,7 +237,6 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
     // (and in sensors class)
     @Override
     public Map<String, Object> batchConfigRead(String application, String entityToken, String adjunctToken) {
-        // TODO: add test
         return EntityTransformer.getConfigValues(brooklyn(), brooklyn().getAdjunct(application, entityToken, adjunctToken) );
     }
 
@@ -266,7 +265,7 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
         if (cki.isEmpty()) throw WebResourceUtils.notFound("Cannot find config key '%s' in adjunct '%s' of entity '%s'", configKeyName, adjunctToken, entityToken);
         ConfigKey<?> ck = cki.iterator().next();
         
-        adjunct.config().set((ConfigKey) cki, TypeCoercions.coerce(value, ck.getTypeToken()));
+        adjunct.config().set((ConfigKey) ck, TypeCoercions.coerce(value, ck.getTypeToken()));
 
         return Response.status(Response.Status.OK).build();
     }

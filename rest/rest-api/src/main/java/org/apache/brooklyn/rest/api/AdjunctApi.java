@@ -72,7 +72,7 @@ public interface AdjunctApi {
             @ApiResponse(code = 404, message = "Could not find application or entity"),
             @ApiResponse(code = 400, message = "Type is not a suitable adjunct")
     })
-    public AdjunctSummary addAdjunct(
+    public AdjunctDetail addAdjunct(
             @ApiParam(name = "application", value = "Application ID or name", required = true)
             @PathParam("application") String application,
 
