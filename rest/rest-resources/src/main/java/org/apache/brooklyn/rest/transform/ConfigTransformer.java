@@ -79,6 +79,8 @@ public class ConfigTransformer {
         return this;
     }
     
+    /** configures this transformer to be able to include links, and which types of links to include;
+     * note {@link #on(Entity)} or {@link #on(Entity, EntityAdjunct)} is needed to construct most links. */
     public ConfigTransformer includeLinks(UriBuilder ub, boolean includeContextLinks, boolean includeActionLinks) {
         this.ub = ub;
         this.includeContextLinks = includeContextLinks;

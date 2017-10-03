@@ -23,11 +23,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import org.apache.brooklyn.rest.api.TypeApi;
+
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
-/** @deprecated since 0.12.0 new TypeApi returns TypeSummary */
+/** @deprecated since 0.13.0 new {@link TypeApi} returns {@link TypeSummary} */
 @Deprecated
 public class CatalogEntitySummary extends CatalogItemSummary {
 

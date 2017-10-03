@@ -54,18 +54,20 @@ public interface AdjunctApi {
             response = org.apache.brooklyn.rest.domain.AdjunctSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application or entity")
+            @ApiResponse(code = 404, message = "Could not find application or entity"),
+            @ApiResponse(code = 400, message = "Type is not known adjunct kind")
     })
     public List<AdjunctSummary> list(
             @ApiParam(value = "Application ID or name", required = true)
             @PathParam("application") final String application,
             @ApiParam(value = "Entity ID or name", required = true)
             @PathParam("entity") final String entityToken,
-            @ApiParam(value = "Filter by adjunct type", required = false)
+            @ApiParam(value = "Filter by adjunct type (policy, enricher, feed)", required = false)
             @QueryParam("adjunctType") final String adjunctType);
 
+    // TODO support YAML ?
     @POST
-    @ApiOperation(value = "Add an adjunct (policy, enricher, or feed)", notes = "Returns a summary of the added adjunct")
+    @ApiOperation(value = "Create and add an adjunct (e.g. a policy, enricher, or feed) to this entity", notes = "Returns a summary of the added adjunct")
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Could not find application or entity"),
             @ApiResponse(code = 400, message = "Type is not a suitable adjunct")
@@ -121,7 +123,8 @@ public interface AdjunctApi {
     @Path("/{adjunct}/start")
     @ApiOperation(value = "Start or resume an adjunct")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity or adjunct")
+            @ApiResponse(code = 404, message = "Could not find application, entity or adjunct"),
+            @ApiResponse(code = 400, message = "Adjunct does not support start/stop")
     })
     public Response start(
             @ApiParam(name = "application", value = "Application ID or name", required = true)
@@ -137,7 +140,8 @@ public interface AdjunctApi {
     @Path("/{adjunct}/stop")
     @ApiOperation(value = "Suspends an adjunct")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity or adjunct")
+            @ApiResponse(code = 404, message = "Could not find application, entity or adjunct"),
+            @ApiResponse(code = 400, message = "Adjunct does not support start/stop")
     })
     public Response stop(
             @ApiParam(name = "application", value = "Application ID or name", required = true)

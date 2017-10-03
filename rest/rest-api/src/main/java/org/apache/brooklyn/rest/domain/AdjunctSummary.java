@@ -58,8 +58,6 @@ public class AdjunctSummary implements HasName, Serializable, Identifiable {
         highlights = a.getHighlights();
     }
         
-    /** @deprecated since 0.12.0 only for legacy type-specific summary classes */
-    @Deprecated   
     protected AdjunctSummary(
             String id,
             String name,

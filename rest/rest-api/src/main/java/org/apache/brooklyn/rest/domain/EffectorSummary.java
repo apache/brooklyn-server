@@ -23,8 +23,9 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
@@ -38,7 +39,7 @@ public class EffectorSummary implements HasName, Serializable {
 
         private final String name;
         private final String type;
-        @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+        @JsonInclude(Include.NON_NULL)
         private final String description;
         private final T defaultValue;
         private final boolean shouldSanitize;
@@ -110,9 +111,9 @@ public class EffectorSummary implements HasName, Serializable {
     private final String name;
     private final String returnType;
     private final Set<ParameterSummary<?>> parameters;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_EMPTY)
     private final String description;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_EMPTY)
     private final Map<String, URI> links;
 
     public EffectorSummary(

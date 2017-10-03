@@ -26,7 +26,7 @@ import org.apache.brooklyn.api.objs.HighlightTuple;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** @deprecated since 0.12.0 use {@link AdjunctSummary}; this class is identical */
+/** @deprecated since 0.13.0 use {@link AdjunctSummary}; this class is identical */
 @Deprecated
 public class PolicySummary extends AdjunctSummary {
 

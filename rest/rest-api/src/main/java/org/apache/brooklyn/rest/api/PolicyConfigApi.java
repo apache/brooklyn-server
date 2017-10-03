@@ -42,7 +42,7 @@ import io.swagger.annotations.ApiResponses;
 @Api("Entity Policy Config")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-/** @deprecated since 0.12.0 use AdjunctApi */
+/** @deprecated since 0.13.0 use AdjunctApi */
 @Deprecated
 public interface PolicyConfigApi {
 
