@@ -91,6 +91,7 @@ public class EntityManagementUtils {
      */
     @Beta
     public static <T extends Application> T createUnstarted(ManagementContext mgmt, EntitySpec<T> spec, Optional<String> entityId) {
+        // TODO wrap in task
         T app = ((EntityManagerInternal)mgmt.getEntityManager()).createEntity(spec, entityId);
         return app;
     }

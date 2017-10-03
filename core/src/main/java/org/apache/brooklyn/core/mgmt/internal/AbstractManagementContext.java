@@ -72,7 +72,6 @@ import org.apache.brooklyn.core.mgmt.ha.HighAvailabilityManagerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
@@ -240,7 +239,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
                     BrooklynTaskTags.tagForContextEntity(e),
                     this
             );
-            return new BasicExecutionContext(MutableMap.of("tags", tags), getExecutionManager());
+            return new BasicExecutionContext(getExecutionManager(), tags);
         } else {
             return ((EntityInternal)e).getExecutionContext();
         }
@@ -253,7 +252,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
                 this,
                 BrooklynTaskTags.BROOKLYN_SERVER_TASK_TAG
         );
-        return new BasicExecutionContext(MutableMap.of("tags", tags), getExecutionManager());
+        return new BasicExecutionContext(getExecutionManager(), tags);
     }
 
     @Override

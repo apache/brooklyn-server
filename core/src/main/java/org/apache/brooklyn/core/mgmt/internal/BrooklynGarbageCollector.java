@@ -52,6 +52,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.ExecutionListener;
+import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe.SoftlyPresent;
@@ -291,17 +292,14 @@ public class BrooklynGarbageCollector {
         }
     }
     
-    /** @deprecated since 0.7.0, method moved internal until semantics are clarified; see also {@link #shouldDeleteTaskImmediately(Task)} */
-    @Deprecated
-    public boolean shouldDeleteTask(Task<?> task) {
-        return shouldDeleteTaskImmediately(task);
-    }
     /** whether this task should be deleted on completion,
      * because it is transient, or because it is submitted background without much context information */
     protected boolean shouldDeleteTaskImmediately(Task<?> task) {
-        if (!task.isDone()) return false;
+        if (!task.isDone(true)) {
+            return false;
+        }
         
-        Set<Object> tags = task.getTags();
+        Set<Object> tags = BrooklynTaskTags.getTagsFast(task);
         if (tags.contains(ManagementContextInternal.TRANSIENT_TASK_TAG))
             return true;
         if (tags.contains(ManagementContextInternal.EFFECTOR_TAG) || tags.contains(ManagementContextInternal.NON_TRANSIENT_TASK_TAG))
@@ -429,7 +427,10 @@ public class BrooklynGarbageCollector {
         while (ei.hasNext()) {
             Entry<Entity, Task<?>> ee = ei.next();
             if (Entities.isManaged(ee.getKey())) continue;
-            if (ee.getValue()!=null && !ee.getValue().isDone()) continue;
+            if (ee.getValue()!=null && !ee.getValue().isDone(true)) {
+                // wait for the unmanagement task to complete
+                continue;
+            }
             deleteTasksForEntity(ee.getKey());
             synchronized (unmanagedEntitiesNeedingGc) {
                 unmanagedEntitiesNeedingGc.remove(ee.getKey());
@@ -445,7 +446,7 @@ public class BrooklynGarbageCollector {
 
         try {
             for (Task<?> task: allTasks) {
-                if (!task.isDone()) continue;
+                if (!task.isDone(true)) continue;
                 if (BrooklynTaskTags.isSubTask(task)) continue;
 
                 if (maxTaskAge.isShorterThan(Duration.sinceUtc(task.getEndTimeUtc())))
@@ -465,7 +466,7 @@ public class BrooklynGarbageCollector {
     protected void expireTransientTasks() {
         Set<Task<?>> transientTasks = executionManager.getTasksWithTag(BrooklynTaskTags.TRANSIENT_TASK_TAG);
         for (Task<?> t: transientTasks) {
-            if (!t.isDone()) continue;
+            if (!t.isDone(true)) continue;
             executionManager.deleteTask(t);
         }
     }
@@ -531,9 +532,9 @@ public class BrooklynGarbageCollector {
         List<Task<?>> tasksToConsiderDeleting = MutableList.of();
         try {
             for (Task<?> task: tasks) {
-                if (!task.isDone()) continue;
+                if (!task.isDone(true)) continue;
                 
-                Set<Object> tags = task.getTags();
+                Set<Object> tags = TaskTags.getTagsFast(task);
 
                 int categoryTags = 0, tooFullCategoryTags = 0;
                 for (Object tag: tags) {

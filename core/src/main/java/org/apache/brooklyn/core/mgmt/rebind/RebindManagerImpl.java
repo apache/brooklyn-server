@@ -346,7 +346,7 @@ public class RebindManagerImpl implements RebindManager {
             }
         };
         readOnlyTask = (ScheduledTask) managementContext.getServerExecutionContext().submit(
-            new ScheduledTask(MutableMap.of("displayName", "Periodic read-only rebind"), taskFactory).period(periodicPersistPeriod));
+            ScheduledTask.builder(taskFactory).displayName("scheduled:[periodic-read-only-rebind]").period(periodicPersistPeriod).build() );
     }
     
     @Override

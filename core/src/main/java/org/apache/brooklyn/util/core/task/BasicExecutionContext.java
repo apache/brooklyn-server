@@ -26,8 +26,13 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -41,8 +46,12 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedEntity;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier.ImmediateUnsupportedException;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.time.CountdownTimer;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,23 +75,37 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     final Set<Object> tags = new LinkedHashSet<Object>();
 
     public BasicExecutionContext(ExecutionManager executionManager) {
-        this(Collections.emptyMap(), executionManager);
+        this(executionManager, null);
     }
     
     /**
+     * As {@link #BasicExecutionContext(ExecutionManager, Iterable)} but taking a flags map.
      * Supported flags are {@code tag} and {@code tags}
      * 
      * @see ExecutionManager#submit(Map, TaskAdaptable)
+     * @deprecated since 0.12.0 use {@link #BasicExecutionContext(ExecutionManager, Iterable)}
      */
+    @Deprecated
     public BasicExecutionContext(Map<?, ?> flags, ExecutionManager executionManager) {
+        this(executionManager, MutableSet.of().put(flags.remove("tag")).putAll((Iterable<?>)flags.remove("tag")));
+        if (!flags.isEmpty()) {
+            log.warn("Unexpected flags passed to execution context ("+tags+"): "+flags,
+                new Throwable("Trace for unexpected flags passed to execution context"));
+        }
+    }
+    
+    /**
+     * Creates an execution context which wraps {@link ExecutionManager}
+     * adding the given tags to all tasks submitted through this context.
+     */
+    public BasicExecutionContext(ExecutionManager executionManager, Iterable<?> tagsForThisContext) {
         this.executionManager = executionManager;
+        if (tagsForThisContext!=null) Iterables.addAll(tags, tagsForThisContext);
 
-        if (flags.get("tag") != null) tags.add(flags.remove("tag"));
-        if (flags.containsKey("tags")) tags.addAll((Collection<?>)flags.remove("tags"));
-
-        // FIXME brooklyn-specific check, just for sanity
+        // brooklyn-specific check, just for sanity
         // the context tag should always be a non-proxy entity, because that is what is passed to effector tasks
         // which may require access to internal methods
+        // (could remove this check if generalizing; it has been here for a long time and the problem seems gone)
         for (Object tag: tags) {
             if (tag instanceof BrooklynTaskTags.WrappedEntity) {
                 if (Proxy.isProxyClass(((WrappedEntity)tag).entity.getClass())) {
@@ -100,6 +123,125 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     @Override
     public Set<Task<?>> getTasks() { return executionManager.getTasksWithAllTags(tags); }
 
+    @Override
+    public <T> T get(TaskAdaptable<T> task) {
+        final TaskInternal<T> t = (TaskInternal<T>) task.asTask();
+        
+        if (t.isQueuedOrSubmitted()) {
+            return t.getUnchecked();
+        }
+        
+        ContextSwitchingInfo<T> switchContextWrapper = getContextSwitchingTask(t, Collections.emptyList(), false);
+        if (switchContextWrapper!=null) {
+            return switchContextWrapper.context.get(switchContextWrapper.wrapperTask);
+        }
+
+        try {
+            return runInSameThread(t, new Callable<Maybe<T>>() {
+                public Maybe<T> call() throws Exception {
+                    return Maybe.of(t.getJob().call());
+                }
+            }).get();
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
+    }
+    
+    // could perhaps use Guava's SettableFuture -- though would have to take care re 
+    // supporting set(Maybe<T>)
+    private static class SimpleFuture<T> implements Future<T> {
+        boolean cancelled = false;
+        boolean done = false;
+        Maybe<T> result;
+        
+        public synchronized Maybe<T> set(Maybe<T> result) {
+            this.result = result;
+            done = true;
+            notifyAll();
+            return result;
+        }
+
+        @Override
+        public boolean cancel(boolean mayInterruptIfRunning) {
+            cancelled = true;
+            return true;
+        }
+
+        @Override
+        public boolean isCancelled() {
+            return cancelled;
+        }
+
+        @Override
+        public boolean isDone() {
+            return done || cancelled;
+        }
+
+        @Override
+        public T get() throws InterruptedException, ExecutionException {
+            if (!isDone()) {
+                synchronized (this) {
+                    while (!isDone()) {
+                        wait(1000);
+                    }
+                }
+            }
+            if (isCancelled() && !done) {
+                throw new CancellationException();
+            }
+            return result.get();
+        }
+
+        @Override
+        public synchronized T get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+            if (isDone()) return get();
+            CountdownTimer time = CountdownTimer.newInstanceStarted( Duration.of(timeout, unit) );
+            while (!time.isExpired()) {
+                wait(time.getDurationRemaining().lowerBound(Duration.ONE_MILLISECOND).toMilliseconds());
+                if (isDone()) return get();
+            }
+            throw new TimeoutException();
+        }
+    }
+    
+    /** Internal utility method to avoid replication between 
+     * implementations in {@link #get(Task)} and {@link #getImmediately(Object)}.
+     * The two submit different jobs but after doing a lot of the same setup and catch/finally.
+     * Logic re return type is a little fiddly given the differences but should be clearer
+     * seeing how the two work (as opposed to this method being designed as something
+     * more generally useful). */
+    private <T> Maybe<T> runInSameThread(final Task<T> task, Callable<Maybe<T>> job) throws Exception {
+        ((TaskInternal<T>)task).getMutableTags().addAll(tags);
+        
+        Task<?> previousTask = BasicExecutionManager.getPerThreadCurrentTask().get();
+        BasicExecutionContext oldExecutionContext = getCurrentExecutionContext();
+        registerPerThreadExecutionContext();
+        ((BasicExecutionManager)executionManager).beforeSubmitInSameThreadTask(null, task);
+        
+        SimpleFuture<T> future = new SimpleFuture<>();
+        Throwable error = null;
+        try {
+            ((BasicExecutionManager)executionManager).afterSubmitRecordFuture(task, future);
+            ((BasicExecutionManager)executionManager).beforeStartInSameThreadTask(null, task);
+            return future.set(job.call());
+            
+        } catch (Exception e) {
+            future.set(Maybe.absent(e));
+            Exceptions.propagateIfInterrupt(e);
+            error = e;
+            // error above will be rethrown by `afterEnd`
+            return null;  // not actually returned
+            
+        } finally {
+            try {
+                ((BasicExecutionManager)executionManager).afterEndInSameThreadTask(null, task, error);
+            } finally {
+                BasicExecutionManager.getPerThreadCurrentTask().set(previousTask);
+                perThreadExecutionContext.set(oldExecutionContext);
+            }
+        }
+    }
+    
     /** performs execution without spawning a new task thread, though it does temporarily set a fake task for the purpose of getting context;
      * currently supports {@link Supplier}, {@link Callable}, {@link Runnable}, or {@link Task} instances; 
      * with tasks if it is submitted or in progress,
@@ -110,48 +252,57 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     @SuppressWarnings("unchecked")
     @Override
     public <T> Maybe<T> getImmediately(Object callableOrSupplier) {
-        BasicTask<?> fakeTaskForContext;
+        BasicTask<T> fakeTaskForContext;
         if (callableOrSupplier instanceof BasicTask) {
-            fakeTaskForContext = (BasicTask<?>)callableOrSupplier;
+            fakeTaskForContext = (BasicTask<T>)callableOrSupplier;
             if (fakeTaskForContext.isQueuedOrSubmitted()) {
                 if (fakeTaskForContext.isDone()) {
-                    return Maybe.of((T)fakeTaskForContext.getUnchecked());
+                    return Maybe.of(fakeTaskForContext.getUnchecked());
                 } else {
                     throw new ImmediateUnsupportedException("Task is in progress and incomplete: "+fakeTaskForContext);
                 }
             }
             callableOrSupplier = fakeTaskForContext.getJob();
+        } else if (callableOrSupplier instanceof TaskAdaptable) {
+            return getImmediately( ((TaskAdaptable<T>)callableOrSupplier).asTask() );
         } else {
-            fakeTaskForContext = new BasicTask<Object>(MutableMap.of("displayName", "immediate evaluation"));
+            fakeTaskForContext = new BasicTask<T>(MutableMap.of("displayName", "Immediate evaluation"));
         }
-        fakeTaskForContext.tags.addAll(tags);
+        final ImmediateSupplier<T> job = callableOrSupplier instanceof ImmediateSupplier ? (ImmediateSupplier<T>) callableOrSupplier 
+            : InterruptingImmediateSupplier.<T>of(callableOrSupplier);
         fakeTaskForContext.tags.add(BrooklynTaskTags.IMMEDIATE_TASK_TAG);
         fakeTaskForContext.tags.add(BrooklynTaskTags.TRANSIENT_TASK_TAG);
-        
-        Task<?> previousTask = BasicExecutionManager.getPerThreadCurrentTask().get();
-        BasicExecutionContext oldExecutionContext = getCurrentExecutionContext();
-        registerPerThreadExecutionContext();
 
-        if (previousTask!=null) fakeTaskForContext.setSubmittedByTask(previousTask);
-        fakeTaskForContext.cancel();
+        ContextSwitchingInfo<T> switchContextWrapper = getContextSwitchingTask(fakeTaskForContext, Collections.emptyList(), true);
+        if (switchContextWrapper!=null) {
+            return switchContextWrapper.context.getImmediately(switchContextWrapper.wrapperTask);
+        }
+
         try {
-            BasicExecutionManager.getPerThreadCurrentTask().set(fakeTaskForContext);
-            
-            if (!(callableOrSupplier instanceof ImmediateSupplier)) {
-                callableOrSupplier = InterruptingImmediateSupplier.of(callableOrSupplier);
-            }
-            boolean wasAlreadyInterrupted = Thread.interrupted();
-            try {
-                return ((ImmediateSupplier<T>)callableOrSupplier).getImmediately();
-            } finally {
-                if (wasAlreadyInterrupted) {
-                    Thread.currentThread().interrupt();
-                }
-            }
- 
-        } finally {
-            BasicExecutionManager.getPerThreadCurrentTask().set(previousTask);
-            perThreadExecutionContext.set(oldExecutionContext);
+            return runInSameThread(fakeTaskForContext, new Callable<Maybe<T>>() {
+                public Maybe<T> call() {
+                    // could try to make this work for more types of tasks by not cancelling, just interrupting;
+                    // however there is a danger that immediate-submission tasks are leaked if we don't cancel.
+                    // for instance with DSTs the thread interrupt may apply only to the main job queue.andWait blocking,
+                    // leaving other tasks leaked.
+                    //
+                    // this method is best-effort so fine if it doesn't succeed.  good if we can expand
+                    // coverage but NOT at the expense of major leaks of course!
+                    //
+                    // see WIP test in EffectorSayHiTest
+                    fakeTaskForContext.cancel();
+                    
+                    boolean wasAlreadyInterrupted = Thread.interrupted();
+                    try {
+                        return job.getImmediately();
+                    } finally {
+                        if (wasAlreadyInterrupted) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                } });
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
         }
     }
     
@@ -162,67 +313,18 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             return submitInternal(propertiesQ, ((TaskAdaptable<?>)task).asTask());
         
         Map properties = MutableMap.copyOf(propertiesQ);
-        Collection taskTags;
+        Collection<Object> taskTags;
         if (properties.get("tags")==null) {
             taskTags = new ArrayList();
         } else {
             taskTags = new ArrayList((Collection)properties.get("tags"));
         }
         properties.put("tags", taskTags);
-        
-        // FIXME some of this is brooklyn-specific logic, should be moved to a BrooklynExecContext subclass;
-        // the issue is that we want to ensure that cross-entity calls switch execution contexts;
-        // previously it was all very messy how that was handled (and it didn't really handle it in many cases)
         if (task instanceof Task<?>) taskTags.addAll( ((Task<?>)task).getTags() ); 
-        Entity target = BrooklynTaskTags.getWrappedEntityOfType(taskTags, BrooklynTaskTags.TARGET_ENTITY);
 
-        checkUserSuppliedContext(task, taskTags);
-
-        if (target!=null && !tags.contains(BrooklynTaskTags.tagForContextEntity(target))) {
-            // task is switching execution context boundaries
-            /* 
-             * longer notes:
-             * you fall in to this block if the caller requests a target entity different to the current context 
-             * (e.g. where entity X is invoking an effector on Y, it will start in X's context, 
-             * but the effector should run in Y's context).
-             * 
-             * if X is invoking an effector on himself in his own context, or a sensor or other task, it will not come in to this block.
-             */
-            final ExecutionContext tc = ((EntityInternal)target).getExecutionContext();
-            if (log.isDebugEnabled())
-                log.debug("Switching task context on execution of "+task+": from "+this+" to "+target+" (in "+Tasks.current()+")");
-            
-            if (task instanceof Task<?>) {
-                final Task<T> t = (Task<T>)task;
-                if (!Tasks.isQueuedOrSubmitted(t) && (!(Tasks.current() instanceof HasTaskChildren) || 
-                        !Iterables.contains( ((HasTaskChildren)Tasks.current()).getChildren(), t ))) {
-                    // this task is switching execution context boundaries _and_ it is not a child and not yet queued,
-                    // so wrap it in a task running in this context to keep a reference to the child
-                    // (this matters when we are navigating in the GUI; without it we lose the reference to the child 
-                    // when browsing in the context of the parent)
-                    return submit(Tasks.<T>builder().displayName("Cross-context execution: "+t.getDescription()).dynamic(true).body(new Callable<T>() {
-                        @Override
-                        public T call() { 
-                            return DynamicTasks.get(t); 
-                        }
-                    }).build());
-                } else {
-                    // if we are already tracked by parent, just submit it 
-                    return tc.submit(t);
-                }
-            } else {
-                // as above, but here we are definitely not a child (what we are submitting isn't even a task)
-                // (will only come here if properties defines tags including a target entity, which probably never happens) 
-                submit(Tasks.<T>builder().displayName("Cross-context execution").dynamic(true).body(() -> {
-                    if (task instanceof Callable) {
-                        return DynamicTasks.queue( Tasks.<T>builder().dynamic(false).body((Callable<T>)task).build() ).getUnchecked();
-                    } else if (task instanceof Runnable) {
-                        return DynamicTasks.queue( Tasks.<T>builder().dynamic(false).body((Runnable)task).build() ).getUnchecked();
-                    } else {
-                        throw new IllegalArgumentException("Unhandled task type: "+task+"; type="+(task!=null ? task.getClass() : "null"));
-                    }
-                }).build());
-            }
+        ContextSwitchingInfo<T> switchContextWrapper = getContextSwitchingTask(task, taskTags, false);
+        if (switchContextWrapper!=null) {
+            return switchContextWrapper.context.submit(switchContextWrapper.wrapperTask);
         }
 
         EntitlementContext entitlementContext = BrooklynTaskTags.getEntitlement(taskTags);
@@ -270,6 +372,77 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         } else {
             throw new IllegalArgumentException("Unhandled task type: task="+task+"; type="+(task!=null ? task.getClass() : "null"));
         }
+    }
+
+    private static class ContextSwitchingInfo<T> {
+        final ExecutionContext context;
+        final Task<T> wrapperTask;
+        ContextSwitchingInfo(ExecutionContext context, Task<T> wrapperTask) {
+            this.context = context;
+            this.wrapperTask = wrapperTask;
+        }
+    }
+    
+    @SuppressWarnings("unchecked")
+    protected <T> ContextSwitchingInfo<T> getContextSwitchingTask(final Object task, Collection<Object> taskTags, boolean immediate) {
+        checkUserSuppliedContext(task, taskTags);
+        
+        Entity target = BrooklynTaskTags.getWrappedEntityOfType(taskTags, BrooklynTaskTags.TARGET_ENTITY);
+        if (target==null || tags.contains(BrooklynTaskTags.tagForContextEntity(target))) {
+            return null;
+        }
+        
+        // task is switching execution context boundaries
+        
+        // some of this is brooklyn-specific logic, should be moved to a BrooklynExecContext subclass;
+        // the issue is that we want to ensure that cross-entity calls switch execution contexts;
+        // previously it was all very messy how that was handled (and it didn't really handle it in many cases)
+
+        /* 
+         * longer notes:
+         * you fall in to this block if the caller requests a target entity different to the current context 
+         * (e.g. where entity X is invoking an effector on Y, it will start in X's context, 
+         * but the effector should run in Y's context).
+         * 
+         * we need to make sure there is a reference from this execution context to the submitted task,
+         * IE the submitted task is a child of something in this execution context.
+         * this ensures it shows up via the REST API and in the UI; without it we lose the reference to the child when browsing in the context of the parent.
+         * 
+         * if it is queued or it is already recorded as a child we can simply submit in target context;
+         * but if not we need to wrap it in a task running in this context with the submitted task as a child to have that reference.
+         */
+        final ExecutionContext tc = ((EntityInternal)target).getExecutionContext();
+        if (log.isDebugEnabled())
+            log.debug("Switching task context on execution of "+task+": from "+this+" to "+target+" (in "+Tasks.current()+")");
+            
+        final Task<T> t;
+        if (task instanceof Task<?>) {
+            t = (Task<T>)task;
+            if (Tasks.isQueuedOrSubmitted(t) ||
+                    ((Tasks.current() instanceof HasTaskChildren) && Iterables.contains( ((HasTaskChildren)Tasks.current()).getChildren(), t ))) {
+                // we are already tracked by parent, just submit it 
+                return new ContextSwitchingInfo<>(tc, t);
+            }
+        } else {
+            // for callables and runnables there is definitely no record
+            if (task instanceof Callable) {
+                t = Tasks.<T>builder().dynamic(false).body((Callable<T>)task).build();
+            } else if (task instanceof Runnable) {
+                t = Tasks.<T>builder().dynamic(false).body((Runnable)task).build();
+            } else {
+                throw new IllegalArgumentException("Unhandled task type: "+task+"; type="+(task!=null ? task.getClass() : "null"));
+            }                
+        }
+            
+        return 
+            // 2017-09 changed, doesn't have to be a dynamic task; can be a simple sequential task wrapping the child
+            new ContextSwitchingInfo<>(tc, Tasks.<T>builder().displayName("Cross-context execution: "+t.getDescription()).dynamic(false).parallel(false).body(new Callable<T>() {
+                @Override
+                public T call() throws Exception {
+                    if (immediate) return tc.<T>getImmediately(t).get();
+                    return tc.get(t); 
+                }
+            }).build());
     }
 
     private void registerPerThreadExecutionContext() { perThreadExecutionContext.set(this); }

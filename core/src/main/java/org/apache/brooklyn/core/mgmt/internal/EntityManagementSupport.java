@@ -160,6 +160,7 @@ public class EntityManagementSupport {
     
     public void onManagementStarting(ManagementTransitionInfo info) {
         try {
+            // TODO same-thread task on this entity, with internal tag ?
             synchronized (this) {
                 boolean alreadyManaging = isDeployed();
                 

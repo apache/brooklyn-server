@@ -213,7 +213,19 @@ public class MutableSet<V> extends LinkedHashSet<V> {
         if (setToAdd!=null) addAll(setToAdd);
         return this;
     }
-    
+
+    /** as {@link #add(V)} but fluent style */
+    public MutableSet<V> put(V e) {
+        add(e);
+        return this;
+    }
+
+    /** as {@link #addIfNotNull(V)} but fluent style */
+    public MutableSet<V> putIfNotNull(V e) {
+        if (e!=null) add(e);
+        return this;
+    }
+
     public boolean removeIfNotNull(V item) {
         if (item==null) return false;
         return remove(item);

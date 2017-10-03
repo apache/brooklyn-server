@@ -191,10 +191,9 @@ public abstract class AbstractFailureDetector extends AbstractPolicy {
         doStartPolling();
     }
 
-    @SuppressWarnings("unchecked")
     protected void doStartPolling() {
         if (scheduledTask == null || scheduledTask.isDone()) {
-            ScheduledTask task = new ScheduledTask(MutableMap.of("period", getPollPeriod(), "displayName", getTaskName()), pollingTaskFactory);
+            ScheduledTask task = ScheduledTask.builder(pollingTaskFactory).displayName( getTaskName() ).period(getPollPeriod()).build();
             scheduledTask = ((EntityInternal)entity).getExecutionContext().submit(task);
         }
     }

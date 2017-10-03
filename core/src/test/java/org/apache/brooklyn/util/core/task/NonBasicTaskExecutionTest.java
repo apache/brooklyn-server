@@ -33,10 +33,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.task.BasicExecutionManager;
-import org.apache.brooklyn.util.core.task.BasicTask;
-import org.apache.brooklyn.util.core.task.ForwardingTask;
-import org.apache.brooklyn.util.core.task.TaskInternal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
@@ -44,9 +40,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
- * Test the operation of the {@link BasicTask} class.
- *
- * TODO clarify test purpose
+ * Test some internal aspects of {@link BasicTask} execution.
  */
 public class NonBasicTaskExecutionTest {
     private static final Logger log = LoggerFactory.getLogger(NonBasicTaskExecutionTest.class);

@@ -106,9 +106,10 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
             }
         };
 
+        // TODO can we remove the DST ?  this is structured so maybe not
         Task<T> t = Tasks.<T>builder().body(job)
-                .displayName("Resolving dependent value")
-                .description("Resolving "+key.getName())
+                .displayName("Resolving config "+key.getName())
+                .description("Internal non-blocking structured key resolution")
                 .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
                 .build();
         try {
@@ -131,6 +132,9 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
         // getRaw returns Maybe(val) if the key was explicitly set (where val can be null)
         // or Absent if the config key was unset.
         Object unresolved = getRaw(key).or(key.getDefaultValue());
+        // TODO add description that we are evaluating this config key to be used if the code below submits futher tasks
+        // and look at other uses of "description" method
+        // and make sure it is marked transient
         Maybe<Object> resolved = Tasks.resolving(unresolved)
                 .as(Object.class)
                 .immediately(true)

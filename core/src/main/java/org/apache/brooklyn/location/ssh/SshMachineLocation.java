@@ -491,10 +491,8 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
         };
         
         Duration expiryDuration = getConfig(SSH_CACHE_EXPIRY_DURATION);
-        cleanupTask = getManagementContext().getExecutionManager().submit(new ScheduledTask(
-            MutableMap.of("displayName", "scheduled[ssh-location cache cleaner]"), cleanupTaskFactory)
-                .period(expiryDuration)
-                .delay(expiryDuration));
+        cleanupTask = getManagementContext().getExecutionManager().submit(
+            ScheduledTask.builder(cleanupTaskFactory).displayName("scheduled:[ssh-location cache cleaner]").period(expiryDuration).delay(expiryDuration).build() );
     }
     
     // TODO close has been used for a long time to perform clean-up wanted on unmanagement, but that's not clear; 

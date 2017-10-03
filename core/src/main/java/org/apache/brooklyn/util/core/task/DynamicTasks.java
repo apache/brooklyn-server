@@ -292,6 +292,7 @@ public class DynamicTasks {
      * only permitted in a queueing context (ie a DST main job) if the task is not yet submitted */
     // things get really confusing if you try to queueInTaskHierarchy -- easy to cause deadlocks!
     public static <T> T get(TaskAdaptable<T> t) {
+        // TODO do in foreground?
         return queueIfNeeded(t).asTask().getUnchecked();
     }
 
