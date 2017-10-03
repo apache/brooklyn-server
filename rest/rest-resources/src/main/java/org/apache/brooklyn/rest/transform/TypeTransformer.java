@@ -54,7 +54,6 @@ import org.apache.brooklyn.rest.domain.BundleInstallationRestResult;
 import org.apache.brooklyn.rest.domain.BundleSummary;
 import org.apache.brooklyn.rest.domain.ConfigSummary;
 import org.apache.brooklyn.rest.domain.EffectorSummary;
-import org.apache.brooklyn.rest.domain.EntityConfigSummary;
 import org.apache.brooklyn.rest.domain.SensorSummary;
 import org.apache.brooklyn.rest.domain.SummaryComparators;
 import org.apache.brooklyn.rest.domain.TypeDetail;
@@ -99,8 +98,9 @@ public class TypeTransformer {
                     Set<ConfigSummary> config = Sets.newLinkedHashSet();
                     
                     AbstractBrooklynObjectSpec<?,?> spec = b.getTypeRegistry().createSpec(item, null, null);
+                    AtomicInteger priority = new AtomicInteger(0);
                     for (final SpecParameter<?> input : spec.getParameters()){
-                        config.add(EntityTransformer.configSummary(input));
+                        config.add(ConfigTransformer.of(input).uiIncrementAndSetPriorityIfPinned(priority).transform());
                     }
                     
                     result.setExtraField("config", config);
@@ -119,7 +119,7 @@ public class TypeTransformer {
 
     protected static <T extends TypeSummary> void embellishEntity(T result, RegisteredType item, BrooklynRestResourceUtils b) {
         try {
-            Set<EntityConfigSummary> config = Sets.newLinkedHashSet();
+            Set<ConfigSummary> config = Sets.newLinkedHashSet();
             Set<SensorSummary> sensors = Sets.newTreeSet(SummaryComparators.nameComparator());
             Set<EffectorSummary> effectors = Sets.newTreeSet(SummaryComparators.nameComparator());
       
@@ -127,9 +127,9 @@ public class TypeTransformer {
             EntityDynamicType typeMap = BrooklynTypes.getDefinedEntityType(spec.getType());
             EntityType type = typeMap.getSnapshot();
    
-            AtomicInteger paramPriorityCnt = new AtomicInteger();
+            AtomicInteger priority = new AtomicInteger();
             for (SpecParameter<?> input: spec.getParameters())
-                config.add(EntityTransformer.entityConfigSummary(input, paramPriorityCnt));
+                config.add(ConfigTransformer.of(input).uiIncrementAndSetPriorityIfPinned(priority).transform());
             for (Sensor<?> x: type.getSensors())
                 sensors.add(SensorTransformer.sensorSummaryForCatalog(x));
             for (Effector<?> x: type.getEffectors())

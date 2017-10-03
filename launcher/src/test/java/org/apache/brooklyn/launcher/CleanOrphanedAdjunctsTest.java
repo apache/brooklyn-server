@@ -54,7 +54,8 @@ public class CleanOrphanedAdjunctsTest extends AbstractCleanOrphanedStateTest {
     @Test
     public void testDeletesOrphanedFeeds() throws Exception {
         EntityInternal entity = origApp.addChild(EntitySpec.create(TestEntity.class).impl(MyEntity.class));
-        Feed feed = entity.feeds().add(new MyFeed());
+        Feed feed = new MyFeed();
+        entity.feeds().add(feed);
         MementoTweaker tweaker = new MementoTweaker(new Deletions().entities(entity.getId()));
         assertTransformDeletes(new Deletions().feeds(feed.getId()), tweaker);
     }
@@ -63,7 +64,8 @@ public class CleanOrphanedAdjunctsTest extends AbstractCleanOrphanedStateTest {
     public void testKeepsReachableAdjuncts() throws Exception {
         MyPolicy policy = origApp.policies().add(PolicySpec.create(MyPolicy.class));
         MyEnricher enricher = origApp.enrichers().add(EnricherSpec.create(MyEnricher.class));
-        Feed feed = origApp.feeds().add(new MyFeed());
+        Feed feed = new MyFeed();
+        origApp.feeds().add(feed);
         
         // Double-check we have the state we expected for the assertions that it is unmodified!
         BrooklynMementoRawData origData = getRawData();

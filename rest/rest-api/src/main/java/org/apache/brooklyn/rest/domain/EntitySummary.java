@@ -18,14 +18,15 @@
  */
 package org.apache.brooklyn.rest.domain;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.common.collect.ImmutableMap;
-
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Map;
 import java.util.Objects;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 
 public class EntitySummary implements HasId, HasName, Serializable {
 
@@ -34,7 +35,7 @@ public class EntitySummary implements HasId, HasName, Serializable {
     private final String id;
     private final String name;
     private final String type;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final String catalogItemId;
     private final Map<String, URI> links;
 

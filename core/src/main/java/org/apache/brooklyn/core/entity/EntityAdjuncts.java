@@ -23,13 +23,17 @@ import java.util.List;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
+import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServiceIndicatorsFromChildrenAndMembers;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServiceState;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.guava.Maybe;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -66,5 +70,27 @@ public class EntityAdjuncts {
         if (SYSTEM_ENRICHER_UNIQUE_TAGS.contains(enr.getUniqueTag())) return true;
         return false;
     }
-    
+
+    @Beta
+    public static Lifecycle inferAdjunctStatus(EntityAdjunct a) {
+        if (a.isRunning()) return Lifecycle.RUNNING;
+        if (a.isDestroyed()) return Lifecycle.DESTROYED;
+        
+        // adjuncts don't currently support an "error" state; though that would be useful!
+        
+        if (a instanceof Policy) {
+            if (((Policy)a).isSuspended()) return Lifecycle.STOPPED;
+            return Lifecycle.CREATED;
+        }
+        if (a instanceof Feed) {
+            if (((Feed)a).isSuspended()) return Lifecycle.STOPPED;
+            if (((Feed)a).isActivated()) return Lifecycle.STARTING;
+            return Lifecycle.CREATED;
+        }
+
+        // Enricher doesn't support suspend so if not running or destroyed then
+        // it is just created
+        return Lifecycle.CREATED;
+    }
+
 }

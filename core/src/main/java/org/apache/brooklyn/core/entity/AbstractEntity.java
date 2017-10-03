@@ -1871,7 +1871,8 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
      */
     @Override
     public <T extends Feed> T addFeed(T feed) {
-        return feeds().add(feed);
+        feeds().add(feed);
+        return feed;
     }
 
     @Override
@@ -1896,8 +1897,9 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         public <T extends Feed> T add(T feed) {
             return addFeed(feed);
         }
-
-        @Override
+        
+        /** @deprecated since 0.13.0 use {@link #add(Feed)} */
+        @Deprecated
         public <T extends Feed> T addFeed(T feed) {
             Feed old = findApparentlyEqualAndWarnIfNotSameUniqueTag(feedsInternal, feed);
             if (old != null) {
@@ -1921,7 +1923,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             getManagementContext().getRebindManager().getChangeListener().onManaged(feed);
             getManagementSupport().getEntityChangeListener().onFeedAdded(feed);
             // TODO Could add equivalent of AbstractEntity.POLICY_ADDED for feeds; no use-case for that yet
-
+            
             return feed;
         }
 
@@ -1930,7 +1932,8 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             return removeFeed(feed);
         }
 
-        @Override
+        /** @deprecated since 0.13.0 use {@link #remove(Feed)} */
+        @Deprecated
         public boolean removeFeed(Feed feed) {
             feed.stop();
             boolean changed = feedsInternal.remove(feed);
@@ -1955,6 +1958,27 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             }
             return changed;
         }
+
+        @Override
+        public Iterator<Feed> iterator() {
+            return getFeeds().iterator();
+        }
+
+        // TODO add these back when we implement AdjunctSupport (after 0.13.0)
+//        @Override
+//        public int size() {
+//            return getFeeds().size();
+//        }
+//
+//        @Override
+//        public boolean isEmpty() {
+//            return getFeeds().isEmpty();
+//        }
+//
+//        @Override
+//        public List<Feed> asList() {
+//            return ImmutableList.copyOf(getFeeds());
+//        }
     }
     
     // -------- SENSORS --------------------

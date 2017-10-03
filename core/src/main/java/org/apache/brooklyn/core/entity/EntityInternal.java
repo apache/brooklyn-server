@@ -189,28 +189,26 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
         void remove(AttributeSensor<?> attribute);
     }
 
-    public interface FeedSupport {
+    // TODO extend AdjunctSupport<Feed>, after 0.13.0
+    public interface FeedSupport extends Iterable<Feed> {
 
         Collection<Feed> getFeeds();
 
         /**
          * Adds the given feed to this entity. The feed will automatically be re-added on brooklyn restart.
+         * 
+         * @deprecated since 0.13.0 will change to return type 'void', for consistency with other {@link AdjunctSupport}
          */
-        <T extends Feed> T add(T feed);
-
-        /** @deprecated since 0.10.0; use {@link #add()} */
         @Deprecated
-        <T extends Feed> T addFeed(T feed);
+//        @Override
+        <T extends Feed> T add(T feed);
 
         /**
          * Removes the given feed from this entity. 
          * @return True if the feed existed at this entity; false otherwise
          */
+//        @Override
         boolean remove(Feed feed);
-
-        /** @deprecated since 0.10.0; use {@link #remove()} */
-        @Deprecated
-        boolean removeFeed(Feed feed);
 
         /**
          * Removes all feeds from this entity.
