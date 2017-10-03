@@ -143,6 +143,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
     protected ClassLoader baseClassLoader;
     protected Iterable<URL> baseClassPathForScanning;
 
+    private final ManagementNodeStateListenerManager managementNodeStateListenerManager;
     private final RebindManager rebindManager;
     private final HighAvailabilityManager highAvailabilityManager;
     
@@ -177,7 +178,8 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         
         this.storage = new BrooklynStorageImpl();
         this.rebindManager = new RebindManagerImpl(this); // TODO leaking "this" reference; yuck
-        this.highAvailabilityManager = new HighAvailabilityManagerImpl(this); // TODO leaking "this" reference; yuck
+        this.managementNodeStateListenerManager = new ManagementNodeStateListenerManager(this); // TODO leaking "this" reference; yuck
+        this.highAvailabilityManager = new HighAvailabilityManagerImpl(this, managementNodeStateListenerManager); // TODO leaking "this" reference; yuck
         
         this.entitlementManager = Entitlements.newManager(this, brooklynProperties);
         this.configSupplierRegistry = new BasicExternalConfigSupplierRegistry(this); // TODO leaking "this" reference; yuck
@@ -188,6 +190,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         highAvailabilityManager.stop();
         running = false;
         rebindManager.stop();
+        managementNodeStateListenerManager.terminate();
         storage.terminate();
         // Don't unmanage everything; different entities get given their events at different times 
         // so can cause problems (e.g. a group finds out that a member is unmanaged, before the

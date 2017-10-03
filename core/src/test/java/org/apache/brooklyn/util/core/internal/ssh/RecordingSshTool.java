@@ -163,6 +163,7 @@ public class RecordingSshTool implements SshTool {
     
     public static List<ExecCmd> execScriptCmds = Lists.newCopyOnWriteArrayList();
     public static List<Map<?,?>> constructorProps = Lists.newCopyOnWriteArrayList();
+    public static List<RecordingSshTool> tools = Lists.newCopyOnWriteArrayList();
     public static Map<String, CustomResponseGenerator> customResponses = Maps.newConcurrentMap();
     
     private final Map<?,?> ownConstructorProps;
@@ -171,6 +172,7 @@ public class RecordingSshTool implements SshTool {
     public static void clear() {
         execScriptCmds.clear();
         constructorProps.clear();
+        tools.clear();
         customResponses.clear();
     }
     
@@ -217,6 +219,10 @@ public class RecordingSshTool implements SshTool {
         setCustomOneOffResponse(cmdRegex, checkNotNull(response, "response").toGenerator());
     }
     
+    public static List<RecordingSshTool> getTools() {
+        return ImmutableList.copyOf(tools);
+    }
+
     public static List<ExecCmd> getExecCmds() {
         return ImmutableList.copyOf(execScriptCmds);
     }
@@ -235,6 +241,7 @@ public class RecordingSshTool implements SshTool {
     public RecordingSshTool(Map<?,?> props) {
         ownConstructorProps = checkNotNull(props, "props");
         constructorProps.add(props);
+        tools.add(this);
     }
     @Override public void connect() {
         connected = true;

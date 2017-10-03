@@ -25,18 +25,15 @@ import java.util.List;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
-import org.apache.brooklyn.core.catalog.CatalogLoadMode;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ResourceUtils;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.FatalRuntimeException;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Strings;
@@ -47,8 +44,6 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 
 @Beta
 public class CatalogInitialization implements ManagementContextInjectable {
@@ -56,9 +51,8 @@ public class CatalogInitialization implements ManagementContextInjectable {
     /*
 
     A1) if not persisting, go to B1
-    A2) if --catalog-reset, delete persisted catalog items
-    A3) if there is a persisted catalog (and it wasn't not deleted by A2), read it and go to C1
-    A4) go to B1
+    A2) if there is a persisted catalog, read it and go to C1
+    A3) go to B1
 
     B1) look for --catalog-initial, if so read it, then go to C1
     B2) look for BrooklynServerConfig.BROOKLYN_CATALOG_URL, if so, read it, supporting YAML, then go to C1
@@ -66,18 +60,13 @@ public class CatalogInitialization implements ManagementContextInjectable {
     B4) read all classpath://brooklyn/default.catalog.bom items, if they exist (and for now they will)
     B5) go to C1
 
-    C1) if --catalog-add, read and add those items
-
-    D1) if persisting, read the rest of the persisted items (entities etc)
+    C1) if persisting, read the rest of the persisted items (entities etc)
 
      */
 
     private static final Logger log = LoggerFactory.getLogger(CatalogInitialization.class);
     
     private String initialUri;
-    private boolean reset;
-    private List<String> additionsUris;
-    private boolean force;
 
     private boolean disallowLocal = false;
     private List<Function<CatalogInitialization, Void>> callbacks = MutableList.of();
@@ -98,14 +87,11 @@ public class CatalogInitialization implements ManagementContextInjectable {
     private Object populatingCatalogMutex = new Object();
     
     public CatalogInitialization() {
-        this(null, false, ImmutableList.<String>of(), false);
+        this(null);
     }
 
-    public CatalogInitialization(String initialUri, boolean reset, Iterable<String> additionUris, boolean force) {
+    public CatalogInitialization(String initialUri) {
         this.initialUri = initialUri;
-        this.reset = reset;
-        this.additionsUris = (additionUris != null) ? ImmutableList.copyOf(additionUris) : ImmutableList.<String>of();
-        this.force = force;
     }
     
     @Override
@@ -133,10 +119,6 @@ public class CatalogInitialization implements ManagementContextInjectable {
     
     public ManagementContext getManagementContext() {
         return Preconditions.checkNotNull(managementContext, "management context has not been injected into "+this);
-    }
-
-    public boolean isInitialResetRequested() {
-        return reset;
     }
 
     /** Returns true if the canonical initialization has completed, 
@@ -222,8 +204,6 @@ public class CatalogInitialization implements ManagementContextInjectable {
     }
 
     private void populateCatalogImpl(BasicBrooklynCatalog catalog, boolean needsInitialItemsLoaded, boolean needsAdditionsLoaded, Collection<CatalogItem<?, ?>> optionalItemsForResettingCatalog) {
-        applyCatalogLoadMode();
-        
         if (optionalItemsForResettingCatalog!=null) {
             catalog.reset(optionalItemsForResettingCatalog);
         }
@@ -233,7 +213,6 @@ public class CatalogInitialization implements ManagementContextInjectable {
         }
 
         if (needsAdditionsLoaded) {
-            populateAdditions(catalog);
             populateViaCallbacks(catalog);
         }
     }
@@ -301,66 +280,9 @@ public class CatalogInitialization implements ManagementContextInjectable {
         }
     }
 
-    boolean hasRunAdditions = false;
-    protected void populateAdditions(BasicBrooklynCatalog catalog) {
-        if (!additionsUris.isEmpty()) {
-            if (disallowLocal) {
-                if (!hasRunAdditions) {
-                    log.warn("CLI additions supplied but not supported when catalog load mode disallows local loads; ignoring.");
-                }
-                return;
-            }   
-            if (!hasRunAdditions) {
-                log.debug("Adding to catalog from CLI: "+additionsUris+" (force: "+force+")");
-            }
-            
-            List<CatalogItem<?,?>> items = Lists.newArrayList();
-            for (String additionsUri : additionsUris) {
-                List<? extends CatalogItem<?, ?>> addedItems = catalog.addItems(
-                    new ResourceUtils(this).getResourceAsString(additionsUri), force);
-                items.addAll(addedItems);
-            }            
-            if (!hasRunAdditions)
-                log.debug("Added to catalog from CLI: "+items);
-            else
-                log.debug("Added to catalog from CLI: count "+Iterables.size(items));
-            
-            hasRunAdditions = true;
-        }
-    }
-
     protected void populateViaCallbacks(BasicBrooklynCatalog catalog) {
         for (Function<CatalogInitialization, Void> callback: callbacks)
             callback.apply(this);
-    }
-
-    private Object setFromCLMMutex = new Object();
-    private boolean setFromCatalogLoadMode = false;
-
-    /** @deprecated since introduced in 0.7.0, only for legacy compatibility with 
-     * {@link CatalogLoadMode} {@link BrooklynServerConfig#CATALOG_LOAD_MODE},
-     * allowing control of catalog loading from a brooklyn property */
-    @Deprecated
-    public void applyCatalogLoadMode() {
-        synchronized (setFromCLMMutex) {
-            if (setFromCatalogLoadMode) return;
-            setFromCatalogLoadMode = true;
-            Maybe<Object> clmm = ((ManagementContextInternal)managementContext).getConfig().getConfigLocalRaw(BrooklynServerConfig.CATALOG_LOAD_MODE);
-            if (clmm.isAbsent()) return;
-            org.apache.brooklyn.core.catalog.CatalogLoadMode clm = TypeCoercions.coerce(clmm.get(), org.apache.brooklyn.core.catalog.CatalogLoadMode.class);
-            log.warn("Legacy CatalogLoadMode "+clm+" set: applying, but this should be changed to use new CLI --catalogXxx commands");
-            switch (clm) {
-            case LOAD_BROOKLYN_CATALOG_URL:
-                reset = true;
-                break;
-            case LOAD_BROOKLYN_CATALOG_URL_IF_NO_PERSISTED_STATE:
-                // now the default
-                break;
-            case LOAD_PERSISTED_STATE:
-                disallowLocal = true;
-                break;
-            }
-        }
     }
 
     /** Creates the catalog based on parameters set here, if not yet loaded,

@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.core.internal;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -31,10 +32,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.javalang.coerce.ClassCoercionException;
 import org.apache.brooklyn.util.text.StringPredicates;
@@ -362,6 +365,29 @@ public class TypeCoercionsTest {
         assertEquals(TypeCoercions.function(Double.class).apply("1"), Double.valueOf(1));
     }
 
+    @Test
+    public void testCoerceInstanceForClassnameAdapter() {
+        List<String> loaderCalls = new CopyOnWriteArrayList<>();
+        ClassLoaderUtils loader = new ClassLoaderUtils(getClass()) {
+            @Override
+            public Class<?> loadClass(String name) throws ClassNotFoundException {
+                loaderCalls.add(name);
+                return super.loadClass(name);
+            }
+        };
+        
+        TypeCoercions.BrooklynCommonAdaptorTypeCoercions.registerInstanceForClassnameAdapter(loader, MyInterface.class);
+        MyInterface val = TypeCoercions.coerce(MyClazz.class.getName(), MyInterface.class);
+        assertTrue(val instanceof MyClazz, "val="+val);
+        assertEquals(loaderCalls, ImmutableList.of(MyClazz.class.getName()));
+    }
+    
+    @Test(expectedExceptions = org.apache.brooklyn.util.javalang.coerce.ClassCoercionException.class)
+    public void testInvalidCoerceInstanceForClassnameAdapterThrows() {
+        TypeCoercions.BrooklynCommonAdaptorTypeCoercions.registerInstanceForClassnameAdapter(new ClassLoaderUtils(getClass()), MyInterface.class);
+        TypeCoercions.coerce("wrongClassNameDoesNotExist", MyInterface.class);
+    }
+
     public static class WithAs {
         String value;
         public WithAs(Object x) { value = ""+x; }
@@ -379,4 +405,9 @@ public class TypeCoercionsTest {
         }
     }
 
+    public static interface MyInterface {
+    }
+    
+    public static class MyClazz implements MyInterface {
+    }
 }

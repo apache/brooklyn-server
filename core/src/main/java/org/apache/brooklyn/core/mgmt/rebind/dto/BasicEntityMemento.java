@@ -163,7 +163,7 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
         if (configByKey != null) {
             for (Map.Entry<ConfigKey<?>, Object> entry : configByKey.entrySet()) {
                 ConfigKey<?> key = entry.getKey();
-                if (!configKeys.containsKey(key) && key != staticConfigKeys.get(key.getName())) {
+                if (!configKeys.containsKey(key.getName()) && key != staticConfigKeys.get(key.getName())) {
                     configKeys.put(key.getName(), key);
                 }
                 config.put(key.getName(), entry.getValue());

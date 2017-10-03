@@ -257,14 +257,18 @@ public class RebindFailuresTest extends RebindTestFixtureWithApp {
         @SetFromFlag("failOnRebind")
         public static final ConfigKey<Boolean> FAIL_ON_REBIND = ConfigKeys.newBooleanConfigKey("failOnRebind", "Whether to throw exception when rebinding", false);
         
-        @SuppressWarnings("rawtypes")
         @Override
-        public Map<AttributeSensor, Object> getAllAttributes() {
-            if (Boolean.TRUE.equals(getConfig(FAIL_ON_GENERATE_MEMENTO))) {
-                throw new RuntimeException("Simulating failure in "+this+", which will cause memento-generation to fail");
-            } else {
-                return super.getAllAttributes();
-            }
+        public BasicSensorSupport sensors() {
+            return new BasicSensorSupport() {
+                @Override
+                public Map<AttributeSensor<?>, Object> getAll() {
+                    if (Boolean.TRUE.equals(getConfig(FAIL_ON_GENERATE_MEMENTO))) {
+                        throw new RuntimeException("Simulating failure in "+this+", which will cause memento-generation to fail");
+                    } else {
+                        return super.getAll();
+                    }
+                }
+            };
         }
         
         @Override
