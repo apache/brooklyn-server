@@ -137,7 +137,7 @@ public class RebindCatalogEntityTest extends RebindTestFixture<StartableApplicat
         newManagementContext.getCatalogInitialization().addPopulationCallback(new Function<CatalogInitialization, Void>() {
             @Override
             public Void apply(CatalogInitialization input) {
-                input.getManagementContext().getCatalog().addItem(appClazz);
+                newManagementContext.getCatalog().addItem(appClazz);
                 return null;
             }
         });

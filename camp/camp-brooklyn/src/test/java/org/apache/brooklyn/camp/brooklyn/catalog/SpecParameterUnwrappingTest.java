@@ -62,7 +62,7 @@ import com.google.common.collect.Iterables;
 public class SpecParameterUnwrappingTest extends AbstractYamlTest {
     
     // Expect app to have the following config keys already: 
-    // "application.stop.shouldDestroy", "defaultDisplayName", "quorum.running", "quorum.up", "start.latch"
+    // "application.stop.shouldDestroy", "defaultDisplayName", "quorum.running", "quorum.up", "latch.start"
     public static final int NUM_APP_DEFAULT_CONFIG_KEYS = 5;
     // "defaultDisplayName"
     public static final int NUM_ENTITY_DEFAULT_CONFIG_KEYS = 1;

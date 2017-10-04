@@ -23,6 +23,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URL;
 import java.util.Enumeration;
 import java.util.Map;
 import java.util.Set;
@@ -298,14 +299,27 @@ public class BundleMaker {
             return false;
         }
         
-        if (!addUrlDirToZipRecursively(zout, root, item, itemFound, filter)) {
-            // can't reliably tell if item a file or a folder (listing files), esp w classpath where folder is just a list of files, 
-            // so try the latter and see if it succeeds
-            // slightly inefficient but should work fine
-            // only issue is that an empty dir and a file of size 0 will appear identical?
+        if (isKnownNotToBeADirectoryListing(item) || !
+            // can't reliably tell if item a file or a folder (listing files), esp w classpath where folder is treated as a list of files, 
+            // so if we can't tell try it as a list of files; not guaranteed, and empty dir and a file of size 0 will appear identical, but better than was
+            // (mainly used for tests)
+                addUrlDirToZipRecursively(zout, root, item, itemFound, filter)) {
             addUrlFileToZip(zout, root, item, filter);
         }
         return true;
+    }
+
+    private boolean isKnownNotToBeADirectoryListing(String item) {
+        try { 
+            URL url = new URL(item);
+            if (url.getProtocol().equals("file")) {
+                return !new File(url.getFile()).isDirectory();
+            }
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            // ignore otherwise -- probably unknown protocol
+        }
+        return false;
     }
 
     private boolean addUrlDirToZipRecursively(ZipOutputStream zout, String root, String item, InputStream itemFound, Predicate<? super String> filter) throws IOException {
@@ -325,7 +339,8 @@ public class BundleMaker {
                     // not a folder
                     return false;
                 } else {
-                    // previous entry made clear it was a folder, but this one didn't work!
+                    // previous entry suggested it was a folder, but this one didn't work! -- was a false positive
+                    // but zip will be in inconsistent state, so throw
                     throw new IllegalStateException("Failed to read entry "+line+" in "+item+" but previous entry implied it was a directory");
                 }
             }
@@ -344,7 +359,14 @@ public class BundleMaker {
         if (startPos<0) {
             throw new IllegalStateException("URL of "+item+" does not appear relative to root "+root);
         }
-        String itemE = item.substring(startPos + root.length()+1);
+        String itemE = item.substring(startPos + root.length());
+        itemE = Strings.removeFromStart(itemE, "/");
+        
+        if (Strings.isEmpty(itemE)) {
+            // Can happen if we're given an empty folder. addUrlDirToZipRecursively will have returned false, so 
+            // will try to add it as a file.
+            return; 
+        }
         if (!filter.apply(itemE)) {
             return;
         }
@@ -364,7 +386,7 @@ public class BundleMaker {
             zout = mf!=null ? new JarOutputStream(new FileOutputStream(f2), mf) : new ZipOutputStream(new FileOutputStream(f2));
             writeZipEntries(zout, files);
         } catch (IOException e) {
-            throw Exceptions.propagate("Unable to read/write for "+nameHint, e);
+            throw Exceptions.propagateAnnotated("Unable to read/write for "+nameHint, e);
         } finally {
             Streams.closeQuietly(zf);
             Streams.closeQuietly(zout);

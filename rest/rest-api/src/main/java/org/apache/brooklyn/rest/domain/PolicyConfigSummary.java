@@ -26,7 +26,7 @@ import org.apache.brooklyn.config.ConfigKey;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** @deprecated since 0.13.0 no different to ConfigSummary, use that */
+/** @deprecated since 0.13.0 no different to {@link ConfigSummary}, use that */
 @Deprecated
 public class PolicyConfigSummary extends ConfigSummary {
 

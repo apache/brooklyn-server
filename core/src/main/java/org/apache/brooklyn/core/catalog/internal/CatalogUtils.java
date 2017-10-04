@@ -168,6 +168,11 @@ public class CatalogUtils {
      * Registers all bundles with the management context's OSGi framework.
      */
     public static void installLibraries(ManagementContext managementContext, @Nullable Collection<CatalogBundle> libraries) {
+        installLibraries(managementContext, libraries, true);
+    }
+    /** As {@link #installLibraries(ManagementContext, Collection)} but letting caller suppress the deferred start/install
+     * (for use in tests where bundles' BOMs aren't resolvable). */
+    public static void installLibraries(ManagementContext managementContext, @Nullable Collection<CatalogBundle> libraries, boolean startBundlesAndInstallToBrooklyn) {
         if (libraries == null) return;
 
         ManagementContextInternal mgmt = (ManagementContextInternal) managementContext;
@@ -190,16 +195,18 @@ public class CatalogUtils {
                 results.add(result);
             }
             Map<String, Throwable> errors = MutableMap.of();
-            for (OsgiBundleInstallationResult r: results) {
-                if (r.getDeferredStart()!=null) {
-                    try {
-                        r.getDeferredStart().run();
-                    } catch (Throwable t) {
-                        Exceptions.propagateIfFatal(t);
-                        // above will done rollback for the failed item, but we need consistent behaviour for all libraries;
-                        // for simplicity we simply have each bundle either fully installed or fully rolled back
-                        // (alternative would be to roll back everything)
-                        errors.put(r.getVersionedName().toString(), t);
+            if (startBundlesAndInstallToBrooklyn) {
+                for (OsgiBundleInstallationResult r: results) {
+                    if (r.getDeferredStart()!=null) {
+                        try {
+                            r.getDeferredStart().run();
+                        } catch (Throwable t) {
+                            Exceptions.propagateIfFatal(t);
+                            // above will done rollback for the failed item, but we need consistent behaviour for all libraries;
+                            // for simplicity we simply have each bundle either fully installed or fully rolled back
+                            // (alternative would be to roll back everything)
+                            errors.put(r.getVersionedName().toString(), t);
+                        }
                     }
                 }
             }
@@ -215,8 +222,8 @@ public class CatalogUtils {
             }
             if (log.isDebugEnabled()) { 
                 logDebugOrTraceIfRebinding(log, 
-                    "Registered {} bundles in {}",
-                    new Object[]{libraries.size(), Time.makeTimeStringRounded(timer)});
+                    "Registered {} bundle{} in {}",
+                    new Object[]{libraries.size(), Strings.s(libraries.size()), Time.makeTimeStringRounded(timer)});
             }
         }
     }

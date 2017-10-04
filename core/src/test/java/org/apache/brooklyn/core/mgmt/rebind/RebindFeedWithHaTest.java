@@ -90,7 +90,7 @@ public class RebindFeedWithHaTest extends RebindTestFixtureWithApp {
         EntityAsserts.assertAttributeEqualsEventually(origEntity, SENSOR_INT, 200);
         EntityAsserts.assertAttributeEqualsEventually(origEntity, SENSOR_STRING, "{\"foo\":\"myfoo\"}");
         assertEquals(origEntity.feeds().getFeeds().size(), 1);
-        origManagementContext.getRebindManager().forcePersistNow();
+        origManagementContext.getRebindManager().forcePersistNow(false, null);
 
         List<Task<?>> tasksBefore = ((BasicExecutionManager)origManagementContext.getExecutionManager()).getAllTasks();
         log.info("tasks before disabling HA, "+tasksBefore.size()+": "+tasksBefore);

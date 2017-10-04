@@ -62,7 +62,7 @@ public abstract class AbstractFeed extends AbstractEntityAdjunct implements Feed
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);
         if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_FEED_REGISTRATION_PROPERTY)) {
-            ((EntityInternal)entity).feeds().addFeed(this);
+            ((EntityInternal)entity).feeds().add(this);
         }
     }
 

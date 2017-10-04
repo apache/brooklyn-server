@@ -152,7 +152,7 @@ public abstract class BrooklynRestResourceTest extends BrooklynRestApiTest {
                 .run();
         
         if (!started) {
-            log.warn("Did not start application "+applicationRef+":");
+            log.warn("Did not start application "+applicationRef+" ("+getApplicationStatus(applicationRef)+"):");
             Collection<Application> apps = getManagementContext().getApplications();
             for (Application app: apps)
                 Entities.dumpInfo(app);

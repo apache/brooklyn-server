@@ -393,6 +393,10 @@ public class OsgiManager {
      * This does not throw but returns a reference containing errors and result for caller to inspect and handle. 
      */
     public ReferenceWithError<OsgiBundleInstallationResult> uninstallUploadedBundle(ManagedBundle bundleMetadata, boolean force) {
+        return uninstallUploadedBundle(bundleMetadata, force, false);
+    }
+    
+    public ReferenceWithError<OsgiBundleInstallationResult> uninstallUploadedBundle(ManagedBundle bundleMetadata, boolean force, boolean leaveInOsgi) {
         OsgiBundleInstallationResult result = new OsgiBundleInstallationResult();
         result.metadata = bundleMetadata;
         List<Throwable> errors = MutableList.of();
@@ -425,22 +429,24 @@ public class OsgiManager {
                 errors.add(e);            
             }
             
-            Bundle bundle = framework.getBundleContext().getBundle(bundleMetadata.getOsgiUniqueUrl());
-            result.bundle = bundle;
-            if (bundle==null) {
-                Exception e = new IllegalStateException("No such bundle installed in OSGi when uninstalling: "+bundleMetadata);
-                if (!force) Exceptions.propagate(e);
-                log.warn(e.getMessage());
-                errors.add(e);
-            } else {
-                try {
-                    bundle.stop();
-                    bundle.uninstall();
-                } catch (BundleException e) {
-                    Exceptions.propagateIfFatal(e);
+            if (!leaveInOsgi) {
+                Bundle bundle = framework.getBundleContext().getBundle(bundleMetadata.getOsgiUniqueUrl());
+                result.bundle = bundle;
+                if (bundle==null) {
+                    Exception e = new IllegalStateException("No such bundle installed in OSGi when uninstalling: "+bundleMetadata);
                     if (!force) Exceptions.propagate(e);
-                    log.warn("Error stopping and uninstalling "+bundleMetadata+": "+e);
-                    errors.add(e);            
+                    log.warn(e.getMessage());
+                    errors.add(e);
+                } else {
+                    try {
+                        bundle.stop();
+                        bundle.uninstall();
+                    } catch (BundleException e) {
+                        Exceptions.propagateIfFatal(e);
+                        if (!force) Exceptions.propagate(e);
+                        log.warn("Error stopping and uninstalling "+bundleMetadata+": "+e);
+                        errors.add(e);            
+                    }
                 }
             }
         } catch (Exception e) {

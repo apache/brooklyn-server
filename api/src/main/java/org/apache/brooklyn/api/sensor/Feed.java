@@ -43,7 +43,7 @@ public interface Feed extends EntityAdjunct, Rebindable {
 
     /** 
      * True if everything has been _started_ (or it is starting) but not stopped,
-     * even if it is suspended; see also {@link #isActive()}
+     * even if it is suspended; see also {@link #isRunning()}
      */
     boolean isActivated();
     

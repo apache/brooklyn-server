@@ -19,36 +19,48 @@
 package org.apache.brooklyn.core.catalog.internal;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
+import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
-import org.apache.brooklyn.core.catalog.CatalogLoadMode;
+import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
+import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
+import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.FatalRuntimeException;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
+import org.osgi.framework.BundleException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 
 @Beta
 public class CatalogInitialization implements ManagementContextInjectable {
@@ -56,9 +68,8 @@ public class CatalogInitialization implements ManagementContextInjectable {
     /*
 
     A1) if not persisting, go to B1
-    A2) if --catalog-reset, delete persisted catalog items
-    A3) if there is a persisted catalog (and it wasn't not deleted by A2), read it and go to C1
-    A4) go to B1
+    A2) if there is a persisted catalog, read it and go to C1
+    A3) go to B1
 
     B1) look for --catalog-initial, if so read it, then go to C1
     B2) look for BrooklynServerConfig.BROOKLYN_CATALOG_URL, if so, read it, supporting YAML, then go to C1
@@ -66,46 +77,37 @@ public class CatalogInitialization implements ManagementContextInjectable {
     B4) read all classpath://brooklyn/default.catalog.bom items, if they exist (and for now they will)
     B5) go to C1
 
-    C1) if --catalog-add, read and add those items
-
-    D1) if persisting, read the rest of the persisted items (entities etc)
+    C1) if persisting, read the rest of the persisted items (entities etc)
 
      */
 
     private static final Logger log = LoggerFactory.getLogger(CatalogInitialization.class);
     
     private String initialUri;
-    private boolean reset;
-    private List<String> additionsUris;
-    private boolean force;
 
     private boolean disallowLocal = false;
     private List<Function<CatalogInitialization, Void>> callbacks = MutableList.of();
-    private boolean 
-        /** has run an unofficial initialization (i.e. an early load, triggered by an early read of the catalog) */
-        hasRunUnofficialInitialization = false, 
-        /** has run an official initialization, but it is not a permanent one (e.g. during a hot standby mode, or a run failed) */
-        hasRunTransientOfficialInitialization = false, 
-        /** has run an official initialization which is permanent (node is master, and the new catalog is now set) */
-        hasRunFinalInitialization = false;
+    /** has run an unofficial initialization (i.e. an early load, triggered by an early read of the catalog) */
+    private boolean hasRunUnofficialInitialization = false; 
+    /** has run an official initialization, but it is not a permanent one (e.g. during a hot standby mode, or a run failed) */
+    private boolean hasRunTransientOfficialInitialization = false; 
+    /** has run an official initialization which is permanent (node is master, and the new catalog is now set) */
+    private boolean hasRunFinalInitialization = false;
     /** is running a populate method; used to prevent recursive loops */
     private boolean isPopulating = false;
     
-    private ManagementContext managementContext;
+    private ManagementContextInternal managementContext;
     private boolean isStartingUp = false;
     private boolean failOnStartupErrors = false;
     
     private Object populatingCatalogMutex = new Object();
     
     public CatalogInitialization() {
-        this(null, false, ImmutableList.<String>of(), false);
+        this(null);
     }
 
-    public CatalogInitialization(String initialUri, boolean reset, Iterable<String> additionUris, boolean force) {
+    public CatalogInitialization(String initialUri) {
         this.initialUri = initialUri;
-        this.reset = reset;
-        this.additionsUris = (additionUris != null) ? ImmutableList.copyOf(additionUris) : ImmutableList.<String>of();
-        this.force = force;
     }
     
     @Override
@@ -113,7 +115,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
         Preconditions.checkNotNull(managementContext, "management context");
         if (this.managementContext!=null && managementContext!=this.managementContext)
             throw new IllegalStateException("Cannot switch management context, from "+this.managementContext+" to "+managementContext);
-        this.managementContext = managementContext;
+        this.managementContext = (ManagementContextInternal) managementContext;
     }
     
     /** Called by the framework to set true while starting up, and false afterwards,
@@ -131,12 +133,8 @@ public class CatalogInitialization implements ManagementContextInjectable {
         return this;
     }
     
-    public ManagementContext getManagementContext() {
+    public ManagementContextInternal getManagementContext() {
         return Preconditions.checkNotNull(managementContext, "management context has not been injected into "+this);
-    }
-
-    public boolean isInitialResetRequested() {
-        return reset;
     }
 
     /** Returns true if the canonical initialization has completed, 
@@ -144,15 +142,60 @@ public class CatalogInitialization implements ManagementContextInjectable {
      * (or an initialization done by the startup routines when not running persistence);
      * see also {@link #hasRunAnyInitialization()}. */
     public boolean hasRunFinalInitialization() { return hasRunFinalInitialization; }
+    
     /** Returns true if an official initialization has run,
      * even if it was a transient run, e.g. so that the launch sequence can tell whether rebind has triggered initialization */
     public boolean hasRunOfficialInitialization() { return hasRunFinalInitialization || hasRunTransientOfficialInitialization; }
+    
     /** Returns true if the initializer has run at all,
      * including transient initializations which might be needed before a canonical becoming-master rebind,
      * for instance because the catalog is being accessed before loading rebind information
      * (done by {@link #populateUnofficial(BasicBrooklynCatalog)}) */
     public boolean hasRunAnyInitialization() { return hasRunFinalInitialization || hasRunTransientOfficialInitialization || hasRunUnofficialInitialization; }
 
+    /**
+     * This method will almost certainly be changed. It is an interim step, to move the catalog-initialization
+     * decisions and logic out of {@link org.apache.brooklyn.core.mgmt.rebind.RebindIteration} and into 
+     * a single place. We can then make smarter decisions about what to do with the persisted state's catalog.
+     * 
+     * @param mode
+     * @param persistedState
+     * @param exceptionHandler
+     * @param rebindLogger
+     */
+    @Beta
+    public void populateCatalog(ManagementNodeState mode, PersistedCatalogState persistedState, RebindExceptionHandler exceptionHandler, RebindLogger rebindLogger) {
+        // Always installing the bundles from persisted state
+        installBundles(mode, persistedState, exceptionHandler, rebindLogger);
+        
+        // Decide whether to add the persisted catalog items, or to use the "initial items".
+        // Logic copied (unchanged) from RebindIteration.installBundlesAndRebuildCatalog.
+        boolean isEmpty = persistedState.isEmpty();
+        Collection<CatalogItem<?,?>> itemsForResettingCatalog = null;
+        boolean needsInitialItemsLoaded;
+        boolean needsAdditionalItemsLoaded;
+        if (!isEmpty) {
+            rebindLogger.debug("RebindManager clearing local catalog and loading from persisted state");
+            itemsForResettingCatalog = persistedState.getLegacyCatalogItems();
+            needsInitialItemsLoaded = false;
+            // only apply "add" if we haven't yet done so while in MASTER mode
+            needsAdditionalItemsLoaded = !hasRunFinalInitialization();
+        } else {
+            if (hasRunFinalInitialization()) {
+                rebindLogger.debug("RebindManager has already done the final official run, not doing anything (even though persisted state empty)");
+                needsInitialItemsLoaded = false;
+                needsAdditionalItemsLoaded = false;
+            } else {
+                rebindLogger.debug("RebindManager loading initial catalog locally because persisted state empty and the final official run has not yet been performed");
+                needsInitialItemsLoaded = true;
+                needsAdditionalItemsLoaded = true;
+            }
+        }
+
+        // TODO in read-only mode, perhaps do this less frequently than entities etc, maybe only if things change?
+        populateCatalog(mode, needsInitialItemsLoaded, needsAdditionalItemsLoaded, itemsForResettingCatalog);
+    }
+    
     /** makes or updates the mgmt catalog, based on the settings in this class 
      * @param nodeState the management node for which this is being read; if master, then we expect this run to be the last one,
      *   and so subsequent applications should ignore any initialization data (e.g. on a subsequent promotion to master, 
@@ -222,8 +265,6 @@ public class CatalogInitialization implements ManagementContextInjectable {
     }
 
     private void populateCatalogImpl(BasicBrooklynCatalog catalog, boolean needsInitialItemsLoaded, boolean needsAdditionsLoaded, Collection<CatalogItem<?, ?>> optionalItemsForResettingCatalog) {
-        applyCatalogLoadMode();
-        
         if (optionalItemsForResettingCatalog!=null) {
             catalog.reset(optionalItemsForResettingCatalog);
         }
@@ -233,7 +274,6 @@ public class CatalogInitialization implements ManagementContextInjectable {
         }
 
         if (needsAdditionsLoaded) {
-            populateAdditions(catalog);
             populateViaCallbacks(catalog);
         }
     }
@@ -301,66 +341,9 @@ public class CatalogInitialization implements ManagementContextInjectable {
         }
     }
 
-    boolean hasRunAdditions = false;
-    protected void populateAdditions(BasicBrooklynCatalog catalog) {
-        if (!additionsUris.isEmpty()) {
-            if (disallowLocal) {
-                if (!hasRunAdditions) {
-                    log.warn("CLI additions supplied but not supported when catalog load mode disallows local loads; ignoring.");
-                }
-                return;
-            }   
-            if (!hasRunAdditions) {
-                log.debug("Adding to catalog from CLI: "+additionsUris+" (force: "+force+")");
-            }
-            
-            List<CatalogItem<?,?>> items = Lists.newArrayList();
-            for (String additionsUri : additionsUris) {
-                List<? extends CatalogItem<?, ?>> addedItems = catalog.addItems(
-                    new ResourceUtils(this).getResourceAsString(additionsUri), force);
-                items.addAll(addedItems);
-            }            
-            if (!hasRunAdditions)
-                log.debug("Added to catalog from CLI: "+items);
-            else
-                log.debug("Added to catalog from CLI: count "+Iterables.size(items));
-            
-            hasRunAdditions = true;
-        }
-    }
-
     protected void populateViaCallbacks(BasicBrooklynCatalog catalog) {
         for (Function<CatalogInitialization, Void> callback: callbacks)
             callback.apply(this);
-    }
-
-    private Object setFromCLMMutex = new Object();
-    private boolean setFromCatalogLoadMode = false;
-
-    /** @deprecated since introduced in 0.7.0, only for legacy compatibility with 
-     * {@link CatalogLoadMode} {@link BrooklynServerConfig#CATALOG_LOAD_MODE},
-     * allowing control of catalog loading from a brooklyn property */
-    @Deprecated
-    public void applyCatalogLoadMode() {
-        synchronized (setFromCLMMutex) {
-            if (setFromCatalogLoadMode) return;
-            setFromCatalogLoadMode = true;
-            Maybe<Object> clmm = ((ManagementContextInternal)managementContext).getConfig().getConfigLocalRaw(BrooklynServerConfig.CATALOG_LOAD_MODE);
-            if (clmm.isAbsent()) return;
-            org.apache.brooklyn.core.catalog.CatalogLoadMode clm = TypeCoercions.coerce(clmm.get(), org.apache.brooklyn.core.catalog.CatalogLoadMode.class);
-            log.warn("Legacy CatalogLoadMode "+clm+" set: applying, but this should be changed to use new CLI --catalogXxx commands");
-            switch (clm) {
-            case LOAD_BROOKLYN_CATALOG_URL:
-                reset = true;
-                break;
-            case LOAD_BROOKLYN_CATALOG_URL_IF_NO_PERSISTED_STATE:
-                // now the default
-                break;
-            case LOAD_PERSISTED_STATE:
-                disallowLocal = true;
-                break;
-            }
-        }
     }
 
     /** Creates the catalog based on parameters set here, if not yet loaded,
@@ -404,11 +387,120 @@ public class CatalogInitialization implements ManagementContextInjectable {
         log.warn(Exceptions.collapseText(wrap));
         log.debug("Trace for: "+wrap, wrap);
 
-        ((ManagementContextInternal)getManagementContext()).errors().add(wrap);
+        getManagementContext().errors().add(wrap);
         
         if (isStartingUp && failOnStartupErrors) {
             throw new FatalRuntimeException("Unable to load catalog item "+details, wrap);
         }
     }
     
+    private void installBundles(ManagementNodeState mode, PersistedCatalogState persistedState, RebindExceptionHandler exceptionHandler, RebindLogger rebindLogger) {
+        List<OsgiBundleInstallationResult> installs = MutableList.of();
+
+        // Install the bundles
+        for (String bundleId : persistedState.getBundleIds()) {
+            rebindLogger.debug("RebindManager installing bundle {}", bundleId);
+            InstallableManagedBundle installableBundle = persistedState.getInstallableManagedBundle(bundleId);
+            try (InputStream in = installableBundle.getInputStream()) {
+                installs.add(installBundle(installableBundle.getManagedBundle(), in));
+            } catch (Exception e) {
+                exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, bundleId, installableBundle.getManagedBundle().getSymbolicName(), e);
+            }
+        }
+        
+        // Start the bundles (now that we've installed them all)
+        Set<RegisteredType> installedTypes = MutableSet.of();
+        for (OsgiBundleInstallationResult br: installs) {
+            try {
+                startBundle(br);
+                Iterables.addAll(installedTypes, managementContext.getTypeRegistry().getMatching(
+                    RegisteredTypePredicates.containingBundle(br.getVersionedName())));
+            } catch (Exception e) {
+                exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, br.getMetadata().getId(), br.getMetadata().getSymbolicName(), e);
+            }
+        }
+        
+        // Validate that they all started successfully
+        if (!installedTypes.isEmpty()) {
+            validateAllTypes(installedTypes, exceptionHandler);
+        }
+    }
+    
+    private void validateAllTypes(Set<RegisteredType> installedTypes, RebindExceptionHandler exceptionHandler) {
+        Stopwatch sw = Stopwatch.createStarted();
+        log.debug("Getting catalog to validate all types");
+        final BrooklynCatalog catalog = this.managementContext.getCatalog();
+        log.debug("Got catalog in {} now validate", sw.toString());
+        sw.reset(); sw.start();
+        Map<RegisteredType, Collection<Throwable>> validationErrors = catalog.validateTypes( installedTypes );
+        log.debug("Validation done in {}", sw.toString());
+        if (!validationErrors.isEmpty()) {
+            Map<VersionedName, Map<RegisteredType,Collection<Throwable>>> errorsByBundle = MutableMap.of();
+            for (RegisteredType t: validationErrors.keySet()) {
+                VersionedName vn = VersionedName.fromString(t.getContainingBundle());
+                Map<RegisteredType, Collection<Throwable>> errorsInBundle = errorsByBundle.get(vn);
+                if (errorsInBundle==null) {
+                    errorsInBundle = MutableMap.of();
+                    errorsByBundle.put(vn, errorsInBundle);
+                }
+                errorsInBundle.put(t, validationErrors.get(t));
+            }
+            for (VersionedName vn: errorsByBundle.keySet()) {
+                Map<RegisteredType, Collection<Throwable>> errorsInBundle = errorsByBundle.get(vn);
+                ManagedBundle b = managementContext.getOsgiManager().get().getManagedBundle(vn);
+                String id = b!=null ? b.getId() : /* just in case it was uninstalled concurrently somehow */ vn.toString();
+                exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE,
+                    id,
+                    vn.getSymbolicName(),
+                    Exceptions.create("Failed to install "+vn+", types "+errorsInBundle.keySet()+" gave errors",
+                        Iterables.concat(errorsInBundle.values())));
+            }
+        }
+    }
+
+    /** install the bundles into brooklyn and osgi, but do not start nor validate;
+     * caller (rebind) will do that manually, doing each step across all bundles before proceeding 
+     * to prevent reference errors */
+    public OsgiBundleInstallationResult installBundle(ManagedBundle bundle, InputStream zipInput) {
+        return getManagementContext().getOsgiManager().get().installDeferredStart(bundle, zipInput, false).get();
+    }
+    
+    public void startBundle(OsgiBundleInstallationResult br) throws BundleException {
+        if (br.getDeferredStart()!=null) {
+            br.getDeferredStart().run();
+        }
+    }
+
+    public interface RebindLogger {
+        void debug(String message, Object... args);
+    }
+    
+    public interface InstallableManagedBundle {
+        public ManagedBundle getManagedBundle();
+        /** The caller is responsible for closing the returned stream. */
+        public InputStream getInputStream() throws IOException;
+    }
+    
+    public interface PersistedCatalogState {
+
+        /**
+         * Whether the persisted state is entirely empty.
+         */
+        public boolean isEmpty();
+
+        /**
+         * The persisted catalog items (from the {@code /catalog} sub-directory of the persisted state).
+         */
+        public Collection<CatalogItem<?,?>> getLegacyCatalogItems();
+        
+        /**
+         * The persisted bundles (from the {@code /bundles} sub-directory of the persisted state).
+         */
+        public Set<String> getBundleIds();
+        
+        /**
+         * Loads the details of a particular bundle, so it can be installed.
+         */
+        public InstallableManagedBundle getInstallableManagedBundle(String id);
+    }
 }

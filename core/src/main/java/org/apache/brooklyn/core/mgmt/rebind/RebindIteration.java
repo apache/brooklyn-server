@@ -25,8 +25,10 @@ import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoa
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -70,6 +72,7 @@ import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.BrooklynLogging.LoggingLevel;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
+import org.apache.brooklyn.core.catalog.internal.CatalogInitialization.InstallableManagedBundle;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.AbstractApplication;
@@ -80,7 +83,6 @@ import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
-import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagementMode;
 import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagerInternal;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
@@ -100,16 +102,13 @@ import org.apache.brooklyn.core.objs.proxy.InternalPolicyFactory;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
-import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
-import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -120,7 +119,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -322,64 +320,95 @@ public abstract class RebindIteration {
         isEmpty = mementoManifest.isEmpty();
     }
 
-    @SuppressWarnings("deprecation")
     protected void installBundlesAndRebuildCatalog() {
-        
-        // Build catalog early so we can load other things
+        // Build catalog early so we can load other things.
+        // Reads the persisted catalog contents, and passes it all to CatalogInitialization, which decides what to do with it.
         checkEnteringPhase(2);
         
-        // Install bundles
+        CatalogInitialization.RebindLogger rebindLogger = new CatalogInitialization.RebindLogger() {
+            @Override
+            public void debug(String message, Object... args) {
+                logRebindingDebug(message, args);
+            }
+        };
+
+        class InstallableManagedBundleImpl implements CatalogInitialization.InstallableManagedBundle {
+            private final ManagedBundleMemento memento;
+            private final ManagedBundle managedBundle;
+            
+            InstallableManagedBundleImpl(ManagedBundleMemento memento, ManagedBundle managedBundle) {
+                this.memento = memento;
+                this.managedBundle = managedBundle;
+            }
+
+            @Override public ManagedBundle getManagedBundle() {
+                return managedBundle;
+            }
+
+            @Override public InputStream getInputStream() throws IOException {
+                return memento.getJarContent().openStream();
+            }
+        }
+        
+        class PersistedCatalogStateImpl implements CatalogInitialization.PersistedCatalogState {
+            private final boolean isEmpty;
+            private final Collection<CatalogItem<?, ?>> legacyCatalogItems;
+            private final Map<String, ? extends InstallableManagedBundle> bundles;
+            
+            PersistedCatalogStateImpl(boolean isEmpty, Collection<CatalogItem<?, ?>> legacyCatalogItems, Map<String, ? extends InstallableManagedBundle> bundles) {
+                this.isEmpty = isEmpty;
+                this.legacyCatalogItems = legacyCatalogItems;
+                this.bundles = bundles;
+            }
+            
+            @Override public boolean isEmpty() {
+                return isEmpty;
+            }
+
+            @Override public Collection<CatalogItem<?, ?>> getLegacyCatalogItems() {
+                return legacyCatalogItems;
+            }
+
+            @Override public Set<String> getBundleIds() {
+                return bundles.keySet();
+            }
+
+            @Override public InstallableManagedBundle getInstallableManagedBundle(String id) {
+                return bundles.get(id);
+            }
+        }
+        
+        Map<String, InstallableManagedBundleImpl> bundles = new LinkedHashMap<>();
+        Collection<CatalogItem<?,?>> legacyCatalogItems = new ArrayList<>();
+        
+        // Find the bundles
         if (rebindManager.persistBundlesEnabled) {
-            List<OsgiBundleInstallationResult> installs = MutableList.of();
-            logRebindingDebug("RebindManager installing bundles: {}", mementoManifest.getBundleIds());
-            for (ManagedBundleMemento bundleM : mementoManifest.getBundles().values()) {
-                logRebindingDebug("RebindManager installing bundle {}", bundleM.getId());
-                try (InputStream in = bundleM.getJarContent().openStream()) {
-                    installs.add(rebindContext.installBundle(instantiator.newManagedBundle(bundleM), in));
-                } catch (Exception e) {
-                    exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, bundleM.getId(), bundleM.getSymbolicName(), e);
-                }
+            for (ManagedBundleMemento bundleMemento : mementoManifest.getBundles().values()) {
+                ManagedBundle managedBundle = instantiator.newManagedBundle(bundleMemento);
+                bundles.put(bundleMemento.getId(), new InstallableManagedBundleImpl(bundleMemento, managedBundle));
             }
-            // Start them all after we've installed them
-            Set<RegisteredType> installedTypes = MutableSet.of();
-            for (OsgiBundleInstallationResult br: installs) {
-                try {
-                    rebindContext.startBundle(br);
-                    Iterables.addAll(installedTypes, managementContext.getTypeRegistry().getMatching(
-                        RegisteredTypePredicates.containingBundle(br.getVersionedName())));
-                } catch (Exception e) {
-                    exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, br.getMetadata().getId(), br.getMetadata().getSymbolicName(), e);
-                }
-            }
-            if (!installedTypes.isEmpty()) {
-                validateAllTypes(installedTypes);
-            }
-
-
         } else {
             logRebindingDebug("Not rebinding bundles; feature disabled: {}", mementoManifest.getBundleIds());
         }
         
-        // Do legacy items
+        // Construct the legacy catalog items; don't add them to the catalog here, 
+        // but instead pass them to catalogInitialization.populateCatalog.
         
-        // Instantiate catalog items
         if (rebindManager.persistCatalogItemsEnabled) {
+            // Instantiate catalog items
             logRebindingDebug("RebindManager instantiating catalog items: {}", mementoManifest.getCatalogItemIds());
             for (CatalogItemMemento catalogItemMemento : mementoManifest.getCatalogItemMementos().values()) {
                 logRebindingDebug("RebindManager instantiating catalog item {}", catalogItemMemento);
                 try {
                     CatalogItem<?, ?> catalogItem = instantiator.newCatalogItem(catalogItemMemento);
                     rebindContext.registerCatalogItem(catalogItemMemento.getId(), catalogItem);
+                    legacyCatalogItems.add(catalogItem);
                 } catch (Exception e) {
                     exceptionHandler.onCreateFailed(BrooklynObjectType.CATALOG_ITEM, catalogItemMemento.getId(), catalogItemMemento.getType(), e);
                 }
             }
-        } else {
-            logRebindingDebug("Not rebinding catalog; feature disabled: {}", mementoManifest.getCatalogItemIds());
-        }
-
-        // Reconstruct catalog entries
-        if (rebindManager.persistCatalogItemsEnabled) {
+            
+            // Reconstruct catalog entries
             logRebindingDebug("RebindManager reconstructing catalog items");
             for (CatalogItemMemento catalogItemMemento : mementoManifest.getCatalogItemMementos().values()) {
                 CatalogItem<?, ?> item = rebindContext.getCatalogItem(catalogItemMemento.getId());
@@ -397,111 +426,17 @@ public abstract class RebindIteration {
                     }
                 }
             }
-        }
 
-        // See notes in CatalogInitialization
-        
-        Collection<CatalogItem<?, ?>> catalogItems = rebindContext.getCatalogItems();
-        CatalogInitialization catInit = managementContext.getCatalogInitialization();
-        catInit.applyCatalogLoadMode();
-        Collection<CatalogItem<?,?>> itemsForResettingCatalog = null;
-        boolean needsInitialItemsLoaded, needsAdditionalItemsLoaded;
-        if (rebindManager.persistCatalogItemsEnabled) {
-            if (!catInit.hasRunFinalInitialization() && catInit.isInitialResetRequested()) {
-                String message = "RebindManager resetting catalog on first run (catalog persistence enabled, but reset explicitly specified). ";
-                if (catalogItems.isEmpty()) {
-                    message += "Catalog was empty anyway.";
-                } else {
-                    message += "Deleting "+catalogItems.size()+" persisted catalog item"+Strings.s(catalogItems)+": "+catalogItems;
-                    if (shouldLogRebinding()) {
-                        LOG.info(message);
-                    }
-                }
-                logRebindingDebug(message);
-
-                // we will have unnecessarily tried to load the catalog item manifests earlier in this iteration,
-                // and problems there could fail a rebind even when we are resetting;
-                // it might be cleaner to check earlier whether a reset is happening and not load those items at all,
-                // but that would be a significant new code path (to remove a directory in the persistent store, essentially),
-                // and as it stands we don't do much with those manifests (e.g. we won't register them or fail on missing types)
-                // so we think it's only really corrupted XML or CatalogItem schema changes which would cause such problems.
-                // in extremis someone might need to wipe their store but for most purposes i don't think there will be any issue
-                // with loading the catalog item manifests before wiping all those files.
-                
-                itemsForResettingCatalog = MutableList.<CatalogItem<?,?>>of();
-                
-                PersisterDeltaImpl delta = new PersisterDeltaImpl();
-                delta.removedCatalogItemIds.addAll(mementoRawData.getCatalogItems().keySet());
-                getPersister().queueDelta(delta);
-                
-                mementoRawData.clearCatalogItems();
-                rebindContext.clearCatalogItems();
-                needsInitialItemsLoaded = true;
-                needsAdditionalItemsLoaded = true;
-            } else {
-                if (!isEmpty) {
-                    logRebindingDebug("RebindManager clearing local catalog and loading from persisted state");
-                    itemsForResettingCatalog = rebindContext.getCatalogItems();
-                    needsInitialItemsLoaded = false;
-                    // only apply "add" if we haven't yet done so while in MASTER mode
-                    needsAdditionalItemsLoaded = !catInit.hasRunFinalInitialization();
-                } else {
-                    if (catInit.hasRunFinalInitialization()) {
-                        logRebindingDebug("RebindManager has already done the final official run, not doing anything (even though persisted state empty)");
-                        needsInitialItemsLoaded = false;
-                        needsAdditionalItemsLoaded = false;
-                    } else {
-                        logRebindingDebug("RebindManager loading initial catalog locally because persisted state empty and the final official run has not yet been performed");
-                        needsInitialItemsLoaded = true;
-                        needsAdditionalItemsLoaded = true;
-                    }
-                }
-            }
         } else {
-            if (catInit.hasRunFinalInitialization()) {
-                logRebindingDebug("RebindManager skipping catalog init because it has already run (catalog persistence disabled)");
-                needsInitialItemsLoaded = false;
-                needsAdditionalItemsLoaded = false;
-            } else {
-                logRebindingDebug("RebindManager will initialize catalog locally because catalog persistence is disabled and the final official run has not yet been performed");
-                needsInitialItemsLoaded = true;
-                needsAdditionalItemsLoaded = true;
-            }
+            logRebindingDebug("Not rebinding catalog; feature disabled: {}", mementoManifest.getCatalogItemIds());
         }
 
-        // TODO in read-only mode, perhaps do this less frequently than entities etc, maybe only if things change?
-        catInit.populateCatalog(mode, needsInitialItemsLoaded, needsAdditionalItemsLoaded, itemsForResettingCatalog);
-    }
 
-    private void validateAllTypes(Set<RegisteredType> installedTypes) {
-        Stopwatch sw = Stopwatch.createStarted();
-        LOG.debug("Getting catalog to validate all types");
-        final BrooklynCatalog catalog = this.managementContext.getCatalog();
-        LOG.debug("Got catalog in {} now validate", sw.toString());
-        sw.reset(); sw.start();
-        Map<RegisteredType, Collection<Throwable>> validationErrors = catalog.validateTypes( installedTypes );
-        LOG.debug("Validation done in {}", sw.toString());
-        if (!validationErrors.isEmpty()) {
-            Map<VersionedName, Map<RegisteredType,Collection<Throwable>>> errorsByBundle = MutableMap.of();
-            for (RegisteredType t: validationErrors.keySet()) {
-                VersionedName vn = VersionedName.fromString(t.getContainingBundle());
-                Map<RegisteredType, Collection<Throwable>> errorsInBundle = errorsByBundle.get(vn);
-                if (errorsInBundle==null) {
-                    errorsInBundle = MutableMap.of();
-                    errorsByBundle.put(vn, errorsInBundle);
-                }
-                errorsInBundle.put(t, validationErrors.get(t));
-            }
-            for (VersionedName vn: errorsByBundle.keySet()) {
-                Map<RegisteredType, Collection<Throwable>> errorsInBundle = errorsByBundle.get(vn);
-                ManagedBundle b = managementContext.getOsgiManager().get().getManagedBundle(vn);
-                exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE,
-                    b!=null ? b.getId() : /* just in case it was uninstalled concurrently somehow */ vn.toString(),
-                    vn.getSymbolicName(),
-                    Exceptions.create("Failed to install "+vn+", types "+errorsInBundle.keySet()+" gave errors",
-                        Iterables.concat(errorsInBundle.values())));
-            }
-        }
+        // Delegates to CatalogInitialization; see notes there.
+        CatalogInitialization.PersistedCatalogState persistedCatalogState = new PersistedCatalogStateImpl(isEmpty, legacyCatalogItems, bundles);
+        
+        CatalogInitialization catInit = managementContext.getCatalogInitialization();
+        catInit.populateCatalog(mode, persistedCatalogState, exceptionHandler, rebindLogger);
     }
 
     protected void instantiateLocationsAndEntities() {

@@ -330,8 +330,11 @@ public class ClassLoaderUtils {
             }
             return dispatcher.tryLoadFrom(bundle.get(), name);
         } else {
-            log.warn("Request for bundle '"+symbolicName+"' "+(Strings.isNonBlank(version) ? "("+version+") " : "")+"will be ignored as no framework available; will look for '"+name+"' in plain old classpath");
-            return dispatcher.tryLoadFrom(classLoader, name);
+            Maybe<T> result = dispatcher.tryLoadFrom(classLoader, name);
+            if (result.isAbsent()) {
+                log.warn("Request for bundle '"+symbolicName+"' "+(Strings.isNonBlank(version) ? "("+version+") " : "")+"was ignored as no framework available; and failed to find '"+name+"' in plain old classpath");
+            }
+            return result;
         }
     }
 

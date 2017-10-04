@@ -84,6 +84,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     private static final Logger log = LoggerFactory.getLogger(CatalogResource.class);
     private static final String LATEST = "latest";
     
+    @Deprecated
     private Function<RegisteredType, CatalogItemSummary> toCatalogItemSummary(final UriInfo ui) {
         return new Function<RegisteredType, CatalogItemSummary>() {
             @Override
@@ -202,11 +203,13 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
+    @Deprecated
     public void deleteApplication(String symbolicName, String version) throws Exception {
         deleteEntity(symbolicName, version);
     }
 
     @Override
+    @Deprecated
     public void deleteEntity(String symbolicName, String version) throws Exception {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, StringAndArgument.of(symbolicName+(Strings.isBlank(version) ? "" : ":"+version), "delete"))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
@@ -226,6 +229,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
+    @Deprecated
     public void deletePolicy(String policyId, String version) throws Exception {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, StringAndArgument.of(policyId+(Strings.isBlank(version) ? "" : ":"+version), "delete"))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
@@ -245,6 +249,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
+    @Deprecated
     public void deleteLocation(String locationId, String version) throws Exception {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, StringAndArgument.of(locationId+(Strings.isBlank(version) ? "" : ":"+version), "delete"))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
@@ -264,6 +269,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
+    @Deprecated
     public List<CatalogEntitySummary> listEntities(String regex, String fragment, boolean allVersions) {
         Predicate<RegisteredType> filter =
                 Predicates.and(
@@ -274,6 +280,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
+    @Deprecated
     public List<CatalogItemSummary> listApplications(String regex, String fragment, boolean allVersions) {
         @SuppressWarnings("unchecked")
         Predicate<RegisteredType> filter =
@@ -285,6 +292,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
     
     @Override
+    @Deprecated
     public CatalogEntitySummary getEntity(String symbolicName, String version) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, symbolicName+(Strings.isBlank(version)?"":":"+version))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
@@ -302,11 +310,13 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
+    @Deprecated
     public CatalogEntitySummary getApplication(String symbolicName, String version) {
         return getEntity(symbolicName, version);
     }
 
     @Override
+    @Deprecated
     public List<CatalogPolicySummary> listPolicies(String regex, String fragment, boolean allVersions) {
         Predicate<RegisteredType> filter =
                 Predicates.and(
@@ -317,6 +327,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
+    @Deprecated
     public CatalogPolicySummary getPolicy(String policyId, String version) throws Exception {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, policyId+(Strings.isBlank(version)?"":":"+version))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
@@ -333,6 +344,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
+    @Deprecated
     public List<CatalogLocationSummary> listLocations(String regex, String fragment, boolean allVersions) {
         Predicate<RegisteredType> filter =
                 Predicates.and(
@@ -343,6 +355,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
+    @Deprecated
     public CatalogLocationSummary getLocation(String locationId, String version) throws Exception {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, locationId+(Strings.isBlank(version)?"":":"+version))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
@@ -359,6 +372,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
+    @Deprecated
     private <T,SpecT> List<CatalogItemSummary> getCatalogItemSummariesMatchingRegexFragment(
             Predicate<RegisteredType> type, String regex, String fragment, boolean allVersions) {
         List<Predicate<RegisteredType>> filters = new ArrayList();
@@ -390,8 +404,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         return getCatalogItemIcon(mgmt().getTypeRegistry().get(itemId, version));
     }
     
-    @SuppressWarnings("deprecation")
     @Override
+    @Deprecated
     public void setDeprecated(String itemId, boolean deprecated) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, StringAndArgument.of(itemId, "deprecated"))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
@@ -400,8 +414,8 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         CatalogUtils.setDeprecated(mgmt(), itemId, deprecated);
     }
 
-    @SuppressWarnings("deprecation")
     @Override
+    @Deprecated
     public void setDisabled(String itemId, boolean disabled) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, StringAndArgument.of(itemId, "disabled"))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
@@ -411,6 +425,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
+    @Deprecated
     public List<CatalogEnricherSummary> listEnrichers(@ApiParam(name = "regex", value = "Regular expression to search for") @DefaultValue("") String regex, @ApiParam(name = "fragment", value = "Substring case-insensitive to search for") @DefaultValue("") String fragment, @ApiParam(name = "allVersions", value = "Include all versions (defaults false, only returning the best version)") @DefaultValue("false") boolean includeAllVersions) {
         Predicate<RegisteredType> filter =
                 Predicates.and(
@@ -421,6 +436,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
+    @Deprecated
     public CatalogEnricherSummary getEnricher(@ApiParam(name = "enricherId", value = "The ID of the enricher to retrieve", required = true) String enricherId, @ApiParam(name = "version", value = "The version identifier of the enricher to retrieve", required = true) String version) throws Exception {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, enricherId+(Strings.isBlank(version)?"":":"+version))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
@@ -436,6 +452,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @Override
+    @Deprecated
     public void deleteEnricher(@ApiParam(name = "enricherId", value = "The ID of the enricher to delete", required = true) String enricherId, @ApiParam(name = "version", value = "The version identifier of the enricher to delete", required = true) String version) throws Exception {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, StringAndArgument.of(enricherId+(Strings.isBlank(version) ? "" : ":"+version), "delete"))) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",

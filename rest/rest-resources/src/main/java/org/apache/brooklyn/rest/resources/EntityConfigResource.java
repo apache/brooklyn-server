@@ -32,9 +32,9 @@ import org.apache.brooklyn.core.entity.internal.EntityConfigMap;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.EntityAndItem;
 import org.apache.brooklyn.rest.api.EntityConfigApi;
-import org.apache.brooklyn.rest.domain.EntityConfigSummary;
+import org.apache.brooklyn.rest.domain.ConfigSummary;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
-import org.apache.brooklyn.rest.transform.EntityTransformer;
+import org.apache.brooklyn.rest.transform.ConfigTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -52,7 +52,7 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
     private static final Logger LOG = LoggerFactory.getLogger(EntityConfigResource.class);
 
     @Override
-    public List<EntityConfigSummary> list(final String application, final String entityToken) {
+    public List<ConfigSummary> list(final String application, final String entityToken) {
         final Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see entity '%s'",
@@ -61,7 +61,7 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
 
         // TODO merge with keys which have values:
         //      ((EntityInternal) entity).config().getBag().getAllConfigAsConfigKeyMap();
-        List<EntityConfigSummary> result = Lists.newArrayList();
+        List<ConfigSummary> result = Lists.newArrayList();
         
         for (ConfigKey<?> key : entity.getEntityType().getConfigKeys()) {
             // Exclude config that user is not allowed to see
@@ -70,7 +70,7 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
                         new Object[] {Entitlements.getEntitlementContext().user(), key.getName(), entity});
                 continue;
             }
-            result.add(EntityTransformer.entityConfigSummary(entity, key, ui.getBaseUriBuilder()));
+            result.add(ConfigTransformer.of(key).on(entity).includeLinks(ui.getBaseUriBuilder(), true, true).transform());
         }
         
         return result;

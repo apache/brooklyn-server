@@ -36,10 +36,12 @@ import java.util.Map;
 @Api("Entity Policies")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+/** @deprecated since 0.13.0 use AdjunctApi */
+@Deprecated
 public interface PolicyApi {
     
     @GET
-    @ApiOperation(value = "Fetch the policies attached to a specific application entity",
+    @ApiOperation(value = "Fetch the policies attached to a specific application entity (deprecated, use adjuncts/ endpoint instead)",
             response = org.apache.brooklyn.rest.domain.PolicySummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
@@ -55,7 +57,7 @@ public interface PolicyApi {
     // (and in sensors class)
     @GET
     @Path("/current-state")
-    @ApiOperation(value = "Fetch policy states in batch", notes="Returns a map of policy ID to whether it is active")
+    @ApiOperation(value = "Fetch policy states in batch", notes="Returns a map of policy ID to whether it is active (deprecated, use adjuncts/ endpoint instead)")
     // FIXME method name -- this is nothing to do with config!
     public Map<String, Boolean> batchConfigRead(
             @ApiParam(value = "Application ID or name", required = true)
@@ -64,7 +66,7 @@ public interface PolicyApi {
             @PathParam("entity") String entityToken) ;
 
     @POST
-    @ApiOperation(value = "Add a policy", notes = "Returns a summary of the new policy")
+    @ApiOperation(value = "Add a policy", notes = "Returns a summary of the new policy (deprecated, use adjuncts/ endpoint instead)")
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Could not find application or entity"),
             @ApiResponse(code = 400, message = "Type is not a class implementing Policy")
@@ -86,7 +88,7 @@ public interface PolicyApi {
 
     @GET
     @Path("/{policy}")
-    @ApiOperation(value = "Gets status of a policy (RUNNING / SUSPENDED)")
+    @ApiOperation(value = "Gets status of a policy (RUNNING / SUSPENDED) (deprecated, use adjuncts/ endpoint instead)")
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Could not find application, entity or policy")
     })
@@ -102,7 +104,7 @@ public interface PolicyApi {
 
     @POST
     @Path("/{policy}/start")
-    @ApiOperation(value = "Start or resume a policy")
+    @ApiOperation(value = "Start or resume a policy (deprecated, use adjuncts/ endpoint instead)")
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Could not find application, entity or policy")
     })
@@ -118,7 +120,7 @@ public interface PolicyApi {
 
     @POST
     @Path("/{policy}/stop")
-    @ApiOperation(value = "Suspends a policy")
+    @ApiOperation(value = "Suspends a policy (deprecated, use adjuncts/ endpoint instead)")
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Could not find application, entity or policy")
     })
@@ -135,7 +137,7 @@ public interface PolicyApi {
     // TODO: Should be DELETE /policy, not POST /policy/destroy
     @POST
     @Path("/{policy}/destroy")
-    @ApiOperation(value = "Destroy a policy", notes="Removes a policy from being associated with the entity and destroys it (stopping first if running)")
+    @ApiOperation(value = "Destroy a policy (deprecated, use adjuncts/ endpoint instead)", notes="Removes a policy from being associated with the entity and destroys it (stopping first if running)")
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Could not find application, entity or policy")
     })

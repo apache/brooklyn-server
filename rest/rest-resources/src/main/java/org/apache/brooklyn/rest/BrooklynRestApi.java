@@ -24,6 +24,7 @@ import java.util.List;
 import org.apache.brooklyn.rest.resources.AbstractBrooklynRestResource;
 import org.apache.brooklyn.rest.resources.AccessResource;
 import org.apache.brooklyn.rest.resources.ActivityResource;
+import org.apache.brooklyn.rest.resources.AdjunctResource;
 import org.apache.brooklyn.rest.resources.ApidocResource;
 import org.apache.brooklyn.rest.resources.ApplicationResource;
 import org.apache.brooklyn.rest.resources.BundleResource;
@@ -61,6 +62,7 @@ public class BrooklynRestApi {
         resources.add(new EntityConfigResource());
         resources.add(new SensorResource());
         resources.add(new EffectorResource());
+        resources.add(new AdjunctResource());
         resources.add(new PolicyResource());
         resources.add(new PolicyConfigResource());
         resources.add(new ActivityResource());

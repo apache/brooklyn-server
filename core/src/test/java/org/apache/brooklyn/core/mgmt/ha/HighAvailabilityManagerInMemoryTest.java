@@ -53,11 +53,6 @@ public class HighAvailabilityManagerInMemoryTest extends HighAvailabilityManager
         return new InMemoryObjectStore();
     }
     
-    @Override
-    public void testGetManagementPlaneStatus() throws Exception {
-        super.testGetManagementPlaneStatus();
-    }
-
     // extra test that promoteToMaster doesn't interfere with what is managed
     public void testLocationsStillManagedCorrectlyAfterDoublePromotion() throws NoMachinesAvailableException {
         HighAvailabilityManagerImpl ha = (HighAvailabilityManagerImpl) managementContext.getHighAvailabilityManager();
