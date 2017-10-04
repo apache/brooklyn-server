@@ -54,6 +54,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultimap;
@@ -129,6 +130,24 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
         
         if (LOG.isDebugEnabled()) LOG.debug("Creating subscription {} for {} on {} {} in {}", new Object[] {s.id, s.subscriber, producer, sensor, this});
         allSubscriptions.put(s.id, s);
+        T lastVal;
+        if (notifyOfInitialValue) {
+            notifyOfInitialValue = false;
+            if (producer == null) {
+                LOG.warn("Cannot notifyOfInitialValue for subscription with wildcard producer: "+s);
+            } else if (sensor == null) {
+                LOG.warn("Cannot notifyOfInitialValue for subscription with wilcard sensor: "+s);
+            } else if (!(sensor instanceof AttributeSensor)) {
+                LOG.warn("Cannot notifyOfInitialValue for subscription with non-attribute sensor: "+s);
+            } else {
+                notifyOfInitialValue = true;
+            }
+        }
+        if (notifyOfInitialValue) {
+            lastVal = (T) s.producer.sensors().get((AttributeSensor<?>) s.sensor);
+        } else {
+            lastVal = null;  // won't be used
+        }
         addToMapOfSets(subscriptionsByToken, makeEntitySensorToken(s.producer, s.sensor), s);
         if (s.subscriber!=null) {
             addToMapOfSets(subscriptionsBySubscriber, s.subscriber, s);
@@ -138,22 +157,40 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
         }
 
         if (notifyOfInitialValue) {
-            if (producer == null) {
-                LOG.warn("Cannot notifyOfInitialValue for subscription with wildcard producer: "+s);
-            } else if (sensor == null) {
-                LOG.warn("Cannot notifyOfInitialValue for subscription with wilcard sensor: "+s);
-            } else if (!(sensor instanceof AttributeSensor)) {
-                LOG.warn("Cannot notifyOfInitialValue for subscription with non-attribute sensor: "+s);
-            } else {
-                if (LOG.isTraceEnabled()) LOG.trace("sending initial value of {} -> {} to {}", new Object[] {s.producer, s.sensor, s});
-                em.submit(
-                    MutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(s.producer), BrooklynTaskTags.SENSOR_TAG),
-                        "displayName", "Initial publication of "+s.sensor.getName()),
-                    () -> {
-                        T val = (T) s.producer.getAttribute((AttributeSensor<?>) s.sensor);
-                        submitPublishEvent(s, new BasicSensorEvent<T>(s.sensor, s.producer, val), true);
-                    });
-            }
+            if (LOG.isTraceEnabled()) LOG.trace("sending initial value of {} -> {} to {}", new Object[] {s.producer, s.sensor, s});
+            // this is run asynchronously to prevent deadlock when trying to get attribute and publish;
+            // however we want it:
+            // (a) to run in the same order as subscriptions are made, so use the manager tag scheduler
+            // (b) ideally to use the last value that was not published to this target, and
+            // (c) to deliver before any subsequent value notification
+            // but we can't guarantee either (b) or (c) without taking a lock from before we added 
+            // the subscriber above, mutexing other sets and publications, which feels heavy and dangerous.
+            // so the compromise is to skip this delivery in cases where the last value has obviously changed -
+            // because a more recent notification is guaranteed to be sent.
+            // we may occasionally still send a duplicate, if delivery got sent in the tiny
+            // window between adding the subscription and taking the last value,
+            // we will think the last value hasn't changed.  but we will never send a
+            // wrong value as this backs out if there is any confusion over the last value.
+            em.submit(
+                MutableMap.of("tags", getPublishTags(s, s.producer),
+                    "displayName", "Initial value publication on subscription to "+s.sensor.getName()),
+                () -> {
+                    T val = (T) s.producer.sensors().get((AttributeSensor<?>) s.sensor);
+                    if (!Objects.equal(lastVal, val)) {
+                        // bail out - value has been changed;
+                        // this might be a duplicate if value changed in small window earlier,
+                        // but it won't be delivering an old value later than a newer value
+                        if (LOG.isDebugEnabled()) LOG.debug("skipping initial value delivery of {} -> {} to {} as value changed from {} to {}", new Object[] {s.producer, s.sensor, s, lastVal, val});
+                        return;
+                    }
+                    // guard against case where other thread changes the val and publish
+                    // while we are publishing, and our older val is then delivered after theirs.
+                    // 2017-10 previously we did not do this, then looked at doing it with the attribute lock object
+                    // synchronized (((AbstractEntity)s.producer).getAttributesSynchObjectInternal()) {
+                    // but realized a better thing is to have initial delivery _done_, not just submitted, 
+                    // by ourselves, as we are already in the right thread now and can prevent interleaving this way
+                    submitPublishEvent(s, new BasicSensorEvent<T>(s.sensor, s.producer, val), true);
+                });
         }
         
         return s;
@@ -210,7 +247,6 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
         // (recommend exactly one per subscription to prevent deadlock)
         // this is done with:
         // em.setTaskSchedulerForTag(subscriberId, SingleThreadedScheduler.class);
-        
         //note, generating the notifications must be done in the calling thread to preserve order
         //e.g. emit(A); emit(B); should cause onEvent(A); onEvent(B) in that order
         if (LOG.isTraceEnabled()) LOG.trace("{} got event {}", this, event);
@@ -228,18 +264,11 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
     }
     
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    private void submitPublishEvent(final Subscription s, final SensorEvent<?> event, final boolean isInitial) {
+    private void submitPublishEvent(final Subscription s, final SensorEvent<?> event, final boolean isInitialPublicationOfOldValueInCorrectScheduledThread) {
         if (s.eventFilter!=null && !s.eventFilter.apply(event))
             return;
         
-        List<Object> tags = MutableList.builder()
-            .addAll(s.subscriberExtraExecTags == null ? ImmutableList.of() : s.subscriberExtraExecTags)
-            .add(s.subscriberExecutionManagerTag)
-            .add(BrooklynTaskTags.SENSOR_TAG)
-            // associate the publish event with the publisher (though on init it might be triggered by subscriber)
-            .addIfNotNull(event.getSource()!=null ? BrooklynTaskTags.tagForTargetEntity(event.getSource()) : null)
-            .build()
-            .asUnmodifiable();
+        List<Object> tags = getPublishTags(s, event.getSource()).asUnmodifiable();
         
         StringBuilder name = new StringBuilder("sensor ");
         StringBuilder description = new StringBuilder("Sensor ");
@@ -271,12 +300,12 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
             "displayName", name.toString(),
             "description", description.toString());
         
-        boolean isEntityStarting = s.subscriber instanceof Entity && isInitial;
+        boolean isEntityStarting = s.subscriber instanceof Entity && isInitialPublicationOfOldValueInCorrectScheduledThread;
         // will have entity (and adjunct) execution context from tags, so can skip getting exec context
-        em.submit(execFlags, new Runnable() {
+        Runnable deliverer = new Runnable() {
             @Override
             public String toString() {
-                if (isInitial) {
+                if (isInitialPublicationOfOldValueInCorrectScheduledThread) {
                     return "LSM.publishInitial("+event+")";
                 } else {
                     return "LSM.publish("+event+")";
@@ -312,7 +341,26 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
                         LOG.warn("Error processing subscriptions to "+this+": "+t, t);
                     }
                 }
-            }});
+            }};
+        if (!isInitialPublicationOfOldValueInCorrectScheduledThread) {
+            em.submit(execFlags, deliverer);
+        } else {
+            // for initial, caller guarantees he is running in the right thread/context
+            // where the above submission would take place, typically the
+            // subscriber single threaded executor with the entity context;
+            // this allows caller to do extra assertions and bailout steps at the right time
+            deliverer.run();
+        }
+    }
+
+    private MutableList<Object> getPublishTags(final Subscription<?> s, final Entity source) {
+        return MutableList.builder()
+            .addAll(s.subscriberExtraExecTags == null ? ImmutableList.of() : s.subscriberExtraExecTags)
+            .add(s.subscriberExecutionManagerTag)
+            .add(BrooklynTaskTags.SENSOR_TAG)
+            // associate the publish event with the publisher (though on init it might be triggered by subscriber)
+            .addIfNotNull(source!=null ? BrooklynTaskTags.tagForTargetEntity(source) : null)
+            .build();
     }
     
     protected boolean includeDescriptionForSensorTask(SensorEvent<?> event) {
