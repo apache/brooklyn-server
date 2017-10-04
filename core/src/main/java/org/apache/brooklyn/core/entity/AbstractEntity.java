@@ -529,6 +529,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
      * through this method. Internally, all attribute updates synch on this object. Code wishing to
      * update attributes or publish while holding some other lock should acquire the monitor on this
      * object first to prevent deadlock. */
+    @Beta
     protected Object getAttributesSynchObjectInternal() {
         return attributesInternal.getSynchObjectInternal();
     }

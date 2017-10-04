@@ -827,10 +827,8 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         for (Entity member : removedStartables) {
             tasks.add(newThrottledEffectorTask(member, Startable.STOP, Collections.emptyMap()));
         }
-        Task<?> invoke = Tasks.parallel(tasks.build());
-        DynamicTasks.queueIfPossible(invoke).orSubmitAsync();
         try {
-            invoke.get();
+            DynamicTasks.get( Tasks.parallel(tasks.build()) );
             return removedEntities;
         } catch (Exception e) {
             throw Exceptions.propagate(e);
@@ -1075,8 +1073,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         try {
             if (member instanceof Startable) {
                 Task<?> task = newThrottledEffectorTask(member, Startable.STOP, Collections.<String, Object>emptyMap());
-                DynamicTasks.queueIfPossible(task).orSubmitAsync();
-                task.getUnchecked();
+                DynamicTasks.get(task);
             }
         } finally {
             Entities.unmanage(member);

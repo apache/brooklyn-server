@@ -101,16 +101,18 @@ public interface ExecutionContext extends Executor {
     <T> Maybe<T> getImmediately(Task<T> callableOrSupplierOrTask);
 
     /**
-     * Efficient shortcut for {@link #submit(TaskAdaptable)} followed by an immediate {@link Task#get()}.
+     * Efficient implementation of common case when {@link #submit(TaskAdaptable)} is followed by an immediate {@link Task#get()}.
      * <p>
-     * Implementations will typically attempt to execute in the current thread, with appropriate
-     * configuration to make it look like it is in a sub-thread, 
-     * ie registering this as a task and allowing
-     * context methods on tasks to see the given sub-task.
+     * This is efficient in that it may typically attempt to execute in the current thread, 
+     * with appropriate configuration to make it look like it is in a sub-thread, 
+     * ie registering this as a task and allowing context methods on tasks to see the given sub-task.
+     * However it will normally be non-blocking which reduces overhead and 
+     * is permissible within a {@link #getImmediately(Object)} task
      * <p>
-     * If the argument has already been submitted it simply blocks on it.
+     * If the argument has already been submitted it simply blocks on it 
+     * (i.e. no additional execution, and in that case would fail within a {@link #getImmediately(Object)}).
      * 
-     * @param task
+     * @param task the task whose result is being sought
      * @return result of the task execution
      */
     @Beta
