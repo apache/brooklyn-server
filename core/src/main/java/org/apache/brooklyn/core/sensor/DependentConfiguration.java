@@ -102,8 +102,15 @@ import groovy.lang.Closure;
  * </pre>
  * <p>
  * Note that these methods return one-time tasks. The DslComponent methods return long-lasting pointers
- * and should now normally be used instead.
+ * and should now normally be used instead. If using these methods that return {@link Task} instances
+ * you should either ensure it is submitted or that validation and any other attempts to 
+ * {@link ExecutionContext#getImmediately(TaskAdaptable)} on this task is blocked;
+ * it is all to easy otherwise for an innocuous immediate-get to render this task interrupted
  */
+// possibly even the REST API just looking at config could cancel?
+// TODO should we deprecate these and provide variants that return TaskFactory instances?
+// maybe even ones that are nicely persistable? i (alex) think so, 2017-10.
+// see https://github.com/apache/brooklyn-server/pull/816#issuecomment-333858098
 public class DependentConfiguration {
 
     private static final Logger LOG = LoggerFactory.getLogger(DependentConfiguration.class);

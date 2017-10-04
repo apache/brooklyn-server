@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.effector.ParameterType;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.Machines;
@@ -57,7 +58,12 @@ public class EffectorTasks {
     private static final Logger log = LoggerFactory.getLogger(EffectorTasks.class);
     
     public interface EffectorTaskFactory<T> {
+        // TODO deprecate
         public abstract TaskAdaptable<T> newTask(Entity entity, Effector<T> effector, ConfigBag parameters);
+    }
+    
+    public interface EffectorTaskFactoryFactory<T> {
+        public abstract TaskFactory<Task<T>> newTaskFactory(Entity entity, Effector<T> effector, ConfigBag parameters);
     }
     
     /** wrapper for {@link EffectorBody} which simply runs that body on each invocation;
@@ -70,28 +76,52 @@ public class EffectorTasks {
         
         @Override
         public Task<T> newTask(final Entity entity, final org.apache.brooklyn.api.effector.Effector<T> effector, final ConfigBag parameters) {
-            final AtomicReference<DynamicSequentialTask<T>> dst = new AtomicReference<DynamicSequentialTask<T>>();
-
-            dst.set(new DynamicSequentialTask<T>(
-                    getFlagsForTaskInvocationAt(entity, effector, parameters), 
-                    new Callable<T>() {
-                        @Override
-                        public T call() throws Exception {
-                            try {
-                                DynamicTasks.setTaskQueueingContext(dst.get());
-                                return effectorBody.call(parameters);
-                            } finally {
-                                DynamicTasks.removeTaskQueueingContext();
-                            }
-                        }
-                    }) {
-                        @Override
-                        public void handleException(Throwable throwable) throws Exception {
-                            throw EffectorUtils.handleEffectorException(entity, effector, throwable);
-                        }
-                    });
-            return dst.get();
+            return newTaskFactory(entity, effector, parameters).newTask();
         };
+        
+        public TaskFactory<Task<T>> newTaskFactory(final Entity entity, final org.apache.brooklyn.api.effector.Effector<T> effector, final ConfigBag parameters) {
+            return new RealTaskFactory<T>(entity, effector, parameters, effectorBody, getFlagsForTaskInvocationAt(entity, effector, parameters));            
+        };
+        
+        private static class RealTaskFactory<T> implements TaskFactory<Task<T>> {
+            final Entity entity;
+            final Effector<T> effector; 
+            final ConfigBag parameters;
+            final EffectorBody<T> effectorBody;
+            final Map<Object,Object> invocationFlags;
+            public RealTaskFactory(Entity entity, Effector<T> effector, ConfigBag parameters, EffectorBody<T> effectorBody, Map<Object,Object> invocationFlags) {
+                this.entity = entity;
+                this.effector = effector;
+                this.parameters = parameters;
+                this.effectorBody = effectorBody;
+                this.invocationFlags = invocationFlags;
+            }
+
+            @Override
+            public Task<T> newTask() {
+                final AtomicReference<DynamicSequentialTask<T>> dst = new AtomicReference<DynamicSequentialTask<T>>();
+
+                dst.set(new DynamicSequentialTask<T>(
+                        invocationFlags, 
+                        new Callable<T>() {
+                            @Override
+                            public T call() throws Exception {
+                                try {
+                                    DynamicTasks.setTaskQueueingContext(dst.get());
+                                    return effectorBody.call(parameters);
+                                } finally {
+                                    DynamicTasks.removeTaskQueueingContext();
+                                }
+                            }
+                        }) {
+                            @Override
+                            public void handleException(Throwable throwable) throws Exception {
+                                throw EffectorUtils.handleEffectorException(entity, effector, throwable);
+                            }
+                        });
+                return dst.get();
+            }
+        }
 
         /** @deprecated since 0.7.0 use {@link #getFlagsForTaskInvocationAt(Entity, Effector, ConfigBag)} */ @Deprecated
         protected final Map<Object,Object> getFlagsForTaskInvocationAt(Entity entity, Effector<?> effector) {

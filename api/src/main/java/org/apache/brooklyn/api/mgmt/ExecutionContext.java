@@ -97,8 +97,12 @@ public interface ExecutionContext extends Executor {
     @Beta
     <T> Maybe<T> getImmediately(Object callableOrSupplierOrTask);
     /** As {@link #getImmediately(Object)} but strongly typed for a task. */
+    // TODO deprecate
     @Beta
-    <T> Maybe<T> getImmediately(Task<T> callableOrSupplierOrTask);
+    <T> Maybe<T> getImmediately(TaskAdaptable<T> callableOrSupplierOrTask);
+    /** As {@link #getImmediately(Object)} but strongly typed for a task factory. */
+    @Beta
+    <T> Maybe<T> getImmediately(TaskFactory<Task<T>> callableOrSupplierOrTask);
 
     /**
      * Efficient implementation of common case when {@link #submit(TaskAdaptable)} is followed by an immediate {@link Task#get()}.

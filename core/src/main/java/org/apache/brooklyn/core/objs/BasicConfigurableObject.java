@@ -22,6 +22,8 @@ import java.util.Set;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.objs.Identifiable;
 import org.apache.brooklyn.config.ConfigKey;
@@ -115,12 +117,22 @@ public class BasicConfigurableObject implements Configurable, Identifiable, Mana
         }
 
         @Override
-        public <T> T set(ConfigKey<T> key, Task<T> val) {
-            throw new UnsupportedOperationException();
+        public <T> T set(ConfigKey<T> key, TaskFactory<? extends TaskAdaptable<T>> val) {
+            throw new UnsupportedOperationException("Setting tasks only supported on subtypes");
         }
 
         @Override
-        public <T> T set(HasConfigKey<T> key, Task<T> val) {
+        public <T> T set(HasConfigKey<T> key, TaskFactory<? extends TaskAdaptable<T>> val) {
+            return set(key.getConfigKey(), val);
+        }
+        
+        @Override
+        public <T> T set(ConfigKey<T> key, TaskAdaptable<T> val) {
+            throw new UnsupportedOperationException("Setting tasks only supported on subtypes");
+        }
+
+        @Override
+        public <T> T set(HasConfigKey<T> key, TaskAdaptable<T> val) {
             return set(key.getConfigKey(), val);
         }
 

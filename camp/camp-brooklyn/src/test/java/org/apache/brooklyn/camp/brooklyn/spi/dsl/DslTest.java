@@ -209,7 +209,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
     public void testConfigImmediatelyDoesNotBlock() throws Exception {
         ConfigKey<String> configKey = ConfigKeys.newStringConfigKey("testConfig");
         BrooklynDslDeferredSupplier<?> attributeDsl = BrooklynDslCommon.attributeWhenReady(TestApplication.MY_ATTRIBUTE.getName());
-        app.config().set((ConfigKey)configKey, attributeDsl); // ugly cast because val is DSL, resolving to a string
+        app.config().set((ConfigKey)configKey, (Object)attributeDsl); // ugly cast because val is DSL, resolving to a string
         BrooklynDslDeferredSupplier<?> configDsl = BrooklynDslCommon.config(configKey.getName());
         Maybe<?> actualValue = execDslImmediately(configDsl, configKey.getType(), app, true);
         assertTrue(actualValue.isAbsent());
