@@ -24,6 +24,7 @@ import java.util.List;
 
 import org.apache.brooklyn.api.location.MachineLocationCustomizer;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -193,8 +194,8 @@ public class LocationCustomizerDelegate implements JcloudsLocationCustomizer {
 
     @SuppressWarnings("deprecation")
     public static Collection<JcloudsLocationCustomizer> getCustomizers(ManagementContext mgmt, ConfigBag setup) {
-        JcloudsLocationCustomizer customizer = setup.get(JcloudsLocationConfig.JCLOUDS_LOCATION_CUSTOMIZER);
-        Collection<JcloudsLocationCustomizer> customizers = setup.get(JcloudsLocationConfig.JCLOUDS_LOCATION_CUSTOMIZERS);
+        JcloudsLocationCustomizer customizer = EntityInitializers.resolve(setup, JcloudsLocationConfig.JCLOUDS_LOCATION_CUSTOMIZER);
+        Collection<JcloudsLocationCustomizer> customizers = EntityInitializers.resolve(setup, JcloudsLocationConfig.JCLOUDS_LOCATION_CUSTOMIZERS);
         String customizerType = setup.get(JcloudsLocationConfig.JCLOUDS_LOCATION_CUSTOMIZER_TYPE);
         String customizersSupplierType = setup.get(JcloudsLocationConfig.JCLOUDS_LOCATION_CUSTOMIZERS_SUPPLIER_TYPE);
 
@@ -232,7 +233,8 @@ public class LocationCustomizerDelegate implements JcloudsLocationCustomizer {
     }
 
     protected static Collection<MachineLocationCustomizer> getMachineCustomizers(ManagementContext mgmt, ConfigBag setup) {
-        Collection<MachineLocationCustomizer> customizers = setup.get(JcloudsLocationConfig.MACHINE_LOCATION_CUSTOMIZERS);
+        Collection<MachineLocationCustomizer> customizers = EntityInitializers.resolve(setup, JcloudsLocationConfig.MACHINE_LOCATION_CUSTOMIZERS);
+//        Collection<MachineLocationCustomizer> customizers = setup.get(JcloudsLocationConfig.MACHINE_LOCATION_CUSTOMIZERS);
         return (customizers == null ? ImmutableList.<MachineLocationCustomizer>of() : customizers);
     }
 

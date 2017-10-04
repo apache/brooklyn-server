@@ -61,6 +61,7 @@ public class EffectorSayHiTest extends BrooklynAppUnitTestSupport {
     //TODO test edge/error conditions
     //(missing parameters, wrong number of params, etc)
 
+    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(EffectorSayHiTest.class);
 
     private MyEntity e;
@@ -109,10 +110,10 @@ public class EffectorSayHiTest extends BrooklynAppUnitTestSupport {
             .get( Effectors.invocation(e, MyEntity.SAY_HI_1, ImmutableMap.of("name", "Bob", "greeting", "hi")) ), "hi Bob");
     }
     
-    @Test(groups="WIP")  // see comments at BasicExecutionContext.getImmediately
+    @Test(invocationCount=100)
     public void testInvocationGetImmediately() throws Exception {
         assertEquals(((EntityInternal)e).getExecutionContext()
-            .getImmediately( Effectors.invocation(e, MyEntity.SAY_HI_1, ImmutableMap.of("name", "Bob", "greeting", "hi")) ), "hi Bob");
+            .getImmediately( Effectors.invocation(e, MyEntity.SAY_HI_1, ImmutableMap.of("name", "Bob", "greeting", "hi")) ).get(), "hi Bob");
     }
 
     @Test

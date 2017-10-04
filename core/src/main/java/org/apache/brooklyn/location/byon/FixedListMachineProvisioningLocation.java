@@ -37,6 +37,7 @@ import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.mgmt.LocationManager;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
@@ -415,7 +416,7 @@ implements MachineProvisioningLocation<T>, Closeable {
     }
 
     protected Collection<MachineLocationCustomizer> getMachineCustomizers(ConfigBag setup) {
-        Collection<MachineLocationCustomizer> customizers = setup.get(MACHINE_LOCATION_CUSTOMIZERS);
+        Collection<MachineLocationCustomizer> customizers = EntityInitializers.resolve(setup, MACHINE_LOCATION_CUSTOMIZERS);
         return (customizers == null ? ImmutableList.<MachineLocationCustomizer>of() : customizers);
     }
 

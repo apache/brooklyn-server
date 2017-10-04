@@ -155,17 +155,18 @@ public class BrooklynRestResourceUtils {
         for (Policy p: entity.policies()) {
             if (adjunct.equals(p.getId())) return p;
         }
+        for (Enricher p: entity.enrichers()) {
+            if (adjunct.equals(p.getId())) return p;
+        }
+        for (Feed p: ((EntityInternal)entity).feeds()) {
+            if (adjunct.equals(p.getId())) return p;
+        }
+        
         for (Policy p: entity.policies()) {
             if (adjunct.equals(p.getDisplayName())) return p;
         }
         for (Enricher p: entity.enrichers()) {
-            if (adjunct.equals(p.getId())) return p;
-        }
-        for (Enricher p: entity.enrichers()) {
             if (adjunct.equals(p.getDisplayName())) return p;
-        }
-        for (Feed p: ((EntityInternal)entity).feeds()) {
-            if (adjunct.equals(p.getId())) return p;
         }
         for (Feed p: ((EntityInternal)entity).feeds()) {
             if (adjunct.equals(p.getDisplayName())) return p;

@@ -194,7 +194,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     public void reset(CatalogDto dto, boolean failOnLoadError) {
         specCache.invalidate();
         // Unregister all existing persisted items.
-        for (CatalogItem<?, ?> toRemove : getCatalogItems()) {
+        for (CatalogItem<?, ?> toRemove : getCatalogItemsLegacy()) {
             if (log.isTraceEnabled()) {
                 log.trace("Scheduling item for persistence removal: {}", toRemove.getId());
             }
@@ -209,7 +209,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         this.manualAdditionsCatalog = null;
         
         // Inject management context into and persist all the new entries.
-        for (CatalogItem<?, ?> entry : getCatalogItems()) {
+        for (CatalogItem<?, ?> entry : getCatalogItemsLegacy()) {
             boolean setManagementContext = false;
             if (entry instanceof CatalogItemDo) {
                 CatalogItemDo<?, ?> cid = CatalogItemDo.class.cast(entry);
@@ -433,7 +433,21 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     public <T, SpecT extends AbstractBrooklynObjectSpec<? extends T, SpecT>> SpecT createSpec(CatalogItem<T, SpecT> item) {
         if (item == null) return null;
         CatalogItemDo<T,SpecT> loadedItem = (CatalogItemDo<T, SpecT>) getCatalogItemDo(item.getSymbolicName(), item.getVersion());
-        if (loadedItem == null) throw new RuntimeException(item+" not in catalog; cannot create spec");
+
+        if (loadedItem == null) {
+            RegisteredType registeredType = mgmt.getTypeRegistry().get(item.getSymbolicName(), item.getVersion());
+            if(registeredType == null) {
+                throw new RuntimeException(item + " not in catalog; cannot create spec");
+            }
+
+            AbstractBrooklynObjectSpec<?, ?> spec = mgmt.getTypeRegistry().createSpec(registeredType, null, null);
+            if(spec == null) {
+                throw new RuntimeException("Problem loading spec for type "+registeredType);
+            }
+
+            return (SpecT)spec;
+        }
+
         if (loadedItem.getSpecType()==null) return null;
         
         SpecT spec = internalCreateSpecLegacy(mgmt, loadedItem, MutableSet.<String>of(), true);
@@ -1441,6 +1455,11 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
     protected OsgiBundleInstallationResult addItemsOsgi(String yaml, boolean forceUpdate, Maybe<OsgiManager> osgiManager) {
         Map<?, ?> cm = BasicBrooklynCatalog.getCatalogMetadata(yaml);
+
+        if(cm == null) {
+            throw new IllegalStateException("No catalog meta data supplied. brooklyn.catalog must be specified");
+        }
+
         VersionedName vn = BasicBrooklynCatalog.getVersionedName( cm, false );
         if (vn==null) {
             // for better legacy compatibiity, if id specified at root use that
@@ -1782,7 +1801,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         //assume forceUpdate for backwards compatibility
         log.debug("Adding manual catalog item to "+mgmt+": "+item);
         checkNotNull(item, "item");
-        CatalogUtils.installLibraries(mgmt, item.getLibraries());
+        //don't activate bundles; only intended for legacy tests where that might not work
+        CatalogUtils.installLibraries(mgmt, item.getLibraries(), false);
         if (manualAdditionsCatalog==null) loadManualAdditionsCatalog();
         manualAdditionsCatalog.addEntry(getAbstractCatalogItem(item));
     }

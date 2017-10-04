@@ -42,12 +42,12 @@ import io.swagger.annotations.ApiResponses;
 @Api("Entity Policy Config")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-/** @deprecated since 0.12.0 use AdjunctApi */
+/** @deprecated since 0.13.0 use AdjunctApi */
 @Deprecated
 public interface PolicyConfigApi {
 
     @GET
-    @ApiOperation(value = "Fetch the config keys for a specific policy",
+    @ApiOperation(value = "Fetch the config keys for a specific policy (deprecated, use adjuncts/ endpoint instead)",
             response = org.apache.brooklyn.rest.domain.ConfigSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
@@ -65,7 +65,7 @@ public interface PolicyConfigApi {
     // (and in sensors class)
     @GET
     @Path("/current-state")
-    @ApiOperation(value = "Fetch config key values in batch", notes="Returns a map of config name to value")
+    @ApiOperation(value = "Fetch config key values in batch (deprecated, use adjuncts/ endpoint instead)", notes="Returns a map of config name to value")
     public Map<String, Object> batchConfigRead(
             @ApiParam(value = "Application ID or name", required = true)
             @PathParam("application") String application,
@@ -76,7 +76,7 @@ public interface PolicyConfigApi {
 
     @GET
     @Path("/{config}")
-    @ApiOperation(value = "Fetch config value", response = Object.class)
+    @ApiOperation(value = "Fetch config value (deprecated, use adjuncts/ endpoint instead)", response = Object.class)
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Could not find application, entity, policy or config key")
     })
@@ -93,7 +93,7 @@ public interface PolicyConfigApi {
     @POST
     @Path("/{config}")
     @Consumes(value = {"*/*"})
-    @ApiOperation(value = "Sets the given config on this policy")
+    @ApiOperation(value = "Sets the given config on this policy (deprecated, use adjuncts/ endpoint instead)")
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Could not find application, entity, policy or config key")
     })

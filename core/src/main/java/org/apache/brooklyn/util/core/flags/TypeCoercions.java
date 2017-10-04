@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.usage.UsageListener;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
@@ -267,6 +268,26 @@ public class TypeCoercions {
             });        
         }
         
+        public static <T> void registerInstanceForClassnameAdapter(ClassLoaderUtils loader, Class<T> supertype) {
+            TypeCoercions.registerAdapter(String.class, supertype, new Function<String, T>() {
+                @Override public T apply(String input) {
+                    Class<?> clazz;
+                    try {
+                        clazz = loader.loadClass(input);
+                    } catch (ClassNotFoundException e) {
+                        throw new IllegalStateException("Failed to load " + supertype.getSimpleName() + " class " + input, e);
+                    }
+                    Maybe<Object> result = Reflections.invokeConstructorFromArgs(clazz);
+                    if (result.isPresentAndNonNull() && supertype.isInstance(result.get())) {
+                        return (T) result.get();
+                    } else if (result.isPresent()) {
+                        throw new IllegalStateException("Object is not a " + supertype.getSimpleName()+": " + result.get());
+                    } else {
+                        throw new IllegalStateException("Failed to create "+supertype.getSimpleName()+" from class name '"+input+"' using no-arg constructor");
+                    }
+                }
+            });
+        }
     }
 
     public static TypeCoercer asTypeCoercer() {

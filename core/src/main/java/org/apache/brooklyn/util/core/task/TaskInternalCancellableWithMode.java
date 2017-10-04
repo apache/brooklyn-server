@@ -16,11 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.entity.chef;
+package org.apache.brooklyn.util.core.task;
 
-import org.apache.brooklyn.api.entity.ImplementedBy;
-import org.apache.brooklyn.entity.software.base.SoftwareProcess;
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode;
 
-@ImplementedBy(ChefEntityImpl.class)
-public interface ChefEntity extends SoftwareProcess, ChefConfig {
+import com.google.common.annotations.Beta;
+
+/** clearer semantics around cancellation; may be promoted to {@link Task} */
+@Beta
+public interface TaskInternalCancellableWithMode {
+
+    boolean cancel(TaskCancellationMode mode);
+
 }

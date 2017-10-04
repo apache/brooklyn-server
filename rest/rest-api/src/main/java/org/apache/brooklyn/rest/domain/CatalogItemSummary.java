@@ -26,6 +26,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import org.apache.brooklyn.rest.api.TypeApi;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
@@ -36,7 +38,7 @@ import com.google.common.collect.ImmutableMap;
  * see also, subclasses */
 @JsonIgnoreProperties(ignoreUnknown = true)
 // ignore unknown, ie properties from subclasses (entity)
-/** @deprecated since 0.12.0 new TypeApi returns TypeSummary */
+/** @deprecated since 0.13.0 new {@link TypeApi} returns {@link TypeSummary} */
 @Deprecated
 public class CatalogItemSummary implements HasId, HasName, Serializable {
 

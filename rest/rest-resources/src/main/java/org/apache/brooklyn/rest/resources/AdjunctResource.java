@@ -54,7 +54,6 @@ import org.apache.brooklyn.rest.transform.AdjunctTransformer;
 import org.apache.brooklyn.rest.transform.ConfigTransformer;
 import org.apache.brooklyn.rest.transform.EntityTransformer;
 import org.apache.brooklyn.rest.transform.TaskTransformer;
-import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
@@ -111,7 +110,7 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
     // TODO would like to make 'config' arg optional but jersey complains if we do
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Override
-    public AdjunctSummary addAdjunct(String application, String entityToken, String adjunctTypeName, Map<String, String> config) {
+    public AdjunctDetail addAdjunct(String application, String entityToken, String adjunctTypeName, Map<String, String> config) {
         Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, entity)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
@@ -125,9 +124,11 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
         } else {
             try {
                 Class<?> type = new ClassLoaderUtils(this, mgmt()).loadClass(adjunctTypeName);
-                if (Policy.class.isAssignableFrom(type)) spec = PolicySpec.create((Class) type);
-                else if (Enricher.class.isAssignableFrom(type)) spec = EnricherSpec.create((Class) type);
-                else if (Feed.class.isAssignableFrom(type)) {
+                if (Policy.class.isAssignableFrom(type)) {
+                    spec = PolicySpec.create((Class) type);
+                } else if (Enricher.class.isAssignableFrom(type)) {
+                    spec = EnricherSpec.create((Class) type);
+                } else if (Feed.class.isAssignableFrom(type)) {
                     // TODO add FeedSpec ?  would be needed even if using the type registry
                     throw WebResourceUtils.badRequest("Creation of feeds from java type (%s) not supported", adjunctTypeName);
                 } else {
@@ -145,9 +146,11 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
         spec.configure(config);
 
         EntityAdjunct instance;
-        if (spec instanceof PolicySpec) instance = entity.policies().add((PolicySpec)spec);
-        else if (spec instanceof EnricherSpec) instance = entity.enrichers().add((EnricherSpec)spec);
-        else {
+        if (spec instanceof PolicySpec) {
+            instance = entity.policies().add((PolicySpec)spec);
+        } else if (spec instanceof EnricherSpec) {
+            instance = entity.enrichers().add((EnricherSpec)spec);
+        } else {
             // TODO add FeedSpec
             throw WebResourceUtils.badRequest("Unexpected spec type %s", spec);
         }
@@ -173,9 +176,13 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
     @Override
     public Response start(String application, String entityToken, String adjunctId) {
         EntityAdjunct adjunct = brooklyn().getAdjunct(application, entityToken, adjunctId);
-        if (adjunct instanceof Policy) ((Policy)adjunct).resume();
-        else if (adjunct instanceof Feed) ((Feed)adjunct).resume();
-        else throw WebResourceUtils.badRequest("%s does not support start/resume", adjunct);
+        if (adjunct instanceof Policy) {
+            ((Policy)adjunct).resume();
+        } else if (adjunct instanceof Feed) {
+            ((Feed)adjunct).resume();
+        } else {
+            throw WebResourceUtils.badRequest("%s does not support start/resume", adjunct);
+        }
         
         return Response.status(Response.Status.NO_CONTENT).build();
     }
@@ -183,9 +190,13 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
     @Override
     public Response stop(String application, String entityToken, String adjunctId) {
         EntityAdjunct adjunct = brooklyn().getAdjunct(application, entityToken, adjunctId);
-        if (adjunct instanceof Policy) ((Policy)adjunct).suspend();
-        else if (adjunct instanceof Feed) ((Feed)adjunct).suspend();
-        else throw WebResourceUtils.badRequest("%s does not support suspend", adjunct);
+        if (adjunct instanceof Policy) {
+            ((Policy)adjunct).suspend();
+        } else if (adjunct instanceof Feed) {
+            ((Feed)adjunct).suspend();
+        } else {
+            throw WebResourceUtils.badRequest("%s does not support suspend", adjunct);
+        }
         
         return Response.status(Response.Status.NO_CONTENT).build();
     }
@@ -204,6 +215,7 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
             ((Feed)adjunct).suspend();
             ((EntityInternal)entity).feeds().remove((Feed) adjunct);
         } else {
+            // shouldn't come here
             throw WebResourceUtils.badRequest("Unexpected adjunct type %s", adjunct);
         }
         
@@ -219,7 +231,7 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
         EntityAdjunct adjunct = brooklyn().getAdjunct(entity, adjunctToken);
 
         List<ConfigSummary> result = Lists.newArrayList();
-        for (ConfigKey<?> key : adjunct.config().findKeysPresent(Predicates.alwaysTrue())) {
+        for (ConfigKey<?> key : adjunct.config().findKeysDeclared(Predicates.alwaysTrue())) {
             result.add(ConfigTransformer.of(key).on(entity, adjunct).includeLinks(ui.getBaseUriBuilder(), false, true).transform());
         }
         return result;
@@ -229,7 +241,6 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
     // (and in sensors class)
     @Override
     public Map<String, Object> batchConfigRead(String application, String entityToken, String adjunctToken) {
-        // TODO: add test
         return EntityTransformer.getConfigValues(brooklyn(), brooklyn().getAdjunct(application, entityToken, adjunctToken) );
     }
 
@@ -237,7 +248,8 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
     public String getConfig(String application, String entityToken, String adjunctToken, String configKeyName) {
         EntityAdjunct adjunct = brooklyn().getAdjunct(application, entityToken, adjunctToken);
         Set<ConfigKey<?>> cki = adjunct.config().findKeysDeclared(ConfigPredicates.nameSatisfies(Predicates.equalTo(configKeyName)));
-        if (cki.isEmpty()) throw WebResourceUtils.notFound("Cannot find config key '%s' in policy '%s' of entity '%s'", configKeyName, adjunctToken, entityToken);
+        // TODO try deprecated names?
+        if (cki.isEmpty()) throw WebResourceUtils.notFound("Cannot find config key '%s' in adjunct '%s' of entity '%s'", configKeyName, adjunctToken, entityToken);
 
         return brooklyn().getStringValueForDisplay(adjunct.config().get(cki.iterator().next()));
     }
@@ -253,16 +265,13 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
 
         EntityAdjunct adjunct = brooklyn().getAdjunct(entity, adjunctToken);
         Set<ConfigKey<?>> cki = adjunct.config().findKeysDeclared(ConfigPredicates.nameSatisfies(Predicates.equalTo(configKeyName)));
-        if (cki.isEmpty()) throw WebResourceUtils.notFound("Cannot find config key '%s' in policy '%s' of entity '%s'", configKeyName, adjunctToken, entityToken);
+        // TODO try deprecated names?
+        if (cki.isEmpty()) throw WebResourceUtils.notFound("Cannot find config key '%s' in adjunct '%s' of entity '%s'", configKeyName, adjunctToken, entityToken);
         ConfigKey<?> ck = cki.iterator().next();
         
-        adjunct.config().set((ConfigKey) cki, TypeCoercions.coerce(value, ck.getTypeToken()));
+        adjunct.config().set((ConfigKey) ck, TypeCoercions.coerce(value, ck.getTypeToken()));
 
         return Response.status(Response.Status.OK).build();
-    }
-
-    public static String getStringValueForDisplay(BrooklynRestResourceUtils utils, EntityAdjunct policy, Object value) {
-        return utils.getStringValueForDisplay(value);
     }
 
     @Override

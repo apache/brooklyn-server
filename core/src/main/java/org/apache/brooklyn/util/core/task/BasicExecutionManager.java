@@ -264,7 +264,7 @@ public class BasicExecutionManager implements ExecutionManager {
         incompleteTaskIds.remove(task.getId());
         if (removed!=null && removed.isSubmitted() && !removed.isDone(true)) {
             Entity context = BrooklynTaskTags.getContextEntity(removed);
-            if (!Entities.isManaged(context)) {
+            if (context!=null && !Entities.isManaged(context)) {
                 log.debug("Forgetting about active task on unmanagement of "+context+": "+removed);
             } else {
                 log.warn("Deleting submitted task before completion: "+removed+"; this task will continue to run in the background outwith "+this+", but perhaps it should have been cancelled?");
@@ -473,7 +473,6 @@ public class BasicExecutionManager implements ExecutionManager {
                         }
                         Object result;
                         try {
-                            lastError = null;
                             result = oldJob.call();
                             task.lastThrownType = null;
                         } catch (Exception e) {
@@ -578,7 +577,7 @@ public class BasicExecutionManager implements ExecutionManager {
         }
     }
 
-    final static class CancellingListenableForwardingFutureForTask<T> extends SimpleForwardingFuture<T> implements ListenableFuture<T> {
+    final static class CancellingListenableForwardingFutureForTask<T> extends SimpleForwardingFuture<T> implements ListenableFuture<T>, TaskInternalCancellableWithMode {
         private final Task<T> task;
         private BasicExecutionManager execMgmt;
         private final ExecutionList listeners;
@@ -604,7 +603,8 @@ public class BasicExecutionManager implements ExecutionManager {
             return listeners;
         }
         
-        boolean cancel(TaskCancellationMode mode) {
+        @Override
+        public boolean cancel(TaskCancellationMode mode) {
             boolean result = false;
             if (log.isTraceEnabled()) {
                 log.trace("CLFFT cancelling "+task+" mode "+mode);
@@ -758,7 +758,8 @@ public class BasicExecutionManager implements ExecutionManager {
             Task<?> currentTask = Tasks.current();
             if (currentTask!=null) ((TaskInternal<?>)task).setSubmittedByTask(
                     // do this instead of soft reference (2017-09) as soft refs impact GC 
-                    Maybe.of(new TaskLookup(this, currentTask)) );
+                    Maybe.of(new TaskLookup(this, currentTask)),
+                    currentTask.getId());
         }
         ((TaskInternal<?>)task).setSubmitTimeUtc(System.currentTimeMillis());
         

@@ -30,7 +30,7 @@ import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.policy.Policies;
+import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.rest.api.AdjunctApi;
 import org.apache.brooklyn.rest.domain.AdjunctDetail;
 import org.apache.brooklyn.rest.domain.AdjunctSummary;
@@ -86,7 +86,7 @@ public class AdjunctTransformer {
     }
 
     public static Status inferStatus(EntityAdjunct adjunct) {
-        return ApplicationTransformer.statusFromLifecycle( Policies.inferAdjunctStatus(adjunct) );
+        return ApplicationTransformer.statusFromLifecycle( EntityAdjuncts.inferAdjunctStatus(adjunct) );
     }
 
     public static URI adjunctUri(Entity entity, EntityAdjunct adjunct, UriBuilder ub) {

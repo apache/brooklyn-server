@@ -71,7 +71,6 @@ public class PolicyResource extends AbstractBrooklynRestResource implements Poli
     // (and in sensors class)
     @Override
     public Map<String, Boolean> batchConfigRead( String application, String entityToken) {
-        // TODO: add test
         Entity entity = brooklyn().getEntity(application, entityToken);
         Map<String, Boolean> result = Maps.newLinkedHashMap();
         for (Policy p : entity.policies()) {
