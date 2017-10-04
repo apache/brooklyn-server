@@ -199,11 +199,7 @@ public class DynamicTasks {
      * {@link BasicExecutionContext}.
      */
     public static <T> TaskQueueingResult<T> queueIfPossible(TaskAdaptable<T> task) {
-        TaskQueueingContext adder = getTaskQueuingContext();
-        boolean result = false;
-        if (adder!=null)
-            result = Tasks.tryQueueing(adder, task);
-        return new TaskQueueingResult<T>(task, result);
+        return new TaskQueueingResult<T>(task, Tasks.tryQueueing(getTaskQueuingContext(), task));
     }
 
     /** @see #queueIfPossible(TaskAdaptable) */
@@ -214,22 +210,17 @@ public class DynamicTasks {
     /** adds the given task to the nearest task addition context,
      * either set as a thread-local, or in the current task, or the submitter of the task, etc
      * <p>
-     * throws if it cannot add */
+     * throws if it cannot add or addition/execution would fail including if calling thread is interrupted */
     public static <T> Task<T> queueInTaskHierarchy(Task<T> task) {
         Preconditions.checkNotNull(task, "Task to queue cannot be null");
         Preconditions.checkState(!Tasks.isQueuedOrSubmitted(task), "Task to queue must not yet be submitted: {}", task);
         
-        TaskQueueingContext adder = getTaskQueuingContext();
-        if (adder!=null) { 
-            if (Tasks.tryQueueing(adder, task)) {
-                log.debug("Queued task {} at context {} (no hierarchy)", task, adder);
-                return task;
-            }
+        if (Tasks.tryQueueing(getTaskQueuingContext(), task)) {
+            log.debug("Queued task {} at context {} (no hierarchy)", task, getTaskQueuingContext());
+            return task;
         }
         
-        Task<?> t = Tasks.current();
-        Preconditions.checkState(t!=null || adder!=null, "No task addition context available for queueing task "+task);
-        
+        Task<?> t = Tasks.current();        
         while (t!=null) {
             if (t instanceof TaskQueueingContext) {
                 if (Tasks.tryQueueing((TaskQueueingContext)t, task)) {
