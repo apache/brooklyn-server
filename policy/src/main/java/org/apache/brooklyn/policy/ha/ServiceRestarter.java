@@ -29,14 +29,12 @@ import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.time.Duration;
@@ -112,10 +110,7 @@ public class ServiceRestarter extends AbstractPolicy {
                     
                     if (isRunning()) {
                         LOG.info("ServiceRestarter notified; dispatching job for "+entity+" ("+event.getValue()+")");
-                        ((EntityInternal)entity).getExecutionContext().submit(MutableMap.of(), new Runnable() {
-                            @Override public void run() {
-                                onDetectedFailure(event);
-                            }});
+                        getExecutionContext().submit("Analyzing detected failure", () -> onDetectedFailure(event));
                     } else {
                         LOG.warn("ServiceRestarter not running, so not acting on failure detected at "+entity+" ("+event.getValue()+")");
                     }

@@ -229,7 +229,7 @@ public class ShellFeed extends AbstractFeed {
 
             final ProcessTaskFactory<?> taskFactory = newTaskFactory(pollInfo.command, pollInfo.env, pollInfo.dir, 
                     pollInfo.input, pollInfo.context, pollInfo.timeout);
-            final ExecutionContext executionContext = ((EntityInternal) entity).getExecutionContext();
+            final ExecutionContext executionContext = getExecutionContext();
 
             getPoller().scheduleAtFixedRate(
                     new Callable<SshPollValue>() {

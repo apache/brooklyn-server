@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.core.entity;
 
-import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 
@@ -33,7 +32,6 @@ import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -85,12 +83,7 @@ public class EntityAssertsTest extends BrooklynAppUnitTestSupport {
         entity.sensors().set(TestEntity.NAME, "before");
         final String after = "after";
 
-        Task<?> assertValue = entity.getExecutionContext().submit(new Runnable() {
-            @Override
-            public void run() {
-                EntityAsserts.assertAttributeEqualsEventually(entity, TestEntity.NAME, after);
-            }
-        });
+        Task<?> assertValue = entity.getExecutionContext().submit("assert attr equals", () -> EntityAsserts.assertAttributeEqualsEventually(entity, TestEntity.NAME, after));
         entity.sensors().set(TestEntity.NAME, after);
         assertValue.get();
     }
@@ -105,12 +98,7 @@ public class EntityAssertsTest extends BrooklynAppUnitTestSupport {
     @Test
     public void shouldAssertAttributeEventuallyNonNull() throws Exception {
         EntityAsserts.assertAttributeEquals(entity, TestEntity.NAME, null);
-        Task<?> assertValue = entity.getExecutionContext().submit(new Runnable() {
-            @Override
-            public void run() {
-                EntityAsserts.assertAttributeEventuallyNonNull(entity, TestEntity.NAME);
-            }
-        });
+        Task<?> assertValue = entity.getExecutionContext().submit("assert attr non-null", () -> EntityAsserts.assertAttributeEventuallyNonNull(entity, TestEntity.NAME));
         entity.sensors().set(TestEntity.NAME, "something");
         assertValue.get();
     }
@@ -118,18 +106,11 @@ public class EntityAssertsTest extends BrooklynAppUnitTestSupport {
     @Test
     public void shouldAssertAttributeEventually() throws Exception {
         final CountDownLatch eventuallyEntered = new CountDownLatch(2);
-        Task<?> assertValue = entity.getExecutionContext().submit(new Runnable() {
-            @Override
-            public void run() {
-                EntityAsserts.assertAttributeEventually(entity, TestEntity.NAME, new Predicate<String>() {
-                    @Override
-                    public boolean apply(String input) {
-                        eventuallyEntered.countDown();
-                        return input.matches(".*\\d+");
-                    }
-                });
-            }
-        });
+        Task<?> assertValue = entity.getExecutionContext().submit("assert attribute", () -> EntityAsserts.assertAttributeEventually(entity, TestEntity.NAME, 
+            (input) -> {
+                eventuallyEntered.countDown();
+                return input.matches(".*\\d+");
+            }) );
         eventuallyEntered.await();
         entity.sensors().set(TestEntity.NAME, "testing testing 123");
         assertValue.get();
@@ -146,18 +127,11 @@ public class EntityAssertsTest extends BrooklynAppUnitTestSupport {
     public void shouldAssertPredicateEventuallyTrue() throws Exception {
         final int testVal = 987654321;
         final CountDownLatch eventuallyEntered = new CountDownLatch(2);
-        Task<?> assertValue = entity.getExecutionContext().submit(new Runnable() {
-            @Override
-            public void run() {
-                EntityAsserts.assertPredicateEventuallyTrue(entity, new Predicate<TestEntity>() {
-                    @Override
-                    public boolean apply(TestEntity input) {
-                        eventuallyEntered.countDown();
-                        return testVal == input.getSequenceValue();
-                    }
-                });
-            }
-        });
+        Task<?> assertValue = entity.getExecutionContext().submit("assert predicate", () -> EntityAsserts.assertPredicateEventuallyTrue(entity, 
+            (input) -> {
+                eventuallyEntered.countDown();
+                return testVal == input.getSequenceValue();
+            }));
         eventuallyEntered.await();
         entity.setSequenceValue(testVal);
         assertValue.get();
@@ -175,12 +149,7 @@ public class EntityAssertsTest extends BrooklynAppUnitTestSupport {
     public void shouldFailAssertAttributeEqualsContinually() throws Throwable {
         final String myName = "myname";
         entity.sensors().set(TestEntity.NAME, myName);
-        Task<?> assertValue = entity.getExecutionContext().submit(new Runnable() {
-            @Override
-            public void run() {
-                EntityAsserts.assertAttributeEqualsContinually(entity, TestEntity.NAME, myName);
-            }
-        });
+        Task<?> assertValue = entity.getExecutionContext().submit("check attr equals", () -> EntityAsserts.assertAttributeEqualsContinually(entity, TestEntity.NAME, myName));
         entity.sensors().set(TestEntity.NAME, "something");
         try {
             assertValue.get();
@@ -199,20 +168,10 @@ public class EntityAssertsTest extends BrooklynAppUnitTestSupport {
         app.createAndManageChild(stooge);
         app.createAndManageChild(stooge);
 
-        Task<?> assertValue1 = entity.getExecutionContext().submit(new Runnable() {
-            @Override
-            public void run() {
-                EntityAsserts.assertGroupSizeEqualsEventually(ImmutableMap.of("timeout", "2s"), stooges, 3);
-            }
-        });
+        Task<?> assertValue1 = entity.getExecutionContext().submit("assert size", () -> EntityAsserts.assertGroupSizeEqualsEventually(ImmutableMap.of("timeout", "2s"), stooges, 3));
         stooges.setEntityFilter(EntityPredicates.configEqualTo(TestEntity.CONF_NAME, STOOGE));
         assertValue1.get();
-        Task<?> assertValue2 = entity.getExecutionContext().submit(new Runnable() {
-            @Override
-            public void run() {
-                EntityAsserts.assertGroupSizeEqualsEventually(stooges, 0);
-            }
-        });
+        Task<?> assertValue2 = entity.getExecutionContext().submit("assert size 0", () -> EntityAsserts.assertGroupSizeEqualsEventually(stooges, 0));
         stooges.setEntityFilter(EntityPredicates.configEqualTo(TestEntity.CONF_NAME, "Marx Brother"));
         assertValue2.get();
     }
@@ -220,24 +179,11 @@ public class EntityAssertsTest extends BrooklynAppUnitTestSupport {
     @Test
     public void shouldAssertAttributeChangesEventually () throws Exception{
         entity.sensors().set(TestEntity.NAME, "before");
-        final Task<?> assertValue = entity.getExecutionContext().submit(new Runnable() {
-            @Override
-            public void run() {
-                EntityAsserts.assertAttributeChangesEventually(entity, TestEntity.NAME);
-            }
-        });
+        final Task<?> assertValue = entity.getExecutionContext().submit("check attr change", () -> EntityAsserts.assertAttributeChangesEventually(entity, TestEntity.NAME));
         Repeater.create()
-            .repeat(new Runnable() {
-                @Override
-                public void run() {
-                    entity.sensors().set(TestEntity.NAME, "after" + System.currentTimeMillis());
-                }
-            }).until(new Callable<Boolean>() {
-                @Override
-                public Boolean call() throws Exception {
-                    return assertValue.isDone();
-                }
-            }).every(Duration.millis(10))
+            .repeat(() -> entity.sensors().set(TestEntity.NAME, "after" + System.currentTimeMillis()))
+            .until(() -> assertValue.isDone())
+            .every(Duration.millis(10))
             .run();
         assertValue.get();
     }

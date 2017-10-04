@@ -611,7 +611,7 @@ public class XmlMementoSerializerTest {
     public void testTask() throws Exception {
         final TestApplication app = TestApplication.Factory.newManagedInstanceForTests();
         mgmt = app.getManagementContext();
-        Task<String> completedTask = app.getExecutionContext().submit(Callables.returning("myval"));
+        Task<String> completedTask = app.getExecutionContext().submit("return myval", Callables.returning("myval"));
         completedTask.get();
         
         String loggerName = UnwantedStateLoggingMapper.class.getName();

@@ -21,7 +21,6 @@ package org.apache.brooklyn.policy.ha;
 import static org.apache.brooklyn.util.time.Time.makeTimeStringRounded;
 
 import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -30,19 +29,18 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.reflect.TypeToken;
 
@@ -194,7 +192,7 @@ public abstract class AbstractFailureDetector extends AbstractPolicy {
     protected void doStartPolling() {
         if (scheduledTask == null || scheduledTask.isDone()) {
             ScheduledTask task = ScheduledTask.builder(pollingTaskFactory).displayName( getTaskName() ).period(getPollPeriod()).build();
-            scheduledTask = ((EntityInternal)entity).getExecutionContext().submit(task);
+            scheduledTask = getExecutionContext().submit(task);
         }
     }
 
@@ -270,7 +268,6 @@ public abstract class AbstractFailureDetector extends AbstractPolicy {
         schedulePublish(0);
     }
 
-    @SuppressWarnings("unchecked")
     protected void schedulePublish(long delay) {
         if (isRunning() && executorQueued.compareAndSet(false, true)) {
             long now = System.currentTimeMillis();
@@ -279,8 +276,9 @@ public abstract class AbstractFailureDetector extends AbstractPolicy {
 
             Runnable job = new PublishJob();
 
-            ScheduledTask task = new ScheduledTask(MutableMap.of("delay", Duration.of(delay, TimeUnit.MILLISECONDS)), new BasicTask<Void>(job));
-            ((EntityInternal)entity).getExecutionContext().submit(task);
+            ScheduledTask task = ScheduledTask.builder(() -> Tasks.builder().body(job).dynamic(false).displayName("Failure detector iteration").build())
+                .delay(Duration.millis(delay)).displayName("Failure detector scheduler").build();
+            getExecutionContext().submit(task);
         }
     }
 

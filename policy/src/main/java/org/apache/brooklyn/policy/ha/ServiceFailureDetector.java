@@ -39,6 +39,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
@@ -314,7 +315,6 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
         return description;
     }
     
-    @SuppressWarnings({ "rawtypes" })
     protected void recomputeAfterDelay(long delay) {
         // TODO Execute in same thread as other onEvent calls are done in (i.e. same conceptually 
         // single-threaded executor as the subscription-manager will use).
@@ -352,8 +352,9 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
             }
         };
         
-        ScheduledTask task = new ScheduledTask(MutableMap.of("delay", Duration.of(delay, TimeUnit.MILLISECONDS)), new BasicTask(job));
-        ((EntityInternal)entity).getExecutionContext().submit(task);
+        ScheduledTask task = ScheduledTask.builder(() -> Tasks.builder().body(job).dynamic(false).displayName("Failure detector recompute").build())
+            .delay(Duration.millis(delay)).displayName("Failure detector recompute after delay").build();
+        getExecutionContext().submit(task);
     }
     
     private String getTimeStringSince(Long time) {

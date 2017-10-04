@@ -1325,12 +1325,8 @@ public class DynamicClusterTest extends AbstractDynamicClusterOrFabricTest {
                 .body(new Callable<Boolean>() {
                     @Override
                     public Boolean call() throws Exception {
-                        Task<Entity> first = DependentConfiguration.attributeWhenReady(cluster, DynamicCluster.FIRST);
-                        DynamicTasks.queueIfPossible(first).orSubmitAsync();
-                        final Entity source = first.get();
-                        final Task<Boolean> booleanTask = DependentConfiguration.attributeWhenReady(source, Attributes.SERVICE_UP);
-                        DynamicTasks.queueIfPossible(booleanTask).orSubmitAsync();
-                        return booleanTask.get();
+                        final Entity source = DynamicTasks.get( DependentConfiguration.attributeWhenReady(cluster, DynamicCluster.FIRST) );
+                        return DynamicTasks.get( DependentConfiguration.attributeWhenReady(source, Attributes.SERVICE_UP) );
                     }
                 })
                 .build();

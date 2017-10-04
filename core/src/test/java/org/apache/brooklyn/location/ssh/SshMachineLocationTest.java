@@ -131,11 +131,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
         BasicExecutionManager execManager = new BasicExecutionManager("mycontextid");
         BasicExecutionContext execContext = new BasicExecutionContext(execManager);
         try {
-            MachineDetails details = execContext.submit(new Callable<MachineDetails>() {
-                @Override
-                public MachineDetails call() {
-                    return host.getMachineDetails();
-                }}).get();
+            MachineDetails details = execContext.submit("get details", () -> host.getMachineDetails()).get();
             LOG.info("machineDetails="+details);
             assertNotNull(details);
             
@@ -166,11 +162,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
         BasicExecutionManager execManager = new BasicExecutionManager("mycontextid");
         BasicExecutionContext execContext = new BasicExecutionContext(execManager);
         try {
-            MachineDetails details = execContext.submit(new Callable<MachineDetails>() {
-                @Override
-                public MachineDetails call() {
-                    return host.getMachineDetails();
-                }}).get();
+            MachineDetails details = execContext.submit("get details", () -> host.getMachineDetails()).get();
             LOG.info("machineDetails="+details);
             assertNotNull(details);
             

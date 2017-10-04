@@ -139,9 +139,18 @@ public final class AttributeMap {
     }
 
     public <T> T update(AttributeSensor<T> attribute, T newValue) {
-        T oldValue = updateWithoutPublishing(attribute, newValue);
-        entity.emitInternal(attribute, newValue);
-        return oldValue;
+        // 2017-10 this was unsynched which meant if two threads updated
+        // the last publication would not correspond to the last value.
+        // could introduce deadlock but emit internal and publish should
+        // not seek any locks. _subscribe_ and _delivery_ might, but they
+        // won't be in this block. an issue with _subscribe-and-get-initial_
+        // should be resolved by initial subscription queueing the publication
+        // to a context where locks are not held.
+        synchronized (values) {
+            T oldValue = updateWithoutPublishing(attribute, newValue);
+            entity.emitInternal(attribute, newValue);
+            return oldValue;
+        }
     }
     
     public <T> T updateWithoutPublishing(AttributeSensor<T> attribute, T newValue) {

@@ -325,7 +325,7 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
     
     @Test
     public void testGetSensorValueOfTypeCompletedTask() throws Exception {
-        Task<String> task = entity.getExecutionContext().submit(Callables.returning("myval"));
+        Task<String> task = entity.getExecutionContext().submit("returning myval", Callables.returning("myval"));
         task.get();
         entity.sensors().set(Sensors.newSensor(Task.class, "myTask"), task);
         doGetSensorTest("myTask", String.class, "\"myval\"");

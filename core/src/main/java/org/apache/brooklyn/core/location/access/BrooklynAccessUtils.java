@@ -119,7 +119,7 @@ public class BrooklynAccessUtils {
     public static String getResolvedAddress(Entity entity, SshMachineLocation origin, String hostnameTarget) {
         ProcessTaskWrapper<Integer> task = SshTasks.newSshExecTaskFactory(origin, "ping -c 1 -t 1 "+hostnameTarget)
             .summary("checking resolution of "+hostnameTarget).allowingNonZeroExitCode().newTask();
-        DynamicTasks.queueIfPossible(task).orSubmitAndBlock(entity).asTask().blockUntilEnded();
+        DynamicTasks.queueIfPossible(task).orSubmitAndBlock(entity).getTask().blockUntilEnded();
         if (task.asTask().isError()) {
             log.warn("ping could not be run, at "+entity+" / "+origin+": "+Tasks.getError(task.asTask()));
             return "";

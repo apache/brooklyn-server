@@ -57,6 +57,7 @@ import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
@@ -387,10 +388,12 @@ public class BasicExecutionManager implements ExecutionManager {
         }
     }
 
-    @Override public Task<?> submit(Runnable r) { return submit(new LinkedHashMap<Object,Object>(1), r); }
+    @Override @Deprecated public Task<?> submit(Runnable r) { return submit(new LinkedHashMap<Object,Object>(1), r); }
+    @Override public Task<?> submit(String displayName, Runnable r) { return submit(MutableMap.of("displayName", displayName), r); }
     @Override public Task<?> submit(Map<?,?> flags, Runnable r) { return submit(flags, new BasicTask<Void>(flags, r)); }
 
-    @Override public <T> Task<T> submit(Callable<T> c) { return submit(new LinkedHashMap<Object,Object>(1), c); }
+    @Override @Deprecated public <T> Task<T> submit(Callable<T> c) { return submit(new LinkedHashMap<Object,Object>(1), c); }
+    @Override public <T> Task<T> submit(String displayName, Callable<T> c) { return submit(MutableMap.of("displayName", displayName), c); }
     @Override public <T> Task<T> submit(Map<?,?> flags, Callable<T> c) { return submit(flags, new BasicTask<T>(flags, c)); }
 
     @Override public <T> Task<T> submit(TaskAdaptable<T> t) { return submit(new LinkedHashMap<Object,Object>(1), t); }
@@ -797,6 +800,7 @@ public class BasicExecutionManager implements ExecutionManager {
                 .description("Details of the original task have been forgotten.")
                 .body(Callables.returning((T)null)).build();
             ((BasicTask<T>)t).ignoreIfNotRun();
+            ((BasicTask<T>)t).cancelled = true;
             return t;
         }
     }

@@ -58,6 +58,7 @@ import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
@@ -101,7 +102,6 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
     private ManagementContextInternal initialManagementContext;
     
     private final QueueingSubscriptionManager qsm;
-    private final BasicSubscriptionContext subscriptionContext;
     private NonDeploymentEntityManager entityManager;
     private NonDeploymentLocationManager locationManager;
     private NonDeploymentAccessManager accessManager;
@@ -112,10 +112,6 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
         this.mode = checkNotNull(mode, "mode");
         qsm = new QueueingSubscriptionManager();
         
-        // For subscription flags, see AbstractManagementContext.getSubscriptionContext. This is 
-        // needed for callbacks, to ensure the correct entity context is set.
-        Map<String, ?> subscriptionFlags = ImmutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(entity)));
-        subscriptionContext = new BasicSubscriptionContext(subscriptionFlags, qsm, entity);
         entityManager = new NonDeploymentEntityManager(null);
         locationManager = new NonDeploymentLocationManager(null);
         accessManager = new NonDeploymentAccessManager(null);
@@ -254,7 +250,19 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
         if (!this.entity.equals(entity)) throw new IllegalStateException("Non-deployment context "+this+" can only use a single Entity: has "+this.entity+", but passed "+entity);
         if (mode==NonDeploymentManagementContextMode.MANAGEMENT_STOPPED)
             throw new IllegalStateException("Entity "+entity+" is no longer managed; subscription context not available");
-        return subscriptionContext;
+        // see also AbstractManagementContext.getSubscriptionContext - needed for callbacks, to ensure the correct entity context is set
+        Map<String, ?> subscriptionFlags = ImmutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(entity)));
+        return new BasicSubscriptionContext(subscriptionFlags, qsm, entity);
+    }
+    
+    @Override
+    public SubscriptionContext getSubscriptionContext(Entity entity, EntityAdjunct adjunct) {
+        if (!this.entity.equals(entity)) throw new IllegalStateException("Non-deployment context "+this+" can only use a single Entity: has "+this.entity+", but passed "+entity);
+        if (mode==NonDeploymentManagementContextMode.MANAGEMENT_STOPPED)
+            throw new IllegalStateException("Entity "+entity+" is no longer managed; subscription context not available");
+        // see also AbstractManagementContext.getSubscriptionContext - needed for callbacks, to ensure the correct entity context is set
+        Map<String, ?> subscriptionFlags = ImmutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(entity), BrooklynTaskTags.tagForContextAdjunct(adjunct)));
+        return new BasicSubscriptionContext(subscriptionFlags, qsm, entity);
     }
 
     @Override

@@ -133,7 +133,7 @@ public class PollerTest extends BrooklynAppUnitTestSupport {
                         }
                     })
                     .build();
-            return DynamicTasks.queueIfPossible(t).orSubmitAsync().asTask().getUnchecked();
+            return DynamicTasks.get(t);
         }
     }
 

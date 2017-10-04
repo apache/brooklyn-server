@@ -25,7 +25,9 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.brooklyn.test.Asserts.ShouldHaveFailedPreviouslyAssertionError;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.Assert;
@@ -169,5 +171,20 @@ public class AssertsTest {
         reached++;
         // check code flowed the way we expected
         Asserts.assertEquals(reached, 3);
+    }
+    
+    @Test
+    public void testAssertSize() {
+        Asserts.assertSize(MutableList.of("x", "x", "y"), 3);
+        Asserts.assertSize(MutableSet.of("x", "x", "y"), 2);
+        Asserts.assertSize(MutableMap.of("x", "x", "y", "y"), 2);
+    }
+    
+    @Test
+    public void testAssertSetListEqualityAndSameUnoderderedContents() {
+        Assert.assertEquals(MutableSet.of("x", "x", "y"), MutableSet.of("x", "y", "x"));
+        Assert.assertNotEquals(MutableList.of("x", "x", "y"), MutableList.of("x", "y", "x"));
+        // above are baseline checks
+        Asserts.assertSameUnorderedContents(MutableList.of("x", "x", "y"), MutableList.of("y", "x"));
     }
 }

@@ -278,11 +278,11 @@ public class Tasks {
     }
     
     /**
-     * Adds the given task to the given context. Does not throw an exception if the addition fails.
-     * @return true if the task was added, false otherwise.
+     * Adds the given task to the given context. Does not throw an exception if the addition fails or would fail.
+     * @return true if the task was added, false otherwise including if context is null or thread is interrupted.
      */
     public static boolean tryQueueing(TaskQueueingContext adder, TaskAdaptable<?> task) {
-        if (task==null || isQueued(task))
+        if (task==null || adder==null || isQueued(task) || Thread.currentThread().isInterrupted())
             return false;
         try {
             adder.queue(task.asTask());

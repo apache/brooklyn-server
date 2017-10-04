@@ -55,6 +55,7 @@ public class QueueingSubscriptionManager extends AbstractSubscriptionManager {
         QueuedSubscription<T> qs = new QueuedSubscription<T>();
         qs.flags = flags;
         s.subscriber = getSubscriber(flags, s);
+        s.subscriptionDescription = getSubscriptionDescription(flags, s);
         qs.s = s;
         queuedSubscriptions.add(qs);
         return s;
@@ -76,7 +77,7 @@ public class QueueingSubscriptionManager extends AbstractSubscriptionManager {
     
     @SuppressWarnings("unchecked")
     public synchronized void startDelegatingForSubscribing() {
-        // TODO wrap in same-thread task
+        // could wrap in same-thread task, but there's enough context without it
         assert delegate!=null;
         for (QueuedSubscription s: queuedSubscriptions) {
             delegate.subscribe(s.flags, s.s);
@@ -87,7 +88,7 @@ public class QueueingSubscriptionManager extends AbstractSubscriptionManager {
     
     @SuppressWarnings("unchecked")
     public synchronized void startDelegatingForPublishing() {
-        // TODO wrap in same-thread task
+        // could wrap in same-thread task, but there's enough context without it
         assert delegate!=null;
         for (SensorEvent evt: queuedSensorEvents) {
             delegate.publish(evt);

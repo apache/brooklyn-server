@@ -248,8 +248,8 @@ public class TasksTest extends BrooklynAppUnitTestSupport {
             for (Object tag : Tasks.current().getTags()) {
                 if (tag instanceof WrappedEntity) {
                     WrappedEntity wrapped = (WrappedEntity)tag;
-                    if (BrooklynTaskTags.CONTEXT_ENTITY.equals(wrapped.wrappingType)) {
-                        context.add(wrapped.entity);
+                    if (BrooklynTaskTags.CONTEXT_ENTITY.equals(wrapped.getWrappingType())) {
+                        context.add(wrapped.unwrap());
                     }
                 }
             }

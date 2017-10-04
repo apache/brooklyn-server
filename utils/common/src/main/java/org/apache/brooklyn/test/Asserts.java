@@ -1452,8 +1452,24 @@ public class Asserts {
     }
 
     public static void assertSize(Iterable<?> list, int expectedSize) {
-        if (list==null) fail("List is null");
-        if (Iterables.size(list)!=expectedSize) fail("List has wrong size "+Iterables.size(list)+" (expected "+expectedSize+"): "+list);
+        if (list==null) fail("Collection is null");
+        if (Iterables.size(list)!=expectedSize) fail("Collection has wrong size "+Iterables.size(list)+" (expected "+expectedSize+"): "+list);
+    }
+
+    public static void assertSize(Map<?,?> map, int expectedSize) {
+        if (map==null) fail("Map is null");
+        if (Iterables.size(map.keySet())!=expectedSize) fail("Map has wrong size "+map.size()+" (expected "+expectedSize+"): "+map);
+    }
+
+    /** Ignores duplicates and order */
+    public static void assertSameUnorderedContents(Iterable<?> i1, Iterable<?> i2) {
+        if (i1==null || i2==null) {
+            if (i1==null && i2==null) {
+                return ;
+            }
+            fail("Collections differ in that one is null: "+i1+" and "+i2);
+        }
+        assertEquals(MutableSet.copyOf(i1), MutableSet.copyOf(i2));
     }
 
     public static void assertInstanceOf(Object obj, Class<?> type) {
