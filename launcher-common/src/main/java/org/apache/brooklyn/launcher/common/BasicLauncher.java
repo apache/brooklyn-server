@@ -439,6 +439,7 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
         } else {
             ((LocalManagementContext)managementContext).generateManagementPlaneId();
             populateInitialCatalogNoPersistence(catalogInitialization);
+            managementContext.getHighAvailabilityManager().disabled(false);
         }
         markCatalogStarted(catalogInitialization);
         addLocations();
@@ -614,7 +615,7 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
         // Now start the HA Manager and the Rebind manager, as required
         if (highAvailabilityMode == HighAvailabilityMode.DISABLED) {
             HighAvailabilityManager haManager = managementContext.getHighAvailabilityManager();
-            haManager.disabled();
+            haManager.disabled(true);
 
             startPersistenceWithoutHA();
             

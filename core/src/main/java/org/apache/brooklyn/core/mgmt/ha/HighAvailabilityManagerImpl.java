@@ -62,6 +62,7 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.internal.ManagementTransitionMode;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils.CreateBackupMode;
+import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceActivityMetrics;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.mgmt.usage.ManagementNodeStateListener;
@@ -145,6 +146,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     private volatile Ticker optionalRemoteTickerUtc = null;
     
     private volatile Task<?> pollingTask;
+    private volatile boolean persistenceEnabled;
     private volatile boolean disabled;
     private volatile boolean running;
     private volatile ManagementNodeState nodeState = ManagementNodeState.INITIALIZING;
@@ -250,7 +252,8 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     }
 
     @Override
-    public void disabled() {
+    public void disabled(boolean persistenceEnabled) {
+        this.persistenceEnabled = persistenceEnabled;
         disabled = true;
         // this is notionally the master, just not running; see javadoc for more info
         setNodeStateTransitionComplete(true);
@@ -261,6 +264,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     @Override
     public void start(HighAvailabilityMode startMode) {
         setNodeStateTransitionComplete(true);
+        persistenceEnabled = true;
         disabled = false;
         running = true;
         changeMode(startMode, true, true);
@@ -527,8 +531,12 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
                     nodeStateHistory.remove(nodeStateHistory.size()-1);
                 }
             }
-            ((RebindManagerImpl)managementContext.getRebindManager()).setAwaitingInitialRebind(running &&
-                (ManagementNodeState.isHotProxy(newState) || newState==ManagementNodeState.MASTER));
+            // If no HA (i.e. a standalone server) then we will be 'disabled'. We will still be
+            // queried for `getNodeState()` and therefore still want to record awaiting-initial-rebind
+            // if this standalone server has persistence enabled.
+            boolean awaitingInitialRebind = (running || (disabled && persistenceEnabled)) &&
+                    (ManagementNodeState.isHotProxy(newState) || newState==ManagementNodeState.MASTER);
+            ((RebindManagerImpl)managementContext.getRebindManager()).setAwaitingInitialRebind(awaitingInitialRebind);
             this.nodeState = newState;
         }
         

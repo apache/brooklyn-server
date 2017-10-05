@@ -296,12 +296,11 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         return newApp;
     }
 
-    protected T hotStandby() throws Exception {
+    protected ManagementContext hotStandby() throws Exception {
         return hotStandby(RebindOptions.create());
     }
 
-    @SuppressWarnings("unchecked")
-    protected T hotStandby(RebindOptions options) throws Exception {
+    protected ManagementContext hotStandby(RebindOptions options) throws Exception {
         if (newApp != null || newManagementContext != null) {
             throw new IllegalStateException("already rebound - use switchOriginalToNewManagementContext() if you are trying to rebind multiple times");
         }
@@ -323,8 +322,8 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         RebindTestUtils.stopPersistence(origApp);
         
         newManagementContext = options.newManagementContext;
-        newApp = (T) RebindTestUtils.rebind(options);
-        return newApp;
+        RebindTestUtils.rebind(options);
+        return newManagementContext;
     }
 
     /**
