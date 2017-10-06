@@ -71,6 +71,7 @@ import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContex
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.HighAvailabilityManagerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
+import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -237,6 +238,21 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         // BEC is a thin wrapper around EM so fine to create a new one here; but make sure it gets the real entity
         if (e instanceof AbstractEntity) {
             ImmutableSet<Object> tags = ImmutableSet.<Object>of(
+                    BrooklynTaskTags.tagForContextEntity(e),
+                    this
+            );
+            return new BasicExecutionContext(getExecutionManager(), tags);
+        } else {
+            return ((EntityInternal)e).getExecutionContext();
+        }
+    }
+    
+    @Override
+    public ExecutionContext getExecutionContext(Entity e, EntityAdjunct adjunct) {
+        // BEC is a thin wrapper around EM so fine to create a new one here; but make sure it gets the real entity
+        if (e instanceof AbstractEntityAdjunct) {
+            ImmutableSet<Object> tags = ImmutableSet.<Object>of(
+                    BrooklynTaskTags.tagForContextAdjunct(adjunct),
                     BrooklynTaskTags.tagForContextEntity(e),
                     this
             );

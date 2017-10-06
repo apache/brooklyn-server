@@ -166,6 +166,9 @@ public interface ManagementContext {
      */
     ExecutionContext getExecutionContext(Entity entity);
     
+    /** As {@link #getExecutionContext(Entity)} where there is also an adjunct */
+    ExecutionContext getExecutionContext(Entity e, EntityAdjunct a);
+    
     /**
      * Returns a {@link SubscriptionContext} instance representing subscriptions
      * (from the {@link SubscriptionManager}) associated with this entity, and capable 

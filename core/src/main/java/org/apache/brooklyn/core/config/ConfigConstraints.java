@@ -117,7 +117,7 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
     public Iterable<ConfigKey<?>> getViolations() {
         ExecutionContext exec = 
             getBrooklynObject() instanceof EntityInternal ? ((EntityInternal)getBrooklynObject()).getExecutionContext() :
-            // getBrooklynObject() instanceof AbstractEntityAdjunct ? ((AbstractEntityAdjunct)getBrooklynObject()).getExecutionContext() :
+            getBrooklynObject() instanceof AbstractEntityAdjunct ? ((AbstractEntityAdjunct)getBrooklynObject()).getExecutionContext() :
             null;
         if (exec!=null) {
             return exec.get(

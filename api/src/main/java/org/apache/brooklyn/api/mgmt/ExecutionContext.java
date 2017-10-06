@@ -62,7 +62,7 @@ public interface ExecutionContext extends Executor {
     @Deprecated
     <T> Task<T> submit(Callable<T> callable);
 
-    /** {@link ExecutionManager#submit(String Runnable) */
+    /** {@link ExecutionManager#submit(String, Runnable) */
     Task<?> submit(String displayName, Runnable runnable);
  
     /** {@link ExecutionManager#submit(String, Callable) */

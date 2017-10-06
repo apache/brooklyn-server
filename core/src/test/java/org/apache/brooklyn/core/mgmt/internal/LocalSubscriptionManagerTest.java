@@ -193,8 +193,7 @@ public class LocalSubscriptionManagerTest extends BrooklynAppUnitTestSupport {
         // delivery should be in subscription order, so 123 then 456
         entity.subscriptions().subscribe(ImmutableMap.of("notifyOfInitialValue", true), entity, TestEntity.SEQUENCE, listener);
         // wait for the above delivery - otherwise it might get dropped
-        Asserts.succeedsEventually(MutableMap.of("timeout", Duration.seconds(5)), () -> { 
-            Asserts.assertSize(listener.getEvents(), 1); });
+        Asserts.succeedsEventually(() -> Asserts.assertSize(listener.getEvents(), 1));
         entity.sensors().set(TestEntity.SEQUENCE, 456);
         
         // notifications don't have "initial value" so don't get -1
@@ -207,8 +206,7 @@ public class LocalSubscriptionManagerTest extends BrooklynAppUnitTestSupport {
         entity.subscriptions().subscribe(ImmutableMap.of("notifyOfInitialValue", true), entity, TestEntity.SERVICE_STATE_ACTUAL, listener);
         entity.subscriptions().subscribe(ImmutableMap.of("notifyOfInitialValue", true), entity, TestEntity.NAME, listener);
         
-        Asserts.succeedsEventually(MutableMap.of("timeout", Duration.seconds(5)), new Runnable() {
-            @Override public void run() {
+        Asserts.succeedsEventually(() -> {
                 Asserts.assertEquals(listener.getEvents(), ImmutableList.of(
                         new BasicSensorEvent<Integer>(TestEntity.SEQUENCE, entity, 123),
                         new BasicSensorEvent<Integer>(TestEntity.SEQUENCE, entity, 456),
@@ -216,7 +214,7 @@ public class LocalSubscriptionManagerTest extends BrooklynAppUnitTestSupport {
                         new BasicSensorEvent<Lifecycle>(TestEntity.SERVICE_STATE_ACTUAL, entity, Lifecycle.STOPPING),
                         new BasicSensorEvent<String>(TestEntity.NAME, entity, "myname")),
                     "actually got: "+listener.getEvents());
-            }});
+            });
     }
     
     @Test
