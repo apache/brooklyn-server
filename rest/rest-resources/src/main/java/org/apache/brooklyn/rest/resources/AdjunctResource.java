@@ -40,6 +40,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.rest.api.AdjunctApi;
 import org.apache.brooklyn.rest.domain.AdjunctDetail;
@@ -47,11 +48,14 @@ import org.apache.brooklyn.rest.domain.AdjunctSummary;
 import org.apache.brooklyn.rest.domain.ConfigSummary;
 import org.apache.brooklyn.rest.domain.Status;
 import org.apache.brooklyn.rest.domain.SummaryComparators;
+import org.apache.brooklyn.rest.domain.TaskSummary;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.AdjunctTransformer;
 import org.apache.brooklyn.rest.transform.ConfigTransformer;
 import org.apache.brooklyn.rest.transform.EntityTransformer;
+import org.apache.brooklyn.rest.transform.TaskTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -270,4 +274,12 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
         return Response.status(Response.Status.OK).build();
     }
 
+    @Override
+    public List<TaskSummary> listTasks(String applicationId, String entityId, String adjunctToken, int limit, Boolean recurse) {
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
+        EntityAdjunct adjunct = brooklyn().getAdjunct(entity, adjunctToken);
+        return TaskTransformer.fromTasks(MutableList.copyOf(BrooklynTaskTags.getTasksInAdjunctContext(mgmt().getExecutionManager(), adjunct)),
+            limit, recurse, entity, ui);
+    }
+    
 }
