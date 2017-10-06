@@ -34,6 +34,7 @@ import org.apache.brooklyn.api.mgmt.entitlement.EntitlementManager;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityManager;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -165,6 +166,9 @@ public interface ManagementContext {
      */
     ExecutionContext getExecutionContext(Entity entity);
     
+    /** As {@link #getExecutionContext(Entity)} where there is also an adjunct */
+    ExecutionContext getExecutionContext(Entity e, EntityAdjunct a);
+    
     /**
      * Returns a {@link SubscriptionContext} instance representing subscriptions
      * (from the {@link SubscriptionManager}) associated with this entity, and capable 
@@ -176,6 +180,9 @@ public interface ManagementContext {
      */
     SubscriptionContext getSubscriptionContext(Entity entity);
 
+    /** As {@link #getSubscriptionContext(Entity)} where there is also an adjunct */
+    SubscriptionContext getSubscriptionContext(Entity e, EntityAdjunct a);
+    
     /**
      * Returns a {@link SubscriptionContext} instance representing subscriptions
      * (from the {@link SubscriptionManager}) associated with this location, and capable 

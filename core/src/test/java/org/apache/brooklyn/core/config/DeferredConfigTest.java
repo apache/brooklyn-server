@@ -21,7 +21,6 @@ package org.apache.brooklyn.core.config;
 import static org.testng.Assert.assertEquals;
 
 import java.util.List;
-import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.Sensor;
@@ -55,13 +54,10 @@ public class DeferredConfigTest extends BrooklynAppUnitTestSupport {
     
     void doTestDeferredConfigInList(final boolean delay) throws Exception {
         // Simulate a deferred value
-        Task<Sensor<?>> sensorFuture = app.getExecutionContext().submit(new Callable<Sensor<?>>() {
-            @Override
-            public Sensor<?> call() throws Exception {
+        Task<Sensor<?>> sensorFuture = app.getExecutionContext().submit("deferred return sensor", () -> {
                 if (delay) Time.sleep(Duration.FIVE_SECONDS);
                 return TestApplication.MY_ATTRIBUTE;
-            }
-        });
+            });
         app.config().set(SENSORS_UNTYPED, (Object)ImmutableList.of(sensorFuture));
 
         if (!delay) sensorFuture.get(Duration.ONE_SECOND);

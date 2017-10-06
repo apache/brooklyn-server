@@ -74,11 +74,7 @@ public class TaskPerformanceTest extends AbstractPerformanceTest {
                 .summary("TaskPerformanceTest.testExecuteSimplestRunnable")
                 .iterations(numIterations)
                 .minAcceptablePerSecond(minRatePerSec)
-                .job(new Runnable() {
-                    @Override
-                    public void run() {
-                        executionManager.submit(work);
-                    }})
+                .job(() -> executionManager.submit("inner", work))
                 .completionLatch(completionLatch));
     }
     

@@ -38,10 +38,12 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.EntityAndItem;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
 import org.apache.brooklyn.core.mgmt.internal.NonDeploymentManagementContext.NonDeploymentManagementContextMode;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,8 +84,8 @@ public class EntityManagementSupport {
     
     protected transient ManagementContext initialManagementContext;
     protected transient ManagementContext managementContext;
-    protected transient SubscriptionContext subscriptionContext;
-    protected transient ExecutionContext executionContext;
+    protected transient volatile SubscriptionContext subscriptionContext;
+    protected transient volatile ExecutionContext executionContext;
     
     protected final AtomicBoolean managementContextUsable = new AtomicBoolean(false);
     protected final AtomicBoolean currentlyDeployed = new AtomicBoolean(false);
@@ -159,9 +161,10 @@ public class EntityManagementSupport {
     }
     
     public void onManagementStarting(ManagementTransitionInfo info) {
-        try {
-            // TODO same-thread task on this entity, with internal tag ?
-            synchronized (this) {
+        info.getManagementContext().getExecutionContext(entity).get( Tasks.builder().displayName("Management starting")
+            .dynamic(false)
+            .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+            .body(() -> { try { synchronized (this) {
                 boolean alreadyManaging = isDeployed();
                 
                 if (alreadyManaging) {
@@ -212,13 +215,15 @@ public class EntityManagementSupport {
         } catch (Throwable t) {
             managementFailed.set(true);
             throw Exceptions.propagate(t);
-        }
+        }}).build() );
     }
 
     @SuppressWarnings("deprecation")
     public void onManagementStarted(ManagementTransitionInfo info) {
-        try {
-            synchronized (this) {
+        info.getManagementContext().getExecutionContext(entity).get( Tasks.builder().displayName("Management started")
+            .dynamic(false)
+            .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+            .body(() -> { try { synchronized (this) {
                 boolean alreadyManaged = isFullyManaged();
                 
                 if (alreadyManaged) {
@@ -265,7 +270,7 @@ public class EntityManagementSupport {
         } catch (Throwable t) {
             managementFailed.set(true);
             throw Exceptions.propagate(t);
-        }
+        }}).build() );
     }
     
     @SuppressWarnings("deprecation")
@@ -352,19 +357,25 @@ public class EntityManagementSupport {
         return (managementContextUsable.get()) ? managementContext : nonDeploymentManagementContext;
     }    
     
-    public synchronized ExecutionContext getExecutionContext() {
+    public ExecutionContext getExecutionContext() {
         if (executionContext!=null) return executionContext;
         if (managementContextUsable.get()) {
-            executionContext = managementContext.getExecutionContext(entity);
-            return executionContext;
+            synchronized (this) {
+                if (executionContext!=null) return executionContext;
+                executionContext = managementContext.getExecutionContext(entity);
+                return executionContext;
+            }
         }
         return nonDeploymentManagementContext.getExecutionContext(entity);
     }
-    public synchronized SubscriptionContext getSubscriptionContext() {
+    public SubscriptionContext getSubscriptionContext() {
         if (subscriptionContext!=null) return subscriptionContext;
         if (managementContextUsable.get()) {
-            subscriptionContext = managementContext.getSubscriptionContext(entity);
-            return subscriptionContext;
+            synchronized (this) {
+                if (subscriptionContext!=null) return subscriptionContext;
+                subscriptionContext = managementContext.getSubscriptionContext(entity);
+                return subscriptionContext;
+            }
         }
         return nonDeploymentManagementContext.getSubscriptionContext(entity);
     }

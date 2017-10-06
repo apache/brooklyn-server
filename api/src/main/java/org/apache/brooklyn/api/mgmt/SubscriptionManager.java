@@ -42,8 +42,10 @@ public interface SubscriptionManager {
      * 
      * The method returns an id which can be used to {@link #unsubscribe(SubscriptionHandle)} later.
      * <p>
-     * The listener callback is in-order single-threaded and synchronized on this object. The flags
-     * parameters can include the following:
+     * The listener callback is in-order single-threaded and synchronized on this object.
+     * In other words message delivery from a producer to a given subscriber is in publish order
+     * (or in the case of a late subscriber getting initial values, in subscribe order). 
+     * The flags parameters can include the following:
      * <ul>
      * <li>subscriber - object to identify the subscriber (e.g. entity, or console session uid) 
      * <li><i>in future</i> - control parameters for the subscription (period, minimum delta for updates, etc)

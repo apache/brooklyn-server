@@ -24,6 +24,7 @@ import java.net.URL;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -101,10 +102,11 @@ public class RebindFeedWithHaTest extends RebindTestFixtureWithApp {
             @Override
             public Boolean call() throws Exception {
                 origManagementContext.getGarbageCollector().gcIteration();
-                List<Task<?>> tasksAfter = ((BasicExecutionManager)origManagementContext.getExecutionManager()).getAllTasks();
+                List<Task<?>> tasksAfter = removeSystemTasks( ((BasicExecutionManager)origManagementContext.getExecutionManager()).getAllTasks() );
                 log.info("tasks after disabling HA, "+tasksAfter.size()+": "+tasksAfter);
                 return tasksAfter.isEmpty();
             }
+
         }).runRequiringTrue();
         
         newManagementContext = createNewManagementContext();
@@ -120,6 +122,10 @@ public class RebindFeedWithHaTest extends RebindTestFixtureWithApp {
         newEntity.sensors().set(SENSOR_STRING, null);
         EntityAsserts.assertAttributeEqualsEventually(newEntity, SENSOR_INT, 200);
         EntityAsserts.assertAttributeEqualsEventually(newEntity, SENSOR_STRING, "{\"foo\":\"myfoo\"}");
+    }
+
+    static List<Task<?>> removeSystemTasks(List<Task<?>> tasks) {
+        return tasks.stream().filter(t -> !("rebind".equals(t.getDisplayName()) || t.getDisplayName().contains("Validating"))).collect(Collectors.toList());
     }
 
     @Test(groups="Integration", invocationCount=50)

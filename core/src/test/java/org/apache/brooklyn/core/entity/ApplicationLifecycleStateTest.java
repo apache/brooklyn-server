@@ -267,20 +267,14 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
             }
         });
 
-        Task<?> first = mgmt.getExecutionManager().submit(new Runnable() {
-            @Override
-            public void run() {
+        Task<?> first = mgmt.getExecutionManager().submit("setting test sensor", () -> {
                 app.sensors().set(TEST_SENSOR, "first");
                 log.debug("set first");
-            }
-        });
-        Task<?> second = mgmt.getExecutionManager().submit(new Runnable() {
-            @Override
-            public void run() {
+            });
+        Task<?> second = mgmt.getExecutionManager().submit("setting test sensor", () -> {
                 app.sensors().set(TEST_SENSOR, "second");
                 log.debug("set second");
-            }
-        });
+            });
         first.blockUntilEnded();
         second.blockUntilEnded();
 
@@ -394,8 +388,8 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
         };
 
         // Simulates firing the emit method from event handlers in different threads
-        mgmt.getExecutionManager().submit(overrideJob);
-        mgmt.getExecutionManager().submit(overrideJob);
+        mgmt.getExecutionManager().submit("emitting test sensor", overrideJob);
+        mgmt.getExecutionManager().submit("emitting test sensor", overrideJob);
 
         Asserts.eventually(Suppliers.ofInstance(seenValues), CollectionFunctionals.sizeEquals(2));
         Asserts.succeedsContinually(new Runnable() {

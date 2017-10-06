@@ -96,7 +96,9 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
         /**
          * Returns the uncoerced value for this config key, if available, not taking any default.
          * If there is no local value and there is an explicit inherited value, will return the inherited.
+         * May return a {@link Maybe}-wrapped null if the value is explicitly null.
          * Returns {@link Maybe#absent()} if the key is not explicitly set on this object or an ancestor.
+         * Often this is used with {@link Maybe#or(Object))} to return default value.
          * <p>
          * See also {@link #getLocalRaw(ConfigKey).
          */

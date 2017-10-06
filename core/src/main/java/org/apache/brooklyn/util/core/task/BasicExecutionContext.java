@@ -44,6 +44,7 @@ import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedEntity;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedItem;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -83,7 +84,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
      * Supported flags are {@code tag} and {@code tags}
      * 
      * @see ExecutionManager#submit(Map, TaskAdaptable)
-     * @deprecated since 0.12.0 use {@link #BasicExecutionContext(ExecutionManager, Iterable)}
+     * @deprecated since 0.13.0 use {@link #BasicExecutionContext(ExecutionManager, Iterable)}
      */
     @Deprecated
     public BasicExecutionContext(Map<?, ?> flags, ExecutionManager executionManager) {
@@ -107,8 +108,8 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         // which may require access to internal methods
         // (could remove this check if generalizing; it has been here for a long time and the problem seems gone)
         for (Object tag: tags) {
-            if (tag instanceof BrooklynTaskTags.WrappedEntity) {
-                if (Proxy.isProxyClass(((WrappedEntity)tag).entity.getClass())) {
+            if (tag instanceof BrooklynTaskTags.WrappedItem) {
+                if (Proxy.isProxyClass(((WrappedItem<?>)tag).unwrap().getClass())) {
                     log.warn(""+this+" has entity proxy in "+tag);
                 }
             }
@@ -242,6 +243,11 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         }
     }
     
+    @Override
+    public <T> Maybe<T> getImmediately(Task<T> callableOrSupplier) {
+        return getImmediately((Object) callableOrSupplier);
+    }
+    
     /** performs execution without spawning a new task thread, though it does temporarily set a fake task for the purpose of getting context;
      * currently supports {@link Supplier}, {@link Callable}, {@link Runnable}, or {@link Task} instances; 
      * with tasks if it is submitted or in progress,
@@ -281,17 +287,6 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         try {
             return runInSameThread(fakeTaskForContext, new Callable<Maybe<T>>() {
                 public Maybe<T> call() {
-                    // could try to make this work for more types of tasks by not cancelling, just interrupting;
-                    // however there is a danger that immediate-submission tasks are leaked if we don't cancel.
-                    // for instance with DSTs the thread interrupt may apply only to the main job queue.andWait blocking,
-                    // leaving other tasks leaked.
-                    //
-                    // this method is best-effort so fine if it doesn't succeed.  good if we can expand
-                    // coverage but NOT at the expense of major leaks of course!
-                    //
-                    // see WIP test in EffectorSayHiTest
-                    fakeTaskForContext.cancel();
-                    
                     boolean wasAlreadyInterrupted = Thread.interrupted();
                     try {
                         return job.getImmediately();
@@ -299,6 +294,13 @@ public class BasicExecutionContext extends AbstractExecutionContext {
                         if (wasAlreadyInterrupted) {
                             Thread.currentThread().interrupt();
                         }
+                        // we've acknowledged that getImmediate may wreck (cancel) the task,
+                        // their first priority is to prevent them from leaking;
+                        // however previously we did the cancel before running, 
+                        // doing it after means more tasks successfully execute 
+                        // (the interrupt is sufficient to prevent them blocking); 
+                        // see test EffectorSayHiTest.testInvocationGetImmediately
+                        fakeTaskForContext.cancel();
                     }
                 } });
         } catch (Exception e) {

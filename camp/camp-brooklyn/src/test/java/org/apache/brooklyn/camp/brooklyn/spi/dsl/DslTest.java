@@ -327,7 +327,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
     protected void runConcurrentWorker(Supplier<Runnable> taskSupplier) {
         Collection<Task<?>> results = new ArrayList<>();
         for (int i = 0; i < MAX_PARALLEL_RESOLVERS; i++) {
-            Task<?> result = app.getExecutionContext().submit(taskSupplier.get());
+            Task<?> result = app.getExecutionContext().submit("parallel "+i, taskSupplier.get());
             results.add(result);
         }
         for (Task<?> result : results) {
@@ -550,7 +550,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
             }
         };
         if (execInTask) {
-            Task<Maybe<?>> task = ((EntityInternal)context).getExecutionContext().submit(job);
+            Task<Maybe<?>> task = ((EntityInternal)context).getExecutionContext().submit("Resolving DSL for test: "+dsl, job);
             task.get(Asserts.DEFAULT_LONG_TIMEOUT);
             assertTrue(task.isDone());
             return task.get();

@@ -934,13 +934,12 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         Entity app = createStartWaitAndLogApplication(yaml);
         final TestEntity entity1 = (TestEntity) Iterables.getOnlyElement(app.getChildren());
 
-        TestEntity entity2 = entity1.getExecutionContext().submit(new Callable<TestEntity>() {
-            public TestEntity call() {
-                TestEntity entity2 = entity1.addChild(EntitySpec.create(TestEntity.class));
-                entity2.start(Collections.<Location>emptyList());
-                return entity2;
-            } 
-        }).get();
+        TestEntity entity2 = entity1.getExecutionContext().submit("create and start", () -> {
+                TestEntity entity2i = entity1.addChild(EntitySpec.create(TestEntity.class));
+                entity2i.start(Collections.<Location>emptyList());
+                return entity2i;
+            })
+            .get();
         
         Entities.dumpInfo(app);
         
