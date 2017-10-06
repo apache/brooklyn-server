@@ -16,7 +16,7 @@
 # under the License.
 
 brooklyn.catalog:
-    version: "0.13.0-SNAPSHOT" # BROOKLYN_VERSION
+    version: "1.0.0-SNAPSHOT" # BROOKLYN_VERSION
     itemType: entity
     items:
     - id: org.apache.brooklyn.entity.machine.MachineEntity
