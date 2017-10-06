@@ -2829,16 +2829,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             return getPublicHostname(node, sshHostAndPort, userCredentials, setup);
         }
 
-        String provider = (setup != null) ? setup.get(CLOUD_PROVIDER) : null;
-        Boolean lookupAwsHostname = (setup != null) ? setup.get(LOOKUP_AWS_HOSTNAME) : null;
-        if (provider == null) provider = getProvider();
-
-        // TODO Discouraged to do cloud-specific things; think of this code for aws as an
-        // exceptional situation rather than a pattern to follow. We need a better way to
-        // do cloud-specific things.
-        if ("aws-ec2".equals(provider) && Boolean.TRUE.equals(lookupAwsHostname)) {
-            Maybe<String> result = getHostnameAws(node, sshHostAndPort, userCredentials, setup);
-            if (result.isPresent()) return result.get();
+        // NodeMetadata.getHostname() is supposed to return the private hostname. If it's not null, we want to prioritise
+        // this, otherwise we call getPrivateHostnameGeneric()
+        final String hostname = node.getHostname();
+        if (hostname != null) {
+            return hostname;
         }
 
         Optional<String> preferredAddress = sshHostAndPort.isPresent() ? Optional.of(sshHostAndPort.get().getHostText()) : Optional.<String>absent();

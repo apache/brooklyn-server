@@ -799,7 +799,10 @@ public class BasicExecutionManager implements ExecutionManager {
             Task<T> t = Tasks.<T>builder().dynamic(false).displayName(displayName+" (placeholder for "+id+")")
                 .description("Details of the original task have been forgotten.")
                 .body(Callables.returning((T)null)).build();
-            ((BasicTask<T>)t).ignoreIfNotRun();
+            // don't really want anyone executing the "gone" task...
+            // also if we are GC'ing tasks then cancelled may help with cleanup 
+            // of sub-tasks that have lost their submitted-by-task reference ?
+            // also don't want warnings when it's finalized, this means we don't need ignoreIfNotRun()
             ((BasicTask<T>)t).cancelled = true;
             return t;
         }
