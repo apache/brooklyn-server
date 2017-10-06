@@ -21,6 +21,7 @@ package org.apache.brooklyn.test;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import java.io.Closeable;
 import java.util.Collections;
@@ -37,7 +38,9 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -167,6 +170,13 @@ public class LogWatcher implements Closeable {
         }
     }
 
+    public void assertNoEvent(final Predicate<? super ILoggingEvent> filter) {
+        synchronized (events) {
+            Iterable<ILoggingEvent> filtered = Iterables.filter(events, filter);
+            assertTrue(Iterables.isEmpty(filtered), "events="+events);
+        }
+    }
+
     public List<ILoggingEvent> assertHasEventEventually() {
         Asserts.succeedsEventually(new Runnable() {
             @Override
@@ -184,6 +194,18 @@ public class LogWatcher implements Closeable {
                 result.set(assertHasEvent(filter));
             }});
         return result.get();
+    }
+
+    public void assertNoEventContinually() {
+        assertNoEventContinually(ImmutableMap.of(), Predicates.alwaysTrue());
+    }
+
+    public void assertNoEventContinually(Map<String, ?> flags, final Predicate<? super ILoggingEvent> filter) {
+        Asserts.succeedsContinually(flags, new Runnable() {
+            @Override
+            public void run() {
+                assertNoEvent(filter);
+            }});
     }
 
     public List<ILoggingEvent> getEvents() {
