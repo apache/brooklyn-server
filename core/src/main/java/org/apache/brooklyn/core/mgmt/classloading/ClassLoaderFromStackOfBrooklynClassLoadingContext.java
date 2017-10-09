@@ -25,9 +25,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
-import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
-import org.apache.brooklyn.core.mgmt.classloading.ClassLoaderFromBrooklynClassLoadingContext;
-import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.ClassLoadingContext;
