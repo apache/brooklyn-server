@@ -18,11 +18,6 @@
  */
 package org.apache.brooklyn.core.test.qa.performance;
 
-import static org.testng.Assert.assertTrue;
-
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
@@ -33,8 +28,6 @@ import org.apache.brooklyn.util.internal.DoubleSystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
-
-import com.google.common.base.Stopwatch;
 
 /**
  * For running simplistic performance tests, to measure the number of operations per second and compare 
@@ -95,91 +88,5 @@ public class AbstractPerformanceTest extends BrooklynAppUnitTestSupport {
         PerformanceTestResult result = PerformanceMeasurer.run(options);
         LOG.info("test="+options+"; result="+result);
         return result;
-    }
-
-    /**
-     * @deprecated since 0.9.0; use {@link #measure(PerformanceTestDescriptor)}
-     */
-    @Deprecated
-    protected void measureAndAssert(String prefix, int numIterations, double minRatePerSec, Runnable r) {
-        measure(PerformanceTestDescriptor.create()
-                .summary(prefix)
-                .iterations(numIterations)
-                .minAcceptablePerSecond(minRatePerSec)
-                .job(r));
-    }
-
-    /**
-     * @deprecated since 0.9.0; use {@link #measure(PerformanceTestDescriptor)}
-     */
-    @Deprecated
-    protected void measureAndAssert(String prefix, int numIterations, double minRatePerSec, Runnable r, CountDownLatch completionLatch) {
-        measure(PerformanceTestDescriptor.create()
-                .summary(prefix)
-                .iterations(numIterations)
-                .completionLatch(completionLatch)
-                .minAcceptablePerSecond(minRatePerSec)
-                .job(r));
-    }
-    
-    /**
-     * @deprecated since 0.9.0; use {@link #measure(PerformanceTestDescriptor)}
-     */
-    @Deprecated
-    protected void measureAndAssert(String prefix, int numIterations, double minRatePerSec, Runnable r, Runnable postIterationPhase) {
-        long durationMillis = measure(prefix, numIterations, r);
-        long postIterationDurationMillis = (postIterationPhase != null) ? measure(postIterationPhase) : 0;
-        
-        double numPerSec = ((double)numIterations/durationMillis * 1000);
-        double numPerSecIncludingPostIteration = ((double)numIterations/(durationMillis+postIterationDurationMillis) * 1000);
-        
-        String msg1 = prefix+": "+durationMillis+"ms for "+numIterations+" iterations"+
-                    (postIterationPhase != null ? "(+"+postIterationDurationMillis+"ms for post-iteration phase)" : "")+
-                    ": numPerSec="+numPerSec+"; minAcceptableRate="+minRatePerSec;
-        String msg2 = (postIterationPhase != null ? " (or "+numPerSecIncludingPostIteration+" per sec including post-iteration phase time)" : "");
-        
-        LOG.info(msg1+msg2);
-        System.out.println("\n"+msg1+"\n"+msg2+"\n");  //make it easier to see in the console in eclipse :)
-        assertTrue(numPerSecIncludingPostIteration >= minRatePerSec, msg1+msg2);
-    }
-    
-    /**
-     * @deprecated since 0.9.0; use {@link #measure(PerformanceTestDescriptor)}
-     */
-    @Deprecated
-    protected long measure(String prefix, int numIterations, Runnable r) {
-        final int logInterval = 5*1000;
-        long nextLogTime = logInterval;
-        
-        // Give it some warm-up cycles
-        Stopwatch warmupWatch = Stopwatch.createStarted();
-        for (int i = 0; i < (numIterations/10); i++) {
-            if (warmupWatch.elapsed(TimeUnit.MILLISECONDS) >= nextLogTime) {
-                LOG.info("Warm-up "+prefix+" iteration="+i+" at "+warmupWatch.elapsed(TimeUnit.MILLISECONDS)+"ms");
-                nextLogTime += logInterval;
-            }
-            r.run();
-        }
-        
-        Stopwatch stopwatch = Stopwatch.createStarted();
-        nextLogTime = 0;
-        for (int i = 0; i < numIterations; i++) {
-            if (stopwatch.elapsed(TimeUnit.MILLISECONDS) >= nextLogTime) {
-                LOG.info(prefix+" iteration="+i+" at "+stopwatch.elapsed(TimeUnit.MILLISECONDS)+"ms");
-                nextLogTime += logInterval;
-            }
-            r.run();
-        }
-        return stopwatch.elapsed(TimeUnit.MILLISECONDS);
-    }
-    
-    /**
-     * @deprecated since 0.9.0; use {@link #measure(PerformanceTestDescriptor)}
-     */
-    @Deprecated
-    protected long measure(Runnable r) {
-        Stopwatch stopwatch = Stopwatch.createStarted();
-        r.run();
-        return stopwatch.elapsed(TimeUnit.MILLISECONDS);
     }
 }

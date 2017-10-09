@@ -108,7 +108,7 @@ public class EntityFunctions {
                     if (value==Entities.UNCHANGED) {
                         // nothing
                     } else if (value==Entities.REMOVE) {
-                        ((EntityInternal)input).removeAttribute(sensor);
+                        ((EntityInternal)input).sensors().remove(sensor);
                     } else {
                         value = TypeCoercions.coerce(value, sensor.getTypeToken());
                         ((EntityInternal)input).sensors().set(sensor, value);

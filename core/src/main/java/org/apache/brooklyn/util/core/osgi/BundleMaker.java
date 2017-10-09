@@ -110,8 +110,6 @@ public class BundleMaker {
                 addUrlItemRecursively(zout, path, path, Predicates.alwaysTrue());
             }
             
-            Streams.closeQuietly(zout);
-            
             return f;
             
         } catch (Exception e) {
@@ -298,15 +296,17 @@ public class BundleMaker {
             Exceptions.propagateIfFatal(e);
             return false;
         }
-        
-        if (isKnownNotToBeADirectoryListing(item) || !
+        try {
             // can't reliably tell if item a file or a folder (listing files), esp w classpath where folder is treated as a list of files, 
             // so if we can't tell try it as a list of files; not guaranteed, and empty dir and a file of size 0 will appear identical, but better than was
             // (mainly used for tests)
-                addUrlDirToZipRecursively(zout, root, item, itemFound, filter)) {
-            addUrlFileToZip(zout, root, item, filter);
+            if (isKnownNotToBeADirectoryListing(item) || !addUrlDirToZipRecursively(zout, root, item, itemFound, filter)) {
+                addUrlFileToZip(zout, root, item, filter);
+            }
+            return true;
+        } finally {
+            Streams.closeQuietly(itemFound);
         }
-        return true;
     }
 
     private boolean isKnownNotToBeADirectoryListing(String item) {
@@ -348,13 +348,6 @@ public class BundleMaker {
     }
     
     private void addUrlFileToZip(ZipOutputStream zout, String root, String item, Predicate<? super String> filter) throws IOException {
-        InputStream itemFound = null;
-        try {
-            itemFound = resources.getResourceFromUrl(item);
-        } catch (Exception e) {
-            throw Exceptions.propagate(e);
-        }
-        
         int startPos = item.indexOf(root);
         if (startPos<0) {
             throw new IllegalStateException("URL of "+item+" does not appear relative to root "+root);
@@ -370,11 +363,20 @@ public class BundleMaker {
         if (!filter.apply(itemE)) {
             return;
         }
-        ZipEntry e = new ZipEntry(itemE);
-        zout.putNextEntry(e);
-        Streams.copy(itemFound, zout);
-        Streams.closeQuietly(itemFound);
-        zout.closeEntry();
+        
+        InputStream itemFound = null;
+        try {
+            itemFound = resources.getResourceFromUrl(item);
+
+            ZipEntry e = new ZipEntry(itemE);
+            zout.putNextEntry(e);
+            Streams.copy(itemFound, zout);
+            zout.closeEntry();
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        } finally {
+            Streams.closeQuietly(itemFound);
+        }
     }
 
     /** Creates a temporary file with the given metadata */ 

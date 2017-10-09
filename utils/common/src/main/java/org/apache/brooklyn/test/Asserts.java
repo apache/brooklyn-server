@@ -119,9 +119,6 @@ public class Asserts {
      */
     public static final Duration DEFAULT_SHORT_TIMEOUT = Duration.ONE_SECOND;
     
-    /** @deprecated since 0.9.0 use {@link #DEFAULT_LONG_TIMEOUT} */ @Deprecated
-    public static final Duration DEFAULT_TIMEOUT = DEFAULT_LONG_TIMEOUT;
-    
     private static final Duration DEFAULT_SHORT_PERIOD = Repeater.DEFAULT_REAL_QUICK_PERIOD;
 
     private static final Logger log = LoggerFactory.getLogger(Asserts.class);
@@ -792,15 +789,6 @@ public class Asserts {
         eventually(supplier, predicate, null, null, null);
     }
     
-    /** @deprecated since 0.9.0 use {@link #eventually(Supplier, Predicate, Duration, Duration, String)} */ @Deprecated
-    public static <T> void eventually(Map<String,?> flags, Supplier<? extends T> supplier, Predicate<T> predicate) {
-        eventually(flags, supplier, predicate, (String)null);
-    }
-    /** @deprecated since 0.9.0 use {@link #eventually(Supplier, Predicate, Duration, Duration, String)} */ @Deprecated
-    public static <T> void eventually(Map<String,?> flags, Supplier<? extends T> supplier, Predicate<T> predicate, String errMsg) {
-        eventually(supplier, predicate, toDuration(flags.get("timeout"), null), toDuration(flags.get("period"), null), errMsg);
-    }
-    
     /**  As {@link #eventually(Supplier, Predicate, Duration, Duration, String)} with default. */
     public static <T> void eventually(Supplier<? extends T> supplier, Predicate<T> predicate, Duration timeout) {
         eventually(supplier, predicate, timeout, null, null);
@@ -855,19 +843,9 @@ public class Asserts {
     
     /**  As {@link #continually(Supplier, Predicate, Duration, Duration, String)} with defaults. */
     public static <T> void continually(Supplier<? extends T> supplier, Predicate<T> predicate) {
-        continually(ImmutableMap.<String,Object>of(), supplier, predicate);
+        continually(supplier, predicate, (Duration)null, (Duration)null, (String)null); 
     }
 
-    /** @deprecated since 0.9.0 use {@link #continually(Supplier, Predicate, Duration, Duration, String)} */ @Deprecated
-    public static <T> void continually(Map<String,?> flags, Supplier<? extends T> supplier, Predicate<? super T> predicate) {
-        continually(flags, supplier, predicate, null);
-    }
-
-    /** @deprecated since 0.9.0 use {@link #continually(Supplier, Predicate, Duration, Duration, String)} */ @Deprecated
-    public static <T> void continually(Map<String,?> flags, Supplier<? extends T> supplier, Predicate<T> predicate, String errMsg) {
-        continually(supplier, predicate, toDuration(flags.get("timeout"), toDuration(flags.get("duration"), null)), 
-            toDuration(flags.get("period"), null), null);
-    }
     /** 
      * Asserts that continually the supplier gives a value accepted by the predicate. 
      * Tests periodically and fails if the supplier gives a disallowed value.

@@ -110,7 +110,7 @@ public class RebindFeedWithHaTest extends RebindTestFixtureWithApp {
         }).runRequiringTrue();
         
         newManagementContext = createNewManagementContext();
-        newApp = (TestApplication) RebindTestUtils.rebind(newManagementContext, classLoader);
+        newApp = (TestApplication) RebindTestUtils.rebind(RebindOptions.create().newManagementContext(newManagementContext).classLoader(classLoader));
 
         TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
         

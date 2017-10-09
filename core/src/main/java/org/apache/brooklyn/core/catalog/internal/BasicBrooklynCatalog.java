@@ -1420,18 +1420,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     //------------------------
     
     @Override
-    public CatalogItem<?,?> addItem(String yaml) {
-        return addItem(yaml, false);
-    }
-
-    @Override
     public List<? extends CatalogItem<?,?>> addItems(String yaml) {
         return addItems(yaml, false);
-    }
-    
-    @Override
-    public CatalogItem<?,?> addItem(String yaml, boolean forceUpdate) {
-        return Iterables.getOnlyElement(addItems(yaml, forceUpdate));
     }
     
     @Override

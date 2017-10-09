@@ -28,7 +28,6 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.entity.group.AbstractGroupImpl;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -52,13 +51,6 @@ public class MockContainerEntityImpl extends AbstractGroupImpl implements MockCo
     volatile boolean running;
 
     ReentrantLock _lock = new ReentrantLock();
-
-    @Override
-    @Deprecated
-    public <T> T setAttribute(AttributeSensor<T> attribute, T val) {
-        if (LOG.isDebugEnabled()) LOG.debug("Mocks: container {} setting {} to {}", new Object[] {this, attribute, val});
-        return super.sensors().set(attribute, val);
-    }
 
     @Override
     public void lock() {

@@ -58,7 +58,7 @@ public class EntityConfigGroovyTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testGetConfigOfPredicateTaskReturnsCoercedClosure() throws Exception {
         MyOtherEntity entity2 = app.addChild(EntitySpec.create(MyOtherEntity.class));
-        entity2.setConfig(MyOtherEntity.PREDICATE_KEY, { return it != null } );
+        entity2.config().set(MyOtherEntity.PREDICATE_KEY, { return it != null } );
 
         Predicate<?> predicate = entity2.getConfig(MyOtherEntity.PREDICATE_KEY);
         assertTrue(predicate instanceof Predicate, "predicate="+predicate);

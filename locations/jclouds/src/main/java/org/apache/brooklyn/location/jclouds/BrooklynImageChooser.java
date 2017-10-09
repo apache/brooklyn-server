@@ -258,9 +258,10 @@ public class BrooklynImageChooser implements Cloneable {
         return new OrderingScoredWithoutDefaults(this);
     }
     
-    /** @deprecated since 0.7.0 kept in case persisted */
+    /** @deprecated since 0.7.0; kept for persisted state backwards compatibility */
     @Deprecated
-    public Ordering<Image> orderingScoredWithoutDefaultsDeprecated() {
+    @SuppressWarnings("unused")
+    private Ordering<Image> orderingScoredWithoutDefaultsDeprecated() {
         return new Ordering<Image>() {
             @Override
             public int compare(Image left, Image right) {
@@ -309,9 +310,10 @@ public class BrooklynImageChooser implements Cloneable {
         return new OrderingWithDefaults(primaryOrdering);
     }
     
-    /** @deprecated since 0.7.0 kept in case persisted */
+    /** @deprecated since 0.7.0; kept for persisted state backwards compatibility */
     @Deprecated
-    public static Ordering<Image> orderingWithDefaultsDeprecated(final Ordering<Image> primaryOrdering) {
+    @SuppressWarnings("unused")
+    private static Ordering<Image> orderingWithDefaultsDeprecated(final Ordering<Image> primaryOrdering) {
         return new Ordering<Image>() {
             @Override
             public int compare(Image left, Image right) {
@@ -392,9 +394,10 @@ public class BrooklynImageChooser implements Cloneable {
         return new ImageChooserFromOrdering(orderings);
     }
 
-    /** @deprecated since 0.7.0 kept in case persisted */
+    /** @deprecated since 0.7.0; kept for persisted state backwards compatibility */
     @Deprecated
-    public static Function<Iterable<? extends Image>, Image> imageChooserFromOrderingDeprecated(final Ordering<Image> ordering) {
+    @SuppressWarnings("unused")
+    private static Function<Iterable<? extends Image>, Image> imageChooserFromOrderingDeprecated(final Ordering<Image> ordering) {
         return new Function<Iterable<? extends Image>, Image>() {
             @Override
             public Image apply(Iterable<? extends Image> input) {

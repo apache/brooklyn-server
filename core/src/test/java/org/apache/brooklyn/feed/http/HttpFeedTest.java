@@ -26,7 +26,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -79,7 +78,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
     protected URL baseUrl;
     
     protected Location loc;
-    protected EntityLocal entity;
+    protected TestEntity entity;
     protected HttpFeed feed;
     
     @BeforeMethod(alwaysRun=true)
@@ -131,12 +130,12 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testFeedDeDupe() throws Exception {
         testPollsAndParsesHttpGetResponse();
-        entity.addFeed(feed);
+        entity.feeds().add(feed);
         log.info("Feed 0 is: "+feed);
         
         testPollsAndParsesHttpGetResponse();
         log.info("Feed 1 is: "+feed);
-        entity.addFeed(feed);
+        entity.feeds().add(feed);
                 
         FeedSupport feeds = ((EntityInternal)entity).feeds();
         Assert.assertEquals(feeds.getFeeds().size(), 1, "Wrong feed count: "+feeds.getFeeds());
@@ -300,8 +299,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
                         .onSuccess(HttpValueFunctions.stringContentsFunction()))
                 .suspended()
                 .build();
-        Asserts.continually(MutableMap.of("timeout", 500),
-                Entities.attributeSupplier(entity, SENSOR_INT), Predicates.<Integer>equalTo(null));
+        Asserts.continually(Entities.attributeSupplier(entity, SENSOR_INT), Predicates.<Integer>equalTo(null), Duration.millis(500), null, null);
         int countWhenSuspended = server.getRequestCount();
         feed.resume();
         Asserts.eventually(Entities.attributeSupplier(entity, SENSOR_INT), Predicates.<Integer>equalTo(200));
@@ -360,7 +358,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
         assertSensorEventually(SENSOR_INT, -1, TIMEOUT_MS);
         assertSensorEventually(SENSOR_STRING, null, TIMEOUT_MS);
         
-        List<String> attrs = Lists.transform(MutableList.copyOf( ((EntityInternal)entity).getAllAttributes().keySet() ),
+        List<String> attrs = Lists.transform(MutableList.copyOf( ((EntityInternal)entity).sensors().getAll().keySet() ),
             new Function<AttributeSensor,String>() {
                 @Override public String apply(AttributeSensor input) { return input.getName(); } });
         Assert.assertTrue(!attrs.contains(SENSOR_STRING.getName()), "attrs contained "+SENSOR_STRING);

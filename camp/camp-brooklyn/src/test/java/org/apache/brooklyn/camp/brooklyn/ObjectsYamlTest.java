@@ -143,11 +143,6 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         }
         
         @Override
-        public <T> T setConfig(ConfigKey<T> key, T value) {
-            return config().set(key, value);
-        }
-        
-        @Override
         public ConfigurationSupport config() {
             return configSupport;
         }

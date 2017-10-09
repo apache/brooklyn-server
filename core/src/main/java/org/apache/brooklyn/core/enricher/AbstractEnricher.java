@@ -122,7 +122,6 @@ public abstract class AbstractEnricher extends AbstractEntityAdjunct implements 
         requestPersist();
     }
 
-    @Override
     protected <T> void emit(Sensor<T> sensor, Object val) {
         checkState(entity != null, "entity must first be set");
         if (val == Entities.UNCHANGED) {

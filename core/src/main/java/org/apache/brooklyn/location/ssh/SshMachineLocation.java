@@ -765,8 +765,9 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
     private Map<String, Object> augmentPropertiesWithSshConfigGivenToProps(Map<String, ?> props) {
         Map<String,Object> augmentedProps = Maps.newHashMap(props);
         for (ConfigKey<?> config : SSH_CONFIG_GIVEN_TO_PROPS) {
-            if (!augmentedProps.containsKey(config.getName()) && hasConfig(config, true))
+            if (!augmentedProps.containsKey(config.getName()) && config().getRaw(config).isPresent()) {
                 augmentedProps.put(config.getName(), getConfig(config));
+            }
         }
         return augmentedProps;
     }
@@ -793,18 +794,6 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
                 return ""+SshMachineLocation.this;
             }
         }.logger(logSsh);
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@link #execCommands(Map, String, List, Map), and rely on that calling the execWithLogging
-     */
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    @Deprecated
-    protected int execWithLogging(Map<String,?> props, String summaryForLogging, List<String> commands, Map env, final Closure<Integer> execCommand) {
-        return newExecWithLoggingHelpers().execWithLogging(props, summaryForLogging, commands, env, new ExecRunner() {
-                @Override public int exec(ShellTool ssh, Map<String, ?> flags, List<String> cmds, Map<String, ?> env) {
-                    return execCommand.call(ssh, flags, cmds, env);
-                }});
     }
 
     public int copyTo(File src, File destination) {

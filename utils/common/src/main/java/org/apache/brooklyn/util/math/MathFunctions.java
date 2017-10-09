@@ -280,14 +280,6 @@ public class MathFunctions {
         }
     }
 
-    /**
-     * @deprecated since 0.9.0; use {@link Functionals#chain(Function, Function)} and {@link MathFunctions#divide(double)}
-     */
-    @Deprecated
-    public static <T> Function<T, Double> divide(final Function<T, ? extends Number> preprocessor, final double divisor) {
-        return Functionals.chain(preprocessor, divide(divisor));
-    }
-
     /** returns a string of up to maxLen length (longer in extreme cases) also capped at significantDigits significantDigits */
     public static Function<Number, String> readableString(int significantDigits, int maxLen) {
         return new ReadableString(significantDigits, maxLen);

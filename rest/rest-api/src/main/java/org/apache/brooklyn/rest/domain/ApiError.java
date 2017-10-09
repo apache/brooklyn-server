@@ -50,12 +50,6 @@ public class ApiError implements Serializable {
         return builder().message(message).build();
     }
 
-    /** @deprecated since 0.7.0; use {@link #builderFromThrowable(Throwable)} */
-    @Deprecated
-    public static Builder fromThrowable(Throwable t) {
-        return builderFromThrowable(t);
-    }
-
     /**
      * @return An {@link ApiError.Builder} whose message is initialised to either the throwable's
      *         message or the throwable's class name if the message is null and whose details are
@@ -118,12 +112,6 @@ public class ApiError implements Serializable {
 
         public ApiError build() {
             return new ApiError(message, details, data, errorCode);
-        }
-
-        /** @deprecated since 0.7.0; use {@link #copy(ApiError)} */
-        @Deprecated
-        public Builder fromApiError(ApiError error) {
-            return copy(error);
         }
 
         public Builder copy(ApiError error) {

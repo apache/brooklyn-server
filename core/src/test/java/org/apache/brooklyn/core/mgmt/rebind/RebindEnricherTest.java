@@ -124,7 +124,6 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
         EntityAsserts.assertAttributeEqualsEventually(newApp, METRIC2, "myval");
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testCombiningEnricher() throws Exception {
         origApp.enrichers().add(Enrichers.builder()
@@ -307,14 +306,14 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
     @Test
     public void testEntityCreatingItsEnricherDoesNotReCreateItUnlessUniqueTagDifferent() throws Exception {
         TestEntity e1 = origApp.createAndManageChild(EntitySpec.create(TestEntity.class, MyTestEntityWithEnricher.class));
-        Collection<Enricher> e1e = e1.getEnrichers();
+        Collection<Enricher> e1e = e1.enrichers().asList();
         log.info("enrichers1: "+e1e);
         Entities.dumpInfo(e1);
         assertEquals(e1e.size(), 5);
 
         newApp = rebind();
         Entity e2 = Iterables.getOnlyElement( Entities.descendantsAndSelf(newApp, EntityPredicates.idEqualTo(e1.getId())) );
-        Collection<Enricher> e2e = e2.getEnrichers();
+        Collection<Enricher> e2e = e2.enrichers().asList();
         log.info("enrichers2: "+e2e);
         Entities.dumpInfo(e2);
         

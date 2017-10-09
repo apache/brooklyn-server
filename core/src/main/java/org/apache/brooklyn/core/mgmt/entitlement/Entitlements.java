@@ -416,15 +416,6 @@ public class Entitlements {
             throw new NotEntitledException(getEntitlementContext(), permission, typeArgument);
         }
     }
-    /** throws {@link NotEntitledException} if entitlement not available for current {@link #getEntitlementContext()} 
-     * @since 0.7.0
-     * @deprecated since 0.7.0, use {@link #checkEntitled(EntitlementManager, EntitlementClass, Object)};
-     * kept briefly because there is some downstream usage*/
-    // Note: @Deprecated annotation only added from v0.10.0.
-    @Deprecated
-    public static <T> void requireEntitled(EntitlementManager checker, EntitlementClass<T> permission, T typeArgument) {
-        checkEntitled(checker, permission, typeArgument);
-    }
     
     // ----------------- initialization ----------------
 

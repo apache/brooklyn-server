@@ -83,22 +83,6 @@ Beyond this you get blacklisted and requests may time out, or return none.
         return "http://xml.utrace.de/?query="+ip.trim();
     }
 
-    /**
-     * @deprecated since 0.7.0. Use {@link LocalhostExternalIpLoader} instead.
-     */
-    @Deprecated
-    public static String getLocalhostExternalIp() {
-        return LocalhostExternalIpLoader.getLocalhostIpWithin(Duration.seconds(2));
-    }
-    
-    /**
-     * @deprecated since 0.7.0. Use {@link LocalhostExternalIpLoader} instead.
-     */
-    @Deprecated
-    public static String getLocalhostExternalIpImpl() {
-        return LocalhostExternalIpLoader.getLocalhostIpWithin(Duration.seconds(2));
-    }
-    
     public String getLookupUrlForLocalhost() {
         return getLookupUrlForPublicIp(LocalhostExternalIpLoader.getLocalhostIpQuicklyOrDefault());
     }

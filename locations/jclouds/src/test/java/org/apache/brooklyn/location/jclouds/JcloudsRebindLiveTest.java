@@ -136,9 +136,6 @@ public class JcloudsRebindLiveTest extends RebindTestFixtureWithApp {
         JcloudsMachineLocation origMachine = obtainMachine(location, obtainFlags);
         String origHostname = origMachine.getHostname();
         NodeMetadata origNode = origMachine.getNode();
-        if (origMachine instanceof JcloudsSshMachineLocation) {
-            Template origTemplate = origMachine.getTemplate(); // WinRM machines don't bother with template!
-        }
         assertConnectable(origMachine);
 
         rebind();

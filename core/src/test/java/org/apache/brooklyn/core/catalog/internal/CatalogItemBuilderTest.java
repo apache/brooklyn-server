@@ -100,16 +100,6 @@ public class CatalogItemBuilderTest {
     }
 
     @Test
-    public void testNameReplacedByDisplayName() {
-        final CatalogEntityItemDto catalogItem = CatalogItemBuilder.newEntity(symbolicName, version)
-                .name(name)
-                .displayName(displayName)
-                .build();
-
-        assertEquals(catalogItem.getName(), displayName);
-    }
-
-    @Test
     public void testBuiltEntity() {
         final CatalogEntityItemDto catalogItem = CatalogItemBuilder.newEntity(symbolicName, version)
                 .javaType(javaType)

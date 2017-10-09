@@ -60,15 +60,6 @@ public class BrooklynPropertiesSecurityFilter implements Filter {
      */
     public static final String AUTHENTICATED_USER_SESSION_ATTRIBUTE = BrooklynLoginModule.AUTHENTICATED_USER_SESSION_ATTRIBUTE;
 
-    /**
-     * The session attribute set to indicate the remote address of the HTTP request.
-     * Corresponds to {@link javax.servlet.http.HttpServletRequest#getRemoteAddr()}.
-     * 
-     * @deprecated since 0.9.0, use {@link BrooklynWebConfig#REMOTE_ADDRESS_SESSION_ATTRIBUTE}
-     */
-    @Deprecated
-    public static final String REMOTE_ADDRESS_SESSION_ATTRIBUTE = BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE;
-
     private static final Logger log = LoggerFactory.getLogger(BrooklynPropertiesSecurityFilter.class);
 
     protected DelegatingSecurityProvider provider;
@@ -181,7 +172,7 @@ public class BrooklynPropertiesSecurityFilter implements Filter {
                 request.getSession().getAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE), request.getSession().getId());
         provider.logout(request.getSession());
         request.getSession().removeAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE);
-        request.getSession().removeAttribute(REMOTE_ADDRESS_SESSION_ATTRIBUTE);
+        request.getSession().removeAttribute(BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE);
         request.getSession().invalidate();
     }
 

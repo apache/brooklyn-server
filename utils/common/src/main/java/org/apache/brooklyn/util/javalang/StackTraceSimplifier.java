@@ -26,10 +26,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.apache.brooklyn.util.text.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.annotations.Beta;
 import com.google.common.collect.ImmutableSet;
 
@@ -38,13 +34,8 @@ import com.google.common.collect.ImmutableSet;
  */
 public class StackTraceSimplifier {
 
-    private static final Logger log = LoggerFactory.getLogger(StackTraceSimplifier.class);
-    
     /** comma-separated prefixes (not regexes) */
     public static final String DEFAULT_BLACKLIST_SYSTEM_PROPERTY_NAME = "org.apache.brooklyn.util.javalang.StackTraceSimplifier.blacklist";
-    
-    /** @deprecated since 0.8.0 use {@link #DEFAULT_BLACKLIST_SYSTEM_PROPERTY_NAME} */ @Deprecated
-    public static final String LEGACY_DEFAULT_BLACKLIST_SYSTEM_PROPERTY_NAME = "brooklyn.util.javalang.StackTraceSimplifier.blacklist";
     
     private static final Collection<String> DEFAULT_BLACKLIST;
     
@@ -59,12 +50,6 @@ public class StackTraceSimplifier {
                         "org.codehaus.groovy.," +
                         "gjdk.groovy.,"
                     ).split("(\\s|,)+")));
-        
-        String legacyDefaults = System.getProperty(LEGACY_DEFAULT_BLACKLIST_SYSTEM_PROPERTY_NAME);
-        if (Strings.isNonBlank(legacyDefaults)) {
-            log.warn("Detected ude of legacy system property "+LEGACY_DEFAULT_BLACKLIST_SYSTEM_PROPERTY_NAME);
-            blacklist.addAll(Arrays.asList(legacyDefaults.split("(\\s|,)+")));
-        }
         
         DEFAULT_BLACKLIST = blacklist.build();
     }

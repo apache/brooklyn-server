@@ -59,12 +59,6 @@ public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl 
     }
     
     @Override
-    @Deprecated //see super
-    public boolean isNamed() {
-        return isNameResolved();
-    }
-
-    @Override
     public String getSymbolicName() {
         return symbolicName;
     }

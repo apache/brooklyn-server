@@ -308,75 +308,6 @@ public class RebindTestUtils {
                 .mementoDir(mementoDir)
                 .classLoader(classLoader));
     }
-
-    /**
-     * @deprecated since 0.7.0; use {@link #rebind(RebindOptions)}
-     */
-    @Deprecated
-    public static Application rebind(File mementoDir, ClassLoader classLoader, RebindExceptionHandler exceptionHandler) throws Exception {
-        return rebind(RebindOptions.create()
-                .mementoDir(mementoDir)
-                .classLoader(classLoader)
-                .exceptionHandler(exceptionHandler));
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@link #rebind(RebindOptions)}
-     */
-    @Deprecated
-    public static Application rebind(ManagementContext newManagementContext, ClassLoader classLoader) throws Exception {
-        return rebind(RebindOptions.create()
-                .newManagementContext(newManagementContext)
-                .classLoader(classLoader));
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@link #rebind(RebindOptions)}
-     */
-    @Deprecated
-    public static Application rebind(ManagementContext newManagementContext, ClassLoader classLoader, RebindExceptionHandler exceptionHandler) throws Exception {
-        return rebind(RebindOptions.create()
-                .newManagementContext(newManagementContext)
-                .classLoader(classLoader)
-                .exceptionHandler(exceptionHandler));
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@link #rebind(RebindOptions)}
-     */
-    @Deprecated
-    public static Application rebind(ManagementContext newManagementContext, File mementoDir, ClassLoader classLoader) throws Exception {
-        return rebind(RebindOptions.create()
-                .newManagementContext(newManagementContext)
-                .mementoDir(mementoDir)
-                .classLoader(classLoader));
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@link #rebind(RebindOptions)}
-     */
-    @Deprecated
-    public static Application rebind(ManagementContext newManagementContext, File mementoDir, ClassLoader classLoader, RebindExceptionHandler exceptionHandler) throws Exception {
-        return rebind(RebindOptions.create()
-                .newManagementContext(newManagementContext)
-                .mementoDir(mementoDir)
-                .classLoader(classLoader)
-                .exceptionHandler(exceptionHandler));
-    }
-    
-    /**
-     * @deprecated since 0.7.0; use {@link #rebind(RebindOptions)}
-     */
-    @Deprecated
-    public static Application rebind(ManagementContext newManagementContext, File mementoDir,
-            ClassLoader classLoader, RebindExceptionHandler exceptionHandler, PersistenceObjectStore objectStore) throws Exception {
-        return rebind(RebindOptions.create()
-                .newManagementContext(newManagementContext)
-                .mementoDir(mementoDir)
-                .classLoader(classLoader)
-                .exceptionHandler(exceptionHandler)
-                .objectStore(objectStore));
-    }
     
     public static Application rebind(RebindOptions options) throws Exception {
         boolean hadApps = true;
@@ -399,62 +330,6 @@ public class RebindTestUtils {
         } else {
             return Iterables.getFirst(newApps, null);
         }
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@link #rebindAll(RebindOptions)}
-     */
-    @Deprecated
-    public static Collection<Application> rebindAll(File mementoDir, ClassLoader classLoader) throws Exception {
-        return rebindAll(RebindOptions.create()
-                .mementoDir(mementoDir)
-                .classLoader(classLoader));
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@link #rebind(RebindOptions)}
-     */
-    @Deprecated
-    public static Collection<Application> rebindAll(File mementoDir, ClassLoader classLoader, RebindExceptionHandler exceptionHandler) throws Exception {
-        return rebindAll(RebindOptions.create()
-                .mementoDir(mementoDir)
-                .classLoader(classLoader)
-                .exceptionHandler(exceptionHandler));
-    }
-    
-    /**
-     * @deprecated since 0.7.0; use {@link #rebind(RebindOptions)}
-     */
-    @Deprecated
-    public static Collection<Application> rebindAll(LocalManagementContext newManagementContext, ClassLoader classLoader, RebindExceptionHandler exceptionHandler) throws Exception {
-        return rebindAll(RebindOptions.create()
-                .newManagementContext(newManagementContext)
-                .classLoader(classLoader)
-                .exceptionHandler(exceptionHandler));
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@link #rebind(RebindOptions)}
-     */
-    @Deprecated
-    public static Collection<Application> rebindAll(ManagementContext newManagementContext, File mementoDir, ClassLoader classLoader) throws Exception {
-        return rebindAll(RebindOptions.create()
-                .newManagementContext(newManagementContext)
-                .mementoDir(mementoDir)
-                .classLoader(classLoader));
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@link #rebind(RebindOptions)}
-     */
-    @Deprecated
-    public static Collection<Application> rebindAll(ManagementContext newManagementContext, File mementoDir, ClassLoader classLoader, RebindExceptionHandler exceptionHandler, PersistenceObjectStore objectStore) throws Exception {
-        return rebindAll(RebindOptions.create()
-                .newManagementContext(newManagementContext)
-                .mementoDir(mementoDir)
-                .classLoader(classLoader)
-                .exceptionHandler(exceptionHandler)
-                .objectStore(objectStore));
     }
 
     public static Collection<Application> rebindAll(RebindOptions options) throws Exception {

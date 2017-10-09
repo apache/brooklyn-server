@@ -146,7 +146,7 @@ public class VanillaJavaAppRebindTest {
         LOG.info("Avg now "+javaProcess2.getAttribute(EnrichedVanillaJavaAppImpl.AVG1));
         
         // and check we don't have too many
-        Assert.assertEquals(javaProcess2.getEnrichers().size(), javaProcess.getEnrichers().size());
+        Assert.assertEquals(javaProcess2.enrichers().size(), javaProcess.enrichers().size());
     }
 
     public static class EnrichedVanillaJavaAppImpl extends VanillaJavaAppImpl {

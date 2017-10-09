@@ -95,22 +95,6 @@ public abstract class AbstractMembershipTrackingPolicy extends AbstractPolicy {
         }
     }
     
-    /**
-     * Sets the group to be tracked; unsubscribes from any previous group, and subscribes to this group.
-     * 
-     * Note this must be called *after* adding the policy to the entity.
-     * 
-     * @param group
-     * 
-     * @deprecated since 0.7; instead set the group as config
-     */
-    @Deprecated
-    public void setGroup(Group group) {
-        // relies on doReconfigureConfig to make the actual change
-        LOG.warn("Deprecated use of setGroup in "+AbstractMembershipTrackingPolicy.class.getSimpleName()+"; group should be set as config");
-        config().set(GROUP, group);
-    }
-    
     @Override
     protected <T> void doReconfigureConfig(ConfigKey<T> key, T val) {
         if (GROUP.getName().equals(key.getName())) {
@@ -128,16 +112,6 @@ public abstract class AbstractMembershipTrackingPolicy extends AbstractPolicy {
         }
     }
     
-    /**
-     * Unsubscribes from the group.
-     * 
-     * @deprecated since 0.7; misleading method name; either remove the policy, or suspend/resume
-     */
-    @Deprecated
-    public void reset() {
-        unsubscribeFromGroup();
-    }
-
     @Override
     public void suspend() {
         unsubscribeFromGroup();
@@ -216,7 +190,7 @@ public abstract class AbstractMembershipTrackingPolicy extends AbstractPolicy {
 
     protected void unsubscribeFromGroup() {
         Group group = getGroup();
-        if (getSubscriptionTracker() != null && group != null) subscriptions().unsubscribe(group);
+        if (group != null) subscriptions().unsubscribe(group);
     }
 
     /** Invoked by framework prior to all entity events, to provide default highlight info;

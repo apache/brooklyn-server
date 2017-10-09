@@ -33,7 +33,6 @@ import org.apache.brooklyn.core.mgmt.internal.CollectionChangeListener;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,8 +40,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-
-import groovy.lang.Closure;
 
 public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup {
 
@@ -63,12 +60,6 @@ public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup 
         // TODO Sould this be "evenIfOwned"?
         setConfigEvenIfOwned(ENTITY_FILTER, filter);
         rescanEntities();
-    }
-
-    @Deprecated
-    @Override
-    public void setEntityFilter(Closure<Boolean> filter) {
-        setEntityFilter(filter != null ? GroovyJavaMethods.<Entity>predicateFromClosure(filter) : null);
     }
 
     @Override

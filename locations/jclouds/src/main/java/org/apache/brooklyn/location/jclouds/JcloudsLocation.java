@@ -1251,7 +1251,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     /** properties which cause customization of the TemplateOptions */
     public static final Map<ConfigKey<?>, ? extends TemplateOptionCustomizer>SUPPORTED_TEMPLATE_OPTIONS_PROPERTIES = ImmutableMap.<ConfigKey<?>, TemplateOptionCustomizer>builder()
             .put(AUTO_ASSIGN_FLOATING_IP, TemplateOptionCustomizers.autoAssignFloatingIp())
-            .put(AUTO_CREATE_FLOATING_IPS, TemplateOptionCustomizers.autoCreateFloatingIps())
             .put(AUTO_GENERATE_KEYPAIRS, TemplateOptionCustomizers.autoGenerateKeypairs())
             .put(DOMAIN_NAME, TemplateOptionCustomizers.domainName())
             .put(EXTRA_PUBLIC_KEY_DATA_TO_AUTH, TemplateOptionCustomizers.extraPublicKeyDataToAuth())
@@ -1266,7 +1265,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             .put(SECURITY_GROUPS, TemplateOptionCustomizers.securityGroups())
             .put(STRING_TAGS, TemplateOptionCustomizers.stringTags())
             .put(TEMPLATE_OPTIONS, TemplateOptionCustomizers.templateOptions())
-            .put(USER_DATA_UUENCODED, TemplateOptionCustomizers.userDataUuencoded())
             .put(USER_METADATA_MAP, TemplateOptionCustomizers.userMetadataMap())
             .put(USER_METADATA_STRING, TemplateOptionCustomizers.userMetadataString())
             .build();

@@ -880,19 +880,6 @@ public class DependentConfiguration {
         }
         
         /**
-         * Will wait for the attribute on the given entity.
-         * If that entity report {@link Lifecycle#ON_FIRE} for its {@link Attributes#SERVICE_STATE_ACTUAL} then it will abort.
-         * @deprecated since 0.7.0 use {@link DependentConfiguration#builder()} then {@link ProtoBuilder#attributeWhenReady(Entity, AttributeSensor)} then {@link #abortIfOnFire()} 
-         */
-        @Deprecated
-        @SuppressWarnings({ "unchecked", "rawtypes" })
-        public <T2> Builder<T2,T2> attributeWhenReady(Entity source, AttributeSensor<T2> sensor) {
-            this.source = checkNotNull(source, "source");
-            this.sensor = (AttributeSensor) checkNotNull(sensor, "sensor");
-            abortIfOnFire();
-            return (Builder<T2, T2>) this;
-        }
-        /**
          * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
          */
         @Deprecated

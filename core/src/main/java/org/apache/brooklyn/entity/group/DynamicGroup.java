@@ -70,10 +70,6 @@ public interface DynamicGroup extends AbstractGroup {
     /** Sets {@link #ENTITY_FILTER}, overriding (and rescanning all) if already set. */
     void setEntityFilter(Predicate<? super Entity> filter);
 
-    /** @deprecated since 0.7.0; use {@link #setEntityFilter(Predicate)} */
-    @Deprecated
-    void setEntityFilter(Closure<Boolean> filter);
-
     /** As {@link #addSubscription(Entity, Sensor)} but with an additional filter. */
     <T> void addSubscription(Entity producer, Sensor<T> sensor, Predicate<? super SensorEvent<? super T>> filter);
 

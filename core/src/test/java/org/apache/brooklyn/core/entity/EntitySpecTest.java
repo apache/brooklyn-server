@@ -31,7 +31,6 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
-import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -48,14 +47,12 @@ import com.google.common.collect.Iterables;
 
 public class EntitySpecTest extends BrooklynAppUnitTestSupport {
 
-    private SimulatedLocation loc;
     private TestEntity entity;
 
     @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        loc = new SimulatedLocation();
     }
 
     @Test
@@ -96,15 +93,6 @@ public class EntitySpecTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testAddsPolicy() throws Exception {
-        MyPolicy policy = new MyPolicy();
-        entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
-                .policy(policy));
-
-        assertEquals(Iterables.getOnlyElement(entity.policies()), policy);
-    }
-
-    @Test
     public void testAddsEnricherSpec() throws Exception {
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class, TestEntityNoEnrichersImpl.class)
                 .enricher(EnricherSpec.create(MyEnricher.class)
@@ -116,15 +104,6 @@ public class EntitySpecTest extends BrooklynAppUnitTestSupport {
         assertTrue(enricher instanceof MyEnricher, "enricher="+enricher);
         assertEquals(enricher.getDisplayName(), "myenrichername");
         assertEquals(enricher.getConfig(MyEnricher.CONF1), "myconf1val");
-    }
-
-    @Test
-    public void testAddsEnricher() throws Exception {
-        MyEnricher enricher = new MyEnricher();
-        entity = app.createAndManageChild(EntitySpec.create(TestEntity.class, TestEntityNoEnrichersImpl.class)
-                .enricher(enricher));
-
-        assertEquals(Iterables.getOnlyElement(entity.enrichers()), enricher);
     }
 
     @Test

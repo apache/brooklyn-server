@@ -240,9 +240,9 @@ class OsgiArchiveInstaller {
         }
         
         zipFile = Os.newTempFile("brooklyn-bundle-transient-"+suppliedKnownBundleMetadata, "zip");
-        try (FileOutputStream fos = new FileOutputStream(zipFile)) {
-            Streams.copy(zipIn, fos);
-            zipIn.close();
+        try {
+            FileOutputStream fos = new FileOutputStream(zipFile);
+            Streams.copyClose(zipIn, fos);
             try (ZipFile zf = new ZipFile(zipFile)) {
                 // validate it is a valid ZIP, otherwise errors are more obscure later.
                 // can happen esp if user supplies a file://path/to/folder/ as the URL.openStream returns a list of that folder (!) 
@@ -252,6 +252,7 @@ class OsgiArchiveInstaller {
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         } finally {
+            Streams.closeQuietly(zipIn);
             zipIn = null;
         }
     }

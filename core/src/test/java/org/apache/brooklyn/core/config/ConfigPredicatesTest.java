@@ -32,27 +32,21 @@ public class ConfigPredicatesTest extends BrooklynAppUnitTestSupport {
     private final ConfigKey<String> STR1 = ConfigKeys.newStringConfigKey("test.str1");
     
     @Test
-    public void testNameMatchingPredicate() throws Exception {
-        assertTrue(ConfigPredicates.nameMatching(Predicates.equalTo("test.str1")).apply(STR1));
-        assertFalse(ConfigPredicates.nameMatching(Predicates.equalTo("wrong")).apply(STR1));
-    }
-    
-    @Test
     public void testNameMatchingGlob() throws Exception {
-        assertTrue(ConfigPredicates.matchingGlob("*str*").apply(STR1));
-        assertFalse(ConfigPredicates.matchingGlob("*wrong*").apply(STR1));
+        assertTrue(ConfigPredicates.nameMatchesGlob("*str*").apply(STR1));
+        assertFalse(ConfigPredicates.nameMatchesGlob("*wrong*").apply(STR1));
     }
     
     @Test
     public void testNameMatchingRegex() throws Exception {
-        assertTrue(ConfigPredicates.matchingRegex(".*str.*").apply(STR1));
-        assertFalse(ConfigPredicates.matchingRegex(".*wrong.*").apply(STR1));
+        assertTrue(ConfigPredicates.nameMatchesRegex(".*str.*").apply(STR1));
+        assertFalse(ConfigPredicates.nameMatchesRegex(".*wrong.*").apply(STR1));
     }
     
     @Test
     public void testNameStartingWith() throws Exception {
-        assertTrue(ConfigPredicates.startingWith("test.s").apply(STR1));
-        assertFalse(ConfigPredicates.startingWith("wrong.s").apply(STR1));
+        assertTrue(ConfigPredicates.nameStartsWith("test.s").apply(STR1));
+        assertFalse(ConfigPredicates.nameStartsWith("wrong.s").apply(STR1));
     }
     
     @Test

@@ -307,11 +307,7 @@ public class Time {
         }
     }
 
-    /** @deprecated since 0.7.0 use {@link #fromLongToTimeStringExact()} */
-    @Deprecated
-    public static Function<Long, String> toTimeString() {
-        return timeString;
-    }
+    /** @deprecated since 0.7.0; kept for persisted state backwards compatibility */
     @Deprecated
     private static Function<Long, String> timeString = new Function<Long, String>() {
             @Override
@@ -334,11 +330,7 @@ public class Time {
         }
     }
 
-    /** @deprecated since 0.7.0 use {@link #fromLongToTimeStringRounded()} */
-    @Deprecated
-    public static Function<Long, String> toTimeStringRounded() {
-        return timeStringRounded;
-    }
+    /** @deprecated since 0.7.0; kept for persisted state backwards compatibility */
     @Deprecated
     private static Function<Long, String> timeStringRounded = new Function<Long, String>() {
         @Override
@@ -448,14 +440,6 @@ public class Time {
      */
     public static long parseElapsedTime(String timeString) {
         return (long) parseElapsedTimeAsDouble(timeString);
-    }
-    /** @deprecated since 0.7.0 see {@link #parseElapsedTime(String)} */ @Deprecated
-    public static long parseTimeString(String timeString) {
-        return parseElapsedTime(timeString);
-    }
-    /** @deprecated since 0.7.0 see {@link #parseElapsedTimeAsDouble(String)} */ @Deprecated
-    public static double parseTimeStringAsDouble(String timeString) {
-        return parseElapsedTimeAsDouble(timeString);
     }
     
     /** 
@@ -936,24 +920,6 @@ public class Time {
         return Maybe.absent();
     }
 
-    /**
-     * Parses the given date, accepting either a UTC timestamp (i.e. a long), or a formatted date.
-     * <p>
-     * If no time zone supplied, this defaults to the TZ configured at the brooklyn server.
-     * 
-     * @deprecated since 0.7.0 use {@link #parseCalendar(String)} for general or {@link #parseCalendarFormat(String, DateFormat)} for a format,
-     * plus {@link #parseCalendarUtc(String)} if you want to accept UTC
-     */
-    @Deprecated
-    public static Date parseDateString(String dateString, DateFormat format) {
-        Maybe<Calendar> r = parseCalendarFormat(dateString, format);
-        if (r.isPresent()) return r.get().getTime();
-        
-        r = parseCalendarUtc(dateString);
-        if (r.isPresent()) return r.get().getTime();
-
-        throw new IllegalArgumentException("Date " + dateString + " cannot be parsed as UTC millis or using format " + format);
-    }
     public static Maybe<Calendar> parseCalendarFormat(String dateString, String format) {
         return parseCalendarFormat(dateString, new SimpleDateFormat(format, Locale.ROOT));
     }
