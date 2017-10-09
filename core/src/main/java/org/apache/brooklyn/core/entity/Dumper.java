@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.core.entity;
 
-import static org.apache.brooklyn.core.entity.Entities.isSecret;
 import static org.apache.brooklyn.core.entity.Entities.isTrivial;
 
 import java.io.IOException;
@@ -43,6 +42,7 @@ import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
@@ -78,11 +78,11 @@ public class Dumper {
         dumpInfo(e, out, "", "  ");
     }
     
-    public static void dumpInfo(Entity e, String currentIndentation, String tab) throws IOException {
+    static void dumpInfo(Entity e, String currentIndentation, String tab) throws IOException {
         dumpInfo(e, new PrintWriter(System.out), currentIndentation, tab);
     }
     
-    public static void dumpInfo(Entity e, Writer out, String currentIndentation, String tab) throws IOException {
+    static void dumpInfo(Entity e, Writer out, String currentIndentation, String tab) throws IOException {
         out.append(currentIndentation+e.toString()+" "+e.getId()+"\n");
 
         out.append(currentIndentation+tab+tab+"displayName = "+e.getDisplayName()+"\n");
@@ -198,12 +198,12 @@ public class Dumper {
         dumpInfo(loc, out, "", "  ");
     }
     
-    public static void dumpInfo(Location loc, String currentIndentation, String tab) throws IOException {
+    static void dumpInfo(Location loc, String currentIndentation, String tab) throws IOException {
         dumpInfo(loc, new PrintWriter(System.out), currentIndentation, tab);
     }
     
     @SuppressWarnings("rawtypes")
-    public static void dumpInfo(Location loc, Writer out, String currentIndentation, String tab) throws IOException {
+    static void dumpInfo(Location loc, Writer out, String currentIndentation, String tab) throws IOException {
         out.append(currentIndentation+loc.toString()+"\n");
 
         for (Object entryO : ((LocationInternal)loc).config().getBag().getAllConfig().entrySet()) {
@@ -260,11 +260,11 @@ public class Dumper {
         dumpInfo(enr, out, "", "  ");
     }
     
-    public static void dumpInfo(Enricher enr, String currentIndentation, String tab) throws IOException {
+    static void dumpInfo(Enricher enr, String currentIndentation, String tab) throws IOException {
         dumpInfo(enr, new PrintWriter(System.out), currentIndentation, tab);
     }
     
-    public static void dumpInfo(Enricher enr, Writer out, String currentIndentation, String tab) throws IOException {
+    static void dumpInfo(Enricher enr, Writer out, String currentIndentation, String tab) throws IOException {
         out.append(currentIndentation+enr.toString()+"\n");
 
         for (ConfigKey<?> key : sortConfigKeys(enr.getEnricherType().getConfigKeys())) {
@@ -281,11 +281,11 @@ public class Dumper {
         out.flush();
     }
     
-    public static void dumpInfo(Feed feed, String currentIndentation, String tab) throws IOException {
+    static void dumpInfo(Feed feed, String currentIndentation, String tab) throws IOException {
         dumpInfo(feed, new PrintWriter(System.out), currentIndentation, tab);
     }
     
-    public static void dumpInfo(Feed feed, Writer out, String currentIndentation, String tab) throws IOException {
+    static void dumpInfo(Feed feed, Writer out, String currentIndentation, String tab) throws IOException {
         out.append(currentIndentation+feed.toString()+"\n");
 
         // TODO create a FeedType cf EnricherType ?
@@ -316,11 +316,11 @@ public class Dumper {
         dumpInfo(pol, out, "", "  ");
     }
     
-    public static void dumpInfo(Policy pol, String currentIndentation, String tab) throws IOException {
+    static void dumpInfo(Policy pol, String currentIndentation, String tab) throws IOException {
         dumpInfo(pol, new PrintWriter(System.out), currentIndentation, tab);
     }
     
-    public static void dumpInfo(Policy pol, Writer out, String currentIndentation, String tab) throws IOException {
+    static void dumpInfo(Policy pol, Writer out, String currentIndentation, String tab) throws IOException {
         out.append(currentIndentation+pol.toString()+"\n");
 
         for (ConfigKey<?> key : sortConfigKeys(pol.getPolicyType().getConfigKeys())) {
@@ -338,7 +338,7 @@ public class Dumper {
     }
     
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    public static List<Sensor<?>> sortSensors(Set<Sensor<?>> sensors) {
+    static List<Sensor<?>> sortSensors(Set<Sensor<?>> sensors) {
         List result = new ArrayList(sensors);
         Collections.sort(result, new Comparator<Sensor>() {
                     @Override
@@ -351,7 +351,7 @@ public class Dumper {
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    public static List<ConfigKey<?>> sortConfigKeys(Set<ConfigKey<?>> configs) {
+    static List<ConfigKey<?>> sortConfigKeys(Set<ConfigKey<?>> configs) {
         List result = new ArrayList(configs);
         Collections.sort(result, new Comparator<ConfigKey>() {
                     @Override
@@ -363,7 +363,7 @@ public class Dumper {
         return result;
     }
     
-    public static <T> Map<String, T> sortMap(Map<String, T> map) {
+    static <T> Map<String, T> sortMap(Map<String, T> map) {
         Map<String,T> result = Maps.newLinkedHashMap();
         List<String> order = Lists.newArrayList(map.keySet());
         Collections.sort(order, String.CASE_INSENSITIVE_ORDER);
@@ -372,5 +372,9 @@ public class Dumper {
             result.put(key, map.get(key));
         }
         return result;
+    }
+    
+    private static boolean isSecret(String name) {
+        return Sanitizer.IS_SECRET_PREDICATE.apply(name);
     }
 }
