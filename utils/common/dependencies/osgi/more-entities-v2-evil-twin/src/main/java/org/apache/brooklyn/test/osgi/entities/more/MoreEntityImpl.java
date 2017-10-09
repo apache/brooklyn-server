@@ -35,7 +35,7 @@ public class MoreEntityImpl extends AbstractEntity implements MoreEntity {
                 return sayHI((String)parameters.getStringKey("name"));
             }
         });
-        addPolicy(PolicySpec.create(org.apache.brooklyn.test.osgi.entities.SimplePolicy.class));
+        policies().add(PolicySpec.create(org.apache.brooklyn.test.osgi.entities.SimplePolicy.class));
     }
     
     /** Returns HO instead of HI (like v2 non-evil twin) or Hi (like v1) */
