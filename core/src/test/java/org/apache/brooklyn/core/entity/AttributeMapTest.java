@@ -142,11 +142,14 @@ public class AttributeMapTest {
         assertEquals(map.getValue(ImmutableList.of("b","c")), "2val");
     }
         
+    // TODO we can simply remove this test when the deprecated method is removed;
+    // its behaviour is tested by other methods here
+    @SuppressWarnings("deprecation")
     @Test
     public void testStoredByPathCanBeRetrieved() throws Exception {
         AttributeSensor<String> sensor1 = Sensors.newStringSensor("a", "");
         AttributeSensor<String> sensor2 = Sensors.newStringSensor("b.c", "");
-        
+
         map.update(ImmutableList.of("a"), "1val");
         map.update(ImmutableList.of("b", "c"), "2val");
         

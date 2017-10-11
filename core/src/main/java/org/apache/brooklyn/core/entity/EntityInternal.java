@@ -178,7 +178,8 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
     public interface SensorSupportInternal extends Entity.SensorSupport {
         /**
          * 
-         * Like {@link EntityLocal#setAttribute(AttributeSensor, Object)}, except does not publish an attribute-change event.
+         * Like {@link #set(AttributeSensor, Object)}, except does not publish an attribute-change event.
+         * Used for rebinding.
          */
         <T> T setWithoutPublishing(AttributeSensor<T> sensor, T val);
         
