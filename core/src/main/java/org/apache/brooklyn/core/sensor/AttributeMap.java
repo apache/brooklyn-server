@@ -139,7 +139,7 @@ public final class AttributeMap {
      * @return the old value.
      * @throws IllegalArgumentException if path is null or empty
      * 
-     * @deprecated since 0.13.0 becoming private; callers should only ever use {@link #update(AttributeSensor, Object)}
+     * @deprecated since 1.0.0 becoming private; callers should only ever use {@link #update(AttributeSensor, Object)}
      */
     @Deprecated
     // TODO path must be ordered(and legal to contain duplicates like "a.b.a"; list would be better
@@ -187,7 +187,7 @@ public final class AttributeMap {
         });
     }
     
-    /** @deprecated since 0.13.0 this is becoming an internal method, {@link #updateInternalWithoutLockOrPublish(AttributeSensor, Object)} */
+    /** @deprecated since 1.0.0 this is becoming an internal method, {@link #updateInternalWithoutLockOrPublish(AttributeSensor, Object)} */
     @Deprecated
     public <T> T updateWithoutPublishing(AttributeSensor<T> attribute, T newValue) {
         return updateInternalWithoutLockOrPublish(attribute, newValue);
@@ -247,7 +247,7 @@ public final class AttributeMap {
     }
 
     // TODO path must be ordered(and legal to contain duplicates like "a.b.a"; list would be better
-    /** @deprecated since 0.13.0 becoming private; callers should only ever use {@link #remove(AttributeSensor)}
+    /** @deprecated since 1.0.0 becoming private; callers should only ever use {@link #remove(AttributeSensor)}
      */
     @Deprecated
     public void remove(Collection<String> path) {
@@ -266,7 +266,9 @@ public final class AttributeMap {
      * @param path the path of the value to get
      * @return the value
      * @throws IllegalArgumentException path is null or empty.
+     * @deprecated since 1.0.0 becoming private; callers should only ever use {@link #getValue(AttributeSensor)}
      */
+    @Deprecated
     public Object getValue(Collection<String> path) {
         checkPath(path);
         Object result = values.get(path);
