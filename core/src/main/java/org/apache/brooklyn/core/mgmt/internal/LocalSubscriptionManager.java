@@ -44,6 +44,7 @@ import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.sensor.AttributeMap;
 import org.apache.brooklyn.core.sensor.BasicSensorEvent;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -63,6 +64,14 @@ import com.google.common.collect.Multimaps;
 
 /**
  * A {@link SubscriptionManager} that stores subscription details locally.
+ * 
+ * Synchronization model:  methods in this class synch on this object to ensure
+ * subscription order and delivery order on publish.
+ * <p>
+ * Frequently it will be called by a thread holding a lock on a value
+ * (eg {@link AttributeMap}, this synchronized methods here should not
+ * call to any value that may require that lock.  
+ * In particular notifications of initial value should not look up values.
  */
 public class LocalSubscriptionManager extends AbstractSubscriptionManager {
     
