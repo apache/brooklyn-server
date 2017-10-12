@@ -38,7 +38,7 @@ public class VersionedName implements Comparable<VersionedName> {
     private final String name;
     private final String v;
     
-    @Deprecated // since 0.12.0 - remove along with version and readResolve in 0.13.0
+    @Deprecated // since 0.12.0 - remove along with version and readResolve in 1.0.0
     private final String symbolicName = null;
     @Deprecated // since 0.12.0
     private final Version version = null;

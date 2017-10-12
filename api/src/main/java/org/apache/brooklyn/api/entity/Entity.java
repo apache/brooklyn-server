@@ -287,7 +287,7 @@ public interface Entity extends BrooklynObject {
     /**
      * Adds the given feed to this entity. Also calls feed.setEntity if available.
      * 
-     * @deprecated since 0.13.0; see {@link FeedSupport#add(Feed)}
+     * @deprecated since 1.0.0; see {@link FeedSupport#add(Feed)}
      */
     @Deprecated
     <T extends Feed> T addFeed(T feed);

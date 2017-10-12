@@ -130,31 +130,31 @@ public class EntityTransformer {
         return serviceUriBuilder(ub, EntityApi.class, "get").build(entity.getApplicationId(), entity.getId());
     }
     
-    /** @deprecated since 0.13.0 use {@link ConfigTransformer} */
+    /** @deprecated since 1.0.0 use {@link ConfigTransformer} */
     @Deprecated
     public static EntityConfigSummary entityConfigSummary(ConfigKey<?> config, String label, Double priority, Boolean pinned, Map<String, URI> links) {
         return new EntityConfigSummary(config, label, priority, pinned, links);
     }
 
-    /** @deprecated since 0.13.0 use {@link ConfigTransformer} */
+    /** @deprecated since 1.0.0 use {@link ConfigTransformer} */
     @Deprecated
     public static PolicyConfigSummary policyConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
         return new PolicyConfigSummary(config, label, priority, links);
     }
 
-    /** @deprecated since 0.13.0 use {@link ConfigTransformer} */
+    /** @deprecated since 1.0.0 use {@link ConfigTransformer} */
     @Deprecated
     public static EnricherConfigSummary enricherConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
         return new EnricherConfigSummary(config, label, priority, links);
     }
 
-    /** @deprecated since 0.13.0 use {@link ConfigTransformer} */
+    /** @deprecated since 1.0.0 use {@link ConfigTransformer} */
     @Deprecated
     public static ConfigSummary entityConfigSummary(Entity entity, ConfigKey<?> config, UriBuilder ub) {
         return ConfigTransformer.of(config).on(entity).includeLinks(ub, true, true).transform();
     }
 
-    /** @deprecated since 0.13.0 use {@link ConfigTransformer} */
+    /** @deprecated since 1.0.0 use {@link ConfigTransformer} */
     @Deprecated
     public static EntityConfigSummary entityConfigSummary(ConfigKey<?> config, Field configKeyField) {
         CatalogConfig catalogConfig = configKeyField!=null ? configKeyField.getAnnotation(CatalogConfig.class) : null;
@@ -164,7 +164,7 @@ public class EntityTransformer {
         return entityConfigSummary(config, label, priority, pinned, null);
     }
 
-    /** @deprecated since 0.13.0 use {@link ConfigTransformer} */
+    /** @deprecated since 1.0.0 use {@link ConfigTransformer} */
     @Deprecated
     public static EntityConfigSummary entityConfigSummary(SpecParameter<?> input, AtomicInteger paramPriorityCnt) {
         // Increment the priority because the config container is a set. Server-side we are using an ordered set
@@ -174,14 +174,14 @@ public class EntityTransformer {
         return entityConfigSummary(input.getConfigKey(), input.getLabel(), priority, input.isPinned(), null);
     }
 
-    /** @deprecated since 0.13.0 use {@link ConfigTransformer} */
+    /** @deprecated since 1.0.0 use {@link ConfigTransformer} */
     @Deprecated
     public static PolicyConfigSummary policyConfigSummary(SpecParameter<?> input) {
         Double priority = input.isPinned() ? Double.valueOf(1d) : null;
         return policyConfigSummary(input.getConfigKey(), input.getLabel(), priority, null);
     }
 
-    /** @deprecated since 0.13.0 use {@link ConfigTransformer} */
+    /** @deprecated since 1.0.0 use {@link ConfigTransformer} */
     @Deprecated
     public static EnricherConfigSummary enricherConfigSummary(SpecParameter<?> input) {
         Double priority = input.isPinned() ? Double.valueOf(1d) : null;

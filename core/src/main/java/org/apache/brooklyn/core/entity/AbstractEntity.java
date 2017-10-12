@@ -1913,7 +1913,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             return addFeed(feed);
         }
         
-        /** @deprecated since 0.13.0 use {@link #add(Feed)} */
+        /** @deprecated since 1.0.0 use {@link #add(Feed)} */
         @Deprecated
         public <T extends Feed> T addFeed(T feed) {
             Feed old = findApparentlyEqualAndWarnIfNotSameUniqueTag(feedsInternal, feed);
@@ -1947,7 +1947,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             return removeFeed(feed);
         }
 
-        /** @deprecated since 0.13.0 use {@link #remove(Feed)} */
+        /** @deprecated since 1.0.0 use {@link #remove(Feed)} */
         @Deprecated
         public boolean removeFeed(Feed feed) {
             feed.stop();
@@ -1979,7 +1979,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             return getFeeds().iterator();
         }
 
-        // TODO add these back when we implement AdjunctSupport (after 0.13.0)
+        // TODO add these back when we implement AdjunctSupport (after 1.0.0)
 //        @Override
 //        public int size() {
 //            return getFeeds().size();

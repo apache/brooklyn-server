@@ -24,7 +24,7 @@ import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** @deprecated since 0.13.0 no different to ConfigSummary, use that */
+/** @deprecated since 1.0.0 no different to ConfigSummary, use that */
 @Deprecated
 public class LocationConfigSummary extends ConfigSummary {
 

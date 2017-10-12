@@ -267,7 +267,7 @@ public class RegisteredTypePredicates {
         }
     }
     
-    /** @deprecated since 0.13.0 use {@link AnySuperTypeSatisfies}, kept for persistence compatibility */
+    /** @deprecated since 1.0.0 use {@link AnySuperTypeSatisfies}, kept for persistence compatibility */
     @SuppressWarnings("unused")
     @Deprecated
     private static class AnySuperTypeMatches implements Predicate<RegisteredType> {

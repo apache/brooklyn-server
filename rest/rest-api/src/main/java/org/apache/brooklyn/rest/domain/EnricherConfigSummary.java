@@ -23,7 +23,7 @@ import java.util.Map;
 
 import org.apache.brooklyn.config.ConfigKey;
 
-/** @deprecated since 0.13.0 no different to ConfigSummary, use that */
+/** @deprecated since 1.0.0 no different to ConfigSummary, use that */
 @Deprecated
 public class EnricherConfigSummary extends ConfigSummary {
 

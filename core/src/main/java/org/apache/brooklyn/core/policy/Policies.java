@@ -22,11 +22,11 @@ import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 
-/** @deprecated since 0.13.0 use {@link EntityAdjuncts} */
+/** @deprecated since 1.0.0 use {@link EntityAdjuncts} */
 @Deprecated
 public class Policies {
 
-    /** @deprecated since 0.13.0, use {@link EntityAdjuncts#inferAdjunctStatus(org.apache.brooklyn.api.objs.EntityAdjunct)} */
+    /** @deprecated since 1.0.0, use {@link EntityAdjuncts#inferAdjunctStatus(org.apache.brooklyn.api.objs.EntityAdjunct)} */
     @Deprecated
     public static Lifecycle getPolicyStatus(Policy p) {
         return EntityAdjuncts.inferAdjunctStatus(p);
