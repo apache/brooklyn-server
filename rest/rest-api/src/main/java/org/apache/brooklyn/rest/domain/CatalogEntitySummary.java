@@ -29,7 +29,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
-/** @deprecated since 0.13.0 new {@link TypeApi} returns {@link TypeSummary} */
+/** @deprecated since 1.0.0 new {@link TypeApi} returns {@link TypeSummary} */
 @Deprecated
 public class CatalogEntitySummary extends CatalogItemSummary {
 
