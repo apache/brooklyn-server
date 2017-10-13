@@ -406,7 +406,7 @@ class OsgiArchiveInstaller {
                     // or if the bundle should be reinstalled/updated
                     if (!force) {
                         if (!isBringingExistingOsgiInstalledBundleUnderBrooklynManagement) {
-                            if (Objects.equal(b.get().getLocation(), suppliedKnownBundleMetadata.getUrl())) {
+                            if (Objects.equal(b.get().getLocation(), inferredMetadata.getUrl())) {
                                 // installation request was for identical location, so assume we are simply bringing under mgmt
                                 log.debug("Request to install "+inferredMetadata+" from same location "+b.get().getLocation()+
                                     " as existing OSGi installed (but not Brooklyn-managed) bundle "+b.get()+", so skipping reinstall");
