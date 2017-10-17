@@ -46,7 +46,6 @@ import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
-import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 
@@ -244,7 +243,7 @@ public class Dumper {
     }
 
     public static void dumpInfo(Task<?> t) {
-        Tasks.dumpInfo(t);
+        Dumper.dumpInfo(t);
     }
     
     public static void dumpInfo(Enricher enr) {

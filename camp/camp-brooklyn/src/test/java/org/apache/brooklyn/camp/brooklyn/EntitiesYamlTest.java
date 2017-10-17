@@ -44,6 +44,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityFunctions;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -88,12 +89,12 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Entity app = createAndStartApplication(loadYaml("test-entity-basic-template.yaml", extras));
         waitForApplicationTasks(app);
 
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         Assert.assertEquals(app.getDisplayName(), "test-entity-basic-template");
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         Assert.assertTrue(app.getChildren().iterator().hasNext(), "Expected app to have child entity");
         Entity entity = app.getChildren().iterator().next();
@@ -238,7 +239,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Assert.assertEquals(app.getDisplayName(), "test-entity-basic-template");
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         Entity entity = app.getChildren().iterator().next();
         Assert.assertNotNull(entity, "Expected app to have child entity");
@@ -269,7 +270,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Assert.assertEquals(app.getDisplayName(), "test-entity-basic-template");
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         Entity entity = app.getChildren().iterator().next();
         Assert.assertNotNull(entity, "Expected app to have child entity");
@@ -293,7 +294,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Assert.assertEquals(app.getDisplayName(), "test-entity-basic-template");
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         Entity entity = app.getChildren().iterator().next();
         Assert.assertNotNull(entity, "Expected app to have child entity");
@@ -313,7 +314,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         waitForApplicationTasks(app);
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         TestEntity entity = (TestEntity) app.getChildren().iterator().next();
         Object object = entity.getConfig(TestEntity.CONF_OBJECT);
@@ -413,7 +414,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Assert.assertNotNull(testWithConfigInit, "Expected app to contain TestEntityWithInitConfig child");
         Assert.assertEquals(testWithConfigInit.getEntityCachedOnInit(), testEntity);
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
     }
 
     @Test
@@ -448,7 +449,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         final Entity app = createAndStartApplication(loadYaml("test-referencing-entities.yaml"));
         waitForApplicationTasks(app);
         
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         Assert.assertEquals(app.getDisplayName(), "test-referencing-entities");
 

@@ -32,7 +32,7 @@ import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -213,7 +213,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         Assert.assertEquals(app.getDisplayName(), "test-entity-basic-template");
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         Assert.assertTrue(app.getChildren().iterator().hasNext(), "Expected app to have child entity");
         Entity entity = app.getChildren().iterator().next();

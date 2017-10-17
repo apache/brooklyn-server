@@ -29,7 +29,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -46,7 +45,7 @@ import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConstraintViolationException;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -875,7 +874,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         TestEntity entity2 = entity1.addChild(EntitySpec.create(TestEntity.class));
         entity2.start(Collections.<Location>emptyList());
         
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         LOG.info("E1 keys: "+entity1.getEntityType().getConfigKeys());
         LOG.info("E2 keys: "+entity2.getEntityType().getConfigKeys());
@@ -904,7 +903,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         TestEntity entity2 = entity1.addChild(EntitySpec.create(TestEntity.class));
         entity2.start(Collections.<Location>emptyList());
         
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         LOG.info("E1 keys: "+entity1.getEntityType().getConfigKeys());
         LOG.info("E2 keys: "+entity2.getEntityType().getConfigKeys());
@@ -941,7 +940,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
             })
             .get();
         
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         LOG.info("E1 keys: "+entity1.getEntityType().getConfigKeys());
         LOG.info("E2 keys: "+entity2.getEntityType().getConfigKeys());

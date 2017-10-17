@@ -22,7 +22,7 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
@@ -53,7 +53,7 @@ public class ConfigNestedYamlTest extends AbstractYamlTest {
     public void testCatalogParameterFromSuperYamlType() throws Exception {
         addCatalogItems( loadYaml("config-nested-test.bom") );
         Entity ent = doTestWithBlueprint( "services: [ { type: test-map-parameter } ]", false);
-        Entities.dumpInfo(ent);
+        Dumper.dumpInfo(ent);
     }
 
     @Test
@@ -77,7 +77,7 @@ public class ConfigNestedYamlTest extends AbstractYamlTest {
     public void testCatalogParameterFromSuperYamlTypeInCluster() throws Exception {
         addCatalogItems( loadYaml("config-nested-test.bom") );
         Entity cluster = makeBlueprint("services: [ { type: test-cluster-with-map-parameter } ]");
-        Entities.dumpInfo(cluster.getApplication());
+        Dumper.dumpInfo(cluster.getApplication());
         Entity parentInCluster = Iterables.getOnlyElement( ((DynamicCluster)cluster).getMembers() );
         Entity target = Iterables.getOnlyElement(parentInCluster.getChildren());
         checkEntity( target, false );
@@ -88,7 +88,7 @@ public class ConfigNestedYamlTest extends AbstractYamlTest {
     public void testCatalogParameterFromSuperYamlTypeAsSoftware() throws Exception {
         addCatalogItems( loadYaml("config-nested-test.bom") );
         Entity ent = doTestWithBlueprint( "services: [ { type: test-map-parameter-software } ]", false);
-        Entities.dumpInfo(ent);
+        Dumper.dumpInfo(ent);
     }
 
     @Test

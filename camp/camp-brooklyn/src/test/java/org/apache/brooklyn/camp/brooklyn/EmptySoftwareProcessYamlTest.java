@@ -28,7 +28,7 @@ import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
@@ -77,7 +77,7 @@ public class EmptySoftwareProcessYamlTest extends AbstractYamlTest {
         waitForApplicationTasks(app);
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         EmptySoftwareProcess entity = (EmptySoftwareProcess) app.getChildren().iterator().next();
         Map<String, Object> pp = entity.getConfig(EmptySoftwareProcess.PROVISIONING_PROPERTIES);
@@ -99,7 +99,7 @@ public class EmptySoftwareProcessYamlTest extends AbstractYamlTest {
                 "      sshToolClass: "+RecordingSshTool.class.getName(),
                 "location: byon:(hosts=\"127.0.0.1\", name=loopback on app)");
         waitForApplicationTasks(app);
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         Location appLocation = Iterables.getOnlyElement(app.getLocations());
         Assert.assertEquals(appLocation.getDisplayName(), "loopback on app");

@@ -37,7 +37,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
@@ -231,7 +231,7 @@ public class TestWinrmCommandTest extends BrooklynAppUnitTestSupport {
             app.start(ImmutableList.<Location>of());
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
-            Entities.dumpInfo(app);
+            Dumper.dumpInfo(app);
             Asserts.expectedFailureContains(e, "exit code expected equals 1 but found 0", "exit code expected equals 255 but found 0");
         }
 
