@@ -284,10 +284,12 @@ public class RebindTestUtils {
 
         public LocalManagementContext buildStarted() {
             LocalManagementContext unstarted = buildUnstarted();
+            
             // Follows BasicLauncher logic for initialising persistence.
             // TODO It should really be encapsulated in a common entry point
             if (persistMode == PersistMode.DISABLED) {
                 unstarted.generateManagementPlaneId();
+                unstarted.getCatalogInitialization().populateInitialCatalogOnly();
             } else if (haMode == HighAvailabilityMode.DISABLED) {
                 unstarted.getRebindManager().rebind(classLoader, null, ManagementNodeState.MASTER);
                 unstarted.getRebindManager().startPersistence();
@@ -478,6 +480,7 @@ public class RebindTestUtils {
             // Would that affect any tests?
             newManagementContext = new LocalManagementContextForTests(BrooklynProperties.Factory.newDefault());
         }
+        
         if (!hasPersister) {
             if (objectStore == null) {
                 objectStore = new FileBasedObjectStore(checkNotNull(mementoDir, "mementoDir and objectStore must not both be null"));

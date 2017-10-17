@@ -162,10 +162,6 @@ public class LocalManagementContext extends AbstractManagementContext {
         this(builder, null);
     }
     
-    public LocalManagementContext(BrooklynProperties brooklynProperties, Map<String, Object> brooklynAdditionalProperties) {
-        this(Builder.fromProperties(brooklynProperties), brooklynAdditionalProperties);
-    }
-    
     public LocalManagementContext(Builder builder, Map<String, Object> brooklynAdditionalProperties) {
         super(builder.build());
         

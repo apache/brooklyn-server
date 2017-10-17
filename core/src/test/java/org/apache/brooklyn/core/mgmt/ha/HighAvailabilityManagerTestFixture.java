@@ -116,7 +116,8 @@ public abstract class HighAvailabilityManagerTestFixture {
     protected ManagementContextInternal newLocalManagementContext() {
         BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
         brooklynProperties.put(BrooklynServerConfig.MANAGEMENT_NODE_STATE_LISTENERS, ImmutableList.of(stateListener));
-        return LocalManagementContextForTests.newInstance(brooklynProperties);
+        ManagementContextInternal result = LocalManagementContextForTests.newInstance(brooklynProperties);
+        return result;
     }
 
     protected abstract PersistenceObjectStore newPersistenceObjectStore();

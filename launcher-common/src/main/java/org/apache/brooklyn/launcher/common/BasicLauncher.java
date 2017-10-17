@@ -253,12 +253,12 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
     }
 
     public T persistMode(PersistMode persistMode) {
-        this.persistMode = persistMode;
+        this.persistMode = checkNotNull(persistMode, "persistMode");
         return self();
     }
 
     public T highAvailabilityMode(HighAvailabilityMode highAvailabilityMode) {
-        this.highAvailabilityMode = highAvailabilityMode;
+        this.highAvailabilityMode = checkNotNull(highAvailabilityMode, "highAvailabilityMode");
         return self();
     }
 
@@ -389,6 +389,8 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
         if (started) throw new IllegalStateException("Cannot start() or launch() multiple times");
         started = true;
 
+        checkConfiguration();
+        
         initManagementContext();
 
         CatalogInitialization catInit = ((ManagementContextInternal)managementContext).getCatalogInitialization();
@@ -407,6 +409,23 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
         return self();
     }
 
+    private void checkConfiguration() {
+        if (highAvailabilityMode != HighAvailabilityMode.DISABLED) {
+            if (persistMode == PersistMode.DISABLED) {
+                if (highAvailabilityMode == HighAvailabilityMode.AUTO) {
+                    highAvailabilityMode = HighAvailabilityMode.DISABLED;
+                } else {
+                    throw new FatalConfigurationRuntimeException("Cannot specify highAvailability when persistence is disabled");
+                }
+            } else if (persistMode == PersistMode.CLEAN && 
+                    (highAvailabilityMode == HighAvailabilityMode.STANDBY 
+                            || highAvailabilityMode == HighAvailabilityMode.HOT_STANDBY
+                            || highAvailabilityMode == HighAvailabilityMode.HOT_BACKUP)) {
+                throw new FatalConfigurationRuntimeException("Cannot specify highAvailability "+highAvailabilityMode+" when persistence is CLEAN");
+            }
+        }
+    }
+
     /**
      * Starts the web server (with web console) and Brooklyn applications, as per the specifications configured. 
      * @return An object containing details of the web server and the management context.
@@ -415,8 +434,12 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
         if (startedPartTwo) throw new IllegalStateException("Cannot start() or launch() multiple times");
         startedPartTwo = true;
         
-        handlePersistence();
-        populateCatalog(catalogInitialization);
+        if (persistMode != PersistMode.DISABLED) {
+            handlePersistence();
+        } else {
+            ((LocalManagementContext)managementContext).generateManagementPlaneId();
+            populateInitialCatalogNoPersistence(catalogInitialization);
+        }
         markCatalogStarted(catalogInitialization);
         addLocations();
         markStartupComplete();
@@ -471,28 +494,19 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
     protected void startingUp() {
     }
 
-    private void markCatalogStarted(CatalogInitialization catInit) {
-        catInit.setStartingUp(false);
-    }
-
-    protected void populateCatalog(CatalogInitialization catInit) {
+    protected void populateInitialCatalogNoPersistence(CatalogInitialization catInit) {
+        assert persistMode == PersistMode.DISABLED : "persistMode="+persistMode;
+        
         try {
-            // run cat init now if it hasn't yet been run; 
-            // will also run if there was an ignored error in catalog above, allowing it to fail startup here if requested
-            if (catInit!=null && !catInit.hasRunOfficialInitialization()) {
-                if (persistMode==PersistMode.DISABLED) {
-                    LOG.debug("Loading catalog as part of launch sequence (it was not loaded as part of any rebind sequence)");
-                    catInit.populateCatalog(ManagementNodeState.MASTER, true, true, null);
-                } else {
-                    // should have loaded during rebind
-                    ManagementNodeState state = managementContext.getHighAvailabilityManager().getNodeState();
-                    LOG.warn("Loading catalog for "+state+" as part of launch sequence (it was not loaded as part of the rebind sequence)");
-                    catInit.populateCatalog(state, true, true, null);
-                }
-            }
+            LOG.debug("Initializing initial catalog as part of launch sequence (prior to any persistence rebind)");
+            catInit.populateInitialCatalogOnly();
         } catch (Exception e) {
             handleSubsystemStartupError(ignoreCatalogErrors, "initial catalog", e);
         }
+    }
+
+    private void markCatalogStarted(CatalogInitialization catInit) {
+        catInit.setStartingUp(false);
     }
 
     protected void handlePersistence() {
@@ -551,45 +565,38 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
     }
 
     protected void initPersistence() {
-        // Prepare the rebind directory, and initialise the RebindManager as required
+        assert persistMode != PersistMode.DISABLED : "persistMode="+persistMode+"; haMode="+highAvailabilityMode;
+
+        // Prepare the rebind directory, and initialise the RebindManager
         final PersistenceObjectStore objectStore;
-        if (persistMode == PersistMode.DISABLED) {
-            LOG.info("Persistence disabled");
-            objectStore = null;
-            ((LocalManagementContext)managementContext).generateManagementPlaneId();
-        } else {
-            try {
-                if (persistenceLocation == null) {
-                    persistenceLocation = brooklynProperties.getConfig(BrooklynServerConfig.PERSISTENCE_LOCATION_SPEC);
-                }
-                persistenceDir = BrooklynServerPaths.newMainPersistencePathResolver(brooklynProperties).location(persistenceLocation).dir(persistenceDir).resolve();
-                objectStore = BrooklynPersistenceUtils.newPersistenceObjectStore(managementContext, persistenceLocation, persistenceDir, 
-                    persistMode, highAvailabilityMode);
-                    
-                RebindManager rebindManager = managementContext.getRebindManager();
-                
-                BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
-                    objectStore, managementContext);
-                PersistenceExceptionHandler persistenceExceptionHandler = PersistenceExceptionHandlerImpl.builder().build();
-                ((RebindManagerImpl) rebindManager).setPeriodicPersistPeriod(persistPeriod);
-                rebindManager.setPersister(persister, persistenceExceptionHandler);
-            } catch (FatalConfigurationRuntimeException e) {
-                throw e;
-            } catch (Exception e) {
-                Exceptions.propagateIfFatal(e);
-                LOG.debug("Error initializing persistence subsystem (rethrowing): "+e, e);
-                throw new FatalRuntimeException("Error initializing persistence subsystem: "+
-                    Exceptions.collapseText(e), e);
+        try {
+            if (persistenceLocation == null) {
+                persistenceLocation = brooklynProperties.getConfig(BrooklynServerConfig.PERSISTENCE_LOCATION_SPEC);
             }
+            persistenceDir = BrooklynServerPaths.newMainPersistencePathResolver(brooklynProperties).location(persistenceLocation).dir(persistenceDir).resolve();
+            objectStore = BrooklynPersistenceUtils.newPersistenceObjectStore(managementContext, persistenceLocation, persistenceDir, 
+                persistMode, highAvailabilityMode);
+                
+            RebindManager rebindManager = managementContext.getRebindManager();
+            
+            BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
+                objectStore, managementContext);
+            PersistenceExceptionHandler persistenceExceptionHandler = PersistenceExceptionHandlerImpl.builder().build();
+            ((RebindManagerImpl) rebindManager).setPeriodicPersistPeriod(persistPeriod);
+            rebindManager.setPersister(persister, persistenceExceptionHandler);
+        } catch (FatalConfigurationRuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            LOG.debug("Error initializing persistence subsystem (rethrowing): "+e, e);
+            throw new FatalRuntimeException("Error initializing persistence subsystem: "+
+                Exceptions.collapseText(e), e);
         }
         
         // Initialise the HA manager as required
         if (highAvailabilityMode == HighAvailabilityMode.DISABLED) {
             LOG.info("High availability disabled");
         } else {
-            if (objectStore==null)
-                throw new FatalConfigurationRuntimeException("Cannot run in HA mode when no persistence configured.");
-
             HighAvailabilityManager haManager = managementContext.getHighAvailabilityManager();
             ManagementPlaneSyncRecordPersister persister =
                 new ManagementPlaneSyncRecordPersisterToObjectStore(managementContext,
@@ -602,20 +609,20 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
     }
     
     protected void startPersistence() {
+        assert persistMode != PersistMode.DISABLED : "persistMode="+persistMode+"; haMode="+highAvailabilityMode;
+        
         // Now start the HA Manager and the Rebind manager, as required
         if (highAvailabilityMode == HighAvailabilityMode.DISABLED) {
             HighAvailabilityManager haManager = managementContext.getHighAvailabilityManager();
             haManager.disabled();
 
-            if (persistMode != PersistMode.DISABLED) {
-                startPersistenceWithoutHA();
-            }
+            startPersistenceWithoutHA();
             
         } else {
             // Let the HA manager decide when objectstore.prepare and rebindmgr.rebind need to be called 
             // (based on whether other nodes in plane are already running).
             
-            HighAvailabilityMode startMode=null;
+            HighAvailabilityMode startMode;
             switch (highAvailabilityMode) {
                 case AUTO:
                 case MASTER:
@@ -626,9 +633,9 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
                     break;
                 case DISABLED:
                     throw new IllegalStateException("Unexpected code-branch for high availability mode "+highAvailabilityMode);
+                default:
+                    throw new IllegalStateException("Unexpected high availability mode "+highAvailabilityMode);
             }
-            if (startMode==null)
-                throw new IllegalStateException("Unexpected high availability mode "+highAvailabilityMode);
             
             LOG.debug("Management node (with HA) starting");
             HighAvailabilityManager haManager = managementContext.getHighAvailabilityManager();
