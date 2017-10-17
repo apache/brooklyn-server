@@ -18,24 +18,15 @@
  */
 package org.apache.brooklyn.launcher;
 
-import java.util.List;
 import java.util.Set;
 
-import javax.annotation.Nullable;
-
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
-import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
-import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.osgi.VersionedName;
-import org.apache.commons.collections.IteratorUtils;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 

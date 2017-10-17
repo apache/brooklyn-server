@@ -137,12 +137,6 @@ public abstract class AbstractBrooklynLauncherRebindTest {
             tmpFiles.add(bf);
         }
         return bf;
-        
-//        ReferenceWithError<OsgiBundleInstallationResult> b = ((ManagementContextInternal)mgmt).getOsgiManager().get().install(
-//                new FileInputStream(bf) );
-//
-//            b.checkNoError();
-
     }
     
     protected void assertCatalogConsistsOfIds(BrooklynLauncher launcher, Iterable<VersionedName> ids) {

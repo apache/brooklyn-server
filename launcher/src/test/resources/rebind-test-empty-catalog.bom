@@ -20,6 +20,3 @@ brooklyn.catalog:
   version: "test-version"
   itemType: entity
   items:
-
-  # Do not scan classpath with for classes with a @Catalog annotation
-  - scanJavaAnnotations: false

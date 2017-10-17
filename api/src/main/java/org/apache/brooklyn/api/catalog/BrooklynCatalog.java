@@ -217,8 +217,8 @@ public interface BrooklynCatalog {
      * just adds without removing the existing content. Note this is very different from 
      * {@link #addItem(CatalogItem)}, which adds to the 'manual' catalog.
      *
-     * @since 0.13.0 (only for legacy backwards compatibility)
-     * @deprecated since 0.13.0; instead use bundles in persisted state!
+     * @since 1.0.0 (only for legacy backwards compatibility)
+     * @deprecated since 1.0.0; instead use bundles in persisted state!
      */
     @Deprecated
     void addCatalogLegacyItemsOnRebind(Iterable<? extends CatalogItem<?,?>> items);

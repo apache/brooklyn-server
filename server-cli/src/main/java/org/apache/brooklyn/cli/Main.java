@@ -592,7 +592,7 @@ public class Main extends AbstractMain {
         /**
          * method intended for subclassing, to add custom items to the catalog.
          * 
-         * @deprecated since 0.13.0; no longer supported; does nothing - subclasses should not try to extend it!
+         * @deprecated since 1.0.0; no longer supported; does nothing - subclasses should not try to extend it!
          */
         protected final void populateCatalog(BrooklynCatalog catalog) {
             // nothing else added here

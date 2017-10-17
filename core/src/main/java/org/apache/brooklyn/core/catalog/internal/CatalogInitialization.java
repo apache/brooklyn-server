@@ -159,7 +159,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
     }
     
     private boolean hasRunInitialCatalogInitialization() {
-        return hasRunInitialCatalogInitialization;
+        return hasRunFinalInitialization || hasRunInitialCatalogInitialization;
     }
     
     /**
