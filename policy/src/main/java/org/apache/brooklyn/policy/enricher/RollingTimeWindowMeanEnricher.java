@@ -138,16 +138,6 @@ public class RollingTimeWindowMeanEnricher<T extends Number> extends AbstractTyp
         }
     }
     
-    @Deprecated /** @deprecated since 0.7.0; not used except in groovy tests; use the 2-arg method */
-    public ConfidenceQualifiedNumber getAverage() {
-        return getAverage(System.currentTimeMillis(), 0);
-    }
-    
-    @Deprecated /** @deprecated since 0.7.0; not used except in groovy tests; use the 2-arg method */
-    public ConfidenceQualifiedNumber getAverage(long fromTimeExact) {
-        return getAverage(fromTimeExact, 0);
-    }
-    
     public ConfidenceQualifiedNumber getAverage(long fromTime, long graceAllowed) {
         if (timestamps.isEmpty()) {
             return lastAverage = new ConfidenceQualifiedNumber(lastAverage.value, 0.0d);

@@ -93,10 +93,6 @@ public class EffectorTasks {
             return dst.get();
         };
 
-        /** @deprecated since 0.7.0 use {@link #getFlagsForTaskInvocationAt(Entity, Effector, ConfigBag)} */ @Deprecated
-        protected final Map<Object,Object> getFlagsForTaskInvocationAt(Entity entity, Effector<?> effector) {
-            return getFlagsForTaskInvocationAt(entity, effector, null);
-        }
         /** subclasses may override to add additional flags, but they should include the flags returned here 
          * unless there is very good reason not to; default impl returns a MutableMap */
         protected Map<Object,Object> getFlagsForTaskInvocationAt(Entity entity, Effector<?> effector, ConfigBag parameters) {

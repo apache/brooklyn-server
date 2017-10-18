@@ -171,7 +171,7 @@ public class FunctionFeed extends AbstractFeed {
     }
     
     protected FunctionFeed(Builder builder) {
-        setConfig(ONLY_IF_SERVICE_UP, builder.onlyIfServiceUp);
+        config().set(ONLY_IF_SERVICE_UP, builder.onlyIfServiceUp);
         
         SetMultimap<FunctionPollIdentifier, FunctionPollConfig<?,?>> polls = HashMultimap.<FunctionPollIdentifier,FunctionPollConfig<?,?>>create();
         for (FunctionPollConfig<?,?> config : builder.polls) {
@@ -182,7 +182,7 @@ public class FunctionFeed extends AbstractFeed {
             Callable<?> job = config.getCallable();
             polls.put(new FunctionPollIdentifier(job), configCopy);
         }
-        setConfig(POLLS, polls);
+        config().set(POLLS, polls);
         initUniqueTag(builder.uniqueTag, polls.values());
     }
 

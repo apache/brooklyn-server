@@ -123,12 +123,6 @@ public class LocationResource extends AbstractBrooklynRestResource implements Lo
       return result;
     }
 
-    /** @deprecated since 0.7.0; REST call now handled by below (optional query parameter added) */
-    @Deprecated
-    public LocationSummary get(String locationId) {
-        return get(locationId, false);
-    }
-
     @Override
     public LocationSummary get(String locationId, String fullConfig) {
         return get(locationId, Boolean.valueOf(fullConfig));

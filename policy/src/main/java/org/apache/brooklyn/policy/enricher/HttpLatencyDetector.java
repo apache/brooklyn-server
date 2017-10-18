@@ -45,6 +45,7 @@ import org.apache.brooklyn.feed.http.HttpPollConfig;
 import org.apache.brooklyn.feed.http.HttpValueFunctions;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.javalang.AtomicReferences;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -122,9 +123,6 @@ public class HttpLatencyDetector extends AbstractEnricher implements Enricher {
         startSubscriptions(entity);
         activateAdditionalEnrichers(entity);
         
-        if (log.isDebugEnabled())
-            log.debug(""+this+" enabled="+computeEnablement()+" when attached, subscribing to "+getAllSubscriptions());
-        
         updateEnablement();
     }
 
@@ -145,7 +143,7 @@ public class HttpLatencyDetector extends AbstractEnricher implements Enricher {
                 .period(getConfig(PERIOD))
                 .baseUri(Suppliers.compose(Urls.stringToUriFunction(), AtomicReferences.supplier(url)))
                 .poll(new HttpPollConfig<Double>(REQUEST_LATENCY_IN_SECONDS_MOST_RECENT)
-                        .onResult(MathFunctions.divide(HttpValueFunctions.latency(), 1000.0d))
+                        .onResult(Functionals.chain(HttpValueFunctions.latency(), MathFunctions.divide(1000.0d)))
                         .setOnException(null))
                 .suspended()
                 .build();

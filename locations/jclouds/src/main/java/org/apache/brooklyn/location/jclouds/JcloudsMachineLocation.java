@@ -20,7 +20,6 @@ package org.apache.brooklyn.location.jclouds;
 
 import org.apache.brooklyn.location.jclouds.api.JcloudsMachineLocationPublic;
 import org.jclouds.compute.domain.NodeMetadata;
-import org.jclouds.compute.domain.Template;
 
 import com.google.common.base.Optional;
 
@@ -40,12 +39,4 @@ public interface JcloudsMachineLocation extends JcloudsMachineLocationPublic {
      */
     @Deprecated
     public NodeMetadata getNode();
-    
-    /**
-     * @deprecated since 0.9.0; instead use {@link #getOptionalNode()}. After rebind, the node will not
-     * be available if the VM is no longer running.
-     */
-    @Deprecated
-    public Template getTemplate();
-
 }

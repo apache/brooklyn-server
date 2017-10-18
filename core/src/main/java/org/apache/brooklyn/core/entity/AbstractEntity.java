@@ -71,7 +71,6 @@ import org.apache.brooklyn.core.entity.lifecycle.PolicyDescriptor;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
 import org.apache.brooklyn.core.feed.AbstractFeed;
-import org.apache.brooklyn.core.feed.ConfigToAttributes;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
 import org.apache.brooklyn.core.internal.storage.Reference;
@@ -90,7 +89,6 @@ import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct.AdjunctTagSupport;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.AttributeMap;
-import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
@@ -282,15 +280,6 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     // If FEATURE_USE_BROOKLYN_LIVE_OBJECTS_DATAGRID_STORAGE, this value will be only temporary.
     private AttributeMap attributesInternal = new AttributeMap(this);
 
-    /**
-     * For temporary data, e.g. timestamps etc for calculating real attribute values, such as when
-     * calculating averages over time etc.
-     * 
-     * @deprecated since 0.6; use attributes
-     */
-    @Deprecated
-    protected final Map<String,Object> tempWorkings = Maps.newLinkedHashMap();
-
     protected transient volatile SubscriptionTracker _subscriptionTracker;
     
     public AbstractEntity() {
@@ -479,46 +468,6 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         return getProxy()!=null ? getProxy() : this;
     }
     
-    /**
-     * Sets a config key value, and returns this Entity instance for use in fluent-API style coding.
-     * 
-     * @deprecated since 0.7.0; see {@link #config()}, such as {@code config().set(key, value)}
-     */
-    @Deprecated
-    public <T> AbstractEntity configure(ConfigKey<T> key, T value) {
-        setConfig(key, value);
-        return this;
-    }
-    
-    /**
-     * @deprecated since 0.7.0; see {@link #config()}, such as {@code config().set(key, value)}
-     */
-    @SuppressWarnings("unchecked")
-    @Deprecated
-    public <T> AbstractEntity configure(ConfigKey<T> key, String value) {
-        config().set((ConfigKey)key, value);
-        return this;
-    }
-    
-    /**
-     * @deprecated since 0.7.0; see {@link #config()}, such as {@code config().set(key, value)}
-     */
-    @Deprecated
-    public <T> AbstractEntity configure(HasConfigKey<T> key, T value) {
-        config().set(key, value);
-        return this;
-    }
-    
-    /**
-     * @deprecated since 0.7.0; see {@link #config()}, such as {@code config().set(key, value)}
-     */
-    @SuppressWarnings("unchecked")
-    @Deprecated
-    public <T> AbstractEntity configure(HasConfigKey<T> key, String value) {
-        config().set((ConfigKey)key, value);
-        return this;
-    }
-
     @Override
     public void setManagementContext(ManagementContextInternal managementContext) {
         super.setManagementContext(managementContext);
@@ -769,33 +718,6 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         }
     }
     
-    /**
-     * @deprecated since 0.9.0; see {@link #groups()} and {@link GroupSupport#addGroup(Group)}
-     */
-    @Override
-    @Deprecated
-    public void addGroup(Group group) {
-        groups().add(group);
-    }
-
-    /**
-     * @deprecated since 0.9.0; see {@link #groups()} and {@link GroupSupport#removeGroup(Group)}
-     */
-    @Override
-    @Deprecated
-    public void removeGroup(Group group) {
-        groups().remove(group);
-    }
-
-    /**
-     * @deprecated since 0.9.0; see {@link #groups()} and {@link GroupSupport#iterator()}
-     */
-    @Override
-    @Deprecated
-    public Collection<Group> getGroups() { 
-        return groups().asList();
-    }
-    
     @Override
     public Entity getParent() {
         return parent.get();
@@ -978,64 +900,8 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         return sensors().get(attribute);
     }
 
-    /**
-     * @deprecated since 0.8.0; use {@link SensorSupport#get(AttributeSensor)}, 
-     *             which may require constructing a temporary sensor using {@link Sensors#newSensor(Class, String)}.
-     */
-    @SuppressWarnings("unchecked")
-    @Deprecated
-    public <T> T getAttributeByNameParts(List<String> nameParts) {
-        return (T) attributesInternal.getValue(nameParts);
-    }
-    
     static Set<String> WARNED_READ_ONLY_ATTRIBUTES = Collections.synchronizedSet(MutableSet.<String>of());
     
-    @Override
-    @Deprecated
-    public <T> T setAttribute(AttributeSensor<T> attribute, T val) {
-        return sensors().set(attribute, val);
-    }
-
-    @Override
-    @Deprecated
-    public <T> T setAttributeWithoutPublishing(AttributeSensor<T> attribute, T val) {
-        return sensors().setWithoutPublishing(attribute, val);
-    }
-
-    @Beta
-    @Override
-    @Deprecated
-    public <T> T modifyAttribute(AttributeSensor<T> attribute, Function<? super T, Maybe<T>> modifier) {
-        return sensors().modify(attribute, modifier);
-    }
-
-    @Override
-    @Deprecated
-    public void removeAttribute(AttributeSensor<?> attribute) {
-        sensors().remove(attribute);
-    }
-
-    /** sets the value of the given attribute sensor from the config key value herein
-     * if the attribtue sensor is not-set or null
-     * <p>
-     * returns old value 
-     * @deprecated on interface since 0.5.0; use {@link ConfigToAttributes#apply(Entity, AttributeSensorAndConfigKey)} */
-    @Deprecated
-    public <T> T setAttribute(AttributeSensorAndConfigKey<?,T> configuredSensor) {
-        T v = getAttribute(configuredSensor);
-        if (v!=null) return v;
-        v = configuredSensor.getAsSensorValue(this);
-        if (v!=null) return setAttribute(configuredSensor, v);
-        return null;
-    }
-
-    @Override
-    @Deprecated
-    @SuppressWarnings("rawtypes")
-    public Map<AttributeSensor, Object> getAllAttributes() {
-        return Collections.<AttributeSensor, Object>unmodifiableMap(sensors().getAll());
-    }
-
     
     // -------- CONFIGURATION --------------
 
@@ -1286,30 +1152,6 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         return result;
     }
 
-    @Override
-    @Deprecated
-    public <T> T setConfig(ConfigKey<T> key, T val) {
-        return config().set(key, val);
-    }
-
-    @Override
-    @Deprecated
-    public <T> T setConfig(ConfigKey<T> key, Task<T> val) {
-        return config().set(key, val);
-    }
-
-    @Override
-    @Deprecated
-    public <T> T setConfig(HasConfigKey<T> key, T val) {
-        return config().set(key, val);
-    }
-
-    @Override
-    @Deprecated
-    public <T> T setConfig(HasConfigKey<T> key, Task<T> val) {
-        return config().set(key, val);
-    }
-
     @SuppressWarnings("unchecked")
     public <T> T setConfigEvenIfOwned(ConfigKey<T> key, T val) {
         return (T) configsInternal.setConfig(key, val);
@@ -1319,24 +1161,6 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         return setConfigEvenIfOwned(key.getConfigKey(), val);
     }
 
-    /**
-     * @deprecated since 0.7.0; use {@code if (val != null) config().set(key, val)}
-     */
-    @Deprecated
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    protected void setConfigIfValNonNull(ConfigKey key, Object val) {
-        if (val != null) config().set(key, val);
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@code if (val != null) config().set(key, val)}
-     */
-    @Deprecated
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    protected void setConfigIfValNonNull(HasConfigKey key, Object val) {
-        if (val != null) config().set(key, val);
-    }
-    
     // -------- SUBSCRIPTIONS --------------
 
     @Override 
@@ -1437,59 +1261,6 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                 return _subscriptionTracker;
             }
         }
-    }
-    
-    /**
-     * @deprecated since 0.9.0; see {@code subscriptions().subscribe(producer, sensor, listener)}
-     */
-    @Override
-    @Deprecated
-    public <T> SubscriptionHandle subscribe(Entity producer, Sensor<T> sensor, SensorEventListener<? super T> listener) {
-        return subscriptions().subscribe(producer, sensor, listener);
-    }
-
-    /**
-     * @deprecated since 0.9.0; see {@code subscriptions().subscribeToChildren(parent, sensor, listener)}
-     */
-    @Override
-    @Deprecated
-    public <T> SubscriptionHandle subscribeToChildren(Entity parent, Sensor<T> sensor, SensorEventListener<? super T> listener) {
-        return subscriptions().subscribeToChildren(parent, sensor, listener);
-    }
-
-    /**
-     * @deprecated since 0.9.0; see {@code subscriptions().subscribeToMembers(producer, sensor, listener)}
-     */
-    @Override
-    @Deprecated
-    public <T> SubscriptionHandle subscribeToMembers(Group group, Sensor<T> sensor, SensorEventListener<? super T> listener) {
-        return subscriptions().subscribeToMembers(group, sensor, listener);
-    }
-
-    /**
-     * @deprecated since 0.9.0; see {@code subscriptions().unsubscribe(producer)}
-     */
-    @Override
-    @Deprecated
-    public boolean unsubscribe(Entity producer) {
-        return subscriptions().unsubscribe(producer);
-    }
-
-    /**
-     * @deprecated since 0.9.0; see {@code subscriptions().unsubscribe(producer, handle)}
-     */
-    @Override
-    @Deprecated
-    public boolean unsubscribe(Entity producer, SubscriptionHandle handle) {
-        return subscriptions().unsubscribe(producer, handle);
-    }
-
-    /**
-     * @deprecated since 0.9.0; for internal use only
-     */
-    @Deprecated
-    protected SubscriptionTracker getSubscriptionTracker() {
-        return subscriptions().getSubscriptionTracker();
     }
     
     @Override
@@ -1712,78 +1483,6 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         }
     }
     
-    /**
-     * @deprecated since 0.9.0; see {@link BasicPolicySupport#iterator()}; e.g. {@code policies().iterator()}
-     */
-    @Override
-    @Deprecated
-    public Collection<Policy> getPolicies() {
-        return policies().asList();
-    }
-
-    /**
-     * @deprecated since 0.9.0; see {@link BasicPolicySupport#addPolicy(Policy)}; e.g. {@code policies().addPolicy(policy)}
-     */
-    @Override
-    @Deprecated
-    public void addPolicy(Policy policy) {
-        policies().add(policy);
-    }
-
-    /**
-     * @deprecated since 0.9.0; see {@link BasicPolicySupport#addPolicy(PolicySpec)}; e.g. {@code policies().addPolicy(spec)}
-     */
-    @Override
-    @Deprecated
-    public <T extends Policy> T addPolicy(PolicySpec<T> spec) {
-        return policies().add(spec);
-    }
-
-    /**
-     * @deprecated since 0.9.0; see {@link BasicEnricherSupport#; e.g. {@code enrichers().addEnricher(spec)}
-     */
-    @Override
-    @Deprecated
-    public <T extends Enricher> T addEnricher(EnricherSpec<T> spec) {
-        return enrichers().add(spec);
-    }
-
-    /**
-     * @deprecated since 0.9.0; see {@link BasicPolicySupport#removePolicy(Policy)}; e.g. {@code policies().removePolicy(policy)}
-     */
-    @Override
-    @Deprecated
-    public boolean removePolicy(Policy policy) {
-        return policies().remove(policy);
-    }
-    
-    /**
-     * @deprecated since 0.9.0; see {@link BasicPolicySupport#removeAllPolicies()}; e.g. {@code policies().removeAllPolicies()}
-     */
-    @Override
-    @Deprecated
-    public boolean removeAllPolicies() {
-        return policies().removeAllPolicies();
-    }
-    
-    /**
-     * @deprecated since 0.9.0; see {@link BasicEnricherSupport#iterator()}; e.g. {@code enrichers().iterator()}
-     */
-    @Override
-    @Deprecated
-    public Collection<Enricher> getEnrichers() {
-        return enrichers().asList();
-    }
-
-    /**
-     * @deprecated since 0.9.0; see {@link BasicEnricherSupport#addEnricher(Enricher)}; e.g. {@code enrichers().addEnricher(enricher)}
-     */
-    @Override
-    @Deprecated
-    public void addEnricher(Enricher enricher) {
-        enrichers().add(enricher);
-    }
-    
     private <T extends EntityAdjunct> T findApparentlyEqualAndWarnIfNotSameUniqueTag(Collection<? extends T> items, T newItem) {
         T oldItem = findApparentlyEqual(items, newItem, true);
         
@@ -1861,24 +1560,6 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         return null;
     }
 
-    /**
-     * @deprecated since 0.9.0; see {@link BasicEnricherSupport#removeEnricher(Enricher)}; e.g. {@code enrichers().removeEnricher(enricher)}
-     */
-    @Override
-    @Deprecated
-    public boolean removeEnricher(Enricher enricher) {
-        return enrichers().remove(enricher);
-    }
-
-    /**
-     * @deprecated since 0.9.0; see {@link BasicEnricherSupport#removeAllEnrichers()}; e.g. {@code enrichers().removeAllEnrichers()}
-     */
-    @Override
-    @Deprecated
-    public boolean removeAllEnrichers() {
-        return enrichers().removeAll();
-    }
-    
     // -------- FEEDS --------------------
 
     /**
@@ -1895,12 +1576,6 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         return feeds;
     }
     
-    @Override
-    @Deprecated
-    public FeedSupport getFeedSupport() {
-        return feeds();
-    }
-
     protected class BasicFeedSupport implements FeedSupport {
 
         @Override
@@ -1996,21 +1671,6 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
 //        }
     }
     
-    // -------- SENSORS --------------------
-
-    @Override
-    @Deprecated
-    public <T> void emit(Sensor<T> sensor, T val) {
-        sensors().emit(sensor, val);
-    }
-    
-    /**
-     * Warning: for internal purposes only; this method may be deleted without notice in future releases.
-     */
-    public <T> void emitInternal(Sensor<T> sensor, T val) {
-        sensors().emitInternal(sensor, val);
-    }
-
     // -------- EFFECTORS --------------
 
     /** Convenience for finding named effector in {@link EntityType#getEffectors()} {@link Map}. */

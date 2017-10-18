@@ -24,7 +24,6 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.LocationMemento;
-import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
@@ -61,22 +60,6 @@ public interface LocationInternal extends BrooklynObjectInternal, Location {
      * @return
      */
     public Map<String, String> toMetadataRecord();
-
-    /**
-     * @deprecated since 0.7.0; use {@link #config()}, such as {@code ((LocationInternal)location).config().getLocalBag()}
-     */
-    @Deprecated
-    ConfigBag getLocalConfigBag();
-
-    /**
-     * Returns all config, including that inherited from parents.
-     * 
-     * This method does not respect {@link ConfigInheritance} and so usage is discouraged.
-     * 
-     * @deprecated since 0.7.0; use {@link #config()}, such as {@code ((LocationInternal)location).config().getBag()}
-     */
-    @Deprecated
-    ConfigBag getAllConfigBag();
 
     /**
      * Users are strongly discouraged from calling or overriding this method.

@@ -147,11 +147,6 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     }
 
     @Override
-    public <T> T setConfig(ConfigKey<T> key, T val) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public <T> T getConfig(ConfigKey<T> key) {
         throw new UnsupportedOperationException();
     }

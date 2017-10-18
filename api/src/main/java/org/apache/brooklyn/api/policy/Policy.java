@@ -23,7 +23,6 @@ import org.apache.brooklyn.api.mgmt.rebind.Rebindable;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.PolicyMemento;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
-import org.apache.brooklyn.config.ConfigKey;
 
 import com.google.common.annotations.Beta;
 
@@ -58,13 +57,6 @@ public interface Policy extends EntityAdjunct, Rebindable, Configurable {
      * Whether the policy is suspended
      */
     boolean isSuspended();
-    
-    /**
-     * @deprecated since 0.7.0; use {@link #config()}, such as {@code policy.config().set(key, val)}
-     */
-    @Override
-    @Deprecated
-    <T> T setConfig(ConfigKey<T> key, T val);
     
     /**
      * Users are strongly discouraged from calling or overriding this method.

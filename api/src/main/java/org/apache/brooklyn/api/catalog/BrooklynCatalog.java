@@ -153,29 +153,6 @@ public interface BrooklynCatalog {
     @Beta  // method may move elsewhere
     Collection<Throwable> validateType(RegisteredType typeToValidate, @Nullable RegisteredTypeLoadingContext optionalConstraint);
 
-
-    /**
-     * Adds an item (represented in yaml) to the catalog.
-     * Fails if the same version exists in catalog.
-     *
-     * @throws IllegalArgumentException if the yaml was invalid
-     * @deprecated since 0.7.0 use {@link #addItems(String, boolean)}
-     */
-    @Deprecated
-    CatalogItem<?,?> addItem(String yaml);
-    
-    /**
-     * Adds an item (represented in yaml) to the catalog.
-     * 
-     * @param forceUpdate If true allows catalog update even when an
-     * item exists with the same symbolicName and version
-     *
-     * @throws IllegalArgumentException if the yaml was invalid
-     * @deprecated since 0.7.0 use {@link #addItems(String, boolean)}
-     */
-    @Deprecated
-    CatalogItem<?,?> addItem(String yaml, boolean forceUpdate);
-    
     /**
      * As {@link #addItemsFromBundle(String, ManagedBundle)} with a null bundle.
      */

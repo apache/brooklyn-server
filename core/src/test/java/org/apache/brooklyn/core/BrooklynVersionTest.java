@@ -52,13 +52,6 @@ public class BrooklynVersionTest {
     }
 
     @Test
-    public void testGetHardcodedClasspathVersion() {
-        @SuppressWarnings("deprecation")
-        String v = BrooklynVersion.INSTANCE.getVersionFromClasspath();
-        assertTrue(BrooklynVersion.get().equals(v) || "0.0.0-SNAPSHOT".equals(v), v);
-    }
-
-    @Test
     public void testGetFromMaven() {
         String v = BrooklynVersion.INSTANCE.getVersionFromMavenProperties();
         assertTrue(v == null || BrooklynVersion.get().equals(v), v);

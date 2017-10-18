@@ -62,11 +62,6 @@ public class JavaBrooklynClassLoadingContext extends AbstractBrooklynClassLoadin
         return new JavaBrooklynClassLoadingContext(checkNotNull(mgmt, "mgmt"), null);
     }
 
-    @Deprecated /** @deprecated since 0.7.0 use {@link #create(ManagementContext)} */
-    public static JavaBrooklynClassLoadingContext newDefault(ManagementContext mgmt) {
-        return new JavaBrooklynClassLoadingContext(checkNotNull(mgmt, "mgmt"), null);
-    }
-
     @Deprecated /** @deprecated since 0.7.0 will become private; use one of the static methods to instantiate */
     public JavaBrooklynClassLoadingContext(ManagementContext mgmt, ClassLoader loader) {
         super(mgmt);

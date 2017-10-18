@@ -112,8 +112,8 @@ public class CatalogUtils {
         return newClassLoadingContext(mgmt, catalogItemId, libraries, JavaBrooklynClassLoadingContext.create(mgmt));
     }
     
-    @Deprecated /** @deprecated since 0.9.0; becoming private because we should now always have a registered type callers can pass instead of the catalog item id */
-    public static BrooklynClassLoadingContext newClassLoadingContext(@Nullable ManagementContext mgmt, String catalogItemId, Collection<? extends OsgiBundleWithUrl> libraries, BrooklynClassLoadingContext loader) {
+    @Deprecated /** @deprecated since 0.9.0; we should now always have a registered type callers can pass instead of the catalog item id */
+    private static BrooklynClassLoadingContext newClassLoadingContext(@Nullable ManagementContext mgmt, String catalogItemId, Collection<? extends OsgiBundleWithUrl> libraries, BrooklynClassLoadingContext loader) {
         BrooklynClassLoadingContextSequential result = new BrooklynClassLoadingContextSequential(mgmt);
 
         if (libraries!=null && !libraries.isEmpty()) {
@@ -131,25 +131,6 @@ public class CatalogUtils {
         }
 
         result.addSecondary(JavaBrooklynClassLoadingContext.create(mgmt));
-        return result;
-    }
-
-    /**
-     * @deprecated since 0.7.0 only for legacy catalog items which provide a non-osgi loader; see {@link #newDefault(ManagementContext)}
-     */ @Deprecated
-    public static BrooklynClassLoadingContext newClassLoadingContext(@Nullable ManagementContext mgmt, String catalogItemId, Collection<CatalogBundle> libraries, ClassLoader customClassLoader) {
-        BrooklynClassLoadingContextSequential result = new BrooklynClassLoadingContextSequential(mgmt);
-
-        if (libraries!=null && !libraries.isEmpty()) {
-            result.add(new OsgiBrooklynClassLoadingContext(mgmt, catalogItemId, libraries));
-        }
-
-        BrooklynClassLoadingContext loader = BrooklynLoaderTracker.getLoader();
-        if (loader != null) {
-            result.add(loader);
-        }
-
-        result.addSecondary(JavaBrooklynClassLoadingContext.create(mgmt, customClassLoader));
         return result;
     }
 
@@ -340,19 +321,6 @@ public class CatalogUtils {
             RegisteredTypePredicates.symbolicName(item.getSymbolicName())));
         if (best==null) return false;
         return (best.getVersion().equals(item.getVersion()));
-    }
-
-    /** @deprecated since 0.9.0 use {@link BrooklynTypeRegistry#get(String, org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind, Class)} */
-    // not used
-    @Deprecated
-    public static <T,SpecT> CatalogItem<T, SpecT> getCatalogItemOptionalVersion(ManagementContext mgmt, Class<T> type, String versionedId) {
-        if (looksLikeVersionedId(versionedId)) {
-            String id = getSymbolicNameFromVersionedId(versionedId);
-            String version = getVersionFromVersionedId(versionedId);
-            return mgmt.getCatalog().getCatalogItem(type, id, version);
-        } else {
-            return mgmt.getCatalog().getCatalogItem(type, versionedId, BrooklynCatalog.DEFAULT_VERSION);
-        }
     }
 
     /** @deprecated since it was introduced in 0.9.0; TBD where this should live */

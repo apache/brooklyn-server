@@ -249,7 +249,7 @@ public class JcloudsLocationResolverTest {
         JcloudsLocation loc = resolve("myloc");
         
         // Test relies on the computeService not being used! Not great, but good enough.
-        Function<Iterable<? extends Image>, Image> chooser = loc.getImageChooser((ComputeService)null, loc.getLocalConfigBag());
+        Function<Iterable<? extends Image>, Image> chooser = loc.getImageChooser((ComputeService)null, loc.config().getLocalBag());
         assertTrue(chooser instanceof MyFunction, "chooser="+chooser);
     }
     public static class MyFunction implements Function<Iterable<? extends Image>, Image> {

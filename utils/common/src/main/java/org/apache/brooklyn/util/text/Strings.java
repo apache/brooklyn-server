@@ -801,13 +801,6 @@ public class Strings {
         return ies(count);
     }
 
-    /** converts a map of any objects to a map of strings, using the tostring, and returning "null" for nulls 
-     * @deprecated since 0.7.0 use {@link #toStringMap(Map, String)} to remove ambiguity about how to handle null */
-    // NB previously the javadoc here was wrong, said it returned null not "null"
-    @Deprecated
-    public static Map<String, String> toStringMap(Map<?,?> map) {
-        return toStringMap(map, "null");
-    }
     /** converts a map of any objects to a map of strings, using {@link Object#toString()},
      * with the second argument used where a value (or key) is null */
     public static Map<String, String> toStringMap(Map<?,?> map, String valueIfNull) {

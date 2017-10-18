@@ -877,15 +877,6 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         }
     }
 
-    /** @deprecated since 0.7.0, use {@link #demoteTo(ManagementNodeState)} */ @Deprecated
-    protected void demoteToFailed() {
-        demoteTo(ManagementNodeState.FAILED);
-    }
-    /** @deprecated since 0.7.0, use {@link #demoteTo(ManagementNodeState)} */ @Deprecated
-    protected void demoteToStandby(boolean hot) {
-        demoteTo(hot ? ManagementNodeState.HOT_STANDBY : ManagementNodeState.STANDBY);
-    }
-    
     protected void demoteTo(ManagementNodeState toState) {
         if (toState!=ManagementNodeState.FAILED && !running) {
             LOG.warn("Ignoring demote-from-master request, as HighAvailabilityManager is no longer running");
@@ -958,11 +949,6 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         }
         
         ((BasicBrooklynCatalog)managementContext.getCatalog()).reset(CatalogDto.newEmptyInstance("<reset-by-ha-status-change>"));
-    }
-    
-    /** @deprecated since 0.7.0, use {@link #activateHotProxy(ManagementNodeState)} */ @Deprecated
-    protected boolean attemptHotStandby() {
-        return activateHotProxy(ManagementNodeState.HOT_STANDBY).getWithoutError();
     }
     
     /** Starts hot standby or hot backup, in foreground

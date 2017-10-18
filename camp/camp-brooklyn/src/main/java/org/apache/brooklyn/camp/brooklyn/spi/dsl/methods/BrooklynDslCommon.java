@@ -512,10 +512,10 @@ public class BrooklynDslCommon {
         }
     }
 
-    /** @deprecated since 0.7.0; use {@link DslFormatString} */
-    @SuppressWarnings("serial")
+    /** @deprecated since 0.7.0; kept for persisted state backwards compatibility */
+    @SuppressWarnings({ "serial", "unused" })
     @Deprecated
-    protected static class FormatString extends DslFormatString {
+    private static class FormatString extends DslFormatString {
         public FormatString(String pattern, Object[] args) {
             super(pattern, args);
         }

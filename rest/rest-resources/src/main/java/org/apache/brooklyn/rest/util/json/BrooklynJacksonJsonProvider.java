@@ -31,9 +31,7 @@ import javax.ws.rs.ext.Provider;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
-import org.apache.brooklyn.rest.util.OsgiCompat;
 import org.apache.brooklyn.util.core.json.BrooklynObjectsJsonMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,21 +91,6 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
         return mgmt.getContext(ManagementContext.class);
     }
 
-    /** @deprecated since 0.9.0, use {@link #findSharedObjectMapper(ManagementContext)} */
-    @Deprecated
-    public static ObjectMapper findSharedObjectMapper(ServletContext servletContext, ManagementContext mgmt) {
-        return findSharedObjectMapper(getManagementContext(servletContext, mgmt));
-    }
-
-    @Deprecated
-    private static ManagementContext getManagementContext(ServletContext servletContext, ManagementContext mgmt) {
-        if (mgmt != null) {
-            return mgmt;
-        } else {
-            return OsgiCompat.getManagementContext(servletContext);
-        }
-    }
-
     /**
      * Finds a shared {@link ObjectMapper} or makes a new one, stored against the servlet context;
      * returns null if a shared instance cannot be created.
@@ -124,12 +107,6 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
             mgmt.getScratchpad().put(key, mapper);
             return mapper;
         }
-    }
-
-    /** @deprecated since 0.9.0, use {@link #findAnyObjectMapper(ManagementContext) */
-    @Deprecated
-    public static ObjectMapper findAnyObjectMapper(ServletContext servletContext, ManagementContext mgmt) {
-        return findAnyObjectMapper(getManagementContext(servletContext, mgmt));
     }
 
     /**

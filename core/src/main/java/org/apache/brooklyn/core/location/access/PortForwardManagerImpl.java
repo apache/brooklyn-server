@@ -102,7 +102,7 @@ public class PortForwardManagerImpl extends AbstractLocation implements PortForw
     public void init() {
         super.init();
         Integer portStartingPoint;
-        Object rawPort = getAllConfigBag().getStringKey(PORT_FORWARD_MANAGER_STARTING_PORT.getName());
+        Object rawPort = config().getBag().getStringKey(PORT_FORWARD_MANAGER_STARTING_PORT.getName());
         if (rawPort != null) {
             portStartingPoint = getConfig(PORT_FORWARD_MANAGER_STARTING_PORT);
         } else {
@@ -314,11 +314,6 @@ public class PortForwardManagerImpl extends AbstractLocation implements PortForw
     }
 
     @Override
-    public boolean isClient() {
-        return false;
-    }
-
-    @Override
     public void addAssociationListener(AssociationListener listener, Predicate<? super AssociationMetadata> filter) {
         associationListeners.put(listener, filter);
     }
@@ -359,84 +354,11 @@ public class PortForwardManagerImpl extends AbstractLocation implements PortForw
     // Deprecated
     ///////////////////////////////////////////////////////////////////////////////////
 
-    @Override
-    @Deprecated
-    public PortMapping acquirePublicPortExplicit(String publicIpId, int port) {
-        PortMapping mapping = new PortMapping(publicIpId, port, null, -1);
-        log.debug("assigning explicit public port "+port+" at "+publicIpId);
-        PortMapping result;
-        synchronized (mutex) {
-            result = mappings.put(makeKey(publicIpId, port), mapping);
-        }
-        onChanged();
-        return result;
-    }
-
+    
     @Override
     @Deprecated
     public boolean forgetPortMapping(PortMapping m) {
         return forgetPortMapping(m.publicIpId, m.publicPort);
-    }
-
-    @Override
-    @Deprecated
-    public void recordPublicIpHostname(String publicIpId, String hostnameOrPublicIpAddress) {
-        log.debug("recording public IP "+publicIpId+" associated with "+hostnameOrPublicIpAddress);
-        synchronized (mutex) {
-            String old = publicIpIdToHostname.put(publicIpId, hostnameOrPublicIpAddress);
-            if (old!=null && !old.equals(hostnameOrPublicIpAddress))
-                log.warn("Changing hostname recorded against public IP "+publicIpId+"; from "+old+" to "+hostnameOrPublicIpAddress);
-        }
-        onChanged();
-    }
-
-    @Override
-    @Deprecated
-    public String getPublicIpHostname(String publicIpId) {
-        synchronized (mutex) {
-            return publicIpIdToHostname.get(publicIpId);
-        }
-    }
-    
-    @Override
-    @Deprecated
-    public boolean forgetPublicIpHostname(String publicIpId) {
-        log.debug("forgetting public IP "+publicIpId+" association");
-        boolean result;
-        synchronized (mutex) {
-            result = (publicIpIdToHostname.remove(publicIpId) != null);
-        }
-        onChanged();
-        return result;
-    }
-
-    @Override
-    @Deprecated
-    public int acquirePublicPort(String publicIpId, Location l, int privatePort) {
-        int publicPort;
-        synchronized (mutex) {
-            PortMapping old = getPortMappingWithPrivateSide(l, privatePort);
-            // only works for 1 public IP ID per location (which is the norm)
-            if (old!=null && old.publicIpId.equals(publicIpId)) {
-                log.debug("request to acquire public port at "+publicIpId+" for "+l+":"+privatePort+", reusing old assignment "+old);
-                return old.getPublicPort();
-            }
-            
-            publicPort = acquirePublicPort(publicIpId);
-            log.debug("request to acquire public port at "+publicIpId+" for "+l+":"+privatePort+", allocating "+publicPort);
-            associateImpl(publicIpId, publicPort, l, privatePort);
-        }
-        onChanged();
-        return publicPort;
-    }
-
-    @Override
-    @Deprecated
-    public void associate(String publicIpId, int publicPort, Location l, int privatePort) {
-        synchronized (mutex) {
-            associateImpl(publicIpId, publicPort, l, privatePort);
-        }
-        onChanged();
     }
 
     protected void associateImpl(String publicIpId, int publicPort, Location l, int privatePort) {
@@ -453,6 +375,22 @@ public class PortForwardManagerImpl extends AbstractLocation implements PortForw
     // Internal only; make protected when deprecated interface method removed
     ///////////////////////////////////////////////////////////////////////////////////
 
+    protected void recordPublicIpHostname(String publicIpId, String hostnameOrPublicIpAddress) {
+        log.debug("recording public IP "+publicIpId+" associated with "+hostnameOrPublicIpAddress);
+        synchronized (mutex) {
+            String old = publicIpIdToHostname.put(publicIpId, hostnameOrPublicIpAddress);
+            if (old!=null && !old.equals(hostnameOrPublicIpAddress))
+                log.warn("Changing hostname recorded against public IP "+publicIpId+"; from "+old+" to "+hostnameOrPublicIpAddress);
+        }
+        onChanged();
+    }
+
+    protected String getPublicIpHostname(String publicIpId) {
+        synchronized (mutex) {
+            return publicIpIdToHostname.get(publicIpId);
+        }
+    }
+    
     @Override
     public HostAndPort getPublicHostAndPort(PortMapping m) {
         if (m.publicEndpoint == null) {

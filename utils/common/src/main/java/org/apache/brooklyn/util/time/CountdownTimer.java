@@ -85,9 +85,6 @@ public class CountdownTimer {
         return stopwatch.isRunning();
     }
 
-    /** @deprecated since 0.9.0 use better named {@link #isNotPaused()} */ @Deprecated
-    public boolean isRunning() { return isNotPaused(); }
-    
     // --- constructor methods
     
     public static CountdownTimer newInstanceStarted(Duration duration) {

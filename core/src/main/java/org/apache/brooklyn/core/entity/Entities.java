@@ -130,22 +130,6 @@ public class Entities {
 
     private static final Logger log = LoggerFactory.getLogger(Entities.class);
 
-    /**
-     * Names that, if they appear anywhere in an attribute/config/field indicates that it
-     * may be private, so should not be logged etc.
-     * 
-     * @deprecated since 0.7; instead use {@link Sanitizer#SECRET_NAMES}
-     */
-    @Deprecated
-    public static final List<String> SECRET_NAMES = ImmutableList.of(
-            "password",
-            "passwd",
-            "credential",
-            "secret",
-            "private",
-            "access.cert",
-            "access.key");
-
     // Don't use `new Object()` - deserialization creates a different object from the constant.
     // Instead, use this enum.
     private enum ValueMarkers {
@@ -284,22 +268,6 @@ public class Entities {
         return v==null || (v instanceof Map && ((Map<?,?>)v).isEmpty()) ||
                 (v instanceof Collection && ((Collection<?>)v).isEmpty()) ||
                 (v instanceof CharSequence&& ((CharSequence)v).length() == 0);
-    }
-
-    /**
-     * @deprecated since 0.7; instead use {@link Sanitizer#sanitize(ConfigBag)}
-     */
-    @Deprecated
-    public static Map<String,Object> sanitize(ConfigBag input) {
-        return Sanitizer.sanitize(input );
-    }
-
-    /**
-     * @deprecated since 0.7; instead use {@link Sanitizer#sanitize(Map)}
-     */
-    @Deprecated
-    public static <K> Map<K,Object> sanitize(Map<K,?> input) {
-        return Sanitizer.sanitize(input);
     }
 
     public static void dumpInfo(Iterable<? extends Entity> entities) {

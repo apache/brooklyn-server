@@ -22,8 +22,8 @@ import java.util.Set;
 
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
+import org.apache.brooklyn.config.ConfigMap;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
@@ -34,13 +34,6 @@ import com.google.common.base.Predicate;
  * @author aled
  */
 public interface Configurable {
-
-    /**
-     * @return the old value, or null if there was not one
-     * @deprecated since 0.7.0; use {@link ConfigurationSupport#set(ConfigKey, Object)}, such as {@code config().set(key, val)} 
-     */
-    @Deprecated
-    public <T> T setConfig(ConfigKey<T> key, T val);
 
     /**
      * Convenience for calling {@link ConfigurationSupport#get(ConfigKey)},

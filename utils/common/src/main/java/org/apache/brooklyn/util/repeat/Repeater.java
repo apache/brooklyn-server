@@ -115,18 +115,6 @@ public class Repeater implements Callable<Boolean> {
     }
 
     /**
-     * Sets the main body of the loop to be a no-op; useful if using {@link #until(Callable)} instead
-     * 
-     * @return {@literal this} to aid coding in a fluent style.
-     * @deprecated since 0.7.0 this is no-op, as the repeater defaults to repeating nothing, simply remove the call,
-     * using just <code>Repeater.until(...)</code>.
-     */
-    @Deprecated
-    public Repeater repeat() {
-        return repeat(Callables.returning(null));
-    }
-
-    /**
      * Sets the main body of the loop.
      *
      * @param body a closure or other Runnable that is executed in the main body of the loop.

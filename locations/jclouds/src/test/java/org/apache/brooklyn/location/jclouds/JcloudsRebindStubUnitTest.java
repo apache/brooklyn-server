@@ -155,7 +155,6 @@ public class JcloudsRebindStubUnitTest extends RebindTestFixtureWithApp {
         
         String origHostname = origMachine.getHostname();
         NodeMetadata origNode = origMachine.getNode();
-        Template origTemplate = origMachine.getTemplate();
 
         rebind();
         

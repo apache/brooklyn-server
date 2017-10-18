@@ -29,11 +29,9 @@ import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher.ConfidenceQualifiedNumber;
-import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-@SuppressWarnings("deprecation")
 public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSupport {
     
     Entity producer;
@@ -71,7 +69,7 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
 
     @Test
     public void testDefaultAverageWhenEmpty() {
-        average = averager.getAverage(0);
+        average = averager.getAverage(0, 0);
         assertEquals(average.value, 0d);
         assertEquals(average.confidence, 0.0d);
     }
@@ -79,7 +77,7 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
     @Test
     public void testNoRecentValuesAverage() {
         averager.onEvent(intSensor.newEvent(producer, 10), 0L);
-        average = averager.getAverage(timePeriod+1000);
+        average = averager.getAverage(timePeriod+1000, 0);
         assertEquals(average.value, 10d);
         assertEquals(average.confidence, 0d);
     }
@@ -88,7 +86,7 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
     public void testNoRecentValuesUsesLastForAverage() {
         averager.onEvent(intSensor.newEvent(producer, 10), 0L);
         averager.onEvent(intSensor.newEvent(producer, 20), 10L);
-        average = averager.getAverage(timePeriod+1000);
+        average = averager.getAverage(timePeriod+1000, 0);
         assertEquals(average.value, 20d);
         assertEquals(average.confidence, 0d);
     }
@@ -96,7 +94,7 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
     @Test
     public void testSingleValueTimeAverage() {
         averager.onEvent(intSensor.newEvent(producer, 10), 1000);
-        average = averager.getAverage(1000);
+        average = averager.getAverage(1000, 0);
         assertEquals(average.confidence, 0d);
     }
     
@@ -104,7 +102,7 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
     public void testTwoValueAverageForPeriod() {
         averager.onEvent(intSensor.newEvent(producer, 10), 1000);
         averager.onEvent(intSensor.newEvent(producer, 10), 2000);
-        average = averager.getAverage(2000);
+        average = averager.getAverage(2000, 0);
         assertEquals(average.value, 10 /1d);
         assertEquals(average.confidence, 1d);
     }
@@ -116,7 +114,7 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
         averager.onEvent(intSensor.newEvent(producer, 30), 1500);
         averager.onEvent(intSensor.newEvent(producer, 40), 1750);
         averager.onEvent(intSensor.newEvent(producer, 50), 2000);
-        average = averager.getAverage(2000);
+        average = averager.getAverage(2000, 0);
         assertEquals(average.value, (20+30+40+50)/4d);
         assertEquals(average.confidence, 1d);
     }
@@ -128,7 +126,7 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
         averager.onEvent(intSensor.newEvent(producer, 30), 1300);
         averager.onEvent(intSensor.newEvent(producer, 40), 1600);
         averager.onEvent(intSensor.newEvent(producer, 50), 2000);
-        average = averager.getAverage(2000);
+        average = averager.getAverage(2000, 0);
         assertEquals(average.value, (20*0.1d)+(30*0.2d)+(40*0.3d)+(50*0.4d));
         assertEquals(average.confidence, 1d);
     }
@@ -141,16 +139,16 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
         averager.onEvent(intSensor.newEvent(producer, 40), 1750);
         averager.onEvent(intSensor.newEvent(producer, 50), 2000);
         
-        average = averager.getAverage(2250);
+        average = averager.getAverage(2250, 0);
         assertEquals(average.value, (30+40+50)/3d);
         assertEquals(average.confidence, 0.75d);
-        average = averager.getAverage(2500);
+        average = averager.getAverage(2500, 0);
         assertEquals(average.value, (40+50)/2d);
         assertEquals(average.confidence, 0.5d);
-        average = averager.getAverage(2750);
+        average = averager.getAverage(2750, 0);
         assertEquals(average.value, 50d);
         assertEquals(average.confidence, 0.25d);
-        average = averager.getAverage(3000);
+        average = averager.getAverage(3000, 0);
         assertEquals(average.value, 50d);
         assertEquals(average.confidence, 0d);
     }

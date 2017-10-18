@@ -182,7 +182,7 @@ public final class AttributeMap {
         // ands gets here won't call any other code at all
         return withLock(() -> {
             T oldValue = updateInternalWithoutLockOrPublish(attribute, newValue);
-            entity.emitInternal(attribute, newValue);
+            entity.sensors().emitInternal(attribute, newValue);
             return oldValue;
         });
     }

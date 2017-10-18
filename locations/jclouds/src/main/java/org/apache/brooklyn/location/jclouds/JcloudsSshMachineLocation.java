@@ -300,23 +300,6 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
         return _node;
     }
     
-    /**
-     * @deprecated since 0.9.0
-     */
-    @Override
-    @Deprecated
-    public Template getTemplate() {
-        Optional<Template> result = getOptionalTemplate();
-        if (result.isPresent()) {
-            String msg = "Deprecated use of getTemplate() for "+this;
-            LOG.warn(msg + " - see debug log for stacktrace");
-            LOG.debug(msg, new Exception("for stacktrace"));
-            return result.get();
-        } else {
-            throw new IllegalStateException("Template for "+nodeId+" (in "+getParent()+") not cached (deprecated use of getTemplate())");
-        }
-    }
-    
     @Override
     public JcloudsLocation getParent() {
         return jcloudsParent;
@@ -435,67 +418,6 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
     
     protected String getImageId() {
         return imageId;
-    }
-
-    /** executes the given statements on the server using jclouds ScriptBuilder,
-     * wrapping in a script which is polled periodically.
-     * the output is returned once the script completes (disadvantage compared to other methods)
-     * but the process is nohupped and the SSH session is not kept, 
-     * so very useful for long-running processes
-     * 
-     * @deprecated since 0.9.0; use standard {@link #execScript(String, List)} and the other variants.
-     */
-    @Deprecated
-    public ListenableFuture<ExecResponse> submitRunScript(String ...statements) {
-        return submitRunScript(new InterpretableStatement(statements));
-    }
-
-    /**
-     * @deprecated since 0.9.0; use standard {@link #execScript(String, List)} and the other variants.
-     */
-    @Deprecated
-    public ListenableFuture<ExecResponse> submitRunScript(Statement script) {
-        return submitRunScript(script, new RunScriptOptions());            
-    }
-    
-    /**
-     * @deprecated since 0.9.0; use standard {@link #execScript(String, List)} and the other variants.
-     */
-    @Deprecated
-    public ListenableFuture<ExecResponse> submitRunScript(Statement script, RunScriptOptions options) {
-        JcloudsLocation jcloudsParent = getParent();
-        Optional<NodeMetadata> node = getOptionalNode();
-
-        if (!node.isPresent()) {
-            throw new IllegalStateException("Node "+nodeId+" not present in "+jcloudsParent);
-        }
-        if (jcloudsParent == null) {
-            throw new IllegalStateException("No jclouds parent location for "+this+"; cannot retrieve jclouds script-runner");
-        }
-
-        ComputeServiceContext context = jcloudsParent.getComputeService().getContext();
-        RunScriptOnNode.Factory runScriptFactory = context.utils().injector().getInstance(RunScriptOnNode.Factory.class);
-        
-        return runScriptFactory.submit(node.get(), script, options);
-    }
-    
-    /**
-     * Uses submitRunScript to execute the commands, and throws error if it fails or returns non-zero
-     * 
-     * @deprecated since 0.9.0; use standard {@link #execScript(String, List)} and the other variants.
-     */
-    @Deprecated
-    public void execRemoteScript(String ...commands) {
-        try {
-            ExecResponse result = submitRunScript(commands).get();
-            if (result.getExitStatus()!=0)
-                throw new IllegalStateException("Error running remote commands (code "+result.getExitStatus()+"): "+commands);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
-        } catch (ExecutionException e) {
-            throw Throwables.propagate(e);
-        }
     }
 
     /**

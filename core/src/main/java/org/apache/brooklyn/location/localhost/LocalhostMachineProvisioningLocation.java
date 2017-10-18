@@ -71,9 +71,7 @@ import com.google.common.collect.Sets;
  */
 public class LocalhostMachineProvisioningLocation extends FixedListMachineProvisioningLocation<SshMachineLocation> implements AddressableLocation, LocationWithObjectStore {
 
-    /** @deprecated since 0.9.0; shouldn't be public */
-    @Deprecated
-    public static final Logger LOG = LoggerFactory.getLogger(LocalhostMachineProvisioningLocation.class);
+    private static final Logger LOG = LoggerFactory.getLogger(LocalhostMachineProvisioningLocation.class);
     
     public static final ConfigKey<Boolean> SKIP_ON_BOX_BASE_DIR_RESOLUTION = ConfigKeys.newConfigKeyWithDefault(
             BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, 
@@ -152,7 +150,7 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
         }
         
         if (getConfig(BrooklynConfigKeys.ONBOX_BASE_DIR)==null && (getManagementContext()==null || getManagementContext().getConfig().getConfig(BrooklynConfigKeys.ONBOX_BASE_DIR)==null)) {
-            setConfig(BrooklynConfigKeys.ONBOX_BASE_DIR, "/tmp/brooklyn-"+Os.user());
+            config().set(BrooklynConfigKeys.ONBOX_BASE_DIR, "/tmp/brooklyn-"+Os.user());
         }
         
         return this;
@@ -187,7 +185,7 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
             // (or alternatively switch to copying all ancestor keys)
             for (HasConfigKey<?> k: SshMachineLocation.ALL_SSH_CONFIG_KEYS) {
                 if (config().getRaw(k).isPresent())
-                    flags2.put(k, getConfig(k));
+                    flags2.put(k, config().get(k));
             }
             
             if (isManaged()) {

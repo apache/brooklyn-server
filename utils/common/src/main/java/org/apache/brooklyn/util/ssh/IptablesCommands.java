@@ -36,7 +36,9 @@ public class IptablesCommands {
         ACCEPT, REJECT, DROP, LOG
     }
 
-    /*** @deprecated since 0.7; use {@link org.apache.brooklyn.util.net.Protocol} */
+    /**
+     * @deprecated since 0.7; use {@link org.apache.brooklyn.util.net.Protocol}; kept for persisted state backwards compatibility.
+     */
     @Deprecated
     public enum Protocol {
         TCP("tcp"), UDP("udp"), ALL("all");
@@ -160,12 +162,6 @@ public class IptablesCommands {
         return addIptablesRule("-I", chain, Optional.<String> absent(), protocol, port, policy);
     }
 
-    /** @deprecated since 0.7.0; use {@link #insertIptablesRule(Chain, org.apache.brooklyn.util.net.Protocol, int, Policy)} */
-    @Deprecated
-    public static String insertIptablesRule(Chain chain, Protocol protocol, int port, Policy policy) {
-        return insertIptablesRule(chain, protocol.convert(), port, policy);
-    }
-
     /**
      * Returns the command that inserts a rule on top of the iptables' rules.
      *
@@ -174,12 +170,6 @@ public class IptablesCommands {
      */
     public static String insertIptablesRule(Chain chain, String networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
         return addIptablesRule("-I", chain, Optional.of(networkInterface), protocol, port, policy);
-    }
-
-    /** @deprecated since 0.7.0; use {@link #insertIptablesRule(Chain, String, org.apache.brooklyn.util.net.Protocol, int, Policy)} */
-    @Deprecated
-    public static String insertIptablesRule(Chain chain, String networkInterface, Protocol protocol, int port, Policy policy) {
-        return insertIptablesRule(chain, networkInterface, protocol.convert(), port, policy);
     }
 
     /**
@@ -191,12 +181,6 @@ public class IptablesCommands {
         return addIptablesRule("-A", chain, Optional.<String> absent(), protocol, port, policy);
     }
 
-    /** @deprecated since 0.7.0; use {@link #appendIptablesRule(Chain, org.apache.brooklyn.util.net.Protocol, int, Policy)} */
-    @Deprecated
-    public static String appendIptablesRule(Chain chain, Protocol protocol, int port, Policy policy) {
-        return appendIptablesRule(chain, protocol.convert(), port, policy);
-    }
-
     /**
      * Returns the command that appends a rule to iptables.
      *
@@ -204,12 +188,6 @@ public class IptablesCommands {
      */
     public static String appendIptablesRule(Chain chain, String networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
         return addIptablesRule("-A", chain, Optional.of(networkInterface), protocol, port, policy);
-    }
-
-    /** @deprecated since 0.7.0; use {@link #appendIptablesRule(Chain, String, org.apache.brooklyn.util.net.Protocol, int, Policy)} */
-    @Deprecated
-    public static String appendIptablesRule(Chain chain, String networkInterface, Protocol protocol, int port, Policy policy) {
-        return appendIptablesRule(chain, networkInterface, protocol.convert(), port, policy);
     }
 
     /**
@@ -225,12 +203,6 @@ public class IptablesCommands {
            addIptablesRule = String.format("/sbin/iptables %s %s -p %s --dport %d -j %s", direction, chain, protocol, port, policy);
         }
         return sudo(addIptablesRule);
-    }
-
-    /** @deprecated since 0.7.0; use {@link #addIptablesRule(String, Chain, Optional, org.apache.brooklyn.util.net.Protocol, int, Policy)} */
-    @Deprecated
-    public static String addIptablesRule(String direction, Chain chain, Optional<String> networkInterface, Protocol protocol, int port, Policy policy) {
-        return addIptablesRule(direction, chain, networkInterface, protocol.convert(), port, policy);
     }
 
     /**

@@ -26,7 +26,6 @@ import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.jar.JarInputStream;
 import java.util.jar.Manifest;
 
@@ -287,39 +286,6 @@ public class Osgis {
         return new BundleFinder(framework);
     }
 
-    /** @deprecated since 0.7.0 use {@link #bundleFinder(Framework)} */ @Deprecated
-    public static List<Bundle> getBundlesByName(Framework framework, String symbolicName, Predicate<Version> versionMatcher) {
-        return bundleFinder(framework).symbolicName(symbolicName).version(versionMatcher).findAll();
-    }
-
-    /** @deprecated since 0.7.0 use {@link #bundleFinder(Framework)} */ @Deprecated
-    public static List<Bundle> getBundlesByName(Framework framework, String symbolicName) {
-        return bundleFinder(framework).symbolicName(symbolicName).findAll();
-    }
-
-    /**
-     * Tries to find a bundle in the given framework with name matching either `name' or `name:version'.
-     * @deprecated since 0.7.0 use {@link #bundleFinder(Framework)} */ @Deprecated
-    public static Maybe<Bundle> getBundle(Framework framework, String symbolicNameOptionallyWithVersion) {
-        return bundleFinder(framework).id(symbolicNameOptionallyWithVersion).find();
-    }
-    
-    /** @deprecated since 0.7.0 use {@link #bundleFinder(Framework)} */ @Deprecated
-    public static Maybe<Bundle> getBundle(Framework framework, String symbolicName, String version) {
-        return bundleFinder(framework).symbolicName(symbolicName).version(version).find();
-    }
-
-    /** @deprecated since 0.7.0 use {@link #bundleFinder(Framework)} */ @Deprecated
-    public static Maybe<Bundle> getBundle(Framework framework, String symbolicName, Version version) {
-        return bundleFinder(framework).symbolicName(symbolicName).version(Predicates.equalTo(version)).findUnique();
-    }
-
-    /** @deprecated since 0.9.0, replaced by {@link #getFramework(java.lang.String, boolean) } */
-    @Deprecated
-    public static Framework newFrameworkStarted(String felixCacheDir, boolean clean, Map<?,?> extraStartupConfig) {
-        return getFramework(felixCacheDir, clean);
-    }
-
     /** 
      * Provides an OSGI framework.
      *
@@ -344,20 +310,6 @@ public class Osgis {
      */
     public static void ungetFramework(Framework framework) {
         SystemFrameworkLoader.get().ungetFramework(framework);
-    }
-
-
-
-    /** @deprecated since 0.9.0, replaced with {@link OsgiUtils#getVersionedId(org.osgi.framework.Bundle) } */
-    @Deprecated
-    public static String getVersionedId(Bundle b) {
-        return OsgiUtils.getVersionedId(b);
-    }
-
-    /** @deprecated since 0.9.0, replaced with {@link OsgiUtils#getVersionedId(java.util.jar.Manifest) } */
-    @Deprecated
-    public static String getVersionedId(Manifest manifest) {
-        return OsgiUtils.getVersionedId(manifest);
     }
 
     /**
@@ -450,16 +402,9 @@ public class Osgis {
         return ResourceUtils.create(Osgis.class).getResourceFromUrl(url);
     }
 
-    /** @deprecated since 0.9.0, replaced with {@code SystemFrameworkLoader.get().isSystemBundle(bundle)} */
-    @Deprecated
-    public static boolean isExtensionBundle(Bundle bundle) {
-        return SystemFrameworkLoader.get().isSystemBundle(bundle);
-    }
-
     @Beta
     public static Optional<Bundle> getBundleOf(Class<?> clazz) {
         Bundle bundle = org.osgi.framework.FrameworkUtil.getBundle(clazz);
         return Optional.fromNullable(bundle);
     }
-
 }

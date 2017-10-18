@@ -230,52 +230,6 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         return rebind(RebindOptions.create());
     }
 
-    /**
-     * Checking serializable is overly strict.
-     * State only needs to be xstream-serializable, which does not require `implements Serializable`. 
-     * Also, the xstream serializer has some special hooks that replaces an entity reference with 
-     * a marker for that entity, etc.
-     * 
-     * @deprecated since 0.7.0; use {@link #rebind()} or {@link #rebind(RebindOptions)})
-     */
-    @Deprecated
-    protected T rebind(boolean checkSerializable) throws Exception {
-        return rebind(RebindOptions.create().checkSerializable(checkSerializable));
-    }
-    
-    /**
-     * Checking serializable is overly strict.
-     * State only needs to be xstream-serializable, which does not require `implements Serializable`. 
-     * Also, the xstream serializer has some special hooks that replaces an entity reference with 
-     * a marker for that entity, etc.
-     * 
-     * @deprecated since 0.7.0; use {@link #rebind(RebindOptions)})
-     */
-    @Deprecated
-    protected T rebind(boolean checkSerializable, boolean terminateOrigManagementContext) throws Exception {
-        return rebind(RebindOptions.create()
-                .checkSerializable(checkSerializable)
-                .terminateOrigManagementContext(terminateOrigManagementContext));
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@link #rebind(RebindOptions)})
-     */
-    @Deprecated
-    protected T rebind(RebindExceptionHandler exceptionHandler) throws Exception {
-        return rebind(RebindOptions.create().exceptionHandler(exceptionHandler));
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@link #rebind(RebindOptions)})
-     */
-    @Deprecated
-    protected T rebind(ManagementContext newManagementContext, RebindExceptionHandler exceptionHandler) throws Exception {
-        return rebind(RebindOptions.create()
-                .newManagementContext(newManagementContext)
-                .exceptionHandler(exceptionHandler));
-    }
-    
     @SuppressWarnings("unchecked")
     protected T rebind(RebindOptions options) throws Exception {
         if (newApp != null || newManagementContext != null) {

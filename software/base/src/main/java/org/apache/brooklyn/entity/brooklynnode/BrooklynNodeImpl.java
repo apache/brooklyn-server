@@ -497,7 +497,7 @@ public class BrooklynNodeImpl extends SoftwareProcessImpl implements BrooklynNod
                 .computing(Functionals.ifNotEquals(true).value("URL where Brooklyn listens is not answering correctly") )
                 .build());
 
-            addEnricher(Enrichers.builder().transforming(WEB_CONSOLE_ACCESSIBLE)
+            enrichers().add(Enrichers.builder().transforming(WEB_CONSOLE_ACCESSIBLE)
                     .computing(Functions.identity())
                     .publishing(SERVICE_PROCESS_IS_RUNNING)
                     .build());
