@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.camp.spi.Assembly;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.BrooklynShutdownHooks;
@@ -109,7 +110,7 @@ public abstract class YamlLauncherAbstract {
             }
 
             log.info("Application started from YAML: "+app);
-            Entities.dumpInfo(app);
+            Dumper.dumpInfo(app);
             return (Application)app;
         } catch (Exception e) {
             throw Exceptions.propagate(e);

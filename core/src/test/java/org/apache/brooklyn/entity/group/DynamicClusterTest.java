@@ -1127,7 +1127,7 @@ public class DynamicClusterTest extends AbstractDynamicClusterOrFabricTest {
         
         // and after re-size
         cluster.resize(4);
-//        Entities.dumpInfo(cluster);
+//        Dumper.dumpInfo(cluster);
         assertFirstAndNonFirstCounts(cluster.getMembers(), 1, 3);
         
         // and re-size to 1

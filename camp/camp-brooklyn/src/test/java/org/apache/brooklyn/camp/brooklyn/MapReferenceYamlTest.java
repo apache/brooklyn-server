@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.stock.BasicEntity;
@@ -44,7 +45,7 @@ public class MapReferenceYamlTest extends AbstractYamlTest {
         Assert.assertEquals(app.getDisplayName(), "test-entity-reference-map-template");
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         Assert.assertEquals(Iterables.size(app.getChildren()), 3, "Expected app to have child entity");
         Iterable<BasicEntity> basicEntities = Iterables.filter(app.getChildren(), BasicEntity.class);

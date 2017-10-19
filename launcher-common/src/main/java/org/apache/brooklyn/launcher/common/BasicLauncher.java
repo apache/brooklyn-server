@@ -44,7 +44,7 @@ import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatformLauncherNoServer;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.entity.Attributes;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
@@ -90,7 +90,7 @@ import com.google.common.collect.Maps;
  *     .location("localhost")
  *     .start();
  * 
- * Entities.dumpInfo(launcher.getApplications());
+ * Dumper.dumpInfo(launcher.getApplications());
  * </pre>
  */
 public class BasicLauncher<T extends BasicLauncher<T>> {
@@ -714,7 +714,7 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
                 try {
                     LOG.info("Starting brooklyn application {} in location{} {}", new Object[] { app, locations.size()!=1?"s":"", locations });
                     ((Startable)app).start(locations);
-                    Entities.dumpInfo(app);
+                    Dumper.dumpInfo(app);
                     String sensors = "";
                     if (app.getAttribute(Attributes.MAIN_URI_MAPPED_PUBLIC)!=null) {
                         sensors = ": "+app.getAttribute(Attributes.MAIN_URI_MAPPED_PUBLIC);

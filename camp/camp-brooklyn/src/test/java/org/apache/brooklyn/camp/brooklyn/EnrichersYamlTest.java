@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityAsserts;
@@ -60,7 +61,7 @@ public class EnrichersYamlTest extends AbstractYamlTest {
         Assert.assertEquals(app.getDisplayName(), "test-app-with-enricher");
         
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         Assert.assertEquals(EntityAdjuncts.getNonSystemEnrichers(app).size(), 1);
         final Enricher enricher = EntityAdjuncts.getNonSystemEnrichers(app).iterator().next();
@@ -95,7 +96,7 @@ public class EnrichersYamlTest extends AbstractYamlTest {
         Assert.assertEquals(app.getDisplayName(), "test-entity-with-enricher");
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         Assert.assertEquals(EntityAdjuncts.getNonSystemEnrichers(app).size(), 0);
         Assert.assertEquals(app.getChildren().size(), 1);
@@ -139,7 +140,7 @@ public class EnrichersYamlTest extends AbstractYamlTest {
         
         log.info("App started:");
         final Entity parentEntity = app.getChildren().iterator().next();
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         Assert.assertTrue(parentEntity instanceof TestEntity, "Expected parent entity to be TestEntity, found:" + parentEntity);
         parentEntity.sensors().set(TestEntity.SEQUENCE, 1234);
         Asserts.eventually(Entities.attributeSupplier(parentEntity, Sensors.newStringSensor("main.uri")), Predicates.<String>equalTo("http://www.example.org:1234/"));
@@ -177,7 +178,7 @@ public class EnrichersYamlTest extends AbstractYamlTest {
         
         log.info("App started:");
         final TestEntity entity = (TestEntity) app.getChildren().iterator().next();
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         entity.sensors().set(sourceSensor, "STANDBY"); // trigger enricher
         EntityAsserts.assertAttributeEqualsEventually(entity, targetSensor, "not master");
@@ -213,7 +214,7 @@ public class EnrichersYamlTest extends AbstractYamlTest {
         
         log.info("App started:");
         final TestEntity entity = (TestEntity) app.getChildren().iterator().next();
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         entity.sensors().set(otherSensor, "myval");
         entity.sensors().set(sourceSensor, "any-val"); // trigger enricher
@@ -231,7 +232,7 @@ public class EnrichersYamlTest extends AbstractYamlTest {
         Assert.assertEquals(app.getDisplayName(), "test-propagating-enricher");
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         TestEntity entity = (TestEntity)app.getChildren().iterator().next();
         entity.sensors().set(TestEntity.NAME, "New Name");
         Asserts.eventually(Entities.attributeSupplier(app, TestEntity.NAME), Predicates.<String>equalTo("New Name"));
@@ -256,7 +257,7 @@ public class EnrichersYamlTest extends AbstractYamlTest {
         waitForApplicationTasks(app);
         
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         Assert.assertEquals(app.getChildren().size(), 1);
         final Entity parentEntity = app.getChildren().iterator().next();
         Assert.assertTrue(parentEntity instanceof TestEntity, "Expected parent entity to be TestEntity, found:" + parentEntity);

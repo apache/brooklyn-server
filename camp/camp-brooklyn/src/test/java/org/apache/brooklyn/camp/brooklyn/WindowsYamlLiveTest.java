@@ -26,6 +26,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -289,7 +290,7 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
             app = createAndStartApplication(Joiner.on("\n").join(yaml));
             waitForApplicationTasks(app);
             log.info("App started:");
-            Entities.dumpInfo(app);
+            Dumper.dumpInfo(app);
             
             VanillaWindowsProcess entity = (VanillaWindowsProcess) app.getChildren().iterator().next();
             
@@ -300,7 +301,7 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
             app = createAndStartApplication(Joiner.on("\n").join(yaml));
             waitForApplicationTasks(app);
             log.info("App started:");
-            Entities.dumpInfo(app);
+            Dumper.dumpInfo(app);
             VanillaWindowsProcess entity = (VanillaWindowsProcess) app.getChildren().iterator().next();
             EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
             

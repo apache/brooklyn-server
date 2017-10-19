@@ -41,9 +41,7 @@ import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
-import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
 import org.apache.brooklyn.core.entity.trait.FailingEntity;
-import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -52,13 +50,11 @@ import org.apache.brooklyn.core.test.entity.TestApplicationNoEnrichersImpl;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityNoEnrichersImpl;
 import org.apache.brooklyn.enricher.stock.AbstractMultipleSensorAggregator;
-import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.core.task.ValueResolver;
-import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
@@ -419,7 +415,7 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
             EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
             EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
         } catch (Throwable t) {
-            Entities.dumpInfo(entity);
+            Dumper.dumpInfo(entity);
             String err = "(Dumped entity info - see log); entity=" + entity + "; " + 
                     "state=" + entity.sensors().get(Attributes.SERVICE_STATE_ACTUAL) + "; " + 
                     "up="+entity.sensors().get(Attributes.SERVICE_UP) + "; " +

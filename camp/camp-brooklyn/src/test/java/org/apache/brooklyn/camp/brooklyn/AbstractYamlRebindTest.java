@@ -34,7 +34,7 @@ import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.camp.spi.PlatformRootSummary;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
@@ -185,7 +185,7 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
         waitForApplicationTasks(app);
 
         getLogger().info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         return app;
     }

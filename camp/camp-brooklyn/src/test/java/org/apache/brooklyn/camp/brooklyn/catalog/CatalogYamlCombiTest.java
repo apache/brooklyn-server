@@ -23,7 +23,7 @@ import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.policy.ha.ServiceRestarter;
@@ -117,7 +117,7 @@ public class CatalogYamlCombiTest extends AbstractYamlTest {
 
         Entity b = launchEntity("B", false);
         Assert.assertTrue(BasicStartable.class.isInstance(b), "Wrong type: "+b);
-        Entities.dumpInfo(b);
+        Dumper.dumpInfo(b);
         
         Assert.assertEquals(Iterables.getOnlyElement(b.getLocations()).getConfig(ConfigKeys.newIntegerConfigKey("z")), (Integer)9);
         

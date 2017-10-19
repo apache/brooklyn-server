@@ -35,6 +35,7 @@ import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -308,14 +309,14 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
         TestEntity e1 = origApp.createAndManageChild(EntitySpec.create(TestEntity.class, MyTestEntityWithEnricher.class));
         Collection<Enricher> e1e = e1.enrichers().asList();
         log.info("enrichers1: "+e1e);
-        Entities.dumpInfo(e1);
+        Dumper.dumpInfo(e1);
         assertEquals(e1e.size(), 5);
 
         newApp = rebind();
         Entity e2 = Iterables.getOnlyElement( Entities.descendantsAndSelf(newApp, EntityPredicates.idEqualTo(e1.getId())) );
         Collection<Enricher> e2e = e2.enrichers().asList();
         log.info("enrichers2: "+e2e);
-        Entities.dumpInfo(e2);
+        Dumper.dumpInfo(e2);
         
         assertEquals(e2e.size(), e1e.size()+1);
     }

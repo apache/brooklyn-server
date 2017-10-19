@@ -24,7 +24,7 @@ import java.util.concurrent.Callable;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.policy.TestPolicy;
@@ -51,7 +51,7 @@ public class PoliciesYamlTest extends AbstractYamlTest {
         Assert.assertEquals(app.getDisplayName(), "test-app-with-policy");
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         Assert.assertEquals(app.policies().size(), 1);
         Policy policy = app.policies().iterator().next();
@@ -71,7 +71,7 @@ public class PoliciesYamlTest extends AbstractYamlTest {
         Assert.assertEquals(app.getDisplayName(), "test-entity-with-policy");
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         Assert.assertEquals(app.policies().size(), 0);
         Assert.assertEquals(app.getChildren().size(), 1);
