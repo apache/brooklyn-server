@@ -18,21 +18,12 @@
  */
 package org.apache.brooklyn.launcher;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-
 import java.io.File;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashSet;
 import java.util.Set;
 
-import org.apache.brooklyn.api.typereg.ManagedBundle;
-import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.osgi.VersionedName;
@@ -40,7 +31,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -178,42 +168,5 @@ public class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBrooklynLaunc
         newLauncher.start();
         assertCatalogConsistsOfIds(newLauncher, COM_EXAMPLE_BUNDLE_CATALOG_IDS);
         assertManagedBundle(newLauncher, COM_EXAMPLE_BUNDLE_ID, COM_EXAMPLE_BUNDLE_CATALOG_IDS);
-    }
-    
-    private void assertManagedBundle(BrooklynLauncher launcher, VersionedName bundleId, Set<VersionedName> expectedCatalogItems) {
-        ManagementContextInternal mgmt = (ManagementContextInternal)launcher.getManagementContext();
-        ManagedBundle bundle = mgmt.getOsgiManager().get().getManagedBundle(bundleId);
-        assertNotNull(bundle, bundleId+" not found");
-        
-        Set<VersionedName> actualCatalogItems = new LinkedHashSet<>();
-        Iterable<RegisteredType> types = launcher.getManagementContext().getTypeRegistry().getAll();
-        for (RegisteredType type : types) {
-            if (Objects.equal(bundleId.toOsgiString(), type.getContainingBundle())) {
-                actualCatalogItems.add(type.getVersionedName());
-            }
-        }
-        assertEquals(actualCatalogItems, expectedCatalogItems, "actual="+actualCatalogItems+"; expected="+expectedCatalogItems);
-    }
-    
-    private String createCatalogYaml(Iterable<URI> libraries, Iterable<VersionedName> entities) {
-        StringBuilder result = new StringBuilder();
-        result.append("brooklyn.catalog:\n");
-        if (!Iterables.isEmpty(libraries)) {
-            result.append("  brooklyn.libraries:\n");
-        }
-        for (URI library : libraries) {
-            result.append("    - " + library+"\n");
-        }
-        if (!Iterables.isEmpty(entities)) {
-            result.append("  items:\n");
-        }
-        for (VersionedName entity : entities) {
-            result.append("    - id: " + entity.getSymbolicName()+"\n");
-            result.append("      version: " + entity.getVersionString()+"\n");
-            result.append("      itemType: entity"+"\n");
-            result.append("      item:"+"\n");
-            result.append("        type: " + BasicEntity.class.getName()+"\n");
-        }
-        return result.toString();
     }
 }

@@ -95,4 +95,19 @@ public class BrooklynVersionSyntaxTest {
         // potentially surprising, and different to maven (0.0.0.4aug..)
         assertOsgiVersion("4aug2000r7-dev", "4.0.0.aug2000r7-dev");
     }
+    
+    public void testOsgiVersionRanges() {
+        assertOsgiVersionRange("1.0.0", "1.0.0");
+        assertOsgiVersionRange("[1.0.0,2.0.0)", "[1.0.0,2.0.0)");
+        assertOsgiVersionRange("[1.0.0, 2.0.0)", "[1.0.0,2.0.0)");
+        assertOsgiVersionRange("1.0.0-SNAPSHOT", "1.0.0.SNAPSHOT");
+        assertOsgiVersionRange("[1.0.0-SNAPSHOT]", "[1.0.0.SNAPSHOT]");
+        assertOsgiVersionRange("[1.0.0-SNAPSHOT,2.0.0-SNAPSHOT]", "[1.0.0.SNAPSHOT,2.0.0.SNAPSHOT]");
+        assertOsgiVersionRange("[1.0.0-SNAPSHOT,2.0.0-SNAPSHOT)", "[1.0.0.SNAPSHOT,2.0.0.SNAPSHOT)");
+        assertOsgiVersionRange("(1.0.0-SNAPSHOT,2.0.0-SNAPSHOT]", "(1.0.0.SNAPSHOT,2.0.0.SNAPSHOT]");
+    }
+    
+    private void assertOsgiVersionRange(String input, String osgi) {
+        Assert.assertEquals(BrooklynVersionSyntax.toValidOsgiVersionRange(input), osgi, "conversion to valid osgi range");
+    }
 }

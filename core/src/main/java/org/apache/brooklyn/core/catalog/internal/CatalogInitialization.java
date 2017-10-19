@@ -25,8 +25,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Dictionary;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -43,6 +41,7 @@ import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.catalog.internal.BundleUpgradeParser.TypeUpgrades;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
@@ -73,10 +72,8 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 @Beta
@@ -237,7 +234,9 @@ public class CatalogInitialization implements ManagementContextInjectable {
             }
             
             populateInitialCatalogImpl(true);
-            addPersistedCatalogImpl(persistedState, exceptionHandler, rebindLogger);
+            
+            PersistedCatalogState filteredPersistedState = filterPersistedState(persistedState, rebindLogger);
+            addPersistedCatalogImpl(filteredPersistedState, exceptionHandler, rebindLogger);
             
             if (mode == ManagementNodeState.MASTER) {
                 // TODO ideally this would remain false until it has *persisted* the changed catalog;
@@ -526,6 +525,36 @@ public class CatalogInitialization implements ManagementContextInjectable {
         if (br.getDeferredStart()!=null) {
             br.getDeferredStart().run();
         }
+    }
+
+    private PersistedCatalogState filterPersistedState(PersistedCatalogState persistedState, RebindLogger rebindLogger) {
+        Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)managementContext).getOsgiManager();
+        if (osgiManager.isAbsent()) {
+            // Could be running tests; do no filtering
+            return persistedState;
+        }
+        
+        TypeUpgrades.Builder typeUpgradesBuilder = TypeUpgrades.builder();
+        Collection<ManagedBundle> managedBundles = osgiManager.get().getManagedBundles().values();
+        for (ManagedBundle managedBundle : managedBundles) {
+            Maybe<Bundle> bundle = osgiManager.get().findBundle(managedBundle);
+            if (bundle.isPresent()) {
+                typeUpgradesBuilder.addAll(BundleUpgradeParser.parseBundleManifestForTypeUpgrades(bundle.get()));
+            }
+        }
+        TypeUpgrades typeUpgrades = typeUpgradesBuilder.build();
+        
+        if (typeUpgrades.isEmpty()) {
+            return persistedState;
+        }
+        Map<VersionedName, InstallableManagedBundle> bundles = persistedState.getBundles();
+        List<CatalogItem<?, ?>> legacyCatalogItems = new ArrayList<>();
+        for (CatalogItem<?, ?> legacyCatalogItem : persistedState.getLegacyCatalogItems()) {
+            if (!typeUpgrades.isRemoved(legacyCatalogItem)) {
+                legacyCatalogItems.add(legacyCatalogItem);
+            }
+        }
+        return new PersistedCatalogState(bundles, legacyCatalogItems);
     }
 
     public interface RebindLogger {
