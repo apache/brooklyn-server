@@ -31,8 +31,10 @@ import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityManager;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
+import org.apache.brooklyn.api.mgmt.ha.ManagementPlaneSyncRecordPersister;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMemento;
@@ -290,10 +292,11 @@ public class RebindTestUtils {
             if (persistMode == PersistMode.DISABLED) {
                 unstarted.generateManagementPlaneId();
                 unstarted.getCatalogInitialization().populateInitialCatalogOnly();
+                unstarted.getHighAvailabilityManager().disabled(persistMode != PersistMode.DISABLED);
             } else if (haMode == HighAvailabilityMode.DISABLED) {
                 unstarted.getRebindManager().rebind(classLoader, null, ManagementNodeState.MASTER);
                 unstarted.getRebindManager().startPersistence();
-                unstarted.getHighAvailabilityManager().disabled();
+                unstarted.getHighAvailabilityManager().disabled(persistMode != PersistMode.DISABLED);
             } else {
                 unstarted.getHighAvailabilityManager().start(haMode);
             }
@@ -319,7 +322,11 @@ public class RebindTestUtils {
         }
         Collection<Application> newApps = rebindAll(options);
         if (newApps.isEmpty()) {
-            if (hadApps) {
+            if (options.haMode != null && options.haMode != HighAvailabilityMode.DISABLED) {
+                // will rebind async, when promoted to master.
+                // Dont't assert here! Rely on caller to wait.
+                return null;
+            } else if (hadApps) {
                 throw new IllegalStateException("Application could not be found after rebind; serialization probably failed");
             } else {
                 // no apps before; probably testing catalog
@@ -344,6 +351,7 @@ public class RebindTestUtils {
         HighAvailabilityMode haMode = (options.haMode == null ? HighAvailabilityMode.DISABLED : options.haMode);
         RebindExceptionHandler exceptionHandler = options.exceptionHandler;
         boolean hasPersister = newManagementContext != null && newManagementContext.getRebindManager().getPersister() != null;
+        boolean hasHaPersister = newManagementContext != null && newManagementContext.getHighAvailabilityManager().getPersister() != null;
         boolean checkSerializable = options.checkSerializable;
         boolean terminateOrigManagementContext = options.terminateOrigManagementContext;
         Function<BrooklynMementoPersister, Void> stateTransformer = options.stateTransformer;
@@ -392,12 +400,39 @@ public class RebindTestUtils {
             stateTransformer.apply(persister);
         }
         
-        List<Application> newApps = newManagementContext.getRebindManager().rebind(
-                classLoader, 
-                exceptionHandler, 
-                (haMode == HighAvailabilityMode.DISABLED) ? ManagementNodeState.MASTER : ManagementNodeState.of(haMode).get());
-        newManagementContext.getRebindManager().startPersistence();
-        return newApps;
+        if (haMode == HighAvailabilityMode.DISABLED) {
+            HighAvailabilityManager haManager = newManagementContext.getHighAvailabilityManager();
+            haManager.disabled(true);
+            
+            List<Application> newApps = newManagementContext.getRebindManager().rebind(
+                    classLoader, 
+                    exceptionHandler, 
+                    (haMode == HighAvailabilityMode.DISABLED) ? ManagementNodeState.MASTER : ManagementNodeState.of(haMode).get());
+            newManagementContext.getRebindManager().startPersistence();
+
+            return newApps;
+
+        } else {
+            HighAvailabilityManager haManager = newManagementContext.getHighAvailabilityManager();
+            
+            if (!hasHaPersister) {
+                if (hasPersister) throw new IllegalStateException("Must not supply persister for RebindManager but not for HighAvailabilityManager");
+                assert objectStore != null;
+                
+                ManagementPlaneSyncRecordPersister persister =
+                    new ManagementPlaneSyncRecordPersisterToObjectStore(newManagementContext,
+                        objectStore,
+                        newManagementContext.getCatalogClassLoader());
+                
+                haManager.setPersister(persister);
+            }
+            
+            haManager.start(haMode);
+            
+            // TODO We'll be promoted to master asynchronously; will not yet have done our rebind.
+            // Could block here for rebind to complete but do any callers really need us to do that?
+            return ImmutableList.of();
+        }
     }
 
     public static void waitForPersisted(Application origApp) throws InterruptedException, TimeoutException {

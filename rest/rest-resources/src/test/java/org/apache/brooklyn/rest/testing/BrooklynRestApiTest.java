@@ -147,7 +147,7 @@ public abstract class BrooklynRestApiTest {
             } else {
                 manager = new LocalManagementContextForTests();
             }
-            manager.getHighAvailabilityManager().disabled();
+            manager.getHighAvailabilityManager().disabled(false);
             ((LocalManagementContext)manager).generateManagementPlaneId();
 
             new BrooklynCampPlatformLauncherNoServer()

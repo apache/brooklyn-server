@@ -88,7 +88,7 @@ public class BrooklynEntityMirrorIntegrationTest {
             server.skipSecurity(skipSecurity);
             server.start();
             
-            serverMgmt.getHighAvailabilityManager().disabled();
+            serverMgmt.getHighAvailabilityManager().disabled(false);
             serverApp = TestApplication.Factory.newManagedInstanceForTests(serverMgmt);
             
             ((LocalManagementContextForTests)serverMgmt).noteStartupComplete();

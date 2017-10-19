@@ -304,8 +304,9 @@ public class BrooklynRestApiLauncher {
                 ((BrooklynProperties)mgmt.getConfig()).put(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME, AnyoneSecurityProvider.class.getName());
             }
         }
-        if (mgmt != null && disableHighAvailability)
-            mgmt.getHighAvailabilityManager().disabled();
+        if (mgmt != null && disableHighAvailability) {
+            mgmt.getHighAvailabilityManager().disabled(false);
+        }
         InetSocketAddress bindLocation = new InetSocketAddress(
                 secure ? Networking.ANY_NIC : Networking.LOOPBACK,
                         Networking.nextAvailablePort(FAVOURITE_PORT));

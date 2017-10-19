@@ -67,7 +67,7 @@ public interface HighAvailabilityManager {
      * this is called after this HA Manager is started.
      */
     @Beta
-    void disabled();
+    void disabled(boolean persistenceEnabled);
 
     /** Whether HA mode is operational */
     boolean isRunning();
