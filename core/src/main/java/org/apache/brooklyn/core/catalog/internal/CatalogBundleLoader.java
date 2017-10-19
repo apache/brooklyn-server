@@ -103,8 +103,8 @@ public class CatalogBundleLoader {
                 this.managementContext.getCatalog().addTypesFromBundleBom(bomText, mb, force, result.mapOfNewToReplaced);
                 if (validate) {
                     Set<RegisteredType> matches = MutableSet.copyOf(this.managementContext.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(mb.getVersionedName())));
-                    if (!(matches.containsAll(result.mapOfNewToReplaced.keySet()) && result.mapOfNewToReplaced.keySet().containsAll(matches))) {
-                        // sanity check
+                    if (matches.size()!=result.mapOfNewToReplaced.size()) {
+                        // sanity check - should have same types, except result keys might not be fully resolved, so don't do set equality
                         LOG.warn("Discrepancy in list of Brooklyn items found for "+mb.getVersionedName()+": "+
                             "installer said "+result.mapOfNewToReplaced.keySet()+" ("+result.mapOfNewToReplaced.keySet().size()+") "+
                             "but registry search found "+matches+" ("+matches.size()+")");
@@ -128,10 +128,12 @@ public class CatalogBundleLoader {
     }
 
     /**
-     * Remove the given items from the catalog.
+     * Remove the given item from the catalog.
      *
-     * @param item Catalog items to remove
+     * @param item Catalog item to remove
+     * @deprecated since 0.13.0 remove bundles
      */
+    @Deprecated
     public void removeFromCatalog(CatalogItem<?, ?> item) {
         try {
             this.managementContext.getCatalog().deleteCatalogItem(item.getSymbolicName(), item.getVersion());
@@ -143,6 +145,13 @@ public class CatalogBundleLoader {
         }
     }
     
+    /**
+     * Remove the given item from the catalog.
+     *
+     * @param item Catalog item to remove
+     * @deprecated since 0.13.0 remove bundles
+     */
+    @Deprecated
     public void removeFromCatalog(VersionedName n) {
         ((ManagementContextInternal)managementContext).getOsgiManager().get().uninstallCatalogItemsFromBundle(n);
     }
