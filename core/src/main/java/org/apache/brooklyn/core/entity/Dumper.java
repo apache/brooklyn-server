@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -54,7 +55,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 /**
- * Convenience methods for dumping info about entities etc.
+ * Convenience methods for dumping info about entities, locations, policies, etc.
  */
 public class Dumper {
 
@@ -242,10 +243,6 @@ public class Dumper {
         out.flush();
     }
 
-    public static void dumpInfo(Task<?> t) {
-        Dumper.dumpInfo(t);
-    }
-    
     public static void dumpInfo(Enricher enr) {
         try {
             dumpInfo(enr, new PrintWriter(System.out), "", "  ");
@@ -336,6 +333,34 @@ public class Dumper {
         out.flush();
     }
     
+    public static void dumpInfo(Task<?> t) {
+        try {
+            dumpInfo(t, new PrintWriter(System.out), "", "  ");
+        } catch (IOException exc) {
+            // system.out throwing an exception is odd, so don't have IOException on signature
+            throw new RuntimeException(exc);
+        }
+    }
+    
+    public static void dumpInfo(Task<?> t, Writer out) throws IOException {
+        dumpInfo(t, out, "", "  ");
+    }
+    
+    static void dumpInfo(Task<?> t, String currentIndentation, String tab) throws IOException {
+        dumpInfo(t, new PrintWriter(System.out), currentIndentation, tab);
+    }
+    
+    static void dumpInfo(Task<?> t, Writer out, String currentIndentation, String tab) throws IOException {
+        out.append(currentIndentation+t+": "+t.getStatusDetail(false)+"\n");
+
+        if (t instanceof HasTaskChildren) {
+            for (Task<?> child: ((HasTaskChildren)t).getChildren()) {
+                dumpInfo(child, out, currentIndentation+tab, tab);
+            }
+        }
+        out.flush();
+    }
+
     @SuppressWarnings({ "rawtypes", "unchecked" })
     static List<Sensor<?>> sortSensors(Set<Sensor<?>> sensors) {
         List result = new ArrayList(sensors);
