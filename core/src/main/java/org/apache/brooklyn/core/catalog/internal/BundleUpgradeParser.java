@@ -21,43 +21,62 @@ package org.apache.brooklyn.core.catalog.internal;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Dictionary;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-import javax.annotation.Nullable;
-
-import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
-import org.osgi.framework.Version;
 import org.osgi.framework.VersionRange;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 public class BundleUpgradeParser {
 
     @Beta
-    public static final String MANIFEST_HEADER_REMOVE_LEGACY_ITEMS = "brooklyn-catalog-force-remove-legacy-items";
+    public static final String MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS = "brooklyn-catalog-force-remove-legacy-items";
 
-    public static class TypeUpgrades {
-        static final TypeUpgrades EMPTY = new TypeUpgrades(ImmutableSet.of());
+    @Beta
+    public static final String MANIFEST_HEADER_FORCE_REMOVE_BUNDLES = "brooklyn-catalog-force-remove-bundles";
+    
+    @Beta
+    public static final String MANIFEST_HEADER_UPGRADE_BUNDLES = "brooklyn-catalog-upgrade-for-bundles";
+
+    /**
+     * The result from parsing bundle(s) to find their upgrade info.
+     */
+    public static class CatalogUpgrades {
+        static final CatalogUpgrades EMPTY = new CatalogUpgrades(builder());
         
         static class Builder {
             private Set<VersionRangedName> removedLegacyItems = new LinkedHashSet<>();
-            
-            public void addAll(TypeUpgrades other) {
-                removedLegacyItems.addAll(other.removedLegacyItems);
+            private Set<VersionRangedName> removedBundles = new LinkedHashSet<>();
+
+            public Builder removedLegacyItems(Collection<VersionRangedName> vals) {
+                removedLegacyItems.addAll(vals);
+                return this;
             }
-            public TypeUpgrades build() {
-                return new TypeUpgrades(removedLegacyItems);
+            public Builder removedBundles(Collection<VersionRangedName> vals) {
+                removedBundles.addAll(vals);
+                return this;
+            }
+            public Builder addAll(CatalogUpgrades other) {
+                removedLegacyItems.addAll(other.removedLegacyItems);
+                removedBundles.addAll(other.removedBundles);
+                return this;
+            }
+            public CatalogUpgrades build() {
+                return new CatalogUpgrades(this);
             }
         }
         
@@ -65,23 +84,38 @@ public class BundleUpgradeParser {
             return new Builder();
         }
         
-        private Set<VersionRangedName> removedLegacyItems; // TODO Want version ranges as well
+        private Set<VersionRangedName> removedLegacyItems;
+        private Set<VersionRangedName> removedBundles;
         
-        public TypeUpgrades(Iterable<? extends VersionRangedName> removedLegacyItems) {
-            this.removedLegacyItems = ImmutableSet.copyOf(removedLegacyItems);
+        public CatalogUpgrades(Builder builder) {
+            this.removedLegacyItems = ImmutableSet.copyOf(builder.removedLegacyItems);
+            this.removedBundles = ImmutableSet.copyOf(builder.removedBundles);
         }
 
         public boolean isEmpty() {
-            return removedLegacyItems.isEmpty();
+            return removedLegacyItems.isEmpty() && removedBundles.isEmpty();
         }
 
-        public boolean isRemoved(CatalogItem<?, ?> legacyCatalogItem) {
-            String name = legacyCatalogItem.getSymbolicName();
-            String versionStr = legacyCatalogItem.getVersion();
-            Version version = Version.valueOf(BrooklynVersionSyntax.toValidOsgiVersion(versionStr == null ? BrooklynCatalog.DEFAULT_VERSION : versionStr));
-            
-            for (VersionRangedName removedLegacyItem : removedLegacyItems) {
-                if (removedLegacyItem.getSymbolicName().equals(name) && removedLegacyItem.getOsgiVersionRange().includes(version)) {
+        public Set<VersionRangedName> getRemovedLegacyItems() {
+            return removedLegacyItems;
+        }
+        
+        public Set<VersionRangedName> getRemovedBundles() {
+            return removedBundles;
+        }
+
+        public boolean isLegacyItemRemoved(CatalogItem<?, ?> legacyCatalogItem) {
+            VersionedName name = new VersionedName(legacyCatalogItem.getSymbolicName(), legacyCatalogItem.getVersion());
+            return contains(removedLegacyItems, name);
+        }
+
+        public boolean isBundleRemoved(VersionedName bundle) {
+            return contains(removedBundles, bundle);
+        }
+        
+        public boolean contains(Iterable<VersionRangedName> names, VersionedName name) {
+            for (VersionRangedName contender : names) {
+                if (contender.getSymbolicName().equals(name.getSymbolicName()) && contender.getOsgiVersionRange().includes(name.getOsgiVersion())) {
                     return true;
                 }
             }
@@ -89,12 +123,18 @@ public class BundleUpgradeParser {
         }
     }
     
-    /** Records a name (string) and version range (string),
-     * with conveniences for pretty-printing and converting to OSGi format. */
+    /**
+     * Records a name (string) and version range (string),
+     * with conveniences for pretty-printing and converting to OSGi format.
+     * 
+     * Implementation-wise, this is similar to {@link VersionedName}, but is intended
+     * as internal-only so is cut down to only what is needed.
+     */
     public static class VersionRangedName {
         private final String name;
         private final String v;
-        
+        private transient volatile VersionRange cachedOsgiVersionRange;
+
         public static VersionRangedName fromString(String val, boolean singleVersionIsOsgiRange) {
             if (Strings.isBlank(val)) {
                 throw new IllegalArgumentException("Must not be blank");
@@ -112,13 +152,14 @@ public class BundleUpgradeParser {
             }
         }
 
-        public VersionRangedName(String name, String v) {
-            this.name = checkNotNull(name, "name");
-            this.v = v;
-        }
-        public VersionRangedName(String name, @Nullable VersionRange v) {
+        public VersionRangedName(String name, VersionRange v) {
             this.name = checkNotNull(name, "name").toString();
-            this.v = v==null ? null : v.toString();
+            this.v = checkNotNull(v, "versionRange").toString();
+        }
+        
+        private VersionRangedName(String name, String v) {
+            this.name = checkNotNull(name, "name");
+            this.v = checkNotNull(v, "versionRange");
         }
         
         @Override
@@ -130,35 +171,17 @@ public class BundleUpgradeParser {
             return name + ":" + getOsgiVersionRange();
         }
 
-        public boolean equals(String sn, String v) {
-            return name.equals(sn) && Objects.equal(this.v, v);
-        }
-
-        public boolean equals(String sn, VersionRange v) {
-            return name.equals(sn) && Objects.equal(getOsgiVersionRange(), v);
-        }
-
         public String getSymbolicName() {
             return name;
         }
 
-        private transient VersionRange cachedOsgiVersionRange;
-        @Nullable
         public VersionRange getOsgiVersionRange() {
-            if (cachedOsgiVersionRange==null && v!=null) {
-                cachedOsgiVersionRange = v==null ? null : VersionRange.valueOf(BrooklynVersionSyntax.toValidOsgiVersionRange(v));
+            if (cachedOsgiVersionRange == null) {
+                cachedOsgiVersionRange = VersionRange.valueOf(BrooklynVersionSyntax.toValidOsgiVersionRange(v));
             }
             return cachedOsgiVersionRange;
         }
 
-        @Nullable
-        public String getOsgiVersionRangeString() {
-            VersionRange ov = getOsgiVersionRange();
-            if (ov==null) return null;
-            return ov.toString();
-        }
-
-        @Nullable
         public String getVersionString() {
             return v;
         }
@@ -178,14 +201,25 @@ public class BundleUpgradeParser {
         }
     }
 
-    public static TypeUpgrades parseBundleManifestForTypeUpgrades(Bundle bundle) {
+    public static CatalogUpgrades parseBundleManifestForCatalogUpgrades(Bundle bundle) {
         Dictionary<String, String> headers = bundle.getHeaders();
-        String removedLegacyItems = headers.get(MANIFEST_HEADER_REMOVE_LEGACY_ITEMS);
-        if (removedLegacyItems != null) {
-            List<VersionRangedName> versionedItems = parseVersionRangedNameList(removedLegacyItems, false);
-            return new TypeUpgrades(versionedItems);
+        String removedLegacyItemsHeader = headers.get(MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS);
+        String removedBundlesHeader = headers.get(MANIFEST_HEADER_FORCE_REMOVE_BUNDLES);
+        List<VersionRangedName> removedLegacyItems = ImmutableList.of();
+        List<VersionRangedName> removedBundles = ImmutableList.of();
+        if (removedLegacyItemsHeader == null && removedBundlesHeader == null) {
+            return CatalogUpgrades.EMPTY;
         }
-        return TypeUpgrades.EMPTY;
+        if (removedLegacyItemsHeader != null) {
+            removedLegacyItems = parseVersionRangedNameList(removedLegacyItemsHeader, false);
+        }
+        if (removedBundlesHeader != null) {
+            removedBundles = parseVersionRangedNameList(removedBundlesHeader, false);
+        }
+        return CatalogUpgrades.builder()
+                .removedLegacyItems(removedLegacyItems)
+                .removedBundles(removedBundles)
+                .build();
     }
     
     @VisibleForTesting

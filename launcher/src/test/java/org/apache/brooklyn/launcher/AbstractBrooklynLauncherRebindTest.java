@@ -20,9 +20,11 @@ package org.apache.brooklyn.launcher;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -53,6 +55,7 @@ import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
 import org.osgi.framework.Constants;
@@ -209,6 +212,12 @@ public abstract class AbstractBrooklynLauncherRebindTest {
         assertEquals(actualCatalogItems, expectedCatalogItems, "actual="+actualCatalogItems+"; expected="+expectedCatalogItems);
     }
 
+    protected void assertNotManagedBundle(BrooklynLauncher launcher, VersionedName bundleId) {
+        ManagementContextInternal mgmt = (ManagementContextInternal)launcher.getManagementContext();
+        ManagedBundle bundle = mgmt.getOsgiManager().get().getManagedBundle(bundleId);
+        assertNull(bundle, bundleId+" should not exist");
+    }
+
     private static <T> boolean compareIterablesWithoutOrderMatters(Iterable<T> a, Iterable<T> b) {
         List<T> aList = Lists.newArrayList(a);
         List<T> bList = Lists.newArrayList(b);
@@ -216,36 +225,17 @@ public abstract class AbstractBrooklynLauncherRebindTest {
         return aList.containsAll(bList) && bList.containsAll(aList);
     }
     
-    protected void initPersistedState(Map<String, String> legacyCatalogContents) throws Exception {
-        CatalogInitialization catalogInitialization = new CatalogInitialization(CATALOG_EMPTY_INITIAL);
-        BrooklynLauncher launcher = newLauncherForTests()
-                .catalogInitialization(catalogInitialization);
-        launcher.start();
-        assertCatalogConsistsOfIds(launcher, ImmutableList.of());
-        launcher.terminate();
-        
-        for (Map.Entry<String, String> entry : legacyCatalogContents.entrySet()) {
-            addMemento(BrooklynObjectType.CATALOG_ITEM, entry.getKey(), entry.getValue());
-        }
-    }
-
-    protected void addMemento(BrooklynObjectType type, String id, String contents) throws Exception {
-        File persistedFile = getPersistanceFile(type, id);
-        Files.write(contents.getBytes(StandardCharsets.UTF_8), persistedFile);
-    }
-
-    protected File getPersistanceFile(BrooklynObjectType type, String id) {
-        String dir;
-        switch (type) {
-            case ENTITY: dir = "entities"; break;
-            case LOCATION: dir = "locations"; break;
-            case POLICY: dir = "policies"; break;
-            case ENRICHER: dir = "enrichers"; break;
-            case FEED: dir = "feeds"; break;
-            case CATALOG_ITEM: dir = "catalog"; break;
-            default: throw new UnsupportedOperationException("type="+type);
-        }
-        return new File(persistenceDir, Os.mergePaths(dir, id));
+    protected String createPersistenceManagedBundle(String randomId, VersionedName bundleName) {
+        return Joiner.on("\n").join(
+                "<managedBundle>",
+                "<brooklynVersion>1.0.0-SNAPSHOT</brooklynVersion>",
+                "<type>org.apache.brooklyn.core:org.apache.brooklyn.core.typereg.BasicManagedBundle</type>",
+                "<id>"+randomId+"</id>",
+                "<searchPath class=\"ImmutableList\"/>",
+                "<symbolicName>"+bundleName.getSymbolicName()+"</symbolicName>",
+                "<version>"+bundleName.getVersionString()+"</version>",
+                "<url>http://example.org/brooklyn/"+bundleName.getSymbolicName()+"/"+bundleName.getVersionString()+"</url>",
+                "</managedBundle>");
     }
     
     protected String createLegacyPersistenceCatalogItem(VersionedName itemName) {
@@ -292,5 +282,74 @@ public abstract class AbstractBrooklynLauncherRebindTest {
             result.append("        type: " + BasicEntity.class.getName()+"\n");
         }
         return result.toString();
+    }
+    
+    public PersistedStateInitializer newPersistedStateInitializer() {
+        return new PersistedStateInitializer();
+    }
+    
+    public class PersistedStateInitializer {
+        private final Map<String, String> legacyCatalogContents = new LinkedHashMap<>();
+        private final Map<VersionedName, File> bundles = new LinkedHashMap<>();
+
+        public PersistedStateInitializer legacyCatalogItems(Map<String, String> vals) throws Exception {
+            legacyCatalogContents.putAll(vals);
+            return this;
+        }
+        
+        public PersistedStateInitializer bundle(VersionedName bundleName, File file) throws Exception {
+            bundles.put(bundleName, file);
+            return this;
+        }
+        
+        public PersistedStateInitializer bundles(Map<VersionedName, File> vals) throws Exception {
+            bundles.putAll(vals);
+            return this;
+        }
+        
+        public void initState() throws Exception {
+            initEmptyState();
+            
+            for (Map.Entry<String, String> entry : legacyCatalogContents.entrySet()) {
+                addMemento(BrooklynObjectType.CATALOG_ITEM, entry.getKey(), entry.getValue().getBytes(StandardCharsets.UTF_8));
+            }
+            for (Map.Entry<VersionedName, File> entry : bundles.entrySet()) {
+                VersionedName bundleName = entry.getKey();
+                String randomId = Identifiers.makeRandomId(8);
+                String managedBundleXml = createPersistenceManagedBundle(randomId, bundleName);
+                addMemento(BrooklynObjectType.MANAGED_BUNDLE, randomId, managedBundleXml.getBytes(StandardCharsets.UTF_8));
+                addMemento(BrooklynObjectType.MANAGED_BUNDLE, randomId+".jar", Streams.readFullyAndClose(new FileInputStream(entry.getValue())));
+            }
+        }
+
+        private void addMemento(BrooklynObjectType type, String id, byte[] contents) throws Exception {
+            File persistedFile = getPersistanceFile(type, id);
+            Files.createParentDirs(persistedFile);
+            Files.write(contents, persistedFile);
+        }
+
+        private File getPersistanceFile(BrooklynObjectType type, String id) {
+            String dir;
+            switch (type) {
+                case ENTITY: dir = "entities"; break;
+                case LOCATION: dir = "locations"; break;
+                case POLICY: dir = "policies"; break;
+                case ENRICHER: dir = "enrichers"; break;
+                case FEED: dir = "feeds"; break;
+                case CATALOG_ITEM: dir = "catalog"; break;
+                case MANAGED_BUNDLE: dir = "bundles"; break;
+                default: throw new UnsupportedOperationException("type="+type);
+            }
+            return new File(persistenceDir, Os.mergePaths(dir, id));
+        }
+        
+        private void initEmptyState() {
+            CatalogInitialization catalogInitialization = new CatalogInitialization(CATALOG_EMPTY_INITIAL);
+            BrooklynLauncher launcher = newLauncherForTests()
+                    .catalogInitialization(catalogInitialization);
+            launcher.start();
+            assertCatalogConsistsOfIds(launcher, ImmutableList.of());
+            launcher.terminate();
+        }
     }
 }

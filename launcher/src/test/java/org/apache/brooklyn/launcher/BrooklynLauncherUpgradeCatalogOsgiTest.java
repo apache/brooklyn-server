@@ -18,13 +18,16 @@
  */
 package org.apache.brooklyn.launcher;
 
+import static org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog.CATALOG_BOM;
+import static org.apache.brooklyn.core.catalog.internal.BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES;
+import static org.apache.brooklyn.core.catalog.internal.BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS;
+
 import java.io.File;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
-import org.apache.brooklyn.core.catalog.internal.BundleUpgradeParser;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.testng.annotations.BeforeMethod;
@@ -67,20 +70,21 @@ public class BrooklynLauncherUpgradeCatalogOsgiTest extends AbstractBrooklynLaun
         VersionedName three_0_2_0 = VersionedName.fromString("three:0.2.0");
         VersionedName four_0_1_0 = VersionedName.fromString("four:0.1.0");
         
-        initPersistedState(ImmutableMap.<String, String>builder()
-                .put("one_0.1.0", createLegacyPersistenceCatalogItem(one_0_1_0))
-                .put("two_0.1.0", createLegacyPersistenceCatalogItem(two_0_1_0))
-                .put("two_1.0.0", createLegacyPersistenceCatalogItem(two_1_0_0))
-                .put("three_0.1.0", createLegacyPersistenceCatalogItem(three_0_1_0))
-                .put("three_0.2.0", createLegacyPersistenceCatalogItem(three_0_2_0))
-                .put("four_0.1.0", createLegacyPersistenceCatalogItem(four_0_1_0))
-                .build());
+        newPersistedStateInitializer()
+                .legacyCatalogItems(ImmutableMap.<String, String>builder()
+                    .put("one_0.1.0", createLegacyPersistenceCatalogItem(one_0_1_0))
+                    .put("two_0.1.0", createLegacyPersistenceCatalogItem(two_0_1_0))
+                    .put("two_1.0.0", createLegacyPersistenceCatalogItem(two_1_0_0))
+                    .put("three_0.1.0", createLegacyPersistenceCatalogItem(three_0_1_0))
+                    .put("three_0.2.0", createLegacyPersistenceCatalogItem(three_0_2_0))
+                    .put("four_0.1.0", createLegacyPersistenceCatalogItem(four_0_1_0))
+                    .build())
+                .initState();
         
         String bundleBom = createCatalogYaml(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of());
         VersionedName bundleName = new VersionedName("org.example.testRemoveLegacyItems", "1.0.0");
-        String removedLegacyItems = "\"one:[0,1.0.0)\",\"two:[0,1.0.0)\",\"three:0.1.0\"";
-        Map<String, String> bundleManifest = ImmutableMap.of(BundleUpgradeParser.MANIFEST_HEADER_REMOVE_LEGACY_ITEMS, removedLegacyItems);
-        File bundleFile = newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, bundleBom.getBytes(StandardCharsets.UTF_8)), bundleName, bundleManifest);
+        Map<String, String> bundleManifest = ImmutableMap.of(MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS, "\"one:[0,1.0.0)\",\"two:[0,1.0.0)\",\"three:0.1.0\"");
+        File bundleFile = newTmpBundle(ImmutableMap.of(CATALOG_BOM, bundleBom.getBytes(StandardCharsets.UTF_8)), bundleName, bundleManifest);
         File initialBomFile = newTmpFile(createCatalogYaml(ImmutableList.of(bundleFile.toURI()), ImmutableList.of()));
         
         BrooklynLauncher launcher = newLauncherForTests(initialBomFile.getAbsolutePath());
@@ -88,6 +92,56 @@ public class BrooklynLauncherUpgradeCatalogOsgiTest extends AbstractBrooklynLaun
         assertCatalogConsistsOfIds(launcher, ImmutableList.of(two_1_0_0, three_0_2_0, four_0_1_0));
         assertManagedBundle(launcher, bundleName, ImmutableSet.<VersionedName>of());
 
+        launcher.terminate();
+    }
+    
+    @Test
+    public void testForceUpgradeBundle() throws Exception {
+        VersionedName one_1_0_0 = VersionedName.fromString("one:1.0.0");
+        VersionedName one_2_0_0 = VersionedName.fromString("one:2.0.0");
+        
+        String bundleSymbolicName = "org.example.testForceUpgradeBundle";
+        VersionedName bundleVersionedName1 = new VersionedName(bundleSymbolicName, "1.0.0");
+        String bundleBom1 = createCatalogYaml(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of(one_1_0_0));
+        File bundleFile1 = newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, bundleBom1.getBytes(StandardCharsets.UTF_8)), bundleVersionedName1);
+
+        newPersistedStateInitializer()
+                .bundle(bundleVersionedName1, bundleFile1)
+                .initState();
+        
+        VersionedName bundleVersionedName2 = new VersionedName(bundleSymbolicName, "2.0.0");
+        String bundleBom2 = createCatalogYaml(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of(one_2_0_0));
+        Map<String, String> bundleManifest2 = ImmutableMap.of(MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "\""+bundleSymbolicName+":[0.0.0,2.0.0)\"");
+        File bundleFile2 = newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, bundleBom2.getBytes(StandardCharsets.UTF_8)), bundleVersionedName2, bundleManifest2);
+
+        File initialBomFile = newTmpFile(createCatalogYaml(ImmutableList.of(bundleFile2.toURI()), ImmutableList.of()));
+
+        BrooklynLauncher launcher = newLauncherForTests(initialBomFile.getAbsolutePath());
+        launcher.start();
+        assertCatalogConsistsOfIds(launcher, ImmutableList.of(one_2_0_0));
+        assertManagedBundle(launcher, bundleVersionedName2, ImmutableSet.<VersionedName>of(one_2_0_0));
+        assertNotManagedBundle(launcher, bundleVersionedName1);
+        launcher.terminate();
+    }
+    
+    // Simple test (no upgrade), important for validating that other tests really do as expected!
+    @Test
+    public void testLoadsBundleFromPersistedState() throws Exception {
+        VersionedName one_1_0_0 = VersionedName.fromString("one:1.0.0");
+        
+        String bundleSymbolicName = "org.example.testForceUpgradeBundle";
+        VersionedName bundleVersionedName = new VersionedName(bundleSymbolicName, "1.0.0");
+        String bundleBom = createCatalogYaml(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of(one_1_0_0));
+        File bundleFile = newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, bundleBom.getBytes(StandardCharsets.UTF_8)), bundleVersionedName);
+
+        newPersistedStateInitializer()
+                .bundle(bundleVersionedName, bundleFile)
+                .initState();
+        
+        BrooklynLauncher launcher = newLauncherForTests(CATALOG_EMPTY_INITIAL);
+        launcher.start();
+        assertCatalogConsistsOfIds(launcher, ImmutableList.of(one_1_0_0));
+        assertManagedBundle(launcher, bundleVersionedName, ImmutableSet.<VersionedName>of(one_1_0_0));
         launcher.terminate();
     }
 }

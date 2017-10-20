@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,7 +42,7 @@ import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.core.catalog.internal.BundleUpgradeParser.TypeUpgrades;
+import org.apache.brooklyn.core.catalog.internal.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
@@ -528,37 +529,59 @@ public class CatalogInitialization implements ManagementContextInjectable {
     }
 
     private PersistedCatalogState filterPersistedState(PersistedCatalogState persistedState, RebindLogger rebindLogger) {
-        Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)managementContext).getOsgiManager();
-        if (osgiManager.isAbsent()) {
-            // Could be running tests; do no filtering
+        CatalogUpgrades catalogUpgrades = findCatalogUpgrades(rebindLogger);
+        
+        if (catalogUpgrades.isEmpty()) {
             return persistedState;
+        } else {
+            rebindLogger.info("Filtering out persisted catalog: removedBundles="+catalogUpgrades.getRemovedBundles()+"; removedLegacyItems="+catalogUpgrades.getRemovedLegacyItems());
         }
         
-        TypeUpgrades.Builder typeUpgradesBuilder = TypeUpgrades.builder();
+        Map<VersionedName, InstallableManagedBundle> bundles = new LinkedHashMap<>();
+        for (Map.Entry<VersionedName, InstallableManagedBundle> entry : persistedState.getBundles().entrySet()) {
+            if (catalogUpgrades.isBundleRemoved(entry.getKey())) {
+                rebindLogger.debug("Filtering out persisted bundle "+entry.getKey());
+            } else {
+                bundles.put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        List<CatalogItem<?, ?>> legacyCatalogItems = new ArrayList<>();
+        for (CatalogItem<?, ?> legacyCatalogItem : persistedState.getLegacyCatalogItems()) {
+            if (catalogUpgrades.isLegacyItemRemoved(legacyCatalogItem)) {
+                rebindLogger.debug("Filtering out persisted legacy catalog item "+legacyCatalogItem.getId());
+            } else {
+                legacyCatalogItems.add(legacyCatalogItem);
+            }
+        }
+        
+        return new PersistedCatalogState(bundles, legacyCatalogItems);
+    }
+
+    private CatalogUpgrades findCatalogUpgrades(RebindLogger rebindLogger) {
+        Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)managementContext).getOsgiManager();
+        if (osgiManager.isAbsent()) {
+            // Can't find any bundles to tell if there are upgrades. Could be running tests; do no filtering.
+            return CatalogUpgrades.EMPTY;
+        }
+        
+        CatalogUpgrades.Builder catalogUpgradesBuilder = CatalogUpgrades.builder();
         Collection<ManagedBundle> managedBundles = osgiManager.get().getManagedBundles().values();
         for (ManagedBundle managedBundle : managedBundles) {
             Maybe<Bundle> bundle = osgiManager.get().findBundle(managedBundle);
             if (bundle.isPresent()) {
-                typeUpgradesBuilder.addAll(BundleUpgradeParser.parseBundleManifestForTypeUpgrades(bundle.get()));
+                catalogUpgradesBuilder.addAll(BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(bundle.get()));
+            } else {
+                rebindLogger.info("Managed bundle "+managedBundle.getId()+" not found by OSGi Manager; "
+                        + "ignoring when calculating persisted state catalog upgrades");
             }
         }
-        TypeUpgrades typeUpgrades = typeUpgradesBuilder.build();
-        
-        if (typeUpgrades.isEmpty()) {
-            return persistedState;
-        }
-        Map<VersionedName, InstallableManagedBundle> bundles = persistedState.getBundles();
-        List<CatalogItem<?, ?>> legacyCatalogItems = new ArrayList<>();
-        for (CatalogItem<?, ?> legacyCatalogItem : persistedState.getLegacyCatalogItems()) {
-            if (!typeUpgrades.isRemoved(legacyCatalogItem)) {
-                legacyCatalogItems.add(legacyCatalogItem);
-            }
-        }
-        return new PersistedCatalogState(bundles, legacyCatalogItems);
+        return catalogUpgradesBuilder.build();
     }
-
+    
     public interface RebindLogger {
         void debug(String message, Object... args);
+        void info(String message, Object... args);
     }
     
     public interface InstallableManagedBundle {

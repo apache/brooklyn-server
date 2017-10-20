@@ -331,6 +331,10 @@ public abstract class RebindIteration {
             public void debug(String message, Object... args) {
                 logRebindingDebug(message, args);
             }
+            @Override
+            public void info(String message, Object... args) {
+                logRebindingInfo(message, args);
+            }
         };
 
         class InstallableManagedBundleImpl implements CatalogInitialization.InstallableManagedBundle {
@@ -1271,6 +1275,15 @@ public abstract class RebindIteration {
     protected void logRebindingDebug(String message, Object... args) {
         if (shouldLogRebinding()) {
             LOG.debug(message, args);
+        } else {
+            LOG.trace(message, args);
+        }
+    }
+    
+    /** logs at info, except during subsequent read-only rebinds, in which it logs trace */
+    protected void logRebindingInfo(String message, Object... args) {
+        if (shouldLogRebinding()) {
+            LOG.info(message, args);
         } else {
             LOG.trace(message, args);
         }
