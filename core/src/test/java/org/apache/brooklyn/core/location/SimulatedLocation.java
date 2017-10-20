@@ -31,17 +31,17 @@ import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.OsDetails;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.location.PortSupplier;
-import org.apache.brooklyn.core.location.AbstractLocation;
-import org.apache.brooklyn.core.location.BasicHardwareDetails;
-import org.apache.brooklyn.core.location.BasicMachineDetails;
-import org.apache.brooklyn.core.location.BasicOsDetails;
-import org.apache.brooklyn.core.location.PortRanges;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.Networking;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.reflect.TypeToken;
 
 
 /** Location for use in dev/test, defining custom start/stop support, and/or tweaking the ports which are permitted to be available
@@ -49,6 +49,20 @@ import com.google.common.collect.Sets;
  */
 public class SimulatedLocation extends AbstractLocation implements MachineProvisioningLocation<MachineLocation>, MachineLocation, PortSupplier {
 
+    @SuppressWarnings("serial")
+    public static final ConfigKey<Predicate<? super SimulatedLocation>> FAIL_ON_PROVISION_CONDITION = ConfigKeys.newConfigKey(
+            new TypeToken<Predicate<? super SimulatedLocation>>() {}, 
+            "failOnProvisionCondition", 
+            "Whether to throw exception on call to start", 
+            null);
+    
+    @SuppressWarnings("serial")
+    public static final ConfigKey<Class<? extends Exception>> EXCEPTION_CLAZZ = ConfigKeys.newConfigKey(
+            new TypeToken<Class<? extends Exception>>() {},
+            "exceptionClazz", 
+            "Type of exception to throw", 
+            IllegalStateException.class);
+    
     private static final InetAddress address;
     static {
         address = Networking.getReachableLocalHost();
@@ -75,6 +89,11 @@ public class SimulatedLocation extends AbstractLocation implements MachineProvis
 
     @Override
     public MachineLocation obtain(Map<?,?> flags) {
+        Predicate<? super SimulatedLocation> failurePredicate = config().get(FAIL_ON_PROVISION_CONDITION);
+        if (failurePredicate != null && failurePredicate.apply(this)) {
+            throw newException("Simulating obtain() failure for test");
+        }
+        
         return this;
     }
 
@@ -142,5 +161,18 @@ public class SimulatedLocation extends AbstractLocation implements MachineProvis
         HardwareDetails hardwareDetails = new BasicHardwareDetails(null, null);
         OsDetails osDetails = BasicOsDetails.Factory.ANONYMOUS_LINUX;
         return new BasicMachineDetails(hardwareDetails, osDetails);
+    }
+    
+    private RuntimeException newException(String msg) {
+        try {
+            Exception result = getConfig(EXCEPTION_CLAZZ).getConstructor(String.class).newInstance(msg);
+            if (!(result instanceof RuntimeException)) {
+                return new RuntimeException("wrapping", result);
+            } else {
+                return (RuntimeException)result;
+            }
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
     }
 }

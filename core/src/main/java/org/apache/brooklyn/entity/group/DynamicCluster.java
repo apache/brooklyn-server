@@ -44,7 +44,6 @@ import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.group.zoneaware.BalancingNodePlacementStrategy;
-import org.apache.brooklyn.entity.group.zoneaware.ProportionalZoneFailureDetector;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.time.Duration;
 
@@ -165,7 +164,7 @@ public interface DynamicCluster extends AbstractGroup, Cluster, MemberReplaceabl
 
     @SetFromFlag("zoneFailureDetector")
     ConfigKey<ZoneFailureDetector> ZONE_FAILURE_DETECTOR = ConfigKeys.newConfigKey(
-            ZoneFailureDetector.class, "dynamiccluster.zone.failureDetector", "Zone failure detector", new ProportionalZoneFailureDetector(2, Duration.ONE_HOUR, 0.9));
+            ZoneFailureDetector.class, "dynamiccluster.zone.failureDetector", "Zone failure detector", null);
 
     @SetFromFlag("zonePlacementStrategy")
     ConfigKey<NodePlacementStrategy> ZONE_PLACEMENT_STRATEGY = ConfigKeys.newConfigKey(
