@@ -76,6 +76,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -326,6 +327,16 @@ public class OsgiManager {
         brooklynBundlesCacheDir = null;
     }
 
+    @VisibleForTesting
+    public static Maybe<Framework> tryPeekFrameworkForReuse() {
+        synchronized (OSGI_FRAMEWORK_CONTAINERS_FOR_REUSE) {
+            if (!OSGI_FRAMEWORK_CONTAINERS_FOR_REUSE.isEmpty()) {
+                return Maybe.of(OSGI_FRAMEWORK_CONTAINERS_FOR_REUSE.get(0));
+            }
+        }
+        return Maybe.absent();
+    }
+    
     /** Map of bundles by UID */
     public Map<String, ManagedBundle> getManagedBundles() {
         return managedBundlesRecord.getManagedBundles();

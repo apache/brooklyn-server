@@ -25,6 +25,7 @@ import static org.testng.Assert.assertNull;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -138,7 +139,14 @@ public abstract class AbstractBrooklynLauncherRebindTest {
         Files.write(contents, file, Charsets.UTF_8);
         return file;
     }
-
+    
+    protected File newTmpCopy(File orig) throws Exception {
+        File file = java.nio.file.Files.createTempFile("brooklynLauncherRebindTest-"+Identifiers.makeRandomId(4), "txt").toFile();
+        tmpFiles.add(file);
+        Streams.copyClose(new FileInputStream(orig), new FileOutputStream(file));
+        return file;
+    }
+    
     protected File newTmpBundle(Map<String, byte[]> files, VersionedName bundleName) {
         return newTmpBundle(files, bundleName, ImmutableMap.of());
     }
