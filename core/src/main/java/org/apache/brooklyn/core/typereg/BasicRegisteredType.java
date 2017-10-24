@@ -30,6 +30,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
@@ -155,9 +156,10 @@ public class BasicRegisteredType implements RegisteredType {
     @Override
     public String toString() {
         return JavaClassNames.simpleClassName(this)+"["+getId()+
+            (Strings.isNonBlank(getContainingBundle()) ? ";"+getContainingBundle() : "")+
             (isDisabled() ? ";DISABLED" : "")+
             (isDeprecated() ? ";deprecated" : "")+
-            (getPlan()!=null ? ";"+getPlan().getPlanFormat() : "")+
+            (getPlan()!=null && getPlan().getPlanFormat()!=null ? ";"+getPlan().getPlanFormat() : "")+
             "]";
     }
 

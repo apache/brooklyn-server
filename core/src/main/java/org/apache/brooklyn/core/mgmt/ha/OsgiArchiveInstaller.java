@@ -377,6 +377,7 @@ class OsgiArchiveInstaller {
                     }
                 }
                 if (canUpdate()) { 
+                    
                     result.bundle = osgiManager.framework.getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
                     if (result.getBundle()==null) {
                         log.warn("Brooklyn thought is was already managing bundle "+result.getMetadata().getVersionedName()+" but it's not installed to framework; reinstalling it");
