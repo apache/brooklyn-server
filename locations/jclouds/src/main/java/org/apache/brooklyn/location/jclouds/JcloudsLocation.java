@@ -2827,13 +2827,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             return getPublicHostname(node, sshHostAndPort, userCredentials, setup);
         }
 
-        // NodeMetadata.getHostname() is supposed to return the private hostname. If it's not null, we want to prioritise
-        // this, otherwise we call getPrivateHostnameGeneric()
-        final String hostname = node.getHostname();
-        if (hostname != null) {
-            return hostname;
-        }
-
         Optional<String> preferredAddress = sshHostAndPort.isPresent() ? Optional.of(sshHostAndPort.get().getHostText()) : Optional.<String>absent();
         return getPrivateHostnameGeneric(node, setup, preferredAddress);
     }
