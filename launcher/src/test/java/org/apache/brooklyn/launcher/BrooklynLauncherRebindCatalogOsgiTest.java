@@ -19,30 +19,31 @@
 package org.apache.brooklyn.launcher;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import java.io.File;
-import java.nio.charset.StandardCharsets;
 import java.io.FileInputStream;
-import java.net.URI;
-import java.util.LinkedHashSet;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.brooklyn.api.typereg.ManagedBundle;
-import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.osgi.Osgis;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.launch.Framework;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
@@ -62,12 +63,29 @@ public class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBrooklynLaunc
     private static final Set<VersionedName> COM_EXAMPLE_BUNDLE_CATALOG_IDS = ImmutableSet.of(
             new VersionedName("com.example.simpleTest", "0.0.0-SNAPSHOT"));
 
+    /**
+     * Whether we reuse OSGi Framework depends if we want it to feel like rebinding on a new machine 
+     * (so no cached bundles), or a local restart. We can also use {@code reuseOsgi = true} to emulate
+     * system bundles (by pre-installing them into the reused framework at the start of the test).
+     */
     private boolean reuseOsgi = false;
     
-    @BeforeMethod(alwaysRun=true)
+    private List<Bundle> reusedBundles = new ArrayList<>();
+    
+    @AfterMethod(alwaysRun=true)
     @Override
-    public void setUp() throws Exception {
-        super.setUp();
+    public void tearDown() throws Exception {
+        try {
+            reuseOsgi = false;
+            for (Bundle bundle : reusedBundles) {
+                if (bundle != null && bundle.getState() != Bundle.UNINSTALLED) {
+                    bundle.uninstall();
+                }
+            }
+            reusedBundles.clear();
+        } finally {
+            super.tearDown();
+        }
     }
     
     @Override
@@ -110,7 +128,7 @@ public class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBrooklynLaunc
     /**
      * See https://issues.apache.org/jira/browse/BROOKLYN-546.
      * 
-     * We built up to launcher3, which will have three things:
+     * We built up to launcher2, which will have three things:
      *  1. a pre-installed "system bundle"
      *  2. an initial catalog that references this same system bundle (hence the bundle will be "managed")
      *  3. persisted state that references this same system bundle.
@@ -130,54 +148,201 @@ public class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBrooklynLaunc
     @Test
     public void testRebindWithSystemBundleInCatalog() throws Exception {
         Set<VersionedName> bundleItems = ImmutableSet.of(VersionedName.fromString("one:1.0.0-SNAPSHOT"));
-        String bundleBom = createCatalogYaml(ImmutableList.of(), bundleItems);
-        VersionedName bundleName = new VersionedName("org.example.testRebindWithSystemBundleInCatalog", "1.0.0.SNAPSHOT");
-        File bundleFile = newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, bundleBom.getBytes(StandardCharsets.UTF_8)), bundleName);
+        VersionedName bundleName = new VersionedName("org.example.brooklynLauncherRebindCatalogOsgiTest."+Identifiers.makeRandomId(4), "1.0.0.SNAPSHOT");
+        File bundleFile = newTmpBundle(bundleItems, bundleName);
         File bundleFileCopy = newTmpCopy(bundleFile);
 
         File initialBomFile = newTmpFile(createCatalogYaml(ImmutableList.of(bundleFile.toURI()), ImmutableList.of()));
 
-        Framework reusedFamework = null;
-        Bundle pseudoSystemBundle = null;
-        try {
-            reuseOsgi = true;
-            
-            // Launch and terminate brooklyn to ensure there is a reusable OSGi Framework
-            BrooklynLauncher launcher = newLauncherForTests(CATALOG_EMPTY_INITIAL);
-            launcher.start();
-            launcher.terminate();
-            Os.deleteRecursively(persistenceDir);
-            
-            // Add our bundle, so it feels for all intents and purposes like a "system bundle"
-            reusedFamework = OsgiManager.tryPeekFrameworkForReuse().get();
-            pseudoSystemBundle = installBundle(reusedFamework, bundleFileCopy);
-            
-            // Launch brooklyn, where initial catalog includes a duplicate of the system bundle
-            BrooklynLauncher launcher2 = newLauncherForTests(initialBomFile.getAbsolutePath());
-            launcher2.start();
-            assertCatalogConsistsOfIds(launcher2, bundleItems);
-            assertManagedBundle(launcher2, bundleName, bundleItems);
-            launcher2.terminate();
+        reuseOsgi = true;
+        
+        // Add our bundle, so it feels for all intents and purposes like a "system bundle"
+        Framework reusedFramework = initReusableOsgiFramework();
+        Bundle pseudoSystemBundle = installBundle(reusedFramework, bundleFileCopy);
+        reusedBundles.add(pseudoSystemBundle);
+        
+        // Launch brooklyn, where initial catalog includes a duplicate of the system bundle
+        BrooklynLauncher launcher = newLauncherForTests(initialBomFile.getAbsolutePath());
+        launcher.start();
+        assertCatalogConsistsOfIds(launcher, bundleItems);
+        assertManagedBundle(launcher, bundleName, bundleItems);
+        launcher.terminate();
 
-            // Launch brooklyn, where persisted state now includes the initial catalog's bundle
-            BrooklynLauncher launcher3 = newLauncherForTests(initialBomFile.getAbsolutePath());
-            launcher3.start();
-            assertCatalogConsistsOfIds(launcher3, bundleItems);
-            assertManagedBundle(launcher3, bundleName, bundleItems);
-            
-            // Should not have replaced the original "system bundle"
-            reusedFamework.getBundleContext().getBundles();
-            List<Bundle> matchingBundles = Osgis.bundleFinder(reusedFamework).symbolicName(bundleName.getSymbolicName()).version(bundleName.getOsgiVersionString()).findAll();
-            assertEquals(matchingBundles, ImmutableList.of(pseudoSystemBundle));
+        // Launch brooklyn, where persisted state now includes the initial catalog's bundle
+        BrooklynLauncher launcher2 = newLauncherForTests(initialBomFile.getAbsolutePath());
+        launcher2.start();
+        assertCatalogConsistsOfIds(launcher2, bundleItems);
+        assertManagedBundle(launcher2, bundleName, bundleItems);
+        
+        // Should not have replaced the original "system bundle"
+        assertOnlyBundle(reusedFramework, bundleName, pseudoSystemBundle);
 
-            launcher3.terminate();
+        launcher2.terminate();
+    }
 
-        } finally {
-            reuseOsgi = false;
-            if (pseudoSystemBundle != null && pseudoSystemBundle.getState() != Bundle.UNINSTALLED) {
-                pseudoSystemBundle.uninstall();
-            }
+    @Test
+    public void testInstallPreexistingBundle() throws Exception {
+        Set<VersionedName> bundleItems = ImmutableSet.of(VersionedName.fromString("one:1.0.0-SNAPSHOT"));
+        VersionedName bundleName = new VersionedName("org.example.brooklynLauncherRebindCatalogOsgiTest."+Identifiers.makeRandomId(4), "1.0.0.SNAPSHOT");
+        File bundleFile = newTmpBundle(bundleItems, bundleName);
+        File bundleFileCopy = newTmpCopy(bundleFile);
+
+        reuseOsgi = true;
+        
+        // Add our bundle, so it feels for all intents and purposes like a "system bundle"
+        Framework reusedFramework = initReusableOsgiFramework();
+        Bundle pseudoSystemBundle = installBundle(reusedFramework, bundleFileCopy);
+        reusedBundles.add(pseudoSystemBundle);
+        
+        // Launch brooklyn, and explicitly install pre-existing bundle.
+        // Should bring it under brooklyn-management (should not re-install it).
+        BrooklynLauncher launcher = newLauncherForTests(CATALOG_EMPTY_INITIAL);
+        launcher.start();
+        installBrooklynBundle(launcher, bundleFile, false).getWithError();
+        
+        assertOnlyBundle(launcher, bundleName, pseudoSystemBundle);
+        assertCatalogConsistsOfIds(launcher, bundleItems);
+        assertManagedBundle(launcher, bundleName, bundleItems);
+        launcher.terminate();
+
+        // Launch brooklyn again (because will have persisted the pre-installed bundle)
+        BrooklynLauncher launcher2 = newLauncherForTests(CATALOG_EMPTY_INITIAL);
+        launcher2.start();
+        assertOnlyBundle(reusedFramework, bundleName, pseudoSystemBundle);
+        assertCatalogConsistsOfIds(launcher2, bundleItems);
+        assertManagedBundle(launcher2, bundleName, bundleItems);
+        launcher2.terminate();
+    }
+
+    @Test
+    public void testInstallPreexistingBundleViaIndirectBrooklynLibrariesReference() throws Exception {
+        Set<VersionedName> bundleItems = ImmutableSet.of(VersionedName.fromString("one:1.0.0-SNAPSHOT"));
+        VersionedName systemBundleName = new VersionedName("org.example.brooklynLauncherRebindCatalogOsgiTest.system"+Identifiers.makeRandomId(4), "1.0.0.SNAPSHOT");
+        File systemBundleFile = newTmpBundle(bundleItems, systemBundleName);
+
+        String bundleBom = createCatalogYaml(ImmutableList.of(), ImmutableList.of(systemBundleName), ImmutableList.of());
+        VersionedName bundleName = new VersionedName("org.example.brooklynLauncherRebindCatalogOsgiTest.initial"+Identifiers.makeRandomId(4), "1.0.0.SNAPSHOT");
+        File bundleFile = newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, bundleBom.getBytes(StandardCharsets.UTF_8)), bundleName);
+        
+        File initialBomFile = newTmpFile(createCatalogYaml(ImmutableList.of(bundleFile.toURI()), ImmutableList.of()));
+        
+        reuseOsgi = true;
+        
+        // Add our bundle, so it feels for all intents and purposes like a "system bundle"
+        Framework reusedFramework = initReusableOsgiFramework();
+        Bundle pseudoSystemBundle = installBundle(reusedFramework, systemBundleFile);
+        reusedBundles.add(pseudoSystemBundle);
+        
+        // Launch brooklyn, with initial catalog pointing at bundle that points at system bundle.
+        // Should bring it under brooklyn-management (without re-installing it).
+        BrooklynLauncher launcher = newLauncherForTests(initialBomFile.getAbsolutePath());
+        launcher.start();
+        assertOnlyBundle(launcher, systemBundleName, pseudoSystemBundle);
+        assertCatalogConsistsOfIds(launcher, bundleItems);
+        assertManagedBundle(launcher, systemBundleName, bundleItems);
+        assertManagedBundle(launcher, bundleName, ImmutableSet.of());
+        launcher.terminate();
+
+        // Launch brooklyn again (because will have persisted both those bundles)
+        BrooklynLauncher launcher2 = newLauncherForTests(CATALOG_EMPTY_INITIAL);
+        launcher2.start();
+        assertOnlyBundle(launcher2, systemBundleName, pseudoSystemBundle);
+        assertCatalogConsistsOfIds(launcher2, bundleItems);
+        assertManagedBundle(launcher2, systemBundleName, bundleItems);
+        assertManagedBundle(launcher2, bundleName, ImmutableSet.of());
+        launcher2.terminate();
+    }
+
+    @Test
+    public void testInstallPreexistingBundleViaInitialBomBrooklynLibrariesReference() throws Exception {
+        runInstallPreexistingBundleViaInitialBomBrooklynLibrariesReference(false);
+    }
+    
+    // Aled thought we supported version ranges in 'brooklyn.libraries', but doesn't work here.
+    @Test(groups="Broken")
+    public void testInstallPreexistingBundleViaInitialBomBrooklynLibrariesReferenceWithVersionRange() throws Exception {
+        runInstallPreexistingBundleViaInitialBomBrooklynLibrariesReference(true);
+    }
+    
+    protected void runInstallPreexistingBundleViaInitialBomBrooklynLibrariesReference(boolean useVersionRange) throws Exception {
+        Set<VersionedName> bundleItems = ImmutableSet.of(VersionedName.fromString("one:1.0.0"));
+        VersionedName systemBundleName = new VersionedName("org.example.brooklynLauncherRebindCatalogOsgiTest.system"+Identifiers.makeRandomId(4), "1.0.0");
+        File systemBundleFile = newTmpBundle(bundleItems, systemBundleName);
+
+        VersionedName systemBundleNameRef;
+        if (useVersionRange) {
+            systemBundleNameRef = new VersionedName(systemBundleName.getSymbolicName(), "[1,2)");
+        } else {
+            systemBundleNameRef = systemBundleName;
         }
+        File initialBomFile = newTmpFile(createCatalogYaml(ImmutableList.of(), ImmutableList.of(systemBundleNameRef), ImmutableList.of()));
+        
+        reuseOsgi = true;
+        
+        // Add our bundle, so it feels for all intents and purposes like a "system bundle"
+        Framework reusedFramework = initReusableOsgiFramework();
+        Bundle pseudoSystemBundle = installBundle(reusedFramework, systemBundleFile);
+        reusedBundles.add(pseudoSystemBundle);
+        
+        // Launch brooklyn, with initial catalog pointing at system bundle.
+        // Should bring it under brooklyn-management (without re-installing it).
+        BrooklynLauncher launcher = newLauncherForTests(initialBomFile.getAbsolutePath());
+        launcher.start();
+        assertOnlyBundle(launcher, systemBundleName, pseudoSystemBundle);
+        assertCatalogConsistsOfIds(launcher, bundleItems);
+        assertManagedBundle(launcher, systemBundleName, bundleItems);
+        launcher.terminate();
+
+        // Launch brooklyn again (because will have persisted both those bundles)
+        BrooklynLauncher launcher2 = newLauncherForTests(CATALOG_EMPTY_INITIAL);
+        launcher2.start();
+        assertOnlyBundle(launcher2, systemBundleName, pseudoSystemBundle);
+        assertCatalogConsistsOfIds(launcher2, bundleItems);
+        assertManagedBundle(launcher2, systemBundleName, bundleItems);
+        launcher2.terminate();
+    }
+
+    @Test
+    public void testInstallReplacesPreexistingBundleWithoutForce() throws Exception {
+        runInstallReplacesPreexistingBundle(false);
+    }
+    
+    @Test
+    public void testInstallReplacesPreexistingBundleWithForce() throws Exception {
+        runInstallReplacesPreexistingBundle(true);
+    }
+    
+    protected void runInstallReplacesPreexistingBundle(boolean force) throws Exception {
+        Set<VersionedName> bundleItems = ImmutableSet.of(VersionedName.fromString("one:1.0.0-SNAPSHOT"));
+        VersionedName bundleName = new VersionedName("org.example.brooklynLauncherRebindCatalogOsgiTest."+Identifiers.makeRandomId(4), "1.0.0.SNAPSHOT");
+        File systemBundleFile = newTmpBundle(bundleItems, bundleName);
+        File replacementBundleFile = newTmpBundle(bundleItems, bundleName, "randomDifference"+Identifiers.makeRandomId(4));
+
+        reuseOsgi = true;
+        
+        // Add our bundle, so it feels for all intents and purposes like a "system bundle"
+        Framework reusedFramework = initReusableOsgiFramework();
+        Bundle pseudoSystemBundle = installBundle(reusedFramework, systemBundleFile);
+        reusedBundles.add(pseudoSystemBundle);
+        
+        // Launch brooklyn, and explicitly install pre-existing bundle.
+        // Should bring it under brooklyn-management (should not re-install it).
+        BrooklynLauncher launcher = newLauncherForTests(CATALOG_EMPTY_INITIAL);
+        launcher.start();
+        installBrooklynBundle(launcher, replacementBundleFile, force).getWithError();
+        
+        assertOnlyBundleReplaced(launcher, bundleName, pseudoSystemBundle);
+        assertCatalogConsistsOfIds(launcher, bundleItems);
+        assertManagedBundle(launcher, bundleName, bundleItems);
+        launcher.terminate();
+
+        // Launch brooklyn again (because will have persisted the pre-installed bundle)
+        BrooklynLauncher launcher2 = newLauncherForTests(CATALOG_EMPTY_INITIAL);
+        launcher2.start();
+        assertOnlyBundleReplaced(reusedFramework, bundleName, pseudoSystemBundle);
+        assertCatalogConsistsOfIds(launcher2, bundleItems);
+        assertManagedBundle(launcher2, bundleName, bundleItems);
+        launcher2.terminate();
     }
 
     @Test
@@ -266,5 +431,55 @@ public class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBrooklynLaunc
         try (FileInputStream stream = new FileInputStream(bundle)) {
             return framework.getBundleContext().installBundle(bundle.toURI().toString(), stream);
         }
+    }
+    
+    private ReferenceWithError<OsgiBundleInstallationResult> installBrooklynBundle(BrooklynLauncher launcher, File bundleFile, boolean force) throws Exception {
+        OsgiManager osgiManager = ((ManagementContextInternal)launcher.getManagementContext()).getOsgiManager().get();
+        try (FileInputStream bundleStream = new FileInputStream(bundleFile)) {
+            return osgiManager.install(null, bundleStream, true, true, force);
+        }
+    }
+    
+    private void assertOnlyBundle(BrooklynLauncher launcher, VersionedName bundleName, Bundle expectedBundle) {
+        Framework framework = ((ManagementContextInternal)launcher.getManagementContext()).getOsgiManager().get().getFramework();
+        assertOnlyBundle(framework, bundleName, expectedBundle);
+    }
+    
+    private void assertOnlyBundleReplaced(BrooklynLauncher launcher, VersionedName bundleName, Bundle expectedBundle) {
+        Framework framework = ((ManagementContextInternal)launcher.getManagementContext()).getOsgiManager().get().getFramework();
+        assertOnlyBundleReplaced(framework, bundleName, expectedBundle);
+    }
+    
+    private void assertOnlyBundle(Framework framework, VersionedName bundleName, Bundle expectedBundle) {
+        List<Bundle> matchingBundles = Osgis.bundleFinder(framework).symbolicName(bundleName.getSymbolicName()).version(bundleName.getOsgiVersionString()).findAll();
+        assertTrue(matchingBundles.contains(expectedBundle), "Bundle missing; matching="+matchingBundles);
+        assertEquals(matchingBundles.size(), 1, "Extra bundles; matching="+matchingBundles);
+    }
+    
+    private void assertOnlyBundleReplaced(Framework framework, VersionedName bundleName, Bundle expectedBundle) {
+        List<Bundle> matchingBundles = Osgis.bundleFinder(framework).symbolicName(bundleName.getSymbolicName()).version(bundleName.getOsgiVersionString()).findAll();
+        assertFalse(matchingBundles.contains(expectedBundle), "Bundle still present; matching="+matchingBundles);
+        assertEquals(matchingBundles.size(), 1, "Extra bundles; matching="+matchingBundles);
+    }
+    
+    private Framework initReusableOsgiFramework() {
+        if (!reuseOsgi) throw new IllegalStateException("Must first set reuseOsgi");
+        
+        if (OsgiManager.tryPeekFrameworkForReuse().isAbsent()) {
+            BrooklynLauncher launcher = newLauncherForTests(CATALOG_EMPTY_INITIAL);
+            launcher.start();
+            launcher.terminate();
+            Os.deleteRecursively(persistenceDir);
+        }
+        return OsgiManager.tryPeekFrameworkForReuse().get();
+    }
+
+    private File newTmpBundle(Set<VersionedName> catalogItems, VersionedName bundleName) {
+        return newTmpBundle(catalogItems, bundleName, null);
+    }
+    
+    private File newTmpBundle(Set<VersionedName> catalogItems, VersionedName bundleName, String randomNoise) {
+        String bundleBom = createCatalogYaml(ImmutableList.of(), ImmutableList.of(), catalogItems, randomNoise);
+        return newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, bundleBom.getBytes(StandardCharsets.UTF_8)), bundleName);
     }
 }

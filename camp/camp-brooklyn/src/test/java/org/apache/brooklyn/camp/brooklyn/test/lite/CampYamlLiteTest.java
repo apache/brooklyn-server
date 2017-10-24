@@ -213,7 +213,7 @@ public class CampYamlLiteTest {
         // install bundle for class access but without loading its catalog.bom, 
         // since we only have mock matchers here
         // (if we don't do this, the default routines install it and try to process the catalog.bom, failing)
-        ((ManagementContextInternal)mgmt).getOsgiManager().get().installDeferredStart(new BasicManagedBundle(null, null, bundleUrl), null, false).get();
+        ((ManagementContextInternal)mgmt).getOsgiManager().get().installDeferredStart(new BasicManagedBundle(null, null, bundleUrl, null), null, false).get();
     }
 
     private void assertMgmtHasSampleMyCatalogApp(String symbolicName, String bundleUrl) {

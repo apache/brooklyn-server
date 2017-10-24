@@ -267,19 +267,32 @@ public abstract class AbstractBrooklynLauncherRebindTest {
     }
     
     protected String createCatalogYaml(Iterable<URI> libraries, Iterable<VersionedName> entities) {
-        if (Iterables.isEmpty(libraries) && Iterables.isEmpty(entities)) {
-            return "brooklyn.catalog: {}\n";
-        }
-        
+        return createCatalogYaml(libraries, ImmutableList.of(), entities, null);
+    }
+
+    protected String createCatalogYaml(Iterable<URI> libraryUris, Iterable<VersionedName> libraryNames, Iterable<VersionedName> entities) {
+        return createCatalogYaml(libraryUris, libraryNames, entities, null);
+    }
+    
+    protected String createCatalogYaml(Iterable<URI> libraryUris, Iterable<VersionedName> libraryNames, Iterable<VersionedName> entities, String randomNoise) {
         StringBuilder result = new StringBuilder();
         result.append("brooklyn.catalog:\n");
-        if (!Iterables.isEmpty(libraries)) {
+        if (randomNoise != null) {
+            result.append("  description: "+randomNoise+"\n");
+        }
+        if (!(Iterables.isEmpty(libraryUris) && Iterables.isEmpty(libraryNames))) {
             result.append("  brooklyn.libraries:\n");
         }
-        for (URI library : libraries) {
+        for (URI library : libraryUris) {
             result.append("    - " + library+"\n");
         }
-        if (!Iterables.isEmpty(entities)) {
+        for (VersionedName library : libraryNames) {
+            result.append("    - name: "+library.getSymbolicName()+"\n");
+            result.append("      version: \""+library.getVersionString()+"\"\n");
+        }
+        if (Iterables.isEmpty(entities)) {
+            result.append("  items: []\n");
+        } else {
             result.append("  items:\n");
         }
         for (VersionedName entity : entities) {
@@ -291,6 +304,9 @@ public abstract class AbstractBrooklynLauncherRebindTest {
         }
         return result.toString();
     }
+    
+
+    
     
     public PersistedStateInitializer newPersistedStateInitializer() {
         return new PersistedStateInitializer();

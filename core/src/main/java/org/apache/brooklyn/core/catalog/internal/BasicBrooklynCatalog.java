@@ -1503,7 +1503,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
         OsgiBundleInstallationResult result = null;
         try {
-            result = osgiManager.install(new BasicManagedBundle(vn.getSymbolicName(), vn.getVersionString(), null), new FileInputStream(bf), true, true, forceUpdate).get();
+            result = osgiManager.install(new BasicManagedBundle(vn.getSymbolicName(), vn.getVersionString(), null, null), new FileInputStream(bf), true, true, forceUpdate).get();
         } catch (FileNotFoundException e) {
             throw Exceptions.propagate(e);
         } finally {
