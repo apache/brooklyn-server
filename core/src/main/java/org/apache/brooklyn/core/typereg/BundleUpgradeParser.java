@@ -213,17 +213,32 @@ public class BundleUpgradeParser {
     }
 
     public static CatalogUpgrades parseBundleManifestForCatalogUpgrades(Bundle bundle) {
-        // TODO Add support for "*" for "force-remove-bundles", to indicate all lower-versioned 
-        // bundles with the same symbolic name as this bundle. Also add support for the other 
-        // options described in the proposal:
+        // TODO Add support for the other options described in the proposal:
         //   https://docs.google.com/document/d/1Lm47Kx-cXPLe8BO34-qrL3ZMPosuUHJILYVQUswEH6Y/edit#
         //   section "Bundle Upgrade Metadata"
         
         Dictionary<String, String> headers = bundle.getHeaders();
         return CatalogUpgrades.builder()
                 .removedLegacyItems(parseVersionRangedNameList(headers.get(MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS), false))
-                .removedBundles(parseVersionRangedNameList(headers.get(MANIFEST_HEADER_FORCE_REMOVE_BUNDLES), false))
+                .removedBundles(parseForceRemoveBundlesHeader(bundle, headers.get(MANIFEST_HEADER_FORCE_REMOVE_BUNDLES)))
                 .build();
+    }
+
+    @VisibleForTesting
+    static List<VersionRangedName> parseForceRemoveBundlesHeader(Bundle context, String input) {
+        if (input == null) return ImmutableList.of();
+        if (stripQuotes(input).equals("*")) {
+            String bundleVersion = context.getVersion().toString();
+            String maxVersion;
+            if (BrooklynVersionSyntax.isSnapshot(bundleVersion)) {
+                maxVersion = BrooklynVersionSyntax.stripSnapshot(bundleVersion);
+            } else {
+                maxVersion = bundleVersion;
+            }
+            return ImmutableList.of(new VersionRangedName(context.getSymbolicName(), "[0,"+maxVersion+")"));
+        } else {
+            return parseVersionRangedNameList(input, false);
+        }
     }
     
     @VisibleForTesting
@@ -241,5 +256,12 @@ public class BundleUpgradeParser {
             versionedItems.add(VersionRangedName.fromString(val, singleVersionIsOsgiRange));
         }
         return versionedItems;
+    }
+    
+    private static String stripQuotes(String input) {
+        String quoteChars = QuotedStringTokenizer.DEFAULT_QUOTE_CHARS;
+        boolean quoted = (input.length() >= 2) && quoteChars.contains(input.substring(0, 1))
+                && quoteChars.contains(input.substring(input.length() - 1));
+        return (quoted ? input.substring(1, input.length() - 1) : input);
     }
 }

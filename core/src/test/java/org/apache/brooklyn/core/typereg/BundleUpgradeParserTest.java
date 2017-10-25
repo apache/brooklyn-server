@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.core.typereg.BundleUpgradeParser;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.VersionRangedName;
 import org.apache.brooklyn.test.Asserts;
@@ -46,6 +45,7 @@ import com.google.common.collect.ImmutableMap;
 public class BundleUpgradeParserTest {
 
     private VersionRange from0lessThan1 = new VersionRange('[', Version.valueOf("0"), Version.valueOf("1.0.0"), ')');
+    private VersionRange from0lessThan1_2_3 = new VersionRange('[', Version.valueOf("0"), Version.valueOf("1.2.3"), ')');
     private VersionRange exactly0dot1 = new VersionRange('[', Version.valueOf("0.1.0"), Version.valueOf("0.1.0"), ']');
     private VersionRangedName fooFrom0lessThan1 = new VersionRangedName("foo", from0lessThan1);
     private VersionRangedName barFrom0lessThan1 = new VersionRangedName("bar", from0lessThan1);
@@ -82,27 +82,48 @@ public class BundleUpgradeParserTest {
     @Test
     public void testParseSingleQuotedVal() throws Exception {
         String input = "\"foo:[0,1.0.0)\"";
-        assertParsed(input, ImmutableList.of(fooFrom0lessThan1));
+        assertParseList(input, ImmutableList.of(fooFrom0lessThan1));
     }
     
     @Test
     public void testParseSingleQuotedValWithNestedQuotes() throws Exception {
         String input = "\"foo:[0,\"1.0.0\")\"";
-        assertParsed(input, ImmutableList.of(fooFrom0lessThan1));
+        assertParseList(input, ImmutableList.of(fooFrom0lessThan1));
     }
     
     @Test
     public void testParseMultipleVals() throws Exception {
         String input = "\"foo:[0,1.0.0)\",\"bar:[0,1.0.0)\"";
-        assertParsed(input, ImmutableList.of(fooFrom0lessThan1, barFrom0lessThan1));
+        assertParseList(input, ImmutableList.of(fooFrom0lessThan1, barFrom0lessThan1));
     }
 
     @Test
     public void testParseValWithExactVersion() throws Exception {
         String input = "\"foo:0.1.0\"";
-        assertParsed(input, ImmutableList.of(new VersionRangedName("foo", exactly0dot1)));
+        assertParseList(input, ImmutableList.of(new VersionRangedName("foo", exactly0dot1)));
     }
 
+    @Test
+    public void testParseForceRemoveBundlesHeader() throws Exception {
+        Bundle bundle = Mockito.mock(Bundle.class);
+        Mockito.when(bundle.getSymbolicName()).thenReturn("foo.bar");
+        Mockito.when(bundle.getVersion()).thenReturn(Version.valueOf("1.2.3"));
+        
+        assertParseForceRemoveBundlesHeader(bundle, "\"foo:0.1.0\"", ImmutableList.of(new VersionRangedName("foo", exactly0dot1)));
+        assertParseForceRemoveBundlesHeader(bundle, "\"*\"", ImmutableList.of(new VersionRangedName("foo.bar", from0lessThan1_2_3)));
+        assertParseForceRemoveBundlesHeader(bundle, "*", ImmutableList.of(new VersionRangedName("foo.bar", from0lessThan1_2_3)));
+    }
+    
+    @Test
+    public void testParseForceRemoveBundlesHeaderWithSnapshot() throws Exception {
+        Bundle bundle = Mockito.mock(Bundle.class);
+        Mockito.when(bundle.getSymbolicName()).thenReturn("foo.bar");
+        Mockito.when(bundle.getVersion()).thenReturn(Version.valueOf("1.2.3.SNAPSHOT"));
+        
+        assertParseForceRemoveBundlesHeader(bundle, "\"*\"", ImmutableList.of(new VersionRangedName("foo.bar", from0lessThan1_2_3)));
+        assertParseForceRemoveBundlesHeader(bundle, "*", ImmutableList.of(new VersionRangedName("foo.bar", from0lessThan1_2_3)));
+    }
+    
     @Test
     public void testParseBundleEmptyManifest() throws Exception {
         Bundle bundle = newMockBundle(ImmutableMap.of());
@@ -147,15 +168,25 @@ public class BundleUpgradeParserTest {
         return result;
     }
     
-    private void assertParsed(String input, List<VersionRangedName> expected) throws Exception {
+    private void assertParseList(String input, List<VersionRangedName> expected) throws Exception {
         List<VersionRangedName> actual = BundleUpgradeParser.parseVersionRangedNameList(input, false);
-        assertEquals(actual.size(), expected.size(), "actual="+actual); 
-        for (int i = 0; i < actual.size(); i++) {
-            assertEquals(actual.get(i).getSymbolicName(), expected.get(i).getSymbolicName());
-            assertEquals(actual.get(i).getOsgiVersionRange(), expected.get(i).getOsgiVersionRange());
-        }
+        assertListsEqual(actual, expected);
     }
     
+    private void assertParseForceRemoveBundlesHeader(Bundle bundle, String input, List<VersionRangedName> expected) throws Exception {
+        List<VersionRangedName> actual = BundleUpgradeParser.parseForceRemoveBundlesHeader(bundle, input);
+        assertListsEqual(actual, expected);
+    }
+
+    private void assertListsEqual(List<VersionRangedName> actual, List<VersionRangedName> expected) throws Exception {
+        String errMsg = "actual="+actual;
+        assertEquals(actual.size(), expected.size(), errMsg); 
+        for (int i = 0; i < actual.size(); i++) {
+            assertEquals(actual.get(i).getSymbolicName(), expected.get(i).getSymbolicName(), errMsg);
+            assertEquals(actual.get(i).getOsgiVersionRange(), expected.get(i).getOsgiVersionRange(), errMsg);
+        }
+    }
+
     private void assertVersionRangedNameFails(String input, String expectedFailure, String... optionalOtherExpectedFailures) {
         try {
             VersionRangedName.fromString(input, false);

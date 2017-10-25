@@ -225,4 +225,18 @@ public class BrooklynVersionSyntax {
         return version.toUpperCase().contains(SNAPSHOT);
     }
 
+    /**
+     * Returns the version without "SNAPSHOT" (normally this will return the next expected release version).
+     * For example, "1.0.0.SNAPSHOT" or "1.0.0-SNAPSHOT" becomes "1.0.0".
+     */
+    public static String stripSnapshot(String input) {
+        if (input==null) return input;
+        int stripIndex = input.toUpperCase().indexOf(SNAPSHOT);
+        if (stripIndex <= 0) return input;
+        char charBeforeSnapshot = input.charAt(stripIndex - 1);
+        if (charBeforeSnapshot == '.' || charBeforeSnapshot == '_' || charBeforeSnapshot == '-') {
+            stripIndex--;
+        }
+        return (stripIndex <= 0) ? input : input.substring(0, stripIndex);
+    }
 }
