@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
@@ -38,6 +39,7 @@ import org.osgi.framework.VersionRange;
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -50,6 +52,19 @@ public class BundleUpgradeParser {
      * A header in a bundle's manifest, indicating that this bundle will force the removal of the 
      * given legacy catalog items. Here "legacy" means those in the `/catalog` persisted state, 
      * rather than items added in bundles.
+     * 
+     * The format for the value is one of:
+     * <ul>
+     *   <li>Quoted {@code name:versionRange}, where version range follows the OSGi conventions 
+     *       (except that a single version number means exactly that version rather than greater 
+     *       than or equal to that verison). For example, {@code "my-tomcat:[0,1)"}
+     *   <li>Comma-separated list of quoted {@code name:versionRange}. For example,
+     *       {@code "my-tomcat:[0,1)","my-nginx:[0,1)"}
+     *   <li>{@code "*"} means all legacy items for things defined in this bundle, with version
+     *       numbers older than the version of the bundle. For example, if the bundle is 
+     *       version 1.0.0 and its catalog.bom contains items "foo" and "bar", then it is equivalent
+     *       to writing {@code "foo:[0,1.0.0)","bar:[0,1.0.0)"}
+     * </ul>
      */
     @Beta
     public static final String MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS = "brooklyn-catalog-force-remove-legacy-items";
@@ -57,6 +72,19 @@ public class BundleUpgradeParser {
     /**
      * A header in a bundle's manifest, indicating that this bundle will force the removal of matching 
      * bundle(s) that are in the `/bundles` persisted state.
+     * 
+     * The format for the value is one of:
+     * <ul>
+     *   <li>Quoted {@code name:versionRange}, where version range follows the OSGi conventions 
+     *       (except that a single version number means exactly that version rather than greater 
+     *       than or equal to that verison). For example, {@code "org.example.mybundle:[0,1)"}
+     *   <li>Comma-separated list of quoted {@code name:versionRange}. For example,
+     *       {@code "org.example.mybundle:[0,1)","org.example.myotherbundle:[0,1)"} (useful for
+     *       when this bundle merges the contents of two previous bundles).
+     *   <li>{@code "*"} means all older versions of this bundle. For example, if the bundle is 
+     *       {@code org.example.mybundle:1.0.0}, then it is equivalent to writing 
+     *       {@code "org.example.mybundle:[0,1.0.0)"}
+     * </ul>
      */
     @Beta
     public static final String MANIFEST_HEADER_FORCE_REMOVE_BUNDLES = "brooklyn-catalog-force-remove-bundles";
@@ -212,30 +240,46 @@ public class BundleUpgradeParser {
         }
     }
 
-    public static CatalogUpgrades parseBundleManifestForCatalogUpgrades(Bundle bundle) {
+    public static CatalogUpgrades parseBundleManifestForCatalogUpgrades(Bundle bundle, Supplier<? extends Iterable<? extends RegisteredType>> typeSupplier) {
         // TODO Add support for the other options described in the proposal:
         //   https://docs.google.com/document/d/1Lm47Kx-cXPLe8BO34-qrL3ZMPosuUHJILYVQUswEH6Y/edit#
         //   section "Bundle Upgrade Metadata"
         
         Dictionary<String, String> headers = bundle.getHeaders();
         return CatalogUpgrades.builder()
-                .removedLegacyItems(parseVersionRangedNameList(headers.get(MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS), false))
-                .removedBundles(parseForceRemoveBundlesHeader(bundle, headers.get(MANIFEST_HEADER_FORCE_REMOVE_BUNDLES)))
+                .removedLegacyItems(parseForceRemoveLegacyItemsHeader(headers.get(MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS), bundle, typeSupplier))
+                .removedBundles(parseForceRemoveBundlesHeader(headers.get(MANIFEST_HEADER_FORCE_REMOVE_BUNDLES), bundle))
                 .build();
     }
 
     @VisibleForTesting
-    static List<VersionRangedName> parseForceRemoveBundlesHeader(Bundle context, String input) {
+    static List<VersionRangedName> parseForceRemoveLegacyItemsHeader(String input, Bundle bundle, Supplier<? extends Iterable<? extends RegisteredType>> typeSupplier) {
         if (input == null) return ImmutableList.of();
-        if (stripQuotes(input).equals("*")) {
-            String bundleVersion = context.getVersion().toString();
+        if (stripQuotes(input.trim()).equals("*")) {
+            VersionRange versionRange = VersionRange.valueOf("[0,"+bundle.getVersion()+")");
+            List<VersionRangedName> result = new ArrayList<>();
+            for (RegisteredType item : typeSupplier.get()) {
+                result.add(new VersionRangedName(item.getSymbolicName(), versionRange));
+            }
+            return result;
+        } else {
+            return parseVersionRangedNameList(input, false);
+        }
+    }
+    
+
+    @VisibleForTesting
+    static List<VersionRangedName> parseForceRemoveBundlesHeader(String input, Bundle bundle) {
+        if (input == null) return ImmutableList.of();
+        if (stripQuotes(input.trim()).equals("*")) {
+            String bundleVersion = bundle.getVersion().toString();
             String maxVersion;
             if (BrooklynVersionSyntax.isSnapshot(bundleVersion)) {
                 maxVersion = BrooklynVersionSyntax.stripSnapshot(bundleVersion);
             } else {
                 maxVersion = bundleVersion;
             }
-            return ImmutableList.of(new VersionRangedName(context.getSymbolicName(), "[0,"+maxVersion+")"));
+            return ImmutableList.of(new VersionRangedName(bundle.getSymbolicName(), "[0,"+maxVersion+")"));
         } else {
             return parseVersionRangedNameList(input, false);
         }
@@ -258,7 +302,8 @@ public class BundleUpgradeParser {
         return versionedItems;
     }
     
-    private static String stripQuotes(String input) {
+    @VisibleForTesting
+    static String stripQuotes(String input) {
         String quoteChars = QuotedStringTokenizer.DEFAULT_QUOTE_CHARS;
         boolean quoted = (input.length() >= 2) && quoteChars.contains(input.substring(0, 1))
                 && quoteChars.contains(input.substring(input.length() - 1));

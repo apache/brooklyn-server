@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.VersionRangedName;
 import org.apache.brooklyn.test.Asserts;
@@ -39,6 +40,8 @@ import org.osgi.framework.Version;
 import org.osgi.framework.VersionRange;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -105,30 +108,39 @@ public class BundleUpgradeParserTest {
 
     @Test
     public void testParseForceRemoveBundlesHeader() throws Exception {
-        Bundle bundle = Mockito.mock(Bundle.class);
-        Mockito.when(bundle.getSymbolicName()).thenReturn("foo.bar");
-        Mockito.when(bundle.getVersion()).thenReturn(Version.valueOf("1.2.3"));
+        Bundle bundle = newMockBundle(new VersionedName("foo.bar", "1.2.3"));
         
-        assertParseForceRemoveBundlesHeader(bundle, "\"foo:0.1.0\"", ImmutableList.of(new VersionRangedName("foo", exactly0dot1)));
-        assertParseForceRemoveBundlesHeader(bundle, "\"*\"", ImmutableList.of(new VersionRangedName("foo.bar", from0lessThan1_2_3)));
-        assertParseForceRemoveBundlesHeader(bundle, "*", ImmutableList.of(new VersionRangedName("foo.bar", from0lessThan1_2_3)));
+        assertParseForceRemoveBundlesHeader("\"foo:0.1.0\"", bundle, ImmutableList.of(new VersionRangedName("foo", exactly0dot1)));
+        assertParseForceRemoveBundlesHeader("\"*\"", bundle, ImmutableList.of(new VersionRangedName("foo.bar", from0lessThan1_2_3)));
+        assertParseForceRemoveBundlesHeader("*", bundle, ImmutableList.of(new VersionRangedName("foo.bar", from0lessThan1_2_3)));
     }
     
     @Test
     public void testParseForceRemoveBundlesHeaderWithSnapshot() throws Exception {
-        Bundle bundle = Mockito.mock(Bundle.class);
-        Mockito.when(bundle.getSymbolicName()).thenReturn("foo.bar");
-        Mockito.when(bundle.getVersion()).thenReturn(Version.valueOf("1.2.3.SNAPSHOT"));
+        Bundle bundle = newMockBundle(new VersionedName("foo.bar", "1.2.3.SNAPSHOT"));
         
-        assertParseForceRemoveBundlesHeader(bundle, "\"*\"", ImmutableList.of(new VersionRangedName("foo.bar", from0lessThan1_2_3)));
-        assertParseForceRemoveBundlesHeader(bundle, "*", ImmutableList.of(new VersionRangedName("foo.bar", from0lessThan1_2_3)));
+        assertParseForceRemoveBundlesHeader("\"*\"", bundle, ImmutableList.of(new VersionRangedName("foo.bar", from0lessThan1_2_3)));
+        assertParseForceRemoveBundlesHeader("*", bundle, ImmutableList.of(new VersionRangedName("foo.bar", from0lessThan1_2_3)));
+    }
+    
+    @Test
+    public void testParseForceRemoveLegacyItemsHeader() throws Exception {
+        Bundle bundle = newMockBundle(new VersionedName("mybundle", "1.0.0"));
+        Supplier<Iterable<RegisteredType>> typeSupplier = Suppliers.ofInstance(ImmutableList.of(
+                newMockRegisteredType("foo", "1.0.0"),
+                newMockRegisteredType("bar", "1.0.0")));
+        
+        assertParseForceRemoveLegacyItemsHeader("\"foo:0.1.0\"", bundle, typeSupplier, ImmutableList.of(new VersionRangedName("foo", exactly0dot1)));
+        assertParseForceRemoveLegacyItemsHeader("\"*\"", bundle, typeSupplier, ImmutableList.of(new VersionRangedName("foo", from0lessThan1), new VersionRangedName("bar", from0lessThan1)));
+        assertParseForceRemoveLegacyItemsHeader("*", bundle, typeSupplier, ImmutableList.of(new VersionRangedName("foo", from0lessThan1), new VersionRangedName("bar", from0lessThan1)));
     }
     
     @Test
     public void testParseBundleEmptyManifest() throws Exception {
         Bundle bundle = newMockBundle(ImmutableMap.of());
+        Supplier<Iterable<RegisteredType>> typeSupplier = Suppliers.ofInstance(ImmutableList.of());
         
-        CatalogUpgrades upgrades = BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(bundle);
+        CatalogUpgrades upgrades = BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(bundle, typeSupplier);
         assertTrue(upgrades.isEmpty());
         assertFalse(upgrades.isBundleRemoved(new VersionedName("org.example.brooklyn.mybundle", "0.1.0")));
         assertFalse(upgrades.isLegacyItemRemoved(newMockCatalogItem("foo", "0.1.0")));
@@ -139,8 +151,9 @@ public class BundleUpgradeParserTest {
         Bundle bundle = newMockBundle(ImmutableMap.of(
                 BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS, "\"foo:[0,1.0.0)\",\"bar:[0,1.0.0)\"",
                 BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "\"org.example.brooklyn.mybundle:[0,1.0.0)\""));
+        Supplier<Iterable<RegisteredType>> typeSupplier = Suppliers.ofInstance(ImmutableList.of());
         
-        CatalogUpgrades upgrades = BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(bundle);
+        CatalogUpgrades upgrades = BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(bundle, typeSupplier);
         assertFalse(upgrades.isEmpty());
         assertTrue(upgrades.isBundleRemoved(new VersionedName("org.example.brooklyn.mybundle", "0.1.0")));
         assertFalse(upgrades.isBundleRemoved(new VersionedName("org.example.brooklyn.mybundle", "1.0.0")));
@@ -152,10 +165,36 @@ public class BundleUpgradeParserTest {
         assertFalse(upgrades.isLegacyItemRemoved(newMockCatalogItem("different", "0.1.0")));
     }
 
+    @Test
+    public void testStripQuotes() throws Exception {
+        assertEquals(BundleUpgradeParser.stripQuotes("a"), "a");
+        assertEquals(BundleUpgradeParser.stripQuotes("'a'"), "a");
+        assertEquals(BundleUpgradeParser.stripQuotes("\"\""), "");
+        assertEquals(BundleUpgradeParser.stripQuotes("''"), "");
+    }
+    
     private Bundle newMockBundle(Map<String, String> rawHeaders) {
+        return newMockBundle(VersionedName.fromString("do.no.care:1.2.3"), rawHeaders);
+    }
+
+    private Bundle newMockBundle(VersionedName name) {
+        return newMockBundle(name, ImmutableMap.of());
+    }
+    
+    private Bundle newMockBundle(VersionedName name, Map<String, String> rawHeaders) {
         Dictionary<String, String> headers = new Hashtable<>(rawHeaders);
         Bundle result = Mockito.mock(Bundle.class);
         Mockito.when(result.getHeaders()).thenReturn(headers);
+        Mockito.when(result.getSymbolicName()).thenReturn(name.getSymbolicName());
+        Mockito.when(result.getVersion()).thenReturn(Version.valueOf(name.getOsgiVersionString()));
+        return result;
+    }
+
+    private RegisteredType newMockRegisteredType(String symbolicName, String version) {
+        RegisteredType result = Mockito.mock(RegisteredType.class);
+        Mockito.when(result.getSymbolicName()).thenReturn(symbolicName);
+        Mockito.when(result.getVersion()).thenReturn(version);
+        Mockito.when(result.getVersionedName()).thenReturn(new VersionedName(symbolicName, version));
         return result;
     }
 
@@ -173,8 +212,13 @@ public class BundleUpgradeParserTest {
         assertListsEqual(actual, expected);
     }
     
-    private void assertParseForceRemoveBundlesHeader(Bundle bundle, String input, List<VersionRangedName> expected) throws Exception {
-        List<VersionRangedName> actual = BundleUpgradeParser.parseForceRemoveBundlesHeader(bundle, input);
+    private void assertParseForceRemoveBundlesHeader(String input, Bundle bundle, List<VersionRangedName> expected) throws Exception {
+        List<VersionRangedName> actual = BundleUpgradeParser.parseForceRemoveBundlesHeader(input, bundle);
+        assertListsEqual(actual, expected);
+    }
+
+    private void assertParseForceRemoveLegacyItemsHeader(String input, Bundle bundle, Supplier<? extends Iterable<? extends RegisteredType>> typeSupplier, List<VersionRangedName> expected) throws Exception {
+        List<VersionRangedName> actual = BundleUpgradeParser.parseForceRemoveLegacyItemsHeader(input, bundle, typeSupplier);
         assertListsEqual(actual, expected);
     }
 

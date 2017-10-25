@@ -39,6 +39,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -49,9 +50,9 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -75,6 +76,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -576,7 +578,10 @@ public class CatalogInitialization implements ManagementContextInjectable {
         for (ManagedBundle managedBundle : managedBundles) {
             Maybe<Bundle> bundle = osgiManager.get().findBundle(managedBundle);
             if (bundle.isPresent()) {
-                catalogUpgradesBuilder.addAll(BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(bundle.get()));
+                CatalogUpgrades catalogUpgrades = BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(
+                        bundle.get(),
+                        new RegisteredTypesSupplier(managementContext, managedBundle));
+                catalogUpgradesBuilder.addAll(catalogUpgrades);
             } else {
                 rebindLogger.info("Managed bundle "+managedBundle.getId()+" not found by OSGi Manager; "
                         + "ignoring when calculating persisted state catalog upgrades");
@@ -584,7 +589,21 @@ public class CatalogInitialization implements ManagementContextInjectable {
         }
         return catalogUpgradesBuilder.build();
     }
-    
+
+    private static class RegisteredTypesSupplier implements Supplier<Iterable<RegisteredType>> {
+        private final BrooklynTypeRegistry typeRegistry;
+        private final ManagedBundle bundle;
+        
+        RegisteredTypesSupplier(ManagementContext mgmt, ManagedBundle bundle) {
+            this.typeRegistry = mgmt.getTypeRegistry();
+            this.bundle = bundle;
+        }
+        @Override
+        public Iterable<RegisteredType> get() {
+            return typeRegistry.getMatching(RegisteredTypePredicates.containingBundle(bundle));
+        }
+    }
+
     public interface RebindLogger {
         void debug(String message, Object... args);
         void info(String message, Object... args);
