@@ -62,6 +62,7 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.CampYamlParser;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.BasicRegisteredType;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer;
@@ -1502,7 +1503,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
         OsgiBundleInstallationResult result = null;
         try {
-            result = osgiManager.get().install(null, new FileInputStream(bf), true, true, forceUpdate).get();
+            result = osgiManager.get().install(new BasicManagedBundle(vn.getSymbolicName(), vn.getVersionString(), null), new FileInputStream(bf), true, true, forceUpdate).get();
         } catch (FileNotFoundException e) {
             throw Exceptions.propagate(e);
         } finally {
