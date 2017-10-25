@@ -151,8 +151,8 @@ public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest implement
     }
 
     @Test
-    /** TODO this test works if we assume most recent version wins, but semantics TBC */
-    public void testMoreEntityV2ThenV1GivesV1() throws Exception {
+    /** Now assumes highest version wins regardless of install order */
+    public void testMoreEntityV1AndV2GivesV2() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), "/brooklyn/osgi/brooklyn-test-osgi-more-entities_0.1.0.jar");
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), "/brooklyn/osgi/brooklyn-test-osgi-more-entities_0.2.0.jar");
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), "/brooklyn/osgi/brooklyn-test-osgi-entities.jar");
@@ -163,8 +163,8 @@ public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest implement
         Entity app = createAndStartApplication("services: [ { type: 'more-entity:1.0' } ]");
         Entity moreEntity = Iterables.getOnlyElement(app.getChildren());
         
-        OsgiVersionMoreEntityTest.assertV1EffectorCall(moreEntity);
-        OsgiVersionMoreEntityTest.assertV1MethodCall(moreEntity);
+        OsgiVersionMoreEntityTest.assertV2EffectorCall(moreEntity);
+        OsgiVersionMoreEntityTest.assertV2MethodCall(moreEntity);
     }
 
     /** unlike {@link #testMoreEntityV2ThenV1GivesV1()} this test should always work,

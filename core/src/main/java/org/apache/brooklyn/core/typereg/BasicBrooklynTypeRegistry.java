@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
@@ -42,9 +44,11 @@ import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.concurrent.Locks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.osgi.VersionedName.VersionedNameStringComparator;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
@@ -56,6 +60,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Ordering;
 
 public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
 
@@ -63,6 +68,16 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     
     private ManagementContext mgmt;
     private Map<String,Map<String,RegisteredType>> localRegisteredTypesAndContainingBundles = MutableMap.of();
+    /**
+     * Thread synch model is pretty simple, as follows:
+     * - get a read lock on this if looking at localRegisteredTypesAndContainingBundles
+     *   or any of the maps contained within;
+     * - get a write lock on this if changing the map above or any of the maps within.
+     * 
+     * There is potential for finer grained locking to allow reads/writes of different inner
+     * maps but coordinating that is tricky and does not seem worth it.
+     */
+    private ReadWriteLock localRegistryLock = new ReentrantReadWriteLock();
 
     public BasicBrooklynTypeRegistry(ManagementContext mgmt) {
         this.mgmt = mgmt;
@@ -74,17 +89,24 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     }
     
     private Iterable<RegisteredType> getAllWithoutCatalog(Predicate<? super RegisteredType> filter) {
-        // TODO thread safety
         // TODO optimisation? make indexes and look up?
-        return localRegisteredTypesAndContainingBundles.values().stream().
-            flatMap(m -> m.values().stream()).filter(filter::apply).collect(Collectors.toList());
+        return Locks.withLock(localRegistryLock.readLock(), 
+            () -> localRegisteredTypesAndContainingBundles.values().stream().
+                flatMap(m -> m.values().stream()).filter(filter::apply).collect(Collectors.toList()) );
     }
 
     private Maybe<RegisteredType> getExactWithoutLegacyCatalog(String symbolicName, String version, RegisteredTypeLoadingContext constraint) {
-        // TODO look in any nested/private registries
-        Map<String, RegisteredType> m = localRegisteredTypesAndContainingBundles.get(symbolicName+":"+version);
-        RegisteredType item = m!=null && !m.isEmpty() ? m.values().iterator().next() : null; 
+        RegisteredType item = Locks.withLock(localRegistryLock.readLock(), 
+            ()-> getBestValue(localRegisteredTypesAndContainingBundles.get(symbolicName+":"+version)) );
         return RegisteredTypes.tryValidate(item, constraint);
+    }
+
+    private RegisteredType getBestValue(Map<String, RegisteredType> m) {
+        if (m==null) return null;
+        if (m.isEmpty()) return null;
+        if (m.size()==1) return m.values().iterator().next();
+        // get the highest version of first alphabetical - to have a canonical order
+        return m.get( Ordering.from(VersionedNameStringComparator.INSTANCE).max(m.keySet()) );
     }
 
     @SuppressWarnings("deprecation")
@@ -370,52 +392,46 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
         if (!type.getId().equals(type.getSymbolicName()+":"+type.getVersion()))
             Asserts.fail("Registered type "+type+" has ID / symname mismatch");
         
-        Map<String, RegisteredType> knownMatchingTypesByBundles = localRegisteredTypesAndContainingBundles.get(type.getId());
-        if (knownMatchingTypesByBundles!=null && !knownMatchingTypesByBundles.isEmpty()) {
-            for (RegisteredType existingT: knownMatchingTypesByBundles.values()) {
-                String reasonForDetailedCheck = null;
-                if (Objects.equals(existingT.getContainingBundle(), type.getContainingBundle())) {
-                    // they are in the same bundle; is force replacement allowed?
-                    if (canForce) {
-                        log.debug("Addition of "+type+" to replace "+existingT+" allowed because force is on");
-                        continue;
-                    }
-                    if (BrooklynVersionSyntax.isSnapshot(type.getVersion())) {
-                        if (existingT.getContainingBundle()!=null) {
-                            if (BrooklynVersionSyntax.isSnapshot(VersionedName.fromString(existingT.getContainingBundle()).getVersionString())) {
-                                log.debug("Addition of "+type+" to replace "+existingT+" allowed because both are snapshot");
-                                continue;
+        Locks.withLock(localRegistryLock.writeLock(),
+            () -> {
+                Map<String, RegisteredType> knownMatchingTypesByBundles = localRegisteredTypesAndContainingBundles.get(type.getId());
+                if (knownMatchingTypesByBundles==null) {
+                    knownMatchingTypesByBundles = MutableMap.of();
+                    localRegisteredTypesAndContainingBundles.put(type.getId(), knownMatchingTypesByBundles);
+                }
+
+                for (RegisteredType existingT: knownMatchingTypesByBundles.values()) {
+                    String reasonForDetailedCheck = null;
+                    if (Objects.equals(existingT.getContainingBundle(), type.getContainingBundle())) {
+                        // they are in the same bundle; is force replacement allowed?
+                        if (canForce) {
+                            log.debug("Addition of "+type+" to replace "+existingT+" allowed because force is on");
+                            continue;
+                        }
+                        if (BrooklynVersionSyntax.isSnapshot(type.getVersion())) {
+                            if (existingT.getContainingBundle()!=null) {
+                                if (BrooklynVersionSyntax.isSnapshot(VersionedName.fromString(existingT.getContainingBundle()).getVersionString())) {
+                                    log.debug("Addition of "+type+" to replace "+existingT+" allowed because both are snapshot");
+                                    continue;
+                                } else {
+                                    reasonForDetailedCheck = "the containing bundle "+existingT.getContainingBundle()+" is not a SNAPSHOT and addition is not forced";
+                                }
                             } else {
-                                reasonForDetailedCheck = "the containing bundle "+existingT.getContainingBundle()+" is not a SNAPSHOT and addition is not forced";
+                                // can this occur?
+                                reasonForDetailedCheck = "the containing bundle of the type is unknown (cannot confirm it is snapshot)";
                             }
                         } else {
-                            // can this occur?
-                            reasonForDetailedCheck = "the containing bundle of the type is unknown (cannot confirm it is snapshot)";
+                            reasonForDetailedCheck = "the type is not a SNAPSHOT and addition is not forced";
                         }
                     } else {
-                        reasonForDetailedCheck = "the type is not a SNAPSHOT and addition is not forced";
+                        reasonForDetailedCheck = type.getId()+" is defined in different bundle";
                     }
-                } else {
-                    reasonForDetailedCheck = type.getId()+" is defined in different bundle";
+                    assertSameEnoughToAllowReplacing(existingT, type, reasonForDetailedCheck);
                 }
-                assertSameEnoughToAllowReplacing(existingT, type, reasonForDetailedCheck);
-            }
-        }
-        
-        log.debug("Inserting "+type+" into "+this);
-        Map<String, RegisteredType> m = localRegisteredTypesAndContainingBundles.get(type.getId());
-        if (m==null) {
-            synchronized (localRegisteredTypesAndContainingBundles) {
-                m = localRegisteredTypesAndContainingBundles.get(type.getId());
-                if (m==null) {
-                    m = MutableMap.of();
-                    localRegisteredTypesAndContainingBundles.put(type.getId(), m);
-                }
-            }
-        }
-        synchronized (m) {
-            m.put(type.getContainingBundle(), type);
-        }
+            
+                log.debug("Inserting "+type+" into "+this);
+                knownMatchingTypesByBundles.put(type.getContainingBundle(), type);
+            });
     }
 
     /**
@@ -509,46 +525,49 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
      * @throws NoSuchElementException if not found */
     @Beta // API stabilising
     public void delete(VersionedName type) {
-        synchronized (localRegisteredTypesAndContainingBundles) {
-            if (localRegisteredTypesAndContainingBundles.remove(type.toString()) != null) {
-                return;
-            }
+        boolean changedLocally = Locks.withLock(localRegistryLock.writeLock(),
+            () -> (localRegisteredTypesAndContainingBundles.remove(type.toString()) != null));
+        if (changedLocally) {
+            return;
         }
-        
-        // legacy deletion (may call back to us, but max once)
-        mgmt.getCatalog().deleteCatalogItem(type.getSymbolicName(), type.getVersionString());
-        // currently the above will succeed or throw; but if we delete that, we need to enable the code below
+        legacyDelete(type);
+    }
+    
+    @SuppressWarnings("deprecation")
+    private void legacyDelete(VersionedName type) {
+        // when we delete this, we should simply do the following (as contract is to throw if can't delete)
 //        if (Strings.isBlank(type.getVersionString()) || BrooklynCatalog.DEFAULT_VERSION.equals(type.getVersionString())) {
 //            throw new IllegalStateException("Deleting items with unspecified version (argument DEFAULT_VERSION) not supported.");
 //        }
 //        throw new NoSuchElementException("No catalog item found with id "+type);
+        
+        // NB the call below may call back to us, but max once)
+        mgmt.getCatalog().deleteCatalogItem(type.getSymbolicName(), type.getVersionString());
     }
     
     /** removes the given registered type in the noted bundle; 
      * if not known in that bundle tries deleting from legacy catalog.
      * @throws NoSuchElementException if not found */
     public void delete(RegisteredType type) {
-        Map<String, RegisteredType> m = localRegisteredTypesAndContainingBundles.get(type.getId());
-        if (m!=null) {
-            RegisteredType removedItem = m.remove(type.getContainingBundle());
-            if (m.isEmpty()) {
-                synchronized (localRegisteredTypesAndContainingBundles) {
-                    m = localRegisteredTypesAndContainingBundles.get(type.getId());
-                    if (m!=null && m.isEmpty()) {
-                        localRegisteredTypesAndContainingBundles.remove(type.getId());
-                    } else {
-                        // either removed in parallel or no longer empty
-                    }
+        boolean changedLocally = Locks.withLock(localRegistryLock.writeLock(),
+            () -> {
+                Map<String, RegisteredType> m = localRegisteredTypesAndContainingBundles.get(type.getId());
+                if (m==null) return false;
+                RegisteredType removedItem = m.remove(type.getContainingBundle());
+                if (m.isEmpty()) {
+                    localRegisteredTypesAndContainingBundles.remove(type.getId());
                 }
                 if (removedItem==null) {
                     throw new NoSuchElementException("Requested to delete "+type+" from "+type.getContainingBundle()+", "
                         + "but that type was not known in that bundle, it is in "+m.keySet()+" instead");
                 }
-            }
-        } else {
-            // try legacy delete
-            delete(type.getVersionedName());
+                return true;
+            });
+        if (changedLocally) {
+            return;
         }
+        
+        legacyDelete(type.getVersionedName());
     }
     
     /** as {@link #delete(VersionedName)} */

@@ -950,8 +950,13 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             }
             
             if (version==null) {
-                // use this as default version when nothing specified
-                version = BasicBrooklynCatalog.NO_VERSION;
+                if (containingBundle!=null) {
+                    version = containingBundle.getVersionedName().getVersionString();
+                }
+                if (version==null) {
+                    // use this as default version when nothing specified or inferrable from containing bundle
+                    version = BasicBrooklynCatalog.NO_VERSION;
+                }
             }
             
             if (sourcePlanYaml==null) {
