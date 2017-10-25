@@ -1041,7 +1041,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // (originally seen during a race where the empty-remover ran while we were installing)
             throw new IllegalStateException("Loading from a bundle which is not installed");
         }
-        String wrapped = bb.get().getHeaders().get(BROOKLYN_WRAPPED_BOM_BUNDLE);
+        return isWrapperBundle(bb.get());
+    }
+    
+    @Beta
+    public static boolean isWrapperBundle(Bundle b) {
+        String wrapped = b.getHeaders().get(BROOKLYN_WRAPPED_BOM_BUNDLE);
         return wrapped!=null && wrapped.equalsIgnoreCase("true");
     }
 

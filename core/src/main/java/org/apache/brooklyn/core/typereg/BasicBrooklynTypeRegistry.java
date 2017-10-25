@@ -41,6 +41,8 @@ import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -52,6 +54,7 @@ import org.apache.brooklyn.util.osgi.VersionedName.VersionedNameStringComparator
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
+import org.osgi.framework.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -400,10 +403,19 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                     localRegisteredTypesAndContainingBundles.put(type.getId(), knownMatchingTypesByBundles);
                 }
 
+                Set<String> oldContainingBundlesToRemove = MutableSet.of();
                 for (RegisteredType existingT: knownMatchingTypesByBundles.values()) {
                     String reasonForDetailedCheck = null;
-                    if (Objects.equals(existingT.getContainingBundle(), type.getContainingBundle())) {
-                        // they are in the same bundle; is force replacement allowed?
+                    boolean sameBundle = Objects.equals(existingT.getContainingBundle(), type.getContainingBundle());
+                    boolean oldIsWrapperBundle = isWrapperBundle(existingT.getContainingBundle());
+                    if (sameBundle || oldIsWrapperBundle) {
+                        // allow replacement (different plan for same type) if either
+                        // it's the same bundle or the old one was a wrapper, AND
+                        // either we're forced or in snapshot-land
+                        if (!sameBundle) {
+                            // if old is wrapper bundle, we have to to remove the old record
+                            oldContainingBundlesToRemove.add(existingT.getContainingBundle());
+                        }
                         if (canForce) {
                             log.debug("Addition of "+type+" to replace "+existingT+" allowed because force is on");
                             continue;
@@ -429,9 +441,26 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                     assertSameEnoughToAllowReplacing(existingT, type, reasonForDetailedCheck);
                 }
             
-                log.debug("Inserting "+type+" into "+this);
+                log.debug("Inserting "+type+" into "+this+
+                    (oldContainingBundlesToRemove.isEmpty() ? "" : " (removing entry from "+oldContainingBundlesToRemove+")"));
+                for (String oldContainingBundle: oldContainingBundlesToRemove) {
+                    knownMatchingTypesByBundles.remove(oldContainingBundle);
+                }
                 knownMatchingTypesByBundles.put(type.getContainingBundle(), type);
             });
+    }
+
+    private boolean isWrapperBundle(String bundleNameVersion) { 
+        if (bundleNameVersion==null) return true;
+        Maybe<OsgiManager> osgi = ((ManagementContextInternal)mgmt).getOsgiManager();
+        // if not osgi, everything is treated as a wrapper bundle
+        if (osgi.isAbsent()) return true;
+        VersionedName vn = VersionedName.fromString(bundleNameVersion);
+        Maybe<Bundle> b = osgi.get().findBundle(new BasicOsgiBundleWithUrl(vn.getSymbolicName(), vn.getOsgiVersionString(), null));
+        // if bundle not found it is an error or a race; we don't fail, but we shouldn't treat it as a wrapper
+        if (b.isAbsent()) return false;
+        
+        return BasicBrooklynCatalog.isWrapperBundle(b.get());
     }
 
     /**
