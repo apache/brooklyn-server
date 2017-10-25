@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.catalog.internal;
+package org.apache.brooklyn.core.typereg;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -28,10 +28,12 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.core.catalog.internal.BundleUpgradeParser.CatalogUpgrades;
-import org.apache.brooklyn.core.catalog.internal.BundleUpgradeParser.VersionRangedName;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.VersionRangedName;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.mockito.Mockito;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.Version;
@@ -58,6 +60,23 @@ public class BundleUpgradeParserTest {
         assertVersionRangedNameFails("foo:bar:0.1.0", "has too many parts");
         assertVersionRangedNameFails("", "Must not be blank");
         assertVersionRangedNameFails(null, "Must not be blank");
+    }
+    
+    @Test
+    public void testVersionRangesWithSnapshots() throws Exception {
+        VersionRange from0lessThan1 = VersionRangedName.fromString("foo:[0,1)", false).getOsgiVersionRange();
+        assertTrue(from0lessThan1.includes(Version.valueOf("0.1.0.SNAPSHOT")));
+        assertTrue(from0lessThan1.includes(Version.valueOf(BrooklynVersionSyntax.toValidOsgiVersion("0.1.0-SNAPSHOT"))));
+        assertTrue(from0lessThan1.includes(Version.valueOf("0.0.0.SNAPSHOT")));
+        assertTrue(from0lessThan1.includes(Version.valueOf(BrooklynVersionSyntax.toValidOsgiVersion("0.0.0-SNAPSHOT"))));
+        assertFalse(from0lessThan1.includes(Version.valueOf("1.0.0.SNAPSHOT")));
+        assertFalse(from0lessThan1.includes(Version.valueOf(BrooklynVersionSyntax.toValidOsgiVersion("1.0.0-SNAPSHOT"))));
+        
+        VersionRange from1 = VersionRangedName.fromString("foo:[1,9999)", false).getOsgiVersionRange();
+        assertTrue(from1.includes(Version.valueOf("1.0.0.SNAPSHOT")));
+        assertTrue(from1.includes(Version.valueOf(BrooklynVersionSyntax.toValidOsgiVersion("1.SNAPSHOT"))));
+        assertFalse(from1.includes(Version.valueOf("0.0.0.SNAPSHOT")));
+        assertFalse(from1.includes(Version.valueOf("0.1.0.SNAPSHOT")));
     }
     
     @Test

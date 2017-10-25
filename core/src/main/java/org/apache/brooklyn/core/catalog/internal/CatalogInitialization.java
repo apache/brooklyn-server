@@ -42,15 +42,16 @@ import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.core.catalog.internal.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -236,7 +237,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
             
             populateInitialCatalogImpl(true);
             
-            PersistedCatalogState filteredPersistedState = filterPersistedState(persistedState, rebindLogger);
+            PersistedCatalogState filteredPersistedState = filterBundlesAndCatalogInPersistedState(persistedState, rebindLogger);
             addPersistedCatalogImpl(filteredPersistedState, exceptionHandler, rebindLogger);
             
             if (mode == ManagementNodeState.MASTER) {
@@ -528,8 +529,13 @@ public class CatalogInitialization implements ManagementContextInjectable {
         }
     }
 
-    private PersistedCatalogState filterPersistedState(PersistedCatalogState persistedState, RebindLogger rebindLogger) {
-        CatalogUpgrades catalogUpgrades = findCatalogUpgrades(rebindLogger);
+    private PersistedCatalogState filterBundlesAndCatalogInPersistedState(PersistedCatalogState persistedState, RebindLogger rebindLogger) {
+        // TODO Will need to share the results of `findCatalogUpgrades` when we support
+        // other options, such as, `brooklyn-catalog-upgrade-for-bundles`, described in the proposal:
+        //   https://docs.google.com/document/d/1Lm47Kx-cXPLe8BO34-qrL3ZMPosuUHJILYVQUswEH6Y/edit#
+        //   section "Bundle Upgrade Metadata"
+
+        CatalogUpgrades catalogUpgrades = findCatalogUpgradesInstructions(rebindLogger);
         
         if (catalogUpgrades.isEmpty()) {
             return persistedState;
@@ -558,7 +564,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
         return new PersistedCatalogState(bundles, legacyCatalogItems);
     }
 
-    private CatalogUpgrades findCatalogUpgrades(RebindLogger rebindLogger) {
+    private CatalogUpgrades findCatalogUpgradesInstructions(RebindLogger rebindLogger) {
         Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)managementContext).getOsgiManager();
         if (osgiManager.isAbsent()) {
             // Can't find any bundles to tell if there are upgrades. Could be running tests; do no filtering.

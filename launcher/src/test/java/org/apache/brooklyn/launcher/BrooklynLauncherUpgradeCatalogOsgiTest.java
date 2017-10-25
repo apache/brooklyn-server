@@ -19,8 +19,8 @@
 package org.apache.brooklyn.launcher;
 
 import static org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog.CATALOG_BOM;
-import static org.apache.brooklyn.core.catalog.internal.BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES;
-import static org.apache.brooklyn.core.catalog.internal.BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS;
+import static org.apache.brooklyn.core.typereg.BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES;
+import static org.apache.brooklyn.core.typereg.BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS;
 
 import java.io.File;
 import java.net.URI;

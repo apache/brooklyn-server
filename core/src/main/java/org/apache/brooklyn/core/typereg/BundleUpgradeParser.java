@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.catalog.internal;
+package org.apache.brooklyn.core.typereg;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -41,24 +41,33 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+/**
+ * Internal class for parsing bundle manifests to extract their upgrade instructions.
+ */
 public class BundleUpgradeParser {
 
+    /**
+     * A header in a bundle's manifest, indicating that this bundle will force the removal of the 
+     * given legacy catalog items. Here "legacy" means those in the `/catalog` persisted state, 
+     * rather than items added in bundles.
+     */
     @Beta
     public static final String MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS = "brooklyn-catalog-force-remove-legacy-items";
 
+    /**
+     * A header in a bundle's manifest, indicating that this bundle will force the removal of matching 
+     * bundle(s) that are in the `/bundles` persisted state.
+     */
     @Beta
     public static final String MANIFEST_HEADER_FORCE_REMOVE_BUNDLES = "brooklyn-catalog-force-remove-bundles";
     
-    @Beta
-    public static final String MANIFEST_HEADER_UPGRADE_BUNDLES = "brooklyn-catalog-upgrade-for-bundles";
-
     /**
      * The result from parsing bundle(s) to find their upgrade info.
      */
     public static class CatalogUpgrades {
-        static final CatalogUpgrades EMPTY = new CatalogUpgrades(builder());
+        public static final CatalogUpgrades EMPTY = new CatalogUpgrades(builder());
         
-        static class Builder {
+        public static class Builder {
             private Set<VersionRangedName> removedLegacyItems = new LinkedHashSet<>();
             private Set<VersionRangedName> removedBundles = new LinkedHashSet<>();
 
@@ -84,8 +93,8 @@ public class BundleUpgradeParser {
             return new Builder();
         }
         
-        private Set<VersionRangedName> removedLegacyItems;
-        private Set<VersionRangedName> removedBundles;
+        private final Set<VersionRangedName> removedLegacyItems;
+        private final Set<VersionRangedName> removedBundles;
         
         public CatalogUpgrades(Builder builder) {
             this.removedLegacyItems = ImmutableSet.copyOf(builder.removedLegacyItems);
@@ -129,6 +138,8 @@ public class BundleUpgradeParser {
      * 
      * Implementation-wise, this is similar to {@link VersionedName}, but is intended
      * as internal-only so is cut down to only what is needed.
+     * 
+     * Both the name and the version range are required.
      */
     public static class VersionRangedName {
         private final String name;
@@ -202,28 +213,23 @@ public class BundleUpgradeParser {
     }
 
     public static CatalogUpgrades parseBundleManifestForCatalogUpgrades(Bundle bundle) {
+        // TODO Add support for "*" for "force-remove-bundles", to indicate all lower-versioned 
+        // bundles with the same symbolic name as this bundle. Also add support for the other 
+        // options described in the proposal:
+        //   https://docs.google.com/document/d/1Lm47Kx-cXPLe8BO34-qrL3ZMPosuUHJILYVQUswEH6Y/edit#
+        //   section "Bundle Upgrade Metadata"
+        
         Dictionary<String, String> headers = bundle.getHeaders();
-        String removedLegacyItemsHeader = headers.get(MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS);
-        String removedBundlesHeader = headers.get(MANIFEST_HEADER_FORCE_REMOVE_BUNDLES);
-        List<VersionRangedName> removedLegacyItems = ImmutableList.of();
-        List<VersionRangedName> removedBundles = ImmutableList.of();
-        if (removedLegacyItemsHeader == null && removedBundlesHeader == null) {
-            return CatalogUpgrades.EMPTY;
-        }
-        if (removedLegacyItemsHeader != null) {
-            removedLegacyItems = parseVersionRangedNameList(removedLegacyItemsHeader, false);
-        }
-        if (removedBundlesHeader != null) {
-            removedBundles = parseVersionRangedNameList(removedBundlesHeader, false);
-        }
         return CatalogUpgrades.builder()
-                .removedLegacyItems(removedLegacyItems)
-                .removedBundles(removedBundles)
+                .removedLegacyItems(parseVersionRangedNameList(headers.get(MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS), false))
+                .removedBundles(parseVersionRangedNameList(headers.get(MANIFEST_HEADER_FORCE_REMOVE_BUNDLES), false))
                 .build();
     }
     
     @VisibleForTesting
     static List<VersionRangedName> parseVersionRangedNameList(String input, boolean singleVersionIsOsgiRange) {
+        if (input == null) return ImmutableList.of();
+        
         List<String> vals = QuotedStringTokenizer.builder()
                 .delimiterChars(",")
                 .includeQuotes(false)
