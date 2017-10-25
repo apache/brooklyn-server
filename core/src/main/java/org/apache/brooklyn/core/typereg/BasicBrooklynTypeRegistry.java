@@ -404,11 +404,12 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                 }
 
                 Set<String> oldContainingBundlesToRemove = MutableSet.of();
+                boolean newIsWrapperBundle = isWrapperBundle(type.getContainingBundle());
                 for (RegisteredType existingT: knownMatchingTypesByBundles.values()) {
                     String reasonForDetailedCheck = null;
                     boolean sameBundle = Objects.equals(existingT.getContainingBundle(), type.getContainingBundle());
                     boolean oldIsWrapperBundle = isWrapperBundle(existingT.getContainingBundle());
-                    if (sameBundle || oldIsWrapperBundle) {
+                    if (sameBundle || (oldIsWrapperBundle && newIsWrapperBundle)) {
                         // allow replacement (different plan for same type) if either
                         // it's the same bundle or the old one was a wrapper, AND
                         // either we're forced or in snapshot-land
@@ -435,6 +436,10 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                         } else {
                             reasonForDetailedCheck = "the type is not a SNAPSHOT and addition is not forced";
                         }
+                    } else if (oldIsWrapperBundle) {
+                        reasonForDetailedCheck = type.getId()+" is in a named bundle replacing an item from an anonymous bundle-wrapped BOM, so definitions must be the same (or else give it a different version)";
+                    } else if (newIsWrapperBundle) {
+                        reasonForDetailedCheck = type.getId()+" is in an anonymous bundle-wrapped BOM replacing an item from a named bundle, so definitions must be the same (or else give it a different version)";
                     } else {
                         reasonForDetailedCheck = type.getId()+" is defined in different bundle";
                     }
