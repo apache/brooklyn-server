@@ -115,14 +115,17 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     @SuppressWarnings("deprecation")
     @Override
     public Iterable<RegisteredType> getMatching(Predicate<? super RegisteredType> filter) {
-        Map<String,RegisteredType> result = MutableMap.of();
+        Set<RegisteredType> result = MutableSet.of();
+        // keep name record also so we can remove legacy items that are superseded
+        Set<String> typeNamesFound = MutableSet.of();
         for (RegisteredType rt: getAllWithoutCatalog(filter)) {
-            result.put(rt.getId(), rt);
+            result.add(rt);
+            typeNamesFound.add(rt.getId());
         }
         for (RegisteredType rt: Iterables.filter(
                 Iterables.transform(mgmt.getCatalog().getCatalogItemsLegacy(), RegisteredTypes.CI_TO_RT), 
                 filter)) {
-            if (!result.containsKey(rt.getId())) {
+            if (!typeNamesFound.contains(rt.getId())) {
                 // TODO ideally never come here, however
                 // legacy cataog currently still used for java-scanned annotations; 
                 // hopefully that will be deprecated and removed in near future
@@ -131,10 +134,11 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                 // make TypeRegistry instances instead of CatalogItem, esp if we had YOML to write that plan)
                 
                 //log.warn("Item '"+rt.getId()+"' not in type registry; only found in legacy catalog");
-                result.put(rt.getId(), rt);
+                typeNamesFound.add(rt.getId());
+                result.add(rt);
             }
         }
-        return result.values();
+        return result;
     }
 
     @SuppressWarnings("deprecation")
