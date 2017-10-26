@@ -70,6 +70,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
@@ -205,10 +206,15 @@ public abstract class AbstractBrooklynLauncherRebindTest {
         Assert.assertTrue(compareIterablesWithoutOrderMatters(ids, idsFromItems), String.format("Expected %s, found %s", ids, idsFromItems));
     }
 
-    protected void assertManagedBundle(BrooklynLauncher launcher, VersionedName bundleId, Set<VersionedName> expectedCatalogItems) {
+    protected ManagedBundle findManagedBundle(BrooklynLauncher launcher, VersionedName bundleId) {
         ManagementContextInternal mgmt = (ManagementContextInternal)launcher.getManagementContext();
         ManagedBundle bundle = mgmt.getOsgiManager().get().getManagedBundle(bundleId);
         assertNotNull(bundle, bundleId+" not found");
+        return bundle;
+    }
+    
+    protected void assertManagedBundle(BrooklynLauncher launcher, VersionedName bundleId, Set<VersionedName> expectedCatalogItems) {
+        assertNotNull(findManagedBundle(launcher, bundleId), bundleId+" not found");
         
         Set<VersionedName> actualCatalogItems = new LinkedHashSet<>();
         Iterable<RegisteredType> types = launcher.getManagementContext().getTypeRegistry().getAll();
@@ -224,6 +230,26 @@ public abstract class AbstractBrooklynLauncherRebindTest {
         ManagementContextInternal mgmt = (ManagementContextInternal)launcher.getManagementContext();
         ManagedBundle bundle = mgmt.getOsgiManager().get().getManagedBundle(bundleId);
         assertNull(bundle, bundleId+" should not exist");
+    }
+    
+    protected Set<String> getPersistenceListing(BrooklynObjectType type) throws Exception {
+        File persistedSubdir = getPersistanceSubdirectory(type);
+        return ImmutableSet.copyOf(persistedSubdir.list((dir,name) -> !name.endsWith(".jar")));
+    }
+
+    private File getPersistanceSubdirectory(BrooklynObjectType type) {
+        String dir;
+        switch (type) {
+            case ENTITY: dir = "entities"; break;
+            case LOCATION: dir = "locations"; break;
+            case POLICY: dir = "policies"; break;
+            case ENRICHER: dir = "enrichers"; break;
+            case FEED: dir = "feeds"; break;
+            case CATALOG_ITEM: dir = "catalog"; break;
+            case MANAGED_BUNDLE: dir = "bundles"; break;
+            default: throw new UnsupportedOperationException("type="+type);
+        }
+        return new File(persistenceDir, dir);
     }
 
     private static <T> boolean compareIterablesWithoutOrderMatters(Iterable<T> a, Iterable<T> b) {

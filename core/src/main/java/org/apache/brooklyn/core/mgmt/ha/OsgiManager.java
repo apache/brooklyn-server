@@ -117,6 +117,13 @@ public class OsgiManager {
         private final Map<String, String> managedBundlesUidByUrl = MutableMap.of();
         private final Map<VersionedName,ManagedBundle> wrapperBundles = MutableMap.of();
         
+        synchronized void clear() {
+            managedBundlesByUid.clear();
+            managedBundlesUidByVersionedName.clear();
+            managedBundlesUidByUrl.clear();
+            wrapperBundles.clear();
+        }
+
         synchronized Map<String, ManagedBundle> getManagedBundles() {
             return ImmutableMap.copyOf(managedBundlesByUid);
         }
@@ -337,6 +344,17 @@ public class OsgiManager {
         return Maybe.absent();
     }
     
+    /**
+     * Clears all record of the managed bundles (use with care!).
+     * 
+     * Used when promoting from HOT_STANDBY to MASTER. Previous actions performed as HOT_STANDBY
+     * will have been done in read-only mode. When we rebind in anger as master, we want to do this
+     * without a previous cache of managed bundles.
+     */
+    public void clearManagedBundles() {
+        managedBundlesRecord.clear();
+    }
+
     /** Map of bundles by UID */
     public Map<String, ManagedBundle> getManagedBundles() {
         return managedBundlesRecord.getManagedBundles();

@@ -145,6 +145,9 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
             // this makes equality with other OsgiBundleWithUrl items symmetric,
             // but for two MB's we look additionally at checksum
             if (!Objects.equal(checksum, ((ManagedBundle)other).getChecksum())) return false;
+            
+            // only equal if have the same ManagedBundle uid; important for persistence.changeListener().unmanage()
+            if (!Objects.equal(getId(), ((ManagedBundle)other).getId())) return false;
         }
         return true;
     }

@@ -283,6 +283,21 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
         }
     }
     
+    /**
+     * Resets persistence from STOPPED, back to the initial state of INIT.
+     * 
+     * Used when transitioning from HOT_STANDBY to MASTER. On rebinding as MASTER, we want it to 
+     * behave in the same way as it would from INIT (e.g. populating the deltaCollector, etc).
+     */
+    void reset() {
+        synchronized (startStopMutex) {
+            if (state != ListenerState.STOPPED) {
+                return;
+            }
+            state = ListenerState.INIT;
+        }
+    }
+
     /** Waits for any in-progress writes to be completed then for or any unwritten data to be written. */
     @VisibleForTesting
     public void waitForPendingComplete(Duration timeout, boolean canTrigger) throws InterruptedException, TimeoutException {
@@ -327,7 +342,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
      * Indicates whether persistence is active. 
      * Even when not active, changes will still be tracked unless {@link #isStopped()}.
      */
-    private boolean isActive() {
+    boolean isActive() {
         return state == ListenerState.RUNNING && persister != null && !isStopped();
     }
 
@@ -336,7 +351,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
      * in which case will not persist or store anything
      * (except for a final internal persistence called while STOPPING.) 
      */
-    private boolean isStopped() {
+    boolean isStopped() {
         return state == ListenerState.STOPPING || state == ListenerState.STOPPED || executionContext.isShutdown();
     }
     

@@ -29,11 +29,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
+import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
+import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
@@ -425,6 +431,132 @@ public class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBrooklynLaunc
         newLauncher.start();
         assertCatalogConsistsOfIds(newLauncher, COM_EXAMPLE_BUNDLE_CATALOG_IDS);
         assertManagedBundle(newLauncher, COM_EXAMPLE_BUNDLE_ID, COM_EXAMPLE_BUNDLE_CATALOG_IDS);
+    }
+    
+    @Test
+    public void testPersistsSingleCopyOfInitialCatalog() throws Exception {
+        Set<VersionedName> bundleItems = ImmutableSet.of(VersionedName.fromString("one:1.0.0"));
+        String bundleBom = createCatalogYaml(ImmutableList.of(), bundleItems);
+        VersionedName bundleName = new VersionedName("org.example.testRebindGetsInitialOsgiCatalog"+Identifiers.makeRandomId(4), "1.0.0");
+        File bundleFile = newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, bundleBom.getBytes(StandardCharsets.UTF_8)), bundleName);
+        File initialBomFile = newTmpFile(createCatalogYaml(ImmutableList.of(bundleFile.toURI()), ImmutableList.of()));
+
+        // First launcher should persist the bundle
+        BrooklynLauncher launcher = newLauncherForTests(initialBomFile.getAbsolutePath());
+        launcher.start();
+        String bundlePersistenceId = findManagedBundle(launcher, bundleName).getId();
+        launcher.terminate();
+        assertEquals(getPersistenceListing(BrooklynObjectType.MANAGED_BUNDLE), ImmutableSet.of(bundlePersistenceId));
+
+        // Second launcher should read from initial catalog and persisted state. Both those bundles have different ids.
+        // Should only end up with one of them in persisted state.
+        // (Current impl is that it will be the "initial catalog" version, discarding the previously persisted bundle).
+        BrooklynLauncher launcher2 = newLauncherForTests(initialBomFile.getAbsolutePath());
+        launcher2.start();
+        String bundlePersistenceId2 = findManagedBundle(launcher2, bundleName).getId();
+        launcher2.terminate();
+        assertEquals(getPersistenceListing(BrooklynObjectType.MANAGED_BUNDLE), ImmutableSet.of(bundlePersistenceId2));
+    }
+
+    /**
+     * It is vital that the brooklyn-managed-bundle ids match those in persisted state. If they do not, 
+     * then deletion of a brooklyn-managed-bundle will not actually delete it from persisted state.
+     * 
+     * Under the covers, the scenario of HOT_STANDBY promoted to MASTER is very different from when 
+     * it starts as master:
+     * <ol>
+     *   <li> We become hot-standby; we call RebindManager.startReaOnly (so PeriodicDeltaChangeListener 
+     *        discards changes).
+     *   <li>We repeatedly call rebindManager.rebind():
+     *     <ol>
+     *       <li>Each time, we populate the catalog from the initial and persisted state
+     *       <li>The OsgiManager.ManagedBundleRecords is populated the first time; subsequent times we see it is
+     *           already a managed bundle so do nothing.
+     *       <li>The first time, it calls to the PeriodicDeltaChangeListener about the managed bundle, but the
+     *           change is discarded (because we are read-only, and PeriodicDeltaChangeListener is 'STOPPED').
+     *     </ol>
+     *   <li>On HighAvailabilityManagerImpl promoting us from HOT_STANDBY to MASTER:
+     *     <ol>
+     *       <li>Calls rebindManager.stopReadOnly; this resets the PeriodicDeltaChangeListener
+     *           (so that it's in the INIT state, ready for recording whatever happens while we're promoting to MASTER)
+     *       <li>Clears our cache of brooklyn-managed-bundles. This is important so that we record
+     *           (and thus update persistence) for the "initial catalog" bundles being managed.
+     *       <li>Calls rebindManager.rebind(); we are in a good state to do this, having cleared out whatever
+     *           was done previously while we were hot-standby.
+     *         <ol>
+     *           <li>The new ManagedBundle instances from the "initial catalog" are recorded in the 
+     *               PeriodicDeltaChangeListener.
+     *           <li>For persisted bundles, if they were duplicates of existing brooklyn-managed-bundles then they
+     *               are recorded as deleted (in PeriodicDeltaChangeListener).
+     *         </ol>
+     *       <li>HighAvailabilityManagerImpl.promoteToMaster() then calls rebindManager.start(), which switches us
+     *           into writable mode. The changes recorded in PeriodicDeltaChangeListener  are applied to the
+     *           persisted state.
+     *     </ol>
+     * </ol>
+     * 
+     * In contrast, when we start as MASTER:
+     * <ol>
+     *   <li>We call rebindManager.setPersister(); the PeriodicDeltaChangeListener is in 'INIT' state 
+     *       so will record any changes. 
+     *   <li>We call rebindManager.rebind(); it populates the catalog from the initial and persisted state; 
+     *     <ol>
+     *       <li>The new ManagedBundle instances from the "initial catalog" are recorded in the PeriodicDeltaChangeListener.
+     *       <li>For persisted bundles, if they were duplicates of existing brooklyn-managed-bundles then they
+     *           are recorded as deleted (in PeriodicDeltaChangeListener).
+     *     </ol>
+     *   <li>We call rebindManager.startPersistence(); this enables write-access to the persistence store,
+     *       and starts the PeriodicDeltaChangeListener (so all recorded changes are applied).
+     * </ol>
+     */
+    @Test
+    public void testPersistsSingleCopyOfInitialCatalogOnHotStandbyPromotion() throws Exception {
+        Set<VersionedName> bundleItems = ImmutableSet.of(VersionedName.fromString("one:1.0.0"));
+        String bundleBom = createCatalogYaml(ImmutableList.of(), bundleItems);
+        VersionedName bundleName = new VersionedName("org.example.testRebindGetsInitialOsgiCatalog"+Identifiers.makeRandomId(4), "1.0.0");
+        File bundleFile = newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, bundleBom.getBytes(StandardCharsets.UTF_8)), bundleName);
+        File initialBomFile = newTmpFile(createCatalogYaml(ImmutableList.of(bundleFile.toURI()), ImmutableList.of()));
+
+        // First launcher should persist the bundle
+        BrooklynLauncher launcher = newLauncherForTests(initialBomFile.getAbsolutePath())
+                .highAvailabilityMode(HighAvailabilityMode.MASTER);
+        launcher.start();
+        String bundlePersistenceId = findManagedBundle(launcher, bundleName).getId();
+        RebindTestUtils.waitForPersisted(launcher.getManagementContext());
+        assertEquals(getPersistenceListing(BrooklynObjectType.MANAGED_BUNDLE), ImmutableSet.of(bundlePersistenceId));
+
+        // Second launcher goes into hot-standby, and will thus rebind periodically.
+        // When we terminate the first launcher, it will be promoted to master automatically.
+        BrooklynLauncher launcher2 = newLauncherForTests(initialBomFile.getAbsolutePath())
+                .highAvailabilityMode(HighAvailabilityMode.HOT_STANDBY);
+        launcher2.start();
+        assertHotStandbyEventually(launcher2);
+        
+        launcher.terminate();
+        assertMasterEventually(launcher2);
+        String bundlePersistenceId2 = findManagedBundle(launcher2, bundleName).getId();
+        launcher2.terminate();
+        assertEquals(getPersistenceListing(BrooklynObjectType.MANAGED_BUNDLE), ImmutableSet.of(bundlePersistenceId2));
+    }
+
+    private void assertHotStandbyEventually(BrooklynLauncher launcher) {
+        ManagementContext mgmt = launcher.getManagementContext();
+        Asserts.succeedsEventually(new Runnable() {
+            public void run() {
+                assertTrue(mgmt.isStartupComplete());
+                assertTrue(mgmt.isRunning());
+                assertEquals(mgmt.getHighAvailabilityManager().getNodeState(), ManagementNodeState.HOT_STANDBY);
+            }});
+    }
+    
+    private void assertMasterEventually(BrooklynLauncher launcher) {
+        ManagementContext mgmt = launcher.getManagementContext();
+        Asserts.succeedsEventually(new Runnable() {
+            public void run() {
+                assertTrue(mgmt.isStartupComplete());
+                assertTrue(mgmt.isRunning());
+                assertEquals(mgmt.getHighAvailabilityManager().getNodeState(), ManagementNodeState.MASTER);
+            }});
     }
     
     private Bundle installBundle(Framework framework, File bundle) throws Exception {
