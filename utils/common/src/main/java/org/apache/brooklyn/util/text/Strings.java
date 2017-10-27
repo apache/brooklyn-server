@@ -722,6 +722,13 @@ public class Strings {
         return false;
     }
 
+    public static boolean containsAny(CharSequence input, CharSequence ...candidates) {
+        for (CharSequence candidate: candidates) {
+            if (containsLiteral(input, candidate)) return true;
+        }
+        return false;
+    }
+
     /** Returns a size string using metric suffixes from {@link ByteSizeStrings#metric()}, e.g. 23.5MB */
     public static String makeSizeString(long sizeInBytes) {
         return ByteSizeStrings.metric().makeSizeString(sizeInBytes);

@@ -29,6 +29,7 @@ import java.util.Set;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
@@ -297,7 +298,15 @@ public class BundleUpgradeParser {
         
         List<VersionRangedName> versionedItems = new ArrayList<>();
         for (String val : vals) {
-            versionedItems.add(VersionRangedName.fromString(val, singleVersionIsOsgiRange));
+            try {
+                versionedItems.add(VersionRangedName.fromString(val.trim(), singleVersionIsOsgiRange));
+            } catch (Exception e) {
+                if (Strings.containsAny(val, "(", ")", "[", "]") &&
+                        !Strings.containsAny(val, "'", "\"")) {
+                    throw Exceptions.propagateAnnotated("Entry cannot be parsed. If defining a range on an entry you must quote the entry.", e);
+                }
+                throw Exceptions.propagate(e);
+            }
         }
         return versionedItems;
     }
