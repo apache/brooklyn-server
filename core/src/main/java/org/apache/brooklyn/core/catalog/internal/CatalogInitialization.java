@@ -25,8 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Dictionary;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,6 +39,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -49,6 +49,8 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -73,10 +75,9 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 @Beta
@@ -237,7 +238,9 @@ public class CatalogInitialization implements ManagementContextInjectable {
             }
             
             populateInitialCatalogImpl(true);
-            addPersistedCatalogImpl(persistedState, exceptionHandler, rebindLogger);
+            
+            PersistedCatalogState filteredPersistedState = filterBundlesAndCatalogInPersistedState(persistedState, rebindLogger);
+            addPersistedCatalogImpl(filteredPersistedState, exceptionHandler, rebindLogger);
             
             if (mode == ManagementNodeState.MASTER) {
                 // TODO ideally this would remain false until it has *persisted* the changed catalog;
@@ -528,8 +531,82 @@ public class CatalogInitialization implements ManagementContextInjectable {
         }
     }
 
+    private PersistedCatalogState filterBundlesAndCatalogInPersistedState(PersistedCatalogState persistedState, RebindLogger rebindLogger) {
+        // TODO Will need to share the results of `findCatalogUpgrades` when we support
+        // other options, such as, `brooklyn-catalog-upgrade-for-bundles`, described in the proposal:
+        //   https://docs.google.com/document/d/1Lm47Kx-cXPLe8BO34-qrL3ZMPosuUHJILYVQUswEH6Y/edit#
+        //   section "Bundle Upgrade Metadata"
+
+        CatalogUpgrades catalogUpgrades = findCatalogUpgradesInstructions(rebindLogger);
+        
+        if (catalogUpgrades.isEmpty()) {
+            return persistedState;
+        } else {
+            rebindLogger.info("Filtering out persisted catalog: removedBundles="+catalogUpgrades.getRemovedBundles()+"; removedLegacyItems="+catalogUpgrades.getRemovedLegacyItems());
+        }
+        
+        Map<VersionedName, InstallableManagedBundle> bundles = new LinkedHashMap<>();
+        for (Map.Entry<VersionedName, InstallableManagedBundle> entry : persistedState.getBundles().entrySet()) {
+            if (catalogUpgrades.isBundleRemoved(entry.getKey())) {
+                rebindLogger.debug("Filtering out persisted bundle "+entry.getKey());
+            } else {
+                bundles.put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        List<CatalogItem<?, ?>> legacyCatalogItems = new ArrayList<>();
+        for (CatalogItem<?, ?> legacyCatalogItem : persistedState.getLegacyCatalogItems()) {
+            if (catalogUpgrades.isLegacyItemRemoved(legacyCatalogItem)) {
+                rebindLogger.debug("Filtering out persisted legacy catalog item "+legacyCatalogItem.getId());
+            } else {
+                legacyCatalogItems.add(legacyCatalogItem);
+            }
+        }
+        
+        return new PersistedCatalogState(bundles, legacyCatalogItems);
+    }
+
+    private CatalogUpgrades findCatalogUpgradesInstructions(RebindLogger rebindLogger) {
+        Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)managementContext).getOsgiManager();
+        if (osgiManager.isAbsent()) {
+            // Can't find any bundles to tell if there are upgrades. Could be running tests; do no filtering.
+            return CatalogUpgrades.EMPTY;
+        }
+        
+        CatalogUpgrades.Builder catalogUpgradesBuilder = CatalogUpgrades.builder();
+        Collection<ManagedBundle> managedBundles = osgiManager.get().getManagedBundles().values();
+        for (ManagedBundle managedBundle : managedBundles) {
+            Maybe<Bundle> bundle = osgiManager.get().findBundle(managedBundle);
+            if (bundle.isPresent()) {
+                CatalogUpgrades catalogUpgrades = BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(
+                        bundle.get(),
+                        new RegisteredTypesSupplier(managementContext, managedBundle));
+                catalogUpgradesBuilder.addAll(catalogUpgrades);
+            } else {
+                rebindLogger.info("Managed bundle "+managedBundle.getId()+" not found by OSGi Manager; "
+                        + "ignoring when calculating persisted state catalog upgrades");
+            }
+        }
+        return catalogUpgradesBuilder.build();
+    }
+
+    private static class RegisteredTypesSupplier implements Supplier<Iterable<RegisteredType>> {
+        private final BrooklynTypeRegistry typeRegistry;
+        private final ManagedBundle bundle;
+        
+        RegisteredTypesSupplier(ManagementContext mgmt, ManagedBundle bundle) {
+            this.typeRegistry = mgmt.getTypeRegistry();
+            this.bundle = bundle;
+        }
+        @Override
+        public Iterable<RegisteredType> get() {
+            return typeRegistry.getMatching(RegisteredTypePredicates.containingBundle(bundle));
+        }
+    }
+
     public interface RebindLogger {
         void debug(String message, Object... args);
+        void info(String message, Object... args);
     }
     
     public interface InstallableManagedBundle {

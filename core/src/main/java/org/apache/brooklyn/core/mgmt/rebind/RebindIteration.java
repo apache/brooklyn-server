@@ -331,6 +331,10 @@ public abstract class RebindIteration {
             public void debug(String message, Object... args) {
                 logRebindingDebug(message, args);
             }
+            @Override
+            public void info(String message, Object... args) {
+                logRebindingInfo(message, args);
+            }
         };
 
         class InstallableManagedBundleImpl implements CatalogInitialization.InstallableManagedBundle {
@@ -757,14 +761,15 @@ public abstract class RebindIteration {
         if (!isEmpty) {
             BrooklynLogging.log(LOG, shouldLogRebinding() ? LoggingLevel.INFO : LoggingLevel.DEBUG, 
                 "Rebind complete " + "("+mode+(readOnlyRebindCount.get()>=0 ? ", iteration "+readOnlyRebindCount : "")+")" +
-                    " in {}: {} app{}, {} entit{}, {} location{}, {} polic{}, {} enricher{}, {} feed{}, {} catalog item{}",
+                    " in {}: {} app{}, {} entit{}, {} location{}, {} polic{}, {} enricher{}, {} feed{}, {} catalog item{}, {} catalog bundle{}",
                 Time.makeTimeStringRounded(timer), applications.size(), Strings.s(applications),
                 rebindContext.getEntities().size(), Strings.ies(rebindContext.getEntities()),
                 rebindContext.getLocations().size(), Strings.s(rebindContext.getLocations()),
                 rebindContext.getPolicies().size(), Strings.ies(rebindContext.getPolicies()),
                 rebindContext.getEnrichers().size(), Strings.s(rebindContext.getEnrichers()),
                 rebindContext.getFeeds().size(), Strings.s(rebindContext.getFeeds()),
-                rebindContext.getCatalogItems().size(), Strings.s(rebindContext.getCatalogItems())
+                rebindContext.getCatalogItems().size(), Strings.s(rebindContext.getCatalogItems()),
+                rebindContext.getBundles().size(), Strings.s(rebindContext.getBundles())
             );
         }
 
@@ -1271,6 +1276,15 @@ public abstract class RebindIteration {
     protected void logRebindingDebug(String message, Object... args) {
         if (shouldLogRebinding()) {
             LOG.debug(message, args);
+        } else {
+            LOG.trace(message, args);
+        }
+    }
+    
+    /** logs at info, except during subsequent read-only rebinds, in which it logs trace */
+    protected void logRebindingInfo(String message, Object... args) {
+        if (shouldLogRebinding()) {
+            LOG.info(message, args);
         } else {
             LOG.trace(message, args);
         }
