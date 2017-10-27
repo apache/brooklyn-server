@@ -39,7 +39,6 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
-import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -75,6 +74,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -580,7 +580,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
             if (bundle.isPresent()) {
                 CatalogUpgrades catalogUpgrades = BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(
                         bundle.get(),
-                        new RegisteredTypesSupplier(managementContext, managedBundle));
+                        new RegisteredTypesSupplier(managementContext, RegisteredTypePredicates.containingBundle(managedBundle)));
                 catalogUpgradesBuilder.addAll(catalogUpgrades);
             } else {
                 rebindLogger.info("Managed bundle "+managedBundle.getId()+" not found by OSGi Manager; "
@@ -591,16 +591,16 @@ public class CatalogInitialization implements ManagementContextInjectable {
     }
 
     private static class RegisteredTypesSupplier implements Supplier<Iterable<RegisteredType>> {
-        private final BrooklynTypeRegistry typeRegistry;
-        private final ManagedBundle bundle;
+        private final ManagementContext mgmt;
+        private final Predicate<? super RegisteredType> filter;
         
-        RegisteredTypesSupplier(ManagementContext mgmt, ManagedBundle bundle) {
-            this.typeRegistry = mgmt.getTypeRegistry();
-            this.bundle = bundle;
+        RegisteredTypesSupplier(ManagementContext mgmt, Predicate<? super RegisteredType> predicate) {
+            this.mgmt = mgmt;
+            this.filter = predicate;
         }
         @Override
         public Iterable<RegisteredType> get() {
-            return typeRegistry.getMatching(RegisteredTypePredicates.containingBundle(bundle));
+            return mgmt.getTypeRegistry().getMatching(filter);
         }
     }
 
