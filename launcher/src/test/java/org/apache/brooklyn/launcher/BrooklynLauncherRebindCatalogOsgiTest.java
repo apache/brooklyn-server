@@ -26,6 +26,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -33,6 +34,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
@@ -42,6 +44,7 @@ import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.osgi.Osgis;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
@@ -527,6 +530,8 @@ public class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBrooklynLaunc
 
         // Second launcher goes into hot-standby, and will thus rebind periodically.
         // When we terminate the first launcher, it will be promoted to master automatically.
+        // However, we'll say state="master" before we've fully initialised, so need to use
+        // assert-eventually.
         BrooklynLauncher launcher2 = newLauncherForTests(initialBomFile.getAbsolutePath())
                 .highAvailabilityMode(HighAvailabilityMode.HOT_STANDBY);
         launcher2.start();
@@ -534,9 +539,25 @@ public class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBrooklynLaunc
         
         launcher.terminate();
         assertMasterEventually(launcher2);
-        String bundlePersistenceId2 = findManagedBundle(launcher2, bundleName).getId();
+        assertPersistedBundleListingEqualsEventually(launcher2, ImmutableSet.of(bundleName));
         launcher2.terminate();
-        assertEquals(getPersistenceListing(BrooklynObjectType.MANAGED_BUNDLE), ImmutableSet.of(bundlePersistenceId2));
+    }
+    
+    private void assertPersistedBundleListingEqualsEventually(BrooklynLauncher launcher, Set<VersionedName> bundles) {
+        Asserts.succeedsEventually(new Runnable() {
+            @Override public void run() {
+                try {
+                    Set<String> expected = new LinkedHashSet<>();
+                    for (VersionedName bundle : bundles) {
+                        String bundleUid = findManagedBundle(launcher, bundle).getId();
+                        expected.add(bundleUid);
+                    }
+                    Set<String> persisted = getPersistenceListing(BrooklynObjectType.MANAGED_BUNDLE); 
+                    assertEquals(persisted, expected);
+                } catch (Exception e) {
+                    throw Exceptions.propagate(e);
+                }
+            }});
     }
 
     private void assertHotStandbyEventually(BrooklynLauncher launcher) {
