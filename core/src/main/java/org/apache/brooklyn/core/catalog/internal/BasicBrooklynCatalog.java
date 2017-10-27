@@ -1440,7 +1440,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager();
         if (osgiManager.isPresent() && AUTO_WRAP_CATALOG_YAML_AS_BUNDLE) {
             // wrap in a bundle to be managed; need to get bundle and version from yaml
-            OsgiBundleInstallationResult result = addItemsOsgi(yaml, forceUpdate, osgiManager);
+            OsgiBundleInstallationResult result = addItemsOsgi(yaml, forceUpdate, osgiManager.get());
             return toLegacyCatalogItems(result.getTypesInstalled());
 
             // if all items pertaining to an older anonymous catalog.bom bundle have been overridden
@@ -1457,7 +1457,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager();
         if (osgiManager.isPresent() && AUTO_WRAP_CATALOG_YAML_AS_BUNDLE) {
             // wrap in a bundle to be managed; need to get bundle and version from yaml
-            return addItemsOsgi(yaml, forceUpdate, osgiManager);
+            return addItemsOsgi(yaml, forceUpdate, osgiManager.get());
 
             // if all items pertaining to an older anonymous catalog.bom bundle have been overridden
             // we delete those later; see list of wrapper bundles kept in OsgiManager
@@ -1472,7 +1472,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return result;
     }
 
-    protected OsgiBundleInstallationResult addItemsOsgi(String yaml, boolean forceUpdate, Maybe<OsgiManager> osgiManager) {
+    protected OsgiBundleInstallationResult addItemsOsgi(String yaml, boolean forceUpdate, OsgiManager osgiManager) {
         Map<?, ?> cm = BasicBrooklynCatalog.getCatalogMetadata(yaml);
 
         if(cm == null) {
@@ -1503,7 +1503,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
         OsgiBundleInstallationResult result = null;
         try {
-            result = osgiManager.get().install(new BasicManagedBundle(vn.getSymbolicName(), vn.getVersionString(), null), new FileInputStream(bf), true, true, forceUpdate).get();
+            result = osgiManager.install(new BasicManagedBundle(vn.getSymbolicName(), vn.getVersionString(), null), new FileInputStream(bf), true, true, forceUpdate).get();
         } catch (FileNotFoundException e) {
             throw Exceptions.propagate(e);
         } finally {
