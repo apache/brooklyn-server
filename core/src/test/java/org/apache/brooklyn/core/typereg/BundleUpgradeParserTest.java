@@ -149,7 +149,7 @@ public class BundleUpgradeParserTest {
     @Test
     public void testParseBundleManifest() throws Exception {
         Bundle bundle = newMockBundle(ImmutableMap.of(
-                BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS, "\"foo:[0,1.0.0)\",\"bar:[0,1.0.0)\"",
+                BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS, "\"foo:[0,1.0.0)\",\"foo:1.0.0.SNAPSHOT\",\"bar:[0,1.0.0)\"",
                 BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "\"org.example.brooklyn.mybundle:[0,1.0.0)\""));
         checkParse(bundle);
     }
@@ -157,7 +157,7 @@ public class BundleUpgradeParserTest {
     @Test
     public void testParseBundleManifestWithSpaces() throws Exception {
         Bundle bundle = newMockBundle(ImmutableMap.of(
-                BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS, "\"foo:[0,1.0.0)\", \"bar:[0,1.0.0)\"",
+                BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS, "\"foo:[0,1.0.0)\", \"foo:1.0.0.SNAPSHOT\", \"bar:[0,1.0.0)\"",
                 BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, " \"org.example.brooklyn.mybundle:[0,1.0.0)\""));
         checkParse(bundle);
     }
@@ -171,9 +171,16 @@ public class BundleUpgradeParserTest {
         assertFalse(upgrades.isBundleRemoved(new VersionedName("org.example.brooklyn.mybundle", "1.0.0")));
         
         assertTrue(upgrades.isLegacyItemRemoved(newMockCatalogItem("foo", "0.1.0")));
+        assertTrue(upgrades.isLegacyItemRemoved(newMockCatalogItem("foo", "0.1.0-SNAPSHOT")));
+        assertTrue(upgrades.isLegacyItemRemoved(newMockCatalogItem("foo", "0.0.0-SNAPSHOT")));
         assertFalse(upgrades.isLegacyItemRemoved(newMockCatalogItem("foo", "1.0.0")));
+        assertTrue(upgrades.isLegacyItemRemoved(newMockCatalogItem("foo", "1.0.0.SNAPSHOT")));
+        assertFalse(upgrades.isLegacyItemRemoved(newMockCatalogItem("foo", "1.0.0.GA")));
+        
         assertTrue(upgrades.isLegacyItemRemoved(newMockCatalogItem("bar", "0.1.0")));
         assertFalse(upgrades.isLegacyItemRemoved(newMockCatalogItem("bar", "1.0.0")));
+        assertFalse(upgrades.isLegacyItemRemoved(newMockCatalogItem("bar", "1.0.0.SNAPSHOT")));
+        
         assertFalse(upgrades.isLegacyItemRemoved(newMockCatalogItem("different", "0.1.0")));
     }
     
