@@ -62,6 +62,7 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.CampYamlParser;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.BasicRegisteredType;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer;
@@ -950,8 +951,13 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             }
             
             if (version==null) {
-                // use this as default version when nothing specified
-                version = BasicBrooklynCatalog.NO_VERSION;
+                if (containingBundle!=null) {
+                    version = containingBundle.getVersionedName().getVersionString();
+                }
+                if (version==null) {
+                    // use this as default version when nothing specified or inferrable from containing bundle
+                    version = BasicBrooklynCatalog.NO_VERSION;
+                }
             }
             
             if (sourcePlanYaml==null) {
@@ -1036,7 +1042,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // (originally seen during a race where the empty-remover ran while we were installing)
             throw new IllegalStateException("Loading from a bundle which is not installed");
         }
-        String wrapped = bb.get().getHeaders().get(BROOKLYN_WRAPPED_BOM_BUNDLE);
+        return isWrapperBundle(bb.get());
+    }
+    
+    @Beta
+    public static boolean isWrapperBundle(Bundle b) {
+        String wrapped = b.getHeaders().get(BROOKLYN_WRAPPED_BOM_BUNDLE);
         return wrapped!=null && wrapped.equalsIgnoreCase("true");
     }
 
@@ -1429,7 +1440,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager();
         if (osgiManager.isPresent() && AUTO_WRAP_CATALOG_YAML_AS_BUNDLE) {
             // wrap in a bundle to be managed; need to get bundle and version from yaml
-            OsgiBundleInstallationResult result = addItemsOsgi(yaml, forceUpdate, osgiManager);
+            OsgiBundleInstallationResult result = addItemsOsgi(yaml, forceUpdate, osgiManager.get());
             return toLegacyCatalogItems(result.getTypesInstalled());
 
             // if all items pertaining to an older anonymous catalog.bom bundle have been overridden
@@ -1446,7 +1457,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager();
         if (osgiManager.isPresent() && AUTO_WRAP_CATALOG_YAML_AS_BUNDLE) {
             // wrap in a bundle to be managed; need to get bundle and version from yaml
-            return addItemsOsgi(yaml, forceUpdate, osgiManager);
+            return addItemsOsgi(yaml, forceUpdate, osgiManager.get());
 
             // if all items pertaining to an older anonymous catalog.bom bundle have been overridden
             // we delete those later; see list of wrapper bundles kept in OsgiManager
@@ -1461,7 +1472,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return result;
     }
 
-    protected OsgiBundleInstallationResult addItemsOsgi(String yaml, boolean forceUpdate, Maybe<OsgiManager> osgiManager) {
+    protected OsgiBundleInstallationResult addItemsOsgi(String yaml, boolean forceUpdate, OsgiManager osgiManager) {
         Map<?, ?> cm = BasicBrooklynCatalog.getCatalogMetadata(yaml);
 
         if(cm == null) {
@@ -1492,7 +1503,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
         OsgiBundleInstallationResult result = null;
         try {
-            result = osgiManager.get().install(null, new FileInputStream(bf), true, true, forceUpdate).get();
+            result = osgiManager.install(new BasicManagedBundle(vn.getSymbolicName(), vn.getVersionString(), null), new FileInputStream(bf), true, true, forceUpdate).get();
         } catch (FileNotFoundException e) {
             throw Exceptions.propagate(e);
         } finally {
