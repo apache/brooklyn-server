@@ -344,6 +344,10 @@ public class OsgiManager {
         return Maybe.absent();
     }
     
+    ManagementContext getManagementContext() {
+        return mgmt;
+    }
+    
     /**
      * Clears all record of the managed bundles (use with care!).
      * 

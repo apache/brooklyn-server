@@ -131,6 +131,19 @@ public class BrooklynServerConfig {
     public static final ConfigKey<Boolean> OSGI_CACHE_CLEAN = ConfigKeys.newBooleanConfigKey("brooklyn.osgi.cache.clean",
         "Whether to delete the OSGi directory before and after use; if unset, it will delete if the node ID forms part of the cache dir path (which by default it does) to avoid file leaks");
 
+    public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX = ConfigKeys.newStringConfigKey(
+            "brooklyn.persistence.bundle.whitelist",
+            "Regex for bundle symbolic names explicitly allowed to be persisted (taking precedence over blacklist); "
+                    + "managed bundles will by default be peristed if not blacklisted; "
+                    + "they do not need to be explicitly whitelisted.",
+            null);
+    
+    public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX = ConfigKeys.newStringConfigKey(
+            "brooklyn.persistence.bundle.blacklist",
+            "Regex for bundle symbolic names explicitly excluded from persistence (but whitelist takes precedence); "
+                    + "if not explicitly blacklisted, managed bundles will by default be peristed",
+            "org\\.apache\\.brooklyn\\..*");
+
     /** @see BrooklynServerPaths#getMgmtBaseDir(ManagementContext) */
     public static String getMgmtBaseDir(ManagementContext mgmt) {
         return BrooklynServerPaths.getMgmtBaseDir(mgmt);

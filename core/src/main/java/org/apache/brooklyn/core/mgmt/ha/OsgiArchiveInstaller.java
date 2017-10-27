@@ -31,15 +31,18 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
@@ -64,15 +67,21 @@ import org.osgi.framework.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 
 // package-private so we can move this one if/when we move OsgiManager
 class OsgiArchiveInstaller {
 
     private static final Logger log = LoggerFactory.getLogger(OsgiArchiveInstaller.class);
+    
+    public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX;
+    
+    public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX;
     
     final private OsgiManager osgiManager;
     private ManagedBundle suppliedKnownBundleMetadata;
@@ -92,6 +101,8 @@ class OsgiArchiveInstaller {
     
     private ManagedBundle inferredMetadata;
     private final boolean inputStreamSupplied;
+    
+    private volatile Predicate<ManagedBundle> blacklistBundlePersistencePredicate;
     
     OsgiArchiveInstaller(OsgiManager osgiManager, ManagedBundle knownBundleMetadata, InputStream zipIn) {
         this.osgiManager = osgiManager;
@@ -121,7 +132,7 @@ class OsgiArchiveInstaller {
     }
 
     private ManagementContextInternal mgmt() {
-        return (ManagementContextInternal) osgiManager.mgmt;
+        return (ManagementContextInternal) osgiManager.getManagementContext();
     }
     
     private synchronized void init() {
@@ -681,15 +692,39 @@ class OsgiArchiveInstaller {
         }
     }
     
-    private static boolean isBlacklistedForPersistence(ManagedBundle managedBundle) {
-        // Specifically, we treat as "managed bundles" (to extract their catalog.bom) the contents of:
+    @VisibleForTesting
+    boolean isBlacklistedForPersistence(ManagedBundle managedBundle) {
+        // We treat as "managed bundles" (to extract their catalog.bom) the contents of:
         //   - org.apache.brooklyn.core
         //   - org.apache.brooklyn.policy
         //   - org.apache.brooklyn.test-framework
         //   - org.apache.brooklyn.software-*
         //   - org.apache.brooklyn.library-catalog
         //   - org.apache.brooklyn.karaf-init (not sure why this one could end up in persisted state!)
-        return managedBundle.getSymbolicName().startsWith("org.apache.brooklyn.");
+        // We don't want to persist the entire brooklyn distro! Therefore default is to blacklist those.
+        
+        if (blacklistBundlePersistencePredicate == null) {
+            String whitelistRegex = mgmt().getConfig().getConfig(PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX);
+            String blacklistRegex = mgmt().getConfig().getConfig(PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX);
+            
+            final Pattern whitelistPattern = (whitelistRegex != null) ? Pattern.compile(whitelistRegex) : null;
+            final Pattern blacklistPattern = (blacklistRegex != null) ? Pattern.compile(blacklistRegex) : null;
+
+            blacklistBundlePersistencePredicate = new Predicate<ManagedBundle>() {
+                @Override public boolean apply(ManagedBundle input) {
+                    String bundleName = input.getSymbolicName();
+                    if (whitelistPattern != null && whitelistPattern.matcher(bundleName).matches()) {
+                        return false;
+                    }
+                    if (blacklistPattern != null && blacklistPattern.matcher(bundleName).matches()) {
+                        return true;
+                    }
+                    return false;
+                }
+            };
+        }
+        
+        return blacklistBundlePersistencePredicate.apply(managedBundle);
     }
     
     private static List<Bundle> findBundlesByVersion(OsgiManager osgiManager, ManagedBundle desired) {
