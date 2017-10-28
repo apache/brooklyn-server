@@ -149,8 +149,20 @@ public class BundleUpgradeParserTest {
     @Test
     public void testParseBundleManifest() throws Exception {
         Bundle bundle = newMockBundle(ImmutableMap.of(
-                BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS, "\"foo:[0,1.0.0)\",\"bar:[0,1.0.0)\"",
+                BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS, "\"foo:[0,1.0.0)\",\"foo:1.0.0.SNAPSHOT\",\"bar:[0,1.0.0)\"",
                 BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "\"org.example.brooklyn.mybundle:[0,1.0.0)\""));
+        checkParse(bundle);
+    }
+
+    @Test
+    public void testParseBundleManifestWithSpaces() throws Exception {
+        Bundle bundle = newMockBundle(ImmutableMap.of(
+                BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS, "\"foo:[0,1.0.0)\", \"foo:1.0.0.SNAPSHOT\", \"bar:[0,1.0.0)\"",
+                BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, " \"org.example.brooklyn.mybundle:[0,1.0.0)\""));
+        checkParse(bundle);
+    }
+
+    protected void checkParse(Bundle bundle) {
         Supplier<Iterable<RegisteredType>> typeSupplier = Suppliers.ofInstance(ImmutableList.of());
         
         CatalogUpgrades upgrades = BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(bundle, typeSupplier);
@@ -159,10 +171,31 @@ public class BundleUpgradeParserTest {
         assertFalse(upgrades.isBundleRemoved(new VersionedName("org.example.brooklyn.mybundle", "1.0.0")));
         
         assertTrue(upgrades.isLegacyItemRemoved(newMockCatalogItem("foo", "0.1.0")));
+        assertTrue(upgrades.isLegacyItemRemoved(newMockCatalogItem("foo", "0.1.0-SNAPSHOT")));
+        assertTrue(upgrades.isLegacyItemRemoved(newMockCatalogItem("foo", "0.0.0-SNAPSHOT")));
         assertFalse(upgrades.isLegacyItemRemoved(newMockCatalogItem("foo", "1.0.0")));
+        assertTrue(upgrades.isLegacyItemRemoved(newMockCatalogItem("foo", "1.0.0.SNAPSHOT")));
+        assertFalse(upgrades.isLegacyItemRemoved(newMockCatalogItem("foo", "1.0.0.GA")));
+        
         assertTrue(upgrades.isLegacyItemRemoved(newMockCatalogItem("bar", "0.1.0")));
         assertFalse(upgrades.isLegacyItemRemoved(newMockCatalogItem("bar", "1.0.0")));
+        assertFalse(upgrades.isLegacyItemRemoved(newMockCatalogItem("bar", "1.0.0.SNAPSHOT")));
+        
         assertFalse(upgrades.isLegacyItemRemoved(newMockCatalogItem("different", "0.1.0")));
+    }
+    
+    @Test
+    public void testForgetQuotesGivesNiceError() throws Exception {
+        Bundle bundle = newMockBundle(ImmutableMap.of(
+                BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS, "foo:[0,1.0.0),bar:[0,1.0.0)"));
+        Supplier<Iterable<RegisteredType>> typeSupplier = Suppliers.ofInstance(ImmutableList.of());
+        
+        try {
+            BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(bundle, typeSupplier);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "quote");
+        }
     }
 
     @Test
@@ -183,7 +216,13 @@ public class BundleUpgradeParserTest {
     
     private Bundle newMockBundle(VersionedName name, Map<String, String> rawHeaders) {
         Dictionary<String, String> headers = new Hashtable<>(rawHeaders);
-        Bundle result = Mockito.mock(Bundle.class);
+        Bundle result;
+        try {
+            result = Mockito.mock(Bundle.class);
+        } catch (Exception e) {
+            throw new IllegalStateException("Java too old.  There is a bug in really early java 1.8.0 "
+                + "that causes mocks to fail, and has probably caused this.", e);
+        }
         Mockito.when(result.getHeaders()).thenReturn(headers);
         Mockito.when(result.getSymbolicName()).thenReturn(name.getSymbolicName());
         Mockito.when(result.getVersion()).thenReturn(Version.valueOf(name.getOsgiVersionString()));

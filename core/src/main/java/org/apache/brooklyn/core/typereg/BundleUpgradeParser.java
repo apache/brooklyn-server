@@ -29,6 +29,7 @@ import java.util.Set;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
@@ -53,17 +54,20 @@ public class BundleUpgradeParser {
      * given legacy catalog items. Here "legacy" means those in the `/catalog` persisted state, 
      * rather than items added in bundles.
      * 
-     * The format for the value is one of:
+     * The format for the value is one of the following:
      * <ul>
-     *   <li>Quoted {@code name:versionRange}, where version range follows the OSGi conventions 
-     *       (except that a single version number means exactly that version rather than greater 
-     *       than or equal to that verison). For example, {@code "my-tomcat:[0,1)"}
-     *   <li>Comma-separated list of quoted {@code name:versionRange}. For example,
-     *       {@code "my-tomcat:[0,1)","my-nginx:[0,1)"}
+     *   <li>Quoted {@code name:versionRange}, eg {@code "my-tomcat:[0,1)"};
+     *       see {@link #MANIFEST_HEADER_FORCE_REMOVE_BUNDLES} for more information
+     *   <li>Comma-separated list of quoted {@code name:versionRange}, eg {@code "my-tomcat:[0,1)","my-nginx:[0,1)"};
+     *       see {@link #MANIFEST_HEADER_FORCE_REMOVE_BUNDLES} for more information
      *   <li>{@code "*"} means all legacy items for things defined in this bundle, with version
-     *       numbers older than the version of the bundle. For example, if the bundle is 
+     *       numbers lower than the version of the bundle. For example, if the bundle is 
      *       version 1.0.0 and its catalog.bom contains items "foo" and "bar", then it is equivalent
-     *       to writing {@code "foo:[0,1.0.0)","bar:[0,1.0.0)"}
+     *       to writing {@code "foo:[0,1.0.0)","bar:[0,1.0.0)"}.
+     *       As per the comments on {@link #MANIFEST_HEADER_FORCE_REMOVE_BUNDLES},
+     *       the version of the bundle and items being added here to replace legacy catalog items
+     *       should typically be larger in major/minor/point value 
+     *       as a qualifier bump can be quite complex due to ordering differences.  
      * </ul>
      */
     @Beta
@@ -71,17 +75,31 @@ public class BundleUpgradeParser {
 
     /**
      * A header in a bundle's manifest, indicating that this bundle will force the removal of matching 
-     * bundle(s) that are in the `/bundles` persisted state.
+     * bundle(s) previously added and the types they contain.
      * 
      * The format for the value is one of:
      * <ul>
      *   <li>Quoted {@code name:versionRange}, where version range follows the OSGi conventions 
      *       (except that a single version number means exactly that version rather than greater 
-     *       than or equal to that verison). For example, {@code "org.example.mybundle:[0,1)"}
+     *       than or equal to that version). For example, {@code "org.example.mybundle:[0,1)"}.
+     *       Note in particular this uses OSGi ordering semantics not Brooklyn ordering semantics,
+     *       so qualifiers come <i>after</i> unqualified versions here, snapshot is not special-cased,
+     *       and qualifiers (last/fourth segment) are compared alphabetically
+     *       (thus "1.0" < "1.0.0.GA" < "1.0.0.SNAPSHOT" < "1.0.0.v10" < "1.0.0.v2" --
+     *       but they are the same with respect to major/minor/point numbers so if in doubt stick with those!).
+     *       Thus if using a range it is generally recommended to use a "[" square bracket start and ")" round bracket end
+     *       so that the start is inclusive and end exclusive, and any edge cases explicitly referenced.
+     *       If you want to replace a SNAPSHOT or RC version with a GA version you will need to call this out specially,
+     *       as described in the "comma-separated list" format below.
+     *       This is good anyway because there are different conventions for release names
+     *       (e.g. "1.0.0" or "1.0.0.GA" or "1.0.0.2017-12") and any automation here is likely to cause surprises.
      *   <li>Comma-separated list of quoted {@code name:versionRange}. For example,
      *       {@code "org.example.mybundle:[0,1)","org.example.myotherbundle:[0,1)"} (useful for
-     *       when this bundle merges the contents of two previous bundles).
-     *   <li>{@code "*"} means all older versions of this bundle. For example, if the bundle is 
+     *       when this bundle merges the contents of two previous bundles), or
+     *       {@code "*","org.example.mybundle:1.0.0.SNAPSHOT","org.example.mybundle:1.0.0.rc1"}
+     *       when releasing {@code org.example.mybundle:1.0.0.GA} 
+     *       (to replace versions pre 1.0.0 as well as a snapshot and RC1)
+     *   <li>{@code "*"} means all lower versions of this bundle. For example, if the bundle is 
      *       {@code org.example.mybundle:1.0.0}, then it is equivalent to writing 
      *       {@code "org.example.mybundle:[0,1.0.0)"}
      * </ul>
@@ -297,7 +315,15 @@ public class BundleUpgradeParser {
         
         List<VersionRangedName> versionedItems = new ArrayList<>();
         for (String val : vals) {
-            versionedItems.add(VersionRangedName.fromString(val, singleVersionIsOsgiRange));
+            try {
+                versionedItems.add(VersionRangedName.fromString(val.trim(), singleVersionIsOsgiRange));
+            } catch (Exception e) {
+                if (Strings.containsAny(val, "(", ")", "[", "]") &&
+                        !Strings.containsAny(val, "'", "\"")) {
+                    throw Exceptions.propagateAnnotated("Entry cannot be parsed. If defining a range on an entry you must quote the entry.", e);
+                }
+                throw Exceptions.propagate(e);
+            }
         }
         return versionedItems;
     }
