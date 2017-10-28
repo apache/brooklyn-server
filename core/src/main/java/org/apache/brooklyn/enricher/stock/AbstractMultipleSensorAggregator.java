@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.enricher.stock;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -102,7 +101,13 @@ public abstract class AbstractMultipleSensorAggregator<U> extends AbstractAggreg
                         initialVal = null;
                     }
                     vs.put(producer, initialVal != null ? initialVal : defaultMemberValue);
-                    // NB: see notes on possible race, in Aggregator#onProducerAdded
+                    // there may be sensor events older than initialVal because this is run in 
+                    // the _parents_ synched subscription block.  we live with this for now,
+                    // as those sensor events will catch up, but val here might see
+                    // second -> first -> second on child publishing second -> first .
+                    // could resolve by running this init in the subscription manager thread;
+                    // but it's not necessary yet; see Aggregator#onProducerAdded and
+                    // ApplicationLifecycleStateTest#testSensorInitAndPublishOrder
                 }
             }
         }
