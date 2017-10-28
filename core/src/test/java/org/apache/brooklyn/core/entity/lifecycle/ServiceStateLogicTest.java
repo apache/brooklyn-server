@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityAsserts;
@@ -338,7 +339,7 @@ public class ServiceStateLogicTest extends BrooklynAppUnitTestSupport {
             EntityAsserts.assertAttributeEqualsEventually(ImmutableMap.of("timeout", Duration.seconds(3)), x, sensor, value);
         } catch (Throwable e) {
             log.warn("Expected "+x+" eventually to have "+sensor+" = "+value+"; instead:");
-            Entities.dumpInfo(x);
+            Dumper.dumpInfo(x);
             throw Exceptions.propagate(e);
         }
     }
@@ -347,7 +348,7 @@ public class ServiceStateLogicTest extends BrooklynAppUnitTestSupport {
             EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", Duration.millis(25)), x, sensor, value);
         } catch (Throwable e) {
             log.warn("Expected "+x+" continually to have "+sensor+" = "+value+"; instead:");
-            Entities.dumpInfo(x);
+            Dumper.dumpInfo(x);
             throw Exceptions.propagate(e);
         }
     }
@@ -356,7 +357,7 @@ public class ServiceStateLogicTest extends BrooklynAppUnitTestSupport {
             EntityAsserts.assertAttributeEquals(x, sensor, value);
         } catch (Throwable e) {
             log.warn("Expected "+x+" to have "+sensor+" = "+value+"; instead:");
-            Entities.dumpInfo(x);
+            Dumper.dumpInfo(x);
             throw Exceptions.propagate(e);
         }
     }

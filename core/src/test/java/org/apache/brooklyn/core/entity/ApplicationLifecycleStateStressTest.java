@@ -26,6 +26,7 @@ public class ApplicationLifecycleStateStressTest extends ApplicationLifecycleSta
     // TODO Is there a nicer way to get all the super-class public methods to run with the 
     // invocationCount defined on this class, rather than the simple `@Test` annotation on 
     // the super-class (without redefining all the public methods here!)?
+    //   Alex replying: I don't think so, unless you possibly ran the "parent" as suite 100 times
     
     @Override
     public void testHappyPathEmptyApp() throws Exception {
@@ -67,37 +68,34 @@ public class ApplicationLifecycleStateStressTest extends ApplicationLifecycleSta
         super.testStartsThenSomeChildFailsCausesAppToFail();
     }
 
-    /** See {@link ApplicationLifecycleStateTest#testChildFailuresOnStartButWithQuorumCausesAppToSucceed()} for details on the failure */
-    @Test(groups="Broken")
     @Override
     public void testChildFailuresOnStartButWithQuorumCausesAppToSucceed() throws Exception {
         super.testChildFailuresOnStartButWithQuorumCausesAppToSucceed();
     }
-    
-    /** See {@link ApplicationLifecycleStateTest#testChildFailuresOnStartButWithQuorumCausesAppToSucceed()} for details on the failure */
-    @Test(groups="Broken")
+
     @Override
     public void testStartsThenChildFailsButWithQuorumCausesAppToSucceed() throws Exception {
         super.testStartsThenChildFailsButWithQuorumCausesAppToSucceed();
     }
 
-    /** See {@link ApplicationLifecycleStateTest#testChildFailuresOnStartButWithQuorumCausesAppToSucceed()} for details on the failure */
-    @Test(groups="Broken")
     @Override
     public void testStartsThenChildFailsButWithQuorumCausesAppToStayHealthy() throws Exception {
         super.testStartsThenChildFailsButWithQuorumCausesAppToStayHealthy();
     }
 
-    @Test(groups="Broken")
     @Override
     public void testSettingSensorFromThreads() {
         super.testSettingSensorFromThreads();
     }
 
-    @Test(groups="Broken")
     @Override
-    public void testWrongSensorInitValue() {
-        super.testWrongSensorInitValue();
+    public void testSensorInitAndPublishOrder() {
+        super.testSensorInitAndPublishOrder();
+    }
+
+    @Override
+    public void testSensorInitAndPublishOrderNonStrict() {
+        super.testSensorInitAndPublishOrderNonStrict();
     }
 
     @Override

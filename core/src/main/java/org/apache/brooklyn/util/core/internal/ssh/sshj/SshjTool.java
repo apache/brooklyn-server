@@ -210,12 +210,6 @@ public class SshjTool extends SshAbstractTool implements SshTool {
     }
 
     @Override
-    @Deprecated // see super
-    public void connect(int maxAttempts) {
-        connect(); // FIXME Should callers instead configure sshTries? But that would apply to all ssh attempts
-    }
-
-    @Override
     public void disconnect() {
         if (LOG.isTraceEnabled()) LOG.trace("Disconnecting SshjTool {} ({})", this, System.identityHashCode(this));
         try {

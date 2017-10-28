@@ -18,16 +18,11 @@
  */
 package org.apache.brooklyn.core.mgmt.rebind;
 
-import static org.testng.Assert.assertEquals;
-
 import java.io.File;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Callable;
 
-import org.apache.brooklyn.api.catalog.BrooklynCatalog;
-import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -35,9 +30,7 @@ import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoManifest;
-import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityFunctions;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.trait.Startable;
@@ -46,8 +39,10 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
@@ -55,10 +50,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
-
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 
 public abstract class RebindTestFixture<T extends StartableApplication> {
 
@@ -93,11 +84,18 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
     }
 
     protected BrooklynProperties createBrooklynProperties() {
+        BrooklynProperties result;
         if (useLiveManagementContext()) {
-            return BrooklynProperties.Factory.newDefault();
+            result = BrooklynProperties.Factory.newDefault();
         } else {
-            return BrooklynProperties.Factory.newEmpty();
+            result = BrooklynProperties.Factory.newEmpty();
         }
+        // By default, will not persist "org.apache.brooklyn.*" bundles; therefore explicitly whitelist 
+        // such things commonly used in tests.
+        String whitelistRegex = OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_SYMBOLIC_NAME_FULL 
+                + "|" + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FULL;
+        result.put(BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX, whitelistRegex);
+        return result;
     }
 
     /** @return A started management context */
@@ -241,52 +239,6 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         return rebind(RebindOptions.create());
     }
 
-    /**
-     * Checking serializable is overly strict.
-     * State only needs to be xstream-serializable, which does not require `implements Serializable`. 
-     * Also, the xstream serializer has some special hooks that replaces an entity reference with 
-     * a marker for that entity, etc.
-     * 
-     * @deprecated since 0.7.0; use {@link #rebind()} or {@link #rebind(RebindOptions)})
-     */
-    @Deprecated
-    protected T rebind(boolean checkSerializable) throws Exception {
-        return rebind(RebindOptions.create().checkSerializable(checkSerializable));
-    }
-    
-    /**
-     * Checking serializable is overly strict.
-     * State only needs to be xstream-serializable, which does not require `implements Serializable`. 
-     * Also, the xstream serializer has some special hooks that replaces an entity reference with 
-     * a marker for that entity, etc.
-     * 
-     * @deprecated since 0.7.0; use {@link #rebind(RebindOptions)})
-     */
-    @Deprecated
-    protected T rebind(boolean checkSerializable, boolean terminateOrigManagementContext) throws Exception {
-        return rebind(RebindOptions.create()
-                .checkSerializable(checkSerializable)
-                .terminateOrigManagementContext(terminateOrigManagementContext));
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@link #rebind(RebindOptions)})
-     */
-    @Deprecated
-    protected T rebind(RebindExceptionHandler exceptionHandler) throws Exception {
-        return rebind(RebindOptions.create().exceptionHandler(exceptionHandler));
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@link #rebind(RebindOptions)})
-     */
-    @Deprecated
-    protected T rebind(ManagementContext newManagementContext, RebindExceptionHandler exceptionHandler) throws Exception {
-        return rebind(RebindOptions.create()
-                .newManagementContext(newManagementContext)
-                .exceptionHandler(exceptionHandler));
-    }
-    
     @SuppressWarnings("unchecked")
     protected T rebind(RebindOptions options) throws Exception {
         if (newApp != null || newManagementContext != null) {
@@ -307,12 +259,11 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         return newApp;
     }
 
-    protected T hotStandby() throws Exception {
+    protected ManagementContext hotStandby() throws Exception {
         return hotStandby(RebindOptions.create());
     }
 
-    @SuppressWarnings("unchecked")
-    protected T hotStandby(RebindOptions options) throws Exception {
+    protected ManagementContext hotStandby(RebindOptions options) throws Exception {
         if (newApp != null || newManagementContext != null) {
             throw new IllegalStateException("already rebound - use switchOriginalToNewManagementContext() if you are trying to rebind multiple times");
         }
@@ -334,8 +285,8 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         RebindTestUtils.stopPersistence(origApp);
         
         newManagementContext = options.newManagementContext;
-        newApp = (T) RebindTestUtils.rebind(options);
-        return newApp;
+        RebindTestUtils.rebind(options);
+        return newManagementContext;
     }
 
     /**

@@ -32,6 +32,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
@@ -40,6 +41,7 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -319,7 +321,9 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
         EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STARTING);
 
         // Check that the read-only hot standby does not overwrite the entity's state; it should still say "STARTING"
-        TestApplication newApp = hotStandby();
+        ManagementContext newManagementContext = hotStandby();
+        Asserts.succeedsEventually(() -> assertTrue(newManagementContext.getApplications().size() > 0));
+        Application newApp = Iterables.getOnlyElement(newManagementContext.getApplications());
         final VanillaSoftwareProcess newEntity = (VanillaSoftwareProcess) Iterables.find(newApp.getChildren(), Predicates.instanceOf(VanillaSoftwareProcess.class));
 
         assertNotMarkedOnfire(newEntity, Lifecycle.STARTING);

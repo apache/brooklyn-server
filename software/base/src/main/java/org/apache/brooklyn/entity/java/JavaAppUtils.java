@@ -222,12 +222,6 @@ public class JavaAppUtils {
         return builder;
     }
 
-    /** @deprecated Since 0.7.0. Use {@link org.apache.brooklyn.util.math.MathFunctions#times(double)} instead */
-    @Deprecated
-    public static Function<Number, Double> times(final double x) {
-        return MathFunctions.times(x);
-    }
-
     public static Function<CompositeData, MemoryUsage> compositeDataToMemoryUsage() {
         return new Function<CompositeData, MemoryUsage>() {
             @Override public MemoryUsage apply(CompositeData input) {

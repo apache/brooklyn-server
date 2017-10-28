@@ -55,12 +55,6 @@ public class LocationTransformer {
     
     public static enum LocationDetailLevel { NONE, LOCAL_EXCLUDING_SECRET, FULL_EXCLUDING_SECRET, FULL_INCLUDING_SECRET }
     
-    /** @deprecated since 0.7.0 use method taking management context and detail specifier */
-    @Deprecated
-    public static LocationSummary newInstance(String id, org.apache.brooklyn.rest.domain.LocationSpec locationSpec, UriBuilder ub) {
-        return newInstance(null, id, locationSpec, LocationDetailLevel.LOCAL_EXCLUDING_SECRET, ub);
-    }
-    
     private static LocationSummary newInstance(ManagementContext mgmt, 
             LocationSpec<? extends Location> spec, ConfigBag explicitConfig, 
             String optionalExplicitId, String name, String specString, 
@@ -109,12 +103,6 @@ public class LocationTransformer {
     public static LocationSummary newInstance(ManagementContext mgmt, String id, org.apache.brooklyn.rest.domain.LocationSpec locationSpec, LocationDetailLevel level, UriBuilder ub) {
         LocationDefinition ld = new BasicLocationDefinition(id, locationSpec.getName(), locationSpec.getSpec(), locationSpec.getConfig());
         return newInstance(mgmt, ld, level, ub);
-    }
-
-    /** @deprecated since 0.7.0 use method taking management context and detail specifier */
-    @Deprecated
-    public static LocationSummary newInstance(LocationDefinition l, UriBuilder ub) {
-        return newInstance(null, l, LocationDetailLevel.LOCAL_EXCLUDING_SECRET, ub);
     }
 
     public static LocationSummary newInstance(ManagementContext mgmt, LocationDefinition ld, LocationDetailLevel level, UriBuilder ub) {

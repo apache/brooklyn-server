@@ -210,7 +210,7 @@ public class EntityTypeTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testRemoveSensorThroughEntity() throws Exception{
         entity.sensors().set(TEST_SENSOR, "abc");
-        entity.removeAttribute(TEST_SENSOR);
+        entity.sensors().remove(TEST_SENSOR);
         assertFalse(entity.getEntityType().getSensors().contains(TEST_SENSOR), "sensors="+entity.getEntityType().getSensors()); 
         assertEquals(entity.getAttribute(TEST_SENSOR), null);
         

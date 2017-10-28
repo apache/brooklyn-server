@@ -60,10 +60,6 @@ public abstract class AbstractEffector<T> extends EffectorBase<T> implements Eff
     /** Convenience for named-parameter syntax (needs map in first argument) */
     public T call(@SuppressWarnings("rawtypes") Map parameters, Entity entity) { return call(entity, parameters); }
 
-    /** @deprecated since 0.7.0 use {@link #getFlagsForTaskInvocationAt(Entity, Effector, ConfigBag)} */ @Deprecated
-    protected final Map<Object,Object> getFlagsForTaskInvocationAt(Entity entity) {
-        return getFlagsForTaskInvocationAt(entity, this, null);
-    }
     /** subclasses may override to add additional flags, but they should include the flags returned here 
      * unless there is very good reason not to */
     protected Map<Object,Object> getFlagsForTaskInvocationAt(Entity entity, Effector<T> effector, ConfigBag parameters) {

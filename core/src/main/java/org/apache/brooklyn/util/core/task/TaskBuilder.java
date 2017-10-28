@@ -52,14 +52,6 @@ public class TaskBuilder<T> {
         return new TaskBuilder<T>();
     }
 
-    /**
-     * @deprecated since 0.8.0; use {@link #displayName(String)}
-     */
-    @Deprecated
-    public TaskBuilder<T> name(String name) {
-        return displayName(name);
-    }
-    
     public TaskBuilder<T> displayName(String displayName) {
         this.displayName = displayName;
         return this;

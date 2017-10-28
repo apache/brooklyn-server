@@ -38,7 +38,7 @@ import com.google.common.collect.ImmutableMap;
  * see also, subclasses */
 @JsonIgnoreProperties(ignoreUnknown = true)
 // ignore unknown, ie properties from subclasses (entity)
-/** @deprecated since 0.13.0 new {@link TypeApi} returns {@link TypeSummary} */
+/** @deprecated since 1.0.0 new {@link TypeApi} returns {@link TypeSummary} */
 @Deprecated
 public class CatalogItemSummary implements HasId, HasName, Serializable {
 

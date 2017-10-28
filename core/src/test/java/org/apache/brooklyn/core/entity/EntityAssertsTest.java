@@ -83,7 +83,8 @@ public class EntityAssertsTest extends BrooklynAppUnitTestSupport {
         entity.sensors().set(TestEntity.NAME, "before");
         final String after = "after";
 
-        Task<?> assertValue = entity.getExecutionContext().submit("assert attr equals", () -> EntityAsserts.assertAttributeEqualsEventually(entity, TestEntity.NAME, after));
+        Task<?> assertValue = entity.getExecutionContext().submit("assert attr equals", 
+            () -> EntityAsserts.assertAttributeEqualsEventually(entity, TestEntity.NAME, after));
         entity.sensors().set(TestEntity.NAME, after);
         assertValue.get();
     }

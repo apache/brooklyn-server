@@ -81,13 +81,6 @@ public class PolicyRegistrationTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test(expectedExceptions = { UnsupportedOperationException.class })
-    @SuppressWarnings("deprecation")
-    public void testGetPoliciesReturnsImmutableCollection() {
-        entity.getPolicies().add(new MyPolicy());
-        fail();
-    }
-
-    @Test(expectedExceptions = { UnsupportedOperationException.class })
     public void testPoliciesAsListReturnsImmutableCollection() {
         entity.policies().asList().add(new MyPolicy());
         fail();

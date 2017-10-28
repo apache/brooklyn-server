@@ -87,11 +87,6 @@ public class CatalogItemDo<T,SpecT> implements CatalogItem<T,SpecT>, BrooklynObj
     }
     
     @Override
-    public <U> U setConfig(ConfigKey<U> key, U val) {
-        return config().set(key, val);
-    }
-
-    @Override
     public CatalogItemType getCatalogItemType() {
         return itemDto.getCatalogItemType();
     }
@@ -161,18 +156,6 @@ public class CatalogItemDo<T,SpecT> implements CatalogItem<T,SpecT>, BrooklynObj
         return itemDto.getJavaType();
     }
 
-    @Deprecated
-    @Override
-    public String getName() {
-        return getDisplayName();
-    }
-
-    @Deprecated
-    @Override
-    public String getRegisteredTypeName() {
-        return getSymbolicName();
-    }
-
     @Override
     public String getDisplayName() {
         return itemDto.getDisplayName();
@@ -212,22 +195,6 @@ public class CatalogItemDo<T,SpecT> implements CatalogItem<T,SpecT>, BrooklynObj
     @Override
     public Collection<CatalogBundle> getLibraries() {
         return itemDto.getLibraries();
-    }
-
-    /** @deprecated since 0.7.0 this is the legacy mechanism; still needed for policies and apps, but being phased out.
-     * new items should use {@link #getPlanYaml} and {@link #newClassLoadingContext} */
-    @Deprecated
-    public Class<T> getJavaClass() {
-        if (javaClass==null) loadJavaClass(null);
-        return javaClass;
-    }
-    
-    @SuppressWarnings("unchecked")
-    @Deprecated
-    Class<? extends T> loadJavaClass(final ManagementContext mgmt) {
-        if (javaClass!=null) return javaClass;
-        javaClass = (Class<T>)CatalogUtils.newClassLoadingContext(mgmt, getId(), getLibraries(), catalog.getRootClassLoader()).loadClass(getJavaType());
-        return javaClass;
     }
 
     @Override

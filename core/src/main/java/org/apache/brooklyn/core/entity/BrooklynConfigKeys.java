@@ -184,13 +184,6 @@ public class BrooklynConfigKeys {
             "Directory for installed artifacts (e.g. expanded dir after unpacking .tgz)", 
             null);
 
-    /** @deprecated since 0.7.0; use {@link #INSTALL_DIR} */
-    @Deprecated
-    public static final ConfigKey<String> SUGGESTED_INSTALL_DIR = INSTALL_DIR.getConfigKey();
-    /** @deprecated since 0.7.0; use {@link #RUN_DIR} */
-    @Deprecated
-    public static final ConfigKey<String> SUGGESTED_RUN_DIR = RUN_DIR.getConfigKey();
-
     /*
      * Intention is to use these with DependentConfiguration.attributeWhenReady, to allow an entity's start
      * to block until dependents are ready. This is particularly useful when we want to block until a dependent

@@ -108,6 +108,32 @@ public class BrooklynVersionSyntax {
          */
     }
 
+    /**
+     * See {@link #toValidOsgiVersion(String)}, but takes a version range (in the standard OSGi format).
+     */
+    public static String toValidOsgiVersionRange(String input) {
+        String beginning = "";
+        String ending = "";
+        if (input.startsWith("[") || input.startsWith("(")) {
+            beginning = input.substring(0, 1);
+        }
+        if (input.endsWith("]") || input.endsWith(")")) {
+            ending = input.substring(input.length() - 1, input.length());
+        }
+        String middle = input.substring(beginning.length(), input.length() - ending.length());
+        String[] middleParts = middle.split(",");
+        
+        StringBuilder result = new StringBuilder();
+        result.append(beginning);
+        for (int i = 0; i < middleParts.length; i++) {
+            String middlePart = middleParts[i];
+            if (i != 0) result.append(",");
+            result.append(toValidOsgiVersion(middlePart.trim()));
+        }
+        result.append(ending);
+        return result.toString();
+    }
+
     /** Creates a string satisfying {@link #isGoodBrooklynVersion(String)} based on the input.
      * For input satisfying {@link #isGoodBrooklynVersion(String)} the input will be returned unchanged.
      * For input satisfying {@link #isValidOsgiVersion(String)} the qualifier separator will be changed to "-",
@@ -199,4 +225,18 @@ public class BrooklynVersionSyntax {
         return version.toUpperCase().contains(SNAPSHOT);
     }
 
+    /**
+     * Returns the version without "SNAPSHOT" (normally this will return the next expected release version).
+     * For example, "1.0.0.SNAPSHOT" or "1.0.0-SNAPSHOT" becomes "1.0.0".
+     */
+    public static String stripSnapshot(String input) {
+        if (input==null) return input;
+        int stripIndex = input.toUpperCase().indexOf(SNAPSHOT);
+        if (stripIndex <= 0) return input;
+        char charBeforeSnapshot = input.charAt(stripIndex - 1);
+        if (charBeforeSnapshot == '.' || charBeforeSnapshot == '_' || charBeforeSnapshot == '-') {
+            stripIndex--;
+        }
+        return (stripIndex <= 0) ? input : input.substring(0, stripIndex);
+    }
 }

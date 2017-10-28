@@ -22,6 +22,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -36,7 +37,9 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedStream;
 import org.apache.brooklyn.rest.domain.LinkWithMetadata;
 import org.apache.brooklyn.rest.domain.TaskSummary;
+import org.apache.brooklyn.rest.resources.EntityResource.InterestingTasksFirstComparator;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.TaskInternal;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -44,7 +47,13 @@ import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Collections2;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Ordering;
+
 import javax.ws.rs.core.UriBuilder;
+import javax.ws.rs.core.UriInfo;
+
 import org.apache.brooklyn.rest.api.ActivityApi;
 import org.apache.brooklyn.rest.api.EntityApi;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
@@ -149,5 +158,29 @@ public class TaskTransformer {
         }
         URI taskUri = serviceUriBuilder(ub, ActivityApi.class, "get").build(t.getId());
         return new LinkWithMetadata(taskUri.toString(), data);
+    }
+    
+    public static List<TaskSummary> fromTasks(List<Task<?>> tasksToScan, int limit, Boolean recurse, Entity entity, UriInfo ui) {
+        int sizeRemaining = limit;
+        if (limit>0) {
+            tasksToScan = MutableList.copyOf(Ordering.from(new InterestingTasksFirstComparator(entity)).leastOf(tasksToScan, limit));
+        }
+        Map<String,Task<?>> tasksLoaded = MutableMap.of();
+        
+        while (!tasksToScan.isEmpty()) {
+            Task<?> t = tasksToScan.remove(0);
+            if (tasksLoaded.put(t.getId(), t)==null) {
+                if (--sizeRemaining==0) {
+                    break;
+                }
+                if (Boolean.TRUE.equals(recurse)) {
+                    if (t instanceof HasTaskChildren) {
+                        Iterables.addAll(tasksToScan, ((HasTaskChildren) t).getChildren() );
+                    }
+                }
+            }
+        }
+        return new LinkedList<TaskSummary>(Collections2.transform(tasksLoaded.values(), 
+            TaskTransformer.fromTask(ui.getBaseUriBuilder())));
     }
 }

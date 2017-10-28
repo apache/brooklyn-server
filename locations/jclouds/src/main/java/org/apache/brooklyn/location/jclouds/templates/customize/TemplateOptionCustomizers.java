@@ -28,10 +28,6 @@ public class TemplateOptionCustomizers {
         return new AutoAssignFloatingIpOption();
     }
 
-    public static TemplateOptionCustomizer autoCreateFloatingIps() {
-        return new AutoCreateFloatingIpsOption();
-    }
-
     public static TemplateOptionCustomizer autoGenerateKeypairs() {
         return new AutoGenerateKeypairsOption();
     }
@@ -86,10 +82,6 @@ public class TemplateOptionCustomizers {
 
     public static TemplateOptionCustomizer templateOptions() {
         return new TemplateOptionsOption();
-    }
-
-    public static TemplateOptionCustomizer userDataUuencoded() {
-        return new UserDataUuencodedOption();
     }
 
     public static TemplateOptionCustomizer userMetadataMap() {

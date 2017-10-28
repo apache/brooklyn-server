@@ -1251,7 +1251,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     /** properties which cause customization of the TemplateOptions */
     public static final Map<ConfigKey<?>, ? extends TemplateOptionCustomizer>SUPPORTED_TEMPLATE_OPTIONS_PROPERTIES = ImmutableMap.<ConfigKey<?>, TemplateOptionCustomizer>builder()
             .put(AUTO_ASSIGN_FLOATING_IP, TemplateOptionCustomizers.autoAssignFloatingIp())
-            .put(AUTO_CREATE_FLOATING_IPS, TemplateOptionCustomizers.autoCreateFloatingIps())
             .put(AUTO_GENERATE_KEYPAIRS, TemplateOptionCustomizers.autoGenerateKeypairs())
             .put(DOMAIN_NAME, TemplateOptionCustomizers.domainName())
             .put(EXTRA_PUBLIC_KEY_DATA_TO_AUTH, TemplateOptionCustomizers.extraPublicKeyDataToAuth())
@@ -1266,7 +1265,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             .put(SECURITY_GROUPS, TemplateOptionCustomizers.securityGroups())
             .put(STRING_TAGS, TemplateOptionCustomizers.stringTags())
             .put(TEMPLATE_OPTIONS, TemplateOptionCustomizers.templateOptions())
-            .put(USER_DATA_UUENCODED, TemplateOptionCustomizers.userDataUuencoded())
             .put(USER_METADATA_MAP, TemplateOptionCustomizers.userMetadataMap())
             .put(USER_METADATA_STRING, TemplateOptionCustomizers.userMetadataString())
             .build();
@@ -2829,11 +2827,16 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             return getPublicHostname(node, sshHostAndPort, userCredentials, setup);
         }
 
-        // NodeMetadata.getHostname() is supposed to return the private hostname. If it's not null, we want to prioritise
-        // this, otherwise we call getPrivateHostnameGeneric()
-        final String hostname = node.getHostname();
-        if (hostname != null) {
-            return hostname;
+        String provider = (setup != null) ? setup.get(CLOUD_PROVIDER) : null;
+        Boolean lookupAwsHostname = (setup != null) ? setup.get(LOOKUP_AWS_HOSTNAME) : null;
+        if (provider == null) provider = getProvider();
+
+        // TODO Discouraged to do cloud-specific things; think of this code for aws as an
+        // exceptional situation rather than a pattern to follow. We need a better way to
+        // do cloud-specific things.
+        if ("aws-ec2".equals(provider) && Boolean.TRUE.equals(lookupAwsHostname)) {
+            Maybe<String> result = getHostnameAws(node, sshHostAndPort, userCredentials, setup);
+            if (result.isPresent()) return result.get();
         }
 
         Optional<String> preferredAddress = sshHostAndPort.isPresent() ? Optional.of(sshHostAndPort.get().getHostText()) : Optional.<String>absent();

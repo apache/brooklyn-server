@@ -107,12 +107,6 @@ public class EntitiesTest extends BrooklynAppUnitTestSupport {
         assertEquals(Entities.attributeSupplier(entity, TestEntity.NAME).get(), "myname");
     }
     
-    @Test
-    public void testAttributeSupplierUsingTuple() throws Exception {
-        entity.sensors().set(TestEntity.NAME, "myname");
-        assertEquals(Entities.attributeSupplier(EntityAndAttribute.supplier(entity, TestEntity.NAME)).get(), "myname");
-    }
-    
     @Test(groups="Integration") // takes 1 second
     public void testAttributeSupplierWhenReady() throws Exception {
         final AtomicReference<String> result = new AtomicReference<String>();

@@ -23,14 +23,16 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import com.google.common.collect.Iterables;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import com.google.common.collect.Iterables;
 
 /** Tests the sample {@link XmlPlanToSpecTransformer}
  * which illustrates how the {@link PlanToSpecTransformer} can be used. */
@@ -57,7 +59,7 @@ public class XmlPlanToSpecTransformerTest {
         EntitySpec<? extends Application> appSpec = EntityManagementUtils.createEntitySpecForApplication(mgmt, 
             "<root><a_kid foo=\"bar\"/></root>");
         Application app = EntityManagementUtils.createStarting(mgmt, appSpec).get();
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         Assert.assertEquals(app.getDisplayName(), "root");
         Entity child = Iterables.getOnlyElement(app.getChildren());
         Assert.assertEquals(child.getDisplayName(), "a_kid");

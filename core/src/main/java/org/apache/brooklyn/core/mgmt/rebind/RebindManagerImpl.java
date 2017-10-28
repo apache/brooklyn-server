@@ -364,6 +364,11 @@ public class RebindManagerImpl implements RebindManager {
             LOG.debug("Stopped read-only rebinding ("+this+"), mgmt "+managementContext.getManagementNodeId());
         }
     }
+
+    @Override
+    public void reset() {
+        if (persistenceRealChangeListener != null && !persistenceRealChangeListener.isActive()) persistenceRealChangeListener.reset();
+    }
     
     @Override
     public void start() {
@@ -490,7 +495,8 @@ public class RebindManagerImpl implements RebindManager {
         ExecutionContext ec = BasicExecutionContext.getCurrentExecutionContext();
         if (ec == null) {
             ec = managementContext.getServerExecutionContext();
-            return ec.get(Tasks.<List<Application>>builder().displayName("rebind").dynamic(false).body(() -> rebindImpl(classLoader, exceptionHandler, mode)).build());
+            return ec.get(Tasks.<List<Application>>builder().displayName("rebind").dynamic(false)
+                .body(() -> rebindImpl(classLoader, exceptionHandler, mode)).build());
         } else {
             return rebindImpl(classLoader, exceptionHandler, mode);
         }

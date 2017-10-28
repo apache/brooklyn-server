@@ -97,7 +97,7 @@ public abstract class AbstractMultiDistroLiveTest extends BrooklynAppLiveTestSup
         localManagementContextForTests.generateManagementPlaneId();
 
         mgmt = localManagementContextForTests;
-        mgmt.getHighAvailabilityManager().disabled();
+        mgmt.getHighAvailabilityManager().disabled(false);
         
         super.setUp();
     }

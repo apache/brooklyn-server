@@ -209,7 +209,7 @@ public class ShellFeed extends AbstractFeed {
 
             polls.put(new ShellPollIdentifier(command, env, dir, input, context, timeout), configCopy);
         }
-        setConfig(POLLS, polls);
+        config().set(POLLS, polls);
         initUniqueTag(builder.uniqueTag, polls.values());
     }
 

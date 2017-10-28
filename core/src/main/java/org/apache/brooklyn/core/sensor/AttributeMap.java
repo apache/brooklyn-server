@@ -23,11 +23,15 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.util.concurrent.Locks;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
@@ -81,13 +85,32 @@ public final class AttributeMap {
         this.values = checkNotNull(storage, "storage map must not be null");
     }
 
-    /** Internal object this class synchs on when modifying values.
-     * Exposed for internal usage to synchronize on this to enforce canonical order.
-     * @return
+    /** 
+     * This externally visible lock ensures only one thread can write and publish
+     * any sensor value at a time.  Methods which set, modify, and publish values
+     * acquire this lock.
+     * <p>
+     * Reads are not blocked by this, although this synchs on {@link #values}
+     * when actually changing the low-level value to ensure consistency there.
+     * <p>
+     * See {@link #getLockInternal()}
+     */
+    private final transient ReentrantLock writeLock = new ReentrantLock();
+    
+    /** Internal {@link Lock} used when publishing values.
+     * When needed -- and carefully -- callers can lock on this to ensure no values are changed by other
+     * threads while they are active.
+     * <p>
+     * To prevent deadlock, Brooklyn code generally call this _before_ getting any lower-level
+     * monitor (ie {@code synchronized}) and before locking on any descendant entity.
+     * <p>
+     * In other words, this lock should generally *not* be acquired inside a {@code synchronized} block
+     * nor by the holder of a similar {@link Lock} on an entity except self or ancestor,
+     * unless a clear canonical order is set forth.
      */
     @Beta
-    public Object getSynchObjectInternal() {
-        return values;
+    public Lock getLockInternal() {
+        return writeLock;
     }
     
     public Map<Collection<String>, Object> asRawMap() {
@@ -115,8 +138,12 @@ public final class AttributeMap {
      * @param newValue the new value
      * @return the old value.
      * @throws IllegalArgumentException if path is null or empty
+     * 
+     * @deprecated since 1.0.0 becoming private; callers should only ever use {@link #update(AttributeSensor, Object)}
      */
+    @Deprecated
     // TODO path must be ordered(and legal to contain duplicates like "a.b.a"; list would be better
+    // (is there even any point to the path?  it was for returning maps by querying a prefix but that's ancient!)
     public <T> T update(Collection<String> path, T newValue) {
         checkPath(path);
 
@@ -138,44 +165,65 @@ public final class AttributeMap {
         Preconditions.checkArgument(!path.isEmpty(), "path can't be empty");
     }
 
+    /**
+     * Sets a value and published it.
+     * <p>
+     * Constraints of {@link #getLockInternal()} apply, with lock-holder being the supplied {@link Function}.
+     */
     public <T> T update(AttributeSensor<T> attribute, T newValue) {
         // 2017-10 this was unsynched which meant if two threads updated
         // the last publication would not correspond to the last value.
-        // could introduce deadlock but emit internal and publish should
-        // not seek any locks. _subscribe_ and _delivery_ might, but they
-        // won't be in this block. an issue with _subscribe-and-get-initial_
-        // should be resolved by initial subscription queueing the publication
-        // to a context where locks are not held.
-        synchronized (values) {
-            T oldValue = updateWithoutPublishing(attribute, newValue);
-            entity.emitInternal(attribute, newValue);
+        // a crude `synchronized (values)` could cause deadlock as
+        // this does publish (doing `synch(LSM)`) whereas _subscribe_ 
+        // would have the LSM lock and try to `synch(values)`
+        // as described at https://issues.apache.org/jira/browse/BROOKLYN-544.
+        // the addition of getLockInternal should make this much cleaner,
+        // as no one holding `synch(LSM)` should be updating here, 
+        // ands gets here won't call any other code at all
+        return withLock(() -> {
+            T oldValue = updateInternalWithoutLockOrPublish(attribute, newValue);
+            entity.sensors().emitInternal(attribute, newValue);
             return oldValue;
-        }
+        });
     }
     
+    /** @deprecated since 1.0.0 this is becoming an internal method, {@link #updateInternalWithoutLockOrPublish(AttributeSensor, Object)} */
+    @Deprecated
     public <T> T updateWithoutPublishing(AttributeSensor<T> attribute, T newValue) {
-        if (log.isTraceEnabled()) {
-            Object oldValue = getValue(attribute);
-            if (!Objects.equal(oldValue, newValue != null)) {
-                log.trace("setting attribute {} to {} (was {}) on {}", new Object[] {attribute.getName(), newValue, oldValue, entity});
-            } else {
-                log.trace("setting attribute {} to {} (unchanged) on {}", new Object[] {attribute.getName(), newValue, this});
+        return updateInternalWithoutLockOrPublish(attribute, newValue);
+    }
+    
+    @Beta
+    public <T> T updateInternalWithoutLockOrPublish(AttributeSensor<T> attribute, T newValue) {
+        synchronized (values) {
+            if (log.isTraceEnabled()) {
+                Object oldValue = getValue(attribute);
+                if (!Objects.equal(oldValue, newValue != null)) {
+                    log.trace("setting attribute {} to {} (was {}) on {}", new Object[] {attribute.getName(), newValue, oldValue, entity});
+                } else {
+                    log.trace("setting attribute {} to {} (unchanged) on {}", new Object[] {attribute.getName(), newValue, this});
+                }
             }
+    
+            T oldValue = update(attribute.getNameParts(), newValue);
+            return (isNull(oldValue)) ? null : oldValue;
         }
-
-        T oldValue = update(attribute.getNameParts(), newValue);
-        
-        return (isNull(oldValue)) ? null : oldValue;
     }
 
+    private <T> T withLock(Callable<T> body) { return Locks.withLock(getLockInternal(), body); }
+    private void withLock(Runnable body) { Locks.withLock(getLockInternal(), body); }
+    
     /**
-     * Where atomicity is desired, the methods in this class synchronize on the {@link #values} map.
+     * Where atomicity is desired, this method wraps an acquisition of {@link #getLockInternal()}
+     * while applying the given {@link Function}.
+     * <p>
+     * Constraints of {@link #getLockInternal()} apply, with lock-holder being the supplied {@link Function}.
      */
     public <T> T modify(AttributeSensor<T> attribute, Function<? super T, Maybe<T>> modifier) {
-        synchronized (values) {
+        return withLock(() -> {
             T oldValue = getValue(attribute);
             Maybe<? extends T> newValue = modifier.apply(oldValue);
-
+            
             if (newValue.isPresent()) {
                 if (log.isTraceEnabled()) log.trace("modified attribute {} to {} (was {}) on {}", new Object[] {attribute.getName(), newValue, oldValue, entity});
                 return update(attribute, newValue.get());
@@ -183,17 +231,25 @@ public final class AttributeMap {
                 if (log.isTraceEnabled()) log.trace("modified attribute {} unchanged; not emitting on {}", new Object[] {attribute.getName(), newValue, this});
                 return oldValue;
             }
-        }
+        });
     }
 
+    /** Removes a sensor.  The {@link #getLockInternal()} is acquired,
+     * and constraints on the caller described there apply to callers of this method.
+     * <p>
+     * The caller is responsible for any subsequent actions needed, including publishing
+     * the removal of the sensor and triggering persistence. Caller may wish to 
+     * have the {@link #getLockInternal()} while doing that. */
     public void remove(AttributeSensor<?> attribute) {
         BrooklynLogging.log(log, BrooklynLogging.levelDebugOrTraceIfReadOnly(entity),
             "removing attribute {} on {}", attribute.getName(), entity);
-
-        remove(attribute.getNameParts());
+        withLock(() -> remove(attribute.getNameParts()) );
     }
 
     // TODO path must be ordered(and legal to contain duplicates like "a.b.a"; list would be better
+    /** @deprecated since 1.0.0 becoming private; callers should only ever use {@link #remove(AttributeSensor)}
+     */
+    @Deprecated
     public void remove(Collection<String> path) {
         checkPath(path);
 
@@ -210,11 +266,10 @@ public final class AttributeMap {
      * @param path the path of the value to get
      * @return the value
      * @throws IllegalArgumentException path is null or empty.
+     * @deprecated since 1.0.0 becoming private; callers should only ever use {@link #getValue(AttributeSensor)}
      */
+    @Deprecated
     public Object getValue(Collection<String> path) {
-        // TODO previously this would return a map of the sub-tree if the path matched a prefix of a group of sensors, 
-        // or the leaf value if only one value. Arguably that is not required - what is/was the use-case?
-        // 
         checkPath(path);
         Object result = values.get(path);
         return (isNull(result)) ? null : result;

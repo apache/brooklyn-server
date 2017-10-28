@@ -109,6 +109,7 @@ import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -330,6 +331,10 @@ public abstract class RebindIteration {
             public void debug(String message, Object... args) {
                 logRebindingDebug(message, args);
             }
+            @Override
+            public void info(String message, Object... args) {
+                logRebindingInfo(message, args);
+            }
         };
 
         class InstallableManagedBundleImpl implements CatalogInitialization.InstallableManagedBundle {
@@ -350,42 +355,14 @@ public abstract class RebindIteration {
             }
         }
         
-        class PersistedCatalogStateImpl implements CatalogInitialization.PersistedCatalogState {
-            private final boolean isEmpty;
-            private final Collection<CatalogItem<?, ?>> legacyCatalogItems;
-            private final Map<String, ? extends InstallableManagedBundle> bundles;
-            
-            PersistedCatalogStateImpl(boolean isEmpty, Collection<CatalogItem<?, ?>> legacyCatalogItems, Map<String, ? extends InstallableManagedBundle> bundles) {
-                this.isEmpty = isEmpty;
-                this.legacyCatalogItems = legacyCatalogItems;
-                this.bundles = bundles;
-            }
-            
-            @Override public boolean isEmpty() {
-                return isEmpty;
-            }
-
-            @Override public Collection<CatalogItem<?, ?>> getLegacyCatalogItems() {
-                return legacyCatalogItems;
-            }
-
-            @Override public Set<String> getBundleIds() {
-                return bundles.keySet();
-            }
-
-            @Override public InstallableManagedBundle getInstallableManagedBundle(String id) {
-                return bundles.get(id);
-            }
-        }
-        
-        Map<String, InstallableManagedBundleImpl> bundles = new LinkedHashMap<>();
+        Map<VersionedName, InstallableManagedBundle> bundles = new LinkedHashMap<>();
         Collection<CatalogItem<?,?>> legacyCatalogItems = new ArrayList<>();
         
         // Find the bundles
         if (rebindManager.persistBundlesEnabled) {
             for (ManagedBundleMemento bundleMemento : mementoManifest.getBundles().values()) {
                 ManagedBundle managedBundle = instantiator.newManagedBundle(bundleMemento);
-                bundles.put(bundleMemento.getId(), new InstallableManagedBundleImpl(bundleMemento, managedBundle));
+                bundles.put(managedBundle.getVersionedName(), new InstallableManagedBundleImpl(bundleMemento, managedBundle));
             }
         } else {
             logRebindingDebug("Not rebinding bundles; feature disabled: {}", mementoManifest.getBundleIds());
@@ -433,10 +410,10 @@ public abstract class RebindIteration {
 
 
         // Delegates to CatalogInitialization; see notes there.
-        CatalogInitialization.PersistedCatalogState persistedCatalogState = new PersistedCatalogStateImpl(isEmpty, legacyCatalogItems, bundles);
+        CatalogInitialization.PersistedCatalogState persistedCatalogState = new CatalogInitialization.PersistedCatalogState(bundles, legacyCatalogItems);
         
         CatalogInitialization catInit = managementContext.getCatalogInitialization();
-        catInit.populateCatalog(mode, persistedCatalogState, exceptionHandler, rebindLogger);
+        catInit.populateInitialAndPersistedCatalog(mode, persistedCatalogState, exceptionHandler, rebindLogger);
     }
 
     protected void instantiateLocationsAndEntities() {
@@ -784,14 +761,15 @@ public abstract class RebindIteration {
         if (!isEmpty) {
             BrooklynLogging.log(LOG, shouldLogRebinding() ? LoggingLevel.INFO : LoggingLevel.DEBUG, 
                 "Rebind complete " + "("+mode+(readOnlyRebindCount.get()>=0 ? ", iteration "+readOnlyRebindCount : "")+")" +
-                    " in {}: {} app{}, {} entit{}, {} location{}, {} polic{}, {} enricher{}, {} feed{}, {} catalog item{}",
+                    " in {}: {} app{}, {} entit{}, {} location{}, {} polic{}, {} enricher{}, {} feed{}, {} catalog item{}, {} catalog bundle{}",
                 Time.makeTimeStringRounded(timer), applications.size(), Strings.s(applications),
                 rebindContext.getEntities().size(), Strings.ies(rebindContext.getEntities()),
                 rebindContext.getLocations().size(), Strings.s(rebindContext.getLocations()),
                 rebindContext.getPolicies().size(), Strings.ies(rebindContext.getPolicies()),
                 rebindContext.getEnrichers().size(), Strings.s(rebindContext.getEnrichers()),
                 rebindContext.getFeeds().size(), Strings.s(rebindContext.getFeeds()),
-                rebindContext.getCatalogItems().size(), Strings.s(rebindContext.getCatalogItems())
+                rebindContext.getCatalogItems().size(), Strings.s(rebindContext.getCatalogItems()),
+                rebindContext.getBundles().size(), Strings.s(rebindContext.getBundles())
             );
         }
 
@@ -1255,7 +1233,7 @@ public abstract class RebindIteration {
         }
 
         protected ManagedBundle newManagedBundle(ManagedBundleMemento memento) {
-            ManagedBundle result = new BasicManagedBundle(memento.getSymbolicName(), memento.getVersion(), memento.getUrl());
+            ManagedBundle result = new BasicManagedBundle(memento.getSymbolicName(), memento.getVersion(), memento.getUrl(), memento.getChecksum());
             FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", memento.getId()), result);
             return result;
         }
@@ -1298,6 +1276,15 @@ public abstract class RebindIteration {
     protected void logRebindingDebug(String message, Object... args) {
         if (shouldLogRebinding()) {
             LOG.debug(message, args);
+        } else {
+            LOG.trace(message, args);
+        }
+    }
+    
+    /** logs at info, except during subsequent read-only rebinds, in which it logs trace */
+    protected void logRebindingInfo(String message, Object... args) {
+        if (shouldLogRebinding()) {
+            LOG.info(message, args);
         } else {
             LOG.trace(message, args);
         }

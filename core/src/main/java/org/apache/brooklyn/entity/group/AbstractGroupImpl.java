@@ -32,6 +32,7 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.entity.stock.DelegateEntity;
+import org.apache.brooklyn.util.concurrent.Locks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,7 +95,7 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
      */
     @Override
     public boolean addMember(Entity member) {
-        synchronized (getAttributesSynchObjectInternal()) {
+        return Locks.withLock(getLockInternal(), () -> {
             synchronized (members) {
                 if (Entities.isNoLongerManaged(member)) {
                     // Don't add dead entities, as they could never be removed (because addMember could be called in
@@ -134,7 +135,7 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
                 }
                 return changed;
             }
-        }
+        });
     }
 
     // visible for rebind
@@ -149,7 +150,7 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
      */
     @Override
     public boolean removeMember(final Entity member) {
-        synchronized (getAttributesSynchObjectInternal()) {
+        return Locks.withLock(getLockInternal(), () -> {
             synchronized (members) {
                 boolean changed = (member != null && members.remove(member));
                 if (changed) {
@@ -203,7 +204,7 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
     
                 return changed;
             }
-        }
+        });
     }
 
     @Override
@@ -213,7 +214,7 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
 
     @Override
     public void setMembers(Collection<Entity> mm, Predicate<Entity> filter) {
-        synchronized (getAttributesSynchObjectInternal()) {
+        Locks.withLock(getLockInternal(), () -> {
             synchronized (members) {
                 log.debug("Group {} members set explicitly to {} (of which some possibly filtered)", this, members);
                 List<Entity> mmo = new ArrayList<Entity>(getMembers());
@@ -231,7 +232,7 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
     
                 getManagementSupport().getEntityChangeListener().onMembersChanged();
             }
-        }
+        });
     }
 
     @Override

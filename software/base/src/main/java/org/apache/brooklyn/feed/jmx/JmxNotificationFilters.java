@@ -47,15 +47,11 @@ public class JmxNotificationFilters {
     }
 
     /**
-     * @deprecated since 0.6.0;
-     *             only works if this brooklyn class is on the classpath of the JVM that your 
-     *             subscribing to notifications on (because it tries to push the filter instance
-     *             to that JVM). So of very limited use in real-world java processes to be managed.
-     *             Therefore this will be deleted to avoid people hitting this surprising behaviour.
+     * @deprecated since 0.6.0; kept only for persisted state backwards compatibility.
      */
     @Deprecated
-    @SuppressWarnings("serial")
-    public static NotificationFilter matchesTypeRegex(final String typeRegex) {
+    @SuppressWarnings({ "serial", "unused" })
+    private static NotificationFilter unused_matchesTypeRegex(final String typeRegex) {
         return new NotificationFilter() {
             @Override public boolean isNotificationEnabled(Notification notif) {
                 return notif.getType().matches(typeRegex);

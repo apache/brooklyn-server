@@ -42,7 +42,8 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
         protected String symbolicName;
         protected String version;
         protected String url;
-
+        protected String checksum;
+        
         public Builder symbolicName(String symbolicName) {
             this.symbolicName = symbolicName;
             return self();
@@ -58,11 +59,17 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
             return self();
         }
 
+        public Builder checksum(String checksum) {
+            this.checksum = checksum;
+            return self();
+        }
+
         public Builder from(ManagedBundleMemento other) {
             super.from(other);
             symbolicName = other.getSymbolicName();
             version = other.getVersion();
             url = other.getUrl();
+            checksum = other.getChecksum();
             return self();
         }
 
@@ -74,6 +81,7 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
     private String symbolicName;
     private String version;
     private String url;
+    private String checksum;
     transient private ByteSource jarContent;
 
     @SuppressWarnings("unused") // For deserialisation
@@ -84,6 +92,7 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
         this.symbolicName = builder.symbolicName;
         this.version = builder.version;
         this.url = builder.url;
+        this.checksum = builder.checksum;
     }
 
     @Override
@@ -99,6 +108,11 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
     @Override
     public String getUrl() {
         return url;
+    }
+
+    @Override
+    public String getChecksum() {
+        return checksum;
     }
 
     @Override
@@ -129,7 +143,7 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
         return super.newVerboseStringHelper()
                 .add("symbolicName", getSymbolicName())
                 .add("version", getVersion())
-                .add("url", getUrl());
+                .add("url", getUrl())
+                .add("checksum", getChecksum());
     }
-
 }

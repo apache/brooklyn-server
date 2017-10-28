@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.core.objs;
 
-import static com.google.common.base.Preconditions.checkState;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
 import java.util.Collection;
@@ -43,26 +42,20 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.objs.HighlightTuple;
-import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
-import org.apache.brooklyn.core.enricher.AbstractEnricher;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
-import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.SubscriptionTracker;
-import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,7 +82,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     @Deprecated
     protected Map<String,Object> leftoverProperties = Maps.newLinkedHashMap();
 
-    /** @deprecated since 0.13.0, going private, use {@link #getExecutionContext()} */
+    /** @deprecated since 1.0.0, going private, use {@link #getExecutionContext()} */
     @Deprecated
     protected transient ExecutionContext execution;
 
@@ -103,11 +96,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
      */
     private final AdjunctConfigMap configsInternal = new AdjunctConfigMap(this);
 
-    /**
-     * @deprecated since 0.7.0; use {@link #getAdjunctType()} instead; this field may be made private or deleted in a future release.
-     */
-    @Deprecated
-    protected final AdjunctType adjunctType = new AdjunctType(this);
+    private final AdjunctType adjunctType = new AdjunctType(this);
 
     @SetFromFlag
     protected String name;
@@ -378,12 +367,6 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         return result;
     }
 
-    @Override
-    @Deprecated
-    public <T> T setConfig(ConfigKey<T> key, T val) {
-        return config().set(key, val);
-    }
-
     /**
      * Invoked whenever a config change is applied after management is started.
      * Default implementation throws an exception to disallow the change. 
@@ -428,8 +411,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     public void setEntity(EntityLocal entity) {
         if (destroyed.get()) throw new IllegalStateException("Cannot set entity on a destroyed entity adjunct");
         this.entity = entity;
-        this.execution = new BasicExecutionContext( getManagementContext().getExecutionManager(),
-                MutableList.of(BrooklynTaskTags.tagForContextAdjunct(this), BrooklynTaskTags.tagForContextEntity(entity)) );
+        this.execution = getManagementContext().getExecutionContext(entity, this);
         if (entity!=null && getCatalogItemId() == null) {
             setCatalogItemIdAndSearchPath(entity.getCatalogItemId(), entity.getCatalogItemIdSearchPath());
         }
@@ -439,113 +421,13 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         return entity;
     }
     
-    /** @deprecated since 0.7.0 only {@link AbstractEnricher} has emit convenience */
-    @Deprecated
-    protected <T> void emit(Sensor<T> sensor, Object val) {
-        checkState(entity != null, "entity must first be set");
-        if (val == Entities.UNCHANGED) {
-            return;
-        }
-        if (val == Entities.REMOVE) {
-            ((EntityInternal)entity).removeAttribute((AttributeSensor<T>) sensor);
-            return;
-        }
-        
-        T newVal = TypeCoercions.coerce(val, sensor.getTypeToken());
-        if (sensor instanceof AttributeSensor) {
-            entity.sensors().set((AttributeSensor<T>)sensor, newVal);
-        } else { 
-            entity.sensors().emit(sensor, newVal);
-        }
-    }
-
-    /**
-     * @deprecated since 0.9.0; for internal use only
-     */
-    @Deprecated
-    protected synchronized SubscriptionTracker getSubscriptionTracker() {
+    private synchronized SubscriptionTracker getSubscriptionTracker() {
         if (_subscriptionTracker!=null) return _subscriptionTracker;
         if (entity==null) return null;
         _subscriptionTracker = new SubscriptionTracker(((EntityInternal)entity).subscriptions().getSubscriptionContext());
         return _subscriptionTracker;
     }
-    
-    /**
-     * @deprecated since 0.9.0; see {@link SubscriptionSupport#subscribe(Entity, Sensor, SensorEventListener)} and {@link BrooklynObject#subscriptions()}
-     */
-    @Deprecated
-    public <T> SubscriptionHandle subscribe(Entity producer, Sensor<T> sensor, SensorEventListener<? super T> listener) {
-        if (!checkCanSubscribe()) return null;
-        return getSubscriptionTracker().subscribe(producer, sensor, listener);
-    }
 
-    /**
-     * @deprecated since 0.9.0; see {@link SubscriptionSupport#subscribeToMembers(Entity, Sensor, SensorEventListener)} and {@link BrooklynObject#subscriptions()}
-     */
-    @Deprecated
-    public <T> SubscriptionHandle subscribeToMembers(Group producerGroup, Sensor<T> sensor, SensorEventListener<? super T> listener) {
-        if (!checkCanSubscribe(producerGroup)) return null;
-        return getSubscriptionTracker().subscribeToMembers(producerGroup, sensor, listener);
-    }
-
-    /**
-     * @deprecated since 0.9.0; see {@link SubscriptionSupport#subscribeToChildren(Entity, Sensor, SensorEventListener)} and {@link BrooklynObject#subscriptions()}
-     */
-    @Deprecated
-    public <T> SubscriptionHandle subscribeToChildren(Entity producerParent, Sensor<T> sensor, SensorEventListener<? super T> listener) {
-        if (!checkCanSubscribe(producerParent)) return null;
-        return getSubscriptionTracker().subscribeToChildren(producerParent, sensor, listener);
-    }
-
-    /**
-     * @deprecated since 0.7.0 use {@link BasicSubscriptionSupport#checkCanSubscribe(Entity)
-     */
-    @Deprecated
-    protected boolean check(Entity requiredEntity) {
-        return checkCanSubscribe(requiredEntity);
-    }
-    
-    /**
-     * @deprecated since 0.9.0; for internal use only
-     */
-    @Deprecated
-    protected boolean checkCanSubscribe(Entity producer) {
-        return subscriptions().checkCanSubscribe(producer);
-    }
-    
-    /**
-     * @deprecated since 0.9.0; for internal use only
-     */
-    @Deprecated
-    protected boolean checkCanSubscribe() {
-        return subscriptions().checkCanSubscribe();
-    }
-        
-    /**
-     * @deprecated since 0.9.0; see {@link SubscriptionSupport#unsubscribe(Entity)} and {@link BrooklynObject#subscriptions()}
-     */
-    @Deprecated
-    public boolean unsubscribe(Entity producer) {
-        return subscriptions().unsubscribe(producer);
-    }
-
-    /**
-     * @deprecated since 0.9.0; see {@link SubscriptionSupport#unsubscribe(Entity, SubscriptionHandle)} and {@link BrooklynObject#subscriptions()}
-     */
-    @Deprecated
-    public boolean unsubscribe(Entity producer, SubscriptionHandle handle) {
-        return subscriptions().unsubscribe(producer, handle);
-    }
-
-    /**
-     * @deprecated since 0.9.0; for internal use only
-     */
-    @Deprecated
-    protected Collection<SubscriptionHandle> getAllSubscriptions() {
-        SubscriptionTracker tracker = getSubscriptionTracker();
-        return (tracker != null) ? tracker.getAllSubscriptions() : Collections.<SubscriptionHandle>emptyList();
-    }
-    
     /** 
      * Unsubscribes and clears all managed subscriptions; is called by the owning entity when a policy is removed
      * and should always be called by any subclasses overriding this method

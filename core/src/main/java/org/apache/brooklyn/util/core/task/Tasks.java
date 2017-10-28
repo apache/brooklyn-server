@@ -37,6 +37,7 @@ import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.mgmt.TaskQueueingContext;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
@@ -502,20 +503,34 @@ public class Tasks {
     }
 
 
+    /**
+     * @deprecated since 1.0.0; instead use {@link Dumper} methods
+     */
+    @Deprecated
     public static void dumpInfo(Task<?> t) {
-        try {
-            dumpInfo(t, new PrintWriter(System.out), "", "  ");
-        } catch (IOException exc) {
-            // system.out throwing an exception is odd, so don't have IOException on signature
-            throw new RuntimeException(exc);
-        }
+        Dumper.dumpInfo(t);
     }
+    
+    /**
+     * @deprecated since 1.0.0; instead use {@link Dumper} methods
+     */
+    @Deprecated
     public static void dumpInfo(Task<?> t, Writer out) throws IOException {
-        dumpInfo(t, out, "", "  ");
+        Dumper.dumpInfo(t, out);
     }
+    
+    /**
+     * @deprecated since 1.0.0; instead use {@link Dumper} methods
+     */
+    @Deprecated
     public static void dumpInfo(Task<?> t, String currentIndentation, String tab) throws IOException {
         dumpInfo(t, new PrintWriter(System.out), currentIndentation, tab);
     }
+    
+    /**
+     * @deprecated since 1.0.0; instead use {@link Dumper} methods
+     */
+    @Deprecated
     public static void dumpInfo(Task<?> t, Writer out, String currentIndentation, String tab) throws IOException {
         out.append(currentIndentation+t+": "+t.getStatusDetail(false)+"\n");
 

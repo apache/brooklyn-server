@@ -16,31 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.util.core;
+package org.apache.brooklyn.util.collections;
 
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 
-import org.apache.brooklyn.core.internal.BrooklynInitialization;
+import org.apache.brooklyn.util.concurrent.Locks;
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
-/** @deprecated since 0.7.0 use {@link BrooklynInitialization} */
-@Deprecated
-public class BrooklynLanguageExtensions {
+@Test
+public class LocksTest {
 
-    private BrooklynLanguageExtensions() {}
-    
-    private static AtomicBoolean done = new AtomicBoolean(false);
-    
-    public synchronized static void reinit() {
-        done.set(false);
-        init();
+    public void withLockTest() {
+        ReentrantLock l = new ReentrantLock();
+        Assert.assertTrue(Locks.withLock(l, () -> l.isHeldByCurrentThread()));
+        Locks.withLock(l, () -> Assert.assertTrue(l.isHeldByCurrentThread()));
+        Assert.assertFalse(l.isHeldByCurrentThread());
     }
-    
-    /** performs the language extensions required for this project */
-    public synchronized static void init() {
-        if (done.getAndSet(true)) return;
-        BrooklynInitialization.initPortRanges();
-    }
-    
-    static { BrooklynInitialization.initLegacyLanguageExtensions(); }
     
 }

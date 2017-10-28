@@ -38,7 +38,7 @@ public class VersionedName implements Comparable<VersionedName> {
     private final String name;
     private final String v;
     
-    @Deprecated // since 0.12.0 - remove along with version and readResolve in 0.13.0
+    @Deprecated // since 0.12.0 - remove along with version and readResolve in 1.0.0
     private final String symbolicName = null;
     @Deprecated // since 0.12.0
     private final Version version = null;
@@ -182,11 +182,14 @@ public class VersionedName implements Comparable<VersionedName> {
         return VersionedNameComparator.INSTANCE.compare(this, other);
     }
 
+    /** Comparator which puts a:3 < a:1 < b:2 < null */
     public static class VersionedNameComparator implements Comparator<VersionedName> {
         public static final VersionedNameComparator INSTANCE = new VersionedNameComparator();
         
         @Override
         public int compare(VersionedName o1, VersionedName o2) {
+            if (o1==null) { return o2==null ? 0 : 1; }
+            if (o2==null) { return -1; }
             return ComparisonChain.start()
                 .compare(o1.getSymbolicName(), o2.getSymbolicName(), NaturalOrderComparator.INSTANCE)
                 .compare(o2.getOsgiVersionString(), o1.getOsgiVersionString(), VersionComparator.INSTANCE)
@@ -194,4 +197,17 @@ public class VersionedName implements Comparable<VersionedName> {
                 .result();
         }
     }
+    
+    // RegisteredTypeNameThenWorstFirstComparator
+    
+    /** Comparator which puts a:3 < a:1 < b:2 < null */
+    public static class VersionedNameStringComparator implements Comparator<String> {
+        public static final VersionedNameStringComparator INSTANCE = new VersionedNameStringComparator();
+        
+        @Override
+        public int compare(String s1, String s2) {
+            return VersionedNameComparator.INSTANCE.compare(parseMaybe(s1, false).orNull(), parseMaybe(s2, false).orNull());
+        }
+    }
+
 }

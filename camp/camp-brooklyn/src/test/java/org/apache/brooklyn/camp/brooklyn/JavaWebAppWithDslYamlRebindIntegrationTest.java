@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.camp.spi.Assembly;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
@@ -101,7 +102,7 @@ public class JavaWebAppWithDslYamlRebindIntegrationTest extends AbstractYamlTest
 
         Set<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(mgmt().getExecutionManager(), app);
         for (Task<?> t: tasks) t.blockUntilEnded();
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         Application app2 = rebind(app);
         Assert.assertEquals(app2.getChildren().size(), 2);
@@ -118,7 +119,7 @@ public class JavaWebAppWithDslYamlRebindIntegrationTest extends AbstractYamlTest
 
         Set<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(mgmt().getExecutionManager(), app);
         for (Task<?> t: tasks) t.blockUntilEnded();
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         Application app2 = rebind(app);
         Assert.assertEquals(app2.getChildren().size(), 2);

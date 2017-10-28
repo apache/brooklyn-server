@@ -147,39 +147,6 @@ public class ArchiveBuilder {
     }
 
     /**
-     * Add the file located at the {@code filePath} to the archive, 
-     * with some complicated base-name strategies.
-     *
-     * @deprecated since 0.7.0 use one of the other add methods which makes the strategy explicit */ @Deprecated
-    public ArchiveBuilder add(String filePath) {
-        checkNotNull(filePath, "filePath");
-        return add(new File(Os.tidyPath(filePath)));
-    }
-
-    /**
-     * Add the {@code file} to the archive.
-     * <p>
-     * If the file path is absolute, or points to a file above the current directory,
-     * the file is added to the archive as a top-level entry, using the file name only.
-     * For relative {@code filePath}s below the current directory, the file is added
-     * using the path given and is assumed to be located relative to the current
-     * working directory.
-     * <p>
-     * No checks for file existence are made at this stage.
-     *
-     * @see #entry(String, File)
-     * @deprecated since 0.7.0 use one of the other add methods which makes the strategy explicit */ @Deprecated
-    public ArchiveBuilder add(File file) {
-        checkNotNull(file, "file");
-        String filePath = Os.tidyPath(file.getPath());
-        if (file.isAbsolute() || filePath.startsWith("../")) {
-            return entry(Os.mergePaths(".", file.getName()), file);
-        } else {
-            return entry(Os.mergePaths(".", filePath), file);
-        }
-    }
-
-    /**
      * Add a file located at the {@code fileSubPath}, relative to the {@code baseDir} on the local system,
      * as {@code fileSubPath} in the archive. For most archives directories are supported.
      * <p>
@@ -198,16 +165,6 @@ public class ArchiveBuilder {
         checkNotNull(baseDir, "baseDir");
         checkNotNull(fileSubPath, "filePath");
         return entry(fileSubPath, Os.mergePaths(baseDir.getPath(), fileSubPath));
-    }
-    /** @deprecated since 0.7.0 use {@link #addFromLocalBaseDir(File, String)}, or
-     * one of the other add methods if adding relative to baseDir was not intended */ @Deprecated
-    public ArchiveBuilder addFromLocalBaseDir(String baseDir, String fileSubPath) {
-        return addFromLocalBaseDir(new File(baseDir), fileSubPath);
-    }
-    /** @deprecated since 0.7.0 use {@link #addFromLocalBaseDir(File, String)}, or
-     * one of the other add methods if adding relative to baseDir was not intended */ @Deprecated
-    public ArchiveBuilder add(String baseDir, String fileSubPath) {
-        return addFromLocalBaseDir(baseDir, fileSubPath);
     }
      
     /** 
@@ -228,16 +185,6 @@ public class ArchiveBuilder {
     }
 
     /**
-     * Add the contents of the directory named {@code dirName} to the archive.
-     *
-     * @see #addDir(File)
-     * @deprecated since 0.7.0 use {@link #addDirContentsAt(File, String) */ @Deprecated
-    public ArchiveBuilder addDir(String dirName) {
-        checkNotNull(dirName, "dirName");
-        return addDir(new File(Os.tidyPath(dirName)));
-    }
-
-    /**
      * Add the contents of the directory {@code dir} to the archive.
      * The directory's name is not included; use {@link #addAt(File, String)} with <code>""</code> as the second argument if you want that behavior. 
      *
@@ -251,45 +198,6 @@ public class ArchiveBuilder {
     /** See {@link #addDirContentsAt(File, String)} and {@link #addAtRoot(File)}. */
     public ArchiveBuilder addDirContentsAtRoot(File dir) {
         return addDirContentsAt(dir, "");
-    }
-
-    /**
-     * As {@link #addDirContentsAt(File, String)}, 
-     * using {@literal .} as the parent directory name for the contents.
-     * 
-     * @deprecated since 0.7.0 use {@link #addDirContentsAt(File, String)
-     * to clarify API, argument types, and be explicit about where it should be installed,
-     * because JARs seem to require <code>""<code> whereas ZIPs might want <code>"./"</code>. */ @Deprecated
-    public ArchiveBuilder addDir(File dir) {
-        return addDirContentsAt(dir, ".");
-    }
-
-    /**
-     * Add the collection of {@code files} to the archive.
-     *
-     * @see #add(String)
-     * @deprecated since 0.7.0 use one of the other add methods if keeping this file's path was not intended */ @Deprecated
-    public ArchiveBuilder add(Iterable<String> files) {
-        checkNotNull(files, "files");
-        for (String filePath : files) {
-            add(filePath);
-        }
-        return this;
-    }
-
-    /**
-     * Add the collection of {@code files}, relative to the {@code baseDir}, to
-     * the archive.
-     *
-     * @see #add(String, String)
-     * @deprecated since 0.7.0 use one of the other add methods if keeping this file's path was not intended */ @Deprecated
-    public ArchiveBuilder add(String baseDir, Iterable<String> files) {
-        checkNotNull(baseDir, "baseDir");
-        checkNotNull(files, "files");
-        for (String filePath : files) {
-            add(baseDir, filePath);
-        }
-        return this;
     }
 
     /**

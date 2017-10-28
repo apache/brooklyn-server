@@ -106,13 +106,6 @@ public class AggregateClassLoader extends ClassLoader {
         return classLoaders.isEmpty();
     }
     
-    /** Returns the _live_ (and modifiable) list of classloaders; dangerous and discouraged. 
-     * @deprecated since 0.7.0 */
-    @Deprecated
-    public List<ClassLoader> getList() {
-        return classLoaders;
-    }
-
     public Iterator<ClassLoader> iterator() {
         synchronized (classLoaders) {
             // CopyOnWriteList iterator is immutable view of snapshot

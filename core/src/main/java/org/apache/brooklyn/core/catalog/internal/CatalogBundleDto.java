@@ -57,9 +57,6 @@ public class CatalogBundleDto implements CatalogBundle {
     }
     
     @Override
-    public boolean isNamed() { return isNameResolved(); }
-
-    @Override
     public String getSymbolicName() {
         return symbolicName;
     }

@@ -35,9 +35,7 @@ import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.objs.SpecParameter;
-import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
-import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
@@ -332,16 +330,8 @@ public class InternalEntityFactory extends InternalFactory {
                     initializer.apply((EntityInternal)entity);
                 }
 
-                for (Enricher enricher : spec.getEnrichers()) {
-                    entity.enrichers().add(enricher);
-                }
-
                 for (EnricherSpec<?> enricherSpec : spec.getEnricherSpecs()) {
                     entity.enrichers().add(policyFactory.createEnricher(enricherSpec));
-                }
-
-                for (Policy policy : spec.getPolicies()) {
-                    entity.policies().add(policy);
                 }
 
                 for (PolicySpec<?> policySpec : spec.getPolicySpecs()) {

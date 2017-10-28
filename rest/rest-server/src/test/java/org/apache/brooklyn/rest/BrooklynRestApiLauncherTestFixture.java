@@ -117,12 +117,6 @@ public abstract class BrooklynRestApiLauncherTestFixture {
         assertTrue(HttpAsserts.isHealthyStatusCode(response.getResponseCode()), "code="+response.getResponseCode()+"; reason="+response.getReasonPhrase());
     }
     
-    /** @deprecated since 0.9.0 use {@link #getBaseUriHostAndPost(Server)} or {@link #getBaseUriRest(Server)} */
-    @Deprecated
-    public static String getBaseUri(Server server) {
-        return getBaseUriHostAndPost(server);
-    }
-    
     protected String getBaseUriHostAndPost() {
         return getBaseUriHostAndPost(server);
     }

@@ -190,11 +190,11 @@ public class JmxFeed extends AbstractFeed {
         super();
         if (builder.helper != null) {
             JmxHelper helper = builder.helper;
-            setConfig(HELPER, helper);
-            setConfig(OWN_HELPER, false);
-            setConfig(JMX_URI, helper.getUrl());
+            config().set(HELPER, helper);
+            config().set(OWN_HELPER, false);
+            config().set(JMX_URI, helper.getUrl());
         }
-        setConfig(JMX_CONNECTION_TIMEOUT, builder.jmxConnectionTimeout);
+        config().set(JMX_CONNECTION_TIMEOUT, builder.jmxConnectionTimeout);
         
         SetMultimap<String, JmxAttributePollConfig<?>> attributePolls = HashMultimap.<String,JmxAttributePollConfig<?>>create();
         for (JmxAttributePollConfig<?> config : builder.attributePolls) {
@@ -204,7 +204,7 @@ public class JmxFeed extends AbstractFeed {
             if (configCopy.getPeriod() < 0) configCopy.period(builder.period, builder.periodUnits);
             attributePolls.put(configCopy.getObjectName().getCanonicalName() + configCopy.getAttributeName(), configCopy);
         }
-        setConfig(ATTRIBUTE_POLLS, attributePolls);
+        config().set(ATTRIBUTE_POLLS, attributePolls);
         
         SetMultimap<List<?>, JmxOperationPollConfig<?>> operationPolls = HashMultimap.<List<?>,JmxOperationPollConfig<?>>create();
         for (JmxOperationPollConfig<?> config : builder.operationPolls) {
@@ -214,14 +214,14 @@ public class JmxFeed extends AbstractFeed {
             if (configCopy.getPeriod() < 0) configCopy.period(builder.period, builder.periodUnits);
             operationPolls.put(configCopy.buildOperationIdentity(), configCopy);
         }
-        setConfig(OPERATION_POLLS, operationPolls);
+        config().set(OPERATION_POLLS, operationPolls);
         
         SetMultimap<NotificationFilter, JmxNotificationSubscriptionConfig<?>> notificationSubscriptions = HashMultimap.create();
         for (JmxNotificationSubscriptionConfig<?> config : builder.notificationSubscriptions) {
             if (!config.isEnabled()) continue;
             notificationSubscriptions.put(config.getNotificationFilter(), config);
         }
-        setConfig(NOTIFICATION_SUBSCRIPTIONS, notificationSubscriptions);
+        config().set(NOTIFICATION_SUBSCRIPTIONS, notificationSubscriptions);
         initUniqueTag(builder.uniqueTag, attributePolls, operationPolls, notificationSubscriptions);
     }
 
@@ -229,9 +229,9 @@ public class JmxFeed extends AbstractFeed {
     public void setEntity(EntityLocal entity) {
         if (getConfig(HELPER) == null) {
             JmxHelper helper = new JmxHelper(entity);
-            setConfig(HELPER, helper);
-            setConfig(OWN_HELPER, true);
-            setConfig(JMX_URI, helper.getUrl());
+            config().set(HELPER, helper);
+            config().set(OWN_HELPER, true);
+            config().set(JMX_URI, helper.getUrl());
         }
         super.setEntity(entity);
     }

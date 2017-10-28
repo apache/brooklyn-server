@@ -18,68 +18,36 @@
  */
 package org.apache.brooklyn.launcher;
 
-import org.apache.brooklyn.api.entity.Application;
-import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
-import org.apache.brooklyn.api.mgmt.ha.ManagementPlaneSyncRecordPersister;
-import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.core.mgmt.persist.PersistMode;
-import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.launcher.BrooklynLauncher;
-import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.time.Duration;
-
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-import java.io.File;
-
+import org.apache.brooklyn.api.entity.Application;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
+import org.apache.brooklyn.api.mgmt.ha.ManagementPlaneSyncRecordPersister;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.mgmt.persist.PersistMode;
+import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
-import com.google.common.io.Files;
 
-public class BrooklynLauncherHighAvailabilityTest {
+public class BrooklynLauncherHighAvailabilityTest extends AbstractBrooklynLauncherRebindTest {
 
     private static final Logger log = LoggerFactory.getLogger(BrooklynLauncherHighAvailabilityTest.class);
-    
-    private static final Duration TIMEOUT = Duration.THIRTY_SECONDS;
     
     private BrooklynLauncher primary;
     private BrooklynLauncher secondary;
     private BrooklynLauncher tertiary;
-    private File persistenceDir;
 
-    @BeforeMethod(alwaysRun=true)
-    public void setUp() throws Exception {
-        persistenceDir = Files.createTempDir();
-        Os.deleteOnExitRecursively(persistenceDir);
-    }
-
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (primary != null) primary.terminate();
-        primary = null;
-        if (secondary != null) secondary.terminate();
-        secondary = null;
-        if (tertiary != null) tertiary.terminate();
-        tertiary = null;
-        if (persistenceDir != null) RebindTestUtils.deleteMementoDir(persistenceDir);
-        persistenceDir = null;
-    }
-    
     @Test
     public void testStandbyTakesOverWhenPrimaryTerminatedGracefully() throws Exception {
         doTestStandbyTakesOver(true);
@@ -100,39 +68,25 @@ public class BrooklynLauncherHighAvailabilityTest {
     
     protected void doTestStandbyTakesOver(boolean stopGracefully) throws Exception {
         log.info("STARTING standby takeover test");
-        primary = BrooklynLauncher.newInstance();
-        primary.webconsole(false)
-                .brooklynProperties(LocalManagementContextForTests.setEmptyCatalogAsDefault(BrooklynProperties.Factory.newEmpty()))
-                .highAvailabilityMode(HighAvailabilityMode.AUTO)
-                .persistMode(PersistMode.AUTO)
-                .persistenceDir(persistenceDir)
-                .persistPeriod(Duration.millis(10))
-                .haHeartbeatPeriod(Duration.millis(10))
+        primary = newLauncherForTests(PersistMode.AUTO, HighAvailabilityMode.AUTO)
                 .haHeartbeatTimeout(Duration.millis(1000))
-                .application(EntitySpec.create(TestApplication.class))
                 .start();
         ManagementContext primaryManagementContext = primary.getServerDetails().getManagementContext();
+        TestApplication origApp = primaryManagementContext.getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
         log.info("started mgmt primary "+primaryManagementContext);
         
-        assertOnlyApp(primary.getServerDetails().getManagementContext(), TestApplication.class);
-        primaryManagementContext.getRebindManager().getPersister().waitForWritesCompleted(TIMEOUT);
+        assertOnlyApp(primaryManagementContext, TestApplication.class);
+        primaryManagementContext.getRebindManager().getPersister().waitForWritesCompleted(Asserts.DEFAULT_LONG_TIMEOUT);
         
         // Secondary will come up as standby
-        secondary = BrooklynLauncher.newInstance();
-        secondary.webconsole(false)
-                .brooklynProperties(LocalManagementContextForTests.setEmptyCatalogAsDefault(BrooklynProperties.Factory.newEmpty()))
-                .highAvailabilityMode(HighAvailabilityMode.AUTO)
-                .persistMode(PersistMode.AUTO)
-                .persistenceDir(persistenceDir)
-                .persistPeriod(Duration.millis(10))
-                .haHeartbeatPeriod(Duration.millis(10))
+        secondary = newLauncherForTests(PersistMode.AUTO, HighAvailabilityMode.AUTO)
                 .haHeartbeatTimeout(Duration.millis(1000))
                 .start();
         ManagementContext secondaryManagementContext = secondary.getServerDetails().getManagementContext();
         log.info("started mgmt secondary "+secondaryManagementContext);
         
-        // TODO can assert it sees the apps read only
-//        assertNoApps(secondary.getServerDetails().getManagementContext());
+        // In standby (rather than hot-standby) it will not read the persisted state of apps
+        assertNoApps(secondary.getServerDetails().getManagementContext());
 
         // Terminate primary; expect secondary to take over
         if (stopGracefully) {
@@ -146,14 +100,7 @@ public class BrooklynLauncherHighAvailabilityTest {
         assertOnlyAppEventually(secondaryManagementContext, TestApplication.class);
         
         // Start tertiary (force up as standby)
-        tertiary = BrooklynLauncher.newInstance();
-        tertiary.webconsole(false)
-                .brooklynProperties(LocalManagementContextForTests.setEmptyCatalogAsDefault(BrooklynProperties.Factory.newEmpty()))
-                .highAvailabilityMode(HighAvailabilityMode.STANDBY)
-                .persistMode(PersistMode.AUTO)
-                .persistenceDir(persistenceDir)
-                .persistPeriod(Duration.millis(10))
-                .haHeartbeatPeriod(Duration.millis(10))
+        tertiary = newLauncherForTests(PersistMode.AUTO, HighAvailabilityMode.STANDBY)
                 .haHeartbeatTimeout(Duration.millis(1000))
                 .start();
         ManagementContext tertiaryManagementContext = tertiary.getServerDetails().getManagementContext();
@@ -174,27 +121,14 @@ public class BrooklynLauncherHighAvailabilityTest {
     }
     
     public void testHighAvailabilityMasterModeFailsIfAlreadyHasMaster() throws Exception {
-        primary = BrooklynLauncher.newInstance();
-        primary.webconsole(false)
-                .brooklynProperties(LocalManagementContextForTests.setEmptyCatalogAsDefault(BrooklynProperties.Factory.newEmpty()))
-                .highAvailabilityMode(HighAvailabilityMode.AUTO)
-                .persistMode(PersistMode.AUTO)
-                .persistenceDir(persistenceDir)
-                .persistPeriod(Duration.millis(10))
-                .application(EntitySpec.create(TestApplication.class))
+        primary = newLauncherForTests(PersistMode.AUTO, HighAvailabilityMode.AUTO)
                 .start();
 
         try {
             // Secondary will come up as standby
-            secondary = BrooklynLauncher.newInstance();
-            secondary.webconsole(false)
-                    .brooklynProperties(LocalManagementContextForTests.setEmptyCatalogAsDefault(BrooklynProperties.Factory.newEmpty()))
-                    .highAvailabilityMode(HighAvailabilityMode.MASTER)
-                    .persistMode(PersistMode.AUTO)
-                    .persistenceDir(persistenceDir)
-                    .persistPeriod(Duration.millis(10))
+            secondary = newLauncherForTests(PersistMode.AUTO, HighAvailabilityMode.MASTER)
                     .start();
-            fail();
+            Asserts.shouldHaveFailedPreviously();
         } catch (IllegalStateException e) {
             // success
         }
@@ -203,15 +137,8 @@ public class BrooklynLauncherHighAvailabilityTest {
     @Test
     public void testHighAvailabilityStandbyModeFailsIfNoExistingMaster() throws Exception {
         try {
-            primary = BrooklynLauncher.newInstance();
-            primary.webconsole(false)
-                    .brooklynProperties(LocalManagementContextForTests.setEmptyCatalogAsDefault(BrooklynProperties.Factory.newEmpty()))
-                    .highAvailabilityMode(HighAvailabilityMode.STANDBY)
-                    .persistMode(PersistMode.AUTO)
-                    .persistenceDir(persistenceDir)
-                    .persistPeriod(Duration.millis(10))
+            primary = newLauncherForTests(PersistMode.AUTO, HighAvailabilityMode.STANDBY)
                     .ignorePersistenceErrors(false)
-                    .application(EntitySpec.create(TestApplication.class))
                     .start();
             fail();
         } catch (IllegalStateException e) {
@@ -222,15 +149,8 @@ public class BrooklynLauncherHighAvailabilityTest {
     @Test
     public void testHighAvailabilityHotStandbyModeFailsIfNoExistingMaster() throws Exception {
         try {
-            primary = BrooklynLauncher.newInstance();
-            primary.webconsole(false)
-                    .brooklynProperties(LocalManagementContextForTests.setEmptyCatalogAsDefault(BrooklynProperties.Factory.newEmpty()))
-                    .highAvailabilityMode(HighAvailabilityMode.HOT_STANDBY)
-                    .persistMode(PersistMode.AUTO)
-                    .persistenceDir(persistenceDir)
-                    .persistPeriod(Duration.millis(10))
+            primary = newLauncherForTests(PersistMode.AUTO, HighAvailabilityMode.HOT_STANDBY)
                     .ignorePersistenceErrors(false)
-                    .application(EntitySpec.create(TestApplication.class))
                     .start();
             fail();
         } catch (IllegalStateException e) {

@@ -129,10 +129,4 @@ public class SameServerEntityImpl extends AbstractEntity implements SameServerEn
     protected void doRestart(ConfigBag parameters) {
         LIFECYCLE_TASKS.restart(parameters);
     }
-
-    @Deprecated /** @deprecated since 0.7.0 subclasses should instead override {@link #doRestart(ConfigBag)} */
-    protected final void doRestart() {
-        doRestart(ConfigBag.EMPTY);
-    }
-
 }

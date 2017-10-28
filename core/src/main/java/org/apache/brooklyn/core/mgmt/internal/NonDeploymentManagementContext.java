@@ -67,6 +67,7 @@ import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
+import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.usage.UsageManager;
 import org.apache.brooklyn.core.objs.proxy.InternalEntityFactory;
 import org.apache.brooklyn.core.objs.proxy.InternalLocationFactory;
@@ -279,6 +280,15 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
             throw new IllegalStateException("Entity "+entity+" is no longer managed; execution context not available");
         checkInitialManagementContextReal();
         return initialManagementContext.getExecutionContext(entity);
+    }
+
+    @Override
+    public ExecutionContext getExecutionContext(Entity entity, EntityAdjunct adjunct) {
+        if (!this.entity.equals(entity)) throw new IllegalStateException("Non-deployment context "+this+" can only use a single Entity: has "+this.entity+", but passed "+entity);
+        if (mode==NonDeploymentManagementContextMode.MANAGEMENT_STOPPED)
+            throw new IllegalStateException("Entity "+entity+" is no longer managed; execution context not available");
+        checkInitialManagementContextReal();
+        return initialManagementContext.getExecutionContext(entity, adjunct);
     }
 
     @Override
@@ -569,6 +579,11 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
         }
 
         @Override
+        public void reset() {
+            throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
+        }
+
+        @Override
         public void start() {
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }
@@ -620,7 +635,7 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }
         @Override
-        public void disabled() {
+        public void disabled(boolean persistenceEnabled) {
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }
         @Override

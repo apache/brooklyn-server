@@ -30,7 +30,10 @@ import java.lang.annotation.Target;
  * the "id" field used in the catalog is not exposed here but is always taken as the Class.getName() of the annotated item
  * if loaded from an annotation.  (the "type" field unsurprisingly is given the same value).  
  * {@link #name()}, if not supplied, is the SimpleName of the class.
+ * 
+ * @deprecated since 1.0.0; instead use a {@code catalog.bom} file
  */
+@Deprecated
 @Retention(value = RetentionPolicy.RUNTIME)
 @Target(value = { ElementType.TYPE })
 public @interface Catalog {

@@ -92,14 +92,6 @@ public class EntityDynamicType extends BrooklynDynamicType<Entity, AbstractEntit
         refreshSnapshot();
     }
     
-    /**
-     * @deprecated since 0.7; unused code; instead use {@link #getBrooklynClass()}
-     */
-    @Deprecated
-    public Class<? extends Entity> getEntityClass() {
-        return super.getBrooklynClass();
-    }
-    
     @Override
     public EntityType getSnapshot() {
         return (EntityType) super.getSnapshot();

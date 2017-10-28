@@ -95,4 +95,42 @@ public class BrooklynVersionSyntaxTest {
         // potentially surprising, and different to maven (0.0.0.4aug..)
         assertOsgiVersion("4aug2000r7-dev", "4.0.0.aug2000r7-dev");
     }
+    
+    public void testOsgiVersionRanges() {
+        assertOsgiVersionRange("1.0.0", "1.0.0");
+        assertOsgiVersionRange("[1.0.0,2.0.0)", "[1.0.0,2.0.0)");
+        assertOsgiVersionRange("[1.0.0, 2.0.0)", "[1.0.0,2.0.0)");
+        assertOsgiVersionRange("1.0.0-SNAPSHOT", "1.0.0.SNAPSHOT");
+        assertOsgiVersionRange("[1.0.0-SNAPSHOT]", "[1.0.0.SNAPSHOT]");
+        assertOsgiVersionRange("[1.0.0-SNAPSHOT,2.0.0-SNAPSHOT]", "[1.0.0.SNAPSHOT,2.0.0.SNAPSHOT]");
+        assertOsgiVersionRange("[1.0.0-SNAPSHOT,2.0.0-SNAPSHOT)", "[1.0.0.SNAPSHOT,2.0.0.SNAPSHOT)");
+        assertOsgiVersionRange("(1.0.0-SNAPSHOT,2.0.0-SNAPSHOT]", "(1.0.0.SNAPSHOT,2.0.0.SNAPSHOT]");
+    }
+    
+    public void testIsSnapshot() {
+        Assert.assertTrue(BrooklynVersionSyntax.isSnapshot("1.0.0.SNAPSHOT"));
+        Assert.assertTrue(BrooklynVersionSyntax.isSnapshot("1.0.0.20171025_SNAPSHOT"));
+        Assert.assertTrue(BrooklynVersionSyntax.isSnapshot("1.0.0-SNAPSHOT"));
+        Assert.assertFalse(BrooklynVersionSyntax.isSnapshot("1.0.0"));
+    }
+
+    public void testStripSnapshot() {
+        assertStripSnapshot("1.0.0.SNAPSHOT", "1.0.0");
+        assertStripSnapshot("1.0.0-SNAPSHOT", "1.0.0");
+        assertStripSnapshot("1-SNAPSHOT", "1");
+        assertStripSnapshot("1.0.0.20171025_SNAPSHOT", "1.0.0.20171025");
+        assertStripSnapshot("1.0.0", "1.0.0");
+        
+        // for weird things, don't make them even weirder!
+        assertStripSnapshot("SNAPSHOT", "SNAPSHOT");
+        assertStripSnapshot("_SNAPSHOT", "_SNAPSHOT");
+    }
+
+    private void assertStripSnapshot(String input, String expected) {
+        Assert.assertEquals(BrooklynVersionSyntax.stripSnapshot(input), expected, "conversion to strip snapshot");
+    }
+    
+    private void assertOsgiVersionRange(String input, String osgi) {
+        Assert.assertEquals(BrooklynVersionSyntax.toValidOsgiVersionRange(input), osgi, "conversion to valid osgi range");
+    }
 }

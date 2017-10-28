@@ -42,14 +42,6 @@ public class EntityAndAttribute<T> implements Supplier<T> {
         return new EntityAndAttribute<T>(entity, attribute);
     }
 
-    /**
-     * @deprecated since 0.7.0; use {@link #create(Entity, AttributeSensor)}; this does not relate to {@link Supplier}
-     */
-    @Deprecated
-    public static <T> EntityAndAttribute<T> supplier(Entity entity, AttributeSensor<T> attribute) {
-        return create(entity, attribute);
-    }
-
     public EntityAndAttribute(Entity entity, AttributeSensor<T> attribute) {
         this.entity = checkNotNull(entity, "entity");
         this.attribute = checkNotNull(attribute, "attribute");

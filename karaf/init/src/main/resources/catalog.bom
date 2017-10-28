@@ -16,10 +16,10 @@
 # under the License.
 #
 brooklyn.catalog:
-  version: "0.13.0-SNAPSHOT" # BROOKLYN_VERSION
+  version: "1.0.0-SNAPSHOT" # BROOKLYN_VERSION
 
   brooklyn.libraries:
-  - mvn:org.apache.brooklyn/brooklyn-core/0.13.0-SNAPSHOT # BROOKLYN_VERSION
-  - mvn:org.apache.brooklyn/brooklyn-policy/0.13.0-SNAPSHOT # BROOKLYN_VERSION
-  - mvn:org.apache.brooklyn/brooklyn-software-base/0.13.0-SNAPSHOT # BROOKLYN_VERSION
-  - mvn:org.apache.brooklyn/brooklyn-test-framework/0.13.0-SNAPSHOT # BROOKLYN_VERSION
+  - mvn:org.apache.brooklyn/brooklyn-core/1.0.0-SNAPSHOT # BROOKLYN_VERSION
+  - mvn:org.apache.brooklyn/brooklyn-policy/1.0.0-SNAPSHOT # BROOKLYN_VERSION
+  - mvn:org.apache.brooklyn/brooklyn-software-base/1.0.0-SNAPSHOT # BROOKLYN_VERSION
+  - mvn:org.apache.brooklyn/brooklyn-test-framework/1.0.0-SNAPSHOT # BROOKLYN_VERSION

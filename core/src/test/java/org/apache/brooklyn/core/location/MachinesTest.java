@@ -73,15 +73,6 @@ public class MachinesTest extends BrooklynAppUnitTestSupport {
     }
     
     @Test
-    @SuppressWarnings("deprecation")
-    public void testFindUniqueSshMachineLocation() throws Exception {
-        SshMachineLocation l1 = create(sshMachineSpec);
-        LocalhostMachineProvisioningLocation l2 = create(otherLocSpec);
-        assertEquals(Machines.findUniqueSshMachineLocation(ImmutableList.of(l1, l2)).get(), l1);
-        assertFalse(Machines.findUniqueSshMachineLocation(ImmutableList.of(l2)).isPresent());
-    }
-    
-    @Test
     public void testFindUniqueMachineLocationOfType() throws Exception {
         SshMachineLocation l1 = create(sshMachineSpec);
         LocalhostMachineProvisioningLocation l2 = create(otherLocSpec);

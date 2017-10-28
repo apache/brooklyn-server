@@ -20,6 +20,8 @@ package org.apache.brooklyn.core.typereg;
 
 import java.util.Map;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
@@ -46,7 +48,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     /** Creates an empty one, with an ID, expecting other fields will be populated. */
     public BasicManagedBundle() {}
 
-    public BasicManagedBundle(String name, String version, String url) {
+    public BasicManagedBundle(String name, String version, String url, @Nullable String checksum) {
         if (name == null && version == null) {
             Preconditions.checkNotNull(url, "Either a URL or both name and version are required");
         } else {
@@ -56,6 +58,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         this.symbolicName = name;
         this.version = version;
         this.url = url;
+        this.checksum = checksum;
     }
     
     @Override
@@ -101,9 +104,16 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         this.url = url;
     }
 
+    /**
+     * Gets the (internal) value to be used as the location in bundleContext.install(location). 
+     * It thus allows us to tell if a cached OSGi bundle is the same as a bundle we are about to 
+     * install (e.g. one we get from persisted state), or have retrieved from the initial catalog.
+     * 
+     * Care should be taken to set the checksum <em>before</em> using the OSGi unique url.
+     */
     @Override
     public String getOsgiUniqueUrl() {
-        return "brooklyn:"+getId();
+        return "brooklyn:" + (checksum != null ? checksum : getId());
     }
     
     @Override
@@ -135,6 +145,9 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
             // this makes equality with other OsgiBundleWithUrl items symmetric,
             // but for two MB's we look additionally at checksum
             if (!Objects.equal(checksum, ((ManagedBundle)other).getChecksum())) return false;
+            
+            // only equal if have the same ManagedBundle uid; important for persistence.changeListener().unmanage()
+            if (!Objects.equal(getId(), ((ManagedBundle)other).getId())) return false;
         }
         return true;
     }
@@ -144,11 +157,6 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     @Override
     public String getDisplayName() {
         return null;
-    }
-
-    @Override
-    public <T> T setConfig(ConfigKey<T> key, T val) {
-        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -180,6 +188,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     public String getChecksum() {
         return checksum;
     }
+    
     public void setChecksum(String md5Checksum) {
         this.checksum = md5Checksum;
     }
@@ -189,8 +198,9 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         throw new UnsupportedOperationException();
     }
 
-    public static ManagedBundle of(CatalogBundle bundleUrl) {
-        return new BasicManagedBundle(bundleUrl.getSymbolicName(), bundleUrl.getSuppliedVersionString(), bundleUrl.getUrl());
+    public static ManagedBundle of(CatalogBundle bundle) {
+        String checksum = (bundle instanceof ManagedBundle) ? ((ManagedBundle)bundle).getChecksum() : null;
+        return new BasicManagedBundle(bundle.getSymbolicName(), bundle.getSuppliedVersionString(), bundle.getUrl(), checksum);
     }
 
     public void setPersistenceNeeded(boolean val) {

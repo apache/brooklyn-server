@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.entity.internal;
 
 import java.util.Collection;
-import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -27,16 +26,13 @@ import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityType;
-import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
 import org.apache.brooklyn.api.objs.BrooklynObject.TagSupport;
-import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -70,9 +66,6 @@ public interface EntityTransientCopyInternal {
     String getApplicationId();
     Entity getParent();
     Collection<Entity> getChildren();
-    Collection<Policy> getPolicies();
-    Collection<Enricher> getEnrichers();
-    Collection<Group> getGroups();
     Collection<Location> getLocations();
     <T> T getAttribute(AttributeSensor<T> sensor);
     <T> T getConfig(ConfigKey<T> key);
@@ -82,12 +75,9 @@ public interface EntityTransientCopyInternal {
 
     // from EntityInternal:
     
-    @SuppressWarnings("rawtypes")
-    Map<AttributeSensor, Object> getAllAttributes();
     EntityManagementSupport getManagementSupport();
     ManagementContext getManagementContext();
     Effector<?> getEffector(String effectorName);
-    @Deprecated FeedSupport getFeedSupport();
     FeedSupport feeds();
     RebindSupport<EntityMemento> getRebindSupport();
     // for REST calls on read-only entities which want to resolve values

@@ -174,12 +174,6 @@ public class CatalogPredicates {
         }
     };
 
-    /** @deprecated since 0.7.0 use {@link #displayName(Predicate)} */
-    @Deprecated
-    public static <T,SpecT> Predicate<CatalogItem<T,SpecT>> name(final Predicate<? super String> filter) {
-        return displayName(filter);
-    }
-
     /**
      * @since 0.7.0
      */
@@ -211,11 +205,6 @@ public class CatalogPredicates {
         public String toString() {
             return "DisplayNameMatches("+filter+")";
         }
-    }
-
-    @Deprecated
-    public static <T,SpecT> Predicate<CatalogItem<T,SpecT>> registeredTypeName(final Predicate<? super String> filter) {
-        return symbolicName(filter);
     }
 
     public static <T,SpecT> Predicate<CatalogItem<T,SpecT>> symbolicName(final Predicate<? super String> filter) {

@@ -43,7 +43,7 @@ import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
 
 /**
  * Converts from Brooklyn entities to restful API summary objects
- * @deprecated since 0.13.0 use {@link AdjunctTransformer} and {@link AdjunctSummary} 
+ * @deprecated since 1.0.0 use {@link AdjunctTransformer} and {@link AdjunctSummary}
  */
 @Deprecated
 public class PolicyTransformer {

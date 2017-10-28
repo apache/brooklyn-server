@@ -88,7 +88,7 @@ public class BrooklynEntityMirrorIntegrationTest {
             server.skipSecurity(skipSecurity);
             server.start();
             
-            serverMgmt.getHighAvailabilityManager().disabled();
+            serverMgmt.getHighAvailabilityManager().disabled(false);
             serverApp = TestApplication.Factory.newManagedInstanceForTests(serverMgmt);
             
             ((LocalManagementContextForTests)serverMgmt).noteStartupComplete();
@@ -121,7 +121,7 @@ public class BrooklynEntityMirrorIntegrationTest {
         EntityAsserts.assertAttributeEqualsEventually(mirror, TestApplication.MY_ATTRIBUTE, "austria");
         EntityAsserts.assertAttributeEqualsEventually(mirror, BrooklynEntityMirror.MIRROR_CATALOG_ITEM_ID, catalogItemId);
         assertTrue(mirror.getAttribute(BrooklynEntityMirror.MIRROR_SUMMARY) != null, "entity summary is null");
-        log.info("Sensors mirrored are: "+((EntityInternal)mirror).getAllAttributes());
+        log.info("Sensors mirrored are: "+((EntityInternal)mirror).sensors().getAll());
         
         serverApp.sensors().set(TestApplication.MY_ATTRIBUTE, "bermuda");
         serverApp.setCatalogItemId(catalogItemIdGA);
@@ -157,7 +157,7 @@ public class BrooklynEntityMirrorIntegrationTest {
         );
 
         EntityAsserts.assertAttributeEqualsEventually(mirror, TestApplication.MY_ATTRIBUTE, "austria");
-        log.info("Sensors mirrored are: "+((EntityInternal)mirror).getAllAttributes());
+        log.info("Sensors mirrored are: "+((EntityInternal)mirror).sensors().getAll());
         
         serverApp.sensors().set(TestApplication.MY_ATTRIBUTE, "bermuda");
         EntityAsserts.assertAttributeEqualsEventually(mirror, TestApplication.MY_ATTRIBUTE, "bermuda");

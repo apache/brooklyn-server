@@ -71,7 +71,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
-/** @deprecated since 0.13.0 use {@link RegisteredType} methods in {@link TypeTransformer} */
+/** @deprecated since 1.0.0 use {@link RegisteredType} methods in {@link TypeTransformer} */
 @Deprecated
 public class CatalogTransformer {
 

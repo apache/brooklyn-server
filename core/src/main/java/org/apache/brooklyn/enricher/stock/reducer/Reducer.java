@@ -121,7 +121,7 @@ public class Reducer extends AbstractEnricher implements SensorEventListener<Obj
         Preconditions.checkState(sensorListTemp.size() > 0, "Nothing to reduce");
 
         for (Sensor<?> sensor : sensorListTemp) {
-            subscribe(producer, sensor, this);
+            subscriptions().subscribe(producer, sensor, this);
         }
 
         subscribedSensors = ImmutableList.copyOf(sensorListTemp);

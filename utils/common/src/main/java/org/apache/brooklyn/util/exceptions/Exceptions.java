@@ -388,13 +388,6 @@ public class Exceptions {
         return message + ": " + next;
     }
 
-    /** removes uninteresting items from the top of the call stack (but keeps interesting messages), and throws 
-     * @deprecated since 0.7.0 same as {@link #propagate(Throwable)} */
-    @Deprecated
-    public static RuntimeException propagateCollapsed(Throwable source) {
-        throw propagate(source);
-    }
-
     /** like {@link #collapse(Throwable)} but returning a one-line message suitable for logging without traces */
     public static String collapseText(Throwable t) {
         return collapseText(t, false);

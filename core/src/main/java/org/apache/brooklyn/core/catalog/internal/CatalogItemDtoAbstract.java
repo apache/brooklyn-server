@@ -93,11 +93,6 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
     }
     
     @Override
-    public <U> U setConfig(ConfigKey<U> key, U val) {
-        return config().set(key, val);
-    }
-    
-    @Override
     public String getId() {
         return getCatalogItemId();
     }
@@ -113,18 +108,6 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
         return type;
     }
 
-    @Override
-    @Deprecated
-    public String getName() {
-        return getDisplayName();
-    }
-
-    @Override
-    @Deprecated
-    public String getRegisteredTypeName() {
-        return getSymbolicName();
-    }
-    
     @Override
     public String getContainingBundle() {
         return containingBundle;

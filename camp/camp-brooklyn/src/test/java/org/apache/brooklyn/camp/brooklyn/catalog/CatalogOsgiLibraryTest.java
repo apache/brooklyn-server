@@ -34,7 +34,7 @@ import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.config.external.AbstractExternalConfigSupplier;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.mgmt.internal.ExternalConfigSupplierRegistry;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -263,7 +263,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
         ResourceUtils ru = ResourceUtils.create(entity);
         Iterable<URL> files = ru.getResources("org/apache/brooklyn/test/osgi/resources/message.txt");
         if (!files.iterator().hasNext()) {
-            Entities.dumpInfo(entity);
+            Dumper.dumpInfo(entity);
             Assert.fail("Expected to find 'messages.txt'");
         }
     }
@@ -272,7 +272,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
         ResourceUtils ru = ResourceUtils.create(entity);
         Iterable<URL> files = ru.getResources("org/apache/brooklyn/test/osgi/resources/message.txt");
         if (files.iterator().hasNext()) {
-            Entities.dumpInfo(entity);
+            Dumper.dumpInfo(entity);
             Assert.fail("Expected NOT to find 'messages.txt'");
         }
     }
@@ -305,7 +305,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
         Entity app = createAndStartApplication("services: [ { type: item-from-library } ]");
         Entity entity1 = app.getChildren().iterator().next();
         
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         Assert.assertEquals(entity1.getCatalogItemId(), "item-from-library:1.0");
         assertCanFindMessages( entity1 );

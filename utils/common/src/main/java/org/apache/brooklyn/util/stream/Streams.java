@@ -72,11 +72,6 @@ public class Streams {
         }
     }
 
-    /** @deprecated since 0.7.0 use {@link #newInputStreamWithContents(String)} */ @Deprecated
-    public static InputStream fromString(String contents) {
-        return newInputStreamWithContents(contents);
-    }
-    
     public static InputStream newInputStreamWithContents(String contents) {
         byte[] bytes = checkNotNull(contents, "contents").getBytes(Charsets.UTF_8);
         return KnownSizeInputStream.of(bytes);

@@ -23,7 +23,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
@@ -33,16 +32,26 @@ import java.net.URL;
 import java.net.URLDecoder;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
-import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog.BrooklynLoaderTracker;
+import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.text.DataUriSchemeParser;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.http.HttpTool;
+import org.apache.brooklyn.util.http.HttpTool.HttpClientBuilder;
+import org.apache.brooklyn.util.net.Urls;
+import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.osgi.OsgiUtils;
+import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.auth.Credentials;
@@ -52,24 +61,11 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.http.HttpTool;
-import org.apache.brooklyn.util.http.HttpTool.HttpClientBuilder;
-import org.apache.brooklyn.util.core.text.DataUriSchemeParser;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.javalang.Threads;
-import org.apache.brooklyn.util.net.Urls;
-import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.stream.Streams;
-import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
-
-import org.apache.brooklyn.util.osgi.OsgiUtils;
 
 public class ResourceUtils {
     
@@ -347,21 +343,6 @@ public class ResourceUtils {
         }
     }
 
-    /** @deprecated since 0.7.0; use method {@link Os#mergePaths(String...)} */ @Deprecated
-    public static String mergeFilePaths(String... items) {
-        return Os.mergePaths(items);
-    }
-    
-    /** @deprecated since 0.7.0; use method {@link Os#tidyPath(String)} */ @Deprecated
-    public static String tidyFilePath(String path) {
-        return Os.tidyPath(path);
-    }
-    
-    /** @deprecated since 0.7.0; use method {@link Urls#getProtocol(String)} */ @Deprecated
-    public static String getProtocol(String url) {
-        return Urls.getProtocol(url);
-    }
-    
     private InputStream getResourceViaClasspath(String url) throws IOException {
         assert url.startsWith("classpath:");
         String subUrl = url.substring("classpath:".length());
@@ -560,51 +541,5 @@ public class ResourceUtils {
 
     public static URL getContainerUrl(URL url, String resourceInThatDir) {
         return OsgiUtils.getContainerUrl(url, resourceInThatDir);
-    }
-    
-    /** @deprecated since 0.7.0 use {@link Streams#copy(InputStream, OutputStream)} */ @Deprecated
-    public static void copy(InputStream input, OutputStream output) throws IOException {
-        Streams.copy(input, output);
-    }
-
-    /** @deprecated since 0.7.0; use same method in {@link Os} */ @Deprecated
-    public static File mkdirs(File dir) {
-        return Os.mkdirs(dir);
-    }
-
-    /** @deprecated since 0.7.0; use same method in {@link Os} */ @Deprecated
-    public static File writeToTempFile(InputStream is, String prefix, String suffix) {
-        return Os.writeToTempFile(is, prefix, suffix);
-    }
-    
-    /** @deprecated since 0.7.0; use same method in {@link Os} */ @Deprecated
-    public static File writeToTempFile(InputStream is, File tempDir, String prefix, String suffix) {
-        return Os.writeToTempFile(is, tempDir, prefix, suffix);
-    }
-
-    /** @deprecated since 0.7.0; use method {@link Os#writePropertiesToTempFile(Properties, String, String)} */ @Deprecated
-    public static File writeToTempFile(Properties props, String prefix, String suffix) {
-        return Os.writePropertiesToTempFile(props, prefix, suffix);
-    }
-    
-    /** @deprecated since 0.7.0; use method {@link Os#writePropertiesToTempFile(Properties, File, String, String)} */ @Deprecated
-    public static File writeToTempFile(Properties props, File tempDir, String prefix, String suffix) {
-        return Os.writePropertiesToTempFile(props, tempDir, prefix, suffix);
-    }
-
-    /** @deprecated since 0.7.0; use method {@link Threads#addShutdownHook(Runnable)} */ @Deprecated
-    public static Thread addShutdownHook(final Runnable task) {
-        return Threads.addShutdownHook(task);
-    }
-    /** @deprecated since 0.7.0; use method {@link Threads#removeShutdownHook(Thread)} */ @Deprecated
-    public static boolean removeShutdownHook(Thread hook) {
-        return Threads.removeShutdownHook(hook);
-    }
-
-    /** returns the items with exactly one "/" between items (whether or not the individual items start or end with /),
-     * except where character before the / is a : (url syntax) in which case it will permit multiple (will not remove any) 
-     * @deprecated since 0.7.0 use either {@link Os#mergePathsUnix(String...)} {@link Urls#mergePaths(String...) */ @Deprecated
-    public static String mergePaths(String ...items) {
-        return Urls.mergePaths(items);
     }
 }

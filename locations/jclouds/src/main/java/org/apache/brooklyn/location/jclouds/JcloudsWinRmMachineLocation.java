@@ -210,23 +210,6 @@ public class JcloudsWinRmMachineLocation extends WinRmMachineLocation implements
         }
     }
 
-    /**
-     * @deprecated since 0.9.0
-     */
-    @Override
-    @Deprecated
-    public Template getTemplate() {
-        Optional<Template> result = getOptionalTemplate();
-        if (result.isPresent()) {
-            String msg = "Deprecated use of getTemplate() for "+this;
-            LOG.warn(msg + " - see debug log for stacktrace");
-            LOG.debug(msg, new Exception("for stacktrace"));
-            return result.get();
-        } else {
-            throw new IllegalStateException("Template for "+nodeId+" (in "+getParent()+") not cached (deprecated use of getTemplate())");
-        }
-    }
-
     @Override
     public String getHostname() {
         if (hostname != null) {

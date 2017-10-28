@@ -27,8 +27,10 @@ import static org.testng.Assert.assertTrue;
 
 import java.util.List;
 
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
@@ -62,7 +64,7 @@ public class ManagementNodeStateListenerTest extends BrooklynMgmtUnitTestSupport
         // Need to call HighAvailabilityManager explicitly; otherwise it will never publish
         // the ManagementNodeState.
         LocalManagementContext result = LocalManagementContextForTests.newInstance(brooklynProperties);
-        result.getHighAvailabilityManager().disabled();
+        result.getHighAvailabilityManager().disabled(false);
         result.noteStartupComplete();
         return result;
     }
@@ -73,10 +75,11 @@ public class ManagementNodeStateListenerTest extends BrooklynMgmtUnitTestSupport
         brooklynProperties.put(BrooklynServerConfig.MANAGEMENT_NODE_STATE_LISTENERS, ImmutableList.of(new RecordingStaticManagementNodeStateListener()));
         replaceManagementContext(newManagementContext(brooklynProperties));
 
-        assertEventsEventually(RecordingStaticManagementNodeStateListener.getInstance(), ImmutableList.of(INITIALIZING, MASTER));
+        assertEquals(RecordingStaticManagementNodeStateListener.getInstance().getManagementContext(), mgmt);
+        RecordingStaticManagementNodeStateListener.getInstance().assertEventsEventually(ImmutableList.of(INITIALIZING, MASTER));
         
         mgmt.terminate();
-        assertEventsEventually(RecordingStaticManagementNodeStateListener.getInstance(), ImmutableList.of(INITIALIZING, MASTER, TERMINATED));
+        RecordingStaticManagementNodeStateListener.getInstance().assertEventsEventually(ImmutableList.of(INITIALIZING, MASTER, TERMINATED));
     }
 
     @Test
@@ -85,7 +88,7 @@ public class ManagementNodeStateListenerTest extends BrooklynMgmtUnitTestSupport
         brooklynProperties.put(BrooklynServerConfig.MANAGEMENT_NODE_STATE_LISTENERS, RecordingStaticManagementNodeStateListener.class.getName());
         replaceManagementContext(newManagementContext(brooklynProperties));
         
-        assertEventsEventually(RecordingStaticManagementNodeStateListener.getInstance(), ImmutableList.of(INITIALIZING, MASTER));
+        RecordingStaticManagementNodeStateListener.getInstance().assertEventsEventually(ImmutableList.of(INITIALIZING, MASTER));
     }
 
     @Test
@@ -99,8 +102,8 @@ public class ManagementNodeStateListenerTest extends BrooklynMgmtUnitTestSupport
         assertTrue(listeners.get(0) instanceof RecordingStaticManagementNodeStateListener, "listeners="+listeners);
         assertTrue(listeners.get(1) instanceof RecordingStaticManagementNodeStateListener, "listeners="+listeners);
         
-        assertEventsEventually(listeners.get(0), ImmutableList.of(INITIALIZING, MASTER));
-        assertEventsEventually(listeners.get(1), ImmutableList.of(INITIALIZING, MASTER));
+        listeners.get(0).assertEventsEventually(ImmutableList.of(INITIALIZING, MASTER));
+        listeners.get(1).assertEventsEventually(ImmutableList.of(INITIALIZING, MASTER));
     }
 
     @Test(expectedExceptions = ClassCastException.class)
@@ -110,20 +113,19 @@ public class ManagementNodeStateListenerTest extends BrooklynMgmtUnitTestSupport
         replaceManagementContext(LocalManagementContextForTests.newInstance(brooklynProperties));
     }
 
-    private void assertEventsEventually(RecordingManagementNodeStateListener listener, List<ManagementNodeState> expected) {
-        Asserts.succeedsEventually(new Runnable() {
-            public void run() {
-                List<ManagementNodeState> actual = listener.getEvents();
-                String errMsg = "actual="+actual+"; expected="+expected;
-                assertEquals(actual, expected, errMsg);
-            }});
-    }
-    
     public static class RecordingStaticManagementNodeStateListener extends RecordingManagementNodeStateListener implements ManagementNodeStateListener {
         private static final List<RecordingStaticManagementNodeStateListener> STATIC_INSTANCES = Lists.newCopyOnWriteArrayList();
 
         public static RecordingStaticManagementNodeStateListener getInstance() {
             return Iterables.getOnlyElement(STATIC_INSTANCES);
+        }
+
+        public static RecordingStaticManagementNodeStateListener getInstanceEventually() {
+            Asserts.succeedsEventually(new Runnable() {
+                public void run() {
+                    assertTrue(STATIC_INSTANCES.size() > 0);
+                }});
+            return getInstance();
         }
 
         public static RecordingStaticManagementNodeStateListener getLastInstance() {
@@ -145,9 +147,15 @@ public class ManagementNodeStateListenerTest extends BrooklynMgmtUnitTestSupport
         }
     }
     
-    public static class RecordingManagementNodeStateListener implements ManagementNodeStateListener {
+    public static class RecordingManagementNodeStateListener implements ManagementNodeStateListener, ManagementContextInjectable {
         private final List<ManagementNodeState> events = Lists.newCopyOnWriteArrayList();
+        private ManagementContext managementContext;
 
+        @Override
+        public void setManagementContext(ManagementContext managementContext) {
+            this.managementContext = managementContext;
+        }
+        
         @Override
         public void onStateChange(ManagementNodeState state) {
             events.add(state);
@@ -155,6 +163,28 @@ public class ManagementNodeStateListenerTest extends BrooklynMgmtUnitTestSupport
         
         public List<ManagementNodeState> getEvents() {
             return ImmutableList.copyOf(events);
+        }
+        
+        public ManagementContext getManagementContext() {
+            return managementContext;
+        }
+        
+        public void assertEventsEventually(List<ManagementNodeState> expected) {
+            Asserts.succeedsEventually(new Runnable() {
+                public void run() {
+                    List<ManagementNodeState> actual = getEvents();
+                    String errMsg = "actual="+actual+"; expected="+expected;
+                    assertEquals(actual, expected, errMsg);
+                }});
+        }
+        
+        public void assertEventsContinually(List<ManagementNodeState> expected) {
+            Asserts.succeedsContinually(new Runnable() {
+                public void run() {
+                    List<ManagementNodeState> actual = getEvents();
+                    String errMsg = "actual="+actual+"; expected="+expected;
+                    assertEquals(actual, expected, errMsg);
+                }});
         }
     }
 }

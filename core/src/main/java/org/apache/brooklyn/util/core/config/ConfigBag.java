@@ -132,7 +132,7 @@ public class ConfigBag {
     /** @deprecated since 0.7.0, not used; kept only for rebind compatibility where the inner class is used 
      * (now replaced by a static class above) */
     @Beta @Deprecated
-    public static ConfigBag newInstanceWithInnerClass(final ConfigBag configBag, Map<?,?> optionalAdditionalValues) {
+    private static ConfigBag newInstanceWithInnerClass(final ConfigBag configBag, Map<?,?> optionalAdditionalValues) {
         return new ConfigBag() {
             @Override
             public void markUsed(String key) {

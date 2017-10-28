@@ -79,22 +79,10 @@ public class CommandPollConfig<T> extends PollConfig<SshPollValue, T, CommandPol
         commandSupplier = other.commandSupplier;
     }
     
-    /** @deprecated since 0.7.0; use {@link #getCommandSupplier()} and resolve just-in-time */
-    @Deprecated
-    public String getCommand() {
-        return getCommandSupplier().get();
-    }
     public Supplier<String> getCommandSupplier() {
         return commandSupplier;
     }
     
-    /** @deprecated since 0.7.0; use {@link #getEnvSupplier()} and resolve just-in-time */
-    @Deprecated
-    public Map<String, String> getEnv() {
-        return getEnvSupplier().get();
-    }
-    
-    @SuppressWarnings("unused")
     public Supplier<Map<String,String>> getEnvSupplier() {
         return new CombiningEnvSupplier(dynamicEnvironmentSupplier);
     }

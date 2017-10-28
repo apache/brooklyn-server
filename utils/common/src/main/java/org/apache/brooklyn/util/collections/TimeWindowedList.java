@@ -32,8 +32,6 @@ import com.google.common.collect.ImmutableList;
  * and to keep the given number of out-of-date values.
  * 
  * For example, this is useful if we want to determine if a metric has been consistently high.
- * 
- * @author aled
  */
 public class TimeWindowedList<T> {
     private final LinkedList<TimestampedValue<T>> values = new LinkedList<TimestampedValue<T>>();
@@ -47,14 +45,6 @@ public class TimeWindowedList<T> {
         minExpiredVals = 0;
     }
     
-    /**
-     * @deprecated since 0.7.0; use {@link #TimeWindowedList(Duration)}
-     */
-    @Deprecated
-    public TimeWindowedList(long timePeriod) {
-        this(Duration.millis(timePeriod));
-    }
-
     public TimeWindowedList(Map<String,?> flags) {
         if (!flags.containsKey("timePeriod")) throw new IllegalArgumentException("Must define timePeriod");
         timePeriod = Duration.of(flags.get("timePeriod"));

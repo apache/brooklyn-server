@@ -75,7 +75,7 @@ public class LocationPredicates {
         return new Predicate<Location>() {
             @Override
             public boolean apply(@Nullable Location input) {
-                return (input != null) && Objects.equal(input.getConfig(configKey), val);
+                return (input != null) && Objects.equal(input.config().get(configKey), val);
             }
         };
     }

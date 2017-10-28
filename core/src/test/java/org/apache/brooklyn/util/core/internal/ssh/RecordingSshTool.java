@@ -246,9 +246,6 @@ public class RecordingSshTool implements SshTool {
     @Override public void connect() {
         connected = true;
     }
-    @Override public void connect(int maxAttempts) {
-        connected = true;
-    }
     @Override public void disconnect() {
         connected = false;
     }

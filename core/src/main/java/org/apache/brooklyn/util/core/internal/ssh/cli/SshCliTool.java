@@ -110,11 +110,6 @@ public class SshCliTool extends SshAbstractTool implements SshTool {
     }
 
     @Override
-    public void connect(int maxAttempts) {
-        // no-op
-    }
-
-    @Override
     public void disconnect() {
         if (LOG.isTraceEnabled()) LOG.trace("Disconnecting SshCliTool {} ({}) - no-op", this, System.identityHashCode(this));
         // no-op

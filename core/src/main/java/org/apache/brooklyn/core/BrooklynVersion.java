@@ -35,12 +35,10 @@ import java.util.jar.Attributes;
 
 import javax.annotation.Nullable;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -87,7 +85,7 @@ public class BrooklynVersion implements BrooklynVersionService {
     // may be useful:
 //    private static final String OSGI_BRANCH_PROPERTY_NAME = "Implementation-Branch";
 
-    private final static String VERSION_FROM_STATIC = "0.13.0-SNAPSHOT"; // BROOKLYN_VERSION
+    private final static String VERSION_FROM_STATIC = "1.0.0-SNAPSHOT"; // BROOKLYN_VERSION
     private static final AtomicReference<Boolean> IS_DEV_ENV = new AtomicReference<Boolean>();
 
     private static final String BROOKLYN_FEATURE_PREFIX = "Brooklyn-Feature-";
@@ -119,21 +117,6 @@ public class BrooklynVersion implements BrooklynVersionService {
         if (osgiVersion != null && !VERSION_FROM_STATIC.equals(osgiVersion)) {
             throw new IllegalStateException("Version error: osgi " + osgiVersion + " / code " + VERSION_FROM_STATIC);
         }
-    }
-
-    /**
-     * Returns version as inferred from classpath/osgi, if possible, or 0.0.0-SNAPSHOT.
-     * See also {@link #getVersionFromMavenProperties()} and {@link #getVersionFromOsgiManifest()}.
-     *
-     * @deprecated since 0.7.0, in favour of the more specific methods (and does anyone need that default value?)
-     */
-    @Deprecated
-    public String getVersionFromClasspath() {
-        String v = getVersionFromMavenProperties();
-        if (Strings.isNonBlank(v)) return v;
-        v = getVersionFromOsgiManifest();
-        if (Strings.isNonBlank(v)) return v;
-        return BasicBrooklynCatalog.NO_VERSION;
     }
 
     @Override
@@ -283,14 +266,6 @@ public class BrooklynVersion implements BrooklynVersionService {
     @Override
     public void logSummary() {
         log.debug("Brooklyn version " + getVersion() + " (git SHA1 " + getSha1FromOsgiManifest() + ")");
-    }
-
-    /**
-     * @deprecated since 0.7.0, redundant with {@link #get()}
-     */
-    @Deprecated
-    public static String getVersionFromStatic() {
-        return VERSION_FROM_STATIC;
     }
 
     public static String get() {

@@ -32,17 +32,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
-import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
-import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
-import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.cli.CloudExplorer.BlobstoreGetBlobCommand;
 import org.apache.brooklyn.cli.CloudExplorer.BlobstoreListContainerCommand;
 import org.apache.brooklyn.cli.CloudExplorer.BlobstoreListContainersCommand;
@@ -62,8 +57,6 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
-import org.apache.brooklyn.core.objs.BrooklynTypes;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.launcher.BrooklynLauncher;
 import org.apache.brooklyn.launcher.BrooklynServerDetails;
@@ -87,11 +80,8 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Objects.ToStringHelper;
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import groovy.lang.GroovyClassLoader;
 import groovy.lang.GroovyShell;
@@ -111,7 +101,6 @@ import io.airlift.airline.Option;
  * <li> providing an overridden {@link LaunchCommand} via {@link #cliLaunchCommand()} if desired
  * <li> providing any other CLI customisations by overriding {@link #cliBuilder()}
  *      (typically calling the parent and then customizing the builder)
- * <li> populating a custom catalog using {@link LaunchCommand#populateCatalog(BrooklynCatalog)}
  */
 public class Main extends AbstractMain {
 
@@ -410,20 +399,6 @@ public class Main extends AbstractMain {
                 launcher = createLauncher();
 
                 CatalogInitialization catInit = new CatalogInitialization(catalogInitial);
-                catInit.addPopulationCallback(new Function<CatalogInitialization,Void>() {
-                    @Override
-                    public Void apply(CatalogInitialization catInit) {
-                        try {
-                            populateCatalog(catInit.getManagementContext().getCatalog());
-                        } catch (Throwable e) {
-                            catInit.handleException(e, "in main class populate catalog override");
-                        }
-                        
-                        // Force load of catalog (so web console is up to date)
-                        confirmCatalog(catInit);
-                        return null;
-                    }
-                });
                 catInit.setFailOnStartupErrors(startupFailOnCatalogErrors);
                 launcher.catalogInitialization(catInit);
                 
@@ -614,54 +589,15 @@ public class Main extends AbstractMain {
             return launcher;
         }
 
-        /** method intended for subclassing, to add custom items to the catalog */
-        protected void populateCatalog(BrooklynCatalog catalog) {
+        /**
+         * method intended for subclassing, to add custom items to the catalog.
+         * 
+         * @deprecated since 1.0.0; no longer supported; does nothing - subclasses should not try to extend it!
+         */
+        protected final void populateCatalog(BrooklynCatalog catalog) {
             // nothing else added here
         }
 
-        protected void confirmCatalog(CatalogInitialization catInit) {
-            // Force load of catalog (so web console is up to date)
-            Stopwatch time = Stopwatch.createStarted();
-            Iterable<RegisteredType> all = catInit.getManagementContext().getTypeRegistry().getAll();
-            int errors = 0;
-            for (RegisteredType rt: all) {
-                if (RegisteredTypes.isTemplate(rt)) {
-                    // skip validation of templates, they might contain instructions,
-                    // and additionally they might contain multiple items in which case
-                    // the validation below won't work anyway (you need to go via a deployment plan)
-                } else {
-                    if (rt.getKind()==RegisteredTypeKind.UNRESOLVED) {
-                        errors++;
-                        catInit.handleException(new UserFacingException("Unresolved type in catalog"), rt);
-                    }
-                }
-            }
-
-            // and force resolution of legacy items
-            BrooklynCatalog catalog = catInit.getManagementContext().getCatalog();
-            Iterable<CatalogItem<Object, Object>> items = catalog.getCatalogItemsLegacy();
-            for (CatalogItem<Object, Object> item: items) {
-                try {
-                    if (item.getCatalogItemType()==CatalogItemType.TEMPLATE) {
-                        // skip validation of templates, they might contain instructions,
-                        // and additionally they might contain multiple items in which case
-                        // the validation below won't work anyway (you need to go via a deployment plan)
-                    } else {
-                        AbstractBrooklynObjectSpec<?, ?> spec = catalog.peekSpec(item);
-                        if (spec instanceof EntitySpec) {
-                            BrooklynTypes.getDefinedEntityType(((EntitySpec<?>)spec).getType());
-                        }
-                        log.debug("Catalog loaded spec "+spec+" for item "+item);
-                    }
-                } catch (Throwable throwable) {
-                    catInit.handleException(throwable, item);
-                }
-            }
-            
-            log.debug("Catalog (size "+Iterables.size(all)+", of which "+Iterables.size(items)+" legacy) confirmed in "+Duration.of(time)+(errors>0 ? ", errors found ("+errors+")" : ""));
-            // nothing else added here
-        }
-        
         /** convenience for subclasses to specify that an app should run,
          * throwing the right (caught) error if another app has already been specified */
         protected void setAppToLaunch(String className) {

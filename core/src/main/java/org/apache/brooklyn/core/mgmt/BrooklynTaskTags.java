@@ -88,7 +88,7 @@ public class BrooklynTaskTags extends TaskTags {
     // ------------- entity tags -------------------------
     
     public abstract static class WrappedItem<T> {
-        /** @deprecated since 0.13.0 going private; use {@link #getWrappingType()} */
+        /** @deprecated since 1.0.0 going private; use {@link #getWrappingType()} */
         @Deprecated
         public final String wrappingType;
         protected WrappedItem(String wrappingType) {
@@ -117,7 +117,7 @@ public class BrooklynTaskTags extends TaskTags {
         }
     }
     public static class WrappedEntity extends WrappedItem<Entity> {
-        /** @deprecated since 0.13.0 going private; use {@link #unwrap()} */
+        /** @deprecated since 1.0.0 going private; use {@link #unwrap()} */
         @Deprecated
         public final Entity entity;
         protected WrappedEntity(String wrappingType, Entity entity) {
@@ -233,6 +233,10 @@ public class BrooklynTaskTags extends TaskTags {
     
     public static Set<Task<?>> getTasksInEntityContext(ExecutionManager em, Entity e) {
         return em.getTasksWithTag(tagForContextEntity(e));
+    }
+
+    public static Set<Task<?>> getTasksInAdjunctContext(ExecutionManager em, EntityAdjunct a) {
+        return em.getTasksWithTag(tagForContextAdjunct(a));
     }
 
     public static ManagementContext getManagementContext(Task<?> task) {

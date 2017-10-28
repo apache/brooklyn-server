@@ -16,7 +16,7 @@
 # under the License.
 
 brooklyn.catalog:
-  version: "0.13.0-SNAPSHOT" # BROOKLYN_VERSION
+  version: "1.0.0-SNAPSHOT" # BROOKLYN_VERSION
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
 
   items:

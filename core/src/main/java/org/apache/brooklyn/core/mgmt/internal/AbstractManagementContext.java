@@ -71,6 +71,7 @@ import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContex
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.HighAvailabilityManagerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
+import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -245,6 +246,21 @@ public abstract class AbstractManagementContext implements ManagementContextInte
             return ((EntityInternal)e).getExecutionContext();
         }
     }
+    
+    @Override
+    public ExecutionContext getExecutionContext(Entity e, EntityAdjunct adjunct) {
+        // BEC is a thin wrapper around EM so fine to create a new one here; but make sure it gets the real entity
+        if (e instanceof AbstractEntityAdjunct) {
+            ImmutableSet<Object> tags = ImmutableSet.<Object>of(
+                    BrooklynTaskTags.tagForContextAdjunct(adjunct),
+                    BrooklynTaskTags.tagForContextEntity(e),
+                    this
+            );
+            return new BasicExecutionContext(getExecutionManager(), tags);
+        } else {
+            return ((EntityInternal)e).getExecutionContext();
+        }
+    }
 
     @Override
     public ExecutionContext getServerExecutionContext() {
@@ -405,12 +421,6 @@ public abstract class AbstractManagementContext implements ManagementContextInte
 
     @Override
     public BrooklynCatalog getCatalog() {
-        if (!getCatalogInitialization().hasRunAnyInitialization()) {
-            // catalog init is needed; normally this will be done from start sequence,
-            // but if accessed early -- and in tests -- we will load it here
-            getCatalogInitialization().setManagementContext(this);
-            getCatalogInitialization().populateUnofficial(catalog);
-        }
         return catalog;
     }
     
@@ -489,7 +499,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         return uri;
     }
     
-    private Object catalogInitMutex = new Object();
+    private final Object catalogInitMutex = new Object();
     @Override
     public CatalogInitialization getCatalogInitialization() {
         synchronized (catalogInitMutex) {

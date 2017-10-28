@@ -22,17 +22,13 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
-import org.apache.brooklyn.api.sensor.Sensor;
-import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.AbstractApplication;
 import org.apache.brooklyn.core.location.SimulatedLocation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.util.logging.LoggingSetup;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Mock application for testing.
@@ -60,11 +56,6 @@ public class TestApplicationImpl extends AbstractApplication implements TestAppl
         return addChild(spec);
     }
     
-    @Override
-    public <T> SubscriptionHandle subscribeToMembers(Group parent, Sensor<T> sensor, SensorEventListener<? super T> listener) {
-        return subscriptions().subscribeToMembers(parent, sensor, listener);
-    }
-
     @Override
     public String toString() {
         String id = getId();

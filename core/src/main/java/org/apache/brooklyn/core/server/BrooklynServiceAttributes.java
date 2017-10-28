@@ -39,18 +39,6 @@ public class BrooklynServiceAttributes {
     /** used to hold the instance of ManagementContext which should be used */
     public static final String BROOKLYN_MANAGEMENT_CONTEXT = ManagementContext.class.getName();
     
-    /** poor-man's security, to specify a user to be automatically logged in
-     * (e.g. to bypass security, during dev/test); 'admin' is usually a sensible choice.
-     * if not specified (the default) username+password is required. 
-     * @deprecated since 0.6.0; not used; you can now configure security properly instead!
-     * (though this may be useful again when we have users and permissions,
-     * to indicate the user who should be logged in by default...) */ @Deprecated
-    public static final String BROOKLYN_AUTOLOGIN_USERNAME = "brooklyn.autologin.username";
-    
-    /** poor-man's security, to specify a default password for access 
-     * @deprecated since 0.6.0; not used; you can now configure security properly instead! */ @Deprecated
-    public static final String BROOKLYN_DEFAULT_PASSWORD = "brooklyn.default.password";
-
     // TODO use ConfigKey (or possibly BrooklynSystemProperties ?)
     
     /** in some cases localhost does not resolve correctly 

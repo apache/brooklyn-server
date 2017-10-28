@@ -34,9 +34,10 @@ import com.google.common.collect.Iterables;
 public class Enums {
     
     /** returns a function which given an enum, returns its <code>name()</code> function 
-     * @deprecated since 0.7.0 use {@link #nameFunction()} to avoid inner class */
+     * @deprecated since 0.7.0; kept for backwards compatibility of persisted state */
+    @SuppressWarnings("unused")
     @Deprecated
-    public static Function<Enum<?>,String> enumValueNameFunction() {
+    private static Function<Enum<?>,String> enumValueNameFunction() {
         return new Function<Enum<?>,String>() {
             @Override
             public String apply(Enum<?> input) {

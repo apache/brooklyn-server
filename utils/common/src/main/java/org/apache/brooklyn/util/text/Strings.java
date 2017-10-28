@@ -722,6 +722,13 @@ public class Strings {
         return false;
     }
 
+    public static boolean containsAny(CharSequence input, CharSequence ...candidates) {
+        for (CharSequence candidate: candidates) {
+            if (containsLiteral(input, candidate)) return true;
+        }
+        return false;
+    }
+
     /** Returns a size string using metric suffixes from {@link ByteSizeStrings#metric()}, e.g. 23.5MB */
     public static String makeSizeString(long sizeInBytes) {
         return ByteSizeStrings.metric().makeSizeString(sizeInBytes);
@@ -801,13 +808,6 @@ public class Strings {
         return ies(count);
     }
 
-    /** converts a map of any objects to a map of strings, using the tostring, and returning "null" for nulls 
-     * @deprecated since 0.7.0 use {@link #toStringMap(Map, String)} to remove ambiguity about how to handle null */
-    // NB previously the javadoc here was wrong, said it returned null not "null"
-    @Deprecated
-    public static Map<String, String> toStringMap(Map<?,?> map) {
-        return toStringMap(map, "null");
-    }
     /** converts a map of any objects to a map of strings, using {@link Object#toString()},
      * with the second argument used where a value (or key) is null */
     public static Map<String, String> toStringMap(Map<?,?> map, String valueIfNull) {

@@ -63,8 +63,6 @@ public class LocationConfigTest {
         
         assertEquals(loc.config().getBag().getAllConfig(), ImmutableMap.of("mylocation.myconfig", "myval1", "mylocation.myconfigwithflagname", "myval2"));
         assertEquals(loc.config().getLocalBag().getAllConfig(), ImmutableMap.of("mylocation.myconfig", "myval1", "mylocation.myconfigwithflagname", "myval2"));
-        Assert.assertEquals(loc.getAllConfig(true), ImmutableMap.of("mylocation.myconfig", "myval1", "mylocation.myconfigwithflagname", "myval2"));
-        Assert.assertEquals(loc.getAllConfig(false), ImmutableMap.of("mylocation.myconfig", "myval1", "mylocation.myconfigwithflagname", "myval2"));
     }
 
     // TODO Note difference compared to Location, where both flag-name + config-key-name are in the ConfigBag
@@ -76,8 +74,6 @@ public class LocationConfigTest {
         
         assertEquals(loc.config().getBag().getAllConfig(), ImmutableMap.of("mylocation.myconfigwithflagname", "myval", "myconfigflagname", "myval"));
         assertEquals(loc.config().getLocalBag().getAllConfig(), ImmutableMap.of("mylocation.myconfigwithflagname", "myval", "myconfigflagname", "myval"));
-        Assert.assertEquals(loc.getAllConfig(true), ImmutableMap.of("mylocation.myconfigwithflagname", "myval", "myconfigflagname", "myval"));
-        Assert.assertEquals(loc.getAllConfig(false), ImmutableMap.of("mylocation.myconfigwithflagname", "myval", "myconfigflagname", "myval"));
     }
 
     @Test
@@ -87,8 +83,6 @@ public class LocationConfigTest {
         
         assertEquals(loc.config().getBag().getAllConfig(), ImmutableMap.of("notThere", "notThereVal"));
         assertEquals(loc.config().getLocalBag().getAllConfig(), ImmutableMap.of("notThere", "notThereVal"));
-        Assert.assertEquals(loc.getAllConfig(true), ImmutableMap.of("notThere", "notThereVal"));
-        Assert.assertEquals(loc.getAllConfig(false), ImmutableMap.of("notThere", "notThereVal"));
     }
     
     // TODO Note difference from entity: child's bag contains both the flag-name and the config-key-name
@@ -103,8 +97,6 @@ public class LocationConfigTest {
 
         assertEquals(child.config().getBag().getAllConfig(), ImmutableMap.of("mychildlocation.myconfig", "myval1", "notThere", "notThereVal"));
         assertEquals(child.config().getLocalBag().getAllConfig(), ImmutableMap.of());
-        Assert.assertEquals(child.getAllConfig(true), ImmutableMap.of("mychildlocation.myconfig", "myval1", "notThere", "notThereVal"));
-        Assert.assertEquals(child.getAllConfig(false), ImmutableMap.of());
     }
     
     // Fails for location, but passes (or used to pass) for entity; not worth fixing here; locations will soon be entities, we hope
@@ -119,8 +111,6 @@ public class LocationConfigTest {
 
         assertEquals(child.config().getBag().getAllConfig(), ImmutableMap.of("mychildlocation.myconfigwithflagname", "myval"));
         assertEquals(child.config().getLocalBag().getAllConfig(), ImmutableMap.of());
-        Assert.assertEquals(child.getAllConfig(true), ImmutableMap.of("mychildlocation.myconfigwithflagname", "myval"));
-        Assert.assertEquals(child.getAllConfig(false), ImmutableMap.of());
     }
     
     @Test
@@ -133,8 +123,6 @@ public class LocationConfigTest {
 
         assertEquals(child.config().getBag().getAllConfig(), ImmutableMap.of("mylocation.myconfig", "myval1"));
         assertEquals(child.config().getLocalBag().getAllConfig(), ImmutableMap.of());
-        Assert.assertEquals(child.getAllConfig(true), ImmutableMap.of("mylocation.myconfig", "myval1"));
-        Assert.assertEquals(child.getAllConfig(false), ImmutableMap.of());
     }
     
     @Test
@@ -150,8 +138,6 @@ public class LocationConfigTest {
 
         assertEquals(child.config().getBag().getAllConfig(), ImmutableMap.of("mychildlocation.myconfigwithflagname", "overrideMyval", "notThere", "overrideNotThereVal"));
         assertEquals(child.config().getLocalBag().getAllConfig(), ImmutableMap.of("mychildlocation.myconfigwithflagname", "overrideMyval", "notThere", "overrideNotThereVal"));
-        Assert.assertEquals(child.getAllConfig(true), ImmutableMap.of("mychildlocation.myconfigwithflagname", "overrideMyval", "notThere", "overrideNotThereVal"));
-        Assert.assertEquals(child.getAllConfig(false), ImmutableMap.of("mychildlocation.myconfigwithflagname", "overrideMyval", "notThere", "overrideNotThereVal"));
     }
     
     // TODO Note difference compared to Location, where both flag-name + config-key-name are in the ConfigBag
@@ -168,8 +154,6 @@ public class LocationConfigTest {
         log.info("all="+child.config().getBag());
         assertEquals(child.config().getBag().getAllConfig(), ImmutableMap.of("mychildlocation.myconfigwithflagname", "overrideMyval", "mychildconfigflagname", "overrideMyval"));
         assertEquals(child.config().getLocalBag().getAllConfig(), ImmutableMap.of("mychildlocation.myconfigwithflagname", "overrideMyval", "mychildconfigflagname", "overrideMyval"));
-        Assert.assertEquals(child.getAllConfig(true), ImmutableMap.of("mychildlocation.myconfigwithflagname", "overrideMyval", "mychildconfigflagname", "overrideMyval"));
-        Assert.assertEquals(child.getAllConfig(false), ImmutableMap.of("mychildlocation.myconfigwithflagname", "overrideMyval", "mychildconfigflagname", "overrideMyval"));
     }
     
     @Test

@@ -16,16 +16,32 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.util.core.http;
+package org.apache.brooklyn.util.concurrent;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.locks.Lock;
 
-/**
- * @deprecated since 0.9.0. Prefer {@link org.apache.brooklyn.util.http.HttpToolResponse}.
- *
- * @see {@link HttpTool}
- */
-@Deprecated
-public class HttpToolResponse  {
+import org.apache.brooklyn.util.exceptions.Exceptions;
 
+public class Locks {
 
+    public static <T> T withLock(Lock lock, Callable<T> body) {
+        try {
+            lock.lockInterruptibly();
+        } catch (InterruptedException e) {
+            throw Exceptions.propagate(e);
+        }
+        try {
+            return body.call();
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        } finally {
+            lock.unlock();
+        }       
+    }
+    
+    public static void withLock(Lock lock, Runnable body) {
+        withLock(lock, () -> { body.run(); return null; } );
+    }
+    
 }

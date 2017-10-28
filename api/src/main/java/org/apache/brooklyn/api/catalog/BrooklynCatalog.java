@@ -153,29 +153,6 @@ public interface BrooklynCatalog {
     @Beta  // method may move elsewhere
     Collection<Throwable> validateType(RegisteredType typeToValidate, @Nullable RegisteredTypeLoadingContext optionalConstraint);
 
-
-    /**
-     * Adds an item (represented in yaml) to the catalog.
-     * Fails if the same version exists in catalog.
-     *
-     * @throws IllegalArgumentException if the yaml was invalid
-     * @deprecated since 0.7.0 use {@link #addItems(String, boolean)}
-     */
-    @Deprecated
-    CatalogItem<?,?> addItem(String yaml);
-    
-    /**
-     * Adds an item (represented in yaml) to the catalog.
-     * 
-     * @param forceUpdate If true allows catalog update even when an
-     * item exists with the same symbolicName and version
-     *
-     * @throws IllegalArgumentException if the yaml was invalid
-     * @deprecated since 0.7.0 use {@link #addItems(String, boolean)}
-     */
-    @Deprecated
-    CatalogItem<?,?> addItem(String yaml, boolean forceUpdate);
-    
     /**
      * As {@link #addItemsFromBundle(String, ManagedBundle)} with a null bundle.
      */
@@ -211,6 +188,17 @@ public interface BrooklynCatalog {
     // TODO maybe this should stay on the API? -AH Apr 2015 
     @Deprecated
     void addItem(CatalogItem<?,?> item);
+
+    /**
+     * adds the given items to the catalog, similar to {@link #reset(Collection)} but where it 
+     * just adds without removing the existing content. Note this is very different from 
+     * {@link #addItem(CatalogItem)}, which adds to the 'manual' catalog.
+     *
+     * @since 1.0.0 (only for legacy backwards compatibility)
+     * @deprecated since 1.0.0; instead use bundles in persisted state!
+     */
+    @Deprecated
+    void addCatalogLegacyItemsOnRebind(Iterable<? extends CatalogItem<?,?>> items);
 
     /**
      * Creates a catalog item and adds it to the 'manual' catalog,

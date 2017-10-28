@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.api.mgmt.rebind.mementos;
 
+import javax.annotation.Nullable;
+
 import com.google.common.io.ByteSource;
 
 public interface ManagedBundleMemento extends Memento {
@@ -26,6 +28,9 @@ public interface ManagedBundleMemento extends Memento {
     String getVersion();
 
     String getUrl();
+    
+    @Nullable
+    String getChecksum();
     
     ByteSource getJarContent();
     void setJarContent(ByteSource byteSource);

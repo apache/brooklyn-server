@@ -39,13 +39,6 @@ import com.google.common.base.Predicate;
 public interface Configurable {
 
     /**
-     * @return the old value, or null if there was not one
-     * @deprecated since 0.7.0; use {@link ConfigurationSupport#set(ConfigKey, Object)}, such as {@code config().set(key, val)} 
-     */
-    @Deprecated
-    public <T> T setConfig(ConfigKey<T> key, T val);
-
-    /**
      * Convenience for calling {@link ConfigurationSupport#get(ConfigKey)},
      * via code like {@code config().get(key)}.
      * 

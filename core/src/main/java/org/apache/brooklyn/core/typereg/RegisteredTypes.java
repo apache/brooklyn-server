@@ -141,9 +141,7 @@ public class RegisteredTypes {
         @Override public String getDisplayName() { return type.getDisplayName(); }
         @Override public String getCatalogItemId() { return type.getVersionedName().toString(); }
         @Override public String getId() { return type.getId(); }
-        @Override public String getName() { return type.getSymbolicName(); }
         @Override public String getSymbolicName() { return type.getSymbolicName(); }
-        @Override public String getRegisteredTypeName() { return type.getSymbolicName(); }
         @Override public String getDescription() { return type.getDescription(); }
         @Override public String getIconUrl() { return type.getIconUrl(); }
         @Override public String getContainingBundle() { return type.getContainingBundle(); }
@@ -157,7 +155,6 @@ public class RegisteredTypes {
         @Override public List<String> getCatalogItemIdSearchPath() { throw new UnsupportedOperationException(); }
         @Override public TagSupport tags() { throw new UnsupportedOperationException(); }
         @Override public RelationSupport<?> relations() { throw new UnsupportedOperationException(); }
-        @Override public <T> T setConfig(ConfigKey<T> key, T val) { throw new UnsupportedOperationException(); }
         @Override public <T> T getConfig(ConfigKey<T> key) { throw new UnsupportedOperationException(); }
         @Override public ConfigurationSupport config() { throw new UnsupportedOperationException(); }
         @Override public SubscriptionSupport subscriptions() { throw new UnsupportedOperationException(); }
@@ -446,7 +443,7 @@ public class RegisteredTypes {
     /** 
      * Queries recursively the given types (either {@link Class} or {@link RegisteredType}) 
      * to see whether any java superclasses satisfy the given {@link Predicate} on the {@link Class} 
-     * @deprecated since 0.13.0 use {@link #isAnyTypeOrSuper(Set, Predicate)} accepting any object in the predicate,
+     * @deprecated since 1.0.0 use {@link #isAnyTypeOrSuper(Set, Predicate)} accepting any object in the predicate,
      * typically allowing string equivalence although it is valid to restrict to {@link Class} comparison
      * (might be stricter in some OSGi cases) */
     @Deprecated

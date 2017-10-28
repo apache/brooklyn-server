@@ -20,7 +20,6 @@ package org.apache.brooklyn.core.objs.proxy;
 
 import java.util.Map;
 
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Enricher;
@@ -47,47 +46,6 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
  */
 public class InternalPolicyFactory extends InternalFactory {
 
-    /**
-     * Returns true if this is a "new-style" policy (i.e. where not expected to call the constructor to instantiate it).
-     * 
-     * @param managementContext
-     * @param clazz
-     * 
-     * @deprecated since 0.7.0; use {@link InternalFactory#isNewStyle(Class)}
-     */
-    @Deprecated
-    public static boolean isNewStylePolicy(ManagementContext managementContext, Class<?> clazz) {
-        try {
-            return isNewStylePolicy(clazz);
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
-    }
-    
-    /**
-     * @deprecated since 0.7.0; use {@link InternalFactory#isNewStyle(Class)}
-     */
-    @Deprecated
-    public static boolean isNewStylePolicy(Class<?> clazz) {
-        if (!Policy.class.isAssignableFrom(clazz)) {
-            throw new IllegalArgumentException("Class "+clazz+" is not a policy");
-        }
-
-        return InternalFactory.isNewStyle(clazz);
-    }
-    
-    /**
-     * @deprecated since 0.7.0; use {@link InternalFactory#isNewStyle(Class)}
-     */
-    @Deprecated
-    public static boolean isNewStyleEnricher(Class<?> clazz) {
-        if (!Enricher.class.isAssignableFrom(clazz)) {
-            throw new IllegalArgumentException("Class "+clazz+" is not an enricher");
-        }
-        
-        return InternalFactory.isNewStyle(clazz);
-    }
-    
     public InternalPolicyFactory(ManagementContextInternal managementContext) {
         super(managementContext);
     }

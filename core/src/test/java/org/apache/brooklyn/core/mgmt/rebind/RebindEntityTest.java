@@ -61,6 +61,7 @@ import org.apache.brooklyn.core.entity.trait.Resizable;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.LocationConfigTest.MyLocation;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.sensor.BasicSensorEvent;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
@@ -648,6 +649,7 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
 
         RebindTestUtils.waitForPersisted(origManagementContext);
         newManagementContext = RebindTestUtils.newPersistingManagementContextUnstarted(mementoDir, classLoader);
+
         List<Application> newApps = newManagementContext.getRebindManager().rebind(classLoader, null, ManagementNodeState.MASTER);
         newManagementContext.getRebindManager().startPersistence();
         
