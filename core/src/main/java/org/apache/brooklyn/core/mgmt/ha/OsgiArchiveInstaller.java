@@ -26,19 +26,23 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
@@ -63,15 +67,21 @@ import org.osgi.framework.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 
 // package-private so we can move this one if/when we move OsgiManager
 class OsgiArchiveInstaller {
 
     private static final Logger log = LoggerFactory.getLogger(OsgiArchiveInstaller.class);
+    
+    public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX;
+    
+    public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX;
     
     final private OsgiManager osgiManager;
     private ManagedBundle suppliedKnownBundleMetadata;
@@ -91,6 +101,8 @@ class OsgiArchiveInstaller {
     
     private ManagedBundle inferredMetadata;
     private final boolean inputStreamSupplied;
+    
+    private volatile Predicate<ManagedBundle> blacklistBundlePersistencePredicate;
     
     OsgiArchiveInstaller(OsgiManager osgiManager, ManagedBundle knownBundleMetadata, InputStream zipIn) {
         this.osgiManager = osgiManager;
@@ -120,7 +132,7 @@ class OsgiArchiveInstaller {
     }
 
     private ManagementContextInternal mgmt() {
-        return (ManagementContextInternal) osgiManager.mgmt;
+        return (ManagementContextInternal) osgiManager.getManagementContext();
     }
     
     private synchronized void init() {
@@ -362,6 +374,7 @@ class OsgiArchiveInstaller {
             final boolean updating;
             result.metadata = osgiManager.getManagedBundle(inferredMetadata.getVersionedName());
             if (result.getMetadata()!=null) {
+                
                 // already have a managed bundle - check if this is using a new/different URL
                 if (suppliedKnownBundleMetadata!=null && suppliedKnownBundleMetadata.getUrl()!=null) {
                     String knownIdForThisUrl = osgiManager.managedBundlesRecord.getManagedBundleIdFromUrl(suppliedKnownBundleMetadata.getUrl());
@@ -376,84 +389,106 @@ class OsgiArchiveInstaller {
                         osgiManager.managedBundlesRecord.setManagedBundleUrl(suppliedKnownBundleMetadata.getUrl(), result.getMetadata().getId());
                     }
                 }
-                if (canUpdate()) { 
-                    
-                    result.bundle = osgiManager.framework.getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
-                    if (result.getBundle()==null) {
-                        log.warn("Brooklyn thought is was already managing bundle "+result.getMetadata().getVersionedName()+" but it's not installed to framework; reinstalling it");
-                        updating = false;
-                    } else {
-                        updating = true;
-                    }
-                } else {
-                    if (result.getMetadata().getChecksum()==null || inferredMetadata.getChecksum()==null) {
-                        log.warn("Missing bundle checksum data for "+result+"; assuming bundle replacement is permitted");
-                    } else if (!Objects.equal(result.getMetadata().getChecksum(), inferredMetadata.getChecksum())) {
-                        throw new IllegalArgumentException("Bundle "+result.getMetadata().getVersionedName()+" already installed; "
-                            + "cannot install a different bundle at a same non-snapshot version");
-                    }
+
+                result.bundle = osgiManager.framework.getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
+
+                // Check if exactly this bundle is already installed
+                if (result.bundle != null && checksumsMatch(result.getMetadata(), inferredMetadata)) {
+                    // e.g. repeatedly installing the same bundle
+                    log.trace("Bundle "+inferredMetadata+" matches already installed managed bundle "+result.getMetadata()
+                            +"; install is no-op");
+                    result.setIgnoringAlreadyInstalled();
+                    return ReferenceWithError.newInstanceWithoutError(result);
+                } else if (isEquivalentBundleAlreadyOsgiInstalled(osgiManager, inferredMetadata, zipFile)) {
+                    // e.g. happens if pre-installed bundle is brought under management, and then add it again via a mvn-style url.
+                    // We wouldn't know the checksum from the pre-installed bundle.
+                    log.trace("Bundle "+inferredMetadata+" matches metadata of managed bundle "+result.getMetadata()
+                            +" (but not OSGi bundle location "+result.getMetadata().getOsgiUniqueUrl()+"), "
+                            + "and matches already installed OSGi bundle; ; install is no-op");
                     result.setIgnoringAlreadyInstalled();
                     return ReferenceWithError.newInstanceWithoutError(result);
                 }
-            } else {
-                result.metadata = inferredMetadata;
-                // no such Brooklyn-managed bundle
-                Maybe<Bundle> b = Osgis.bundleFinder(osgiManager.framework).symbolicName(result.getMetadata().getSymbolicName()).version(result.getMetadata().getSuppliedVersionString()).find();
-                if (b.isPresent()) {
-                    // bundle already installed to OSGi subsystem but brooklyn not aware of it;
-                    // this will often happen on a karaf restart where bundle was cached by karaf,
-                    // so we need to allow it. can also happen if brooklyn.libraries references an existing bundle.
-                    
-                    // determine if we are simply bringing existing installed under Brooklyn management (because url or binary content identical and not forced)
-                    // or if the bundle should be reinstalled/updated
-                    if (!force) {
-                        if (!isBringingExistingOsgiInstalledBundleUnderBrooklynManagement) {
-                            if (Objects.equal(b.get().getLocation(), inferredMetadata.getUrl())) {
-                                // installation request was for identical location, so assume we are simply bringing under mgmt
-                                log.debug("Request to install "+inferredMetadata+" from same location "+b.get().getLocation()+
-                                    " as existing OSGi installed (but not Brooklyn-managed) bundle "+b.get()+", so skipping reinstall");
-                                isBringingExistingOsgiInstalledBundleUnderBrooklynManagement = true;
-                            } else {
-                                // different locations, but see if we can compare input stream contents
-                                // (prevents needless uninstall/reinstall of already installed bundles)
-                                try {
-                                    if (Streams.compare(new FileInputStream(zipFile), new URL(b.get().getLocation()).openStream())) {
-                                        log.debug("Request to install "+inferredMetadata+" has same contents"+
-                                            " as existing OSGi installed (but not Brooklyn-managed) bundle "+b.get()+", so skipping reinstall");
-                                        isBringingExistingOsgiInstalledBundleUnderBrooklynManagement = true;
-                                    } else {
-                                        log.debug("Request to install "+inferredMetadata+" has different contents"+
-                                            " as existing OSGi installed (but not Brooklyn-managed) bundle "+b.get()+", so will do reinstall");
-                                    }
-                                } catch (Exception e) {
-                                    Exceptions.propagateIfFatal(e);
-                                    // probably an invalid URL on installed bundle; that's allowed
-                                    log.debug("Request to install "+inferredMetadata+" could not compare contents"+
-                                        " with existing OSGi installed (but not Brooklyn-managed) bundle "+b.get()+", so will do reinstall (error "+e+" loading from "+b.get().getLocation()+")");
-                                }
-                            }
-                        }
+                
+                if (canUpdate()) { 
+                    if (result.getBundle() == null) {
+                        log.warn("Brooklyn thought is was already managing bundle "+result.getMetadata().getVersionedName()
+                                +" but it's not installed to framework at location "+result.getMetadata().getOsgiUniqueUrl()+"; reinstalling it");
+                        updating = false;
                     } else {
+                        log.trace("Updating existing brooklyn-managed bundle "+result);
+                        updating = true;
+                    }
+                } else {
+                    List<Bundle> existingBundles = findBundlesByVersion(osgiManager, inferredMetadata);
+                    if (existingBundles.size() > 0 && (result.getMetadata().getChecksum()==null || inferredMetadata.getChecksum()==null)) {
+                        // e.g. Checksum would be missing if we brought under management a pre-installed bundle with an unusable url.
+                        log.info("Missing bundle checksum data for "+result+"; assuming bundle matches existing brooklyn-managed bundle (not re-installing)");
+                        result.setIgnoringAlreadyInstalled();
+                        return ReferenceWithError.newInstanceWithoutError(result);
+                    } else if (result.bundle != null || existingBundles.size() > 0) {
+                        throw new IllegalArgumentException("Bundle "+result.getMetadata().getVersionedName()+" already installed; "
+                                + "cannot install a different bundle with the same non-snapshot version");
+                    } else {
+                        throw new IllegalArgumentException("Bundle "+result.getMetadata().getVersionedName()+" already a brooklyn-managed bundle, but not found in OSGi framework; "
+                                + "will not re-install without use of 'force'");
+                    }
+                }
+            } else {
+                // No such Brooklyn-managed bundle.
+                
+                // Check if likely-looking bundle already installed to OSGi subsystem, but brooklyn not aware of it.
+                // This will often happen on a karaf restart where bundle was cached by karaf, so we need to allow it;
+                // can also happen if brooklyn.libraries references an existing bundle.
+                //
+                // If we're not certain that the bundle is identical 
+
+                
+                result.metadata = inferredMetadata;
+                
+                // search for already-installed bundles.
+                List<Bundle> existingBundles = findBundlesByVersion(osgiManager, inferredMetadata);
+                Maybe<Bundle> existingEquivalentBundle = tryFindEquivalentBundle(existingBundles, inferredMetadata, zipFile);
+                
+                if (existingEquivalentBundle.isPresent()) {
+                    // Identical bundle (by osgi location or binary content) already installed; just bring that under management.
+                    // This will often happen on a karaf restart: bundles from persisted state match those cached by karaf,
+                    isBringingExistingOsgiInstalledBundleUnderBrooklynManagement = true;
+                    result.bundle = existingEquivalentBundle.get();
+                    
+                } else if (existingBundles.size() > 0) {
+                    Bundle existingBundle = existingBundles.get(0);
+                    
+                    if (force) {
                         if (isBringingExistingOsgiInstalledBundleUnderBrooklynManagement) {
                             log.debug("Request to install "+inferredMetadata+" was forced, so forcing reinstallation "
-                                + "of existing OSGi installed (but not Brooklyn-managed) bundle "+b.get());
+                                + "of existing OSGi installed (but not Brooklyn-managed) bundle "+existingBundle);
                             isBringingExistingOsgiInstalledBundleUnderBrooklynManagement = false;
                         }
                     }
                     
                     if (isBringingExistingOsgiInstalledBundleUnderBrooklynManagement) {
-                        result.bundle = b.get();
-                        
+                        // We were explicitly asked to bring an existing OSGi bundle under management; 
+                        // no equivalence check required
+                        result.bundle = existingBundle;
                     } else {
-                        // needs reinstallation
-                        // we could update instead of uninstall/reinstall
-                        // note however either way we won't be able to rollback if there is a failure
+                        // Uninstall and re-install the bundle.
+                        // This is a good idea for brooklyn managed bundles that were in the karaf cache (when we can't 
+                        // determine that they are definitely identical).
+                        // It's less good for pre-installed bundles, but if the user has said to deploy it or has
+                        // referenced it in `brooklyn.libraries` then we'll go for it anyway! Let's hope they didn't 
+                        // reference `org.apache.brooklyn.core` or some such.
+                        // 
+                        // We are this extreme because we want rebind to always work! If a user did a `force` install
+                        // of a bundle, then we want to do the same on rebind (rather than risk failing).
+                        //
+                        // Instead of uninstall, we could update the bundle.
+                        // Note however either way we won't be able to rollback if there is a failure
                         log.debug("Brooklyn install of "+result.getMetadata().getVersionedName()+" detected already loaded in OSGi; uninstalling that to reinstall as Brooklyn-managed");
-                        b.get().uninstall();
+                        existingBundle.uninstall();
                         result.bundle = null;
                     }
                 }
-                // normal install
+                
                 updating = false;
             }
             
@@ -465,6 +500,7 @@ class OsgiArchiveInstaller {
                         log.debug("Brooklyn install of "+result.getMetadata().getVersionedName()+" detected already loaded "+result.getBundle()+" in OSGi can be re-used, skipping OSGi install");
                     } else {
                         assert result.getBundle()==null;
+                        log.debug("Installing bundle "+result.getMetadata().getVersionedName()+", using OSGi location "+result.getMetadata().getOsgiUniqueUrl());
                         result.bundle = osgiManager.framework.getBundleContext().installBundle(result.getMetadata().getOsgiUniqueUrl(), fin);
                     }
                 } else {
@@ -480,14 +516,18 @@ class OsgiArchiveInstaller {
                 osgiManager.managedBundlesRecord.addManagedBundle(result, zipFile);
                 result.code = OsgiBundleInstallationResult.ResultCode.INSTALLED_NEW_BUNDLE;
                 result.message = "Installed Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" with ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
-                ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
-                mgmt().getRebindManager().getChangeListener().onManaged(result.getMetadata());
+                if (!isBlacklistedForPersistence(result.getMetadata())) {
+                    ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
+                    mgmt().getRebindManager().getChangeListener().onManaged(result.getMetadata());
+                }
             } else {
                 oldZipFile = osgiManager.managedBundlesRecord.updateManagedBundleFile(result, zipFile);
                 result.code = OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE;
                 result.message = "Updated Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" as existing ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
-                ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
-                mgmt().getRebindManager().getChangeListener().onChanged(result.getMetadata());
+                if (!isBlacklistedForPersistence(result.getMetadata())) {
+                    ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
+                    mgmt().getRebindManager().getChangeListener().onChanged(result.getMetadata());
+                }
             }
             log.debug(result.message + " (partial): OSGi bundle installed, with bundle start and Brooklyn management to follow");
             // can now delete and close (copy has been made and is available from OsgiManager)
@@ -521,8 +561,10 @@ class OsgiArchiveInstaller {
                                 + "installation will likely be corrupted and correct version should be manually installed.", e);
                         }
                         
-                        ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
-                        mgmt().getRebindManager().getChangeListener().onChanged(result.getMetadata());
+                        if (!isBlacklistedForPersistence(result.getMetadata())) {
+                            ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
+                            mgmt().getRebindManager().getChangeListener().onChanged(result.getMetadata());
+                        }
                     } else {
                         if (isBringingExistingOsgiInstalledBundleUnderBrooklynManagement) {
                             log.debug("Uninstalling bundle "+result.getVersionedName()+" from Brooklyn management only (rollback needed but it was already installed to OSGi)");
@@ -530,8 +572,10 @@ class OsgiArchiveInstaller {
                             log.debug("Uninstalling bundle "+result.getVersionedName()+" (roll back of failed fresh install, no previous version to revert to)");
                         }                        
                         osgiManager.uninstallUploadedBundle(result.getMetadata(), false, isBringingExistingOsgiInstalledBundleUnderBrooklynManagement);
-                        ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
-                        mgmt().getRebindManager().getChangeListener().onUnmanaged(result.getMetadata());
+                        if (!isBlacklistedForPersistence(result.getMetadata())) {
+                            ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
+                            mgmt().getRebindManager().getChangeListener().onUnmanaged(result.getMetadata());
+                        }
                     }
                 }
                 public void run() {
@@ -647,7 +691,102 @@ class OsgiArchiveInstaller {
             close();
         }
     }
+    
+    @VisibleForTesting
+    boolean isBlacklistedForPersistence(ManagedBundle managedBundle) {
+        // We treat as "managed bundles" (to extract their catalog.bom) the contents of:
+        //   - org.apache.brooklyn.core
+        //   - org.apache.brooklyn.policy
+        //   - org.apache.brooklyn.test-framework
+        //   - org.apache.brooklyn.software-*
+        //   - org.apache.brooklyn.library-catalog
+        //   - org.apache.brooklyn.karaf-init (not sure why this one could end up in persisted state!)
+        // We don't want to persist the entire brooklyn distro! Therefore default is to blacklist those.
+        
+        if (blacklistBundlePersistencePredicate == null) {
+            String whitelistRegex = mgmt().getConfig().getConfig(PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX);
+            String blacklistRegex = mgmt().getConfig().getConfig(PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX);
+            
+            final Pattern whitelistPattern = (whitelistRegex != null) ? Pattern.compile(whitelistRegex) : null;
+            final Pattern blacklistPattern = (blacklistRegex != null) ? Pattern.compile(blacklistRegex) : null;
 
+            blacklistBundlePersistencePredicate = new Predicate<ManagedBundle>() {
+                @Override public boolean apply(ManagedBundle input) {
+                    String bundleName = input.getSymbolicName();
+                    if (whitelistPattern != null && whitelistPattern.matcher(bundleName).matches()) {
+                        return false;
+                    }
+                    if (blacklistPattern != null && blacklistPattern.matcher(bundleName).matches()) {
+                        return true;
+                    }
+                    return false;
+                }
+            };
+        }
+        
+        return blacklistBundlePersistencePredicate.apply(managedBundle);
+    }
+    
+    private static List<Bundle> findBundlesByVersion(OsgiManager osgiManager, ManagedBundle desired) {
+        return Osgis.bundleFinder(osgiManager.framework).symbolicName(desired.getSymbolicName()).version(desired.getOsgiVersionString()).findAll();
+    }
+    
+    private static boolean checksumsMatch(ManagedBundle actual, ManagedBundle desired) {
+        return actual.getChecksum() != null && Objects.equal(actual.getChecksum(), desired.getChecksum());
+    }
+    
+    private static boolean isEquivalentBundleAlreadyOsgiInstalled(OsgiManager osgiManager, ManagedBundle desired, File zipFile) {
+        for (Bundle bundle : findBundlesByVersion(osgiManager, desired)) {
+            if (isEquivalentBundle(bundle, desired, zipFile)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    private static Maybe<Bundle> tryFindEquivalentBundle(Iterable<? extends Bundle> bundles, ManagedBundle desired, File zipFile) {
+        for (Bundle bundle : bundles) {
+            if (isEquivalentBundle(bundle, desired, zipFile)) {
+                return Maybe.of(bundle);
+            }
+        }
+        
+        return Maybe.absent();
+    }
+    
+    private static boolean isEquivalentBundle(Bundle bundle, ManagedBundle desired, File zipFile) {
+        // Would be nice to also use `desired.getChecksum()`, but not clear if we can get
+        // MD5 checksum from an installed OSGi bundle.
+        
+        if (Objects.equal(bundle.getLocation(), desired.getUrl())) {
+            // installation request was for identical location, so assume we are simply bringing under mgmt
+            log.debug("Request to install "+desired+" from same location "+bundle.getLocation()+
+                " as existing OSGi installed (but not Brooklyn-managed) bundle "+bundle+", so skipping reinstall");
+            return true;
+        } else {
+            // different locations, but see if we can compare input stream contents
+            // (prevents needless uninstall/reinstall of already installed bundles)
+            try {
+                if (Streams.compare(new FileInputStream(zipFile), new URL(bundle.getLocation()).openStream())) {
+                    log.debug("Request to install "+desired+" has same contents"+
+                        " as existing OSGi installed (but not Brooklyn-managed) bundle "+bundle+", so skipping reinstall");
+                    return true;
+                } else {
+                    log.debug("Request to install "+desired+" has different contents"+
+                        " as existing OSGi installed (but not Brooklyn-managed) bundle "+bundle+", so will do reinstall (if no other equivalents found)");
+                    return false;
+                }
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                // probably an invalid URL on installed bundle; that's allowed
+                log.debug("Request to install "+desired+" could not compare contents"+
+                    " with existing OSGi installed (but not Brooklyn-managed) bundle "+bundle+", so will do reinstall if not other equivalents found (error "+e+" loading from "+bundle.getLocation()+")");
+                return false;
+            }
+        }
+    }
+    
     private static String getChecksum(ZipFile zf) {
         // checksum should ignore time/date stamps on files - just look at entries and contents. also ignore order.
         // (tests fail without time/date is one reason, but really if a person rebuilds a ZIP that is the same 

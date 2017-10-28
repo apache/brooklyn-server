@@ -25,6 +25,7 @@ import static org.testng.Assert.assertNull;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -69,6 +70,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
@@ -138,7 +140,14 @@ public abstract class AbstractBrooklynLauncherRebindTest {
         Files.write(contents, file, Charsets.UTF_8);
         return file;
     }
-
+    
+    protected File newTmpCopy(File orig) throws Exception {
+        File file = java.nio.file.Files.createTempFile("brooklynLauncherRebindTest-"+Identifiers.makeRandomId(4), "txt").toFile();
+        tmpFiles.add(file);
+        Streams.copyClose(new FileInputStream(orig), new FileOutputStream(file));
+        return file;
+    }
+    
     protected File newTmpBundle(Map<String, byte[]> files, VersionedName bundleName) {
         return newTmpBundle(files, bundleName, ImmutableMap.of());
     }
@@ -197,10 +206,15 @@ public abstract class AbstractBrooklynLauncherRebindTest {
         Assert.assertTrue(compareIterablesWithoutOrderMatters(ids, idsFromItems), String.format("Expected %s, found %s", ids, idsFromItems));
     }
 
-    protected void assertManagedBundle(BrooklynLauncher launcher, VersionedName bundleId, Set<VersionedName> expectedCatalogItems) {
+    protected ManagedBundle findManagedBundle(BrooklynLauncher launcher, VersionedName bundleId) {
         ManagementContextInternal mgmt = (ManagementContextInternal)launcher.getManagementContext();
         ManagedBundle bundle = mgmt.getOsgiManager().get().getManagedBundle(bundleId);
         assertNotNull(bundle, bundleId+" not found");
+        return bundle;
+    }
+    
+    protected void assertManagedBundle(BrooklynLauncher launcher, VersionedName bundleId, Set<VersionedName> expectedCatalogItems) {
+        assertNotNull(findManagedBundle(launcher, bundleId), bundleId+" not found");
         
         Set<VersionedName> actualCatalogItems = new LinkedHashSet<>();
         Iterable<RegisteredType> types = launcher.getManagementContext().getTypeRegistry().getAll();
@@ -216,6 +230,26 @@ public abstract class AbstractBrooklynLauncherRebindTest {
         ManagementContextInternal mgmt = (ManagementContextInternal)launcher.getManagementContext();
         ManagedBundle bundle = mgmt.getOsgiManager().get().getManagedBundle(bundleId);
         assertNull(bundle, bundleId+" should not exist");
+    }
+    
+    protected Set<String> getPersistenceListing(BrooklynObjectType type) throws Exception {
+        File persistedSubdir = getPersistanceSubdirectory(type);
+        return ImmutableSet.copyOf(persistedSubdir.list((dir,name) -> !name.endsWith(".jar")));
+    }
+
+    private File getPersistanceSubdirectory(BrooklynObjectType type) {
+        String dir;
+        switch (type) {
+            case ENTITY: dir = "entities"; break;
+            case LOCATION: dir = "locations"; break;
+            case POLICY: dir = "policies"; break;
+            case ENRICHER: dir = "enrichers"; break;
+            case FEED: dir = "feeds"; break;
+            case CATALOG_ITEM: dir = "catalog"; break;
+            case MANAGED_BUNDLE: dir = "bundles"; break;
+            default: throw new UnsupportedOperationException("type="+type);
+        }
+        return new File(persistenceDir, dir);
     }
 
     private static <T> boolean compareIterablesWithoutOrderMatters(Iterable<T> a, Iterable<T> b) {
@@ -259,19 +293,32 @@ public abstract class AbstractBrooklynLauncherRebindTest {
     }
     
     protected String createCatalogYaml(Iterable<URI> libraries, Iterable<VersionedName> entities) {
-        if (Iterables.isEmpty(libraries) && Iterables.isEmpty(entities)) {
-            return "brooklyn.catalog: {}\n";
-        }
-        
+        return createCatalogYaml(libraries, ImmutableList.of(), entities, null);
+    }
+
+    protected String createCatalogYaml(Iterable<URI> libraryUris, Iterable<VersionedName> libraryNames, Iterable<VersionedName> entities) {
+        return createCatalogYaml(libraryUris, libraryNames, entities, null);
+    }
+    
+    protected String createCatalogYaml(Iterable<URI> libraryUris, Iterable<VersionedName> libraryNames, Iterable<VersionedName> entities, String randomNoise) {
         StringBuilder result = new StringBuilder();
         result.append("brooklyn.catalog:\n");
-        if (!Iterables.isEmpty(libraries)) {
+        if (randomNoise != null) {
+            result.append("  description: "+randomNoise+"\n");
+        }
+        if (!(Iterables.isEmpty(libraryUris) && Iterables.isEmpty(libraryNames))) {
             result.append("  brooklyn.libraries:\n");
         }
-        for (URI library : libraries) {
+        for (URI library : libraryUris) {
             result.append("    - " + library+"\n");
         }
-        if (!Iterables.isEmpty(entities)) {
+        for (VersionedName library : libraryNames) {
+            result.append("    - name: "+library.getSymbolicName()+"\n");
+            result.append("      version: \""+library.getVersionString()+"\"\n");
+        }
+        if (Iterables.isEmpty(entities)) {
+            result.append("  items: []\n");
+        } else {
             result.append("  items:\n");
         }
         for (VersionedName entity : entities) {
@@ -283,6 +330,9 @@ public abstract class AbstractBrooklynLauncherRebindTest {
         }
         return result.toString();
     }
+    
+
+    
     
     public PersistedStateInitializer newPersistedStateInitializer() {
         return new PersistedStateInitializer();

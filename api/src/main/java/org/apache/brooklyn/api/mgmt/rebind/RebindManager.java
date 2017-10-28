@@ -89,7 +89,14 @@ public interface RebindManager {
     /** Stops the background reading (mirroring) of state. 
      * Interrupts any current activity and waits for it to cease. */
     public void stopReadOnly();
-    
+
+    /**
+     * Resets the effects of previously being read-only, ready to be used again (e.g. when promoting to master).
+     * Expected to be called after {@link #stopReadOnly()} (thus long after {@link #setPersister(BrooklynMementoPersister)}, 
+     * and before {@link #rebind(ClassLoader, RebindExceptionHandler, ManagementNodeState)} followed by {@link #start()}. 
+     */
+    public void reset();
+
     /** Starts the appropriate background processes, {@link #startPersistence()} if {@link ManagementNodeState#MASTER},
      * {@link #startReadOnly()} if {@link ManagementNodeState#HOT_STANDBY} or {@link ManagementNodeState#HOT_BACKUP} */
     public void start();

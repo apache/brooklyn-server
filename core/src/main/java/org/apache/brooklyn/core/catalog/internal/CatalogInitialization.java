@@ -199,6 +199,20 @@ public class CatalogInitialization implements ManagementContextInjectable {
     }
 
     /**
+     * Clears all record of the brooklyn-managed-bundles (so use with care!).
+     * 
+     * Used when promoting from HOT_STANDBY to MASTER. Previous actions performed as HOT_STANDBY
+     * will have been done in read-only mode. When we rebind in anger as master, we want to do this
+     * without a previous cache of managed bundles.
+     */
+    public void clearBrooklynManagedBundles() {
+        Maybe<OsgiManager> osgiManager = managementContext.getOsgiManager();
+        if (osgiManager.isPresent()) {
+            osgiManager.get().clearManagedBundles();
+        }
+    }
+    
+    /**
      * Adds the given persisted catalog items.
      * 
      * Can be called multiple times, e.g.:
@@ -381,7 +395,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
 
         try {
             // Always installing the bundles from persisted state
-            installBundles(persistedState.getBundles(), exceptionHandler, rebindLogger);
+            installPersistedBundles(persistedState.getBundles(), exceptionHandler, rebindLogger);
             
             BrooklynCatalog catalog = managementContext.getCatalog();
             catalog.addCatalogLegacyItemsOnRebind(persistedState.getLegacyCatalogItems());
@@ -453,8 +467,8 @@ public class CatalogInitialization implements ManagementContextInjectable {
         }
     }
 
-    private void installBundles(Map<VersionedName, InstallableManagedBundle> bundles, RebindExceptionHandler exceptionHandler, RebindLogger rebindLogger) {
-        List<OsgiBundleInstallationResult> installs = MutableList.of();
+    private void installPersistedBundles(Map<VersionedName, InstallableManagedBundle> bundles, RebindExceptionHandler exceptionHandler, RebindLogger rebindLogger) {
+        Map<InstallableManagedBundle, OsgiBundleInstallationResult> installs = MutableMap.of();
 
         // Install the bundles
         for (Map.Entry<VersionedName, InstallableManagedBundle> entry : bundles.entrySet()) {
@@ -462,7 +476,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
             InstallableManagedBundle installableBundle = entry.getValue();
             rebindLogger.debug("RebindManager installing bundle {}", bundleId);
             try (InputStream in = installableBundle.getInputStream()) {
-                installs.add(installBundle(installableBundle.getManagedBundle(), in));
+                installs.put(installableBundle, installBundle(installableBundle.getManagedBundle(), in));
             } catch (Exception e) {
                 exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, bundleId.toString(), installableBundle.getManagedBundle().getSymbolicName(), e);
             }
@@ -470,7 +484,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
         
         // Start the bundles (now that we've installed them all)
         Set<RegisteredType> installedTypes = MutableSet.of();
-        for (OsgiBundleInstallationResult br: installs) {
+        for (OsgiBundleInstallationResult br : installs.values()) {
             try {
                 startBundle(br);
                 Iterables.addAll(installedTypes, managementContext.getTypeRegistry().getMatching(
@@ -483,6 +497,19 @@ public class CatalogInitialization implements ManagementContextInjectable {
         // Validate that they all started successfully
         if (!installedTypes.isEmpty()) {
             validateAllTypes(installedTypes, exceptionHandler);
+        }
+        
+        for (Map.Entry<InstallableManagedBundle, OsgiBundleInstallationResult> entry : installs.entrySet()) {
+            ManagedBundle bundle = entry.getKey().getManagedBundle();
+            OsgiBundleInstallationResult result = entry.getValue();
+            if (result.getCode() == OsgiBundleInstallationResult.ResultCode.IGNORING_BUNDLE_AREADY_INSTALLED 
+                    && !result.getMetadata().getId().equals(bundle.getId())) {
+                // Bundle was already installed as a "Brooklyn managed bundle" (with different id), 
+                // and will thus be persisted with that id.
+                // For example, can happen if it is in the "initial catalog" and also in persisted state.
+                // Delete this copy from the persisted state as it is a duplicate.
+                managementContext.getRebindManager().getChangeListener().onUnmanaged(bundle);
+            }
         }
     }
     

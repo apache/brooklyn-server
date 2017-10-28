@@ -364,6 +364,11 @@ public class RebindManagerImpl implements RebindManager {
             LOG.debug("Stopped read-only rebinding ("+this+"), mgmt "+managementContext.getManagementNodeId());
         }
     }
+
+    @Override
+    public void reset() {
+        if (persistenceRealChangeListener != null && !persistenceRealChangeListener.isActive()) persistenceRealChangeListener.reset();
+    }
     
     @Override
     public void start() {

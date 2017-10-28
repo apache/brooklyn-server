@@ -74,7 +74,7 @@ public class CatalogOsgiYamlVersioningTest extends CatalogYamlVersioningTest {
     @Override
     protected void checkAddSameVersionFailsWhenIconIsDifferent(Exception e) {
         Asserts.expectedFailureContainsIgnoreCase(e, 
-            "cannot install a different bundle at a same non-snapshot version");
+            "cannot install a different bundle with the same non-snapshot version");
         assertExpectedFailureIncludesSampleId(e);
     }
     

@@ -39,8 +39,10 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
@@ -82,11 +84,18 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
     }
 
     protected BrooklynProperties createBrooklynProperties() {
+        BrooklynProperties result;
         if (useLiveManagementContext()) {
-            return BrooklynProperties.Factory.newDefault();
+            result = BrooklynProperties.Factory.newDefault();
         } else {
-            return BrooklynProperties.Factory.newEmpty();
+            result = BrooklynProperties.Factory.newEmpty();
         }
+        // By default, will not persist "org.apache.brooklyn.*" bundles; therefore explicitly whitelist 
+        // such things commonly used in tests.
+        String whitelistRegex = OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_SYMBOLIC_NAME_FULL 
+                + "|" + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FULL;
+        result.put(BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX, whitelistRegex);
+        return result;
     }
 
     /** @return A started management context */

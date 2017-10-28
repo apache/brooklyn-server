@@ -545,6 +545,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
             // TODO ideally there'd be an incremental rebind as well as an incremental persist
             managementContext.getRebindManager().stopReadOnly();
             clearManagedItems(ManagementTransitionMode.transitioning(BrooklynObjectManagementMode.LOADED_READ_ONLY, BrooklynObjectManagementMode.UNMANAGED_PERSISTED));
+            managementContext.getRebindManager().reset();
         }
         
         stateListener.onStateChange(getNodeState());
@@ -929,11 +930,19 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         managementContext.getRebindManager().stopPersistence();
         managementContext.getRebindManager().stopReadOnly();
         clearManagedItems(mode);
+        managementContext.getRebindManager().reset();
         
         // tasks are cleared as part of unmanaging entities above
     }
 
-    /** clears all managed items from the management context; same items destroyed as in the course of a rebind cycle */
+    /** 
+     * Clears all managed items from the management context.
+     * 
+     * The same items are destroyed as in the course of a rebind cycle, except for clearBrooklynManagedBundles.
+     * That last operation could be expensive (causing bundles to be installed again). Therefore we only do it
+     * when we stop being a hotProxy or when we are demoted (e.g. during the periodic rebind as hot_stanby
+     * we will not repeatedly clear the brooklyn-managed-bundles).
+     */
     protected void clearManagedItems(ManagementTransitionMode mode) {
         // start with the root applications
         for (Application app: managementContext.getApplications()) {
@@ -957,6 +966,8 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         }
         
         ((BasicBrooklynCatalog)managementContext.getCatalog()).reset(CatalogDto.newEmptyInstance("<reset-by-ha-status-change>"));
+        
+        managementContext.getCatalogInitialization().clearBrooklynManagedBundles();
     }
     
     /** Starts hot standby or hot backup, in foreground

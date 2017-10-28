@@ -263,7 +263,7 @@ public abstract class AbstractYamlTest {
             File bf = bundleMaker.createTempZip("test", MutableMap.of(
                 new ZipEntry(BasicBrooklynCatalog.CATALOG_BOM), new ByteArrayInputStream(catalogYaml.getBytes())));
             ReferenceWithError<OsgiBundleInstallationResult> b = ((ManagementContextInternal)mgmt).getOsgiManager().get().installDeferredStart(
-                new BasicManagedBundle(bundleName.getSymbolicName(), bundleName.getVersionString(), null), 
+                new BasicManagedBundle(bundleName.getSymbolicName(), bundleName.getVersionString(), null, null), 
                 new FileInputStream(bf),
                 false);
             
