@@ -382,7 +382,10 @@ public class CatalogInitialization implements ManagementContextInjectable {
             populateViaInitialBomImpl(catalog);
 
         } catch (Throwable e) {
-            log.warn("Error populating catalog (rethrowing): "+e, e);
+            if (!Thread.currentThread().isInterrupted()) {
+                // normal on interruption, esp during tests; only worth remarking here otherwise (we rethrow in any case)
+                log.warn("Error populating catalog (rethrowing): "+e, e);
+            }
             throw Exceptions.propagate(e);
         } finally {
             isPopulatingInitial = false;
