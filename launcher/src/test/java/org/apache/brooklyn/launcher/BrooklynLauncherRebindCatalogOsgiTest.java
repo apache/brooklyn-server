@@ -72,7 +72,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_VERSION);
     
     private static final Set<VersionedName> COM_EXAMPLE_BUNDLE_CATALOG_IDS = ImmutableSet.of(
-            new VersionedName("com.example.simpleTest", "0.0.0-SNAPSHOT"));
+            new VersionedName("com.example.simpleTest", "0.1.0"));
 
     /**
      * Whether we reuse OSGi Framework depends if we want it to feel like rebinding on a new machine 
@@ -485,12 +485,8 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         promoteT2IfStandby();
     }
 
-    // TODO bundle fails to start: 
-    //     missing requirement [com.example.brooklyn.test.resources.osgi.brooklyn-test-osgi-com-example-entities [147](R 147.0)] 
-    //     osgi.wiring.package; (&(osgi.wiring.package=org.apache.brooklyn.config)(version>=0.12.0)(!(version>=1.0.0)))
-    // Presumably because brooklyn-api is just on the classpath rather than in osgi.
-    // How did such tests work previously?!
-    @Test(groups="Broken")
+    // if fails with wiring error you might need to rebuild items in utils/common/dependencies/osgi/
+    @Test
     public void testRebindGetsInitialOsgiCatalogWithJava() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH);
         
@@ -707,4 +703,5 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         String bundleBom = createCatalogYaml(ImmutableList.of(), ImmutableList.of(), catalogItems, randomNoise);
         return newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, bundleBom.getBytes(StandardCharsets.UTF_8)), bundleName);
     }
+    
 }

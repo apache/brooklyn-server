@@ -6,6 +6,8 @@ copied there when these projects are built, and the binaries
 are included in source control to speed up build times
 (as these projects do not change much).  These projects are
 NOT built as part of the normal brooklyn build.
+It typically only needs to be rebuilt on a major version
+upgrade (due to OSGi rules) or when contents are changed.
 
 To rebuild all:
 
