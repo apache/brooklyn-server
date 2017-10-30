@@ -21,21 +21,26 @@ package org.apache.brooklyn.launcher;
 import static org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog.CATALOG_BOM;
 import static org.apache.brooklyn.core.typereg.BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES;
 import static org.apache.brooklyn.core.typereg.BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS;
+import static org.apache.brooklyn.core.typereg.BundleUpgradeParser.MANIFEST_HEADER_UPGRADE_FOR_BUNDLES;
 
 import java.io.File;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+import org.apache.brooklyn.api.entity.Application;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 public class BrooklynLauncherUpgradeCatalogOsgiTest extends AbstractBrooklynLauncherRebindTest {
 
@@ -144,4 +149,47 @@ public class BrooklynLauncherUpgradeCatalogOsgiTest extends AbstractBrooklynLaun
         assertManagedBundle(launcher, bundleVersionedName, ImmutableSet.<VersionedName>of(one_1_0_0));
         launcher.terminate();
     }
+    
+    // removed item with upgrade deployed after rebind
+    // TODO WIP
+    @Test
+    public void testForceUpgradeItemByRemovingBundle() throws Exception {
+        VersionedName one_1_0_0 = VersionedName.fromString("one:1.0.0");
+        VersionedName one_2_0_0 = VersionedName.fromString("one:2.0.0");
+        
+        String bundleSymbolicName = "org.example.testForceUpgradeBundle";
+        VersionedName bundleVersionedName1 = new VersionedName(bundleSymbolicName, "1.0.0");
+        String bundleBom1 = createCatalogYaml(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of(one_1_0_0));
+        File bundleFile1 = newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, bundleBom1.getBytes(StandardCharsets.UTF_8)), bundleVersionedName1);
+
+        newPersistedStateInitializer()
+                .bundle(bundleVersionedName1, bundleFile1)
+                .initState();
+        
+        VersionedName bundleVersionedName2 = new VersionedName(bundleSymbolicName, "2.0.0");
+        String bundleBom2 = createCatalogYaml(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of(one_2_0_0));
+        Map<String, String> bundleManifest2 = ImmutableMap.of(
+            MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "\""+bundleSymbolicName+":[0.0.0,2.0.0)\"",
+            MANIFEST_HEADER_UPGRADE_FOR_BUNDLES, "*");
+        File bundleFile2 = newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, bundleBom2.getBytes(StandardCharsets.UTF_8)), bundleVersionedName2, bundleManifest2);
+
+        File initialBomFile = newTmpFile(createCatalogYaml(ImmutableList.of(bundleFile2.toURI()), ImmutableList.of()));
+
+        BrooklynLauncher launcher = newLauncherForTests(initialBomFile.getAbsolutePath());
+        launcher.start();
+
+        Application app = createAndStartApplication(launcher.getManagementContext(), 
+            "services: [ { type: 'one:1.0.0' } ]");
+        Entity one = Iterables.getOnlyElement( app.getChildren() );
+        Assert.assertEquals(one.getCatalogItemId(), "one:2.0.0");
+        
+        launcher.terminate();
+    }
+        
+    // NB other related tests in BrooklynLauncherRebindCatalogOsgiTest:
+    // * removed item in deployment fails - rebind and upgrade uses new item
+    // * removed item in deployment upgrades - rebind and upgrade uses new item
+    // * removed item in spec fails
+    // * removed item in spec upgrades
+    
 }

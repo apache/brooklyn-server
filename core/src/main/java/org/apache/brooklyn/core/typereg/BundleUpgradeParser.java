@@ -23,8 +23,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Dictionary;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
@@ -65,8 +67,8 @@ public class BundleUpgradeParser {
      *       version 1.0.0 and its catalog.bom contains items "foo" and "bar", then it is equivalent
      *       to writing {@code "foo:[0,1.0.0)","bar:[0,1.0.0)"}.
      *       As per the comments on {@link #MANIFEST_HEADER_FORCE_REMOVE_BUNDLES},
-     *       the version of the bundle and items being added here to replace legacy catalog items
-     *       should typically be larger in major/minor/point value 
+     *       the version of the bundle and items being added by a bundle to replace legacy catalog items
+     *       should typically be larger in major/minor/point value,
      *       as a qualifier bump can be quite complex due to ordering differences.  
      * </ul>
      */
@@ -106,7 +108,84 @@ public class BundleUpgradeParser {
      */
     @Beta
     public static final String MANIFEST_HEADER_FORCE_REMOVE_BUNDLES = "brooklyn-catalog-force-remove-bundles";
-    
+
+    /**
+     * A header in a bundle's manifest, indicating that this bundle recommends a set of upgrades.
+     * These will be advisory unless the bundle being upgraded is force-removed in which case it will be applied automatically
+     * wherever the bundle is in use.
+     * 
+     * The format is a comma separate list of {@code key=value} pairs, where each key and value is a name with a version range
+     * (as per {@link #MANIFEST_HEADER_FORCE_REMOVE_BUNDLES}). The {@code =value} can be omitted, and usually is,
+     * to mean this bundle at this version. (The {@code =value} is available if one bundle is defining upgrades for other bundles.)  
+     * 
+     * A wildcard can be given as the key, without a version ({@code *}) or with ({@code *:[0,1)}) to refer to 
+     * all previous versions (OSGi ordering, see below) or the indicated versions, respectively, of the bundle this manifest is defining.
+     * 
+     * If this header is supplied and {@link #MANIFEST_HEADER_UPGRADE_FOR_TYPES} is omitted, the types to upgrade are inferred as 
+     * being all types defined in the bundle this manifest is defining, and all versions of this bundle upgraded by this bundle
+     * according to this header. If this header is included but does not declare any versions of this bundle upgraded by this bundle, 
+     * then {@link #MANIFEST_HEADER_UPGRADE_FOR_TYPES} must be explicitly set.
+     * 
+     * Version ordering may be surprising particularly in regard to qualifiers.
+     * See {@link #MANIFEST_HEADER_FORCE_REMOVE_BUNDLES} for discussion of this.
+     * 
+     * <p>
+     * 
+     * In most use cases, one can provide a single line, e.g. if releasing a v2.0.0:
+     * 
+     * {@code brooklyn-catalog-upgrade-for-bundles: *:[0,2)}
+     * 
+     * to indicate that this bundle is able to upgrade all instances of this bundle lower than 2.0.0,
+     * and all types in this bundle will upgrade earlier types.
+     * 
+     * This can be used in conjunction with:
+     * 
+     * {@code brooklyn-catalog-force-remove-bundles: *:[0,2)}
+     * 
+     * to forcibly remove older bundles at an appropriate point (eg a restart) and cause all earlier instances of the bundle
+     * and the type instances they contain to be upgraded with the same-named types in the 2.0.0 bundle.
+     * 
+     * It is not necessary to supply {@link #MANIFEST_HEADER_UPGRADE_FOR_TYPES} unless types are being renamed
+     * or versions are not in line with previous versions of this bundle.
+     */
+    @Beta
+    public static final String MANIFEST_HEADER_UPGRADE_FOR_BUNDLES = "brooklyn-catalog-upgrade-for-bundles";
+
+    /**
+     * A header in a bundle's manifest, indicating that this bundle recommends a set of upgrades.
+     * These will be advisory unless the type being upgraded is force-removed in which case it will be applied automatically
+     * wherever the type is in use.
+     * 
+     * The format is as per {@link #MANIFEST_HEADER_UPGRADE_FOR_BUNDLES}, with two differences in interpretation.
+     * 
+     * If {@code =value} is omitted, the ugprade target is assumed to be the same type as the corresonding key but at the
+     * version of the bundle.
+     * 
+     * A wildcard can be given as the key, without a version ({@code *}) or with ({@code *:[0,1)}) to refer to
+     * all types in the present bundle.
+     * 
+     * If the version/range for a type is omitted in any key, it is inferred as the versions of this bundle 
+     * that this bundle declares it can upgrade in the {@link #MANIFEST_HEADER_UPGRADE_FOR_BUNDLES} header.
+     * It is an error to omit a version/range if that header is not present or does not declare versions
+     * of the same bundle being upgraded.  
+     * 
+     * If this key is omitted, then the default is {@code *} if a {@link #MANIFEST_HEADER_UPGRADE_FOR_BUNDLES} header
+     * is present and empty if that header is not present.
+     * 
+     * What this is saying in most cases is that if a bundle {@code foo:1} contains {@code foo-node:1}, and 
+     * bundle {@code foo:2} contains {@code foo-node:2}, then:
+     * if {@code foo:2} declares {@code brooklyn-catalog-upgrade-for-bundles: foo:1} it will also declare that
+     * {@code foo-node:2} upgrades {@code foo-node:1};
+     * if {@code foo:2} declares {@code brooklyn-catalog-upgrade-for-bundles: *} the same thing will occur
+     * (and it would also upgrade a {@code foo:0} contains {@code foo-node:0});
+     * if {@code foo:2} declares no {@code brooklyn-catalog-upgrade} manifest headers, then no advisory
+     * upgrades will be noted.
+     * 
+     * As noted in {@link #MANIFEST_HEADER_UPGRADE_FOR_BUNDLES} the primary use case for this header is type renames.
+     */
+    @Beta
+    public static final String MANIFEST_HEADER_UPGRADE_FOR_TYPES = "brooklyn-catalog-upgrade-for-types";
+
     /**
      * The result from parsing bundle(s) to find their upgrade info.
      */
@@ -116,6 +195,8 @@ public class BundleUpgradeParser {
         public static class Builder {
             private Set<VersionRangedName> removedLegacyItems = new LinkedHashSet<>();
             private Set<VersionRangedName> removedBundles = new LinkedHashSet<>();
+            private Map<VersionedName,VersionRangedName> upgradeBundles = new LinkedHashMap<>();
+            private Map<VersionedName,VersionRangedName> upgradeTypes = new LinkedHashMap<>();
 
             public Builder removedLegacyItems(Collection<VersionRangedName> vals) {
                 removedLegacyItems.addAll(vals);

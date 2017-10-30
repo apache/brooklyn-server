@@ -242,7 +242,7 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
         if (danglingRefFailureMode == RebindManager.RebindFailureMode.FAIL_FAST) {
             throw new IllegalStateException("No catalog item found with id "+id);
         } else {
-            warn("No catalog item found with id "+id+"; dangling reference on rebind");
+            warn("No catalog item found with id "+id+"; dangling reference on rebind (subsequent log messages will indicate context)");
             return null;
         }
     }

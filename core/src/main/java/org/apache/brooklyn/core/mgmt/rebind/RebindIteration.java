@@ -970,10 +970,15 @@ public abstract class RebindIteration {
         }
         
         @SuppressWarnings("unchecked")
+        // TODO should prefer a registered type as the type to load (in lieu of jType),
+        // but note some callers (enrichers etc) use catalogItemId to be the first entry in search path rather than their actual type,
+        // so until callers are all updated all we can do here is load the java type with no guarantee the catalogItemId should be the same.
+        // (yoml should help a lot with this.)
         protected <T extends BrooklynObject> LoadedClass<? extends T> load(Class<T> bType, String jType,
                 String catalogItemId, List<String> searchPath, String contextSuchAsId) {
             checkNotNull(jType, "Type of %s (%s) must not be null", contextSuchAsId, bType.getSimpleName());
 
+            List<String> warnings = MutableList.of();
             List<String> reboundSearchPath = MutableList.of();
             if (searchPath != null && !searchPath.isEmpty()) {
                 for (String searchItemId : searchPath) {
@@ -987,8 +992,7 @@ public abstract class RebindIteration {
                     if (fixedSearchItemId != null) {
                         reboundSearchPath.add(fixedSearchItemId);
                     } else {
-                        LOG.warn("Unable to load catalog item "+ searchItemId
-                            + " for search path of "+contextSuchAsId + " (" + bType.getSimpleName()+"); attempting to load "+jType+" nevertheless");
+                        warnings.add("unable to resolve search path entry "+ searchItemId);
                     }
                 }
             }
@@ -1016,23 +1020,31 @@ public abstract class RebindIteration {
                         return new LoadedClass<T>(loader.loadClass(jType, bType), transformedCatalogItemId, reboundSearchPath);
                     } catch (Exception e) {
                         Exceptions.propagateIfFatal(e);
-                        LOG.warn("Unable to load class "+jType+" needed for "+catalogItemId+" for "+contextSuchAsId+", via "+transformedCatalogItemId+" loader (will try reflections)");
+                        warnings.add("unable to load class "+jType+" for resovled context type "+transformedCatalogItemId);
                     }
                 } else {
-                    LOG.warn("Unable to load catalog item "+catalogItemId+" ("+bType+") for " + contextSuchAsId +
-                      " ("+bType.getSimpleName()+"); will try reflection");
+                    // TODO fail, rather than fallback to java?
+                    warnings.add("unable to resolve context type "+catalogItemId);
                 }
+            } else {
+                // can happen for enrichers etc added by java, and for BasicApplication when things are deployed;
+                // no need to warn
             }
 
             try {
-                return new LoadedClass<T>((Class<T>)loadClass(jType), catalogItemId, reboundSearchPath);
+                Class<T> jTypeC = (Class<T>)loadClass(jType);
+                if (!warnings.isEmpty()) {
+                    LOG.warn("Loaded java type "+jType+" for "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+" but had errors: "+Strings.join(warnings, ";"));
+                }
+                return new LoadedClass<T>(jTypeC, catalogItemId, reboundSearchPath);
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
-                LOG.warn("Unable to load class "+jType+" needed for "+catalogItemId+" for "+contextSuchAsId+", via reflections (may try others, will throw if fails)");
             }
 
             if (catalogItemId != null) {
-                throw new IllegalStateException("Unable to load "+jType+" for catalog item " + catalogItemId + " for " + contextSuchAsId);
+                String msg = "Class "+jType+" not found for "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+" ("+catalogItemId+"): "+Strings.join(warnings, ";");
+                LOG.warn(msg+" (rethrowing)");
+                throw new IllegalStateException(msg);
                 
             } else if (BrooklynFeatureEnablement.isEnabled(FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND)) {
                 //Try loading from whichever catalog bundle succeeds (legacy CI items only; also disabling this, as no longer needed 2017-09)
@@ -1041,15 +1053,21 @@ public abstract class RebindIteration {
                     BrooklynClassLoadingContext catalogLoader = CatalogUtils.newClassLoadingContext(managementContext, item);
                     Maybe<Class<?>> catalogClass = catalogLoader.tryLoadClass(jType);
                     if (catalogClass.isPresent()) {
-                        LOG.warn("Found "+jType+" only by scanning catalog item search paths");
+                        LOG.warn("Falling back to java type "+jType+" for "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+" using catalog search paths, found on "+item+
+                            (warnings.isEmpty() ? "" : ", after errors: "+Strings.join(warnings, ";")));
                         return new LoadedClass<T>((Class<? extends T>) catalogClass.get(), catalogItemId, reboundSearchPath);
                     }
                 }
-                throw new IllegalStateException("No catalogItemId specified for " + contextSuchAsId +
-                    " and can't load class (" + jType + ") from either classpath or catalog items");
+                String msg = "Class "+jType+" not found for "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+", even after legacy global classpath search"+
+                    (warnings.isEmpty() ? "" : ": "+Strings.join(warnings, ";"));
+                LOG.warn(msg+" (rethrowing)");
+                throw new IllegalStateException(msg);
+
             } else {
-                throw new IllegalStateException("No catalogItemId specified for " + contextSuchAsId +
-                    " and can't load class (" + jType + ") from classpath");
+                String msg = "Class "+jType+" not found for "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+
+                    (warnings.isEmpty() ? "" : ": "+Strings.join(warnings, ";"));
+                LOG.warn(msg+" (rethrowing)");
+                throw new IllegalStateException(msg);
             }
         }
 

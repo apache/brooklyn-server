@@ -453,6 +453,7 @@ public class LocalManagementContext extends AbstractManagementContext {
     public ManagementNodeState getNodeState() {
         synchronized (startupSynchObject) {
             if (!startupComplete) return ManagementNodeState.INITIALIZING;
+            if (!errors().isEmpty()) return ManagementNodeState.FAILED;
             return getHighAvailabilityManager().getNodeState();
         }
     }

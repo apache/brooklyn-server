@@ -243,7 +243,8 @@ public interface ManagementContext {
     @Beta  // see comment on isRunning() as items might move to a status handler
     public boolean isStartupComplete();
 
-    /** Returns node state, always reporting {@link ManagementNodeState#INITIALIZING} if there is any transition.
+    /** Returns node state, always reporting {@link ManagementNodeState#INITIALIZING} if there is any transition
+     * and {@link ManagementNodeState#FAILED} if there are any server errors.
      * If this returns {@link ManagementNodeState#MASTER} we can guarantee the node to be in master state,
      * unlike {@link HighAvailabilityManager#getNodeState()} which may return {@link ManagementNodeState#MASTER} slightly early. 
      */
