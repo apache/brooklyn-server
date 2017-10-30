@@ -46,6 +46,7 @@ import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser;
@@ -382,7 +383,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
             populateViaInitialBomImpl(catalog);
 
         } catch (Throwable e) {
-            if (!Thread.currentThread().isInterrupted()) {
+            if (!Thread.currentThread().isInterrupted() && !isRebindReadOnlyShuttingDown(getManagementContext())) {
                 // normal on interruption, esp during tests; only worth remarking here otherwise (we rethrow in any case)
                 log.warn("Error populating catalog (rethrowing): "+e, e);
             }
@@ -466,8 +467,22 @@ public class CatalogInitialization implements ManagementContextInjectable {
             
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
+            if (isRebindReadOnlyShuttingDown(getManagementContext())) {
+                throw Exceptions.propagate(e);
+            }
+
             log.warn("Error importing catalog from " + catalogUrl + ": " + e, e);
         }
+    }
+
+    @Beta
+    public static boolean isRebindReadOnlyShuttingDown(ManagementContext mgmt) {
+        if (mgmt!=null && mgmt.getRebindManager() instanceof RebindManagerImpl) {
+            if (((RebindManagerImpl)mgmt.getRebindManager()).isReadOnlyStopping()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void installPersistedBundles(Map<VersionedName, InstallableManagedBundle> bundles, RebindExceptionHandler exceptionHandler, RebindLogger rebindLogger) {

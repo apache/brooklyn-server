@@ -53,9 +53,11 @@ import org.osgi.framework.Bundle;
 import org.osgi.framework.launch.Framework;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -76,10 +78,12 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
      * Whether we reuse OSGi Framework depends if we want it to feel like rebinding on a new machine 
      * (so no cached bundles), or a local restart. We can also use {@code reuseOsgi = true} to emulate
      * system bundles (by pre-installing them into the reused framework at the start of the test).
+     * 
+     * Default true because this speeds things up, but some fixtures run with it false.
      */
-    protected boolean reuseOsgi = false;
+    protected boolean reuseOsgi = true;
     
-    protected List<Bundle> reusedBundles = new ArrayList<>();
+    protected List<Bundle> manuallyInsertedBundles = new ArrayList<>();
     
     BrooklynLauncher launcherT1, launcherT2, launcherLast;
     Runnable startupAssertions;
@@ -92,13 +96,16 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         try {
             launcherT1 = null; launcherT2 = null; launcherLast = null;
             startupAssertions = null;
-            reuseOsgi = false;
-            for (Bundle bundle : reusedBundles) {
+            reuseOsgi = true;
+            
+            // OSGi reuse system will clear cache on framework no longer being used,
+            // but we've installed out of band so need to clean it up ourselves if the test doesn't actually use it!
+            for (Bundle bundle : manuallyInsertedBundles) {
                 if (bundle != null && bundle.getState() != Bundle.UNINSTALLED) {
                     bundle.uninstall();
                 }
             }
-            reusedBundles.clear();
+            manuallyInsertedBundles.clear();
         } finally {
             super.tearDown();
         }
@@ -146,6 +153,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             l.highAvailabilityMode(HighAvailabilityMode.HOT_STANDBY);
         }
         l.start();
+        Framework f = ((ManagementContextInternal)l.getManagementContext()).getOsgiManager().get().getFramework();
         launcherLast = launcherT2 = l;
         if (isT1KeptRunningWhenT2Starts()) {
             assertHotStandbyNow(launcherT2);
@@ -197,12 +205,10 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
 
             File initialBomFile = newTmpFile(createCatalogYaml(ImmutableList.of(bundleFile.toURI()), ImmutableList.of()));
 
-            reuseOsgi = true;
-            
             // Add our bundle, so it feels for all intents and purposes like a "system bundle"
             Framework reusedFramework = initReusableOsgiFramework();
             Bundle pseudoSystemBundle = installBundle(reusedFramework, bundleFileCopy);
-            reusedBundles.add(pseudoSystemBundle);
+            manuallyInsertedBundles.add(pseudoSystemBundle);
             
             startupAssertions = () -> {
                 assertCatalogConsistsOfIds(launcherLast, bundleItems);
@@ -228,12 +234,10 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             File bundleFile = newTmpBundle(bundleItems, bundleName);
             File bundleFileCopy = newTmpCopy(bundleFile);
 
-            reuseOsgi = true;
-            
             // Add our bundle, so it feels for all intents and purposes like a "system bundle"
             Framework reusedFramework = initReusableOsgiFramework();
             Bundle pseudoSystemBundle = installBundle(reusedFramework, bundleFileCopy);
-            reusedBundles.add(pseudoSystemBundle);
+            manuallyInsertedBundles.add(pseudoSystemBundle);
             
             // Launch brooklyn, and explicitly install pre-existing bundle.
             // Should bring it under brooklyn-management (should not re-install it).
@@ -266,12 +270,11 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             
             File initialBomFile = newTmpFile(createCatalogYaml(ImmutableList.of(bundleFile.toURI()), ImmutableList.of()));
             
-            reuseOsgi = true;
-            
+            Preconditions.checkArgument(reuseOsgi, "Should be reusing OSGi; test did not correctly reset it.");
             // Add our bundle, so it feels for all intents and purposes like a "system bundle"
             Framework reusedFramework = initReusableOsgiFramework();
             Bundle pseudoSystemBundle = installBundle(reusedFramework, systemBundleFile);
-            reusedBundles.add(pseudoSystemBundle);
+            manuallyInsertedBundles.add(pseudoSystemBundle);
             
             startupAssertions = () -> {
                 assertOnlyBundle(launcherLast, systemBundleName, pseudoSystemBundle);
@@ -314,12 +317,10 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             }
             File initialBomFile = newTmpFile(createCatalogYaml(ImmutableList.of(), ImmutableList.of(systemBundleNameRef), ImmutableList.of()));
             
-            reuseOsgi = true;
-            
             // Add our bundle, so it feels for all intents and purposes like a "system bundle"
             Framework reusedFramework = initReusableOsgiFramework();
             Bundle pseudoSystemBundle = installBundle(reusedFramework, systemBundleFile);
-            reusedBundles.add(pseudoSystemBundle);
+            manuallyInsertedBundles.add(pseudoSystemBundle);
             
             startupAssertions = () -> {
                 assertOnlyBundle(launcherLast, systemBundleName, pseudoSystemBundle);
@@ -352,13 +353,10 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             File systemBundleFile = newTmpBundle(bundleItems, bundleName);
             File replacementBundleFile = newTmpBundle(bundleItems, bundleName, "randomDifference"+Identifiers.makeRandomId(4));
 
-            reuseOsgi = true;
-            
             // Add our bundle, so it feels for all intents and purposes like a "system bundle"
             Framework reusedFramework = initReusableOsgiFramework();
             Bundle pseudoSystemBundle = installBundle(reusedFramework, systemBundleFile);
-            reusedBundles.add(pseudoSystemBundle);
-            
+            manuallyInsertedBundles.add(pseudoSystemBundle);
             
             // Launch brooklyn, and explicitly install pre-existing bundle.
             // Should bring it under brooklyn-management (should not re-install it).
@@ -383,6 +381,23 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         @Override protected boolean isT1KeptRunningWhenT2Starts() { return true; }
     }
 
+    public abstract static class AbstractNonReuseRebindSubTests extends BrooklynLauncherRebindCatalogOsgiTest {
+        @BeforeMethod(alwaysRun=true)
+        @Override
+        public void setUp() throws Exception {
+            super.setUp();
+            //reuseOsgi = false;
+        }
+    }
+    @Test(groups="Integration")
+    public static class NonReuseRebindSubTests extends AbstractNonReuseRebindSubTests {
+        @Override protected boolean isT1KeptRunningWhenT2Starts() { return false; }
+    }
+    @Test(groups="Integration")
+    public static class HotStandbyNonReuseRebindSubTests extends AbstractNonReuseRebindSubTests {
+        @Override protected boolean isT1KeptRunningWhenT2Starts() { return false; }
+    }
+    
     @Test
     public void testRebindGetsInitialOsgiCatalog() throws Exception {
         Set<VersionedName> bundleItems = ImmutableSet.of(VersionedName.fromString("one:1.0.0"));
@@ -606,7 +621,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         ManagementContext mgmt = launcher.getManagementContext();
         assertTrue(mgmt.isStartupComplete());
         assertTrue(mgmt.isRunning());
-        assertEquals(mgmt.getHighAvailabilityManager().getNodeState(), ManagementNodeState.HOT_STANDBY);
+        assertEquals(mgmt.getNodeState(), ManagementNodeState.HOT_STANDBY);
     }
     
     protected void assertMasterEventually(BrooklynLauncher launcher) {
@@ -615,7 +630,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             public void run() {
                 assertTrue(mgmt.isStartupComplete());
                 assertTrue(mgmt.isRunning());
-                assertEquals(mgmt.getHighAvailabilityManager().getNodeState(), ManagementNodeState.MASTER);
+                assertEquals(mgmt.getNodeState(), ManagementNodeState.MASTER);
             }});
     }
     

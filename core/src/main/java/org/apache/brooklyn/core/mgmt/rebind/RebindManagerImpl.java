@@ -220,6 +220,10 @@ public class RebindManagerImpl implements RebindManager {
         return readOnlyRunning;
     }
     
+    public boolean isReadOnlyStopping() {
+        return readOnlyTask!=null && !readOnlyRunning;
+    }
+    
     @Override
     public void setPersister(BrooklynMementoPersister val) {
         PersistenceExceptionHandler exceptionHandler = PersistenceExceptionHandlerImpl.builder()

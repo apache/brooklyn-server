@@ -62,7 +62,6 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.internal.ManagementTransitionMode;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils.CreateBackupMode;
-import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceActivityMetrics;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.mgmt.usage.ManagementNodeStateListener;
@@ -868,6 +867,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
                 LOG.warn("Problem in promption-listener (continuing)", e);
             }
         }
+        ((LocalManagementContext)managementContext).noteStartupTransitioning();
         setInternalNodeState(ManagementNodeState.MASTER);
         publishPromotionToMaster();
         try {
@@ -878,6 +878,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
             throw Exceptions.propagate(e);
         }
         managementContext.getRebindManager().start();
+        ((LocalManagementContext)managementContext).noteStartupComplete();
     }
     
     protected void backupOnDemotionIfNeeded() {

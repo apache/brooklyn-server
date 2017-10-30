@@ -344,6 +344,13 @@ public class OsgiManager {
         return Maybe.absent();
     }
     
+    @VisibleForTesting
+    public static List<Framework> peekFrameworksForReuse() {
+        synchronized (OSGI_FRAMEWORK_CONTAINERS_FOR_REUSE) {
+            return ImmutableList.copyOf(OSGI_FRAMEWORK_CONTAINERS_FOR_REUSE);
+        }
+    }
+    
     ManagementContext getManagementContext() {
         return mgmt;
     }
