@@ -43,6 +43,7 @@ import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.RegisteredTypes.RegisteredTypeNameThenBestFirstComparator;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -50,6 +51,7 @@ import org.apache.brooklyn.util.concurrent.Locks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.osgi.VersionedName.VersionedNameComparator;
 import org.apache.brooklyn.util.osgi.VersionedName.VersionedNameStringComparator;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -93,9 +95,10 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     
     private Iterable<RegisteredType> getAllWithoutCatalog(Predicate<? super RegisteredType> filter) {
         // TODO optimisation? make indexes and look up?
+        Ordering<RegisteredType> typeOrder = Ordering.from(RegisteredTypeNameThenBestFirstComparator.INSTANCE);
         return Locks.withLock(localRegistryLock.readLock(), 
             () -> localRegisteredTypesAndContainingBundles.values().stream().
-                flatMap(m -> m.values().stream()).filter(filter::apply).collect(Collectors.toList()) );
+                flatMap(m -> { return typeOrder.sortedCopy(m.values()).stream(); }).filter(filter::apply).collect(Collectors.toList()) );
     }
 
     private Maybe<RegisteredType> getExactWithoutLegacyCatalog(String symbolicName, String version, RegisteredTypeLoadingContext constraint) {
@@ -109,7 +112,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
         if (m.isEmpty()) return null;
         if (m.size()==1) return m.values().iterator().next();
         // get the highest version of first alphabetical - to have a canonical order
-        return m.get( Ordering.from(VersionedNameStringComparator.INSTANCE).max(m.keySet()) );
+        return m.get( Ordering.from(VersionedNameStringComparator.INSTANCE).min(m.keySet()) );
     }
 
     @SuppressWarnings("deprecation")

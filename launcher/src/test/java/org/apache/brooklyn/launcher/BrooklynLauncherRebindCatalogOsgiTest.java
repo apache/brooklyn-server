@@ -416,7 +416,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
     }
     
     @Test
-    public void testRebindUpgradesBundleWithSameItems() throws Exception {
+    public void testRestartWithNewBundleWithSameItemsReplacesItems() throws Exception {
         Set<VersionedName> bundleItems = ImmutableSet.of(VersionedName.fromString("one:1.0.0"));
         String bundleBom = createCatalogYaml(ImmutableList.of(), bundleItems);
         
@@ -431,13 +431,30 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         startupAssertions = () -> {
             assertCatalogConsistsOfIds(launcherLast, bundleItems);
             assertManagedBundle(launcherLast, bundleNameV1, bundleItems);
+            
+            String bundleVersionSupplyingType = getBundleSupplyingFirstType(bundleItems);
+            if (launcherT2==null) {
+                Assert.assertEquals(bundleVersionSupplyingType, "1.0.0");
+                
+            } else {
+                assertManagedBundle(launcherLast, bundleNameV2, bundleItems);
+                getBundleSupplyingFirstType(bundleItems);
+                Assert.assertEquals(bundleVersionSupplyingType, "2.0.0");
+            }
         };
         startT1(newLauncherForTests(initialBomFileV1.getAbsolutePath()));
         startT2(newLauncherForTests(initialBomFileV2.getAbsolutePath()));
+        assertManagedBundle(launcherLast, bundleNameV2, bundleItems);
+        promoteT2IfStandby();
+    }
+
+    protected String getBundleSupplyingFirstType(Set<VersionedName> bundleItems) {
+        return VersionedName.fromString( launcherLast.getManagementContext().getTypeRegistry().get(
+            bundleItems.iterator().next().toString() ).getContainingBundle() ).getVersionString();
     }
 
     @Test
-    public void testRebindUpgradesBundleWithNewerItems() throws Exception {
+    public void testRestartWithNewBundleWithNewItemsAddsItems() throws Exception {
         Set<VersionedName> bundleItemsV1 = ImmutableSet.of(VersionedName.fromString("one:1.0.0"));
         String bundleBomV1 = createCatalogYaml(ImmutableList.of(), bundleItemsV1);
         VersionedName bundleNameV1 = new VersionedName("org.example.testRebindGetsInitialOsgiCatalog", "1.0.0");
@@ -450,17 +467,20 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         File bundleFileV2 = newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, bundleBomV2.getBytes(StandardCharsets.UTF_8)), bundleNameV2);
         File initialBomFileV2 = newTmpFile(createCatalogYaml(ImmutableList.of(bundleFileV2.toURI()), ImmutableList.of()));
         
-        startT1(newLauncherForTests(initialBomFileV1.getAbsolutePath()));
-        
-        assertCatalogConsistsOfIds(launcherLast, bundleItemsV1);
-        assertManagedBundle(launcherLast, bundleNameV1, bundleItemsV1);
-        // above for T1 should become the following for T2
         startupAssertions = () -> {
-            assertCatalogConsistsOfIds(launcherLast, Iterables.concat(bundleItemsV1, bundleItemsV2));
             assertManagedBundle(launcherLast, bundleNameV1, bundleItemsV1);
-            assertManagedBundle(launcherLast, bundleNameV2, bundleItemsV2);
+            Assert.assertEquals(getBundleSupplyingFirstType(bundleItemsV1), "1.0.0");
+            if (launcherT2==null) {
+                assertCatalogConsistsOfIds(launcherLast, bundleItemsV1);
+                
+            } else {
+                assertCatalogConsistsOfIds(launcherLast, Iterables.concat(bundleItemsV1, bundleItemsV2));
+                
+                assertManagedBundle(launcherLast, bundleNameV2, bundleItemsV2);
+                Assert.assertEquals(getBundleSupplyingFirstType(bundleItemsV2), "2.0.0");
+            }
         };
-        
+        startT1(newLauncherForTests(initialBomFileV1.getAbsolutePath()));
         startT2(newLauncherForTests(initialBomFileV2.getAbsolutePath()));
         promoteT2IfStandby();
     }
@@ -584,13 +604,11 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         }
     }
     
-    // TODO tests:
-    // TODO remove on hot standby promotion (above), succeed and failing
-    // TODO deploy blueprint with old item after upgrade
-    // TODO rebind upgrade item deployed
-    // TODO rebind upgrade spec item in deployment
-    // TODO deploy mention of old item after upgrade
-    // TODO upgrade on hot standby and promotion
+    // TODO removed item in deployment fails - rebind and upgrade uses new item
+    // TODO removed item in deployment upgrades - rebind and upgrade uses new item
+    // TODO removed item in spec fails
+    // TODO removed item in spec upgrades
+    // TODO removed item deployed after rebind
     
     protected void assertPersistedBundleListingEqualsEventually(BrooklynLauncher launcher, Set<VersionedName> bundles) {
         Asserts.succeedsEventually(new Runnable() {
