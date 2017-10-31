@@ -152,7 +152,7 @@ public class BrooklynLauncherUpgradeCatalogOsgiTest extends AbstractBrooklynLaun
     
     // removed item with upgrade deployed after rebind
     // TODO WIP
-    @Test
+    @Test(groups="WIP")
     public void testForceUpgradeItemByRemovingBundle() throws Exception {
         VersionedName one_1_0_0 = VersionedName.fromString("one:1.0.0");
         VersionedName one_2_0_0 = VersionedName.fromString("one:2.0.0");

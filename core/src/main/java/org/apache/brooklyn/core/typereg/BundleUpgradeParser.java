@@ -27,6 +27,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -42,6 +43,7 @@ import org.osgi.framework.VersionRange;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -167,7 +169,7 @@ public class BundleUpgradeParser {
      * 
      * The format is as per {@link #MANIFEST_HEADER_UPGRADE_FOR_BUNDLES}, with two differences in interpretation.
      * 
-     * If {@code =value} is omitted, the ugprade target is assumed to be the same type as the corresonding key but at the
+     * If {@code =value} is omitted, the upgrade target is assumed to be the same type as the corresponding key but at the
      * version of the bundle.
      * 
      * A wildcard can be given as the key, without a version ({@code *}) or with ({@code *:[0,1)}) to refer to
@@ -252,7 +254,7 @@ public class BundleUpgradeParser {
         }
 
         public boolean isEmpty() {
-            return removedLegacyItems.isEmpty() && removedBundles.isEmpty();
+            return removedLegacyItems.isEmpty() && removedBundles.isEmpty() && upgradesProvidedByBundles.isEmpty() && upgradesProvidedByTypes.isEmpty();
         }
 
         public Set<VersionRangedName> getRemovedLegacyItems() {
@@ -404,37 +406,77 @@ public class BundleUpgradeParser {
         //   section "Bundle Upgrade Metadata"
         
         Dictionary<String, String> headers = bundle.getHeaders();
-        Multimap<VersionedName,VersionRangedName> upgradesForBundles = parseUpgradeForBundlesHeader(headers.get(MANIFEST_HEADER_UPGRADE_FOR_BUNDLES), bundle);
+        String upgradesForBundlesHeader = headers.get(MANIFEST_HEADER_UPGRADE_FOR_BUNDLES);
+        Multimap<VersionedName,VersionRangedName> upgradesForBundles = parseUpgradeForBundlesHeader(upgradesForBundlesHeader, bundle);
         return CatalogUpgrades.builder()
                 .removedLegacyItems(parseForceRemoveLegacyItemsHeader(headers.get(MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS), bundle, typeSupplier))
                 .removedBundles(parseForceRemoveBundlesHeader(headers.get(MANIFEST_HEADER_FORCE_REMOVE_BUNDLES), bundle))
                 .upgradeBundles(upgradesForBundles)
-                .upgradeTypes(parseUpgradeForTypesHeader(headers.get(MANIFEST_HEADER_UPGRADE_FOR_TYPES), bundle, upgradesForBundles))
+                .upgradeTypes(parseUpgradeForTypesHeader(headers.get(MANIFEST_HEADER_UPGRADE_FOR_TYPES), bundle, typeSupplier, 
+                    upgradesForBundlesHeader==null ? null : upgradesForBundles))
                 .build();
-    }
-
-    private static Multimap<VersionedName, VersionRangedName> parseUpgradeForBundlesHeader(String input, Bundle bundle) {
-        return LinkedHashMultimap.<VersionedName, VersionRangedName>create();
-    }
-    private static Multimap<VersionedName, VersionRangedName> parseUpgradeForTypesHeader(String input, Bundle bundle, Multimap<VersionedName, VersionRangedName> upgradesForBundles) {
-        return LinkedHashMultimap.<VersionedName, VersionRangedName>create();
     }
 
     @VisibleForTesting
     static List<VersionRangedName> parseForceRemoveLegacyItemsHeader(String input, Bundle bundle, Supplier<? extends Iterable<? extends RegisteredType>> typeSupplier) {
+        return parseVersionRangedNameList(input, false, getTypeNamesInBundle(typeSupplier), "[0,"+bundle.getVersion()+")");
+    }
+    
+    @VisibleForTesting
+    static List<VersionRangedName> parseForceRemoveBundlesHeader(String input, Bundle bundle) {
         if (input == null) return ImmutableList.of();
+        return parseVersionRangedNameList(input, false, MutableList.of(bundle.getSymbolicName()), getDefaultSourceVersionRange(bundle));
+    }
+
+    private static Multimap<VersionedName, VersionRangedName> parseUpgradeForBundlesHeader(String input, Bundle bundle) {
+        return parseVersionRangedNameEqualsVersionedNameList(input, false,
+            // wildcard means this bundle, all lower versions
+            MutableList.of(bundle.getSymbolicName()), MutableList.of(getDefaultSourceVersionRange(bundle)),
+            // default target is this bundle
+            (i) -> { return new VersionedName(bundle); });
+    }
+    private static Multimap<VersionedName, VersionRangedName> parseUpgradeForTypesHeader(String input, Bundle bundle, Supplier<? extends Iterable<? extends RegisteredType>> typeSupplier, Multimap<VersionedName, VersionRangedName> upgradesForBundles) {
+        List<String> sourceVersions = null;
+        if (upgradesForBundles!=null) {
+            Collection<VersionRangedName> acceptableRanges = upgradesForBundles.get(new VersionedName(bundle));
+            if (acceptableRanges!=null && !acceptableRanges.isEmpty()) {
+                for (VersionRangedName n: acceptableRanges) {
+                    if (n.getSymbolicName().equals(bundle.getSymbolicName())) {
+                        if (sourceVersions==null) {
+                            sourceVersions = MutableList.of();
+                        }
+                        sourceVersions.add(n.getOsgiVersionRange().toString());
+                    }
+                }
+            }
+        }
+        Set<VersionedName> typeSupplierNames = MutableList.copyOf(typeSupplier.get()).stream().map(
+            (t) -> VersionedName.toOsgiVersionedName(t.getVersionedName())).collect(Collectors.toSet());
+        return parseVersionRangedNameEqualsVersionedNameList(input, false,
+            // wildcard means all types, all versions of this bundle this bundle replaces
+            getTypeNamesInBundle(typeSupplier), sourceVersions,
+            // default target is same type at version of this bundle
+            (i) -> { 
+                VersionedName targetTypeAtBundleVersion = new VersionedName(i.getSymbolicName(), bundle.getVersion());
+                if (!typeSupplierNames.contains(VersionedName.toOsgiVersionedName(targetTypeAtBundleVersion))) {
+                    throw new IllegalStateException("Bundle manifest declares it upgrades "+i+" "
+                        + "but does not declare an explicit target and does not contain inferred target "+targetTypeAtBundleVersion);
+                }
+                return targetTypeAtBundleVersion; 
+            });
+    }
+    
+    @VisibleForTesting
+    static List<String> getTypeNamesInBundle(Supplier<? extends Iterable<? extends RegisteredType>> typeSupplier) {
         List<String> wildcardItems = MutableList.of();
         for (RegisteredType item : typeSupplier.get()) {
             wildcardItems.add(item.getSymbolicName());
         }
-        return parseVersionRangedNameList(input, false, wildcardItems, "[0,"+bundle.getVersion()+")");
+        return wildcardItems;
     }
     
-
     @VisibleForTesting
-    static List<VersionRangedName> parseForceRemoveBundlesHeader(String input, Bundle bundle) {
-        if (input == null) return ImmutableList.of();
-        
+    static String getDefaultSourceVersionRange(Bundle bundle) {
         String bundleVersion = bundle.getVersion().toString();
         String maxVersion;
         if (BrooklynVersionSyntax.isSnapshot(bundleVersion)) {
@@ -442,8 +484,8 @@ public class BundleUpgradeParser {
         } else {
             maxVersion = bundleVersion;
         }
-        
-        return parseVersionRangedNameList(input, false, MutableList.of(bundle.getSymbolicName()), "[0,"+maxVersion+")");
+        String defaultSourceVersion = "[0,"+maxVersion+")";
+        return defaultSourceVersion;
     }
     
     @VisibleForTesting
@@ -459,23 +501,29 @@ public class BundleUpgradeParser {
         
         List<VersionRangedName> versionedItems = new ArrayList<>();
         for (String val : vals) {
-            try {
-                val = val.trim();
-                if (val.startsWith("*")) {
-                    String r;
-                    if ("*".equals(val)) {
-                        r = wildcardVersion;
-                    } else if (val.startsWith("*:")) {
-                        r = val.substring(2);
-                    } else {
-                        throw new IllegalArgumentException("Wildcard entry must be of the form \"*\" or \"*:range\"");
-                    }
-                    for (String item: wildcardNames) {
-                        versionedItems.add(new VersionRangedName(item, r, false));
-                    }
+            val = val.trim();
+            if (val.startsWith("*")) {
+                String r;
+                if ("*".equals(val)) {
+                    r = wildcardVersion;
+                } else if (val.startsWith("*:")) {
+                    r = val.substring(2);
                 } else {
-                    versionedItems.add(VersionRangedName.fromString(val, singleVersionIsOsgiRange));
+                    throw new IllegalArgumentException("Wildcard entry must be of the form \"*\" or \"*:range\"");
                 }
+                for (String item: wildcardNames) {
+                    versionedItems.add(parseVersionRangedName(item, r, false));
+                }
+            } else {
+                versionedItems.add(parseVersionRangedName(val, singleVersionIsOsgiRange));
+            }
+        }
+        return versionedItems;
+    }
+
+        private static VersionRangedName parseVersionRangedName(String val, boolean singleVersionIsOsgiRange) {
+            try {
+                return VersionRangedName.fromString(val, singleVersionIsOsgiRange);
             } catch (Exception e) {
                 if (Strings.containsAny(val, "(", ")", "[", "]") &&
                         !Strings.containsAny(val, "'", "\"")) {
@@ -484,7 +532,93 @@ public class BundleUpgradeParser {
                 throw Exceptions.propagate(e);
             }
         }
-        return versionedItems;
+        
+        private static VersionRangedName parseVersionRangedName(String name, String range, boolean singleVersionIsOsgiRange) {
+            try {
+                return new VersionRangedName(name, range, singleVersionIsOsgiRange);
+            } catch (Exception e) {
+                if (Strings.containsAny(range, "(", ")", "[", "]") &&
+                        !Strings.containsAny(range, "'", "\"")) {
+                    throw Exceptions.propagateAnnotated("Entry cannot be parsed. If defining a range on an entry you must quote the entry.", e);
+                }
+                throw Exceptions.propagate(e);
+            }
+        }
+        
+    @VisibleForTesting
+    static Multimap<VersionedName,VersionRangedName> parseVersionRangedNameEqualsVersionedNameList(String input, boolean singleVersionIsOsgiRange,
+            List<String> wildcardNames, List<String> wildcardVersions,
+            Function<VersionRangedName,VersionedName> defaultTargetFunction) {
+        LinkedHashMultimap<VersionedName,VersionRangedName> result = LinkedHashMultimap.create();
+        if (input == null) return result;
+        
+        List<String> vals = QuotedStringTokenizer.builder()
+                .delimiterChars(",")
+                .includeQuotes(false)
+                .includeDelimiters(false)
+                .buildList(input);
+        
+        for (String entry : vals) {
+            entry = entry.trim();
+            String key, val;
+            String[] keVals = entry.split("=");
+            if (keVals.length>2) {
+                throw new IllegalArgumentException("Max one = permitted in entry (\""+entry+"\"). If defining a range on an entry you must quote the entry.");
+            } else if (keVals.length==2) {
+                key = keVals[0];
+                val = keVals[1];
+            } else {
+                key = keVals[0];
+                val = null;
+            }
+            
+            List<String> sourceNames, sourceVersions;
+            if (key.startsWith("*")) {
+                if (wildcardNames==null) {
+                    throw new IllegalArgumentException("Wildcard cannot be inferred");
+                }
+                if  ("*".equals(key)) {
+                    if (wildcardVersions==null) {
+                        throw new IllegalArgumentException("Version for wildcard cannot be inferred");
+                    }
+                    sourceVersions = wildcardVersions;
+                } else if (key.startsWith("*:")) {
+                    sourceVersions = MutableList.of(key.substring(2));
+                } else {
+                    throw new IllegalArgumentException("Wildcard entry key must be of the form \"*\" or \"*:range\"");
+                }
+                sourceNames = MutableList.copyOf(wildcardNames);
+            } else {
+                String[] parts = key.split(":");
+                if (parts.length==1) {
+                    if (wildcardVersions==null) {
+                        throw new IllegalArgumentException("Version for "+key+" cannot be inferred");
+                    }
+                    sourceNames = MutableList.of(key);
+                    sourceVersions = wildcardVersions;
+                } else if (parts.length==2) {
+                    sourceNames = MutableList.of(parts[0]);
+                    sourceVersions = MutableList.of(parts[1]);
+                } else {
+                    throw new IllegalArgumentException("Entry '"+entry+"' should be of form 'name[:versionRange][=name[:version]]'");
+                }
+            }
+            for (String item: sourceNames) {
+                for (String v: sourceVersions) {
+                    VersionRangedName source = parseVersionRangedName(item, v, false);
+                    VersionedName target;
+                    if (val!=null) {
+                        target = VersionedName.fromString(val);
+                    } else if (defaultTargetFunction!=null) {
+                        target = defaultTargetFunction.apply(source);
+                    } else {
+                        throw new IllegalArgumentException("Wildcard entry key must be of the form \"*\" or \"*:range\"");
+                    }
+                    result.put(target, source);
+                }
+            }
+        }
+        return result;
     }
     
     @VisibleForTesting
@@ -494,4 +628,5 @@ public class BundleUpgradeParser {
                 && quoteChars.contains(input.substring(input.length() - 1));
         return (quoted ? input.substring(1, input.length() - 1) : input);
     }
+    
 }
