@@ -29,7 +29,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import javax.annotation.Nonnull;
+
 import org.apache.brooklyn.api.catalog.CatalogItem;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -311,6 +314,20 @@ public class BundleUpgradeParser {
         @Beta
         public static boolean contains(VersionRangedName range, VersionedName name) {
             return range.getSymbolicName().equals(name.getSymbolicName()) && range.getOsgiVersionRange().includes(name.getOsgiVersion());
+        }
+
+        @Beta
+        public static void storeInManagementContext(CatalogUpgrades catalogUpgrades, ManagementContext managementContext) {
+            ((BasicBrooklynTypeRegistry)managementContext.getTypeRegistry()).storeCatalogUpgradesInstructions(catalogUpgrades);
+        }
+        
+        @Beta @Nonnull
+        public static CatalogUpgrades getFromManagementContext(ManagementContext managementContext) {
+            CatalogUpgrades result = ((BasicBrooklynTypeRegistry)managementContext.getTypeRegistry()).getCatalogUpgradesInstructions();
+            if (result!=null) {
+                return result;
+            }
+            return builder().build();
         }
     }
     

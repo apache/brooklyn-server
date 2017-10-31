@@ -43,6 +43,7 @@ import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.core.typereg.RegisteredTypes.RegisteredTypeNameThenBestFirstComparator;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -82,6 +83,8 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
      * maps but coordinating that is tricky and does not seem worth it.
      */
     private ReadWriteLock localRegistryLock = new ReentrantReadWriteLock();
+
+    private CatalogUpgrades catalogUpgrades;
 
     public BasicBrooklynTypeRegistry(ManagementContext mgmt) {
         this.mgmt = mgmt;
@@ -633,5 +636,16 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     public void clear() {
         Locks.withLock(localRegistryLock.writeLock(), () -> localRegisteredTypesAndContainingBundles.clear());
     }
+
     
+    @Beta
+    public void storeCatalogUpgradesInstructions(CatalogUpgrades catalogUpgrades) {
+        this.catalogUpgrades = catalogUpgrades;
+    }
+
+    @Beta
+    public CatalogUpgrades getCatalogUpgradesInstructions() {
+        return catalogUpgrades;
+    }
+
 }
