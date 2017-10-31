@@ -51,7 +51,6 @@ import org.apache.brooklyn.util.concurrent.Locks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
-import org.apache.brooklyn.util.osgi.VersionedName.VersionedNameComparator;
 import org.apache.brooklyn.util.osgi.VersionedName.VersionedNameStringComparator;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -425,6 +424,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                             oldContainingBundlesToRemove.add(existingT.getContainingBundle());
                         }
                         if (canForce) {
+                            // may be forcing because of internal type validation, or of course user flag
                             log.debug("Addition of "+type+" to replace "+existingT+" allowed because force is on");
                             continue;
                         }
@@ -615,6 +615,11 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     @Beta // API stabilising
     public void delete(String id) {
         delete(VersionedName.fromString(id));
+    }
+
+    /** Deletes all items, for use when resetting management context */
+    public void clear() {
+        Locks.withLock(localRegistryLock.writeLock(), () -> localRegisteredTypesAndContainingBundles.clear());
     }
     
 }

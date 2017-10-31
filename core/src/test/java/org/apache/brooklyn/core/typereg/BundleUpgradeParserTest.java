@@ -39,7 +39,6 @@ import org.mockito.Mockito;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.Version;
 import org.osgi.framework.VersionRange;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Supplier;
@@ -158,7 +157,9 @@ public class BundleUpgradeParserTest {
     public void testParseBundleManifest() throws Exception {
         Bundle bundle = newMockBundle(ImmutableMap.of(
                 BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS, "\"foo:[0,1.0.0)\",\"foo:1.0.0.SNAPSHOT\",\"bar:[0,1.0.0)\"",
-                BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "\"org.example.brooklyn.mybundle:[0,1.0.0)\""));
+                BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "\"org.example.brooklyn.mybundle:[0,1.0.0)\"",
+                BundleUpgradeParser.MANIFEST_HEADER_UPGRADE_FOR_BUNDLES, "\"org.example.brooklyn.mybundle:[0,1.0.0)=org.example.brooklyn.mybundle:1\"",
+                BundleUpgradeParser.MANIFEST_HEADER_UPGRADE_FOR_TYPES, "\"foo:[0,1)=foo:1\""));
         checkParse(bundle);
     }
 

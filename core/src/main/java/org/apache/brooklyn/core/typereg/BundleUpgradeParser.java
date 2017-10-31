@@ -23,7 +23,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Dictionary;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +31,7 @@ import java.util.Set;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
@@ -45,7 +45,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Multimap;
 
 /**
  * Internal class for parsing bundle manifests to extract their upgrade instructions.
@@ -119,8 +122,9 @@ public class BundleUpgradeParser {
      * These will be advisory unless the bundle being upgraded is force-removed in which case it will be applied automatically
      * wherever the bundle is in use.
      * 
-     * The format is a comma separate list of {@code key=value} pairs, where each key and value is a name with a version range
-     * (as per {@link #MANIFEST_HEADER_FORCE_REMOVE_BUNDLES}). The {@code =value} can be omitted, and usually is,
+     * The format is a comma separate list of {@code key=value} pairs, where each key is a name with a version range
+     * (as per {@link #MANIFEST_HEADER_FORCE_REMOVE_BUNDLES}) specifying what should be upgraded, and {@code value} is a name and
+     * version specifying what it should be ugpraded to. The {@code =value} can be omitted, and usually is,
      * to mean this bundle at this version. (The {@code =value} is available if one bundle is defining upgrades for other bundles.)  
      * 
      * A wildcard can be given as the key, without a version ({@code *}) or with ({@code *:[0,1)}) to refer to 
@@ -200,8 +204,8 @@ public class BundleUpgradeParser {
         public static class Builder {
             private Set<VersionRangedName> removedLegacyItems = new LinkedHashSet<>();
             private Set<VersionRangedName> removedBundles = new LinkedHashSet<>();
-            private Map<VersionedName,VersionRangedName> upgradeBundles = new LinkedHashMap<>();
-            private Map<VersionedName,VersionRangedName> upgradeTypes = new LinkedHashMap<>();
+            private Multimap<VersionedName,VersionRangedName> upgradesProvidedByBundles = LinkedHashMultimap.create();
+            private Multimap<VersionedName,VersionRangedName> upgradesProvidedByTypes = LinkedHashMultimap.create();
 
             public Builder removedLegacyItems(Collection<VersionRangedName> vals) {
                 removedLegacyItems.addAll(vals);
@@ -211,9 +215,19 @@ public class BundleUpgradeParser {
                 removedBundles.addAll(vals);
                 return this;
             }
+            public Builder upgradeBundles(Multimap<VersionedName,VersionRangedName> vals) {
+                upgradesProvidedByBundles.putAll(vals);
+                return this;
+            }
+            public Builder upgradeTypes(Multimap<VersionedName,VersionRangedName> vals) {
+                upgradesProvidedByTypes.putAll(vals);
+                return this;
+            }
             public Builder addAll(CatalogUpgrades other) {
                 removedLegacyItems.addAll(other.removedLegacyItems);
                 removedBundles.addAll(other.removedBundles);
+                upgradesProvidedByBundles.putAll(other.upgradesProvidedByBundles);
+                upgradesProvidedByTypes.putAll(other.upgradesProvidedByTypes);
                 return this;
             }
             public CatalogUpgrades build() {
@@ -227,10 +241,14 @@ public class BundleUpgradeParser {
         
         private final Set<VersionRangedName> removedLegacyItems;
         private final Set<VersionRangedName> removedBundles;
+        private final Multimap<VersionedName,VersionRangedName> upgradesProvidedByBundles;
+        private final Multimap<VersionedName,VersionRangedName> upgradesProvidedByTypes;
         
         public CatalogUpgrades(Builder builder) {
             this.removedLegacyItems = ImmutableSet.copyOf(builder.removedLegacyItems);
             this.removedBundles = ImmutableSet.copyOf(builder.removedBundles);
+            this.upgradesProvidedByBundles = ImmutableMultimap.copyOf(builder.upgradesProvidedByBundles);
+            this.upgradesProvidedByTypes = ImmutableMultimap.copyOf(builder.upgradesProvidedByTypes);
         }
 
         public boolean isEmpty() {
@@ -245,6 +263,14 @@ public class BundleUpgradeParser {
             return removedBundles;
         }
 
+        public Multimap<VersionedName, VersionRangedName> getUpgradesProvidedByBundles() {
+            return upgradesProvidedByBundles;
+        }
+        
+        public Multimap<VersionedName, VersionRangedName> getUpgradesProvidedByTypes() {
+            return upgradesProvidedByTypes;
+        }
+        
         public boolean isLegacyItemRemoved(CatalogItem<?, ?> legacyCatalogItem) {
             VersionedName name = new VersionedName(legacyCatalogItem.getSymbolicName(), legacyCatalogItem.getVersion());
             return contains(removedLegacyItems, name);
@@ -254,13 +280,35 @@ public class BundleUpgradeParser {
             return contains(removedBundles, bundle);
         }
         
-        public boolean contains(Iterable<VersionRangedName> names, VersionedName name) {
+        public Set<VersionedName> getUpgradesForBundle(VersionedName bundle) {
+            return findUpgradesIn(bundle, upgradesProvidedByBundles);
+        }
+        public Set<VersionedName> getUpgradesForType(VersionedName type) {
+            return findUpgradesIn(type, upgradesProvidedByTypes);
+        }
+        private static Set<VersionedName> findUpgradesIn(VersionedName bundle, Multimap<VersionedName,VersionRangedName> upgradesMap) {
+            Set<VersionedName> result = MutableSet.of();
+            for (Map.Entry<VersionedName,VersionRangedName> n: upgradesMap.entries()) {
+                if (contains(n.getValue(), bundle)) {
+                    result.add(n.getKey());
+                }
+            }
+            return result;
+        }
+        
+        @Beta
+        public static boolean contains(Iterable<VersionRangedName> names, VersionedName name) {
             for (VersionRangedName contender : names) {
-                if (contender.getSymbolicName().equals(name.getSymbolicName()) && contender.getOsgiVersionRange().includes(name.getOsgiVersion())) {
+                if (contains(contender, name)) {
                     return true;
                 }
             }
             return false;
+        }
+
+        @Beta
+        public static boolean contains(VersionRangedName range, VersionedName name) {
+            return range.getSymbolicName().equals(name.getSymbolicName()) && range.getOsgiVersionRange().includes(name.getOsgiVersion());
         }
     }
     
@@ -356,10 +404,20 @@ public class BundleUpgradeParser {
         //   section "Bundle Upgrade Metadata"
         
         Dictionary<String, String> headers = bundle.getHeaders();
+        Multimap<VersionedName,VersionRangedName> upgradesForBundles = parseUpgradeForBundlesHeader(headers.get(MANIFEST_HEADER_UPGRADE_FOR_BUNDLES), bundle);
         return CatalogUpgrades.builder()
                 .removedLegacyItems(parseForceRemoveLegacyItemsHeader(headers.get(MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS), bundle, typeSupplier))
                 .removedBundles(parseForceRemoveBundlesHeader(headers.get(MANIFEST_HEADER_FORCE_REMOVE_BUNDLES), bundle))
+                .upgradeBundles(upgradesForBundles)
+                .upgradeTypes(parseUpgradeForTypesHeader(headers.get(MANIFEST_HEADER_UPGRADE_FOR_TYPES), bundle, upgradesForBundles))
                 .build();
+    }
+
+    private static Multimap<VersionedName, VersionRangedName> parseUpgradeForBundlesHeader(String input, Bundle bundle) {
+        return LinkedHashMultimap.<VersionedName, VersionRangedName>create();
+    }
+    private static Multimap<VersionedName, VersionRangedName> parseUpgradeForTypesHeader(String input, Bundle bundle, Multimap<VersionedName, VersionRangedName> upgradesForBundles) {
+        return LinkedHashMultimap.<VersionedName, VersionRangedName>create();
     }
 
     @VisibleForTesting
