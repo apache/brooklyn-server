@@ -186,10 +186,4 @@ public class BrooklynLauncherUpgradeCatalogOsgiTest extends AbstractBrooklynLaun
         launcher.terminate();
     }
         
-    // NB other related tests in BrooklynLauncherRebindCatalogOsgiTest:
-    // * removed item in deployment fails - rebind and upgrade uses new item
-    // * removed item in deployment upgrades - rebind and upgrade uses new item
-    // * removed item in spec fails
-    // * removed item in spec upgrades
-    
 }
