@@ -31,6 +31,7 @@ import java.util.Set;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
@@ -60,16 +61,17 @@ public class BundleUpgradeParser {
      * <ul>
      *   <li>Quoted {@code name:versionRange}, eg {@code "my-tomcat:[0,1)"};
      *       see {@link #MANIFEST_HEADER_FORCE_REMOVE_BUNDLES} for more information
-     *   <li>Comma-separated list of quoted {@code name:versionRange}, eg {@code "my-tomcat:[0,1)","my-nginx:[0,1)"};
-     *       see {@link #MANIFEST_HEADER_FORCE_REMOVE_BUNDLES} for more information
-     *   <li>{@code "*"} means all legacy items for things defined in this bundle, with version
-     *       numbers lower than the version of the bundle. For example, if the bundle is 
-     *       version 1.0.0 and its catalog.bom contains items "foo" and "bar", then it is equivalent
-     *       to writing {@code "foo:[0,1.0.0)","bar:[0,1.0.0)"}.
+     *   <li>{@code *} means all legacy items for things defined in this bundle, with version
+     *       numbers lower than the version of the bundle,
+     *       and quoted {@code *:versionRange} means the indicated version(s) of types in this bundle.
+     *       For example, if the bundle is version 1.0.0 and its catalog.bom contains items "foo" and "bar", then 
+     *       {@code *} is equivalent to writing {@code "foo:[0,1.0.0)","bar:[0,1.0.0)"}.
      *       As per the comments on {@link #MANIFEST_HEADER_FORCE_REMOVE_BUNDLES},
      *       the version of the bundle and items being added by a bundle to replace legacy catalog items
      *       should typically be larger in major/minor/point value,
      *       as a qualifier bump can be quite complex due to ordering differences.  
+     *   <li>Comma-separated list of entries such as the above, eg {@code "my-tomcat:[0,1)","my-nginx:[0,1)"};
+     *       see {@link #MANIFEST_HEADER_FORCE_REMOVE_BUNDLES} for more information
      * </ul>
      */
     @Beta
@@ -95,15 +97,18 @@ public class BundleUpgradeParser {
      *       as described in the "comma-separated list" format below.
      *       This is good anyway because there are different conventions for release names
      *       (e.g. "1.0.0" or "1.0.0.GA" or "1.0.0.2017-12") and any automation here is likely to cause surprises.
-     *   <li>Comma-separated list of quoted {@code name:versionRange}. For example,
+     *   <li>{@code *} as an entry, meaning all lower versions of this bundle,
+     *       or quote {@code *:versionRange}, meaning the given version range on this bundle.
+     *       For example, if the bundle is {@code org.example.mybundle:1.0.0}, 
+     *       then {@code *} is equivalent to writing {@code "org.example.mybundle:[0,1.0.0)"}
+     *       and {@code "*:1-SNAPSHOT"} is equivalent to writing {@code "org.example.mybundle:1-SNAPSHOT"}
+     *       (which when converted to OSGi is equivalent to {@code "org.example.mybundle:1.0.0.SNAPSHOT"})
+     *   <li>Comma-separated list of entries such as the above. For example,
      *       {@code "org.example.mybundle:[0,1)","org.example.myotherbundle:[0,1)"} (useful for
      *       when this bundle merges the contents of two previous bundles), or
-     *       {@code "*","org.example.mybundle:1.0.0.SNAPSHOT","org.example.mybundle:1.0.0.rc1"}
+     *       {@code "*","*:1.0.0.SNAPSHOT","*:1.0.0.rc1"}
      *       when releasing {@code org.example.mybundle:1.0.0.GA} 
-     *       (to replace versions pre 1.0.0 as well as a snapshot and RC1)
-     *   <li>{@code "*"} means all lower versions of this bundle. For example, if the bundle is 
-     *       {@code org.example.mybundle:1.0.0}, then it is equivalent to writing 
-     *       {@code "org.example.mybundle:[0,1.0.0)"}
+     *       (to replace versions pre 1.0.0 as well as a snapshot and an rc1)
      * </ul>
      */
     @Beta
@@ -283,10 +288,16 @@ public class BundleUpgradeParser {
             }
             if (parts.length == 1 || Strings.isBlank(parts[1])) {
                 throw new IllegalArgumentException("Identifier '"+val+"' must be of 'name:versionRange' syntax");
-            } else if (singleVersionIsOsgiRange || (parts[1].startsWith("(") || parts[1].startsWith("["))) {
-                return new VersionRangedName(parts[0], parts[1]);
+            }
+            return new VersionRangedName(parts[0], parts[1], singleVersionIsOsgiRange);
+        }
+
+        protected static String tidyVersionRange(String v, boolean singleVersionIsOsgiRange) {
+            if (v==null) return null;
+            if (singleVersionIsOsgiRange || (v.startsWith("(") || v.startsWith("["))) {
+                return v;
             } else {
-                return new VersionRangedName(parts[0], "["+parts[1]+","+parts[1]+"]");
+                return "["+v+","+v+"]";
             }
         }
 
@@ -295,9 +306,9 @@ public class BundleUpgradeParser {
             this.v = checkNotNull(v, "versionRange").toString();
         }
         
-        private VersionRangedName(String name, String v) {
+        private VersionRangedName(String name, String v, boolean singleVersionIsOsgiRange) {
             this.name = checkNotNull(name, "name");
-            this.v = checkNotNull(v, "versionRange");
+            this.v = tidyVersionRange(checkNotNull(v, "versionRange"), singleVersionIsOsgiRange); 
         }
         
         @Override
@@ -354,38 +365,32 @@ public class BundleUpgradeParser {
     @VisibleForTesting
     static List<VersionRangedName> parseForceRemoveLegacyItemsHeader(String input, Bundle bundle, Supplier<? extends Iterable<? extends RegisteredType>> typeSupplier) {
         if (input == null) return ImmutableList.of();
-        if (stripQuotes(input.trim()).equals("*")) {
-            VersionRange versionRange = VersionRange.valueOf("[0,"+bundle.getVersion()+")");
-            List<VersionRangedName> result = new ArrayList<>();
-            for (RegisteredType item : typeSupplier.get()) {
-                result.add(new VersionRangedName(item.getSymbolicName(), versionRange));
-            }
-            return result;
-        } else {
-            return parseVersionRangedNameList(input, false);
+        List<String> wildcardItems = MutableList.of();
+        for (RegisteredType item : typeSupplier.get()) {
+            wildcardItems.add(item.getSymbolicName());
         }
+        return parseVersionRangedNameList(input, false, wildcardItems, "[0,"+bundle.getVersion()+")");
     }
     
 
     @VisibleForTesting
     static List<VersionRangedName> parseForceRemoveBundlesHeader(String input, Bundle bundle) {
         if (input == null) return ImmutableList.of();
-        if (stripQuotes(input.trim()).equals("*")) {
-            String bundleVersion = bundle.getVersion().toString();
-            String maxVersion;
-            if (BrooklynVersionSyntax.isSnapshot(bundleVersion)) {
-                maxVersion = BrooklynVersionSyntax.stripSnapshot(bundleVersion);
-            } else {
-                maxVersion = bundleVersion;
-            }
-            return ImmutableList.of(new VersionRangedName(bundle.getSymbolicName(), "[0,"+maxVersion+")"));
+        
+        String bundleVersion = bundle.getVersion().toString();
+        String maxVersion;
+        if (BrooklynVersionSyntax.isSnapshot(bundleVersion)) {
+            maxVersion = BrooklynVersionSyntax.stripSnapshot(bundleVersion);
         } else {
-            return parseVersionRangedNameList(input, false);
+            maxVersion = bundleVersion;
         }
+        
+        return parseVersionRangedNameList(input, false, MutableList.of(bundle.getSymbolicName()), "[0,"+maxVersion+")");
     }
     
     @VisibleForTesting
-    static List<VersionRangedName> parseVersionRangedNameList(String input, boolean singleVersionIsOsgiRange) {
+    static List<VersionRangedName> parseVersionRangedNameList(String input, boolean singleVersionIsOsgiRange,
+            List<String> wildcardNames, String wildcardVersion) {
         if (input == null) return ImmutableList.of();
         
         List<String> vals = QuotedStringTokenizer.builder()
@@ -397,7 +402,22 @@ public class BundleUpgradeParser {
         List<VersionRangedName> versionedItems = new ArrayList<>();
         for (String val : vals) {
             try {
-                versionedItems.add(VersionRangedName.fromString(val.trim(), singleVersionIsOsgiRange));
+                val = val.trim();
+                if (val.startsWith("*")) {
+                    String r;
+                    if ("*".equals(val)) {
+                        r = wildcardVersion;
+                    } else if (val.startsWith("*:")) {
+                        r = val.substring(2);
+                    } else {
+                        throw new IllegalArgumentException("Wildcard entry must be of the form \"*\" or \"*:range\"");
+                    }
+                    for (String item: wildcardNames) {
+                        versionedItems.add(new VersionRangedName(item, r, false));
+                    }
+                } else {
+                    versionedItems.add(VersionRangedName.fromString(val, singleVersionIsOsgiRange));
+                }
             } catch (Exception e) {
                 if (Strings.containsAny(val, "(", ")", "[", "]") &&
                         !Strings.containsAny(val, "'", "\"")) {

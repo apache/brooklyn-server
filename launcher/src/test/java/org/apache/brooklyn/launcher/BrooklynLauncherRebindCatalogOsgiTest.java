@@ -44,8 +44,11 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser;
+import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
@@ -53,8 +56,6 @@ import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Identifiers;
-import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.launch.Framework;
 import org.testng.Assert;
@@ -313,6 +314,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         }
         
         // Aled thought we supported version ranges in 'brooklyn.libraries', but doesn't work here.
+        // Alex confirms nope, not supported there yet (2017-10).
         @Test(groups="Broken")
         public void testInstallPreexistingBundleViaInitialBomBrooklynLibrariesReferenceWithVersionRange() throws Exception {
             runInstallPreexistingBundleViaInitialBomBrooklynLibrariesReference(true);
@@ -617,7 +619,6 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
     }
 
     @Test
-    // might change this to fail in future, see RebindIteration.load
     public void testRebindRemovedItemWorksIfJavaClassFound() throws Exception {
         Set<VersionedName> bundleItemsV1 = ImmutableSet.of(VersionedName.fromString("one:1.0.0"));
         String bundleBomV1 = createCatalogYaml(ImmutableList.of(), bundleItemsV1);
@@ -644,6 +645,90 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         Assert.assertEquals(entity.getCatalogItemId(), bundleItemsV1.iterator().next());
     }
     
+    @Test
+    public void testRebindRemovedItemButLeavingJavaSucceeds() throws Exception {
+        File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(true);
+        createAndStartApplication(launcherLast.getManagementContext(), 
+            "services: [ { type: 'simple-entity:1.0.0' } ]");
+        
+        // should start and promote fine, even though original catalog item ID not available
+        
+        // TODO when we switch to loading from type registry types instead of persisted java type (see RebindIteration.load)
+        // T2 startup should fail as the following test currently does, as we didn't allow the type to be upgraded
+        // (but note the following test should then succeed)
+        startT2(newLauncherForTests(initialBomFileV2.getAbsolutePath()));
+        promoteT2IfStandby();
+        
+        Entity entity = Iterables.getOnlyElement( Iterables.getOnlyElement(launcherLast.getManagementContext().getApplications()).getChildren() );
+        // TODO prep should set upgrade types and this should be 2.0.0
+        Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:1.0.0");
+    }
+    @Test
+    public void testRebindRemovedItemIncludingJavaFails() throws Exception {
+        File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(true);
+        createAndStartApplication(launcherLast.getManagementContext(), 
+            "services: [ { type: 'simple-entity:1.0.0' } ]");
+        
+        // should have errors on promotion
+        
+        // TODO when we switch to loading from type registry types instead of persisted java type
+        // T2 startup should succeed as it knows the type is now a BasicEntity
+        startT2(newLauncherForTests(initialBomFileV2.getAbsolutePath()));
+        assertHotStandbyNow(launcherLast, false);
+        Assert.assertFalse( ((ManagementContextInternal)launcherLast.getManagementContext()).errors().isEmpty() );
+        
+        promoteT2IfStandby();
+        assertMasterEventually(launcherLast, false);
+        Assert.assertFalse( ((ManagementContextInternal)launcherLast.getManagementContext()).errors().isEmpty() );
+
+        // entity shouldn't be loaded
+        Asserts.assertSize( launcherLast.getManagementContext().getApplications(), 0 );
+    }
+    
+    private File prepForRebindRemovedItemTestReturningBomV2(boolean removeSourceJavaBundle) throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH);
+        
+        String initialBomV1 = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  brooklyn.libraries:",
+                "    - " + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_URL,
+                "  items:",
+                "    - id: simple-entity",
+                "      item:",
+                "        type: com.example.brooklyn.test.osgi.entities.SimpleEntity");
+        VersionedName bundleNameV1 = new VersionedName("org.example.testRebindGetsInitialOsgiCatalog", "1.0.0");
+        File bundleFileV1 = newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, initialBomV1.getBytes()), bundleNameV1);
+        File initialBomFileV1 = newTmpFile(createCatalogYaml(ImmutableList.of(bundleFileV1.toURI()), ImmutableList.of()));
+
+        String initialBomV2 = Joiner.on("\n").join(
+            "brooklyn.catalog:",
+            "  items:",
+            "    - id: simple-entity",
+            "      item:",
+            "        type: "+BasicEntity.class.getName());
+        VersionedName bundleNameV2 = new VersionedName("org.example.testRebindGetsInitialOsgiCatalog", "2.0.0");
+        File bundleFileV2 = newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, initialBomV2.getBytes()), bundleNameV2,
+            ImmutableMap.of(BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "*"
+                + (removeSourceJavaBundle ? ","+"'"+OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_SYMBOLIC_NAME_FULL+":"+OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_VERSION+"'"
+                    : "")));
+        File initialBomFileV2 = newTmpFile(createCatalogYaml(ImmutableList.of(bundleFileV2.toURI()), ImmutableList.of()));
+
+        startupAssertions = () -> {
+            String v = launcherT2==null ? "1.0.0" : "2.0.0";
+            VersionedName bv = new VersionedName("org.example.testRebindGetsInitialOsgiCatalog", v);
+            VersionedName iv = new VersionedName("simple-entity", v);
+            assertManagedBundle(launcherLast, bv, MutableSet.of(iv));
+            if (launcherT2==null) {
+                assertCatalogConsistsOfIds(launcherLast, MutableList.copyOf(COM_EXAMPLE_BUNDLE_CATALOG_IDS).append(iv));
+            } else {
+                assertCatalogConsistsOfIds(launcherLast, MutableList.of(iv));
+            }
+        };
+        
+        startT1(newLauncherForTests(initialBomFileV1.getAbsolutePath()));
+        return initialBomFileV2;
+    }
+    
     protected void assertPersistedBundleListingEqualsEventually(BrooklynLauncher launcher, Set<VersionedName> bundles) {
         Asserts.succeedsEventually(new Runnable() {
             @Override public void run() {
@@ -661,28 +746,32 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             }});
     }
 
-    protected void assertHotStandbyEventually(BrooklynLauncher launcher) {
-        Asserts.succeedsEventually(new Runnable() {
-            public void run() {
-                assertHotStandbyNow(launcher);
-            }
-        });
-    }
-    
     protected void assertHotStandbyNow(BrooklynLauncher launcher) {
+        assertHotStandbyNow(launcher, true);
+    }
+    protected void assertHotStandbyNow(BrooklynLauncher launcher, boolean assertHealthy) {
         ManagementContext mgmt = launcher.getManagementContext();
         assertTrue(mgmt.isStartupComplete());
         assertTrue(mgmt.isRunning());
         assertEquals(mgmt.getNodeState(), ManagementNodeState.HOT_STANDBY);
+        if (assertHealthy) {
+            Asserts.assertSize(((ManagementContextInternal)mgmt).errors(), 0);
+        }
     }
     
     protected void assertMasterEventually(BrooklynLauncher launcher) {
+        assertMasterEventually(launcher, true);
+    }
+    protected void assertMasterEventually(BrooklynLauncher launcher, boolean assertHealthy) {
         ManagementContext mgmt = launcher.getManagementContext();
         Asserts.succeedsEventually(new Runnable() {
             public void run() {
                 assertTrue(mgmt.isStartupComplete());
                 assertTrue(mgmt.isRunning());
                 assertEquals(mgmt.getNodeState(), ManagementNodeState.MASTER);
+                if (assertHealthy) {
+                    Asserts.assertSize(((ManagementContextInternal)mgmt).errors(), 0);
+                }
             }});
     }
     
@@ -746,7 +835,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         try {
             BrooklynLauncherRebindCatalogOsgiTest fixture = new LauncherRebindSubTests();
             fixture.setUp();
-            fixture.testRebindRemovedItemWorksIfJavaClassFound();
+            fixture.testRebindRemovedItemIncludingJavaFails();
             fixture.tearDown();
         } catch (Exception e) {
             e.printStackTrace();

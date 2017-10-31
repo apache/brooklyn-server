@@ -32,12 +32,14 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.VersionRangedName;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.mockito.Mockito;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.Version;
 import org.osgi.framework.VersionRange;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Supplier;
@@ -113,6 +115,9 @@ public class BundleUpgradeParserTest {
         assertParseForceRemoveBundlesHeader("\"foo:0.1.0\"", bundle, ImmutableList.of(new VersionRangedName("foo", exactly0dot1)));
         assertParseForceRemoveBundlesHeader("\"*\"", bundle, ImmutableList.of(new VersionRangedName("foo.bar", from0lessThan1_2_3)));
         assertParseForceRemoveBundlesHeader("*", bundle, ImmutableList.of(new VersionRangedName("foo.bar", from0lessThan1_2_3)));
+        assertParseForceRemoveBundlesHeader("other:1, '*:[0,1)'", bundle, ImmutableList.of(
+            new VersionRangedName("other", VersionRange.valueOf("[1.0.0,1.0.0]")), 
+            new VersionRangedName("foo.bar", new VersionRange('[', Version.valueOf("0"), Version.valueOf("1"), ')'))));
     }
     
     @Test
@@ -133,6 +138,9 @@ public class BundleUpgradeParserTest {
         assertParseForceRemoveLegacyItemsHeader("\"foo:0.1.0\"", bundle, typeSupplier, ImmutableList.of(new VersionRangedName("foo", exactly0dot1)));
         assertParseForceRemoveLegacyItemsHeader("\"*\"", bundle, typeSupplier, ImmutableList.of(new VersionRangedName("foo", from0lessThan1), new VersionRangedName("bar", from0lessThan1)));
         assertParseForceRemoveLegacyItemsHeader("*", bundle, typeSupplier, ImmutableList.of(new VersionRangedName("foo", from0lessThan1), new VersionRangedName("bar", from0lessThan1)));
+        assertParseForceRemoveLegacyItemsHeader("*:1.0.0.SNAPSHOT, \"foo:[0.1,1)", bundle, typeSupplier, 
+            ImmutableList.of(new VersionRangedName("foo", VersionRange.valueOf("[1.0.0.SNAPSHOT,1.0.0.SNAPSHOT]")), new VersionRangedName("bar", VersionRange.valueOf("[1.0.0.SNAPSHOT,1.0.0.SNAPSHOT]")), 
+                new VersionRangedName("foo", VersionRange.valueOf("[0.1,1)"))));
     }
     
     @Test
@@ -247,7 +255,7 @@ public class BundleUpgradeParserTest {
     }
     
     private void assertParseList(String input, List<VersionRangedName> expected) throws Exception {
-        List<VersionRangedName> actual = BundleUpgradeParser.parseVersionRangedNameList(input, false);
+        List<VersionRangedName> actual = BundleUpgradeParser.parseVersionRangedNameList(input, false, MutableList.of("WILCARD-NAME"), "0-WILDCARD_VERSION");
         assertListsEqual(actual, expected);
     }
     
