@@ -370,6 +370,10 @@ public class BundleUpgradeParser {
                 // item found (or n/a), prefer that to upgrade
                 return vName;
             }
+            // callers should use BrooklynTags.newUpgradedFromTag if creating a spec,
+            // then warn on instantiation, done only for entities currently.
+            // (yoml will allow us to have one code path for all the different creation routines.)
+            // persistence/rebind also warns.
             return getItemUpgradedIfNecessary(mgmt, vName, (cu,vn) -> cu.getUpgradesForType(vn));
         }
         
@@ -380,14 +384,19 @@ public class BundleUpgradeParser {
             Set<VersionedName> r = lookupF.lookup(getFromManagementContext(mgmt), VersionedName.fromString(vName));
             if (!r.isEmpty()) return r.iterator().next().toString();
             
-            log.warn("Could not find '"+vName+"' and no upgrades specified; subsequent failure or warning likely");
+            if (log.isTraceEnabled()) {
+                log.trace("Could not find '"+vName+"' and no upgrades specified; subsequent failure or warning possible unless that is a direct java class reference");
+            }
             return vName;
         }
         
         /** This method is used internally to mark places we need to update when we switch to persisting and loading
          *  registered type IDs instead of java types, as noted on RebindIteration.load */
         @Beta
-        public static void markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType() {}
+        public static boolean markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType() {
+            // return true if we use registered types, and update callers not to need this method
+            return false;
+        }
         
         @Beta
         CatalogUpgrades withTypeCleared(VersionedName versionedName) {

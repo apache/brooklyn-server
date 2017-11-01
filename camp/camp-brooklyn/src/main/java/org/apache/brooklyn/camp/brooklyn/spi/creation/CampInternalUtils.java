@@ -53,6 +53,7 @@ import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog.BrooklynLoaderTracker;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.entity.stock.BasicApplicationImpl;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -240,7 +241,8 @@ class CampInternalUtils {
             Set<String> encounteredCatalogTypes) {
         
         PolicySpec<? extends Policy> spec;
-        RegisteredType item = loader.getManagementContext().getTypeRegistry().get(versionedId);
+        RegisteredType item = loader.getManagementContext().getTypeRegistry().get(
+            CatalogUpgrades.getTypeUpgradedIfNecessary(loader.getManagementContext(), versionedId));
         if (item != null && !encounteredCatalogTypes.contains(item.getSymbolicName())) {
             RegisteredTypeLoadingContext context = RegisteredTypeLoadingContexts.alreadyEncountered(encounteredCatalogTypes);
             return loader.getManagementContext().getTypeRegistry().createSpec(item, context, PolicySpec.class);
@@ -258,7 +260,8 @@ class CampInternalUtils {
             Set<String> encounteredCatalogTypes) {
 
         EnricherSpec<? extends Enricher> spec;
-        RegisteredType item = loader.getManagementContext().getTypeRegistry().get(versionedId);
+        RegisteredType item = loader.getManagementContext().getTypeRegistry().get(
+            CatalogUpgrades.getTypeUpgradedIfNecessary(loader.getManagementContext(), versionedId));
         if (item != null && !encounteredCatalogTypes.contains(item.getSymbolicName())) {
             RegisteredTypeLoadingContext context = RegisteredTypeLoadingContexts.alreadyEncountered(encounteredCatalogTypes);
             return loader.getManagementContext().getTypeRegistry().createSpec(item, context, EnricherSpec.class);

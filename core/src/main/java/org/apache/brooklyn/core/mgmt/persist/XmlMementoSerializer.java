@@ -56,17 +56,20 @@ import org.apache.brooklyn.core.mgmt.rebind.dto.BasicLocationMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicManagedBundleMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicPolicyMemento;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.util.core.xstream.XmlSerializer;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Objects;
 import com.thoughtworks.xstream.converters.Converter;
 import com.thoughtworks.xstream.converters.MarshallingContext;
 import com.thoughtworks.xstream.converters.SingleValueConverter;
 import com.thoughtworks.xstream.converters.UnmarshallingContext;
 import com.thoughtworks.xstream.converters.reflection.ReflectionConverter;
+import com.thoughtworks.xstream.core.ReferenceByXPathUnmarshaller;
 import com.thoughtworks.xstream.core.ReferencingMarshallingContext;
 import com.thoughtworks.xstream.io.HierarchicalStreamReader;
 import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
@@ -446,10 +449,20 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
                 if (Strings.isNonBlank(catalogItemId)) {
                     if (lookupContext==null) throw new NullPointerException("lookupContext required to load catalog item "+catalogItemId);
                     RegisteredType cat = lookupContext.lookupManagementContext().getTypeRegistry().get(catalogItemId);
+                    if (cat==null) {
+                        String upgradedItemId = CatalogUpgrades.getTypeUpgradedIfNecessary(lookupContext.lookupManagementContext(), catalogItemId);
+                        if (!Objects.equal(catalogItemId, upgradedItemId)) {
+                            // TODO would be nice to know where we're reading but that isn't exposed; could set a thread local
+                            // and then we could provide useful logging info
+                            cat = lookupContext.lookupManagementContext().getTypeRegistry().get(upgradedItemId);
+                        }
+                    }
                     if (cat==null) throw new NoSuchElementException("catalog item: "+catalogItemId);
                     BrooklynClassLoadingContext clcNew = CatalogUtils.newClassLoadingContext(lookupContext.lookupManagementContext(), cat);
                     delegatingClassLoader.pushClassLoadingContext(clcNew);
                     customLoaderSet = true;
+                    
+                    CatalogUpgrades.markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType();
                 }
                 
                 AbstractBrooklynObjectSpec<?, ?> result = (AbstractBrooklynObjectSpec<?, ?>) super.unmarshal(reader, context);

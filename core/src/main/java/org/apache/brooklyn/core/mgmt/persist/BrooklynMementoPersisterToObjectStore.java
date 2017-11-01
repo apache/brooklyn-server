@@ -424,7 +424,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                                 builder.catalogItem(memento);
                             }
                         } catch (Exception e) {
-                            exceptionHandler.onLoadMementoFailed(type, "memento "+objectId+" early catalog deserialization error", e);
+                            exceptionHandler.onLoadMementoFailed(type, "catalog memento "+objectId+" early catalog deserialization error", e);
                         }
                         break;
                     case MANAGED_BUNDLE:
@@ -433,7 +433,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                             builder.bundle( memento );
                             memento.setJarContent(mementoData.getBundleJars().get(objectId));
                         } catch (Exception e) {
-                            exceptionHandler.onLoadMementoFailed(type, "memento "+objectId+" early catalog deserialization error", e);
+                            exceptionHandler.onLoadMementoFailed(type, "bundle memento "+objectId+" early catalog deserialization error", e);
                         }
                         break;
                         
@@ -483,7 +483,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                         builder.memento(memento);
                     }
                 } catch (Exception e) {
-                    exceptionHandler.onLoadMementoFailed(type, "memento "+objectId+" deserialization error", e);
+                    exceptionHandler.onLoadMementoFailed(type, "memento "+objectId+" ("+type+") deserialization error", e);
                 }
             }
 

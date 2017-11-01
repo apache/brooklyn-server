@@ -990,8 +990,7 @@ public abstract class RebindIteration {
                     if (t1==null) {
                         String newSearchItemId = CatalogUpgrades.getTypeUpgradedIfNecessary(managementContext, searchItemId);
                         if (!newSearchItemId.equals(searchItemId)) {
-                            // TODO make debug
-                            logRebindingInfo("Upgrading search path entry of "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+" from "+searchItemId+" to "+newSearchItemId);
+                            logRebindingDebug("Upgrading search path entry of "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+" from "+searchItemId+" to "+newSearchItemId);
                             searchItemId = newSearchItemId;
                             t1 = managementContext.getTypeRegistry().get(newSearchItemId);
                         }
@@ -1018,24 +1017,28 @@ public abstract class RebindIteration {
             if (catalogItemId != null) {
                 String transformedCatalogItemId = null;
                 
-                Maybe<RegisteredType> registeredType = managementContext.getTypeRegistry().getMaybe(catalogItemId,
-                    // ignore bType; catalog item ID gives us the search path, but doesn't need to be of the requested type
+                Maybe<RegisteredType> contextRegisteredType = managementContext.getTypeRegistry().getMaybe(catalogItemId,
+                    // this is context RT, not item we are loading, so bType does not apply here
+                    // if we were instantiating from an RT instead of a JT (ideal) then we would use bType to filter
                     null );
-                if (registeredType.isAbsent()) {
+                if (contextRegisteredType.isAbsent()) {
                     transformedCatalogItemId = CatalogUpgrades.getTypeUpgradedIfNecessary(managementContext, catalogItemId);
                     if (!transformedCatalogItemId.equals(catalogItemId)) {
-                        logRebindingInfo("Upgrading catalog item ID of "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+" from "+catalogItemId+" to "+transformedCatalogItemId);
+                        // catalog item id is sometimes the type of the item, but sometimes just the first part of the search path
+                        logRebindingInfo("Upgrading "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+
+                            " stored catalog item context on rebind"+
+                            " from "+catalogItemId+" to "+transformedCatalogItemId);
                         
-                        // as above
-                        registeredType = managementContext.getTypeRegistry().getMaybe(transformedCatalogItemId, null);
+                        // again ignore bType
+                        contextRegisteredType = managementContext.getTypeRegistry().getMaybe(transformedCatalogItemId, null);
                         
                     } else {
                         transformedCatalogItemId = null;
                     }
                 }
                 
-                if (registeredType.isPresent()) {
-                    transformedCatalogItemId = registeredType.get().getId();
+                if (contextRegisteredType.isPresent()) {
+                    transformedCatalogItemId = contextRegisteredType.get().getId();
                 } else {
                     CatalogItem<?, ?> catalogItem = findCatalogItemInReboundCatalog(bType, catalogItemId, contextSuchAsId);
                     if (catalogItem != null) {

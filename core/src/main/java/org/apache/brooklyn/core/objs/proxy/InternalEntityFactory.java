@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -45,6 +46,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -180,6 +182,11 @@ public class InternalEntityFactory extends InternalFactory {
             T entity = constructEntity(clazz, spec, entityId);
             
             loadUnitializedEntity(entity, spec);
+            
+            List<NamedStringTag> upgradedFrom = BrooklynTags.findAll(BrooklynTags.UPGRADED_FROM, spec.getTags());
+            if (!upgradedFrom.isEmpty()) {
+                log.warn("Entity "+entity.getId()+" created with upgraded type "+entity.getCatalogItemId()+" "+upgradedFrom+" (in "+entity.getApplicationId()+", under "+entity.getParent()+")");
+            }
 
             entitiesByEntityId.put(entity.getId(), entity);
             specsByEntityId.put(entity.getId(), spec);

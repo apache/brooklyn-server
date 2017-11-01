@@ -24,17 +24,20 @@ import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.BrooklynVersion;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.LoaderDispatcher.ClassLoaderDispatcher;
 import org.apache.brooklyn.util.core.LoaderDispatcher.MultipleResourceLoaderDispatcher;
@@ -42,6 +45,7 @@ import org.apache.brooklyn.util.core.LoaderDispatcher.ResourceLoaderDispatcher;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
@@ -53,6 +57,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 
@@ -325,8 +330,18 @@ public class ClassLoaderUtils {
                 .version(version)
                 .find();
             if (bundle.isAbsent()) {
-                throw new IllegalStateException("Bundle " + toBundleString(symbolicName, version)
-                    + " not found to load " + name);
+                String requestedV = symbolicName+":"+(Strings.isBlank(version) ? BrooklynCatalog.DEFAULT_VERSION : version);
+                String upgradedV = CatalogUpgrades.getBundleUpgradedIfNecessary(mgmt, requestedV);
+                if (!Objects.equal(upgradedV, requestedV)) {
+                    log.debug("Upgraded access to bundle "+requestedV+" for loading "+name+" to use bundle "+upgradedV);
+                    bundle = Osgis.bundleFinder(framework)
+                        .id(upgradedV)
+                        .find();
+                }
+                if (bundle.isAbsent()) {
+                    throw new IllegalStateException("Bundle " + toBundleString(symbolicName, version)
+                        + " not found to load " + name);
+                }
             }
             return dispatcher.tryLoadFrom(bundle.get(), name);
         } else {
