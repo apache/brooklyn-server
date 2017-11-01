@@ -703,7 +703,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             "        type: "+BasicEntity.class.getName());
         VersionedName bundleNameV2 = new VersionedName("org.example.testRebindGetsInitialOsgiCatalog", "2.0.0");
         Map<String,String> headers = MutableMap.of(
-            BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "*"
+                BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "*"
                 + (removeSourceJavaBundle ? ","+"'"+OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_SYMBOLIC_NAME_FULL+":"+OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_VERSION+"'"
                     : ""));
         if (upgradeEntity) {
@@ -729,7 +729,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
     }
     
     @Test
-    public void testRebindUpgradeEntity() throws Exception {
+    public void testRebindUpgradeDeployedEntity() throws Exception {
         File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(false, true);
         createAndStartApplication(launcherLast.getManagementContext(), 
             "services: [ { type: 'simple-entity:1' } ]");
@@ -740,10 +740,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         Entity entity = Iterables.getOnlyElement( Iterables.getOnlyElement(launcherLast.getManagementContext().getApplications()).getChildren() );
         
         // assert it was updated
-        
-        Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:1.0.0");
-        // TODO when upgrades work at level of catalog item ID and bundle ID, do below instead of above
-//        Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:2.0.0");
+        Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:2.0.0");
         
         Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), "com.example.brooklyn.test.osgi.entities.SimpleEntityImpl");
         // TODO when registered types are used to create, instead of java type,
@@ -751,8 +748,29 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
 //        Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), BasicEntityImpl.class.getName());
     }
     
+//    @Test
+//    // TODO add to catalog a 'references-simple-entity' which references simple-entity:1
+//    public void testRebindUpgradeReferencedEntityFromCatalogAndDeployment() throws Exception {
+//        File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(false, true);
+//        createAndStartApplication(launcherLast.getManagementContext(), 
+//            "services: [ { type: references-simple-entity } ]");
+//        
+//        startT2(newLauncherForTests(initialBomFileV2.getAbsolutePath()));
+//        promoteT2IfStandby();
+//        
+//        Entity entity = Iterables.getOnlyElement( Iterables.getOnlyElement(launcherLast.getManagementContext().getApplications()).getChildren() );
+//        
+//        // assert it was updated
+//        Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:2.0.0");
+//        
+//        Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), "com.example.brooklyn.test.osgi.entities.SimpleEntityImpl");
+//        // TODO when registered types are used to create, instead of java type,
+//        // upgrade should cause the line below instead of the line above (see RebindIteration.load)
+////        Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), BasicEntityImpl.class.getName());
+//    }
+    
     @Test(groups="WIP")
-    public void testRebindUpgradeSpec() throws Exception {
+    public void testRebindUpgradeSpecInDeployedApp() throws Exception {
         File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(true, true);
         Application app = createAndStartApplication(launcherLast.getManagementContext(), 
             Joiner.on("\n").join(
@@ -775,10 +793,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         Entity entity = Iterables.getOnlyElement( ((DynamicCluster)cluster).getMembers() );
         
         // assert it uses the new spec
-        
-        Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:1.0.0");
-        // TODO when upgrades work at level of catalog item ID and bundle ID, do below instead of above
-//        Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:2.0.0");
+        Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:2.0.0");
         
         Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), "com.example.brooklyn.test.osgi.entities.SimpleEntityImpl");
         // TODO when registered types are used to create, instead of java type,
@@ -887,7 +902,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         try {
             BrooklynLauncherRebindCatalogOsgiTest fixture = new LauncherRebindSubTests();
             fixture.setUp();
-            fixture.testRebindUpgradeEntity();
+            fixture.testRebindUpgradeDeployedEntity();
             fixture.tearDown();
         } catch (Throwable e) {
             e.printStackTrace();

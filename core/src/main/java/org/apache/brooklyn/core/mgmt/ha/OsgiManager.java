@@ -49,6 +49,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -453,6 +454,7 @@ public class OsgiManager {
                 log.warn("Error uninstalling catalog items of "+bundleMetadata+": "+e);
                 errors.add(e);
             }
+            CatalogUpgrades.clearBundleInStoredUpgrades(mgmt, bundleMetadata.getVersionedName());
             
             if (!managedBundlesRecord.remove(bundleMetadata)) {
                 Exception e = new IllegalStateException("No such bundle registered with Brooklyn when uninstalling: "+bundleMetadata);

@@ -27,6 +27,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
@@ -34,15 +35,20 @@ import javax.annotation.Nonnull;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.osgi.VersionedName.VersionedNameComparator;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.VersionRange;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
@@ -60,6 +66,8 @@ import com.google.common.collect.Multimap;
  */
 public class BundleUpgradeParser {
 
+    private static final Logger log = LoggerFactory.getLogger(BundleUpgradeParser.class);
+    
     /**
      * A header in a bundle's manifest, indicating that this bundle will force the removal of the 
      * given legacy catalog items. Here "legacy" means those in the `/catalog` persisted state, 
@@ -183,8 +191,11 @@ public class BundleUpgradeParser {
      * It is an error to omit a version/range if that header is not present or does not declare versions
      * of the same bundle being upgraded.  
      * 
-     * If this key is omitted, then the default is {@code *} if a {@link #MANIFEST_HEADER_UPGRADE_FOR_BUNDLES} header
-     * is present and empty if that header is not present.
+     * If this key is omitted but a {@link #MANIFEST_HEADER_UPGRADE_FOR_BUNDLES} header is present defining 
+     * versions of the containing bundle that are upgraded, then the default is {@code *} to give the common semantics
+     * when a bundle is upgrading previous versions that types similarly upgrade.  If that header is absent or
+     * this bundle is an upgrade for other bundles but not this bundle, then this key must be specified if
+     * any types are intended to be upgraded.
      * 
      * What this is saying in most cases is that if a bundle {@code foo:1} contains {@code foo-node:1}, and 
      * bundle {@code foo:2} contains {@code foo-node:2}, then:
@@ -237,6 +248,15 @@ public class BundleUpgradeParser {
             }
             public CatalogUpgrades build() {
                 return new CatalogUpgrades(this);
+            }
+            
+            public Builder clearUpgradesProvidedByType(VersionedName versionedName) {
+                upgradesProvidedByTypes.removeAll(versionedName);
+                return this;
+            }
+            public Builder clearUpgradesProvidedByBundle(VersionedName versionedName) {
+                upgradesProvidedByBundles.removeAll(versionedName);
+                return this;
             }
         }
         
@@ -291,10 +311,10 @@ public class BundleUpgradeParser {
         public Set<VersionedName> getUpgradesForType(VersionedName type) {
             return findUpgradesIn(type, upgradesProvidedByTypes);
         }
-        private static Set<VersionedName> findUpgradesIn(VersionedName bundle, Multimap<VersionedName,VersionRangedName> upgradesMap) {
-            Set<VersionedName> result = MutableSet.of();
+        private static Set<VersionedName> findUpgradesIn(VersionedName item, Multimap<VersionedName,VersionRangedName> upgradesMap) {
+            Set<VersionedName> result = new TreeSet<>(VersionedNameComparator.INSTANCE);
             for (Map.Entry<VersionedName,VersionRangedName> n: upgradesMap.entries()) {
-                if (contains(n.getValue(), bundle)) {
+                if (contains(n.getValue(), item)) {
                     result.add(n.getKey());
                 }
             }
@@ -328,6 +348,67 @@ public class BundleUpgradeParser {
                 return result;
             }
             return builder().build();
+        }
+
+        @Beta
+        public static String getBundleUpgradedIfNecessary(ManagementContext mgmt, String vName) {
+            if (vName==null) return null;
+            Maybe<OsgiManager> osgi = ((ManagementContextInternal)mgmt).getOsgiManager();
+            if (osgi.isAbsent()) {
+                // ignore upgrades if not osgi
+                return vName;
+            }
+            if (osgi.get().getManagedBundle(VersionedName.fromString(vName))!=null) {
+                // bundle installed, prefer that to upgrade 
+                return vName;
+            }
+            return getItemUpgradedIfNecessary(mgmt, vName, (cu,vn) -> cu.getUpgradesForBundle(vn));
+        }
+        @Beta
+        public static String getTypeUpgradedIfNecessary(ManagementContext mgmt, String vName) {
+            if (vName==null || mgmt.getTypeRegistry().get(vName)!=null) {
+                // item found (or n/a), prefer that to upgrade
+                return vName;
+            }
+            return getItemUpgradedIfNecessary(mgmt, vName, (cu,vn) -> cu.getUpgradesForType(vn));
+        }
+        
+        private interface LookupFunction {
+            public Set<VersionedName> lookup(CatalogUpgrades cu, VersionedName vn);
+        }
+        private static String getItemUpgradedIfNecessary(ManagementContext mgmt, String vName, LookupFunction lookupF) {
+            Set<VersionedName> r = lookupF.lookup(getFromManagementContext(mgmt), VersionedName.fromString(vName));
+            if (!r.isEmpty()) return r.iterator().next().toString();
+            
+            log.warn("Could not find '"+vName+"' and no upgrades specified; subsequent failure or warning likely");
+            return vName;
+        }
+        
+        /** This method is used internally to mark places we need to update when we switch to persisting and loading
+         *  registered type IDs instead of java types, as noted on RebindIteration.load */
+        @Beta
+        public static void markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType() {}
+        
+        @Beta
+        CatalogUpgrades withTypeCleared(VersionedName versionedName) {
+            return builder().addAll(this).clearUpgradesProvidedByType(versionedName).build();
+        }
+        @Beta
+        CatalogUpgrades withBundleCleared(VersionedName versionedName) {
+            return builder().addAll(this).clearUpgradesProvidedByType(versionedName).build();
+        }
+
+        @Beta
+        public static void clearTypeInStoredUpgrades(ManagementContext mgmt, VersionedName versionedName) {
+            synchronized (mgmt.getTypeRegistry()) {
+                storeInManagementContext(getFromManagementContext(mgmt).withTypeCleared(versionedName), mgmt);
+            }
+        }
+        @Beta
+        public static void clearBundleInStoredUpgrades(ManagementContext mgmt, VersionedName versionedName) {
+            synchronized (mgmt.getTypeRegistry()) {
+                storeInManagementContext(getFromManagementContext(mgmt).withBundleCleared(versionedName), mgmt);
+            }
         }
     }
     
@@ -469,6 +550,9 @@ public class BundleUpgradeParser {
         }
         Set<VersionedName> typeSupplierNames = MutableList.copyOf(typeSupplier.get()).stream().map(
             (t) -> VersionedName.toOsgiVersionedName(t.getVersionedName())).collect(Collectors.toSet());
+        if (input==null && sourceVersions!=null && !sourceVersions.isEmpty()) {
+            input = "*";
+        }
         return parseVersionRangedNameEqualsVersionedNameList(input, false,
             // wildcard means all types, all versions of this bundle this bundle replaces
             getTypeNamesInBundle(typeSupplier), sourceVersions,
