@@ -47,6 +47,7 @@ import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.cli.AbstractMain.BrooklynCommand;
 import org.apache.brooklyn.cli.AbstractMain.BrooklynCommandCollectingArgs;
 import org.apache.brooklyn.cli.AbstractMain.DefaultInfoCommand;
@@ -54,7 +55,6 @@ import org.apache.brooklyn.cli.AbstractMain.HelpCommand;
 import org.apache.brooklyn.cli.Main.AppShutdownHandler;
 import org.apache.brooklyn.cli.Main.GeneratePasswordCommand;
 import org.apache.brooklyn.cli.Main.LaunchCommand;
-import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.AbstractApplication;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
@@ -456,6 +456,7 @@ public class CliTest {
                         @Override
                         public void run() {
                             assertTrue(mgmt.isStartupComplete());
+                            assertEquals(mgmt.getNodeState(), ManagementNodeState.MASTER);
                         }});
                 }
             });

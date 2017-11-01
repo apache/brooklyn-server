@@ -41,15 +41,22 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
+import org.apache.brooklyn.api.entity.Application;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
+import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -112,7 +119,8 @@ public abstract class AbstractBrooklynLauncherRebindTest {
     }
     
     protected BrooklynLauncher newLauncherForTests() {
-        return newLauncherForTests(PersistMode.AUTO, HighAvailabilityMode.DISABLED);
+        return newLauncherForTests(PersistMode.AUTO, HighAvailabilityMode.DISABLED)
+            .globalBrooklynPropertiesFile(null);
     }
     
     protected BrooklynLauncher newLauncherForTests(PersistMode persistMode, HighAvailabilityMode haMode) {
@@ -214,7 +222,7 @@ public abstract class AbstractBrooklynLauncherRebindTest {
     }
     
     protected void assertManagedBundle(BrooklynLauncher launcher, VersionedName bundleId, Set<VersionedName> expectedCatalogItems) {
-        assertNotNull(findManagedBundle(launcher, bundleId), bundleId+" not found");
+        assertNotNull(findManagedBundle(launcher, bundleId), "Bundle "+bundleId+" not found");
         
         Set<VersionedName> actualCatalogItems = new LinkedHashSet<>();
         Iterable<RegisteredType> types = launcher.getManagementContext().getTypeRegistry().getAll();
@@ -402,4 +410,13 @@ public abstract class AbstractBrooklynLauncherRebindTest {
             launcher.terminate();
         }
     }
+    
+    public static Application createAndStartApplication(ManagementContext mgmt, String input) throws Exception {
+        EntitySpec<?> spec = 
+            mgmt.getTypeRegistry().createSpecFromPlan(CampTypePlanTransformer.FORMAT, input, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
+        final Entity app = mgmt.getEntityManager().createEntity(spec);
+        app.invoke(Startable.START, MutableMap.of()).get();
+        return (Application) app;
+    }
+
 }

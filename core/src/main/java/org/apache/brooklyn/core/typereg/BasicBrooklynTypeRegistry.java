@@ -43,6 +43,7 @@ import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.RegisteredTypes.RegisteredTypeNameThenBestFirstComparator;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -93,9 +94,10 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     
     private Iterable<RegisteredType> getAllWithoutCatalog(Predicate<? super RegisteredType> filter) {
         // TODO optimisation? make indexes and look up?
+        Ordering<RegisteredType> typeOrder = Ordering.from(RegisteredTypeNameThenBestFirstComparator.INSTANCE);
         return Locks.withLock(localRegistryLock.readLock(), 
             () -> localRegisteredTypesAndContainingBundles.values().stream().
-                flatMap(m -> m.values().stream()).filter(filter::apply).collect(Collectors.toList()) );
+                flatMap(m -> { return typeOrder.sortedCopy(m.values()).stream(); }).filter(filter::apply).collect(Collectors.toList()) );
     }
 
     private Maybe<RegisteredType> getExactWithoutLegacyCatalog(String symbolicName, String version, RegisteredTypeLoadingContext constraint) {
@@ -109,7 +111,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
         if (m.isEmpty()) return null;
         if (m.size()==1) return m.values().iterator().next();
         // get the highest version of first alphabetical - to have a canonical order
-        return m.get( Ordering.from(VersionedNameStringComparator.INSTANCE).max(m.keySet()) );
+        return m.get( Ordering.from(VersionedNameStringComparator.INSTANCE).min(m.keySet()) );
     }
 
     @SuppressWarnings("deprecation")
@@ -141,7 +143,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
         return result;
     }
 
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings({ "deprecation", "unchecked" })
     private Maybe<RegisteredType> getSingle(String symbolicNameOrAliasIfNoVersion, final String versionFinal, final RegisteredTypeLoadingContext contextFinal) {
         RegisteredTypeLoadingContext context = contextFinal;
         if (context==null) context = RegisteredTypeLoadingContexts.any();
@@ -154,32 +156,44 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
             Maybe<RegisteredType> type = getExactWithoutLegacyCatalog(symbolicNameOrAliasIfNoVersion, version, context);
             if (type.isPresent()) return type;
         }
+        
+        Predicate<RegisteredType> versionCheck;
 
         if (BrooklynCatalog.DEFAULT_VERSION.equals(version)) {
-            // alternate code path, if version blank or default
-            
-            Iterable<RegisteredType> types = getMatching(Predicates.and(RegisteredTypePredicates.symbolicName(symbolicNameOrAliasIfNoVersion), 
-                RegisteredTypePredicates.satisfies(context)));
-            if (Iterables.isEmpty(types)) {
-                // look for alias if no exact symbolic name match AND no version is specified
-                types = getMatching(Predicates.and(RegisteredTypePredicates.alias(symbolicNameOrAliasIfNoVersion), 
-                    RegisteredTypePredicates.satisfies(context) ) );
-                // if there are multiple symbolic names then throw?
-                Set<String> uniqueSymbolicNames = MutableSet.of();
-                for (RegisteredType t: types) {
-                    uniqueSymbolicNames.add(t.getSymbolicName());
-                }
-                if (uniqueSymbolicNames.size()>1) {
-                    String message = "Multiple matches found for alias '"+symbolicNameOrAliasIfNoVersion+"': "+uniqueSymbolicNames+"; "
-                        + "refusing to select any.";
-                    log.warn(message);
-                    return Maybe.absent(message);
-                }
+            // if version blank or default
+            versionCheck = Predicates.alwaysTrue();
+        } else {
+            // didn't find exact so will search against osgi version
+            versionCheck = RegisteredTypePredicates.versionOsgi(version);
+        }
+        
+        Iterable<RegisteredType> types = getMatching(Predicates.and(
+            RegisteredTypePredicates.symbolicName(symbolicNameOrAliasIfNoVersion),
+            versionCheck,
+            RegisteredTypePredicates.satisfies(context)));
+        
+        if (Iterables.isEmpty(types)) {
+            // look for alias if no exact symbolic name match AND no version is specified
+            types = getMatching(Predicates.and(
+                RegisteredTypePredicates.alias(symbolicNameOrAliasIfNoVersion),
+                versionCheck,
+                RegisteredTypePredicates.satisfies(context) ) );
+            // if there are multiple symbolic names then throw?
+            Set<String> uniqueSymbolicNames = MutableSet.of();
+            for (RegisteredType t: types) {
+                uniqueSymbolicNames.add(t.getSymbolicName());
             }
-            if (!Iterables.isEmpty(types)) {
-                RegisteredType type = RegisteredTypes.getBestVersion(types);
-                if (type!=null) return Maybe.of(type);
+            if (uniqueSymbolicNames.size()>1) {
+                String message = "Multiple matches found for alias '"+symbolicNameOrAliasIfNoVersion+"': "+uniqueSymbolicNames+"; "
+                    + "refusing to select any.";
+                log.warn(message);
+                return Maybe.absent(message);
             }
+        }
+        
+        if (!Iterables.isEmpty(types)) {
+            RegisteredType type = RegisteredTypes.getBestVersion(types);
+            if (type!=null) return Maybe.of(type);
         }
         
         // missing case is to look for exact version in legacy catalog
@@ -422,6 +436,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                             oldContainingBundlesToRemove.add(existingT.getContainingBundle());
                         }
                         if (canForce) {
+                            // may be forcing because of internal type validation, or of course user flag
                             log.debug("Addition of "+type+" to replace "+existingT+" allowed because force is on");
                             continue;
                         }
@@ -612,6 +627,11 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     @Beta // API stabilising
     public void delete(String id) {
         delete(VersionedName.fromString(id));
+    }
+
+    /** Deletes all items, for use when resetting management context */
+    public void clear() {
+        Locks.withLock(localRegistryLock.writeLock(), () -> localRegisteredTypesAndContainingBundles.clear());
     }
     
 }

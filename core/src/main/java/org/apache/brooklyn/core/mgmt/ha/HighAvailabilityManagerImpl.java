@@ -62,11 +62,11 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.internal.ManagementTransitionMode;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils.CreateBackupMode;
-import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceActivityMetrics;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.mgmt.usage.ManagementNodeStateListener;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
+import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
@@ -868,6 +868,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
                 LOG.warn("Problem in promption-listener (continuing)", e);
             }
         }
+        ((LocalManagementContext)managementContext).noteStartupTransitioning();
         setInternalNodeState(ManagementNodeState.MASTER);
         publishPromotionToMaster();
         try {
@@ -878,6 +879,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
             throw Exceptions.propagate(e);
         }
         managementContext.getRebindManager().start();
+        ((LocalManagementContext)managementContext).noteStartupComplete();
     }
     
     protected void backupOnDemotionIfNeeded() {
@@ -938,12 +940,15 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     /** 
      * Clears all managed items from the management context.
      * 
-     * The same items are destroyed as in the course of a rebind cycle, except for clearBrooklynManagedBundles.
-     * That last operation could be expensive (causing bundles to be installed again). Therefore we only do it
-     * when we stop being a hotProxy or when we are demoted (e.g. during the periodic rebind as hot_stanby
-     * we will not repeatedly clear the brooklyn-managed-bundles).
+     * The same items are destroyed as in the course of a rebind cycle, with the addition of bundles/types
+     * which is comparatively more expensive, so we only do it when we stop being a hotProxy or when we are demoted 
+     * (e.g. during the periodic rebind as hot_stanby we will not repeatedly clear the brooklyn-managed-bundles).
      */
     protected void clearManagedItems(ManagementTransitionMode mode) {
+        // log this because it may be surprising, it is just HA transitions,
+        // not symmetric with usual single-node start
+        LOG.info("Clearing all managed items on transition to "+mode);
+        
         // start with the root applications
         for (Application app: managementContext.getApplications()) {
             if (((EntityInternal)app).getManagementSupport().isDeployed()) {
@@ -966,7 +971,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         }
         
         ((BasicBrooklynCatalog)managementContext.getCatalog()).reset(CatalogDto.newEmptyInstance("<reset-by-ha-status-change>"));
-        
+        ((BasicBrooklynTypeRegistry)managementContext.getTypeRegistry()).clear();
         managementContext.getCatalogInitialization().clearBrooklynManagedBundles();
     }
     

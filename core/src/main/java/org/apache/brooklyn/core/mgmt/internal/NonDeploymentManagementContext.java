@@ -67,7 +67,6 @@ import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
-import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.usage.UsageManager;
 import org.apache.brooklyn.core.objs.proxy.InternalEntityFactory;
 import org.apache.brooklyn.core.objs.proxy.InternalLocationFactory;
@@ -173,12 +172,14 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
     
     @Override
     public boolean isStartupComplete() {
-        // This mgmt context is only used by items who are not yet fully started.
-        // It's slightly misleading as this does not refer to the main mgmt context.
-        // OTOH it probably won't be used.  TBC.  -Alex, Apr 2015
         return false;
     }
 
+    @Override
+    public ManagementNodeState getNodeState() {
+        return ManagementNodeState.INITIALIZING;
+    }
+    
     @Override
     public InternalEntityFactory getEntityFactory() {
         checkInitialManagementContextReal();

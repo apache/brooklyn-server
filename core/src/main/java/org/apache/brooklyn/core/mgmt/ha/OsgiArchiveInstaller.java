@@ -40,8 +40,10 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
+import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
@@ -616,6 +618,12 @@ class OsgiArchiveInstaller {
                         } catch (Exception e) {
                             // unable to install new items; rollback bundles
                             // and reload replaced items
+
+                            if (CatalogInitialization.isRebindReadOnlyShuttingDown(osgiManager.mgmt)) {
+                                // very likely when RO mode interrupted - ignore
+                                throw Exceptions.propagate(e);
+                            }
+                            
                             log.warn("Error adding Brooklyn items from bundle "+result.getVersionedName()+", uninstalling, restoring any old bundle and items, then re-throwing error: "+Exceptions.collapseText(e));
                             try {
                                 rollbackBundle();

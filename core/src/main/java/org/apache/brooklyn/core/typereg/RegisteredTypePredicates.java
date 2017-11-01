@@ -37,6 +37,7 @@ import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -145,7 +146,6 @@ public class RegisteredTypePredicates {
     public static Predicate<RegisteredType> version(final Predicate<? super String> filter) {
         return new VersionMatches(filter);
     }
-    
     private static class VersionMatches implements Predicate<RegisteredType> {
         private final Predicate<? super String> filter;
         
@@ -155,6 +155,24 @@ public class RegisteredTypePredicates {
         @Override
         public boolean apply(@Nullable RegisteredType item) {
             return (item != null) && filter.apply(item.getVersion());
+        }
+    }
+    
+    public static Predicate<RegisteredType> versionOsgi(final String val) {
+        return versionOsgi(Predicates.equalTo(BrooklynVersionSyntax.toValidOsgiVersion(val)));
+    }
+    public static Predicate<RegisteredType> versionOsgi(final Predicate<? super String> filter) {
+        return new VersionOsgiMatches(filter);
+    }
+    private static class VersionOsgiMatches implements Predicate<RegisteredType> {
+        private final Predicate<? super String> filter;
+        
+        public VersionOsgiMatches(Predicate<? super String> filter) {
+            this.filter = filter;
+        }
+        @Override
+        public boolean apply(@Nullable RegisteredType item) {
+            return (item != null) && filter.apply(BrooklynVersionSyntax.toValidOsgiVersion(item.getVersion()));
         }
     }
 

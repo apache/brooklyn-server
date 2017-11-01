@@ -43,6 +43,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.SubscriptionManager;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.drivers.downloads.BasicDownloadsManager;
@@ -330,13 +331,13 @@ public class LocalManagementContext extends AbstractManagementContext {
 
         INSTANCES.remove(this);
         super.terminate();
+        if (usageManager != null) usageManager.terminate();
+        if (execution != null) execution.shutdownNow();
+        if (gc != null) gc.shutdownNow();
         if (osgiManager!=null) {
             osgiManager.stop();
             osgiManager = null;
         }
-        if (usageManager != null) usageManager.terminate();
-        if (execution != null) execution.shutdownNow();
-        if (gc != null) gc.shutdownNow();
 
         log.debug("Terminated management context "+this);
     }
@@ -429,7 +430,31 @@ public class LocalManagementContext extends AbstractManagementContext {
         reloadListeners.remove(listener);
     }
 
+    private Object startupSynchObject = new Object();
     public void noteStartupComplete() {
-        startupComplete = true;
+        synchronized (startupSynchObject) {
+            startupComplete = true;
+        }
+    }
+    /** Exposed for services to advertise that startup tasks are again occurring */
+    public void noteStartupTransitioning() {
+        synchronized (startupSynchObject) {
+            startupComplete = false;
+        }
+    }
+    @Override
+    public boolean isStartupComplete() {
+        synchronized (startupSynchObject) {
+            return startupComplete;
+        }
+    }
+
+    @Override
+    public ManagementNodeState getNodeState() {
+        synchronized (startupSynchObject) {
+            if (!startupComplete) return ManagementNodeState.INITIALIZING;
+            if (!errors().isEmpty()) return ManagementNodeState.FAILED;
+            return getHighAvailabilityManager().getNodeState();
+        }
     }
 }

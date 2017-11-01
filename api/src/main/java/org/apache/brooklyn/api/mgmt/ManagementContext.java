@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationRegistry;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementManager;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityManager;
+import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
@@ -236,11 +237,19 @@ public interface ManagementContext {
      * but some subsystems (e.g. persistence, OSGi, webapps, entities started at startup)
      * may not be available until this returns true.
      * <p>
-     * Also see {@link #isStartupComplete()}.
+     * Also returns false if HA state is transitioning.  See {@link #getNodeState()} to atomically check node state,
+     * as the preferred way to tell if a node is master.
      */
     @Beta  // see comment on isRunning() as items might move to a status handler
     public boolean isStartupComplete();
 
+    /** Returns node state, always reporting {@link ManagementNodeState#INITIALIZING} if there is any transition
+     * and {@link ManagementNodeState#FAILED} if there are any server errors.
+     * If this returns {@link ManagementNodeState#MASTER} we can guarantee the node to be in master state,
+     * unlike {@link HighAvailabilityManager#getNodeState()} which may return {@link ManagementNodeState#MASTER} slightly early. 
+     */
+    public ManagementNodeState getNodeState();
+    
     /** Record of configured locations and location resolvers */
     LocationRegistry getLocationRegistry();
     

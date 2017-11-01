@@ -242,7 +242,7 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
         if (danglingRefFailureMode == RebindManager.RebindFailureMode.FAIL_FAST) {
             throw new IllegalStateException("No catalog item found with id "+id);
         } else {
-            warn("No catalog item found with id "+id+"; dangling reference on rebind");
+            warn("No catalog item found with id "+id+"; dangling reference on rebind (subsequent log messages will indicate context)");
             return null;
         }
     }
@@ -453,7 +453,7 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
                     warn("Dangling item"+Strings.s(totalDangling)+" ("+totalDangling+" of "+totalItems+") found on rebind exceeds quorum, assuming failed: "+danglingIds);
                     allExceptions.add(new IllegalStateException("Too many dangling references: "+totalDangling+" of "+totalItems));
                 } else {
-                    LOG.info("Dangling item"+Strings.s(totalDangling)+" ("+totalDangling+" of "+totalItems+") found on rebind, assuming deleted: "+danglingIds);
+                    LOG.info("Dangling item"+Strings.s(totalDangling)+" ("+totalDangling+" of "+totalItems+") found on rebind, within quorum, assuming deleted: "+danglingIds);
                 }
             }
         }
