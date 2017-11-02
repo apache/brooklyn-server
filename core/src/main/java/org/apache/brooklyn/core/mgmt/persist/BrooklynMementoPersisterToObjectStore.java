@@ -476,7 +476,13 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             @Override
             public void visit(BrooklynObjectType type, String objectId, String contents) throws Exception {
                 try {
-                    Memento memento = (Memento) getSerializerWithCustomClassLoader(lookupContext, type, objectId).fromString(contents);
+                    Memento memento;
+                    try {
+                        lookupContext.pushContextDescription(""+type.toString().toLowerCase()+" "+objectId);
+                        memento = (Memento) getSerializerWithCustomClassLoader(lookupContext, type, objectId).fromString(contents);
+                    } finally {
+                        lookupContext.popContextDescription();
+                    }
                     if (memento == null) {
                         LOG.warn("No "+type.toCamelCase()+"-memento deserialized from " + objectId + "; ignoring and continuing");
                     } else {

@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.Stack;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 
@@ -302,7 +303,7 @@ public class XmlMementoSerializerTest {
     }
 
     private LookupContextImpl newEmptyLookupManagementContext(ManagementContext managementContext, boolean failOnDangling) {
-        return new LookupContextImpl(managementContext,
+        return new LookupContextImpl("empty context for test", managementContext,
                 ImmutableList.<Entity>of(), ImmutableList.<Location>of(), ImmutableList.<Policy>of(),
                 ImmutableList.<Enricher>of(), ImmutableList.<Feed>of(), ImmutableList.<CatalogItem<?, ?>>of(), ImmutableList.<ManagedBundle>of(), failOnDangling);
     }
@@ -669,6 +670,7 @@ public class XmlMementoSerializerTest {
     }
     
     static class LookupContextImpl implements LookupContext {
+        private final Stack<String> description;
         private final ManagementContext mgmt;
         private final Map<String, Entity> entities;
         private final Map<String, Location> locations;
@@ -679,10 +681,12 @@ public class XmlMementoSerializerTest {
         private final Map<String, ManagedBundle> bundles;
         private final boolean failOnDangling;
 
-        LookupContextImpl(ManagementContext mgmt, Iterable<? extends Entity> entities, Iterable<? extends Location> locations,
+        LookupContextImpl(String description, ManagementContext mgmt, Iterable<? extends Entity> entities, Iterable<? extends Location> locations,
                 Iterable<? extends Policy> policies, Iterable<? extends Enricher> enrichers, Iterable<? extends Feed> feeds,
                 Iterable<? extends CatalogItem<?, ?>> catalogItems, Iterable<? extends ManagedBundle> bundles,
                     boolean failOnDangling) {
+            this.description = new Stack<>();
+            this.description.push(description);
             this.mgmt = mgmt;
             this.entities = Maps.newLinkedHashMap();
             this.locations = Maps.newLinkedHashMap();
@@ -700,10 +704,12 @@ public class XmlMementoSerializerTest {
             for (ManagedBundle bundle : bundles) this.bundles.put(bundle.getId(), bundle);
             this.failOnDangling = failOnDangling;
         }
-        LookupContextImpl(ManagementContext mgmt, Map<String,? extends Entity> entities, Map<String,? extends Location> locations,
+        LookupContextImpl(String description, ManagementContext mgmt, Map<String,? extends Entity> entities, Map<String,? extends Location> locations,
                 Map<String,? extends Policy> policies, Map<String,? extends Enricher> enrichers, Map<String,? extends Feed> feeds,
                 Map<String, ? extends CatalogItem<?, ?>> catalogItems, Map<String,? extends ManagedBundle> bundles,
                 boolean failOnDangling) {
+            this.description = new Stack<>();
+            this.description.push(description);
             this.mgmt = mgmt;
             this.entities = ImmutableMap.copyOf(entities);
             this.locations = ImmutableMap.copyOf(locations);
@@ -713,6 +719,15 @@ public class XmlMementoSerializerTest {
             this.catalogItems = ImmutableMap.copyOf(catalogItems);
             this.bundles = ImmutableMap.copyOf(bundles);
             this.failOnDangling = failOnDangling;
+        }
+        @Override public String getContextDescription() {
+            return description.peek();
+        }
+        @Override public String popContextDescription() {
+            return description.pop();
+        }
+        @Override public void pushContextDescription(String description) {
+            this.description.push(description);
         }
         @Override public ManagementContext lookupManagementContext() {
             return mgmt;

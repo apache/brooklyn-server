@@ -22,6 +22,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutionException;
@@ -57,6 +59,7 @@ import org.apache.brooklyn.core.mgmt.rebind.dto.BasicManagedBundleMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicPolicyMemento;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.xstream.XmlSerializer;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
@@ -171,6 +174,28 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         this.lookupContext = null;
     }
     
+    protected String getContextDescription(Object contextHinter) {
+        List<String> entries = MutableList.of();
+        
+        entries.add("in");
+        entries.add(lookupContext.getContextDescription());
+        
+        if (contextHinter instanceof ReferencingMarshallingContext)
+            entries.add("at "+((ReferencingMarshallingContext)contextHinter).currentPath());
+        else if (contextHinter instanceof ReferenceByXPathUnmarshaller) {
+            try {
+                Method m = ReferenceByXPathUnmarshaller.class.getDeclaredMethod("getCurrentReferenceKey");
+                m.setAccessible(true);
+                entries.add("at "+m.invoke(contextHinter));
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                // ignore otherwise - we just won't have the position in the file
+            }
+        }
+        
+        return Strings.join(entries, " ");
+    }
+
     /**
      * For changing the tag used for anything that implements/extends the given type.
      * Necessary for using EntityRef rather than the default "dynamic-proxy" tag.
@@ -312,7 +337,6 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         public boolean canConvert(@SuppressWarnings("rawtypes") Class type) {
             return Task.class.isAssignableFrom(type);
         }
-        @SuppressWarnings("deprecation")
         @Override
         public void marshal(Object source, HierarchicalStreamWriter writer, MarshallingContext context) {
             if (source == null) return;
@@ -325,14 +349,16 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
                 } catch (InterruptedException e) {
                     throw Exceptions.propagate(e);
                 } catch (ExecutionException e) {
-                    LOG.warn("Unexpected exception getting done (and non-error) task result for "+source+"; continuing: "+e, e);
+                    LOG.warn("Unexpected exception getting done (and non-error) task result for "+source+" "+
+                        getContextDescription(context)+"; continuing: "+e, e);
                 }
             } else {
-                // TODO How to log sensibly, without it logging this every second?!
-                // jun 2014, have added a "log once" which is not ideal but better than the log never behaviour
                 if (!loggedTaskWarning) {
+                    // might want to know about others but it ends up being logged on every persist;
+                    // solution would be a better framework for recording persistence warnings
+                    // (especially if we switch to persisting yoml)
                     LOG.warn("Intercepting and skipping request to serialize a Task"
-                        + (context instanceof ReferencingMarshallingContext ? " at "+((ReferencingMarshallingContext)context).currentPath() : "")+
+                        + getContextDescription(context) +
                         " (only logging this once): "+source);
                     loggedTaskWarning = true;
                 }
@@ -344,7 +370,7 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         public Object unmarshal(HierarchicalStreamReader reader, UnmarshallingContext context) {
             if (reader.hasMoreChildren()) {
                 Class<?> type = readClassType(reader, mapper);
-//                Class<?> type2 = context.getRequiredType();
+                // could confirm it is subtype of context.getRequiredType()
                 reader.moveDown();
                 Object result = context.convertAnother(null, type);
                 reader.moveUp();
@@ -452,9 +478,9 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
                     if (cat==null) {
                         String upgradedItemId = CatalogUpgrades.getTypeUpgradedIfNecessary(lookupContext.lookupManagementContext(), catalogItemId);
                         if (!Objects.equal(catalogItemId, upgradedItemId)) {
-                            // TODO would be nice to know where we're reading but that isn't exposed; could set a thread local
-                            // and then we could provide useful logging info
+                            LOG.warn("Upgrading spec catalog item id from "+catalogItemId+" to "+upgradedItemId+" on rebind "+getContextDescription(context));
                             cat = lookupContext.lookupManagementContext().getTypeRegistry().get(upgradedItemId);
+                            catalogItemId = upgradedItemId;
                         }
                     }
                     if (cat==null) throw new NoSuchElementException("catalog item: "+catalogItemId);
