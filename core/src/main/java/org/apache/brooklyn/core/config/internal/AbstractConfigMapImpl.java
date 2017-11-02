@@ -53,6 +53,7 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -362,15 +363,24 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
     }
 
     @SuppressWarnings("unchecked")
-    protected <T> T coerce(TContainer container, String name, Object value, Class<T> type) {
+    protected <T> T coerceDefaultValue(TContainer container, String name, Object value, Class<T> type) {
         if (type==null || value==null) return (T) value;
         ExecutionContext exec = getExecutionContext(container);
         try {
-            if (value instanceof Collection || value instanceof Map) {
-                return (T) Tasks.resolveDeepValue(value, Object.class, exec, "Resolving deep default config "+name);
+            T result;
+            if (ValueResolver.supportsDeepResolution(value)) {
+                result = (T) Tasks.resolveDeepValue(value, Object.class, exec, "Resolving deep default config "+name);
             } else {
-                return Tasks.resolveValue(value, type, exec, "Resolving default config "+name);
+                result = Tasks.resolveValue(value, type, exec, "Resolving default config "+name);
             }
+            
+            // best effort to preserve/enforce immutability for defaults
+            if (result instanceof Map) return (T) Collections.unmodifiableMap((Map<?,?>)result);
+            if (result instanceof List) return (T) Collections.unmodifiableList((List<?>)result);
+            if (result instanceof Set) return (T) Collections.unmodifiableSet((Set<?>)result);
+            if (result instanceof Collection) return (T) Collections.unmodifiableCollection((Collection<?>)result);
+            
+            return result;
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         }
@@ -404,7 +414,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
                 if (raw || input==null || input.isAbsent()) return (Maybe<T>)input;
                 // use lambda to defer execution if default value not needed.
                 // this coercion should never be persisted so this is safe.
-                return new MaybeSupplier<T>(() -> (coerce(getContainer(), ownKey.getName(), input.get(), type)));
+                return new MaybeSupplier<T>(() -> (coerceDefaultValue(getContainer(), ownKey.getName(), input.get(), type)));
             }
         };
         // prefer default and type of ownKey
