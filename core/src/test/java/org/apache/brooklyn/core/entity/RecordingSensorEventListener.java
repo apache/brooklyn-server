@@ -142,6 +142,10 @@ public class RecordingSensorEventListener<T> implements SensorEventListener<T>, 
         tasks.clear();
         lastValue = null;
     }
+    
+    public SensorEvent<T> removeEvent(int i) {
+        return events.remove(i);
+    }
 
     @Override
     public Iterator<SensorEvent<T>> iterator() {
