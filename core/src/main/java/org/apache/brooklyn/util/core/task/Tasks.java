@@ -357,7 +357,10 @@ public class Tasks {
         } }).build();
     }
     public static Task<Void> warning(final String message, final Throwable optionalError) {
-        log.warn(message);
+        return warning(message, optionalError, true);
+    }
+    public static Task<Void> warning(final String message, final Throwable optionalError, boolean logWarning) {
+        if (logWarning) log.warn(message);
         return TaskTags.markInessential(fail(message, optionalError));
     }
 
