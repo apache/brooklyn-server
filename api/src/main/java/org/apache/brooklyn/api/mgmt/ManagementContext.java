@@ -41,6 +41,7 @@ import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Predicate;
 
 /**
  * This is the entry point for accessing and interacting with a realm of applications and their entities in Brooklyn.
@@ -309,8 +310,14 @@ public interface ManagementContext {
     /** As {@link #lookup(String, Class)} but not constraining the return type */
     public BrooklynObject lookup(String id);
     
-    /** Finds an entity with the given ID known at this management context */
-    // TODO in future support policies etc
+    /** As {@link #lookup(Predicate)} comparing the ID of the object with the given string */
     public <T extends BrooklynObject> T lookup(String id, Class<T> type); 
 
+    /** Finds a {@link BrooklynObject} known in this management context 
+     * satisfying the given predicate, or null */
+    public <T extends BrooklynObject> T lookup(Predicate<? super T> filter);
+    
+    /** As {@link #lookup(Predicate)} but returning all such instances */
+    public <T extends BrooklynObject> Collection<T> lookupAll(Predicate<? super T> filter);
+    
 }

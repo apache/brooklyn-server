@@ -77,6 +77,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -503,6 +504,18 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
         return initialManagementContext.lookup(id, type);
     }
 
+    @Override
+    public <T extends BrooklynObject> T lookup(Predicate<? super T> filter) {
+        checkInitialManagementContextReal();
+        return initialManagementContext.lookup(filter);
+    }
+
+    @Override
+    public <T extends BrooklynObject> Collection<T> lookupAll(Predicate<? super T> filter) {
+        checkInitialManagementContextReal();
+        return initialManagementContext.lookupAll(filter);
+    }
+    
     @Override
     public List<Throwable> errors() {
         checkInitialManagementContextReal();
