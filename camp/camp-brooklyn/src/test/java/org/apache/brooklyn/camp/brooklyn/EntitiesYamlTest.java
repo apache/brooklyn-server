@@ -41,6 +41,7 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Attributes;
@@ -61,7 +62,9 @@ import org.apache.brooklyn.entity.software.base.SameServerEntity;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessShellEnvironmentTest.EnvRecordingLocation;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Functionals;
@@ -911,7 +914,12 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         
         Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
-        EntitySpec<?> entitySpec = (EntitySpec<?>) entity.config().getBag().getStringKey("key.does.not.match");
+        Object entitySpecOrSupplier = entity.config().getBag().getStringKey("key.does.not.match");
+        if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_PERSIST_ENTITY_SPEC_AS_SUPPLIER)) {
+            Asserts.assertInstanceOf(entitySpecOrSupplier, DeferredSupplier.class);
+            entitySpecOrSupplier = entity.config().get(ConfigKeys.newConfigKey(Object.class, "key.does.not.match"));
+        }
+        EntitySpec<?> entitySpec = (EntitySpec<?>) entitySpecOrSupplier;
         assertEquals(entitySpec.getType(), TestEntity.class);
         assertEquals(entitySpec.getConfig(), ImmutableMap.of(TestEntity.CONF_NAME, "inchildspec"));
     }

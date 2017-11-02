@@ -38,6 +38,7 @@ import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.entity.Entities;
@@ -816,7 +817,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         Assert.assertEquals(Entities.deproxy(child).getClass().getName(), BasicEntityImpl.class.getName());
     }
     
-    @Test(groups="WIP")
+    @Test
     public void testRebindUpgradeSpecUsedInDeployedApp() throws Exception {
         File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(CatalogUpgrades.markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType(), true);
         Application app = createAndStartApplication(launcherLast.getManagementContext(), 
@@ -839,16 +840,14 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         
         Entity entity = Iterables.getOnlyElement( ((DynamicCluster)cluster).getMembers() );
         
-        if (CatalogUpgrades.markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType()) {        
-            // TODO persisted EntitySpec writes an _unpacking_ of the provided definition, so
-            // it isn't upgraded.  ideally we'd persist the original yaml definition not an unpacking.
-            // possibly that allows memberspec to take a map directly, not the $brooklyn:entitySpec kludge.
-            
-            // and/or we could upgrade the unpacking (at least the catalog item id ...
-            // java type is harder to persist there). but think we can live with this for a short while.
-            Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:1.0.0");
+        if (CatalogUpgrades.markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType() ||
+                BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_PERSIST_ENTITY_SPEC_AS_SUPPLIER)) {        
+            Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:2.0.0");
             Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), BasicEntityImpl.class.getName());
         } else {
+            // old behaviour was to persist $brooklyn:entitySpec as an _unpacking_ of the provided definition, 
+            // which keeps the java class and so isn't upgraded.
+            // catalog item ID is intercepted and updated, but not the java type.
             Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:2.0.0");
             Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), "com.example.brooklyn.test.osgi.entities.SimpleEntityImpl");
         }

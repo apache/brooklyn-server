@@ -174,6 +174,7 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         this.lookupContext = null;
     }
     
+    @SuppressWarnings("deprecation")
     protected String getContextDescription(Object contextHinter) {
         List<String> entries = MutableList.of();
         
