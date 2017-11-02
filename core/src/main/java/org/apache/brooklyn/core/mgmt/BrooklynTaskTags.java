@@ -30,13 +30,17 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.AbstractManagementContext;
+import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -183,10 +187,24 @@ public class BrooklynTaskTags extends TaskTags {
         return getWrappedEntityTagOfType( getTagsFast(t), wrappingType);
     }
     public static WrappedEntity getWrappedEntityTagOfType(Collection<?> tags, String wrappingType) {
+        if (tags==null) return null;
         for (Object x: tags)
             if ((x instanceof WrappedEntity) && ((WrappedEntity)x).wrappingType.equals(wrappingType))
                 return (WrappedEntity)x;
         return null;
+    }
+    
+    @SuppressWarnings("unchecked")
+    public static <T> WrappedObject<T> getWrappedObjectTagOfType(Collection<?> tags, String wrappingType, Class<T> type) {
+        if (tags==null) return null;
+        for (Object x: tags)
+            if ((x instanceof WrappedObject) && ((WrappedObject<?>)x).wrappingType.equals(wrappingType) && type.isInstance( ((WrappedObject<?>)x).object ))
+                return (WrappedObject<T>)x;
+        return null;
+    }
+    public static <T> T getUnwrappedObjectTagOfType(Collection<?> tags, String wrappingType, Class<T> type) {
+        WrappedObject<T> result = getWrappedObjectTagOfType(tags, wrappingType, type);
+        return result!=null ? result.unwrap() : null;
     }
 
     public static Entity getWrappedEntityOfType(Task<?> t, String wrappingType) {
@@ -539,6 +557,37 @@ public class BrooklynTaskTags extends TaskTags {
         EntitlementTag tag = new EntitlementTag();
         tag.entitlementContext = context;
         return tag;
+    }
+
+    public static ExecutionContext getExecutionContext(Collection<?> tags) {
+        EntityAdjunct ea = getUnwrappedObjectTagOfType(tags, CONTEXT_ADJUNCT, EntityAdjunct.class);
+        if (ea instanceof AbstractEntityAdjunct) {
+            return ((AbstractEntityAdjunct)ea).getExecutionContext();
+        }
+        Entity e = getWrappedEntityOfType(tags, CONTEXT_ENTITY);
+        if (e==null) e= getWrappedEntityOfType(tags, TARGET_ENTITY);
+        if (e instanceof EntityInternal) {
+            return ((EntityInternal)e).getExecutionContext();
+        }
+        
+        return null;
+    }
+    public static ExecutionContext getExecutionContext(Task<?> t) {
+        return getExecutionContext(getTagsFast(t));
+    }
+    /** 
+     * This should always be identical to {@link BasicExecutionContext#getCurrentExecutionContext()} as
+     * there are two ways to derive the {@link ExecutionContext}:  one is the {@link ThreadLocal} accessed from the above method
+     * and set by {@link BasicExecutionContext} submissions; the other is by looking at {@link #getTargetOrContextEntity(Task)}
+     * and {@link #CONTEXT_ADJUNCT} tags on the current task.  As {@link BasicExecutionContext} also sets those tags,
+     * the only time the two will be different is if {@link ExecutionManager#submit(org.apache.brooklyn.api.mgmt.TaskAdaptable)}
+     * is used supplying one or more of these context tags, in which case only this method will determine the execution context.
+     */
+    public static ExecutionContext getCurrentExecutionContext() {
+        Task<?> t = Tasks.current();
+        ExecutionContext result = t!=null ? getExecutionContext(t) : null;
+        if (result==null) result = BasicExecutionContext.getCurrentExecutionContext();
+        return result;
     }
     
 }

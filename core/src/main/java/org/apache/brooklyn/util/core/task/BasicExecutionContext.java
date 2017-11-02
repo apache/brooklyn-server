@@ -56,6 +56,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
@@ -69,7 +70,6 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     private static final Logger log = LoggerFactory.getLogger(BasicExecutionContext.class);
     
     static final ThreadLocal<BasicExecutionContext> perThreadExecutionContext = new ThreadLocal<BasicExecutionContext>();
-    
     public static BasicExecutionContext getCurrentExecutionContext() { return perThreadExecutionContext.get(); }
 
     final ExecutionManager executionManager;
@@ -448,6 +448,16 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     }
 
     private void registerPerThreadExecutionContext() { perThreadExecutionContext.set(this); }
+    /** For use if external code wants to subsequently use an {@link ExecutionContext} but cannot submit via one. 
+     * Caller should store the result and reset it back afterwards, in case a task may be running 
+     * in the same thread as a synchronous submitter. */
+    // only LocalSubscriptionManager needs to do that; and it could be refactored to take the execution context rather than tags. 
+    @Beta
+    public static BasicExecutionContext setPerThreadExecutionContext(BasicExecutionContext ec) {
+        BasicExecutionContext old = perThreadExecutionContext.get();
+        perThreadExecutionContext.set(ec); 
+        return old;
+    }
 
     private void clearPerThreadExecutionContext() { perThreadExecutionContext.remove(); }
 

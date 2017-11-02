@@ -34,6 +34,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
 import org.apache.brooklyn.api.mgmt.SubscriptionManager;
@@ -48,6 +49,7 @@ import org.apache.brooklyn.core.sensor.AttributeMap;
 import org.apache.brooklyn.core.sensor.BasicSensorEvent;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.SingleThreadedScheduler;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -311,6 +313,7 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
         
         boolean isEntityStarting = s.subscriber instanceof Entity && isInitialPublicationOfOldValueInCorrectScheduledThread;
         // will have entity (and adjunct) execution context from tags, so can skip getting exec context
+        final ExecutionContext ec = BrooklynTaskTags.getExecutionContext(tags);
         Runnable deliverer = new Runnable() {
             @Override
             public String toString() {
@@ -322,7 +325,9 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
             }
             @Override
             public void run() {
+                BasicExecutionContext oldEC = ec instanceof BasicExecutionContext ? BasicExecutionContext.setPerThreadExecutionContext((BasicExecutionContext)ec) : null;
                 try {
+                    
                     if (isEntityStarting) {
                         /* don't let sub deliveries start until this is completed;
                          * this is a pragmatic way to ensure the publish events 
@@ -349,6 +354,8 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
                     } else {
                         LOG.warn("Error processing subscriptions to "+this+": "+t, t);
                     }
+                } finally {
+                    BasicExecutionContext.setPerThreadExecutionContext(oldEC);
                 }
             }};
         if (!isInitialPublicationOfOldValueInCorrectScheduledThread) {
