@@ -91,7 +91,7 @@ public class BundleUpgradeParser {
      * </ul>
      */
     @Beta
-    public static final String MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS = "brooklyn-catalog-force-remove-legacy-items";
+    public static final String MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS = "Brooklyn-Catalog-Force-Remove-Legacy-Items";
 
     /**
      * A header in a bundle's manifest, indicating that this bundle will force the removal of matching 
@@ -128,7 +128,7 @@ public class BundleUpgradeParser {
      * </ul>
      */
     @Beta
-    public static final String MANIFEST_HEADER_FORCE_REMOVE_BUNDLES = "brooklyn-catalog-force-remove-bundles";
+    public static final String MANIFEST_HEADER_FORCE_REMOVE_BUNDLES = "Brooklyn-Catalog-Force-Remove-Bundles";
 
     /**
      * A header in a bundle's manifest, indicating that this bundle recommends a set of upgrades.
@@ -155,14 +155,14 @@ public class BundleUpgradeParser {
      * 
      * In most use cases, one can provide a single line, e.g. if releasing a v2.0.0:
      * 
-     * {@code brooklyn-catalog-upgrade-for-bundles: *:[0,2)}
+     * {@code Brooklyn-Catalog-Upgrade-For-Bundles: *:[0,2)}
      * 
      * to indicate that this bundle is able to upgrade all instances of this bundle lower than 2.0.0,
      * and all types in this bundle will upgrade earlier types.
      * 
      * This can be used in conjunction with:
      * 
-     * {@code brooklyn-catalog-force-remove-bundles: *:[0,2)}
+     * {@code Brooklyn-Catalog-Force-Remove-Bundles: *:[0,2)}
      * 
      * to forcibly remove older bundles at an appropriate point (eg a restart) and cause all earlier instances of the bundle
      * and the type instances they contain to be upgraded with the same-named types in the 2.0.0 bundle.
@@ -171,7 +171,7 @@ public class BundleUpgradeParser {
      * or versions are not in line with previous versions of this bundle.
      */
     @Beta
-    public static final String MANIFEST_HEADER_UPGRADE_FOR_BUNDLES = "brooklyn-catalog-upgrade-for-bundles";
+    public static final String MANIFEST_HEADER_UPGRADE_FOR_BUNDLES = "Brooklyn-Catalog-Upgrade-For-Bundles";
 
     /**
      * A header in a bundle's manifest, indicating that this bundle recommends a set of upgrades.
@@ -199,17 +199,17 @@ public class BundleUpgradeParser {
      * 
      * What this is saying in most cases is that if a bundle {@code foo:1} contains {@code foo-node:1}, and 
      * bundle {@code foo:2} contains {@code foo-node:2}, then:
-     * if {@code foo:2} declares {@code brooklyn-catalog-upgrade-for-bundles: foo:1} it will also declare that
+     * if {@code foo:2} declares {@code Brooklyn-Catalog-Upgrade-For-Bundles: foo:1} it will also declare that
      * {@code foo-node:2} upgrades {@code foo-node:1};
-     * if {@code foo:2} declares {@code brooklyn-catalog-upgrade-for-bundles: *} the same thing will occur
+     * if {@code foo:2} declares {@code Brooklyn-Catalog-Upgrade-For-Bundles: *} the same thing will occur
      * (and it would also upgrade a {@code foo:0} contains {@code foo-node:0});
-     * if {@code foo:2} declares no {@code brooklyn-catalog-upgrade} manifest headers, then no advisory
+     * if {@code foo:2} declares no {@code Brooklyn-Catalog-Upgrade-*} manifest headers, then no advisory
      * upgrades will be noted.
      * 
      * As noted in {@link #MANIFEST_HEADER_UPGRADE_FOR_BUNDLES} the primary use case for this header is type renames.
      */
     @Beta
-    public static final String MANIFEST_HEADER_UPGRADE_FOR_TYPES = "brooklyn-catalog-upgrade-for-types";
+    public static final String MANIFEST_HEADER_UPGRADE_FOR_TYPES = "Brooklyn-Catalog-Upgrade-For-Types";
 
     /**
      * The result from parsing bundle(s) to find their upgrade info.
