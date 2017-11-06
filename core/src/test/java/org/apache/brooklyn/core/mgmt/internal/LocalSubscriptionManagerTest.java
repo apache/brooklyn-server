@@ -41,6 +41,7 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.group.BasicGroup;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -259,4 +260,19 @@ public class LocalSubscriptionManagerTest extends BrooklynAppUnitTestSupport {
         Assert.assertEquals(listener.getEvents().get(9).getValue(), entity.sensors().get(TestEntity.SEQUENCE));
     }
 
+    @Test
+    public void testSubscriptionHasSubscribersExecutionContext() throws Exception {
+        final AtomicReference<BasicExecutionContext> result = new AtomicReference<>();
+        final CountDownLatch latch = new CountDownLatch(1);
+        app.subscriptions().subscribe(entity, TestEntity.SEQUENCE, new SensorEventListener<Object>() {
+                @Override public void onEvent(SensorEvent<Object> event) {
+                    result.set(BasicExecutionContext.getCurrentExecutionContext());
+                    latch.countDown();
+                }});
+        entity.setSequenceValue(1234);
+        if (!latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+            fail("Timeout waiting for Event on TestEntity listener");
+        }
+        Assert.assertEquals(result.get(), app.getExecutionContext());
+    }
 }
