@@ -171,6 +171,26 @@ public class DynamicClusterTest extends AbstractDynamicClusterOrFabricTest {
     }
 
     @Test
+    public void testMemberSpecNotInherited() throws Exception {
+        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class)));
+        DynamicCluster child = cluster.addChild(EntitySpec.create(DynamicCluster.class));
+        Asserts.assertNull(child.getConfig(DynamicCluster.MEMBER_SPEC));
+        DynamicCluster memberChild = cluster.addMemberChild(EntitySpec.create(DynamicCluster.class));
+        Asserts.assertNull(memberChild.getConfig(DynamicCluster.MEMBER_SPEC));
+    }
+
+    @Test
+    public void testFirstMemberSpecNotInherited() throws Exception {
+        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.FIRST_MEMBER_SPEC, EntitySpec.create(TestEntity.class)));
+        DynamicCluster child = cluster.addChild(EntitySpec.create(DynamicCluster.class));
+        Asserts.assertNull(child.getConfig(DynamicCluster.FIRST_MEMBER_SPEC));
+        DynamicCluster memberChild = cluster.addMemberChild(EntitySpec.create(DynamicCluster.class));
+        Asserts.assertNull(memberChild.getConfig(DynamicCluster.FIRST_MEMBER_SPEC));
+    }
+
+    @Test
     public void testClusterHasOneLocationAfterStarting() throws Exception {
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
                 .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class)));
