@@ -29,9 +29,13 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
+import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
@@ -55,6 +59,8 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
 
     private static final long serialVersionUID = -2247153452919128990L;
     
+    private static final Logger LOG = LoggerFactory.getLogger(EntitySpec.class);
+
     /**
      * Creates a new {@link EntitySpec} instance for an entity of the given type. The returned 
      * {@link EntitySpec} can then be customized.
@@ -112,11 +118,28 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
     private final List<Entity> members = Lists.newArrayList();
     private final List<Group> groups = Lists.newArrayList();
     private volatile boolean immutable;
-    
+
+    // Kept for backwards compatibility of persisted state
+    private List<Policy> policies;
+    private List<Enricher> enrichers;
+
     public EntitySpec(Class<T> type) {
         super(type);
     }
 
+    @Override
+    protected Object readResolve() {
+        if (policies != null && policies.size() > 0) {
+            LOG.warn("NOT SUPPORTED: EntitySpec "+this+" has hard-coded policies, rather than use of PolicySpec - policies will be ignored ("+policies+")");
+            policies = null;
+        }
+        if (enrichers != null && enrichers.size() > 0) {
+            LOG.warn("NOT SUPPORTED: EntitySpec "+this+" has hard-coded enrichers, rather than use of EnricherSpec - enrichers will be ignored ("+enrichers+")");
+            enrichers = null;
+        }
+        return super.readResolve();
+    }
+    
     @Override
     protected EntitySpec<T> copyFrom(EntitySpec<T> otherSpec) {
         super.copyFrom(otherSpec)
