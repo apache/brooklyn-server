@@ -123,7 +123,14 @@ public class UpdatingMapTest extends BrooklynAppUnitTestSupport {
         EntityAsserts.assertAttributeEqualsEventually(entity, mapSensor, ImmutableMap.of("myKey", "valIsV1"));
         
         listener.assertHasEventEventually(Predicates.alwaysTrue());
-        assertEquals(Iterables.getOnlyElement(listener.getEventValues()), ImmutableMap.of("myKey", "valIsV1"));
+        Map<String, Object> ev = listener.removeEvent(0).getValue();
+        if (ev.equals(ImmutableMap.of("myKey", "myDefault"))) {
+            // possible on slow machine for this to pick up myDefault computed late; get next
+            listener.assertHasEventEventually(Predicates.alwaysTrue());
+            ev = listener.removeEvent(0).getValue();
+        }
+        assertEquals(ev, ImmutableMap.of("myKey", "valIsV1"));
+        Asserts.assertSize(listener.getEventValues(), 0);
     }
     
     @Test
