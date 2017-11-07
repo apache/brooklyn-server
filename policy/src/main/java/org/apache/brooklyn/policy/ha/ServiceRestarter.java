@@ -50,7 +50,8 @@ import com.google.common.base.Preconditions;
  * this gives up and emits {@link #ENTITY_RESTART_FAILED} 
  */
 @Catalog(name="Service Restarter", description="HA policy for restarting a service automatically, "
-        + "and for emitting an events if the service repeatedly fails")
+        + "and for emitting an events if the service repeatedly fails",
+        iconUrl="classpath://org/apache/brooklyn/policy/ha/service-restarter.png")
 public class ServiceRestarter extends AbstractPolicy {
 
     private static final Logger LOG = LoggerFactory.getLogger(ServiceRestarter.class);
