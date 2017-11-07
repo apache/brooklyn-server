@@ -45,17 +45,24 @@ import com.google.common.base.Predicates;
  */
 public class AdjunctTransformer {
 
-    public static AdjunctSummary adjunctSummary(Entity entity, EntityAdjunct adjunct, UriBuilder ub) {
-        return embellish(new AdjunctSummary(adjunct), entity, adjunct, ub);
+    public static AdjunctSummary adjunctSummary(Entity entity, EntityAdjunct adjunct, UriBuilder ub, BrooklynRestResourceUtils brooklynU) {
+        return embellish(new AdjunctSummary(adjunct), entity, adjunct, ub, brooklynU);
     }
 
     @SuppressWarnings("unchecked")
-    private static <T extends AdjunctSummary> T embellish(T adjunctSummary, Entity entity, EntityAdjunct adjunct, UriBuilder ub) {
+    private static <T extends AdjunctSummary> T embellish(T adjunctSummary, Entity entity, EntityAdjunct adjunct, UriBuilder ub, BrooklynRestResourceUtils brooklynU) {
+        
+        if (adjunctSummary.getIconUrl()!=null) {
+            if (brooklynU.isUrlServerSideAndSafe(adjunctSummary.getIconUrl()))
+                // route to server if it is a server-side url
+                adjunctSummary.iconUrl(adjunctUri(entity, adjunct, ub)+"/icon");
+        }
+
         return (T) adjunctSummary.state(inferStatus(adjunct)).links( buildLinks(entity, adjunct, ub, adjunctSummary instanceof AdjunctDetail) );
     }
 
-    public static AdjunctDetail adjunctDetail(BrooklynRestResourceUtils utils, Entity entity, EntityAdjunct adjunct, UriBuilder ub) {
-        AdjunctDetail result = embellish(new AdjunctDetail(adjunct), entity, adjunct, ub);
+    public static AdjunctDetail adjunctDetail(Entity entity, EntityAdjunct adjunct, UriBuilder ub, BrooklynRestResourceUtils utils) {
+        AdjunctDetail result = embellish(new AdjunctDetail(adjunct), entity, adjunct, ub, utils);
         for (ConfigKey<?> key: adjunct.config().findKeysDeclared(Predicates.alwaysTrue())) {
             result.parameter(ConfigTransformer.of(key).on(entity, adjunct).includeLinks(ub, false, true).transform());
         }

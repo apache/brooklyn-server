@@ -18,12 +18,14 @@
  */
 package org.apache.brooklyn.rest.resources;
 
+import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
@@ -42,6 +44,7 @@ import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.rest.api.AdjunctApi;
 import org.apache.brooklyn.rest.domain.AdjunctDetail;
 import org.apache.brooklyn.rest.domain.AdjunctSummary;
@@ -57,6 +60,7 @@ import org.apache.brooklyn.rest.transform.TaskTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
@@ -68,6 +72,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.io.Files;
 
 @HaHotStateRequired
 public class AdjunctResource extends AbstractBrooklynRestResource implements AdjunctApi {
@@ -101,7 +106,7 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
             .transform(new Function<EntityAdjunct, AdjunctSummary>() {
                 @Override
                 public AdjunctSummary apply(EntityAdjunct adjunct) {
-                    return AdjunctTransformer.adjunctSummary(entity, adjunct, ui.getBaseUriBuilder());
+                    return AdjunctTransformer.adjunctSummary(entity, adjunct, ui.getBaseUriBuilder(), brooklyn());
                 }
             })
             .toSortedList(SummaryComparators.nameComparator());
@@ -157,7 +162,7 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
 
         log.debug("REST API added adjunct " + instance + " to " + entity);
 
-        return AdjunctTransformer.adjunctDetail(brooklyn(), entity, instance, ui.getBaseUriBuilder());
+        return AdjunctTransformer.adjunctDetail(entity, instance, ui.getBaseUriBuilder(), brooklyn());
     }
 
     @Override
@@ -165,7 +170,7 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
         Entity entity = brooklyn().getEntity(application, entityToken);
         EntityAdjunct adjunct = brooklyn().getAdjunct(entity, adjunctId);
 
-        return AdjunctTransformer.adjunctDetail(brooklyn(), entity, adjunct, ui.getBaseUriBuilder());
+        return AdjunctTransformer.adjunctDetail(entity, adjunct, ui.getBaseUriBuilder(), brooklyn());
     }
     
     @Override
@@ -280,6 +285,27 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
         EntityAdjunct adjunct = brooklyn().getAdjunct(entity, adjunctToken);
         return TaskTransformer.fromTasks(MutableList.copyOf(BrooklynTaskTags.getTasksInAdjunctContext(mgmt().getExecutionManager(), adjunct)),
             limit, recurse, entity, ui);
+    }
+
+    @Override
+    public Response getIcon(String applicationId, String entityId, String adjunctToken) {
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
+        EntityAdjunct adjunct = brooklyn().getAdjunct(entity, adjunctToken);
+        String url = RegisteredTypes.getIconUrl(adjunct);
+        if (url == null)
+            return Response.status(javax.ws.rs.core.Response.Status.NO_CONTENT).build();
+
+        if (brooklyn().isUrlServerSideAndSafe(url)) {
+            // classpath URL's we will serve IF they end with a recognised image format;
+            // paths (ie non-protocol) and
+            // NB, for security, file URL's are NOT served
+            MediaType mime = WebResourceUtils.getImageMediaTypeFromExtension(Files.getFileExtension(url));
+            Object content = ResourceUtils.create(entity).getResourceFromUrl(url);
+            return Response.ok(content, mime).build();
+        }
+
+        // for anything else we do a redirect (e.g. http / https; perhaps ftp)
+        return Response.temporaryRedirect(URI.create(url)).build();
     }
     
 }
