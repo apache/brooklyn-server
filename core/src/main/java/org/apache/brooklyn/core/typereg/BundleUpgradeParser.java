@@ -399,24 +399,24 @@ public class BundleUpgradeParser {
         }
         
         @Beta
-        CatalogUpgrades withTypeCleared(VersionedName versionedName) {
+        CatalogUpgrades withUpgradesProvidedByTypeCleared(VersionedName versionedName) {
             return builder().addAll(this).clearUpgradesProvidedByType(versionedName).build();
         }
         @Beta
-        CatalogUpgrades withBundleCleared(VersionedName versionedName) {
-            return builder().addAll(this).clearUpgradesProvidedByType(versionedName).build();
+        CatalogUpgrades withUpgradesProvidedByBundleCleared(VersionedName versionedName) {
+            return builder().addAll(this).clearUpgradesProvidedByBundle(versionedName).build();
         }
 
         @Beta
         public static void clearTypeInStoredUpgrades(ManagementContext mgmt, VersionedName versionedName) {
             synchronized (mgmt.getTypeRegistry()) {
-                storeInManagementContext(getFromManagementContext(mgmt).withTypeCleared(versionedName), mgmt);
+                storeInManagementContext(getFromManagementContext(mgmt).withUpgradesProvidedByTypeCleared(versionedName), mgmt);
             }
         }
         @Beta
         public static void clearBundleInStoredUpgrades(ManagementContext mgmt, VersionedName versionedName) {
             synchronized (mgmt.getTypeRegistry()) {
-                storeInManagementContext(getFromManagementContext(mgmt).withBundleCleared(versionedName), mgmt);
+                storeInManagementContext(getFromManagementContext(mgmt).withUpgradesProvidedByBundleCleared(versionedName), mgmt);
             }
         }
     }

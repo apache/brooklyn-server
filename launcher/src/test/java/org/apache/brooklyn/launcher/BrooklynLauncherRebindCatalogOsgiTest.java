@@ -755,7 +755,8 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
     
     @Test
     public void testRebindUpgradeReferencedEntityFromCatalogAndDeployment() throws Exception {
-        File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(false, true);
+        File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(
+            CatalogUpgrades.markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType(), true);
         VersionedName bundleName = new VersionedName("referencer", "1.0");
         String bundleBom = Strings.lines("brooklyn.catalog:",
             "  version: 1",  // without this the type gets the osgi version, 1.0.0 (not 1.0)
