@@ -270,7 +270,21 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             }
             callableOrSupplier = fakeTaskForContext.getJob();
         } else if (callableOrSupplier instanceof TaskAdaptable) {
-            return getImmediately( ((TaskAdaptable<T>)callableOrSupplier).asTask() );
+            Task<T> task = ((TaskAdaptable<T>)callableOrSupplier).asTask();
+            if (task == callableOrSupplier) {
+                // Our TaskAdaptable was a task, but not a BasicTask.
+                // Avoid infinite recursion (don't just call ourselves again!).
+                if (task.isDone()) {
+                    return Maybe.of(task.getUnchecked());
+                } else if (task.isSubmitted() || task.isBegun()) {
+                    throw new ImmediateUnsupportedException("Task is in progress and incomplete: "+task);
+                } else {
+                    throw new ImmediateUnsupportedException("Task not a 'BasicTask', so cannot extract job to get immediately: "+task);
+                }
+            } else {
+                // recurse - try again with the task we've just generated
+                return getImmediately(task);
+            }
         } else {
             fakeTaskForContext = new BasicTask<T>(MutableMap.of("displayName", "Immediate evaluation"));
         }
