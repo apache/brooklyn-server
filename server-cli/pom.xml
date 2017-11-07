@@ -58,6 +58,7 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>airline</artifactId>
+            <version>${airline.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.google.guava</groupId>
@@ -113,11 +114,14 @@
                 <artifactId>maven-bundle-plugin</artifactId>
                 <configuration>
                     <instructions>
-                        <Main-class>org.apache.brooklyn.cli.Main</Main-class>
+                        <Import-Package>
+                            !io.airlift.airline.*
+                            *
+                        </Import-Package>
                     </instructions>
                 </configuration>
             </plugin>
-            
+
             <plugin>
                 <!-- we publish the BOM in case anyone wants to access it directly.
                      the primary consumer to begin with is the dist,
@@ -134,7 +138,7 @@
                         <configuration>
                             <artifacts>
                                 <artifact>
-                                    <file>${project.build.directory}/classes/brooklyn/default.catalog.bom</file>
+                                    <file>${project.build.directory}/classes/catalog.bom</file>
                                     <type>bom</type>
                                     <classifier>dist</classifier>
                                 </artifact>
@@ -175,7 +179,6 @@
                                 i.e. by org.apache.brooklyn.cli.itemlister.ItemLister
                             -->
                             <exclude>**/src/main/resources/brooklyn/item-lister/statics/style/js/**</exclude>
-                            <exclude>**/*.bom</exclude>
                             <exclude>**/.externalToolBuilders/*</exclude>
                         </excludes>
                     </configuration>
