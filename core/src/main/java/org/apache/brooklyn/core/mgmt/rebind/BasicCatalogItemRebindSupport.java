@@ -18,11 +18,15 @@
  */
 package org.apache.brooklyn.core.mgmt.rebind;
 
+import java.util.Set;
+
 import org.apache.brooklyn.api.mgmt.rebind.RebindContext;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemDtoAbstract;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,7 +47,7 @@ public class BasicCatalogItemRebindSupport extends AbstractBrooklynObjectRebindS
         super.reconstruct(rebindContext, memento);
         FlagUtils.setFieldsFromFlags(MutableMap.builder()
                 .put("symbolicName", memento.getSymbolicName())
-                .put("containingBundle", memento.getContainingBundle())
+                .put("containingBundle", possiblyUpgradedBundle(memento.getContainingBundle()))
                 .put("javaType", memento.getJavaType())
                 .put("displayName", memento.getDisplayName())
                 .put("description", memento.getDescription())
@@ -55,6 +59,10 @@ public class BasicCatalogItemRebindSupport extends AbstractBrooklynObjectRebindS
                 .put("deprecated", memento.isDeprecated())
                 .put("disabled", memento.isDisabled())
                 .build(), instance);
+    }
+
+    protected String possiblyUpgradedBundle(String bundle) {
+        return CatalogUpgrades.getBundleUpgradedIfNecessary(instance.getManagementContext(), bundle);
     }
 
     @Override

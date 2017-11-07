@@ -29,11 +29,13 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ListConfigKey.ListModifications;
 import org.apache.brooklyn.core.config.MapConfigKey.MapModifications;
 import org.apache.brooklyn.core.config.SetConfigKey.SetModifications;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
@@ -42,7 +44,9 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -390,4 +394,19 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
                 ImmutableMap.of("0key", 0, "akey", ImmutableMap.of("aa","AA","a2","A2","a3",3), "bkey", ImmutableList.of("b","b2"), "ckey", "cc"));
         assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING.subKey("akey")), ImmutableMap.of("aa", "AA", "a2", "A2", "a3", 3));
     }
+    
+    @Test    
+    public void testInterestingIterableConfig() throws Exception {
+        PortRange r12 = PortRanges.fromString("1-2");
+        // previously VR would act on iterables such as PRs inside maps and lists, but not on those at top level, so this test failed
+        Assert.assertFalse(ValueResolver.supportsDeepResolution(r12));
+        
+        entity.config().set(TestEntity.CONF_OBJECT, r12);
+        entity.config().set(TestEntity.CONF_MAP_OBJ_THING.subKey("r"), r12);
+        app.start(locs);
+        assertEquals(entity.getConfig(TestEntity.CONF_OBJECT), r12);
+        assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING), MutableMap.of("r", r12));
+    }
+    
+
 }

@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.location.LocationResolver;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +60,8 @@ public class CatalogLocationResolver implements LocationResolver {
     @Override
     public LocationSpec<? extends Location> newLocationSpecFromString(String spec, Map<?, ?> locationFlags, LocationRegistry registry) {
         String id = spec.substring(NAME.length()+1);
-        RegisteredType item = managementContext.getTypeRegistry().get(id);
+        RegisteredType item = managementContext.getTypeRegistry().get(
+            CatalogUpgrades.getTypeUpgradedIfNecessary(managementContext, id));
         if (item.isDisabled()) {
             throw new IllegalStateException("Illegal use of disabled catalog item "+item.getSymbolicName()+":"+item.getVersion());
         } else if (item.isDeprecated()) {

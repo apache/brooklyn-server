@@ -38,6 +38,7 @@ import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.entity.Entities;
@@ -46,8 +47,10 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.apache.brooklyn.entity.stock.BasicEntityImpl;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -60,6 +63,7 @@ import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Identifiers;
+import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.launch.Framework;
 import org.testng.Assert;
@@ -703,7 +707,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             "        type: "+BasicEntity.class.getName());
         VersionedName bundleNameV2 = new VersionedName("org.example.testRebindGetsInitialOsgiCatalog", "2.0.0");
         Map<String,String> headers = MutableMap.of(
-            BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "*"
+                BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "*"
                 + (removeSourceJavaBundle ? ","+"'"+OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_SYMBOLIC_NAME_FULL+":"+OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_VERSION+"'"
                     : ""));
         if (upgradeEntity) {
@@ -729,8 +733,8 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
     }
     
     @Test
-    public void testRebindUpgradeEntity() throws Exception {
-        File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(false, true);
+    public void testRebindUpgradeDeployedEntity() throws Exception {
+        File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(CatalogUpgrades.markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType(), true);
         createAndStartApplication(launcherLast.getManagementContext(), 
             "services: [ { type: 'simple-entity:1' } ]");
         
@@ -740,20 +744,83 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         Entity entity = Iterables.getOnlyElement( Iterables.getOnlyElement(launcherLast.getManagementContext().getApplications()).getChildren() );
         
         // assert it was updated
+        Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:2.0.0");
         
-        Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:1.0.0");
-        // TODO when upgrades work at level of catalog item ID and bundle ID, do below instead of above
-//        Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:2.0.0");
-        
-        Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), "com.example.brooklyn.test.osgi.entities.SimpleEntityImpl");
-        // TODO when registered types are used to create, instead of java type,
-        // upgrade should cause the line below instead of the line above (see RebindIteration.load)
-//        Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), BasicEntityImpl.class.getName());
+        if (CatalogUpgrades.markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType()) {
+            Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), BasicEntityImpl.class.getName());
+        } else {
+            Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), "com.example.brooklyn.test.osgi.entities.SimpleEntityImpl");
+        }
     }
     
-    @Test(groups="WIP")
-    public void testRebindUpgradeSpec() throws Exception {
-        File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(true, true);
+    @Test
+    public void testRebindUpgradeReferencedEntityFromCatalogAndDeployment() throws Exception {
+        File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(
+            CatalogUpgrades.markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType(), true);
+        VersionedName bundleName = new VersionedName("referencer", "1.0");
+        String bundleBom = Strings.lines("brooklyn.catalog:",
+            "  version: 1",  // without this the type gets the osgi version, 1.0.0 (not 1.0)
+            "  items:",
+            "  - id: references-simple-entity",
+            "    item:",
+            "      type: simple-entity:1.0",
+            "      brooklyn.children:",
+            "      - type: simple-entity:1.0");
+        File zipIn = newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, bundleBom.getBytes(StandardCharsets.UTF_8)), bundleName);
+        ((ManagementContextInternal)launcherLast.getManagementContext()).getOsgiManager().get().install(new FileInputStream(zipIn)).checkNoError();
+        
+        startupAssertions = () -> {
+            String v = launcherT2==null ? "1.0.0" : "2.0.0";
+            VersionedName bv = new VersionedName("org.example.testRebindGetsInitialOsgiCatalog", v);
+            VersionedName iv = new VersionedName("simple-entity", v);
+            VersionedName rv = new VersionedName("references-simple-entity", "1");
+            assertManagedBundle(launcherLast, bv, MutableSet.of(iv));
+            if (launcherT2==null || !CatalogUpgrades.markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType()) {
+                assertCatalogConsistsOfIds(launcherLast, MutableList.copyOf(COM_EXAMPLE_BUNDLE_CATALOG_IDS).append(iv).append(rv));
+            } else {
+                assertCatalogConsistsOfIds(launcherLast, MutableList.of(iv, rv));
+            }
+        };
+        startupAssertions.run();
+        
+        createAndStartApplication(launcherLast.getManagementContext(), 
+            "services: [ { type: references-simple-entity } ]");
+        
+
+        startT2(newLauncherForTests(initialBomFileV2.getAbsolutePath()));
+        promoteT2IfStandby();
+        
+        Entity entity = Iterables.getOnlyElement( Iterables.getOnlyElement(launcherLast.getManagementContext().getApplications()).getChildren() );
+        
+        Assert.assertEquals(entity.getCatalogItemId(), "references-simple-entity:1");
+        // assert it was updated
+        if (CatalogUpgrades.markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType()) {
+            Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), BasicEntityImpl.class.getName());
+        } else {
+            Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), "com.example.brooklyn.test.osgi.entities.SimpleEntityImpl");
+        }
+        Entity child = Iterables.getOnlyElement( entity.getChildren() );
+        Assert.assertEquals(child.getCatalogItemId(), "simple-entity:2.0.0");
+        if (CatalogUpgrades.markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType()) {
+            Assert.assertEquals(Entities.deproxy(child).getClass().getName(), BasicEntityImpl.class.getName());
+        } else {
+            Assert.assertEquals(Entities.deproxy(child).getClass().getName(), "com.example.brooklyn.test.osgi.entities.SimpleEntityImpl");
+        }
+
+        // new deployment makes the correct java item
+        Application app2 = createAndStartApplication(launcherLast.getManagementContext(), 
+            "services: [ { type: references-simple-entity } ]");
+        entity = Iterables.getOnlyElement( app2.getChildren() );
+        Assert.assertEquals(entity.getCatalogItemId(), "references-simple-entity:1");
+        Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), BasicEntityImpl.class.getName());
+        child = Iterables.getOnlyElement( entity.getChildren() );
+        Assert.assertEquals(child.getCatalogItemId(), "simple-entity:2.0.0");
+        Assert.assertEquals(Entities.deproxy(child).getClass().getName(), BasicEntityImpl.class.getName());
+    }
+    
+    @Test
+    public void testRebindUpgradeSpecUsedInDeployedApp() throws Exception {
+        File initialBomFileV2 = prepForRebindRemovedItemTestReturningBomV2(CatalogUpgrades.markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType(), true);
         Application app = createAndStartApplication(launcherLast.getManagementContext(), 
             Joiner.on("\n").join(
                 "services:",
@@ -774,16 +841,17 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         
         Entity entity = Iterables.getOnlyElement( ((DynamicCluster)cluster).getMembers() );
         
-        // assert it uses the new spec
-        
-        Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:1.0.0");
-        // TODO when upgrades work at level of catalog item ID and bundle ID, do below instead of above
-//        Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:2.0.0");
-        
-        Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), "com.example.brooklyn.test.osgi.entities.SimpleEntityImpl");
-        // TODO when registered types are used to create, instead of java type,
-        // upgrade should cause the line below instead of the line above (see RebindIteration.load)
-//        Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), BasicEntityImpl.class.getName());
+        if (CatalogUpgrades.markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType() ||
+                BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_PERSIST_ENTITY_SPEC_AS_SUPPLIER)) {        
+            Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:2.0.0");
+            Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), BasicEntityImpl.class.getName());
+        } else {
+            // old behaviour was to persist $brooklyn:entitySpec as an _unpacking_ of the provided definition, 
+            // which keeps the java class and so isn't upgraded.
+            // catalog item ID is intercepted and updated, but not the java type.
+            Assert.assertEquals(entity.getCatalogItemId(), "simple-entity:2.0.0");
+            Assert.assertEquals(Entities.deproxy(entity).getClass().getName(), "com.example.brooklyn.test.osgi.entities.SimpleEntityImpl");
+        }
     }
     
     protected void assertPersistedBundleListingEqualsEventually(BrooklynLauncher launcher, Set<VersionedName> bundles) {
@@ -887,7 +955,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         try {
             BrooklynLauncherRebindCatalogOsgiTest fixture = new LauncherRebindSubTests();
             fixture.setUp();
-            fixture.testRebindUpgradeEntity();
+            fixture.testRebindUpgradeSpecUsedInDeployedApp();
             fixture.tearDown();
         } catch (Throwable e) {
             e.printStackTrace();

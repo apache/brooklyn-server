@@ -321,6 +321,18 @@ public class BundleUpgradeParserTest {
     }
     
     @Test
+    public void testParseBundleManifestUpgradesInfersTypes() throws Exception {
+        Supplier<Iterable<RegisteredType>> typeSupplier = Suppliers.ofInstance(ImmutableList.of(
+            new BasicRegisteredType(null, "foo", "2.0", null) ));
+        Bundle bundle = newMockBundle(new VersionedName("bundle", "2.0"), 
+            ImmutableMap.of(BundleUpgradeParser.MANIFEST_HEADER_UPGRADE_FOR_BUNDLES, "*"));
+        CatalogUpgrades ups = BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(bundle, typeSupplier);
+        assertTypeUpgrade(ups, "foo", "1", "foo", "2.0.0");
+        assertTypeUpgrade(ups, "foo", "2", null, null);
+        assertTypeUpgrade(ups, "far", "1", null, null);
+    }
+    
+    @Test
     public void testParseBundleManifestUpgradesValidatesIfNoBundleUpgradeVersion() throws Exception {
         Supplier<Iterable<RegisteredType>> typeSupplier = Suppliers.ofInstance(ImmutableList.of(
             new BasicRegisteredType(null, "foo", "1.0", null) ));

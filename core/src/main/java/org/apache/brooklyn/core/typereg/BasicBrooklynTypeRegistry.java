@@ -43,6 +43,7 @@ import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.core.typereg.RegisteredTypes.RegisteredTypeNameThenBestFirstComparator;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -82,6 +83,8 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
      * maps but coordinating that is tricky and does not seem worth it.
      */
     private ReadWriteLock localRegistryLock = new ReentrantReadWriteLock();
+
+    private CatalogUpgrades catalogUpgrades;
 
     public BasicBrooklynTypeRegistry(ManagementContext mgmt) {
         this.mgmt = mgmt;
@@ -579,7 +582,13 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     @Beta // API stabilising
     public void delete(VersionedName type) {
         boolean changedLocally = Locks.withLock(localRegistryLock.writeLock(),
-            () -> (localRegisteredTypesAndContainingBundles.remove(type.toString()) != null));
+            () -> {
+                boolean changed = (localRegisteredTypesAndContainingBundles.remove(type.toString()) != null);
+                if (changed) {
+                    CatalogUpgrades.clearTypeInStoredUpgrades(mgmt, type);
+                }
+                return changed;
+            });
         if (changedLocally) {
             return;
         }
@@ -609,6 +618,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                 RegisteredType removedItem = m.remove(type.getContainingBundle());
                 if (m.isEmpty()) {
                     localRegisteredTypesAndContainingBundles.remove(type.getId());
+                    CatalogUpgrades.clearTypeInStoredUpgrades(mgmt, type.getVersionedName());
                 }
                 if (removedItem==null) {
                     throw new NoSuchElementException("Requested to delete "+type+" from "+type.getContainingBundle()+", "
@@ -631,7 +641,21 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
 
     /** Deletes all items, for use when resetting management context */
     public void clear() {
-        Locks.withLock(localRegistryLock.writeLock(), () -> localRegisteredTypesAndContainingBundles.clear());
+        Locks.withLock(localRegistryLock.writeLock(), () -> {
+            localRegisteredTypesAndContainingBundles.clear();
+            catalogUpgrades = null;
+        });
     }
+
     
+    @Beta
+    public void storeCatalogUpgradesInstructions(CatalogUpgrades catalogUpgrades) {
+        this.catalogUpgrades = catalogUpgrades;
+    }
+
+    @Beta
+    public CatalogUpgrades getCatalogUpgradesInstructions() {
+        return catalogUpgrades;
+    }
+
 }

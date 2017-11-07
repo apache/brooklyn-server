@@ -254,6 +254,8 @@ public class CatalogInitialization implements ManagementContextInjectable {
             
             populateInitialCatalogImpl(true);
             
+            CatalogUpgrades catalogUpgrades = gatherCatalogUpgradesInstructions(rebindLogger);
+            CatalogUpgrades.storeInManagementContext(catalogUpgrades, managementContext);
             PersistedCatalogState filteredPersistedState = filterBundlesAndCatalogInPersistedState(persistedState, rebindLogger);
             addPersistedCatalogImpl(filteredPersistedState, exceptionHandler, rebindLogger);
             
@@ -577,12 +579,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
     }
 
     private PersistedCatalogState filterBundlesAndCatalogInPersistedState(PersistedCatalogState persistedState, RebindLogger rebindLogger) {
-        // TODO Will need to share the results of `findCatalogUpgrades` when we support
-        // other options, such as, `brooklyn-catalog-upgrade-for-bundles`, described in the proposal:
-        //   https://docs.google.com/document/d/1Lm47Kx-cXPLe8BO34-qrL3ZMPosuUHJILYVQUswEH6Y/edit#
-        //   section "Bundle Upgrade Metadata"
-
-        CatalogUpgrades catalogUpgrades = findCatalogUpgradesInstructions(rebindLogger);
+        CatalogUpgrades catalogUpgrades = CatalogUpgrades.getFromManagementContext(managementContext);
         
         if (catalogUpgrades.isEmpty()) {
             return persistedState;
@@ -611,7 +608,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
         return new PersistedCatalogState(bundles, legacyCatalogItems);
     }
 
-    private CatalogUpgrades findCatalogUpgradesInstructions(RebindLogger rebindLogger) {
+    private CatalogUpgrades gatherCatalogUpgradesInstructions(RebindLogger rebindLogger) {
         Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)managementContext).getOsgiManager();
         if (osgiManager.isAbsent()) {
             // Can't find any bundles to tell if there are upgrades. Could be running tests; do no filtering.

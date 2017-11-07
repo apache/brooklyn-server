@@ -48,6 +48,7 @@ import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigInheritances;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigValueAtContainer;
+import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -65,6 +66,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.FlagUtils.FlagConfigKeyAndValueRecord;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Urls;
@@ -501,12 +503,12 @@ public class BrooklynComponentTemplateResolver {
             return JavaBrooklynClassLoadingContext.create(mgmt);
         }
 
-        /**
-         * Makes additional transformations to the given flag with the extra knowledge of the flag's management context.
-         * @return The modified flag, or the flag unchanged.
-         */
-        protected Object transformSpecialFlags(Object flag) {
-            if (flag instanceof EntitySpecConfiguration) {
+        private class EntitySpecSupplier implements DeferredSupplier<EntitySpec<?>> {
+            EntitySpecConfiguration flag;
+            public EntitySpecSupplier(EntitySpecConfiguration flag) {
+                this.flag = flag;
+            }
+            @Override public EntitySpec<?> get() {
                 EntitySpecConfiguration specConfig = (EntitySpecConfiguration) flag;
                 // TODO: This should called from BrooklynAssemblyTemplateInstantiator.configureEntityConfig
                 // And have transformSpecialFlags(Object flag, ManagementContext mgmt) drill into the Object flag if it's a map or iterable?
@@ -516,6 +518,26 @@ public class BrooklynComponentTemplateResolver {
                 EntitySpec<?> entitySpec = Factory.newInstance(getLoader(), specConfig.getSpecConfiguration()).resolveSpec(encounteredRegisteredTypeIds);
 
                 return EntityManagementUtils.unwrapEntity(entitySpec);
+            }
+        }
+        
+        /**
+         * Makes additional transformations to the given flag with the extra knowledge of the flag's management context.
+         * @return The modified flag, or the flag unchanged.
+         */
+        protected Object transformSpecialFlags(Object flag) {
+            if (flag instanceof EntitySpecConfiguration) {
+                EntitySpecSupplier supplier = new EntitySpecSupplier((EntitySpecConfiguration)flag);
+                EntitySpec<?> resolved = supplier.get();
+                // do the "get" above to catch errors prior to attempts to use the spec
+                if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_PERSIST_ENTITY_SPEC_AS_SUPPLIER)) {
+                    return supplier;
+                } else {
+                    // 2017-10 previously we always returned the resolved EntitySpec.
+                    // main reason for the supplier is so that we persist the YAML and can apply upgrades on rebind.
+                    // this also means other transformations are deferred, which seems safe but if not there is a configurable FEATURE. 
+                    return resolved;
+                }
             }
             if (flag instanceof ManagementContextInjectable) {
                 log.debug("Injecting Brooklyn management context info object: {}", flag);

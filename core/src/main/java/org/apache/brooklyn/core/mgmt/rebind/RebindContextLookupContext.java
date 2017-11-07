@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.mgmt.rebind;
 
+import java.util.Stack;
+
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
@@ -43,16 +45,38 @@ public class RebindContextLookupContext implements LookupContext {
     @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(RebindContextLookupContext.class);
     
+    protected final Stack<String> description;
+    
     @Nullable
     protected final ManagementContext managementContext;
     
     protected final RebindContextImpl rebindContext;
     protected final RebindExceptionHandler exceptionHandler;
     
+    /** @deprecated since 1.0.0 use other constructor (pass in description) */
+    @Deprecated
     public RebindContextLookupContext(ManagementContext managementContext, RebindContextImpl rebindContext, RebindExceptionHandler exceptionHandler) {
+        this("<no-context-description>", managementContext, rebindContext, exceptionHandler);
+    }
+    public RebindContextLookupContext(String description, ManagementContext managementContext, RebindContextImpl rebindContext, RebindExceptionHandler exceptionHandler) {
+        this.description = new Stack<>();
+        this.description.push(description);
         this.managementContext = managementContext;
         this.rebindContext = rebindContext;
         this.exceptionHandler = exceptionHandler;
+    }
+    public RebindContextLookupContext(String description, RebindContextLookupContext sourceToCopy) {
+        this(description, sourceToCopy.managementContext, sourceToCopy.rebindContext, sourceToCopy.exceptionHandler);
+    }
+    
+    @Override public String getContextDescription() {
+        return description.peek();
+    }
+    @Override public String popContextDescription() {
+        return description.pop();
+    }
+    @Override public void pushContextDescription(String description) {
+        this.description.push(description);
     }
     
     @Override public ManagementContext lookupManagementContext() {
