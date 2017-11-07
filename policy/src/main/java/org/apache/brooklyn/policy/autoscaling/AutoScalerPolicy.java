@@ -81,7 +81,8 @@ import groovy.lang.Closure;
 @SuppressWarnings({"rawtypes", "unchecked"})
 @Catalog(name="Auto-scaler", description="Policy that is attached to a Resizable entity and dynamically "
         + "adjusts its size in response to either keep a metric within a given range, or in response to "
-        + "POOL_COLD and POOL_HOT events")
+        + "POOL_COLD and POOL_HOT events",
+        iconUrl="classpath://org/apache/brooklyn/policy/autoscaler.png")
 public class AutoScalerPolicy extends AbstractPolicy {
     
     private static final Logger LOG = LoggerFactory.getLogger(AutoScalerPolicy.class);
