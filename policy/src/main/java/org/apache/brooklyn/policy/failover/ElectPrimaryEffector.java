@@ -37,6 +37,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceProblemsLogic;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -121,13 +122,15 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
 //                        * if the local entity has no expectation, it will set actual state to STOPPED
 //                        * demote any old primary
                     ServiceProblemsLogic.updateProblemsIndicator(entity(), "primary", "No primary could be found");
-                    entity().sensors().set(Sensors.newSensor(Entity.class, params.get(PRIMARY_SENSOR_NAME)), null);
+                    ServiceNotUpLogic.updateNotUpIndicator(entity(), "primary", "No primary could be found");
                     entity().sensors().set(Attributes.SERVICE_UP, false);
-                    if (Lifecycle.RUNNING.equals( entity().getAttribute(Attributes.SERVICE_STATE_EXPECTED) )) {
+                    if (Lifecycle.RUNNING.equals( ServiceStateLogic.getExpectedState(entity()) )) {
                         entity().sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
                     } else {
                         entity().sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
                     }
+                    entity().sensors().set(Sensors.newSensor(Entity.class, params.get(PRIMARY_SENSOR_NAME)), null);
+                    
                     DynamicTasks.queue(Tasks.create("demote "+currentActive, new Demote(params)) ).getUnchecked();                
                     return MutableMap.of("code", ResultCode.NO_PRIMARY_AVAILABLE, "message", "No primary available", "primary", null);
                 }
@@ -149,6 +152,7 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
 //                    * set service up true
 //                    * set the local entity to the RUNNING state
                 
+                ServiceNotUpLogic.updateNotUpIndicator(entity(), "primary", "Invoking promotion/demotion effectors");
                 boolean wasRunning = entity().sensors().get(Attributes.SERVICE_STATE_ACTUAL) == Lifecycle.RUNNING;
                 if (wasRunning) {
                     log.debug("Transititioning "+entity()+" to starting while promoting/demoting");
@@ -162,15 +166,16 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
                     promoteAndDemote(params, currentActive, newPrimary);
                     
                     log.debug("Promoted/demoted primary for "+entity()+", now setting service up "+(wasRunning ? "and running" : "(but not setting as 'running' because it wasn't 'running' before)"));
-                    entity().sensors().set(Attributes.SERVICE_UP, true);
+                    ServiceNotUpLogic.clearNotUpIndicator(entity(), "primary");
                     if (wasRunning) ServiceStateLogic.setExpectedState(entity(), Lifecycle.RUNNING);
                     
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
                     log.debug("Error promoting/demoting primary for "+entity()+" (rethrowing): "+e);
                     ServiceProblemsLogic.updateProblemsIndicator(entity(), "primary", e);
+                    ServiceNotUpLogic.clearNotUpIndicator(entity(), "primary");
                     ServiceStateLogic.setExpectedStateRunningWithErrors(entity());
-                    Exceptions.propagate(e);
+                    throw Exceptions.propagate(e);
                 }
     
                 return MutableMap.of("code", ResultCode.NEW_PRIMARY_ELECTED, "message", "New primary found", "primary", newPrimary);
@@ -396,6 +401,10 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
                 if (eff!=null) {
                     return DynamicTasks.queue( Effectors.invocation(newPrimary, eff, params) ).asTask().getUnchecked();
                 }
+                if (params.containsKey(PROMOTE_EFFECTOR_NAME)) {
+                    throw new IllegalStateException("Key "+PROMOTE_EFFECTOR_NAME.getName()+" set as "+promoteEffectorName+
+                        " but that effector isn't available on this entity or new primary "+newPrimary);
+                }
                 return "No promotion effector '"+promoteEffectorName+"'; nothing to do";
             }
         }
@@ -418,6 +427,10 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
                 eff = oldPrimary.getEffector(demoteEffectorName);
                 if (eff!=null) {
                     return DynamicTasks.queue( Effectors.invocation(oldPrimary, eff, params) ).asTask().getUnchecked();
+                }
+                if (params.containsKey(DEMOTE_EFFECTOR_NAME)) {
+                    throw new IllegalStateException("Key "+DEMOTE_EFFECTOR_NAME.getName()+" set as "+demoteEffectorName+
+                        " but that effector isn't available on this entity or old primary "+oldPrimary);
                 }
                 return "No demotion effector '"+demoteEffectorName+"'; nothing to do";
             }

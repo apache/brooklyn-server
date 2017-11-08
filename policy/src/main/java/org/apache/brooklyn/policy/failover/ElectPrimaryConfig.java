@@ -65,11 +65,11 @@ public interface ElectPrimaryConfig {
         PrimaryDefaultSensorsAndEffectors.PRIMARY_WEIGHT_SENSOR.getName());
 
     public static final ConfigKey<String> PROMOTE_EFFECTOR_NAME = ConfigKeys.newStringConfigKey("primary.promote.effector.name",
-        "effector to invoke on promotion, default `promote` and with no error if not present (but if set explicitly it will cause an error if not present)",
+        "effector to invoke on promotion, trying on this entity or if not present then at new primary, default `promote` and with no error if not present at either entity (but if set explicitly it will cause an error if not present)",
         PrimaryDefaultSensorsAndEffectors.PROMOTE.getName());
 
     public static final ConfigKey<String> DEMOTE_EFFECTOR_NAME = ConfigKeys.newStringConfigKey("primary.demote.effector.name",
-        "effector to invoke on demotion, default `demote` and with no error if not present (but if set explicitly it will cause an error if not present)",
+        "effector to invoke on demotion, trying on this entity or if not present then at old primary, default `demote` and with no error if not present at either entity (but if set explicitly it will cause an error if not present)",
         PrimaryDefaultSensorsAndEffectors.DEMOTE.getName());
 
     

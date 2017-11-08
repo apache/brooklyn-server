@@ -311,13 +311,16 @@ public interface ManagementContext {
     public BrooklynObject lookup(String id);
     
     /** As {@link #lookup(Predicate)} comparing the ID of the object with the given string */
+    @Beta
     public <T extends BrooklynObject> T lookup(String id, Class<T> type); 
 
     /** Finds a {@link BrooklynObject} known in this management context 
      * satisfying the given predicate, or null */
+    @Beta
     public <T extends BrooklynObject> T lookup(Predicate<? super T> filter);
     
     /** As {@link #lookup(Predicate)} but returning all such instances */
+    @Beta
     public <T extends BrooklynObject> Collection<T> lookupAll(Predicate<? super T> filter);
     
 }
