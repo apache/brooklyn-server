@@ -35,6 +35,7 @@ import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier.ImmediateUnsupportedException;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier.ImmediateValueNotAvailableException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
@@ -186,6 +187,50 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         Asserts.assertStringContainsIgnoreCase(exception.toString(), "immediate", "not", "available");
         Asserts.eventually(() -> t, (tt) -> tt.isBegun(), Duration.TEN_SECONDS);
         Asserts.assertThat(t, (tt) -> !tt.isDone());
+    }
+
+    public void testExecutionContextGetImmediatelyBasicTaskTooSlow() throws Exception {
+        final Task<String> t = newSleepTask(Duration.ONE_MINUTE, "foo");
+        
+        // Extracts job from task, tries to run it, and sees it tries to block so aborts.
+        // It will also render the task unusable (cancelled); not bothering to assert that!
+        Maybe<String> result = app.getExecutionContext().getImmediately(t);
+        Assert.assertFalse(result.isPresent(), "result="+result);
+    }
+
+    public void testExecutionContextGetImmediatelyBasicTaskSucceeds() throws Exception {
+        final Task<String> t = newSleepTask(Duration.ZERO, "foo");
+        
+        // Extracts job from task, tries to run it; because it doesn't block we'll get the result.
+        // It will also render the task unusable (cancelled); calling `t.get()` will throw CancellationException.
+        Maybe<String> result = app.getExecutionContext().getImmediately(t);
+        Assert.assertTrue(result.isPresent(), "result="+result);
+        Assert.assertEquals(result.get(), "foo", "result="+result);
+    }
+
+    public void testExecutionContextGetImmediatelyTaskNotBasicFails() throws Exception {
+        final TaskInternal<String> t = (TaskInternal<String>) newSleepTask(Duration.ZERO, "foo");
+        final Task<String> t2 = new ForwardingTask<String>() {
+            @Override
+            protected TaskInternal<String> delegate() {
+                return t;
+            }
+            @Override public boolean cancel(TaskCancellationMode mode) {
+                return delegate().cancel();
+            }
+            public Task<String> asTask() {
+                return this;
+            }
+        };
+        
+        // Does not handle non-basic tasks; an acceptable limitation.
+        // Previously it threw StackOverflowError; now says unsupported.
+        try {
+            Maybe<String> result = app.getExecutionContext().getImmediately(t2);
+            Asserts.shouldHaveFailedPreviously("result="+result);
+        } catch (ImmediateUnsupportedException e) {
+            Asserts.expectedFailureContains(e, "cannot extract job");
+        }
     }
 
     public void testSwallowError() {
