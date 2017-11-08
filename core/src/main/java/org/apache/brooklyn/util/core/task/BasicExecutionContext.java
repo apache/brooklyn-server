@@ -40,6 +40,7 @@ import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
@@ -244,20 +245,39 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     }
     
     @Override
-    public <T> Maybe<T> getImmediately(Task<T> callableOrSupplier) {
-        return getImmediately((Object) callableOrSupplier);
+    public <T> Maybe<T> getImmediately(TaskFactory<Task<T>> callableOrSupplier) {
+        return getImmediatelyInternal(callableOrSupplier);
+    }
+    
+    @Override
+    public <T> Maybe<T> getImmediately(TaskAdaptable<T> callableOrSupplier) {
+        if (!(callableOrSupplier instanceof TaskFactory)) {
+            Task<T> t = callableOrSupplier.asTask();
+            if (!t.isSubmitted()) {
+                log.warn("Deprecated call to getImmediately on unsubmitted task "+callableOrSupplier+"; "
+                    + "this will run the task in a crippled state. Pass a TaskFactory instead or submit the task beforehand.");
+                log.debug("Trace for deprecated call to getImmediately("+callableOrSupplier+")",
+                    new Exception("Trace for deprecated call to getImmediately("+callableOrSupplier+")"));
+            }
+        }
+        return getImmediatelyInternal(callableOrSupplier);
     }
     
     /** performs execution without spawning a new task thread, though it does temporarily set a fake task for the purpose of getting context;
-     * currently supports {@link Supplier}, {@link Callable}, {@link Runnable}, or {@link Task} instances; 
+     * currently supports {@link Supplier}, {@link Callable}, {@link Runnable}, 
+     * or {@link Task} (recommended to be {@link TaskFactory}) instances; 
      * with tasks if it is submitted or in progress,
      * it fails if not completed; with unsubmitted, unqueued tasks, it gets the {@link Callable} job and 
      * uses that; with such a job, or any other callable/supplier/runnable, it runs that
      * in an {@link InterruptingImmediateSupplier}, with as much metadata as possible (eg task name if
      * given a task) set <i>temporarily</i> in the current thread context */
-    @SuppressWarnings("unchecked")
     @Override
     public <T> Maybe<T> getImmediately(Object callableOrSupplier) {
+        return getImmediatelyInternal(callableOrSupplier);
+    }
+    
+    @SuppressWarnings("unchecked")
+    private <T> Maybe<T> getImmediatelyInternal(Object callableOrSupplier) {
         BasicTask<T> fakeTaskForContext;
         if (callableOrSupplier instanceof BasicTask) {
             fakeTaskForContext = (BasicTask<T>)callableOrSupplier;
@@ -269,8 +289,12 @@ public class BasicExecutionContext extends AbstractExecutionContext {
                 }
             }
             callableOrSupplier = fakeTaskForContext.getJob();
-        } else if (callableOrSupplier instanceof TaskAdaptable) {
-            return getImmediately( ((TaskAdaptable<T>)callableOrSupplier).asTask() );
+        } else if (callableOrSupplier instanceof TaskFactory) {
+            return getImmediatelyInternal( ((TaskFactory<Task<T>>)callableOrSupplier).newTask() );
+        } else if (callableOrSupplier instanceof TaskAdaptable && !(callableOrSupplier instanceof Task)) {
+            // if it's another form of task go into the next block where we will likely fail;
+            // not supported to get-immediate tasks that aren't basic tasks
+            return getImmediatelyInternal( ((TaskAdaptable<T>)callableOrSupplier).asTask() );
         } else {
             fakeTaskForContext = new BasicTask<T>(MutableMap.of("displayName", "Immediate evaluation"));
         }

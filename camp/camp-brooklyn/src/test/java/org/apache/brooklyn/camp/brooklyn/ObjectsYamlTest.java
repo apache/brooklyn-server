@@ -27,7 +27,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
@@ -177,12 +178,22 @@ public class ObjectsYamlTest extends AbstractYamlTest {
             }
 
             @Override
-            public <T> T set(ConfigKey<T> key, Task<T> val) {
+            public <T> T set(ConfigKey<T> key, TaskFactory<? extends TaskAdaptable<T>> val) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public <T> T set(HasConfigKey<T> key, Task<T> val) {
+            public <T> T set(HasConfigKey<T> key, TaskFactory<? extends TaskAdaptable<T>> val) {
+                return set(key.getConfigKey(), val);
+            }
+            
+            @Override
+            public <T> T set(ConfigKey<T> key, TaskAdaptable<T> val) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public <T> T set(HasConfigKey<T> key, TaskAdaptable<T> val) {
                 return set(key.getConfigKey(), val);
             }
 

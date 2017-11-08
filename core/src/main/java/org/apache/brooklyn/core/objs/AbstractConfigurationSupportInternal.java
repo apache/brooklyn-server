@@ -27,6 +27,8 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
@@ -141,7 +143,12 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
     }
 
     @Override
-    public <T> T set(HasConfigKey<T> key, Task<T> val) {
+    public <T> T set(HasConfigKey<T> key, TaskFactory<? extends TaskAdaptable<T>> val) {
+        return set(key.getConfigKey(), val);
+    }
+
+    @Override
+    public <T> T set(HasConfigKey<T> key, TaskAdaptable<T> val) {
         return set(key.getConfigKey(), val);
     }
 
@@ -176,10 +183,19 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
     }
 
     @Override
-    public <T> T set(ConfigKey<T> key, Task<T> val) {
+    public <T> T set(ConfigKey<T> key, TaskAdaptable<T> val) {
+        LOG.warn("Setting a task as a config value is deprecated; use a TaskFactory instead, "
+            + "when setting "+getContainer()+" "+key+" to "+val);
+        LOG.debug("Trace for setting "+getContainer()+" "+key+" to task "+val,
+            new Exception("Trace for setting "+getContainer()+" "+key+" to task "+val));
         return setConfigInternal(key, val);
     }
 
+    @Override
+    public <T> T set(ConfigKey<T> key, TaskFactory<? extends TaskAdaptable<T>> val) {
+        return setConfigInternal(key, val);
+    }
+    
     @Override
     public ConfigBag getLocalBag() {
         return ConfigBag.newInstance(getConfigsInternal().getAllConfigLocalRaw());

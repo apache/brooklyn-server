@@ -20,7 +20,10 @@ package org.apache.brooklyn.api.objs;
 
 import java.util.Set;
 
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.config.ConfigMap;
@@ -78,19 +81,39 @@ public interface Configurable {
         <T> T set(HasConfigKey<T> key, T val);
         
         /**
-         * Sets the config to the value returned by the task.
+         * Sets the config to return the value returned by the task this generates,
+         * on demand when invoked.
+         * <p>
+         * Returns immediately without blocking; subsequent calls to {@link #getConfig(ConfigKey)} 
+         * will create and execute an instance of the task, blocking unless otherwise configured.
          * 
+         * @see {@link #setConfig(ConfigKey, Object)}
+         */
+        <T> T set(ConfigKey<T> key, TaskFactory<? extends TaskAdaptable<T>> val);
+        
+        /**
+         * Sets the config to the value returned by the task.
+         * <p>
+         * It is recommended to use {@link #set(ConfigKey, TaskFactory)} instead so that calls to validate 
+         * items via {@link ExecutionContext#getImmediately(Object)} do not interrupt and wreck the task set here. 
+         * <p>
          * Returns immediately without blocking; subsequent calls to {@link #getConfig(ConfigKey)} 
          * will execute the task, and block until the task completes.
          * 
          * @see {@link #setConfig(ConfigKey, Object)}
          */
-        <T> T set(ConfigKey<T> key, Task<T> val);
+        <T> T set(ConfigKey<T> key, TaskAdaptable<T> val);
+        
+        /**
+         * @see {@link #setConfig(ConfigKey, TaskFactory)}
+         */
+        <T> T set(HasConfigKey<T> key, TaskFactory<? extends TaskAdaptable<T>> val);
         
         /**
          * @see {@link #setConfig(ConfigKey, Task)}
          */
-        <T> T set(HasConfigKey<T> key, Task<T> val);
+        // TODO deprecate
+        <T> T set(HasConfigKey<T> key, TaskAdaptable<T> val);
         
         /** @deprecated since 0.11.0 see {@link ConfigMap#findKeys(Predicate)} */
         @Deprecated
