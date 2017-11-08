@@ -23,4 +23,3 @@ brooklyn.catalog:
   - mvn:org.apache.brooklyn/brooklyn-policy/1.0.0-SNAPSHOT # BROOKLYN_VERSION
   - mvn:org.apache.brooklyn/brooklyn-software-base/1.0.0-SNAPSHOT # BROOKLYN_VERSION
   - mvn:org.apache.brooklyn/brooklyn-test-framework/1.0.0-SNAPSHOT # BROOKLYN_VERSION
-  - mvn:org.apache.brooklyn/brooklyn-cli/1.0.0-SNAPSHOT # BROOKLYN_VERSION

@@ -327,16 +327,11 @@
         <bundle>mvn:org.apache.brooklyn/brooklyn-test-framework/${project.version}</bundle>
     </feature>
 
-    <feature name="brooklyn-cli" version="${project.version}" description="Brooklyn CLI" >
-        <bundle>mvn:org.apache.brooklyn/brooklyn-cli/${project.version}</bundle>
-    </feature>
-
     <feature name="brooklyn-server-software-all" version="${project.version}" description="Brooklyn All Core Entities">
         <feature>brooklyn-software-base</feature>
         <feature>brooklyn-jmxmp-agent</feature>
         <feature>brooklyn-jmxrmi-agent</feature>
         <feature>brooklyn-test-framework</feature>
-        <feature>brooklyn-cli</feature>
     </feature>
 
     <feature name="brooklyn-osgi-launcher" version="${project.version}" description="Brooklyn init">
