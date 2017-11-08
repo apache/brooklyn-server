@@ -17,7 +17,7 @@
 # under the License.
 #
 brooklyn.policies:
-- type: org.apache.brooklyn.policy.ha.ElectPrimaryPolicy
+- type: org.apache.brooklyn.policy.failover.ElectPrimaryPolicy
   brooklyn.config:
     primary.stopped.wait.timeout: 0
 

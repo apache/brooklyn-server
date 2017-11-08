@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.policy.ha;
+package org.apache.brooklyn.policy.failover;
 
 import java.util.Collections;
 import java.util.List;
@@ -51,6 +51,7 @@ import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
 
@@ -63,6 +64,7 @@ behaviour can be configured with `primary.selection.mode`.
 
 Returns a map containing a message, newPrimary, oldPrimary, and a {@link ResultCode} code.
 */
+@Beta
 public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConfig {
 
     private static final Logger log = LoggerFactory.getLogger(ElectPrimaryEffector.class);

@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.policy.ha;
+package org.apache.brooklyn.policy.failover;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.SensorEvent;
@@ -32,17 +32,18 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
+
 /** Records if the elected primary child/member is running, updating service state of this entity 
  * if it isn't running when it should be via the service problems map which in the event of
  * an issue will contain more information about primary status. */ 
-@SuppressWarnings("rawtypes")
-public class PrimaryRunningEnricher extends AbstractEnricher implements SensorEventListener {
+@Beta
+public class PrimaryRunningEnricher extends AbstractEnricher implements SensorEventListener<Object> {
 
     private static final Logger log = LoggerFactory.getLogger(PrimaryRunningEnricher.class);
     
     public static final ConfigKey<String> PRIMARY_SENSOR_NAME = ElectPrimaryConfig.PRIMARY_SENSOR_NAME;
     
-    @SuppressWarnings("unchecked")
     public void setEntity(@SuppressWarnings("deprecation") org.apache.brooklyn.api.entity.EntityLocal entity) {
         super.setEntity(entity);
         subscriptions().subscribe(entity, Sensors.newSensor(Entity.class, config().get(PRIMARY_SENSOR_NAME)), this);
@@ -53,7 +54,7 @@ public class PrimaryRunningEnricher extends AbstractEnricher implements SensorEv
     }
 
     @Override
-    public void onEvent(SensorEvent event) {
+    public void onEvent(SensorEvent<Object> event) {
         Entity primary = entity.getAttribute( Sensors.newSensor(Entity.class, config().get(PRIMARY_SENSOR_NAME)) );
         if (primary==null) {
             ServiceNotUpLogic.updateNotUpIndicator(entity, "primary.enricher", "no primary found");

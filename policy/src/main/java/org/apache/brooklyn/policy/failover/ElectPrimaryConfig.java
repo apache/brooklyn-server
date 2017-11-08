@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.policy.ha;
+package org.apache.brooklyn.policy.failover;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
@@ -27,6 +27,9 @@ import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.time.Duration;
 
+import com.google.common.annotations.Beta;
+
+@Beta
 public interface ElectPrimaryConfig {
 
     public enum TargetMode { CHILDREN, MEMBERS, AUTO }

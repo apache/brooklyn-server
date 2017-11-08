@@ -17,12 +17,12 @@
 # under the License.
 #
 brooklyn.policies:
-- type: org.apache.brooklyn.policy.ha.ElectPrimaryPolicy
+- type: org.apache.brooklyn.policy.failover.ElectPrimaryPolicy
   brooklyn.config:
     primary.stopped.wait.timeout: 0
     primary.selection.mode: $$REPLACE$$
 brooklyn.enrichers:
-- type: org.apache.brooklyn.policy.ha.PrimaryRunningEnricher
+- type: org.apache.brooklyn.policy.failover.PrimaryRunningEnricher
 
 services:
 - type: item-from-test

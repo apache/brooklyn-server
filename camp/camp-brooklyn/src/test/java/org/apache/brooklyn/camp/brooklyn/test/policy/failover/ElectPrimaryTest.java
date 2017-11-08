@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.camp.policies.ha.brooklyn;
+package org.apache.brooklyn.camp.brooklyn.test.policy.failover;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -41,10 +41,10 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.policy.ha.ElectPrimaryConfig;
-import org.apache.brooklyn.policy.ha.ElectPrimaryConfig.PrimaryDefaultSensorsAndEffectors;
-import org.apache.brooklyn.policy.ha.ElectPrimaryConfig.SelectionMode;
-import org.apache.brooklyn.policy.ha.ElectPrimaryEffector;
+import org.apache.brooklyn.policy.failover.ElectPrimaryConfig;
+import org.apache.brooklyn.policy.failover.ElectPrimaryConfig.PrimaryDefaultSensorsAndEffectors;
+import org.apache.brooklyn.policy.failover.ElectPrimaryConfig.SelectionMode;
+import org.apache.brooklyn.policy.failover.ElectPrimaryEffector;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.LoggingVerboseReporter;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -85,7 +85,7 @@ public class ElectPrimaryTest extends AbstractYamlTest {
     public void testTwoChildren() throws Exception {
         setItemFromTestAsSimple();
         
-        Entity app = createAndStartApplication(loadYaml("classpath://org/apache/brooklyn/policy/ha/elect-primary-simple-test.yaml"));
+        Entity app = createAndStartApplication(loadYaml("classpath://org/apache/brooklyn/policy/failover/elect-primary-simple-test.yaml"));
         EntityAsserts.assertAttributeEventually(app, PRIMARY, Predicates.notNull());
         log.info("Primary sensor is: "+app.sensors().get(PRIMARY));
     }
@@ -98,7 +98,7 @@ public class ElectPrimaryTest extends AbstractYamlTest {
     public Entity runSetPreferredViaWeightConfigOnB() throws Exception {
         setItemFromTestAsSimple();
         
-        Entity app = createAndStartApplication(loadYaml("classpath://org/apache/brooklyn/policy/ha/elect-primary-simple-test.yaml",
+        Entity app = createAndStartApplication(loadYaml("classpath://org/apache/brooklyn/policy/failover/elect-primary-simple-test.yaml",
             "  brooklyn.config:",
             "    "+WEIGHT_CONFIG.getName()+": 1"));
         
@@ -112,7 +112,7 @@ public class ElectPrimaryTest extends AbstractYamlTest {
     public void testSetDisallowedViaWeightConfigOnB() throws Exception {
         setItemFromTestAsSimple();
         
-        Entity app = createAndStartApplication(loadYaml("classpath://org/apache/brooklyn/policy/ha/elect-primary-simple-test.yaml",
+        Entity app = createAndStartApplication(loadYaml("classpath://org/apache/brooklyn/policy/failover/elect-primary-simple-test.yaml",
             "  brooklyn.config:",
             "    "+WEIGHT_CONFIG.getName()+": -1"));
         
@@ -133,7 +133,7 @@ public class ElectPrimaryTest extends AbstractYamlTest {
     public void testPropagateSensorsWithFailover() throws Exception {
         setItemFromTestAsSimple();
         
-        Entity app = createAndStartApplication(loadYaml("classpath://org/apache/brooklyn/policy/ha/elect-primary-propagate-test.yaml"));
+        Entity app = createAndStartApplication(loadYaml("classpath://org/apache/brooklyn/policy/failover/elect-primary-propagate-test.yaml"));
         
         AttributeSensor<String> S1 = Sensors.newStringSensor("sens1");
         AttributeSensor<String> S2 = Sensors.newStringSensor("sens2");
@@ -265,7 +265,7 @@ public class ElectPrimaryTest extends AbstractYamlTest {
             setItemFromTestAsSimple();
             
             app = createAndStartApplication(Strings.replaceAllNonRegex(
-                loadYaml("classpath://org/apache/brooklyn/policy/ha/elect-primary-selection-mode-test.yaml"), 
+                loadYaml("classpath://org/apache/brooklyn/policy/failover/elect-primary-selection-mode-test.yaml"), 
                 "$$REPLACE$$", mode.name().toLowerCase()) );
             EntityAsserts.assertEntityHealthyEventually(app);
     

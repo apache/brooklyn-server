@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.policy.ha;
+package org.apache.brooklyn.policy.failover;
 
 import java.util.Collection;
 import java.util.List;
@@ -52,6 +52,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.reflect.TypeToken;
@@ -82,6 +83,7 @@ and will be passed to the effector, along with an `event` parameter indicating t
 If no quorum.up or quorum.running is set on the entity, both will be set to a constant 1.
 
  */
+@Beta
 public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryConfig {
 
     private static final Logger log = LoggerFactory.getLogger(ElectPrimaryPolicy.class);

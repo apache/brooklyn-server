@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.policy.ha;
+package org.apache.brooklyn.policy.failover;
 
 import java.util.Collection;
 import java.util.Map;
@@ -32,8 +32,8 @@ import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.effector.EffectorTasks.EffectorTaskFactory;
+import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityInternal.SensorSupportInternal;
@@ -45,12 +45,13 @@ import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
 
 /** Makes all sensors/effectors available on primary mirrored at this node,
  * apart from those already present here. */ 
-@SuppressWarnings("rawtypes")
-public class PropagatePrimaryEnricher extends AbstractEnricher implements SensorEventListener {
+@Beta
+public class PropagatePrimaryEnricher extends AbstractEnricher implements SensorEventListener<Object> {
 
     private static final Logger log = LoggerFactory.getLogger(PropagatePrimaryEnricher.class);
     
@@ -73,7 +74,6 @@ public class PropagatePrimaryEnricher extends AbstractEnricher implements Sensor
         getConfig(ElectPrimaryConfig.PROMOTE_EFFECTOR_NAME), getConfig(ElectPrimaryConfig.DEMOTE_EFFECTOR_NAME));
     Set<String> blacklistedSensors = MutableSet.of();
     
-    @SuppressWarnings("unchecked")
     public void setEntity(@SuppressWarnings("deprecation") org.apache.brooklyn.api.entity.EntityLocal entity) {
         super.setEntity(entity);
         
@@ -89,7 +89,7 @@ public class PropagatePrimaryEnricher extends AbstractEnricher implements Sensor
     }
 
     @Override
-    public synchronized void onEvent(SensorEvent event) {
+    public synchronized void onEvent(SensorEvent<Object> event) {
         Entity primary = entity.getAttribute( Sensors.newSensor(Entity.class, config().get(PRIMARY_SENSOR_NAME)) );
         if (!Objects.equal(primary, lastPrimary)) {
             log.debug("Removing propagated items from "+lastPrimary+" at "+entity);
