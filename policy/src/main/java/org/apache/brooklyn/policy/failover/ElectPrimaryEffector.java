@@ -259,9 +259,12 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
                     return DynamicTasks.queue( Effectors.invocation(entity(), eff, params) ).asTask().getUnchecked();
                 }
                 EntityInternal oldPrimary = (EntityInternal)params.getStringKey("oldPrimary");
-                if (oldPrimary==null) {
-                    return "Nothing to demote; no old primary";
-                }
+                if (oldPrimary==null) return "Nothing to demote; no old primary";
+                if (Entities.isNoLongerManaged(oldPrimary)) return "Entity to demote is gone";
+                // could bail out if stopping or stopped; demotion may take a while
+                // but demotion might simply be setting metadata.
+                // ideally the "isRunning" check would take place within old.demote
+                // (but that's currently not easy in yaml)
                 eff = oldPrimary.getEffector(demoteEffectorName);
                 if (eff!=null) {
                     return DynamicTasks.queue( Effectors.invocation(oldPrimary, eff, params) ).asTask().getUnchecked();

@@ -531,6 +531,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
     @Override
     @SuppressWarnings("unchecked")
     public <T extends BrooklynObject> T lookup(String id, Class<T> type) {
+        if (id==null) return null;
         Object result;
         result = getEntityManager().getEntity(id);
         if (result!=null && type.isInstance(result)) return (T)result;

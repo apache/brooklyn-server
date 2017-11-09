@@ -137,11 +137,11 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
     }
 
     protected Reader loadYaml(String yamlFileName, String ...extraLines) throws Exception {
-        String input = new ResourceUtils(this).getResourceAsString(yamlFileName).trim();
-        StringBuilder builder = new StringBuilder(input);
-        for (String l: extraLines)
-            builder.append("\n").append(l);
-        return new StringReader(builder.toString());
+        return new StringReader(AbstractYamlTest.loadYaml(this, yamlFileName, extraLines));
+    }
+
+    protected String loadYamlString(String yamlFileName, String ...extraLines) throws Exception {
+        return AbstractYamlTest.loadYaml(this, yamlFileName, extraLines);
     }
     
     /**

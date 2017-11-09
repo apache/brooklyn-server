@@ -27,7 +27,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
+import org.apache.brooklyn.camp.brooklyn.AbstractYamlRebindTest;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.effector.AddEffector;
 import org.apache.brooklyn.core.effector.EffectorBody;
@@ -37,6 +37,7 @@ import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityPredicates;
+import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -64,7 +65,7 @@ import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
 
 // TODO this test is in the CAMP package because YAML not available in policies package
-public class ElectPrimaryTest extends AbstractYamlTest {
+public class ElectPrimaryTest extends AbstractYamlRebindTest {
 
     private static final Logger log = LoggerFactory.getLogger(ElectPrimaryTest.class);
     
@@ -85,7 +86,7 @@ public class ElectPrimaryTest extends AbstractYamlTest {
     public void testTwoChildren() throws Exception {
         setItemFromTestAsSimple();
         
-        Entity app = createAndStartApplication(loadYaml("classpath://org/apache/brooklyn/policy/failover/elect-primary-simple-test.yaml"));
+        Entity app = createAndStartApplication(loadYamlString("classpath://org/apache/brooklyn/policy/failover/elect-primary-simple-test.yaml"));
         EntityAsserts.assertAttributeEventually(app, PRIMARY, Predicates.notNull());
         log.info("Primary sensor is: "+app.sensors().get(PRIMARY));
         
@@ -100,10 +101,24 @@ public class ElectPrimaryTest extends AbstractYamlTest {
         runSetPreferredViaWeightConfigOnB();
     }
     
-    public Entity runSetPreferredViaWeightConfigOnB() throws Exception {
+    @Test
+    public void testSimpleRebind() throws Exception {
+        runSetPreferredViaWeightConfigOnB();
+        
+        StartableApplication app = rebind();
+        Assert.assertEquals(app.sensors().get(PRIMARY).getDisplayName(), "b");
+        
+        Entity a = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("a"));
+        Entity b = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("b"));
+        a.sensors().set(WEIGHT_SENSOR, 2.0d);
+        Entities.unmanage(b);
+        EntityAsserts.assertAttributeEqualsEventually(app, PRIMARY, a);
+    }
+
+    protected Entity runSetPreferredViaWeightConfigOnB() throws Exception {
         setItemFromTestAsSimple();
         
-        Entity app = createAndStartApplication(loadYaml("classpath://org/apache/brooklyn/policy/failover/elect-primary-simple-test.yaml",
+        Entity app = createAndStartApplication(loadYamlString("classpath://org/apache/brooklyn/policy/failover/elect-primary-simple-test.yaml",
             "  brooklyn.config:",
             "    "+WEIGHT_CONFIG.getName()+": 1"));
         
@@ -117,7 +132,7 @@ public class ElectPrimaryTest extends AbstractYamlTest {
     public void testSetDisallowedViaWeightConfigOnB() throws Exception {
         setItemFromTestAsSimple();
         
-        Entity app = createAndStartApplication(loadYaml("classpath://org/apache/brooklyn/policy/failover/elect-primary-simple-test.yaml",
+        Entity app = createAndStartApplication(loadYamlString("classpath://org/apache/brooklyn/policy/failover/elect-primary-simple-test.yaml",
             "  brooklyn.config:",
             "    "+WEIGHT_CONFIG.getName()+": -1"));
         
@@ -133,42 +148,73 @@ public class ElectPrimaryTest extends AbstractYamlTest {
         Entities.unmanage(b);
         EntityAsserts.assertAttributeEventually(app, PRIMARY, EntityPredicates.displayNameEqualTo("a"));
     }
+    
+    final static AttributeSensor<String> SENSOR1 = Sensors.newStringSensor("sens1");
+    final static AttributeSensor<String> SENSOR2 = Sensors.newStringSensor("sens2");
+    final static AttributeSensor<String> SENSOR3 = Sensors.newStringSensor("sens3");
 
     @Test
     public void testPropagateSensorsWithFailover() throws Exception {
-        setItemFromTestAsSimple();
-        
-        Entity app = createAndStartApplication(loadYaml("classpath://org/apache/brooklyn/policy/failover/elect-primary-propagate-test.yaml"));
-        
-        AttributeSensor<String> S1 = Sensors.newStringSensor("sens1");
-        AttributeSensor<String> S2 = Sensors.newStringSensor("sens2");
-        AttributeSensor<String> S3 = Sensors.newStringSensor("sens3");
-        
+        Entity app = createAndTestSimplePropagation();
+
         Entity a = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("a"));
         Entity b = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("b"));
+
+        b.sensors().set(SENSOR3, "hi-3-1");
+        b.sensors().set(SENSOR1, "hi2");
+        b.sensors().set(SENSOR2, "hi-2-1");
+        EntityAsserts.assertAttributeEqualsEventually(app, SENSOR1, "hi2");
+        EntityAsserts.assertAttributeEqualsEventually(app, SENSOR2, "hi-2-1");
+        // S3 not propagated
+        Asserts.assertNull(app.sensors().get(SENSOR3));
         
-        EntityAsserts.assertAttributeEqualsEventually(b, S1, "hi1");
+        a.sensors().set(SENSOR1, "hi-a-1");
+        Entities.unmanage(b);
+        EntityAsserts.assertAttributeEqualsEventually(app, PRIMARY, a);
+        // s1 changes
+        EntityAsserts.assertAttributeEqualsEventually(app, SENSOR1, "hi-a-1");
+        // and s2 is cleared
+        EntityAsserts.assertAttributeEqualsEventually(app, SENSOR2, null);
+    }
+
+    protected Entity createAndTestSimplePropagation() throws Exception {
+        setItemFromTestAsSimple();
+        Entity app = createAndStartApplication(loadYamlString("classpath://org/apache/brooklyn/policy/failover/elect-primary-propagate-test.yaml"));
+        
+        Entity b = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("b"));
+        
+        EntityAsserts.assertAttributeEqualsEventually(b, SENSOR1, "hi1");
         
         EntityAsserts.assertAttributeEventually(app, PRIMARY, Predicates.notNull());
         Assert.assertEquals(app.sensors().get(PRIMARY), b);
         EntityAsserts.assertEntityHealthyEventually(app);
-        EntityAsserts.assertAttributeEqualsEventually(app, S1, "hi1");
-
-        b.sensors().set(S3, "hi-3-1");
-        b.sensors().set(S1, "hi2");
-        b.sensors().set(S2, "hi-2-1");
-        EntityAsserts.assertAttributeEqualsEventually(app, S1, "hi2");
-        EntityAsserts.assertAttributeEqualsEventually(app, S2, "hi-2-1");
-        // S3 not propagated
-        Asserts.assertNull(app.sensors().get(S3));
+        EntityAsserts.assertAttributeEqualsEventually(app, SENSOR1, "hi1");
         
-        a.sensors().set(S1, "hi-a-1");
+        return app;
+    }
+    
+    @Test
+    public void testPropagateAndRebind() throws Exception {
+        Entity app = createAndTestSimplePropagation();
+        
+        app = rebind();
+        
+        Entity a = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("a"));
+        Entity b = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("b"));
+        
+        Assert.assertEquals(app.sensors().get(PRIMARY), b);
+        Assert.assertEquals(app.sensors().get(SENSOR1), "hi1");
+
+        // propagation still happens
+        b.sensors().set(SENSOR2, "hi2");
+        EntityAsserts.assertAttributeEqualsEventually(app, SENSOR2, "hi2");
+        
+        // now failover, clear b'sensors and pick up the one from a
+        a.sensors().set(SENSOR1, "hi-a-1");
         Entities.unmanage(b);
+        EntityAsserts.assertAttributeEqualsEventually(app, SENSOR2, null);
+        EntityAsserts.assertAttributeEqualsEventually(app, SENSOR1, "hi-a-1");
         EntityAsserts.assertAttributeEqualsEventually(app, PRIMARY, a);
-        // s1 changes
-        EntityAsserts.assertAttributeEqualsEventually(app, S1, "hi-a-1");
-        // and s2 is cleared
-        EntityAsserts.assertAttributeEqualsEventually(app, S2, null);
     }
 
     @SuppressWarnings("deprecation")
@@ -186,7 +232,8 @@ public class ElectPrimaryTest extends AbstractYamlTest {
         
         Entity a = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("a"));
         Entity b = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("b"));
-        
+
+        // force failover, stop b, and set a with higher weight so it doesn't wait on b
         a.sensors().set(WEIGHT_SENSOR, 2.0d);
         ((Startable)b).stop();
         // or can do this; but it causes app to be on fire because it is requiring children healthy
@@ -228,10 +275,7 @@ public class ElectPrimaryTest extends AbstractYamlTest {
         }
     }
 
-    // deferred:
-    // TODO support configurable parallelisation of promote/demote (in the code)
-    // TODO tests for timeout
-    // TODO tests for effector propagation in addition to sensor propagation
+    // TODO tests for timeout configurability
     
     @Test
     public void testSelectionModeStrictReelectWithPreference() throws Exception {
@@ -269,7 +313,7 @@ public class ElectPrimaryTest extends AbstractYamlTest {
             setItemFromTestAsSimple();
             
             app = createAndStartApplication(Strings.replaceAllNonRegex(
-                loadYaml("classpath://org/apache/brooklyn/policy/failover/elect-primary-selection-mode-test.yaml"), 
+                loadYamlString("classpath://org/apache/brooklyn/policy/failover/elect-primary-selection-mode-test.yaml"), 
                 "$$REPLACE$$", mode.name().toLowerCase()) );
             EntityAsserts.assertEntityHealthyEventually(app);
     

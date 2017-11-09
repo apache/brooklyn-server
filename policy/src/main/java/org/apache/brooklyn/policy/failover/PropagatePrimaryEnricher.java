@@ -19,12 +19,8 @@
 package org.apache.brooklyn.policy.failover;
 
 import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
 
-import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Sensor;
@@ -32,23 +28,17 @@ import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.effector.EffectorTasks.EffectorTaskFactory;
-import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.enricher.stock.Propagator;
-import org.apache.brooklyn.util.collections.MutableSet;
-import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
 
-/** Makes all sensors/effectors available on primary mirrored at this node,
- * apart from those already present here. */ 
+/** Makes selected sensors mirrored from the primary to this node. */ 
 @Beta
 public class PropagatePrimaryEnricher extends AbstractEnricher implements SensorEventListener<Object> {
 
@@ -56,35 +46,27 @@ public class PropagatePrimaryEnricher extends AbstractEnricher implements Sensor
     
     public static final ConfigKey<String> PRIMARY_SENSOR_NAME = ElectPrimaryConfig.PRIMARY_SENSOR_NAME;
     
-    public static final ConfigKey<Boolean> PROPAGATE_EFFECTORS = ConfigKeys.newBooleanConfigKey("propagate.effectors",
-        "Whether to propagate effectors, default true (effectors already defined here will not be propagated)",
-        true);
-
-    public static final ConfigKey<Boolean> PROPAGATING_ALL = Propagator.PROPAGATING_ALL;
-    public static final ConfigKey<Collection<? extends Sensor<?>>> PROPAGATING_ALL_BUT = Propagator.PROPAGATING_ALL_BUT;
+    public static final ConfigKey<Entity> CURRENT_PROPAGATED_PRODUCER = ConfigKeys.newConfigKey(Entity.class, "propagate.primary.enricher.current.producer");
+    // persistence of references to adjuncts not supported, so use the ID
+    public static final ConfigKey<String> CURRENT_PROPAGATOR_ID = ConfigKeys.newStringConfigKey("propagate.primary.enricher.current.propagatorId");
+    
     public static final ConfigKey<Collection<? extends Sensor<?>>> PROPAGATING = Propagator.PROPAGATING;
-    public static final ConfigKey<Map<? extends Sensor<?>, ? extends Sensor<?>>> SENSOR_MAPPING = Propagator.SENSOR_MAPPING;
+    // the above is the only one currently supported - explicitly named sensors
     
-    //TODO rebind
+    // NB: old code in history had much of the below working, but not for rebind
     
-    Entity lastPrimary;
-    Propagator propagator;
-    
-    Set<String> effectorsAddedForPrimary;
-    Set<String> blacklistedEffectors = MutableSet.of("start", "stop", "restart", "promote", "demote",
-        getConfig(ElectPrimaryConfig.PROMOTE_EFFECTOR_NAME), getConfig(ElectPrimaryConfig.DEMOTE_EFFECTOR_NAME));
-    Set<String> blacklistedSensors = MutableSet.of();
+    // other propagator fields (eg "all but") are not
+//    public static final ConfigKey<Boolean> PROPAGATING_ALL = Propagator.PROPAGATING_ALL;
+//    public static final ConfigKey<Collection<? extends Sensor<?>>> PROPAGATING_ALL_BUT = Propagator.PROPAGATING_ALL_BUT;
+//    public static final ConfigKey<Map<? extends Sensor<?>, ? extends Sensor<?>>> SENSOR_MAPPING = Propagator.SENSOR_MAPPING;
+
+    // also no longer support effectors
+//    public static final ConfigKey<Boolean> PROPAGATE_EFFECTORS = ConfigKeys.newBooleanConfigKey("propagate.effectors",
+//        "Whether to propagate effectors, default true (effectors already defined here will not be propagated)",
+//        true);
     
     public void setEntity(@SuppressWarnings("deprecation") org.apache.brooklyn.api.entity.EntityLocal entity) {
         super.setEntity(entity);
-        
-        // TODO if not coming from rebind
-        blacklistedEffectors.addAll(((EntityInternal)entity).getMutableEntityType().getEffectors().keySet());
-        blacklistedSensors.addAll(((EntityInternal)entity).getMutableEntityType().getSensors().keySet());
-        for (Sensor<?> s: Propagator.SENSORS_NOT_USUALLY_PROPAGATED) {
-            blacklistedSensors.add(s.getName());
-        }
-        blacklistedSensors.addAll(MutableSet.of(getConfig(PRIMARY_SENSOR_NAME), getConfig(ElectPrimaryConfig.PRIMARY_WEIGHT_NAME)));
         
         subscriptions().subscribe(entity, Sensors.newSensor(Entity.class, config().get(PRIMARY_SENSOR_NAME)), this);
         onEvent(null);
@@ -93,116 +75,60 @@ public class PropagatePrimaryEnricher extends AbstractEnricher implements Sensor
     @Override
     public synchronized void onEvent(SensorEvent<Object> event) {
         Entity primary = entity.getAttribute( Sensors.newSensor(Entity.class, config().get(PRIMARY_SENSOR_NAME)) );
+        final Entity lastPrimary = config().get(CURRENT_PROPAGATED_PRODUCER);
         if (!Objects.equal(primary, lastPrimary)) {
             log.debug("Removing propagated items from "+lastPrimary+" at "+entity);
             
+            final Propagator propagator = getManagementContext().lookup(config().get(CURRENT_PROPAGATOR_ID), Propagator.class);
             // remove propagator
             if (propagator!=null) {
                 entity.enrichers().remove(propagator);
-                propagator = null;
+                config().set(CURRENT_PROPAGATOR_ID, (String)null);
             }
-
-            // remove propagated effectors
-            if (effectorsAddedForPrimary!=null) {
-                log.debug("Removing propagated effectors from "+lastPrimary+" at "+entity+": "+effectorsAddedForPrimary);
-                for (String effN: effectorsAddedForPrimary) {
-                    Effector<?> effE = ((EntityInternal)entity).getMutableEntityType().getEffector(effN);
-                    if (effE!=null) {
-                        ((EntityInternal)entity).getMutableEntityType().removeEffector(effE);
+            
+            // remove propagated sensors
+            Collection<? extends Sensor<?>> sensorsToRemove = config().get(PROPAGATING);
+            if (sensorsToRemove!=null) {
+                for (Sensor<?> s: sensorsToRemove) {
+                    if (s instanceof AttributeSensor) {
+                        ((EntityInternal)entity).sensors().remove((AttributeSensor<?>)s);
                     }
                 }
-                effectorsAddedForPrimary = null;
-            }
-            
-            // remove all but blacklisted sensors
-            Set<AttributeSensor<?>> sensorsToRemove = MutableSet.of();
-            for (AttributeSensor<?> s: ((EntityInternal)entity).sensors().getAll().keySet()) {
-                if (!blacklistedSensors.contains(s.getName())) {
-                    sensorsToRemove.add(s);
-                }
-            }
-            if (!sensorsToRemove.isEmpty()) {
-                log.debug("Removing propagated sensors from "+lastPrimary+" at "+entity+": "+sensorsToRemove);
-                for (AttributeSensor<?> s: sensorsToRemove) {
-                    ((EntityInternal)entity).sensors().remove(s);
-                }
-            }
-            
+            }            
             
             if (primary!=null) {
-                // add effectors
-                propagateEffectors(primary);
+                config().set(CURRENT_PROPAGATED_PRODUCER, primary);
                 
                 // add propagator
                 addPropagatorEnricher(primary);
             }
-            
-            lastPrimary = primary;
         }
     }
+    
+    @Override
+    protected <T> void doReconfigureConfig(ConfigKey<T> key, T val) {
+        if (CURRENT_PROPAGATED_PRODUCER.equals(key)) return;
+        if (CURRENT_PROPAGATOR_ID.equals(key)) return;
+        // disallow anything else
+        super.doReconfigureConfig(key, val);
+    }
 
-    @SuppressWarnings("unchecked")
     protected void addPropagatorEnricher(Entity primary) {
         EnricherSpec<Propagator> spec = EnricherSpec.create(Propagator.class);
-        if (Boolean.TRUE.equals( getConfig(PROPAGATING_ALL) )) {
-            spec.configure(PROPAGATING_ALL, true);
-        }
-        
-        Collection<Sensor<?>> allBut = (Collection<Sensor<?>>) getConfig(PROPAGATING_ALL_BUT);
-        if (allBut!=null) {
-            allBut = MutableSet.copyOf(allBut);
-            for (String s: blacklistedSensors) {
-                allBut.add(Sensors.newSensor(Object.class, s));
-            }
-            spec.configure(PROPAGATING_ALL_BUT, allBut);
-        }
-        
-        if (getConfig(PROPAGATING)!=null) {
-            spec.configure(PROPAGATING, getConfig(PROPAGATING));
-        }
-        
-        if (getConfig(SENSOR_MAPPING)!=null) {
-            spec.configure(SENSOR_MAPPING, getConfig(SENSOR_MAPPING));
-        }
-        
         spec.configure(Propagator.PRODUCER, primary);
         
+        Collection<? extends Sensor<?>> sensorsToPropagate = getConfig(PROPAGATING);
+        if (sensorsToPropagate==null || sensorsToPropagate.isEmpty()) {
+            log.warn("");
+            return;
+        }
+        spec.configure(Propagator.PROPAGATING, sensorsToPropagate);
+        
+        // note - history 
+        
         log.debug("Adding propagator "+spec+" to "+entity+" to track "+primary);
-        propagator = entity.enrichers().add(spec);
-    }
-
-    @SuppressWarnings("unchecked")
-    protected void propagateEffectors(Entity primary) {
-        log.debug("Adding effectors to "+entity+" to track "+primary);
-        if (effectorsAddedForPrimary==null) {
-            effectorsAddedForPrimary = MutableSet.of();
-        }
-        if (getConfig(PROPAGATE_EFFECTORS)) {
-            for (Effector<?> e: ((EntityInternal)primary).getMutableEntityType().getEffectors().values()) {
-                if (!blacklistedEffectors.contains( e.getName() )) {
-                    effectorsAddedForPrimary.add(e.getName());
-                    ((EntityInternal)entity).getMutableEntityType().addEffector(
-                        Effectors.effector((Effector<Object>)e).impl(new CallOtherEffector(primary)).build() );
-                }
-            }
-        }
-        log.debug("Added effectors "+effectorsAddedForPrimary+" to "+entity+" to track "+primary);
-    }
-
-    public static class CallOtherEffector implements EffectorTaskFactory<Object> {
-
-        final Entity target;
-        
-        public CallOtherEffector(Entity target) {
-            this.target = target;
-        }
-        
-        @Override
-        public TaskAdaptable<Object> newTask(Entity entity, Effector<Object> effector, ConfigBag parameters) {
-            return DynamicTasks.queueIfPossible( 
-                    Effectors.invocation(target, Effectors.effector(effector).buildAbstract(), parameters) ).
-                orSubmitAsync(entity).asTask();
-        }
+        Propagator propagator = entity.enrichers().add(spec);
+        config().set(CURRENT_PROPAGATOR_ID, propagator.getId()); 
     }
 
 }

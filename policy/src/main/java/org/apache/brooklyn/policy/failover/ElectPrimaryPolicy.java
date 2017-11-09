@@ -89,6 +89,8 @@ and will be passed to the effector, along with an `event` parameter indicating t
 If no quorum.up or quorum.running is set on the entity, both will be set to a constant 1.
 
  */
+// TODO support configurable parallelisation of promote/demote (in the code)
+// TODO more propagation, effectors, and "all-but" semantics (comments in PPE, though we might want a separate effector propagator)
 @Beta
 public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryConfig {
 
@@ -126,7 +128,6 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
                 }
             }
             entity.enrichers().add(EnricherSpec.create(PropagatePrimaryEnricher.class)
-                .configure(PropagatePrimaryEnricher.PROPAGATE_EFFECTORS, false)
                 .configure(PropagatePrimaryEnricher.PROPAGATING, realSensors));
         }
         
