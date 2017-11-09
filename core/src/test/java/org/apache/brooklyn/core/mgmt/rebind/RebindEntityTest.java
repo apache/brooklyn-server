@@ -29,6 +29,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
@@ -673,14 +674,26 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         origApp.config().set(keyAsObject, (int) 1);
         // get the double when queried
         Asserts.assertInstanceOf(origApp.config().get(keyAsDouble), Double.class);
+        // also assert the key isn't included in declared list
+        Optional<ConfigKey<?>> declaredKey = Iterables.tryFind(getTypeDeclaredKeys(origApp), (k) -> k.getName().equals(doubleKeyName));
+        if (declaredKey.isPresent()) Assert.fail("Shouldn't have declared anonymous key, but had: "+declaredKey.get());
         
         newApp = rebind();
         // now (2017-11) this works because we check both types on lookup
         Asserts.assertInstanceOf(newApp.config().get(keyAsDouble), Double.class);
         
-        // but this still fails because the anonymous key definition is persisted
-        Optional<ConfigKey<?>> persistedKey = Iterables.tryFind(newApp.config().findKeysDeclared(Predicates.alwaysTrue()), (k) -> k.getName().equals(doubleKeyName));
+        // and this also succeeds because because now the anonymous key definition is not persisted
+        // (test changed, but confirmed it fails without the new BasicEntityMemento.isAnonymous check)
+        Optional<ConfigKey<?>> persistedKey = Iterables.tryFind(getTypeDeclaredKeys(newApp), (k) -> k.getName().equals(doubleKeyName));
         if (persistedKey.isPresent()) Assert.fail("Shouldn't have persisted anonymous key, but had: "+persistedKey.get());
+    }
+
+    protected static Set<ConfigKey<?>> getTypeDeclaredKeys(Entity e) {
+        // thought this would work, but see comment on findKeysDeclared - it also includes present ones
+        //return e.config().findKeysDeclared(Predicates.alwaysTrue());
+        
+        // this is the right way:
+        return e.getEntityType().getConfigKeys();
     }
     
     /**

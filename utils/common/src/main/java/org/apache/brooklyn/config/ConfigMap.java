@@ -92,6 +92,7 @@ public interface ConfigMap {
     /** returns all keys present in the map matching the given filter predicate; see ConfigPredicates for common predicates.
      * if the map is associated with a container or type context where reference keys are defined,
      * those keys are included in the result whether or not present in the map (unlike {@link #findKeysPresent(Predicate)}) */
+    // TODO should be findKeysDeclaredOrPresent - if you want just the declared ones, look up the type
     public Set<ConfigKey<?>> findKeysDeclared(Predicate<? super ConfigKey<?>> filter);
 
     /** as {@link #findKeysDeclared(Predicate)} but restricted to keys actually present in the map
