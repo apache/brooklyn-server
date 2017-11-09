@@ -29,6 +29,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
@@ -52,6 +53,7 @@ import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
@@ -61,7 +63,6 @@ import org.apache.brooklyn.core.entity.trait.Resizable;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.LocationConfigTest.MyLocation;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.sensor.BasicSensorEvent;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
@@ -82,6 +83,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
@@ -662,6 +664,72 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         testRebindWhenPreviousAppDestroyedHasNoApp();
     }
 
+    @Test
+    public void testRebindAnonymousKeyDowncastedGivesCorrectType() throws Exception {
+        // happens if we write yaml and put an int where a double is expected
+        final String doubleKeyName = "double.key";
+        final ConfigKey<Object> keyAsObject = ConfigKeys.newConfigKey(Object.class, doubleKeyName);
+        final ConfigKey<Double> keyAsDouble = ConfigKeys.newDoubleConfigKey(doubleKeyName);
+        // set an int
+        origApp.config().set(keyAsObject, (int) 1);
+        // get the double when queried
+        Asserts.assertInstanceOf(origApp.config().get(keyAsDouble), Double.class);
+        // but doesn't actually know it's a double
+        Asserts.assertInstanceOf(origApp.config().get(keyAsObject), Integer.class);
+        // also assert the key isn't included in declared list
+        Optional<ConfigKey<?>> declaredKey = Iterables.tryFind(getTypeDeclaredKeys(origApp), (k) -> k.getName().equals(doubleKeyName));
+        if (declaredKey.isPresent()) Assert.fail("Shouldn't have declared anonymous key, but had: "+declaredKey.get());
+        
+        newApp = rebind();
+        // now (2017-11) this works because we check both types on lookup
+        Asserts.assertInstanceOf(newApp.config().get(keyAsDouble), Double.class);
+        // if not querying double, we get the original type
+        Asserts.assertInstanceOf(newApp.config().get(keyAsObject), Integer.class);
+        
+        // and this also succeeds because because now the anonymous key definition is not persisted
+        // (test changed, but confirmed it fails without the new BasicEntityMemento.isAnonymous check)
+        Optional<ConfigKey<?>> persistedKey = Iterables.tryFind(getTypeDeclaredKeys(newApp), (k) -> k.getName().equals(doubleKeyName));
+        if (persistedKey.isPresent()) Assert.fail("Shouldn't have persisted anonymous key, but had: "+persistedKey.get());
+    }
+    
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testRebindNonAnonymousKeyAlsoGivesCorrectType() throws Exception {
+        // happens if we write yaml and put an int where a double is expected
+        final String doubleKeyName = "double.key";
+        final ConfigKey<Object> keyAsObject = ConfigKeys.newConfigKey(Object.class, doubleKeyName);
+        final ConfigKey<Double> keyAsDouble = ConfigKeys.newDoubleConfigKey(doubleKeyName);
+        // set an int, casting to allow it, but should be recording doubleness internally
+        origApp.config().set((ConfigKey<Object>) (ConfigKey<?>) keyAsDouble, (int) 1);
+        // get the double when queried
+        Asserts.assertInstanceOf(origApp.config().get(keyAsObject), Double.class);
+        // also assert the key isn't included in declared list
+        Optional<ConfigKey<?>> declaredKey = Iterables.tryFind(getTypeDeclaredKeys(origApp), (k) -> k.getName().equals(doubleKeyName));
+        if (declaredKey.isPresent()) Assert.fail("Shouldn't have declared anonymous key, but had: "+declaredKey.get());
+        
+        newApp = rebind();
+        // should know internally it's a double
+        Asserts.assertInstanceOf(newApp.config().get(keyAsDouble), Double.class);
+        Asserts.assertInstanceOf(newApp.config().get(keyAsObject), Double.class);
+        
+        // this works because we add the key to the type-declared items on persistence;
+        // this has always been the case, even though it introduces an asymmetry,
+        // it's the only place we currently have on the persisted entity to store keys
+        // (whereas the in-memory can keep dynamic keys in its map, not on the type;
+        // ideally the in-memory map would just use strings, and type would be added
+        // on set to the dynamic type if it's non-anonymous; see further notes in BasicEntityMemento.isAnonymous)
+        Optional<ConfigKey<?>> persistedKey = Iterables.tryFind(getTypeDeclaredKeys(newApp), (k) -> k.getName().equals(doubleKeyName));
+        if (!persistedKey.isPresent()) Assert.fail("Should have persisted non-anonymous key: "+persistedKey.get());
+    }
+
+    protected static Set<ConfigKey<?>> getTypeDeclaredKeys(Entity e) {
+        // thought this would work, but see comment on findKeysDeclared - it also includes present ones
+        //return e.config().findKeysDeclared(Predicates.alwaysTrue());
+        
+        // this is the right way:
+        return e.getEntityType().getConfigKeys();
+    }
+    
     /**
      * @deprecated since 0.7; support for rebinding old-style entities is deprecated
      */

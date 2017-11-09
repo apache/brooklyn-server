@@ -35,6 +35,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.annotation.Effector;
 import org.apache.brooklyn.core.annotation.EffectorParam;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.MethodEffector;
 import org.apache.brooklyn.core.entity.Attributes;
@@ -138,16 +139,18 @@ public interface DynamicCluster extends AbstractGroup, Cluster, MemberReplaceabl
 
     @CatalogConfig(label = "Member spec")
     @SetFromFlag("memberSpec")
-    ConfigKey<EntitySpec<?>> MEMBER_SPEC = ConfigKeys.newConfigKey(
-            new TypeToken<EntitySpec<?>>() { },
-            "dynamiccluster.memberspec", "entity spec for creating new cluster members", null);
+    ConfigKey<EntitySpec<?>> MEMBER_SPEC = ConfigKeys.builder(new TypeToken<EntitySpec<?>>(){}, "dynamiccluster.memberspec")
+            .description("entity spec for creating new cluster members")
+            .defaultValue(null)
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
+            .build();
 
     @SetFromFlag("firstMemberSpec")
-    ConfigKey<EntitySpec<?>> FIRST_MEMBER_SPEC = ConfigKeys.newConfigKey(
-            new TypeToken<EntitySpec<?>>() { },
-            "dynamiccluster.firstmemberspec", 
-            "entity spec for creating the first member of the cluster (if unset, will use the member spec for all)", 
-            null);
+    ConfigKey<EntitySpec<?>> FIRST_MEMBER_SPEC = ConfigKeys.builder(new TypeToken<EntitySpec<?>>(){}, "dynamiccluster.firstmemberspec")
+            .description("entity spec for creating the first member of the cluster (if unset, will use the member spec for all)")
+            .defaultValue(null)
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
+            .build();
 
     @SetFromFlag("removalStrategy")
     ConfigKey<Function<Collection<Entity>, Entity>> REMOVAL_STRATEGY = ConfigKeys.newConfigKey(

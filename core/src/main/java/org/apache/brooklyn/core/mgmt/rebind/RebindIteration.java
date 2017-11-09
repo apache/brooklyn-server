@@ -101,6 +101,7 @@ import org.apache.brooklyn.core.objs.proxy.InternalLocationFactory;
 import org.apache.brooklyn.core.objs.proxy.InternalPolicyFactory;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -131,7 +132,7 @@ Multi-phase deserialization:
 <li> 1. load the manifest files and populate the summaries (ID+type) in {@link BrooklynMementoManifest}
 <li> 2. install bundles, instantiate and reconstruct catalog items
 <li> 3. instantiate entities+locations -- so that inter-entity references can subsequently 
-       be set during deserialize (and entity config/state is set).
+           be set during deserialize (and entity config/state is set).
 <li> 4. deserialize the manifests to instantiate the mementos
 <li> 5. instantiate policies+enrichers+feeds 
         (could probably merge this with (3), depending how they are implemented)
@@ -978,16 +979,32 @@ public abstract class RebindIteration {
                 String catalogItemId, List<String> searchPath, String contextSuchAsId) {
             checkNotNull(jType, "Type of %s (%s) must not be null", contextSuchAsId, bType.getSimpleName());
 
+            CatalogUpgrades.markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType();
+            
             List<String> warnings = MutableList.of();
             List<String> reboundSearchPath = MutableList.of();
             if (searchPath != null && !searchPath.isEmpty()) {
                 for (String searchItemId : searchPath) {
                     String fixedSearchItemId = null;
                     RegisteredType t1 = managementContext.getTypeRegistry().get(searchItemId);
+                    if (t1==null) {
+                        String newSearchItemId = CatalogUpgrades.getTypeUpgradedIfNecessary(managementContext, searchItemId);
+                        if (!newSearchItemId.equals(searchItemId)) {
+                            logRebindingDebug("Upgrading search path entry of "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+" from "+searchItemId+" to "+newSearchItemId);
+                            searchItemId = newSearchItemId;
+                            t1 = managementContext.getTypeRegistry().get(newSearchItemId);
+                        }
+                    }
                     if (t1!=null) fixedSearchItemId = t1.getId();
                     if (fixedSearchItemId==null) {
                         CatalogItem<?, ?> ci = findCatalogItemInReboundCatalog(bType, searchItemId, contextSuchAsId);
-                        if (ci!=null) fixedSearchItemId = ci.getCatalogItemId();
+                        if (ci!=null) {
+                            fixedSearchItemId = ci.getCatalogItemId();
+                            logRebindingWarn("Needed rebind catalog to resolve search path entry "+searchItemId+" (now "+fixedSearchItemId+") for "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+
+                                ", persistence should remove this in future but future versions will not support this and definitions should be fixed");
+                        } else {
+                            logRebindingWarn("Could not find search path entry "+searchItemId+" for "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+", ignoring");
+                        }
                     }
                     if (fixedSearchItemId != null) {
                         reboundSearchPath.add(fixedSearchItemId);
@@ -1000,11 +1017,28 @@ public abstract class RebindIteration {
             if (catalogItemId != null) {
                 String transformedCatalogItemId = null;
                 
-                Maybe<RegisteredType> registeredType = managementContext.getTypeRegistry().getMaybe(catalogItemId,
-                    // ignore bType; catalog item ID gives us the search path, but doesn't need to be of the requested type
+                Maybe<RegisteredType> contextRegisteredType = managementContext.getTypeRegistry().getMaybe(catalogItemId,
+                    // this is context RT, not item we are loading, so bType does not apply here
+                    // if we were instantiating from an RT instead of a JT (ideal) then we would use bType to filter
                     null );
-                if (registeredType.isPresent()) {
-                    transformedCatalogItemId = registeredType.get().getId();
+                if (contextRegisteredType.isAbsent()) {
+                    transformedCatalogItemId = CatalogUpgrades.getTypeUpgradedIfNecessary(managementContext, catalogItemId);
+                    if (!transformedCatalogItemId.equals(catalogItemId)) {
+                        // catalog item id is sometimes the type of the item, but sometimes just the first part of the search path
+                        logRebindingInfo("Upgrading "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+
+                            " stored catalog item context on rebind"+
+                            " from "+catalogItemId+" to "+transformedCatalogItemId);
+                        
+                        // again ignore bType
+                        contextRegisteredType = managementContext.getTypeRegistry().getMaybe(transformedCatalogItemId, null);
+                        
+                    } else {
+                        transformedCatalogItemId = null;
+                    }
+                }
+                
+                if (contextRegisteredType.isPresent()) {
+                    transformedCatalogItemId = contextRegisteredType.get().getId();
                 } else {
                     CatalogItem<?, ?> catalogItem = findCatalogItemInReboundCatalog(bType, catalogItemId, contextSuchAsId);
                     if (catalogItem != null) {
@@ -1303,6 +1337,15 @@ public abstract class RebindIteration {
     protected void logRebindingInfo(String message, Object... args) {
         if (shouldLogRebinding()) {
             LOG.info(message, args);
+        } else {
+            LOG.trace(message, args);
+        }
+    }
+    
+    /** logs at warn, except during subsequent read-only rebinds, in which it logs trace */
+    protected void logRebindingWarn(String message, Object... args) {
+        if (shouldLogRebinding()) {
+            LOG.warn(message, args);
         } else {
             LOG.trace(message, args);
         }

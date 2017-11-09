@@ -1315,6 +1315,8 @@
                                 <Export-Package>brooklyn.*,org.apache.brooklyn.*</Export-Package>
                                 <Implementation-SHA-1>${buildNumber}</Implementation-SHA-1>
                                 <Implementation-Branch>${scmBranch}</Implementation-Branch>
+                                <Brooklyn-Catalog-Force-Remove-Bundles>*</Brooklyn-Catalog-Force-Remove-Bundles>
+                                <Brooklyn-Catalog-Upgrade-For-Bundles>*</Brooklyn-Catalog-Upgrade-For-Bundles>
                             </instructions>
                         </configuration>
                     </plugin>

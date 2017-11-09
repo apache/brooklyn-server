@@ -30,6 +30,7 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.util.osgi.VersionedName;
@@ -37,6 +38,7 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -150,10 +152,11 @@ public class BrooklynLauncherUpgradeCatalogOsgiTest extends AbstractBrooklynLaun
         launcher.terminate();
     }
     
-    // removed item with upgrade deployed after rebind
-    // TODO WIP
-    @Test(groups="WIP")
-    public void testForceUpgradeItemByRemovingBundle() throws Exception {
+    // remove+upgrade v1, then try deploying v1, get v2
+    // see also BrooklynLauncherRebindCatalogOsgiTest for more variants
+    // (this case is a bit simpler however as it prepares persisted state without a full launch) 
+    @Test
+    public void testDeployRemovedUpgradedItemWorks() throws Exception {
         VersionedName one_1_0_0 = VersionedName.fromString("one:1.0.0");
         VersionedName one_2_0_0 = VersionedName.fromString("one:2.0.0");
         
@@ -181,6 +184,18 @@ public class BrooklynLauncherUpgradeCatalogOsgiTest extends AbstractBrooklynLaun
         Application app = createAndStartApplication(launcher.getManagementContext(), 
             "services: [ { type: 'one:1.0.0' } ]");
         Entity one = Iterables.getOnlyElement( app.getChildren() );
+        Assert.assertEquals(one.getCatalogItemId(), "one:2.0.0");
+
+        app = createAndStartApplication(launcher.getManagementContext(), 
+            Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.entity.group.DynamicCluster",
+                "  cluster.initial.size: 1",
+                "  dynamiccluster.memberspec:",
+                "    $brooklyn:entitySpec:",
+                "      type: one:1") );
+        Entity cluster = Iterables.getOnlyElement( app.getChildren() );
+        one = Iterables.getOnlyElement( ((Group)cluster).getMembers() );
         Assert.assertEquals(one.getCatalogItemId(), "one:2.0.0");
         
         launcher.terminate();

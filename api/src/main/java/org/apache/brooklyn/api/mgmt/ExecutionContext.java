@@ -85,20 +85,26 @@ public interface ExecutionContext extends Executor {
      * Implementations will typically act like {@link #get(TaskAdaptable)} with additional
      * tricks to attempt to be non-blocking, such as recognizing some "immediate" markers.  
      * <p>
-     * Supports {@link Callable}, {@link Runnable}, and {@link Supplier} argument types as well as {@link Task}.
+     * Supports {@link Callable}, {@link Runnable}, {@link Supplier}, and {@link TaskFactory} argument types.
      * <p>
-     * This executes the given code, and in the case of {@link Task} it may cancel it, 
-     * so the caller should not use this if the argument is going to be used later and
-     * is expected to be pristine.  Supply a {@link TaskFactory} if this method's {@link Task#cancel(boolean)}
-     * is problematic, or consider other utilities (such as ValueResolver with immediate(true)
-     * in a downstream project).
+     * Passing in {@link Task} is deprecated and discouraged - see {@link #getImmediately(Task)}.
      */
     // TODO reference ImmediateSupplier when that class is moved to utils project
     @Beta
-    <T> Maybe<T> getImmediately(Object callableOrSupplierOrTask);
-    /** As {@link #getImmediately(Object)} but strongly typed for a task. */
+    <T> Maybe<T> getImmediately(Object callableOrSupplierOrTaskFactory);
+    
+    /**
+     * As {@link #getImmediately(Object)} but strongly typed for a task.
+     * 
+     * @deprecated since 1.0.0; this can cause the task to be interrupted/cancelled, such that subsequent  
+     *             use of {@code task.get()} will fail (if the value was not resolved immediately previously).
+     *             It is only safe to call this if the the given task is for a one-off usage (not expected
+     *             to be used again later). Consider supplying a {@link TaskFactory} if this tasks's 
+     *             {@link Task#cancel(boolean)} is problematic, or consider other utilities 
+     *             (such as ValueResolver with immediate(true) in the brooklyn-core project).
+     */
     @Beta
-    <T> Maybe<T> getImmediately(Task<T> callableOrSupplierOrTask);
+    <T> Maybe<T> getImmediately(Task<T> task);
 
     /**
      * Efficient implementation of common case when {@link #submit(TaskAdaptable)} is followed by an immediate {@link Task#get()}.

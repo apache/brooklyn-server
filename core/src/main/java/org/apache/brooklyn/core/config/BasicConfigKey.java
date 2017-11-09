@@ -36,6 +36,7 @@ import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.TypeTokens;
 import org.slf4j.Logger;
@@ -440,7 +441,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
     }
     
     protected Object resolveValue(Object v, ExecutionContext exec) throws ExecutionException, InterruptedException {
-        if (v instanceof Collection || v instanceof Map) {
+        if (ValueResolver.supportsDeepResolution(v)) {
             return Tasks.resolveDeepValue(v, Object.class, exec, "Resolving deep config "+name);
         } else {
             return Tasks.resolveValue(v, getType(), exec, "Resolving config "+name);

@@ -63,7 +63,7 @@ public interface Configurable {
         <T> T get(ConfigKey<T> key);
         
         /**
-         * @see {@link #getConfig(ConfigKey)}
+         * @see {@link #get(ConfigKey)}
          */
         <T> T get(HasConfigKey<T> key);
 
@@ -73,7 +73,7 @@ public interface Configurable {
         <T> T set(ConfigKey<T> key, T val); 
         
         /**
-         * @see {@link #setConfig(HasConfigKey, Object)}
+         * @see {@link #set(ConfigKey, Object)}
          */
         <T> T set(HasConfigKey<T> key, T val);
         
@@ -83,12 +83,16 @@ public interface Configurable {
          * Returns immediately without blocking; subsequent calls to {@link #getConfig(ConfigKey)} 
          * will execute the task, and block until the task completes.
          * 
-         * @see {@link #setConfig(ConfigKey, Object)}
+         * @deprecated since 1.0.0; do not use task because can be evaluated only once, and if 
+         *             cancelled will affect all subsequent lookups of the config value.
+         *             Consider using a {@link org.apache.brooklyn.api.mgmt.TaskFactory}.
          */
         <T> T set(ConfigKey<T> key, Task<T> val);
         
         /**
-         * @see {@link #setConfig(ConfigKey, Task)}
+         * @see {@link #set(ConfigKey, Task)}
+         * 
+         * @deprecated since 1.0.0 (see {@link #set(ConfigKey, Task)}
          */
         <T> T set(HasConfigKey<T> key, Task<T> val);
         

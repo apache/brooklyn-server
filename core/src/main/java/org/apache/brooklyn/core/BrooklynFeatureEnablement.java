@@ -20,9 +20,11 @@ package org.apache.brooklyn.core;
 
 import java.util.Map;
 
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,7 +70,12 @@ public class BrooklynFeatureEnablement {
     /** whether the default standby mode is {@link HighAvailabilityMode#HOT_STANDBY} or falling back to the traditional
      * {@link HighAvailabilityMode#STANDBY} */
     public static final String FEATURE_DEFAULT_STANDBY_IS_HOT_PROPERTY = FEATURE_PROPERTY_PREFIX+".defaultStandbyIsHot";
-    
+
+    /** whether $brooklyn:entitySpec blocks persist a {@link DeferredSupplier} containing YAML or the resolved {@link EntitySpec}; 
+     * the former allows upgrades and deferred resolution of other flags, whereas the latter is the traditional 
+     * behaviour (prior to 2017-11) which resolves the {@link EntitySpec} earlier and persists that */  
+    public static final String FEATURE_PERSIST_ENTITY_SPEC_AS_SUPPLIER = FEATURE_PROPERTY_PREFIX+".persist.entitySpecAsSupplier";
+
     /**
      * Renaming threads can really helps with debugging etc; however it's a massive performance hit (2x)
      * <p>
@@ -144,6 +151,7 @@ public class BrooklynFeatureEnablement {
         setDefault(FEATURE_BUNDLE_PERSISTENCE_PROPERTY, true);
         setDefault(FEATURE_CATALOG_PERSISTENCE_PROPERTY, true);
         setDefault(FEATURE_DEFAULT_STANDBY_IS_HOT_PROPERTY, false);
+        setDefault(FEATURE_PERSIST_ENTITY_SPEC_AS_SUPPLIER, true);
         setDefault(FEATURE_RENAME_THREADS, false);
         setDefault(FEATURE_JITTER_THREADS, false);
         setDefault(FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND, false);

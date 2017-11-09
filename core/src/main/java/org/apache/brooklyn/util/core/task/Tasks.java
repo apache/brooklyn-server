@@ -21,8 +21,10 @@ package org.apache.brooklyn.util.core.task;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -171,9 +173,9 @@ public class Tasks {
      * 
      *   {@code Object result = resolveDeepValue(ImmutableList.of(ImmutableMap.of(1, true)), String.class, exec)} 
      *
-     * To perform a deep conversion of futures contained within Iterables or Maps without coercion of each element,
+     * To perform a deep conversion of futures contained within a {@link Collection} or {@link Map} without coercion of each element,
      * the type should normally be Object, not the type of the collection. This differs from
-     * {@link #resolveValue(Object, Class, ExecutionContext, String)} which will accept Map and Iterable
+     * {@link #resolveValue(Object, Class, ExecutionContext, String)} which will accept {@link Map} and {@link Collection}
      * as the required type.
      */
     public static <T> T resolveDeepValue(Object v, Class<T> type, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
