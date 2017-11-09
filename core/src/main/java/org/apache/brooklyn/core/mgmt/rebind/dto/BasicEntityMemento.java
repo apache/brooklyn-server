@@ -31,7 +31,6 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.TreeNode;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
@@ -231,6 +230,7 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
         return staticConfigKeys;
     }
 
+    // no longer used for writing, see comments near usage; may be useful for understanding rebinded state however
     final static String LEGACY_KEY_DESCRIPTION = "This item was defined in a different version of this blueprint; metadata unavailable here.";
     
     protected ConfigKey<?> getConfigKey(String key) {
@@ -243,11 +243,15 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
         ConfigKey<?> resultStatic = getStaticConfigKeys().get(key);
         if (resultStatic!=null) return resultStatic;
         if (result!=null) return result;
-        // can come here on rebind if a key has gone away in the class, so create a generic one; 
-        // but if it was previously found to a legacy key (below) which is added back after a regind, 
-        // gnore the legacy description (several lines above) and add the key back from static (code just above)
-        log.warn("Config key "+key+": "+LEGACY_KEY_DESCRIPTION);
-        return ConfigKeys.newConfigKey(Object.class, key, LEGACY_KEY_DESCRIPTION);
+        // can come here on rebind if a key has gone away in the class,
+        // or now if we had an anonymous key originally which is not persisted.
+        // cannot distinguish as we previously did unless we revert some of 
+        // https://github.com/apache/brooklyn-server/pull/887
+        // (maybe we _should_ persist anonymous keys - although there is also the 
+        // idea we have provenance for dealing with upgrades, probably even cleaner)
+        // now just return, not an anonymous key with LEGACY_KEY_DESCRIPTION,
+        // so caller will probably use simple anonymous key
+        return null;
     }
 
     protected synchronized Map<String, Sensor<?>> getStaticSensorKeys() {
