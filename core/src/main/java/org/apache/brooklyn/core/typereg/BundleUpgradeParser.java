@@ -352,7 +352,8 @@ public class BundleUpgradeParser {
 
         @Beta
         public static String getBundleUpgradedIfNecessary(ManagementContext mgmt, String vName) {
-            if (vName==null) return null;
+            // mgmt can be null in some edge cases, eg BasicCatalogItemRebindSupport.possiblyUpgradedBundle 
+            if (vName==null || mgmt==null) return null;
             Maybe<OsgiManager> osgi = ((ManagementContextInternal)mgmt).getOsgiManager();
             if (osgi.isAbsent()) {
                 // ignore upgrades if not osgi
