@@ -53,6 +53,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
 
@@ -63,7 +64,7 @@ The primary is selected from service-up candidates based on a numeric weight as 
 In the case of ties, or a new candidate emerging with a weight higher than a current healthy primary, 
 behaviour can be configured with `primary.selection.mode`.
 
-Returns a map containing a message, newPrimary, oldPrimary, and a {@link ResultCode} code.
+@return a map containing a message, newPrimary, oldPrimary, and a {@link ResultCode} code.
 */
 @Beta
 public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConfig {
@@ -84,7 +85,6 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
     public ElectPrimaryEffector(Map<String,String> params) {
         this(ConfigBag.newInstance(params));
     }
-
     
     // wire up the entity to call the task factory to create the task on invocation
     
@@ -111,9 +111,9 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
             ConfigBag params = ConfigBag.newInstanceCopying(paramsCreationTime).copy(paramsInvocationTime);
             
             try {
-                Entity newPrimary = DynamicTasks.queue("check primaries", new CheckPrimaries(params)).getUnchecked();
+                Entity newPrimary = DynamicTasks.queue("check primaries", new CheckPrimaries(entity(), params)).getUnchecked();
                 
-                Entity currentActive = getCurrentActive(params);
+                Entity currentActive = getCurrentActive(entity(), params);
                 if (newPrimary==null) {
 //                    If no primary can be found, the effector will:
 //                        * add a "primary-election" problem so that service state logic, if applicable, will know that the entity is unhealthy
@@ -172,7 +172,7 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
                     log.debug("Error promoting/demoting primary for "+entity()+" (rethrowing): "+e);
-                    ServiceProblemsLogic.updateProblemsIndicator(entity(), "primary", e);
+                    ServiceProblemsLogic.updateProblemsIndicator(entity(), "primary", Exceptions.collapseText(e));
                     ServiceNotUpLogic.clearNotUpIndicator(entity(), "primary");
                     ServiceStateLogic.setExpectedStateRunningWithErrors(entity());
                     throw Exceptions.propagate(e);
@@ -220,168 +220,6 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
             log.debug("Ran "+tasks+", results: "+result);
         }
         
-        private Entity getCurrentActive(ConfigBag params) {
-            return entity().getAttribute(Sensors.newSensor(Entity.class, params.get(PRIMARY_SENSOR_NAME)));
-        }
-
-        protected class CheckPrimaries implements Callable<Entity> {
-            final ConfigBag params;
-            public CheckPrimaries(ConfigBag params) { this.params = params; }
-
-            @Override
-            public Entity call() throws Exception {
-                Stopwatch elapsedTime = Stopwatch.createStarted();
-                boolean extendedForNonViableRunning = false;
-                outer: while (true) {
-                    TargetMode target = params.get(TARGET_MODE);
-                    Iterable<Entity> candidates = 
-                        target==TargetMode.CHILDREN ? entity().getChildren() :
-                            target==TargetMode.MEMBERS ? ((Group)entity()).getMembers() :
-                                // auto - prefer members
-                                entity() instanceof Group ? ((Group)entity()).getMembers() : entity().getChildren();
-                    
-                    SelectionMode mode = params.get(SELECTION_MODE);
-                    Entity currentActive = getCurrentActive(params);
-                    if (mode==SelectionMode.FAILOVER && currentActive!=null && Iterables.contains(candidates, currentActive) && isViable(currentActive)) {
-                        return currentActive;
-                    }
-                    // find best live and/or time to wait
-                    Duration delayForBest = Duration.ZERO;
-                    Duration period = Duration.millis(10);
-                    
-                    if (candidates.iterator().hasNext()) {
-                        List<WeightedEntity> weightedEntities = MutableList.of();
-                        for (Entity candidate: candidates) {
-                            weightedEntities.add(new WeightedEntity(candidate));
-                        }
-                        Collections.sort(weightedEntities);
-                        WeightedEntity anyBestTheoreticalW = weightedEntities.iterator().next();
-                        WeightedEntity bestLive = null;
-                        for (WeightedEntity w: weightedEntities) {
-                            if (w.score < -0.00001) {
-                                // this is disallowed, as are all following
-                                break;
-                            }
-                            if (Math.abs(anyBestTheoreticalW.score - w.score) >= 0.0000000001) {
-                                if (bestLive==null && !delayForBest.isLongerThan(elapsedTime)) {
-                                    // no viable highest-score and can't wait any longer;
-                                    // take the next highest that we find
-                                    if (isViable(w.entity)) {
-                                        log.debug("Theoretical best primary at "+entity()+" ("+anyBestTheoreticalW+", maybe others) not available, using next best: "+w);
-                                        return w.entity;
-                                    } else {
-                                        continue;
-                                    }
-                                } else {
-                                    // don't bother looking at non-highest scoring nodes, we know what to do
-                                    break;
-                                }
-                            }
-                            
-                            // examining the highest scoring ones
-                            
-                            if (isViable(w.entity)) {
-                                log.debug("Viable best primary at "+entity()+" detected: "+w);
-                                if (bestLive==null) {
-                                    bestLive = w;
-                                } else if (mode==SelectionMode.STRICT) {
-                                    // in strict mode, should only have one node with the best score,
-                                    // so this is a failure. we might want to allow some grace if a
-                                    // method is promoting a new one by changing (non-atomically) which
-                                    // single entity has a weight 1 where others are 0.
-                                    // but preferred way to avoid that is to increment weight at new primary instead.
-                                    throw new SelectionModeStrictFailed(w.entity, bestLive.entity, bestLive.score);
-                                } else if (w.entity.equals(currentActive)) {
-                                    // always prefer current active if it is best
-                                    // (safe to bail out here but we won't yet)
-                                    bestLive = w;
-                                } else {
-                                    // two equally good bests, neither current active
-                                    // could prefer either but go with the first (no-op here) 
-                                }
-                                
-                            } else {
-                                // this best not viable - determine why and how long to wait
-                                Lifecycle state = w.entity.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
-                                log.debug("Theoretical best primary at "+entity()+": "+w.entity+" "+state+" (not viable); may re-check");
-                                if (state==Lifecycle.STARTING) {
-                                    delayForBest = Duration.max(delayForBest, entity().config().get(BEST_STARTING_WAIT_TIMEOUT));
-                                    
-                                } else if (state==Lifecycle.RUNNING) {
-                                    
-                                    // running, not on fire, but not viable - either a race (has just become viable)
-                                    // or a coding error (caller did not set "up" correctly); give extra 5s if we haven't already
-                                    if (!extendedForNonViableRunning) {
-                                        delayForBest = Duration.max(delayForBest, Duration.of(elapsedTime).add(entity().config().get(BEST_WAIT_TIMEOUT)));
-                                        extendedForNonViableRunning = true;
-                                    }
-                                } else {
-                                    delayForBest = Duration.max(delayForBest, entity().config().get(BEST_WAIT_TIMEOUT));
-                                }
-                            }
-                        }
-                        
-                        // finished looking at all nodes, or all theoretical bests and found one
-                        if (bestLive!=null) {
-                            // found a best live (preferring current if viable,
-                            // but doesn't wait for current)
-                            return bestLive.entity;
-                        }
-                    } else {
-                        delayForBest = entity().config().get(BEST_WAIT_TIMEOUT);
-                    }
-                    Duration delay = delayForBest.subtract(Duration.of(elapsedTime));
-                    if (delay.isPositive()) {
-                        delay = Duration.min(delay, period);
-                        period = Duration.min(Duration.ONE_SECOND, period.multiply(1.5));
-                        log.debug("Delaying "+delay+" ("+delayForBest+" allowed, "+Duration.of(elapsedTime)+" elapsed) then rechecking for best primary at "+entity());
-                        // there was a theoretical best that wasn't started
-                        Time.sleep(delay);
-                        continue outer;
-                    }
-
-                    // none viable or worth waiting for
-                    return null;
-                }
-                
-            }
-
-            private class WeightedEntity implements Comparable<WeightedEntity> {
-                public final Entity entity;
-                public final double score;
-                
-                public WeightedEntity(Entity candidate) {
-                    this.entity = candidate;
-                    this.score = score(candidate);
-                }
-
-                @Override
-                public int compareTo(WeightedEntity o) {
-                    double v = o.score - this.score;
-                    return (v > 0.00000001 ? 1 : v<-0.00000001 ? -1 : 0);
-                }
-                @Override
-                public String toString() {
-                    return entity+":"+score;
-                }
-            }
-            
-            protected boolean isViable(Entity candidate) {
-                if (!Lifecycle.RUNNING.equals( candidate.getAttribute(Attributes.SERVICE_STATE_ACTUAL) )) return false;
-                if (!Boolean.TRUE.equals( candidate.getAttribute(Attributes.SERVICE_UP) )) return false;
-                if (score(candidate) <= -0.000000001) return false;
-                return true;
-            }
-            
-            private double score(Entity candidate) {
-                Double s = candidate.getAttribute(Sensors.newDoubleSensor(params.get(PRIMARY_WEIGHT_NAME)));
-                if (s!=null) return s;
-                s = candidate.getConfig(ConfigKeys.newDoubleConfigKey(params.get(PRIMARY_WEIGHT_NAME)));
-                if (s!=null) return s;
-                return 0;
-            }
-        }
-        
         protected class Promote implements Callable<Object> {
             final ConfigBag params;
             public Promote(ConfigBag params) { this.params = params; }
@@ -395,7 +233,7 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
                 }
                 EntityInternal newPrimary = (EntityInternal)params.getStringKey("newPrimary");
                 if (newPrimary==null) {
-                    return "Nothing to demote; no new primary";
+                    return "Nothing to promote; no new primary";
                 }
                 eff = newPrimary.getEffector(promoteEffectorName);
                 if (eff!=null) {
@@ -436,8 +274,172 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
             }
         }
     }
-    
-    private static class SelectionModeStrictFailed extends UserFacingException {
+
+
+    @VisibleForTesting
+    public static class CheckPrimaries implements Callable<Entity> {
+        final ConfigBag params;
+        final Entity entity;
+        public CheckPrimaries(Entity entity, ConfigBag params) { this.entity = entity; this.params = params; }
+
+        @Override
+        public Entity call() throws Exception {
+            Stopwatch elapsedTime = Stopwatch.createStarted();
+            boolean extendedForNonViableRunning = false;
+            outer: while (true) {
+                TargetMode target = params.get(TARGET_MODE);
+                Iterable<Entity> candidates = 
+                    target==TargetMode.CHILDREN ? entity.getChildren() :
+                        target==TargetMode.MEMBERS ? ((Group)entity).getMembers() :
+                            // auto - prefer members
+                            entity instanceof Group ? ((Group)entity).getMembers() : entity.getChildren();
+                
+                SelectionMode mode = params.get(SELECTION_MODE);
+                Entity currentActive = getCurrentActive(entity, params);
+                if (mode==SelectionMode.FAILOVER && currentActive!=null && Iterables.contains(candidates, currentActive) && isViable(currentActive)) {
+                    return currentActive;
+                }
+                // find best live and/or time to wait
+                Duration delayForBest = Duration.ZERO;
+                Duration period = Duration.millis(10);
+                
+                if (candidates.iterator().hasNext()) {
+                    List<WeightedEntity> weightedEntities = MutableList.of();
+                    for (Entity candidate: candidates) {
+                        weightedEntities.add(new WeightedEntity(candidate));
+                    }
+                    Collections.sort(weightedEntities);
+                    WeightedEntity anyBestTheoreticalW = weightedEntities.iterator().next();
+                    WeightedEntity bestLive = null;
+                    for (WeightedEntity w: weightedEntities) {
+                        if (w.score < -0.00001) {
+                            // this is disallowed, as are all following
+                            break;
+                        }
+                        if (Math.abs(anyBestTheoreticalW.score - w.score) >= 0.0000000001) {
+                            if (bestLive==null && !delayForBest.isLongerThan(elapsedTime)) {
+                                // no viable highest-score and can't wait any longer;
+                                // take the next highest that we find
+                                if (isViable(w.entity)) {
+                                    log.debug("Theoretical best primary at "+entity+" ("+anyBestTheoreticalW+", maybe others) not available, using next best: "+w);
+                                    return w.entity;
+                                } else {
+                                    continue;
+                                }
+                            } else {
+                                // don't bother looking at non-highest scoring nodes, we know what to do
+                                break;
+                            }
+                        }
+                        
+                        // examining the highest scoring ones
+                        
+                        if (isViable(w.entity)) {
+                            log.debug("Viable best primary at "+entity+" detected: "+w);
+                            if (bestLive==null) {
+                                bestLive = w;
+                            } else if (mode==SelectionMode.STRICT) {
+                                // in strict mode, should only have one node with the best score,
+                                // so this is a failure. we might want to allow some grace if a
+                                // method is promoting a new one by changing (non-atomically) which
+                                // single entity has a weight 1 where others are 0.
+                                // but preferred way to avoid that is to increment weight at new primary instead.
+                                throw new SelectionModeStrictFailedException(w.entity, bestLive.entity, bestLive.score);
+                            } else if (w.entity.equals(currentActive)) {
+                                // always prefer current active if it is best
+                                // (safe to bail out here but we won't yet)
+                                bestLive = w;
+                            } else {
+                                // two equally good bests, neither current active
+                                // could prefer either but go with the first (no-op here) 
+                            }
+                            
+                        } else {
+                            // this best not viable - determine why and how long to wait
+                            Lifecycle state = w.entity.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
+                            log.debug("Theoretical best primary at "+entity+": "+w.entity+" "+(state==null ? "<no-state-yet>" : state)+" (not viable); may re-check");
+                            if (state==Lifecycle.STARTING) {
+                                delayForBest = Duration.max(delayForBest, entity.config().get(BEST_STARTING_WAIT_TIMEOUT));
+                                
+                            } else if (state==Lifecycle.RUNNING) {
+                                
+                                // running, not on fire, but not viable - either a race (has just become viable)
+                                // or a coding error (caller did not set "up" correctly); give extra 5s if we haven't already
+                                if (!extendedForNonViableRunning) {
+                                    delayForBest = Duration.max(delayForBest, Duration.of(elapsedTime).add(entity.config().get(BEST_WAIT_TIMEOUT)));
+                                    extendedForNonViableRunning = true;
+                                }
+                            } else {
+                                delayForBest = Duration.max(delayForBest, entity.config().get(BEST_WAIT_TIMEOUT));
+                            }
+                        }
+                    }
+                    
+                    // finished looking at all nodes, or all theoretical bests and found one
+                    if (bestLive!=null) {
+                        // found a best live (preferring current if viable,
+                        // but doesn't wait for current)
+                        return bestLive.entity;
+                    }
+                } else {
+                    delayForBest = entity.config().get(BEST_WAIT_TIMEOUT);
+                }
+                Duration delay = delayForBest.subtract(Duration.of(elapsedTime));
+                if (delay.isPositive()) {
+                    delay = Duration.min(delay, period);
+                    period = Duration.min(Duration.ONE_SECOND, period.multiply(1.5));
+                    log.debug("Delaying "+delay+" ("+delayForBest+" allowed, "+Duration.of(elapsedTime)+" elapsed) then rechecking for best primary at "+entity);
+                    // there was a theoretical best that wasn't started
+                    Time.sleep(delay);
+                    continue outer;
+                }
+
+                // none viable or worth waiting for
+                return null;
+            }
+        }
+
+        private class WeightedEntity implements Comparable<WeightedEntity> {
+            public final Entity entity;
+            public final double score;
+            
+            public WeightedEntity(Entity candidate) {
+                this.entity = candidate;
+                this.score = score(candidate);
+            }
+
+            @Override
+            public int compareTo(WeightedEntity o) {
+                double v = o.score - this.score;
+                return (v > 0.00000001 ? 1 : v<-0.00000001 ? -1 : 0);
+            }
+            @Override
+            public String toString() {
+                return entity+":"+score;
+            }
+        }
+        
+        protected boolean isViable(Entity candidate) {
+            if (!Lifecycle.RUNNING.equals( candidate.getAttribute(Attributes.SERVICE_STATE_ACTUAL) )) return false;
+            if (!Boolean.TRUE.equals( candidate.getAttribute(Attributes.SERVICE_UP) )) return false;
+            if (score(candidate) <= -0.000000001) return false;
+            return true;
+        }
+        
+        private double score(Entity candidate) {
+            Double s = candidate.getAttribute(Sensors.newDoubleSensor(params.get(PRIMARY_WEIGHT_NAME)));
+            if (s!=null) return s;
+            s = candidate.getConfig(ConfigKeys.newDoubleConfigKey(params.get(PRIMARY_WEIGHT_NAME)));
+            if (s!=null) return s;
+            return 0;
+        }
+    }
+
+    private static Entity getCurrentActive(Entity entity, ConfigBag params) {
+        return entity.getAttribute(Sensors.newSensor(Entity.class, params.get(PRIMARY_SENSOR_NAME)));
+    }
+
+    private static class SelectionModeStrictFailedException extends UserFacingException {
         private static final long serialVersionUID = -6253854814553229953L;
         
         // fields not needed at present
@@ -445,7 +447,7 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
 //        final Entity entity2;
 //        final double score;
 
-        public SelectionModeStrictFailed(Entity entity1, Entity entity2, double score) {
+        public SelectionModeStrictFailedException(Entity entity1, Entity entity2, double score) {
             super("Cannot select primary in strict mode: entities "+entity1+" and "+entity2+" have same score "+score);
 //            this.entity1 = entity1;
 //            this.entity2 = entity2;

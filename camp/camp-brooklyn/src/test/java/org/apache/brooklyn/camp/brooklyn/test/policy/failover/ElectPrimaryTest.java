@@ -88,6 +88,11 @@ public class ElectPrimaryTest extends AbstractYamlTest {
         Entity app = createAndStartApplication(loadYaml("classpath://org/apache/brooklyn/policy/failover/elect-primary-simple-test.yaml"));
         EntityAsserts.assertAttributeEventually(app, PRIMARY, Predicates.notNull());
         log.info("Primary sensor is: "+app.sensors().get(PRIMARY));
+        
+        // and confirm the result with the selector directly
+        // (and show how internals can be accessed in case people want to investigate it) 
+        Asserts.assertEquals(new ElectPrimaryEffector.CheckPrimaries(app, ConfigBag.newInstance()).call(),
+            app.sensors().get(PRIMARY) );
     }
 
     @Test
@@ -196,7 +201,6 @@ public class ElectPrimaryTest extends AbstractYamlTest {
         // shouldn't be necessary as app is set starting before primary set to a, so
         // above method checks not pass until promotion/demotion invocations have also completed
         //Asserts.succeedsEventually(() -> Asserts.assertSize(promoteDemoteEffectorMessages, 2));
-        
         Asserts.assertTrue(promoteDemoteEffectorMessages.stream().anyMatch((s) -> s.matches("promote .*"+a.getId()+".* args=.*")),
             "Missing/bad promotion message in: "+promoteDemoteEffectorMessages);
         Asserts.assertTrue(promoteDemoteEffectorMessages.stream().anyMatch((s) -> s.matches("demote .*"+b.getId()+".* args=.*")),

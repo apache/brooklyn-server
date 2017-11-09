@@ -36,7 +36,6 @@ import org.apache.brooklyn.core.effector.EffectorTasks.EffectorTaskFactory;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.entity.EntityInternal.SensorSupportInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.enricher.stock.Propagator;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -66,6 +65,8 @@ public class PropagatePrimaryEnricher extends AbstractEnricher implements Sensor
     public static final ConfigKey<Collection<? extends Sensor<?>>> PROPAGATING = Propagator.PROPAGATING;
     public static final ConfigKey<Map<? extends Sensor<?>, ? extends Sensor<?>>> SENSOR_MAPPING = Propagator.SENSOR_MAPPING;
     
+    //TODO rebind
+    
     Entity lastPrimary;
     Propagator propagator;
     
@@ -77,6 +78,7 @@ public class PropagatePrimaryEnricher extends AbstractEnricher implements Sensor
     public void setEntity(@SuppressWarnings("deprecation") org.apache.brooklyn.api.entity.EntityLocal entity) {
         super.setEntity(entity);
         
+        // TODO if not coming from rebind
         blacklistedEffectors.addAll(((EntityInternal)entity).getMutableEntityType().getEffectors().keySet());
         blacklistedSensors.addAll(((EntityInternal)entity).getMutableEntityType().getSensors().keySet());
         for (Sensor<?> s: Propagator.SENSORS_NOT_USUALLY_PROPAGATED) {
@@ -114,7 +116,7 @@ public class PropagatePrimaryEnricher extends AbstractEnricher implements Sensor
             
             // remove all but blacklisted sensors
             Set<AttributeSensor<?>> sensorsToRemove = MutableSet.of();
-            for (AttributeSensor<?> s: ((SensorSupportInternal)entity.sensors()).getAll().keySet()) {
+            for (AttributeSensor<?> s: ((EntityInternal)entity).sensors().getAll().keySet()) {
                 if (!blacklistedSensors.contains(s.getName())) {
                     sensorsToRemove.add(s);
                 }
@@ -122,7 +124,7 @@ public class PropagatePrimaryEnricher extends AbstractEnricher implements Sensor
             if (!sensorsToRemove.isEmpty()) {
                 log.debug("Removing propagated sensors from "+lastPrimary+" at "+entity+": "+sensorsToRemove);
                 for (AttributeSensor<?> s: sensorsToRemove) {
-                    ((SensorSupportInternal)entity.sensors()).remove(s);
+                    ((EntityInternal)entity).sensors().remove(s);
                 }
             }
             
@@ -134,6 +136,8 @@ public class PropagatePrimaryEnricher extends AbstractEnricher implements Sensor
                 // add propagator
                 addPropagatorEnricher(primary);
             }
+            
+            lastPrimary = primary;
         }
     }
 

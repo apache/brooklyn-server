@@ -46,6 +46,7 @@ import org.apache.brooklyn.entity.group.DynamicGroup;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.text.Strings;
@@ -61,14 +62,17 @@ import com.google.common.reflect.TypeToken;
 
 The ElectPrimaryPolicy acts to keep exactly one of its children or members as primary, promoting and demoting them when required.
 
+<p>
 A simple use case is where we have two children, call them North and South, and we wish for North to be primary.  If North fails, however, we want to promote and fail over to South.  This can be done by:
 
-* adding this policy at the parent
-* setting ` ha.primary.weight` on North
-* optionally defining `promote` on North and South (if action is required there to promote it)
-* observing the `primary` sensor to see which is primary
-* optionally setting `propagate.primary.sensors: [ main.uri ]` to publish `main.uri` from whichever of North or South is active
-* optionally setting `primary.selection.mode: best` to switch back to North if it comes back online
+<ul>
+<li> adding this policy at the parent
+<li> setting ` ha.primary.weight` on North
+<li> optionally defining `promote` on North and South (if action is required there to promote it)
+<li> observing the `primary` sensor to see which is primary
+<li> optionally setting `propagate.primary.sensors: [ main.uri ]` to publish `main.uri` from whichever of North or South is active
+<li> optionally setting `primary.selection.mode: best` to switch back to North if it comes back online
+</ul>
 
 The policy works by listening for service-up changes in the target pool (children or members) and listening for `ha.primary.weight` sensor values from those elements.  
 On any change, it invokes an effector to perform the primary election.  
@@ -77,9 +81,11 @@ If the effector is not defined this policy will add one with the standard electi
 ({@link ElectPrimaryEffector}).    
 That effector will also invoke `promote` and `demote` on the relevant entities.
 
+<p>
 All the `primary.*` parameters accepted by that effector can be defined on this policy 
 and will be passed to the effector, along with an `event` parameter indicating the sensor which triggered the election.
 
+<p>
 If no quorum.up or quorum.running is set on the entity, both will be set to a constant 1.
 
  */
@@ -93,17 +99,19 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
         "electPrimary");
     
     @SuppressWarnings("serial")
-    public static ConfigKey<Collection<? extends Object>> PROPAGATE_PRIMARY_SENSORS = ConfigKeys.newConfigKey(
-        new TypeToken<Collection<? extends Object>>() {}, 
+    public static ConfigKey<Collection<?>> PROPAGATE_PRIMARY_SENSORS = ConfigKeys.newConfigKey(
+        new TypeToken<Collection<?>>() {}, 
         "propagate.primary.sensors");
-    
+
+    private final transient List<String> rescanTriggers = MutableList.of();
+    private transient boolean rescanInProgress = false;
+
     @Override
     public void setEntity(@SuppressWarnings("deprecation") org.apache.brooklyn.api.entity.EntityLocal entity) {
         super.setEntity(entity);
         
         checkAndMaybeAddEffector(entity);
         checkQuorums(entity);
-        addSubscriptions(entity);
         
         Collection<? extends Object> sensorsToPropagate = config().get(PROPAGATE_PRIMARY_SENSORS);
         if (sensorsToPropagate!=null) {
@@ -121,6 +129,9 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
                 .configure(PropagatePrimaryEnricher.PROPAGATE_EFFECTORS, false)
                 .configure(PropagatePrimaryEnricher.PROPAGATING, realSensors));
         }
+        
+        addSubscriptions(entity);
+        rescanRequest("policy initialization");
     }
 
     protected void checkAndMaybeAddEffector(@SuppressWarnings("deprecation") org.apache.brooklyn.api.entity.EntityLocal entity) {
@@ -141,41 +152,44 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
 
     private void checkQuorums(Entity entity) {
         // set all quorums to 1 if not explicitly set
-        if ( ((ConfigurationSupportInternal)entity.config()).getRaw(StartableApplication.UP_QUORUM_CHECK).isAbsent() ) {
+        if ( ((EntityInternal)entity).config().getRaw(StartableApplication.UP_QUORUM_CHECK).isAbsent() ) {
             entity.config().set(StartableApplication.UP_QUORUM_CHECK, QuorumChecks.newInstance(1, 0.0, false));
         }
-        if ( ((ConfigurationSupportInternal)entity.config()).getRaw(StartableApplication.RUNNING_QUORUM_CHECK).isAbsent() ) {
+        if ( ((EntityInternal)entity).config().getRaw(StartableApplication.RUNNING_QUORUM_CHECK).isAbsent() ) {
             entity.config().set(StartableApplication.RUNNING_QUORUM_CHECK, QuorumChecks.newInstance(1, 0.0, false));
         }
     }
 
     protected void addSubscriptions(Entity entity) {
         String weightSensorName = config().get(PRIMARY_WEIGHT_NAME);
-        highlightTriggers("Listening for "+weightSensorName+" and service up, state on all children " + (entity instanceof Group ? "and members " : ""));
+        TargetMode target = config().get(TARGET_MODE);
+        if (target==TargetMode.AUTO) target =  entity instanceof Group ? TargetMode.MEMBERS : TargetMode.CHILDREN;
+
+        highlightTriggers("Listening for "+weightSensorName+" and service up, state on all " + target.name().toLowerCase());
         
         Change<Entity> candidateSetChange = new Change<Entity>();
-        subscriptions().subscribe(entity, AbstractEntity.CHILD_ADDED, candidateSetChange);
-        subscriptions().subscribe(entity, AbstractEntity.CHILD_REMOVED, candidateSetChange);
-        subscriptions().subscribe(entity, DynamicGroup.MEMBER_ADDED, candidateSetChange);
-        subscriptions().subscribe(entity, DynamicGroup.MEMBER_REMOVED, candidateSetChange);
-        
         Change<Boolean> candidateUpChange = new Change<Boolean>();
-        subscriptions().subscribeToChildren(entity, Attributes.SERVICE_UP, candidateUpChange);
-        if (entity instanceof Group) {
-            subscriptions().subscribeToMembers(((Group)entity), Attributes.SERVICE_UP, candidateUpChange);
-        }
-        
         Change<Lifecycle> candidateLifecycleChange = new Change<Lifecycle>();
-        subscriptions().subscribeToChildren(entity, Attributes.SERVICE_STATE_ACTUAL, candidateLifecycleChange);
-        if (entity instanceof Group) {
-            subscriptions().subscribeToMembers(((Group)entity), Attributes.SERVICE_STATE_ACTUAL, candidateLifecycleChange);
-        }
-
         Change<Number> candidateWeightChange = new Change<Number>();
         AttributeSensor<Number> weightSensor = Sensors.newSensor(Number.class, weightSensorName);
-        subscriptions().subscribeToChildren(entity, weightSensor, candidateWeightChange);
-        if (entity instanceof Group) {
+        
+        switch (target) {
+        case CHILDREN:
+            subscriptions().subscribe(entity, AbstractEntity.CHILD_ADDED, candidateSetChange);
+            subscriptions().subscribe(entity, AbstractEntity.CHILD_REMOVED, candidateSetChange);
+            subscriptions().subscribeToChildren(entity, Attributes.SERVICE_UP, candidateUpChange);
+            subscriptions().subscribeToChildren(entity, Attributes.SERVICE_STATE_ACTUAL, candidateLifecycleChange);
+            subscriptions().subscribeToChildren(entity, weightSensor, candidateWeightChange);
+            break;
+        case MEMBERS:
+            subscriptions().subscribe(entity, DynamicGroup.MEMBER_ADDED, candidateSetChange);
+            subscriptions().subscribe(entity, DynamicGroup.MEMBER_REMOVED, candidateSetChange);
+            subscriptions().subscribeToMembers(((Group)entity), Attributes.SERVICE_UP, candidateUpChange);
+            subscriptions().subscribeToMembers(((Group)entity), Attributes.SERVICE_STATE_ACTUAL, candidateLifecycleChange);
             subscriptions().subscribeToMembers(((Group)entity), weightSensor, candidateWeightChange);
+            break;
+        default:
+            throw new IllegalArgumentException("Unexpected target mode "+target);
         }
     }
 
@@ -184,16 +198,51 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
     }
     
     public void rescan(SensorEvent<?> event) {
+        rescanRequest(event.getSensor().getName()+" "+displayValue(event.getValue())+" from "+event.getSource().getId());
+    }
+    
+    private String displayValue(Object o) {
+        return Strings.maxlenWithEllipsis(String.valueOf(o), 40);
+    }
+    
+    public void rescanRequest(String triggerDescription) {
+        synchronized (rescanTriggers) {
+            boolean rescanNeeded = rescanTriggers.isEmpty();
+            rescanTriggers.add(triggerDescription);
+            if (rescanNeeded) {
+                getExecutionContext().submit("Scan for primary on "+triggerDescription, () -> { rescanImpl(); return null; });
+            }
+        }
+    }
+    
+    public void rescanImpl() throws InterruptedException {
+        String contextString;
+        synchronized (rescanTriggers) {
+            while (rescanInProgress) {
+                Tasks.setBlockingDetails("Waiting for ongoing scan to complete");
+                rescanTriggers.wait();
+                Tasks.resetBlockingDetails();
+            }
+            if (rescanTriggers.isEmpty()) {
+                if (log.isTraceEnabled()) {
+                    log.trace("Policy "+this+" scheduled rescan unnecessary, trigger already handled");
+                }
+                return;
+            }
+            contextString = Strings.join(rescanTriggers, ", ");
+            rescanTriggers.clear();
+            rescanInProgress = true;
+        }
         String code = null;
         try {
             String effName = config().get(EFFECTOR_NAME);
             if (log.isTraceEnabled()) {
-                log.trace("Policy "+this+" got event "+event+"; triggering rescan with "+effName);
+                log.trace("Policy "+this+" got event: "+contextString+"; triggering rescan with "+effName);
             }
             Task<?> task = Effectors.invocation(entity, Preconditions.checkNotNull( ((EntityInternal)entity).getEffector(effName) ), config().getBag()).asTask();
             BrooklynTaskTags.addTagDynamically(task, BrooklynTaskTags.NON_TRANSIENT_TASK_TAG);
             
-            highlight("lastScan", "Running "+effName+" on "+event.getSensor().getName()+" from "+event.getSource().getId(), task);
+            highlight("lastScan", "Running "+effName+" on "+contextString, task);
             
             Object result = DynamicTasks.get(task);
             if (result instanceof Map) code = Strings.toString( ((Map<?,?>)result).get("code") );
@@ -219,6 +268,11 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
             } else {
                 log.warn("Error running policy "+this+" on "+entity+": "+Exceptions.collapseText(e), e);
             }
+        }
+        
+        synchronized (rescanTriggers) {
+            rescanTriggers.notifyAll();
+            rescanInProgress = false;
         }
     }
     
