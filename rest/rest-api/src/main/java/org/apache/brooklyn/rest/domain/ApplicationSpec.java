@@ -90,7 +90,6 @@ public class ApplicationSpec implements HasName, Serializable {
     private final String type;
     @JsonInclude(Include.NON_NULL)
     private final Set<EntitySpec> entities;
-    @JsonInclude(Include.NON_NULL)
     private final Set<String> locations;
     @JsonInclude(Include.NON_EMPTY)
     private final Map<String, String> config;

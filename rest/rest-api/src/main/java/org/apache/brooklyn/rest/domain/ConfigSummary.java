@@ -57,14 +57,14 @@ public class ConfigSummary implements HasName, Serializable {
     private final String label;
     @JsonInclude(Include.NON_NULL)
     private final Double priority;
-    @JsonInclude(Include.NON_EMPTY)
+    @JsonInclude(Include.NON_NULL)
     private final List<Map<String, String>> possibleValues;
     @JsonInclude(Include.NON_NULL)
     private final Boolean pinned;
-    @JsonInclude(Include.NON_EMPTY)
+    @JsonInclude(Include.NON_NULL)
     private final List<String> constraints;
 
-    @JsonInclude(Include.NON_EMPTY)
+    @JsonInclude(Include.NON_NULL)
     private final Map<String, URI> links;
 
     // json deserialization
