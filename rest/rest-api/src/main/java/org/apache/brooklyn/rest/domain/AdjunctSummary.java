@@ -23,10 +23,14 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Objects;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.objs.HighlightTuple;
 import org.apache.brooklyn.api.objs.Identifiable;
+import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
@@ -41,6 +45,10 @@ public class AdjunctSummary implements HasName, Serializable, Identifiable {
     private BrooklynObjectType adjunctType;
     @JsonInclude(Include.NON_EMPTY)
     private String catalogItemId;
+    @JsonInclude(Include.NON_EMPTY)
+    private String description;
+    @JsonInclude(Include.NON_EMPTY)
+    private String iconUrl;
     private Status state;
     @JsonInclude(Include.NON_EMPTY)
     private Map<String, HighlightTuple> highlights;
@@ -56,8 +64,26 @@ public class AdjunctSummary implements HasName, Serializable, Identifiable {
         adjunctType = BrooklynObjectType.of(a);
         catalogItemId = a.getCatalogItemId();
         highlights = a.getHighlights();
+        if (a instanceof AbstractEntityAdjunct && catalogItemId!=null) {
+            RegisteredType type = ((AbstractEntityAdjunct)a).getManagementContext().getTypeRegistry().get(catalogItemId);
+            if (notObviouslyInvalidForAdjunct(a, type)) {
+                iconUrl = RegisteredTypes.getIconUrl(a);
+                description = type.getDescription();
+            }
+        }
     }
-        
+    
+    // temporary method while catalogItemId is still allowed to contain a context entity - exclude such items for now
+    private boolean notObviouslyInvalidForAdjunct(EntityAdjunct a, RegisteredType type) {
+        if (type==null) return false;
+        if (type.getSuperTypes().isEmpty()) return true;
+        for (Object t: type.getSuperTypes()) {
+            if (t instanceof Class && EntityAdjunct.class.isAssignableFrom((Class<?>)t)) return true;
+            if (t instanceof Class && Entity.class.isAssignableFrom((Class<?>)t)) return false;
+        }
+        return true;
+    }
+
     protected AdjunctSummary(
             String id,
             String name,
@@ -93,6 +119,14 @@ public class AdjunctSummary implements HasName, Serializable, Identifiable {
         return catalogItemId;
     }
 
+    public String getDescription() {
+        return description;
+    }
+    
+    public String getIconUrl() {
+        return iconUrl;
+    }
+    
     public Status getState() {
         return state;
     }
@@ -103,6 +137,10 @@ public class AdjunctSummary implements HasName, Serializable, Identifiable {
 
     public Map<String, URI> getLinks() {
         return links;
+    }
+    
+    public AdjunctSummary iconUrl(String iconUrl) {
+        this.iconUrl = iconUrl; return this;
     }
     
     public AdjunctSummary state(Status state) {

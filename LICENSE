@@ -230,7 +230,7 @@ This project includes the software: Font Awesome (code)
 
 This project includes the software: Font Awesome (fonts)
   Available at: http://fontawesome.io/
-  Inclusive of: font-awesome/fonts/*
+  Inclusive of: font-awesome/fonts/* cluster.svg
   Version used: 4.5.0
   Used under the following license: SIL OFL 1.1 (http://scripts.sil.org/OFL)
   Copyright (c) Dave Gandy (2016)
@@ -345,6 +345,12 @@ This project includes the software: moment.js
   Version used: 2.1.0
   Used under the following license: The MIT License (http://opensource.org/licenses/MIT)
   Copyright (c) Tim Wood, Iskren Chernev, Moment.js contributors (2011-2014)
+
+This project includes the software: The Noun Project (icons)
+  Available at: https://thenounproject.com/
+  Inclusive of: service-restarter.png, autoscaler.png, and others
+  Used under the following license: Creative Commons Public License, Attribution 3.0 (https://creativecommons.org/licenses/by/3.0/us/legalcode)
+  Includes icons by Evan Shuster, Sarah Joy, Jack Zwanenburg
 
 This project includes the software: RequireJS
   Available at: http://requirejs.org/

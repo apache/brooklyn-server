@@ -253,4 +253,12 @@ public interface AdjunctApi {
             @ApiParam(value = "Whether to include subtasks recursively across different entities (default false)", required = false)
             @QueryParam("recurse") @DefaultValue("false") Boolean recurse);
 
+    @GET
+    @ApiOperation(value = "Returns an icon for the adjunct, if defined")
+    @Path("/{adjunct}/icon")
+    public Response getIcon(
+        @ApiParam(value = "Application ID or name", required = true) @PathParam("application") String applicationId,
+        @ApiParam(value = "Entity ID or name", required = true) @PathParam("entity") String entityId,
+        @ApiParam(value = "Adjunct ID or name", required = true) @PathParam("adjunct") String adjunctToken);
+
 }

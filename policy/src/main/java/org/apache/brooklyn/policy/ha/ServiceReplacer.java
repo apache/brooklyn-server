@@ -37,14 +37,12 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceProblemsLogic;
 import org.apache.brooklyn.core.entity.trait.MemberReplaceable;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 import org.apache.brooklyn.entity.group.StopFailedRuntimeException;
 import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
@@ -55,7 +53,8 @@ import com.google.common.collect.Lists;
 
 /** attaches to a DynamicCluster and replaces a failed member in response to HASensors.ENTITY_FAILED or other sensor;
  * if this fails, it sets the Cluster state to on-fire */
-@Catalog(name="Service Replacer", description="HA policy for replacing a failed member of a group")
+@Catalog(name="Service Replacer", description="HA policy for replacing a failed member of a group",
+    iconUrl="classpath://org/apache/brooklyn/policy/ha/service-replacer.png")
 public class ServiceReplacer extends AbstractPolicy {
 
     private static final Logger LOG = LoggerFactory.getLogger(ServiceReplacer.class);

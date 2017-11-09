@@ -30,6 +30,7 @@ brooklyn.catalog:
       item:
         type: org.apache.brooklyn.policy.ha.ServiceRestarter
         name: Service Restarter
+        iconUrl: classpath://org/apache/brooklyn/policy/ha/service-restarter.png
         description: HA policy for restarting a service automatically, and for emitting an events if the service repeatedly fails
     - id: org.apache.brooklyn.policy.ha.SshMachineFailureDetector
       item:
@@ -40,11 +41,13 @@ brooklyn.catalog:
       item:
         type: org.apache.brooklyn.policy.ha.ServiceReplacer
         name: Service Replacer
+        iconUrl: classpath://org/apache/brooklyn/policy/ha/service-replacer.png
         description: HA policy for replacing a failed member of a group
     - id: org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy
       item:
         type: org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy
         name: Auto-scaler
+        iconUrl: classpath://org/apache/brooklyn/policy/autoscaler.png
         description: |
           Policy that is attached to a Resizable entity and dynamically adjusts its size in 
           response to either keep a metric within a given range, or in response to 
