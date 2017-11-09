@@ -52,6 +52,7 @@ import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
@@ -61,7 +62,6 @@ import org.apache.brooklyn.core.entity.trait.Resizable;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.LocationConfigTest.MyLocation;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.sensor.BasicSensorEvent;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
@@ -82,6 +82,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
@@ -662,6 +663,24 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         testRebindWhenPreviousAppDestroyedHasNoApp();
     }
 
+    @Test
+    public void testRebindAnonymousKeyDowncastedGivesCorrectType() throws Exception {
+        // happens if we write yaml and put an int where a double is expected
+        final String doubleKeyName = "double.key";
+        final ConfigKey<Object> keyAsObject = ConfigKeys.newConfigKey(Object.class, doubleKeyName);
+        final ConfigKey<Double> keyAsDouble = ConfigKeys.newDoubleConfigKey(doubleKeyName);
+        // set an int
+        origApp.config().set(keyAsObject, (int) 1);
+        // get the double when queried
+        Asserts.assertInstanceOf(origApp.config().get(keyAsDouble), Double.class);
+        
+        newApp = rebind();
+        // currently both these fail because the anonymous key definition is persisted
+        Optional<ConfigKey<?>> persistedKey = Iterables.tryFind(newApp.config().findKeysDeclared(Predicates.alwaysTrue()), (k) -> k.getName().equals(doubleKeyName));
+        if (persistedKey.isPresent()) Assert.fail("Shouldn't have persisted anonymous key, but had: "+persistedKey.get());
+        Asserts.assertInstanceOf(newApp.config().get(keyAsDouble), Double.class);
+    }
+    
     /**
      * @deprecated since 0.7; support for rebinding old-style entities is deprecated
      */
