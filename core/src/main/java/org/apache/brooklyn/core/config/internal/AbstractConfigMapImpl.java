@@ -404,7 +404,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         if (ownKey1==null) ownKey1 = queryKey;
         final ConfigKey<T> ownKey = ownKey1;
         @SuppressWarnings("unchecked")
-        final Class<T> type = (Class<T>) ownKey.getType();
+        final Class<T> type = (Class<T>) moreSpecificOrWarningPreferringFirst(ownKey, queryKey, ""+getContainer());
 
         // takes type of own key (or query key if own key not available)
         // takes default of own key if available and has default, else of query key
@@ -454,6 +454,29 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         }
     }
 
+    private static Class<?> moreSpecificOrWarningPreferringFirst(ConfigKey<?> ownKey, ConfigKey<?> queryKey, String context) {
+        if (ownKey==null && queryKey==null) return null;
+        if (queryKey==null) return ownKey.getType();
+        if (ownKey==null) return queryKey.getType();
+        
+        Class<?> ownType = ownKey.getType();
+        Class<?> queryType = queryKey.getType();
+        if (queryType.isAssignableFrom(ownType)) {
+            // own type is same or more specific, normal path
+            return ownType;
+        }
+        if (ownType.isAssignableFrom(queryType)) {
+            // query type is more specific than type defined; unusual but workable
+            LOG.debug("Query for "+queryKey+" wants more specific type than key "+ownKey+" declared on "+context+" (unusual but clear what to do)");
+            // previously (to 2017-11) we used the less specific type, only issue noticed was if an anonymous key is persisted
+            // ie so a non-declared key before rebind becomes a declared key afterwards.  we're going to fix that also.
+            return queryType;
+        }
+        // types are incompatible - continue previous behaviour of preferring own key, but warn
+        LOG.warn("Query for "+queryKey+" on "+context+" matched incompatible declared type in key "+ownKey+"; using the declared type");
+        return ownType;
+    }
+    
     @Override
     public List<ConfigValueAtContainer<TContainer,?>> getConfigAllInheritedRaw(ConfigKey<?> queryKey) {
         List<ConfigValueAtContainer<TContainer, ?>> result = MutableList.of();

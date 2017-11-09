@@ -675,10 +675,12 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         Asserts.assertInstanceOf(origApp.config().get(keyAsDouble), Double.class);
         
         newApp = rebind();
-        // currently both these fail because the anonymous key definition is persisted
+        // now (2017-11) this works because we check both types on lookup
+        Asserts.assertInstanceOf(newApp.config().get(keyAsDouble), Double.class);
+        
+        // but this still fails because the anonymous key definition is persisted
         Optional<ConfigKey<?>> persistedKey = Iterables.tryFind(newApp.config().findKeysDeclared(Predicates.alwaysTrue()), (k) -> k.getName().equals(doubleKeyName));
         if (persistedKey.isPresent()) Assert.fail("Shouldn't have persisted anonymous key, but had: "+persistedKey.get());
-        Asserts.assertInstanceOf(newApp.config().get(keyAsDouble), Double.class);
     }
     
     /**
