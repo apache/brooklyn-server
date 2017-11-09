@@ -42,7 +42,7 @@ import java.util.Map;
 public interface EntityApi {
 
     @GET
-    @ApiOperation(value = "Fetch the list of entities for a given application",
+    @ApiOperation(value = "Fetch the list of children entities directly under the root of an application",
             response = org.apache.brooklyn.rest.domain.EntitySummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
@@ -54,7 +54,7 @@ public interface EntityApi {
 
     @GET
     @Path("/{entity}")
-    @ApiOperation(value = "Fetch details about a specific application entity",
+    @ApiOperation(value = "Fetch details of an entity",
             response = org.apache.brooklyn.rest.domain.EntitySummary.class)
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Application or entity missing")
@@ -67,7 +67,7 @@ public interface EntityApi {
 
     // TODO rename as "/children" ?
     @GET
-    @ApiOperation(value = "Fetch details about a specific application entity's children",
+    @ApiOperation(value = "Fetch the list of children of an entity",
             response = org.apache.brooklyn.rest.domain.EntitySummary.class)
     @Path("/{entity}/children")
     public List<EntitySummary> getChildren(
