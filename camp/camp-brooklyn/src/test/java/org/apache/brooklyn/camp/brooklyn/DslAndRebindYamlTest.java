@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 import java.util.List;
@@ -31,6 +33,7 @@ import java.util.regex.Pattern;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.ha.MementoCopyMode;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -44,9 +47,14 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
+import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
+import org.apache.brooklyn.core.mgmt.rebind.RecordingRebindExceptionHandler;
+import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.group.DynamicCluster;
+import org.apache.brooklyn.entity.stock.BasicApplication;
+import org.apache.brooklyn.policy.ha.ServiceReplacer;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -58,6 +66,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -638,4 +647,79 @@ public class DslAndRebindYamlTest extends AbstractYamlRebindTest {
                 "    test.confName: $brooklyn:template(\"${config['test.sourceName']}\")");
     }
 
+    // See https://issues.apache.org/jira/browse/BROOKLYN-549
+    @Test
+    public void testDslInServiceReplacerPolicy() throws Exception {
+        RecordingRebindExceptionHandler exceptionHandler = new RecordingRebindExceptionHandler(RecordingRebindExceptionHandler.builder()
+                .strict());
+        
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: "+DynamicCluster.class.getName(),
+                "  brooklyn.config:",
+                "    initialSize: 0",
+                "  brooklyn.policies:",
+                "  - type: "+ServiceReplacer.class.getName(),
+                "    brooklyn.config:",
+                "      failureSensorToMonitor: $brooklyn:sensor(\"ha.entityFailed\")");
+        waitForApplicationTasks(app);
+        DynamicCluster cluster = (DynamicCluster) Iterables.getOnlyElement(app.getChildren());
+        ServiceReplacer policy = (ServiceReplacer) Iterables.find(cluster.policies(), Predicates.instanceOf(ServiceReplacer.class));
+        Sensor<?> sensor = policy.config().get(ServiceReplacer.FAILURE_SENSOR_TO_MONITOR);
+        assertEquals(sensor.getName(), "ha.entityFailed");
+        
+        rebind(RebindOptions.create().exceptionHandler(exceptionHandler));
+        
+        Entity newApp = mgmt().getEntityManager().getEntity(app.getId());
+        DynamicCluster newCluster = (DynamicCluster) Iterables.getOnlyElement(newApp.getChildren());
+        ServiceReplacer newPolicy = (ServiceReplacer) Iterables.find(newCluster.policies(), Predicates.instanceOf(ServiceReplacer.class));
+        
+        Sensor<?> newSensor2 = ((EntityInternal)newCluster).getExecutionContext().submit("get-policy-config", new Callable<Sensor<?>>() {
+            public Sensor<?> call() {
+                return newPolicy.config().get(ServiceReplacer.FAILURE_SENSOR_TO_MONITOR);
+            }})
+            .get();
+        assertEquals(newSensor2.getName(), "ha.entityFailed");
+    }
+    
+    // See https://issues.apache.org/jira/browse/BROOKLYN-549
+    // Similar to testDslInServiceReplacerPolicy, but with a simple test policy (so test will always
+    // be here, even if someone changes the implementation of ServiceReplacer).
+    @Test
+    public void testDslInPolicy() throws Exception {
+        RecordingRebindExceptionHandler exceptionHandler = new RecordingRebindExceptionHandler(RecordingRebindExceptionHandler.builder()
+                .strict());
+        
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: "+BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    myentity.myconfig: myval",
+                "  brooklyn.policies:",
+                "  - type: "+MyPolicy.class.getName(),
+                "    brooklyn.config:",
+                "      mypolicy.myconfig: $brooklyn:config(\"myentity.myconfig\")");
+        waitForApplicationTasks(app);
+        MyPolicy policy = (MyPolicy) Iterables.find(app.policies(), Predicates.instanceOf(MyPolicy.class));
+        assertEquals(policy.resolvedVal, "myval");
+        
+        rebind(RebindOptions.create().exceptionHandler(exceptionHandler));
+        
+        Entity newApp = mgmt().getEntityManager().getEntity(app.getId());
+        MyPolicy newPolicy = (MyPolicy) Iterables.find(newApp.policies(), Predicates.instanceOf(MyPolicy.class));
+        assertEquals(newPolicy.resolvedVal, "myval");
+    }
+    
+    public static class MyPolicy extends AbstractPolicy {
+        public static final ConfigKey<String> MY_CONFIG = ConfigKeys.newStringConfigKey("mypolicy.myconfig");
+        
+        public String resolvedVal;
+        
+        @Override
+        @SuppressWarnings("deprecation")
+        public void setEntity(EntityLocal entity) {
+            super.setEntity(entity);
+            resolvedVal = checkNotNull(getConfig(MY_CONFIG), "myconfig");
+        }
+    }
 }
