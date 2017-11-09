@@ -404,7 +404,8 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         if (ownKey1==null) ownKey1 = queryKey;
         final ConfigKey<T> ownKey = ownKey1;
         @SuppressWarnings("unchecked")
-        final Class<T> type = (Class<T>) moreSpecificOrWarningPreferringFirst(ownKey, queryKey, ""+getContainer());
+        // NB: can't use ""+getContainerImpl() as this can loop in the case of locations looking up ports
+        final Class<T> type = (Class<T>) moreSpecificOrWarningPreferringFirst(ownKey, queryKey, ""+getContainer().getId()+"["+getContainer().getDisplayName()+"]");
 
         // takes type of own key (or query key if own key not available)
         // takes default of own key if available and has default, else of query key

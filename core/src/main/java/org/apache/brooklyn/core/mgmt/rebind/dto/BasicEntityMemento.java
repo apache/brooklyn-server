@@ -168,7 +168,11 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
                 ConfigKey<?> key = entry.getKey();
                 ConfigKey<?> staticKey = staticConfigKeys.get(key.getName());
                 if (!configKeys.containsKey(key.getName()) && key != staticKey) {
-                    // added a key (programmatically) not declared on the type; add if not anonymous
+                    // user added a key (programmatically) not declared on the type; persist if not anonymous.
+                    // on rebind this shows up in getEntityType() which is still a difference in the pre-rebind entity,
+                    // but that's more understandable and has been the case for a long time. 
+                    // (the entity type is unclear in the yaml era anyway.)
+                    // see RebindEntityTest.test*Key*
                     if (isAnonymous(key)) {
                         // 2017-11 no longer persist these, wasteful and unhelpful, 
                         // (can hurt if someone expects declared key to be meaningful) 
