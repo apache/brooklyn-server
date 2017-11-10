@@ -22,6 +22,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 
@@ -34,9 +35,11 @@ import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.BasicN
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.NodeCreator;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.winrm.RecordingWinRmTool;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
+import org.apache.commons.io.FileUtils;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.Template;
 import org.slf4j.Logger;
@@ -174,6 +177,28 @@ public class JcloudsRebindStubUnitTest extends RebindTestFixtureWithApp {
         assertFalse(newTemplate.isPresent(), "newTemplate="+newTemplate);
         
         assertEquals(newJcloudsLoc.getProvider(), origJcloudsLoc.getProvider());
+
+        // Release the machine
+        newJcloudsLoc.release(newMachine);
+    }
+    
+    // See https://issues.apache.org/jira/browse/BROOKLYN-554, and fix in JcloudsLocation.rebind()
+    @Test
+    public void testHistoricLocationWithoutSemaphoresStops() throws Exception {
+        ResourceUtils resourceUtils = ResourceUtils.create(this);
+        FileUtils.write(
+                new File(mementoDir, "locations/afy79330h5"),
+                resourceUtils.getResourceAsString("classpath://org/apache/brooklyn/location/jclouds/persisted-no-semaphores-stubbed-parent-afy79330h5"));
+        FileUtils.write(
+                new File(mementoDir, "locations/l27nwbyisk"),
+                resourceUtils.getResourceAsString("classpath://org/apache/brooklyn/location/jclouds/persisted-no-semaphores-stubbed-machine-l27nwbyisk"));
+
+        rebind();
+        
+        JcloudsLocation jcloudsLoc = (JcloudsLocation) mgmt().getLocationManager().getLocation("afy79330h5");
+        JcloudsSshMachineLocation machine = (JcloudsSshMachineLocation) mgmt().getLocationManager().getLocation("l27nwbyisk");
+        
+        jcloudsLoc.release(machine);
     }
     
     protected JcloudsMachineLocation obtainMachine(JcloudsLocation jcloudsLoc, Map<?,?> props) throws Exception {
