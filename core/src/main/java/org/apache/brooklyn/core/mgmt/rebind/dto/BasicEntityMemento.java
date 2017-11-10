@@ -31,16 +31,17 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.TreeNode;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -78,6 +79,7 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
         protected List<String> members = Lists.newArrayList();
         protected List<Effector<?>> effectors = Lists.newArrayList();
         
+        /** @deprecated since 1.0.0 not used, and incomplete (eg doesn't copy configKeys) */
         public Builder from(EntityMemento other) {
             super.from((TreeNode)other);
             isTopLevelApp = other.isTopLevelApp();
@@ -163,8 +165,27 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
         if (configByKey != null) {
             for (Map.Entry<ConfigKey<?>, Object> entry : configByKey.entrySet()) {
                 ConfigKey<?> key = entry.getKey();
-                if (!configKeys.containsKey(key.getName()) && key != staticConfigKeys.get(key.getName())) {
-                    configKeys.put(key.getName(), key);
+                ConfigKey<?> staticKey = staticConfigKeys.get(key.getName());
+                if (!configKeys.containsKey(key.getName()) && key != staticKey) {
+                    // user added a key (programmatically) not declared on the type; persist if not anonymous.
+                    // on rebind this shows up in getEntityType() which is still a difference in the pre-rebind entity,
+                    // but that's more understandable and has been the case for a long time. 
+                    // (the entity type is unclear in the yaml era anyway.)
+                    // see RebindEntityTest.test*Key*
+                    if (isAnonymous(key)) {
+                        // 2017-11 no longer persist these, wasteful and unhelpful, 
+                        // (can hurt if someone expects declared key to be meaningful)
+                        log.trace("Skipping persistence of "+key+" on "+getId()+" because it is anonymous");
+                    } else {
+                        if (log.isTraceEnabled()) {
+                            if (staticKey!=null) {
+                                log.trace("Persisting dynamic config key "+key+" on "+getId()+", overriding key on type "+staticKey);
+                            } else {
+                                log.trace("Persisting dynamic config key "+key+" on "+getId());
+                            }
+                        }
+                        configKeys.put(key.getName(), key);
+                    }
                 }
                 config.put(key.getName(), entry.getValue());
             }
@@ -190,6 +211,16 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
         attributes = toPersistedMap(attributes);
     }
 
+    private static boolean isAnonymous(ConfigKey<?> key) {
+        Preconditions.checkNotNull(key, "key");
+        if (!Object.class.equals(key.getType())) return false;
+        if (!Strings.isBlank(key.getDescription())) return false;
+        if (key.getDefaultValue()!=null) return false;
+        // inheritance, constraints, reconfigurability could also be checked - but above should catch any such
+        // (not even sure we need this method at all - see caller)
+        return true;
+    }
+
     protected synchronized Map<String, ConfigKey<?>> getStaticConfigKeys() {
         if (staticConfigKeys==null) {
             @SuppressWarnings("unchecked")
@@ -199,6 +230,7 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
         return staticConfigKeys;
     }
 
+    // no longer used for writing, see comments near usage; may be useful for understanding rebinded state however
     final static String LEGACY_KEY_DESCRIPTION = "This item was defined in a different version of this blueprint; metadata unavailable here.";
     
     protected ConfigKey<?> getConfigKey(String key) {
@@ -211,11 +243,15 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
         ConfigKey<?> resultStatic = getStaticConfigKeys().get(key);
         if (resultStatic!=null) return resultStatic;
         if (result!=null) return result;
-        // can come here on rebind if a key has gone away in the class, so create a generic one; 
-        // but if it was previously found to a legacy key (below) which is added back after a regind, 
-        // gnore the legacy description (several lines above) and add the key back from static (code just above)
-        log.warn("Config key "+key+": "+LEGACY_KEY_DESCRIPTION);
-        return ConfigKeys.newConfigKey(Object.class, key, LEGACY_KEY_DESCRIPTION);
+        // can come here on rebind if a key has gone away in the class,
+        // or now if we had an anonymous key originally which is not persisted.
+        // cannot distinguish as we previously did unless we revert some of 
+        // https://github.com/apache/brooklyn-server/pull/887
+        // (maybe we _should_ persist anonymous keys - although there is also the 
+        // idea we have provenance for dealing with upgrades, probably even cleaner)
+        // now just return, not an anonymous key with LEGACY_KEY_DESCRIPTION,
+        // so caller will probably use simple anonymous key
+        return null;
     }
 
     protected synchronized Map<String, Sensor<?>> getStaticSensorKeys() {
