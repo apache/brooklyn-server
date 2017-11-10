@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.EffectorTasks.EffectorBodyTaskFactory;
@@ -75,6 +76,20 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
     
     public static final Effector<Object> EFFECTOR = Effectors.effector(Object.class, "electPrimary").
         description("Scan to detect whether there is or should be a new primary").buildAbstract();
+
+    public static class PrimaryTransition {
+        public final Entity oldPrimary;
+        public final Entity newPrimary;
+        
+        public PrimaryTransition(Entity currentActive, Entity newPrimary) {
+            this.oldPrimary = currentActive;
+            this.newPrimary = newPrimary;
+        }
+    }
+    
+    public static final AttributeSensor<PrimaryTransition> PRIMARY_TRANSITION = Sensors.newSensor(
+        PrimaryTransition.class, "primary.transition", 
+        "Indicates primary is transitioning, cleared when completed");
     
     private final ConfigBag paramsCreationTime;
     
@@ -153,6 +168,7 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
 //                    * set the local entity to the RUNNING state
                 
                 ServiceNotUpLogic.updateNotUpIndicator(entity(), "primary", "Invoking promotion/demotion effectors");
+                entity().sensors().set(PRIMARY_TRANSITION, new PrimaryTransition(currentActive, newPrimary));
                 boolean wasRunning = entity().sensors().get(Attributes.SERVICE_STATE_ACTUAL) == Lifecycle.RUNNING;
                 if (wasRunning) {
                     log.debug("Transititioning "+entity()+" to starting while promoting/demoting");
@@ -168,6 +184,9 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
                     log.debug("Promoted/demoted primary for "+entity()+", now setting service up "+(wasRunning ? "and running" : "(but not setting as 'running' because it wasn't 'running' before)"));
                     ServiceNotUpLogic.clearNotUpIndicator(entity(), "primary");
                     if (wasRunning) ServiceStateLogic.setExpectedState(entity(), Lifecycle.RUNNING);
+                    
+                    entity().sensors().set(PRIMARY_TRANSITION, null);
+                    entity().sensors().remove(PRIMARY_TRANSITION);
                     
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
