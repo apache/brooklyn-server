@@ -25,6 +25,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -88,6 +89,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -536,8 +538,52 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         result = getLocationManager().getLocation(id);
         if (result!=null && type.isInstance(result)) return (T)result;
 
-        // TODO policies, enrichers, feeds; bundles?
-        return null;
+        return lookup((o) -> { return type.isInstance(o) && Objects.equal(id, o.getId()); });
+    }
+    
+    @Override
+    public <T extends BrooklynObject> T lookup(Predicate<? super T> filter) {
+        Collection<T> list = lookupAll(filter, true);
+        if (list.isEmpty()) return null;
+        return list.iterator().next();
+    }
+
+    @Override
+    public <T extends BrooklynObject> Collection<T> lookupAll(Predicate<? super T> filter) {
+        return lookupAll(filter, false);
+    }
+    
+    @SuppressWarnings("unchecked")
+    private <T extends BrooklynObject> Collection<T> lookupAll(Predicate<? super T> filter, boolean justOne) {
+        List<T> result = MutableList.of();
+
+        final class Scanner {
+            public boolean scan(Iterable<? extends BrooklynObject> items) {
+                for (BrooklynObject i: items) {
+                    try {
+                        if (filter.apply((T)i)) {
+                            result.add((T)i);
+                            if (justOne) return true;
+                        }
+                    } catch (Exception exc) {
+                        Exceptions.propagateIfFatal(exc);
+                        // just assume filter isn't for this type, class cast
+                        return false;
+                    }
+                }
+                return false;
+            }
+        }
+        Scanner scanner = new Scanner();
+        if (scanner.scan( getEntityManager().getEntities() ) && justOne) return result;
+        if (scanner.scan( getLocationManager().getLocations() ) && justOne) return result;
+        for (Entity e: getEntityManager().getEntities()) {
+            if (scanner.scan( e.policies() ) && justOne) return result;
+            if (scanner.scan( e.enrichers() ) && justOne) return result;
+            if (scanner.scan( ((EntityInternal)e).feeds() ) && justOne) return result;
+        }
+        
+        return result;
     }
 
     @Override

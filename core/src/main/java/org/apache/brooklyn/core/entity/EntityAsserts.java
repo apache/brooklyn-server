@@ -230,7 +230,6 @@ public class EntityAsserts {
      * Setting these sensors is common behaviour for entities, but depends on the particular entity
      * implementation.
      */
-    @Beta
     public static void assertEntityHealthy(Entity entity) {
         assertAttributeEquals(entity, SERVICE_UP, true);
         assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
@@ -240,6 +239,9 @@ public class EntityAsserts {
                 return Lifecycle.RUNNING.equals(transition.getState());
             }
         });
+    }
+    public static void assertEntityHealthyEventually(Entity entity) {
+        Asserts.succeedsEventually(() -> assertEntityHealthy(entity));
     }
 
     /**

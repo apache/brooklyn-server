@@ -85,6 +85,17 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
     }
     
     @Test
+    public void testLookup() {
+        Enricher enr = entity.enrichers().add(Enrichers.builder()
+                .combining(NUM1, NUM2)
+                .publishing(NUM3)
+                .computingSum()
+                .build());
+        
+        Assert.assertEquals(mgmt.lookup(enr.getId()), enr);
+    }
+    
+    @Test
     public void testAdding() {
         Enricher enr = entity.enrichers().add(Enrichers.builder()
                 .combining(NUM1, NUM2)
