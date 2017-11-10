@@ -302,7 +302,7 @@ public interface Entity extends BrooklynObject {
         
         /**
          * Removes the given enricher from this entity. 
-         * @return True if the policy enricher at this entity; false otherwise
+         * @return True if the enricher existed at this entity; false otherwise
          */
         @Override
         boolean remove(Enricher enricher);

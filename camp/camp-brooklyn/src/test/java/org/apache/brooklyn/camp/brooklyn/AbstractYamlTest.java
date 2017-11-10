@@ -67,6 +67,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
@@ -154,11 +155,16 @@ public abstract class AbstractYamlTest {
     }
 
     protected String loadYaml(String yamlFileName, String ...extraLines) throws Exception {
-        ResourceUtils ru = new ResourceUtils(this);
+        return loadYaml(this, yamlFileName, extraLines);
+    }
+
+    @Beta
+    public static String loadYaml(Object loadContext, String yamlFileName, String ...extraLines) throws Exception {
+        ResourceUtils ru = new ResourceUtils(loadContext);
         if (!ru.doesUrlExist(yamlFileName)) {
-            if (ru.doesUrlExist(Urls.mergePaths(getClass().getPackage().getName().replace('.', '/'), yamlFileName))) {
+            if (ru.doesUrlExist(Urls.mergePaths(loadContext.getClass().getPackage().getName().replace('.', '/'), yamlFileName))) {
                 // look in package-specific folder if not found at root
-                yamlFileName = Urls.mergePaths(getClass().getPackage().getName().replace('.', '/'), yamlFileName);
+                yamlFileName = Urls.mergePaths(loadContext.getClass().getPackage().getName().replace('.', '/'), yamlFileName);
             }
         }
         String input = ru.getResourceAsString(yamlFileName).trim();

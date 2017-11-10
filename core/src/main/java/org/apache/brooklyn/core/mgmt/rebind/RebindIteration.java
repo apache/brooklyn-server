@@ -255,6 +255,8 @@ public abstract class RebindIteration {
         installBundlesAndRebuildCatalog();
         instantiateLocationsAndEntities();
         instantiateMementos();
+        // adjuncts depend on actual mementos; whereas entity works off special memento manifest, 
+        // and location, bundles etc just take type and id
         instantiateAdjuncts(instantiator); 
         reconstructEverything();
         associateAdjunctsWithEntities();

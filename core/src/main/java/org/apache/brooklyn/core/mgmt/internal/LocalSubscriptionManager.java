@@ -52,6 +52,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.SingleThreadedScheduler;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -349,6 +350,7 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
                     
                     s.listener.onEvent(event);
                 } catch (Throwable t) {
+                    Exceptions.propagateIfFatal(t);
                     if (event!=null && event.getSource()!=null && Entities.isNoLongerManaged(event.getSource())) {
                         LOG.debug("Error processing subscriptions to "+this+", after entity unmanaged: "+t, t);
                     } else {
