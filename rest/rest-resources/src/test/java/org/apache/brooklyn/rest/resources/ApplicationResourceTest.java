@@ -49,6 +49,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityFunctions;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.geo.HostGeoInfo;
@@ -76,6 +77,7 @@ import org.apache.brooklyn.rest.testing.mocks.RestMockApp;
 import org.apache.brooklyn.rest.testing.mocks.RestMockSimpleEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.stream.Streams;
@@ -91,6 +93,7 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
@@ -332,22 +335,8 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
         }
     }
 
-    /**
-     * TODO BROOKLYN-272, Disabled, because fails non-deterministically in jenkins (windows),
-     *      as commented by Svet in https://github.com/apache/brooklyn-library/pull/39.
-     * testFetchApplicationsAndEntity(org.apache.brooklyn.rest.resources.ApplicationResourceTest)  Time elapsed: 0.073 sec  <<< FAILURE!
-     * java.lang.AssertionError: expected [4] but found [3]
-     *     at org.testng.Assert.fail(Assert.java:94)
-     *     at org.testng.Assert.failNotEquals(Assert.java:494)
-     *     at org.testng.Assert.assertEquals(Assert.java:123)
-     *     at org.testng.Assert.assertEquals(Assert.java:370)
-     *     at org.testng.Assert.assertEquals(Assert.java:380)
-     *     at org.apache.brooklyn.rest.resources.ApplicationResourceTest.testFetchApplicationsAndEntity(ApplicationResourceTest.java:387)
-     * 
-     * When re-enabling, be sure to add it back to dependsOnMethods in testDeleteApplication.
-     */
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    @Test(dependsOnMethods = "testDeployApplication", groups={"Broken"})
+    @Test(dependsOnMethods = "testDeployApplication")
     public void testFetchApplicationsAndEntity() {
         Collection apps = client().path("/applications/fetch").get(Collection.class);
         log.info("Applications fetched are: " + apps);
@@ -378,11 +367,17 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
         Assert.assertNotNull(groupSummary);
 
         String itemIds = app.get("id") + "," + entitySummary.get("id") + "," + groupSummary.get("id");
-        Collection entities = client().path("/applications/fetch").query("items", itemIds)
+        Collection entities = client().path("/applications/fetch")
+                .query("items", itemIds)
+                .query("sensors", "[ service.state.expected, \"host.address\" ]")
                 .get(Collection.class);
         log.info("Applications+Entities fetched are: " + entities);
 
-        Assert.assertEquals(entities.size(), apps.size() + 2);
+        // on jenkins/windows a while ago (early 2016) this would sometimes fail with expected 4 but found 3,
+        // as per BROOKLYN-272 and PR 156; re-enabling now (2017-11) to test sensor query param; 
+        // and using assertSize to see which entity/app is missing if it does still fail
+        // (it should definitely be 4, as we got 2 before, and we've asked for 2 more entities)
+        Asserts.assertSize(entities, apps.size() + 2);
         Map entityDetails = (Map) Iterables.find(entities, withValueForKey("name", "simple-ent"), null);
         Map groupDetails = (Map) Iterables.find(entities, withValueForKey("name", "simple-group"), null);
         Assert.assertNotNull(entityDetails);
@@ -410,6 +405,15 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
         Map entityMemberDetails = (Map) Iterables.find(groupMembers, withValueForKey("name", "simple-ent"), null);
         Assert.assertNotNull(entityMemberDetails);
         Assert.assertEquals(entityMemberDetails.get("id"), entityDetails.get("id"));
+        
+        Map<String,Object> simpleEntSensors = Preconditions.checkNotNull(Map.class.cast(entityDetails.get("sensors")), "sensors");
+        org.apache.brooklyn.api.entity.Entity simpleEnt = Preconditions.checkNotNull(getManagementContext().<org.apache.brooklyn.api.entity.Entity>lookup(
+            EntityPredicates.displayNameEqualTo("simple-ent")));
+        Assert.assertEquals(simpleEntSensors.get("host.address"), simpleEnt.sensors().get(Attributes.ADDRESS));
+        Transition expected = simpleEnt.sensors().get(Attributes.SERVICE_STATE_EXPECTED);
+        Assert.assertEquals(simpleEntSensors.get("service.state.expected"), 
+            MutableMap.of("state", expected.getState().name(),
+                "timestampUtc", expected.getTimestamp().getTime()));
     }
 
     @Test(dependsOnMethods = "testDeployApplication")
@@ -581,8 +585,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
     }
 
     
-    // TODO BROOKLYN-272: testFetchApplicationsAndEntity is temporarily disabled; therefore removed from dependsOnMethod list
-    @Test(dependsOnMethods = {"testListEffectors", /*"testFetchApplicationsAndEntity",*/ "testTriggerSampleEffector", "testListApplications","testReadEachSensor","testPolicyWhichCapitalizes","testLocatedLocation"})
+    @Test(dependsOnMethods = {"testListEffectors", "testFetchApplicationsAndEntity", "testTriggerSampleEffector", "testListApplications","testReadEachSensor","testPolicyWhichCapitalizes","testLocatedLocation"})
     public void testDeleteApplication() throws TimeoutException, InterruptedException {
         waitForPageFoundResponse("/applications/simple-app", ApplicationSummary.class);
         Collection<Application> apps = getManagementContext().getApplications();

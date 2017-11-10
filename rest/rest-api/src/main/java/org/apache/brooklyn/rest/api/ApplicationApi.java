@@ -56,16 +56,21 @@ public interface ApplicationApi {
     @GET
     @Path("/fetch")
     @ApiOperation(
-            value = "Fetch display details for all applications and optionally selected additional entities"
+            value = "Fetch details for all applications and optionally selected additional entity items, "
+                + "optionally also with the values for selected sensors"
     )
     public List<EntityDetail> fetch(
-            @ApiParam(value="Selected additional entity ID's to include, comma-separated", required=false)
+            @ApiParam(value="Any additional entity ID's to include, as JSON or comma-separated list", required=false)
             @DefaultValue("")
-            @QueryParam("items") String items);
+            @QueryParam("items") String items,
+            @ApiParam(value="Any additional sensors to include, as JSON or comma-separated list; "
+                + "current sensor values if present are returned for each entity in a name-value map under the 'sensors' key", required=false)
+            @DefaultValue("")
+            @QueryParam("sensors") String sensors);
 
     @GET
     @ApiOperation(
-            value = "Fetch list of applications, as ApplicationSummary objects",
+            value = "Fetch the list of applications managed here",
             response = org.apache.brooklyn.rest.domain.ApplicationSummary.class
     )
     public List<ApplicationSummary> list(
@@ -82,7 +87,7 @@ public interface ApplicationApi {
     @GET
     @Path("/{application}")
     @ApiOperation(
-            value = "Fetch a specific application",
+            value = "Fetch details of an application",
             response = org.apache.brooklyn.rest.domain.ApplicationSummary.class
     )
     @ApiResponses(value = {

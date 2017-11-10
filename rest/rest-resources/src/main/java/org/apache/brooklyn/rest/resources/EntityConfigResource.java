@@ -29,6 +29,8 @@ import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.internal.EntityConfigMap;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.EntityAndItem;
 import org.apache.brooklyn.rest.api.EntityConfigApi;
@@ -88,7 +90,9 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
         }
 
         // wrap in a task for better runtime view
-        return Entities.submit(entity, Tasks.<Map<String,Object>>builder().displayName("REST API batch config read").body(new BatchConfigRead(mgmt(), this, entity, raw)).build()).getUnchecked();
+        return Entities.submit(entity, Tasks.<Map<String,Object>>builder().displayName("REST API batch config read")
+            .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+            .body(new BatchConfigRead(mgmt(), this, entity, raw)).build()).getUnchecked();
     }
     
     private static class BatchConfigRead implements Callable<Map<String,Object>> {

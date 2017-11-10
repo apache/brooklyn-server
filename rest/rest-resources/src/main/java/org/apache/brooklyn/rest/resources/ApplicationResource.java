@@ -32,6 +32,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
 
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
@@ -84,6 +85,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.repeat.Repeater;
+import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -177,31 +179,52 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     @Override
-    public List<EntityDetail> fetch(String entityIds) {
+    public List<EntityDetail> fetch(String entityIds, String extraSensorsS) {
+        List<String> extraSensorNames = JavaStringEscapes.unwrapOptionallyQuotedJavaStringList(extraSensorsS);
+        List<AttributeSensor<?>> extraSensors = extraSensorNames.stream().map((s) -> Sensors.newSensor(Object.class, s)).collect(Collectors.toList());
 
         List<EntityDetail> entitySummaries = Lists.newArrayList();
         for (Entity application : mgmt().getApplications()) {
-            entitySummaries.add(fromEntity(application));
+            entitySummaries.add(addSensors(fromEntity(application), application, extraSensors));
         }
 
-        if (entityIds != null) {
-            entityIds = entityIds.trim();
-            if ((entityIds.startsWith("{") && entityIds.endsWith("}")) ||
-                    (entityIds.startsWith("[") && entityIds.endsWith("]"))) {
-                // trim [] or {} in case caller supplied glob or json syntax
-                entityIds = entityIds.substring(1, entityIds.length()-1);
-            }
-            for (String entityId: entityIds.split(",")) {
+        if (Strings.isNonBlank(entityIds)) {
+            List<String> extraEntities = JavaStringEscapes.unwrapOptionallyQuotedJavaStringList(entityIds);
+            for (String entityId: extraEntities) {
                 Entity entity = mgmt().getEntityManager().getEntity(entityId.trim());
                 while (entity != null && entity.getParent() != null) {
                     if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
-                        entitySummaries.add(fromEntity(entity));
+                        entitySummaries.add(addSensors(fromEntity(entity), entity, extraSensors));
                     }
                     entity = entity.getParent();
                 }
             }
         }
         return entitySummaries;
+    }
+
+    private EntityDetail addSensors(EntityDetail result, Entity entity, List<AttributeSensor<?>> extraSensors) {
+        if (extraSensors!=null && !extraSensors.isEmpty()) {
+            Object sensorsO = result.getExtraFields().get("sensors");
+            if (sensorsO==null) {
+                sensorsO = MutableMap.of();
+                result.setExtraField("sensors", sensorsO);
+            }
+            if (!(sensorsO instanceof Map)) {
+                throw new IllegalStateException("sensors field in result for "+entity+" should be a Map; found: "+sensorsO);
+            }
+            @SuppressWarnings("unchecked")
+            Map<String,Object> sensors = (Map<String, Object>) sensorsO;
+            
+            for (AttributeSensor<?> s: extraSensors) {
+                Object sv = entity.sensors().get(s);
+                if (sv!=null) {
+                    sv = resolving(sv).preferJson(true).asJerseyOutermostReturnValue(false).raw(true).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
+                    sensors.put(s.getName(), sv);
+                }
+            }
+        }
+        return result;
     }
 
     @Override
