@@ -271,6 +271,30 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     @Override
+    public void rebind() {
+        super.rebind();
+        
+        // Fix for https://issues.apache.org/jira/browse/BROOKLYN-554:
+        // Historic persisted state will not have done the init checks to ensure these are non-null.
+        if (getConfig(MACHINE_CREATION_SEMAPHORE) == null) {
+            Integer maxConcurrent = getConfig(MAX_CONCURRENT_MACHINE_CREATIONS);
+            if (maxConcurrent == null || maxConcurrent < 1) {
+                LOG.warn(MAX_CONCURRENT_MACHINE_CREATIONS.getName()+" must be >= 1, but was "+maxConcurrent+", overwriting with "+Integer.MAX_VALUE);
+                maxConcurrent = Integer.MAX_VALUE;
+            }
+            config().set(MACHINE_CREATION_SEMAPHORE, new Semaphore(maxConcurrent, true));
+        }
+
+        if (getConfig(MACHINE_DELETION_SEMAPHORE) == null) {
+            Integer maxConcurrent = getConfig(MAX_CONCURRENT_MACHINE_DELETIONS);
+            if (maxConcurrent == null || maxConcurrent < 1) {
+                LOG.warn(MAX_CONCURRENT_MACHINE_DELETIONS.getName()+" must be >= 1, but was "+maxConcurrent+", overwriting with "+Integer.MAX_VALUE);
+            }
+            config().set(MACHINE_DELETION_SEMAPHORE, new Semaphore(maxConcurrent, true));
+        }
+    }
+    
+    @Override
     public JcloudsLocation newSubLocation(Map<?,?> newFlags) {
         return newSubLocation(getClass(), newFlags);
     }

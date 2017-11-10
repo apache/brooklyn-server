@@ -1,0 +1,101 @@
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+    
+     http://www.apache.org/licenses/LICENSE-2.0
+    
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied.  See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+
+<location>
+  <brooklynVersion>1.0.0-SNAPSHOT</brooklynVersion>
+  <type>org.apache.brooklyn.location.jclouds.JcloudsSshMachineLocation</type>
+  <id>l27nwbyisk</id>
+  <displayName>173.194.32.1</displayName>
+  <searchPath class="ImmutableList"/>
+  <parent>afy79330h5</parent>
+  <locationConfig>
+    <sshToolClass>org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool</sshToolClass>
+    <spec.original>jclouds:aws-ec2:us-east-1</spec.original>
+    <spec.named.name>jclouds:aws-ec2:us-east-1</spec.named.name>
+    <spec.final>jclouds:aws-ec2:us-east-1</spec.final>
+    <displayName>173.194.32.1</displayName>
+    <address>
+      <java.net.Inet4Address>173.194.32.1/173.194.32.1</java.net.Inet4Address>
+    </address>
+    <user>aledsage</user>
+    <password>
+      <null/>
+    </password>
+    <jcloudsParent>
+      <locationProxy>afy79330h5</locationProxy>
+    </jcloudsParent>
+    <brooklyn.ssh.config.port type="int">22</brooklyn.ssh.config.port>
+    <region>us-east-1</region>
+    <callerContext>
+      <null/>
+    </callerContext>
+    <detectMachineDetails type="boolean">true</detectMachineDetails>
+    <portforwarding.enabled type="boolean">false</portforwarding.enabled>
+    <privateAddresses>
+      <com.google.common.collect.SingletonImmutableSet>
+        <string>172.168.10.1</string>
+      </com.google.common.collect.SingletonImmutableSet>
+    </privateAddresses>
+    <node>
+      <null/>
+    </node>
+    <template>
+      <null/>
+    </template>
+    <nodeId>mynodeid1</nodeId>
+    <imageId>
+      <null/>
+    </imageId>
+    <publicAddresses>
+      <com.google.common.collect.SingletonImmutableSet>
+        <string>173.194.32.1</string>
+      </com.google.common.collect.SingletonImmutableSet>
+    </publicAddresses>
+    <hostname>
+      <null/>
+    </hostname>
+    <privateHostname>
+      <null/>
+    </privateHostname>
+    <usedPorts>
+      <set/>
+    </usedPorts>
+    <tags>
+      <set/>
+    </tags>
+  </locationConfig>
+  <locationConfigUnused>
+    <string>sshToolClass</string>
+    <string>privateKeyData</string>
+    <string>spec.original</string>
+    <string>spec.named.name</string>
+    <string>spec.final</string>
+    <string>displayName</string>
+    <string>address</string>
+    <string>user</string>
+    <string>password</string>
+    <string>jcloudsParent</string>
+    <string>brooklyn.ssh.config.port</string>
+    <string>region</string>
+    <string>callerContext</string>
+    <string>detectMachineDetails</string>
+    <string>portforwarding.enabled</string>
+    <string>privateAddresses</string>
+  </locationConfigUnused>
+</location>
