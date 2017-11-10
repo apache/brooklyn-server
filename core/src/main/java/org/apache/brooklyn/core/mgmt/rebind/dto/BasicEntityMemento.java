@@ -174,8 +174,8 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
                     // see RebindEntityTest.test*Key*
                     if (isAnonymous(key)) {
                         // 2017-11 no longer persist these, wasteful and unhelpful, 
-                        // (can hurt if someone expects declared key to be meaningful) 
-                        log.debug("Skipping persistence of "+key+" on "+getId()+" because it is anonymous");
+                        // (can hurt if someone expects declared key to be meaningful)
+                        log.trace("Skipping persistence of "+key+" on "+getId()+" because it is anonymous");
                     } else {
                         if (log.isTraceEnabled()) {
                             if (staticKey!=null) {
