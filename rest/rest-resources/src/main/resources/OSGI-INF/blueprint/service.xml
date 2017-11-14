@@ -74,18 +74,20 @@ limitations under the License.
     <bean id="adjunctResourceBean" class="org.apache.brooklyn.rest.resources.AdjunctResource"/>
     <bean id="apidocResourceBean" class="org.apache.brooklyn.rest.resources.ApidocResource"/>
     <bean id="applicationResourceBean" class="org.apache.brooklyn.rest.resources.ApplicationResource"/>
+    <bean id="bundleResourceBean" class="org.apache.brooklyn.rest.resources.BundleResource"/>
     <bean id="catalogResourceBean" class="org.apache.brooklyn.rest.resources.CatalogResource"/>
     <bean id="effectorResourceBean" class="org.apache.brooklyn.rest.resources.EffectorResource"/>
     <bean id="entityConfigResourceBean" class="org.apache.brooklyn.rest.resources.EntityConfigResource"/>
     <bean id="entityResourceBean" class="org.apache.brooklyn.rest.resources.EntityResource"/>
     <bean id="locationResourceBean" class="org.apache.brooklyn.rest.resources.LocationResource"/>
+    <bean id="logoutResourceBean" class="org.apache.brooklyn.rest.resources.LogoutResource"/>
     <bean id="policyConfigResourceBean" class="org.apache.brooklyn.rest.resources.PolicyConfigResource"/>
     <bean id="policyResourceBean" class="org.apache.brooklyn.rest.resources.PolicyResource"/>
     <bean id="scriptResourceBean" class="org.apache.brooklyn.rest.resources.ScriptResource"/>
     <bean id="sensorResourceBean" class="org.apache.brooklyn.rest.resources.SensorResource"/>
     <bean id="serverResourceBean" class="org.apache.brooklyn.rest.resources.ServerResource"/>
+    <bean id="typeResourceBean" class="org.apache.brooklyn.rest.resources.TypeResource"/>
     <bean id="usageResourceBean" class="org.apache.brooklyn.rest.resources.UsageResource"/>
-    <bean id="logoutResourceBean" class="org.apache.brooklyn.rest.resources.LogoutResource"/>
 
     <jaxrs:server id="brooklynRestApiV1" address="/">
         <jaxrs:serviceBeans>
@@ -94,18 +96,20 @@ limitations under the License.
             <ref component-id="adjunctResourceBean"/>
             <ref component-id="apidocResourceBean"/>
             <ref component-id="applicationResourceBean"/>
+            <ref component-id="bundleResourceBean"/>
             <ref component-id="catalogResourceBean"/>
             <ref component-id="effectorResourceBean"/>
             <ref component-id="entityConfigResourceBean"/>
             <ref component-id="entityResourceBean"/>
             <ref component-id="locationResourceBean"/>
+            <ref component-id="logoutResourceBean"/>
             <ref component-id="policyConfigResourceBean"/>
             <ref component-id="policyResourceBean"/>
             <ref component-id="scriptResourceBean"/>
             <ref component-id="sensorResourceBean"/>
             <ref component-id="serverResourceBean"/>
+            <ref component-id="typeResourceBean"/>
             <ref component-id="usageResourceBean"/>
-            <ref component-id="logoutResourceBean"/>
         </jaxrs:serviceBeans>
 
         <jaxrs:providers>
