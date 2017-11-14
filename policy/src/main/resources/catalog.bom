@@ -67,6 +67,14 @@ brooklyn.catalog:
         description: |
           Policy that executes an effector at a configurable time or after
           a configurable delay.
+    - id: org.apache.brooklyn.policy.failover.ElectPrimaryPolicy
+      itemType: policy
+      item:
+        type: org.apache.brooklyn.policy.failover.ElectPrimaryPolicy
+        name: Elect Primary Policy
+        description: |
+          Acts to keep exactly one of its children or members as primary, promoting and demoting them when required.
+          For example, used for failover in high availability or disaster recovery.
 
 #  Removed from catalog because 'FollowTheSunPool' cannot currently be configured via catalog mechanisms.
 #  Also removing associated 'BalanceableWorkerPool' etc as they are only useful with 'FollowTheSunPool'
@@ -123,3 +131,16 @@ brooklyn.catalog:
         type: org.apache.brooklyn.policy.ha.ServiceFailureDetector
         name: Service Failure Detector
         description: Emits a new sensor if the current entity fails
+    - id: org.apache.brooklyn.policy.failover.PrimaryRunningEnricher
+      item:
+        type: org.apache.brooklyn.policy.failover.PrimaryRunningEnricher
+        name: Primary Running
+        description: |
+          Records if the elected primary child/member is running, updating service state 
+          of this entity.
+    - id: org.apache.brooklyn.policy.failover.PropagatePrimaryEnricher 
+      item:
+        type: org.apache.brooklyn.policy.failover.PropagatePrimaryEnricher
+        name: Propagate Primary
+        description: Makes selected sensors mirrored from the primary to this entity.
+
