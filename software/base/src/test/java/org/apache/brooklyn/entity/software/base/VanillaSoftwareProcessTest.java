@@ -367,5 +367,9 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
         // Restart (see https://issues.apache.org/jira/browse/BROOKLYN-547)
         entity.restart();
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
+        entity.stop();
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, false);
+        entity.start(ImmutableList.of());
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
     }
 }

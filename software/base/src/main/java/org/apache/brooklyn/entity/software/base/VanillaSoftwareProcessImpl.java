@@ -49,7 +49,15 @@ public class VanillaSoftwareProcessImpl extends SoftwareProcessImpl implements V
             ServiceNotUpLogic.clearNotUpIndicator(this, SERVICE_PROCESS_IS_RUNNING);
         }
     }
-    
+
+    @Override
+    protected void postStop() {
+        super.postStop();
+        if (!isSshMonitoringEnabled()) {
+            ServiceNotUpLogic.updateNotUpIndicator(this, SERVICE_PROCESS_IS_RUNNING, "This service was stopped");
+        }
+    }
+
     @Override
     protected void disconnectSensors() {
         disconnectServiceUpIsRunning();
