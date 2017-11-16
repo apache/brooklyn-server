@@ -21,6 +21,9 @@ package org.apache.brooklyn.launcher;
 import static org.apache.brooklyn.core.typereg.BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_BUNDLES;
 import static org.apache.brooklyn.core.typereg.BundleUpgradeParser.MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS;
 import static org.apache.brooklyn.core.typereg.BundleUpgradeParser.MANIFEST_HEADER_UPGRADE_FOR_BUNDLES;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 import java.io.File;
 import java.net.URI;
@@ -29,6 +32,9 @@ import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -202,6 +208,203 @@ public class BrooklynLauncherUpgradeCatalogOsgiTest extends AbstractBrooklynLaun
         Entity cluster = Iterables.getOnlyElement( app.getChildren() );
         one = Iterables.getOnlyElement( ((Group)cluster).getMembers() );
         Assert.assertEquals(one.getCatalogItemId(), "one:2.0.0");
+        
+        launcher.terminate();
+    }
+
+    @Test
+    public void testForciblyRemovedBundleNotAdded() throws Exception {
+        runForciblyRemovedBundleNotAdded(true);
+    }
+    
+    @Test
+    public void testForciblyRemovedBundleNotAddedWithNoUpgradeTarget() throws Exception {
+        runForciblyRemovedBundleNotAdded(false);
+    }
+    
+    protected void runForciblyRemovedBundleNotAdded(boolean hasUpgradeForBundle) throws Exception {
+        VersionedName one_1_0_0 = VersionedName.fromString("one:1.0.0");
+        VersionedName one_2_0_0 = VersionedName.fromString("one:2.0.0");
+        
+        BundleFile bundleV1 = bundleBuilder()
+                .name("org.example.bundleBeingUpgraded", "1.0.0")
+                .catalogBom(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of(one_1_0_0))
+                .build();
+
+        // A bundle that references the forcibly-replaced bundle via url;
+        // (add this to persisted state).
+        BundleFile bundleWithReferenceUrl = bundleBuilder()
+                .name("org.example.bundleWithReferenceUrl", "1.0.0")
+                .catalogBom(Joiner.on("\n").join(
+                        "brooklyn.catalog:",
+                        "  version: 1.0.0",
+                        "  brooklyn.libraries:",
+                        "  - "+bundleV1.getFile().toURI()))
+                .build();
+
+        newPersistedStateInitializer()
+                .bundle(bundleV1)
+                .bundle(bundleWithReferenceUrl)
+                .initState();
+        
+        BundleFile bundleV2 = bundleBuilder()
+                .name(bundleV1.getVersionedName().getSymbolicName(), "2.0.0")
+                .catalogBom(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of(one_2_0_0))
+                .manifestLines(ImmutableMap.<String, String>builder()
+                        .put(MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "\"*\"")
+                        .put(hasUpgradeForBundle ? MANIFEST_HEADER_UPGRADE_FOR_BUNDLES : "disabled-upgrade", "\"*\"")
+                        .build())
+                .build();
+
+        File initialBomFile = newTmpFile(createCatalogYaml(ImmutableList.of(bundleV2.getFile().toURI()), ImmutableList.of()));
+
+        BrooklynLauncher launcher = newLauncherForTests(initialBomFile.getAbsolutePath());
+        launcher.start();
+        assertHealthyMaster(launcher);
+        assertCatalogConsistsOfIds(launcher, ImmutableList.of(one_2_0_0));
+        assertManagedBundle(launcher, bundleV2.getVersionedName(), ImmutableSet.<VersionedName>of(one_2_0_0));
+        assertNotManagedBundle(launcher, bundleV1.getVersionedName());
+
+        // Try installing the removed bundle explicitly (force=false)
+        ReferenceWithError<OsgiBundleInstallationResult> resultWithoutForce = installBundle(launcher, bundleV1.getFile(), false);
+        resultWithoutForce.checkNoError();
+        ResultCode resultWithoutForceCode = resultWithoutForce.get().getCode();
+        String resultWithoutForceMessage = resultWithoutForce.get().getMessage();
+        assertEquals(resultWithoutForceCode, ResultCode.IGNORING_BUNDLE_FORCIBLY_REMOVED);
+        if (hasUpgradeForBundle) {
+            assertEquals(resultWithoutForce.get().getMetadata().getVersionedName(), bundleV2.getVersionedName());
+            assertTrue(resultWithoutForceMessage.contains("Bundle "+bundleV1.getVersionedName()+" forcibly removed, upgraded to 2.0.0"), "msg="+resultWithoutForceMessage);
+        } else {
+            assertNull(resultWithoutForce.get().getMetadata());
+            assertTrue(resultWithoutForceMessage.contains("Bundle "+bundleV1.getVersionedName()+" forcibly removed, no upgrade defined"), "msg="+resultWithoutForceMessage);
+        }
+
+        // Try installing the removed bundle explicitly (force=true)
+        ReferenceWithError<OsgiBundleInstallationResult> resultWithForce = installBundle(launcher, bundleV1.getFile(), true);
+        resultWithForce.checkNoError();
+        ResultCode resultWithForceCode = resultWithForce.get().getCode();
+        String resultWithForceMessage = resultWithForce.get().getMessage();
+        assertEquals(resultWithForceCode, ResultCode.IGNORING_BUNDLE_FORCIBLY_REMOVED);
+        if (hasUpgradeForBundle) {
+            assertEquals(resultWithForce.get().getMetadata().getVersionedName(), bundleV2.getVersionedName());
+            assertTrue(resultWithForceMessage.contains("Bundle "+bundleV1.getVersionedName()+" forcibly removed, upgraded to 2.0.0"), "msg="+resultWithForceMessage);
+        } else {
+            assertNull(resultWithoutForce.get().getMetadata());
+            assertTrue(resultWithForceMessage.contains("Bundle "+bundleV1.getVersionedName()+" forcibly removed, no upgrade defined"), "msg="+resultWithForceMessage);
+        }
+
+        launcher.terminate();
+    }
+    
+    @Test
+    public void testForciblyRemovedBundleNotAddedWhenReferencedByName() throws Exception {
+        VersionedName one_1_0_0 = VersionedName.fromString("one:1.0.0");
+        VersionedName one_2_0_0 = VersionedName.fromString("one:2.0.0");
+        
+        BundleFile bundleV1 = bundleBuilder()
+                .name("org.example.bundleBeingUpgraded", "1.0.0")
+                .catalogBom(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of(one_1_0_0))
+                .build();
+
+        // A bundle that references the forcibly-replaced bundle via name:version;
+        // (add this to persisted state).
+        BundleFile bundleWithReferenceByNameVersionName = bundleBuilder()
+                .name("org.example.bundleWithReferenceByName", "1.0.0")
+                .catalogBom(Joiner.on("\n").join(
+                        "brooklyn.catalog:",
+                        "  version: 1.0.0",
+                        "  brooklyn.libraries:",
+                        "  - name: "+bundleV1.getVersionedName().getSymbolicName(),
+                        "    version: 1.0.0"))
+                .build();
+
+        newPersistedStateInitializer()
+                .bundle(bundleV1)
+                .bundle(bundleWithReferenceByNameVersionName)
+                .initState();
+        
+        BundleFile bundleV2 = bundleBuilder()
+                .name(bundleV1.getVersionedName().getSymbolicName(), "2.0.0")
+                .catalogBom(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of(one_2_0_0))
+                .manifestLines(ImmutableMap.<String, String>builder()
+                        .put(MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "\"*\"")
+                        .put(MANIFEST_HEADER_UPGRADE_FOR_BUNDLES, "\"*\"")
+                        .build())
+                .build();
+
+        File initialBomFile = newTmpFile(createCatalogYaml(ImmutableList.of(bundleV2.getFile().toURI()), ImmutableList.of()));
+
+        BrooklynLauncher launcher = newLauncherForTests(initialBomFile.getAbsolutePath());
+        launcher.start();
+        assertHealthyMaster(launcher);
+        assertCatalogConsistsOfIds(launcher, ImmutableList.of(one_2_0_0));
+        assertManagedBundle(launcher, bundleV2.getVersionedName(), ImmutableSet.<VersionedName>of(one_2_0_0));
+        assertNotManagedBundle(launcher, bundleV1.getVersionedName());
+
+        // Try installing the removed bundle explicitly (force=false)
+        ReferenceWithError<OsgiBundleInstallationResult> resultWithoutForce = installBundle(launcher, bundleV1.getFile(), false);
+        resultWithoutForce.checkNoError();
+        ResultCode resultWithoutForceCode = resultWithoutForce.get().getCode();
+        String resultWithoutForceMessage = resultWithoutForce.get().getMessage();
+        assertEquals(resultWithoutForceCode, ResultCode.IGNORING_BUNDLE_FORCIBLY_REMOVED);
+        assertEquals(resultWithoutForce.get().getMetadata().getVersionedName(), bundleV2.getVersionedName());
+        assertTrue(resultWithoutForceMessage.contains("Bundle "+bundleV1.getVersionedName()+" forcibly removed, upgraded to 2.0.0"), "msg="+resultWithoutForceMessage);
+        
+        launcher.terminate();
+    }
+    
+    @Test
+    public void testForciblyRemovedBundleNotAddedWhenReferencedByMvnUrl() throws Exception {
+        VersionedName one_1_0_0 = VersionedName.fromString("one:1.0.0");
+        VersionedName one_2_0_0 = VersionedName.fromString("one:2.0.0");
+        
+        BundleFile bundleV1 = bundleBuilder()
+                .name("org.example.bundleBeingUpgraded", "1.0.0")
+                .catalogBom(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of(one_1_0_0))
+                .build();
+
+        // A bundle that references the forcibly-replaced bundle via name:version;
+        // (add this to persisted state).
+        BundleFile bundleWithReferenceByNameVersionName = bundleBuilder()
+                .name("org.example.bundleWithReferenceByName", "1.0.0")
+                .catalogBom(Joiner.on("\n").join(
+                        "brooklyn.catalog:",
+                        "  version: 1.0.0",
+                        "  brooklyn.libraries:",
+                        "  - mvn:org.example/bundleWithReferenceByName/1.0.0"))
+                .build();
+
+        newPersistedStateInitializer()
+                .bundle(bundleV1)
+                .bundle(bundleWithReferenceByNameVersionName)
+                .initState();
+        
+        BundleFile bundleV2 = bundleBuilder()
+                .name(bundleV1.getVersionedName().getSymbolicName(), "2.0.0")
+                .catalogBom(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of(one_2_0_0))
+                .manifestLines(ImmutableMap.<String, String>builder()
+                        .put(MANIFEST_HEADER_FORCE_REMOVE_BUNDLES, "\"*\"")
+                        .put(MANIFEST_HEADER_UPGRADE_FOR_BUNDLES, "\"*\"")
+                        .build())
+                .build();
+
+        File initialBomFile = newTmpFile(createCatalogYaml(ImmutableList.of(bundleV2.getFile().toURI()), ImmutableList.of()));
+
+        BrooklynLauncher launcher = newLauncherForTests(initialBomFile.getAbsolutePath());
+        launcher.start();
+        assertHealthyMaster(launcher);
+        assertCatalogConsistsOfIds(launcher, ImmutableList.of(one_2_0_0));
+        assertManagedBundle(launcher, bundleV2.getVersionedName(), ImmutableSet.<VersionedName>of(one_2_0_0));
+        assertNotManagedBundle(launcher, bundleV1.getVersionedName());
+
+        // Try installing the removed bundle explicitly (force=false)
+        ReferenceWithError<OsgiBundleInstallationResult> resultWithoutForce = installBundle(launcher, bundleV1.getFile(), false);
+        resultWithoutForce.checkNoError();
+        ResultCode resultWithoutForceCode = resultWithoutForce.get().getCode();
+        String resultWithoutForceMessage = resultWithoutForce.get().getMessage();
+        assertEquals(resultWithoutForceCode, ResultCode.IGNORING_BUNDLE_FORCIBLY_REMOVED);
+        assertEquals(resultWithoutForce.get().getMetadata().getVersionedName(), bundleV2.getVersionedName());
+        assertTrue(resultWithoutForceMessage.contains("Bundle "+bundleV1.getVersionedName()+" forcibly removed, upgraded to 2.0.0"), "msg="+resultWithoutForceMessage);
         
         launcher.terminate();
     }
