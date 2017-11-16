@@ -96,6 +96,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.gson.Gson;
 
 @Test( // by using a different suite name we disallow interleaving other tests between the methods of this test class, which wrecks the test fixtures
         suiteName = "CatalogResourceTest")
@@ -660,6 +661,88 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
 
         assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
         Asserts.assertStringContainsIgnoreCase(response.readEntity(String.class), "Catalog BOM must define version");
+    }
+
+    @Test
+    public void testArchiveWithBundleAndVersion() throws Exception {
+        String version = "0.1.0";
+        String itemSymbolicName = "my-entity";
+        
+        File f = createZip(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  bundle: org.apache.brooklyn.test",
+                "  version: " + version,
+                "  itemType: entity",
+                "  id: " + itemSymbolicName,
+                "  name: My Catalog App",
+                "  description: My description",
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity")));
+
+        Response response = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .post(Streams.readFully(new FileInputStream(f)));
+
+        assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
+
+        CatalogSummaryAsserts.newInstance(CatalogItemType.ENTITY, itemSymbolicName, version)
+                .planYamlPredicate(StringPredicates.containsLiteral("org.apache.brooklyn.core.test.entity.TestEntity"))
+                .name("My Catalog App")
+                .description("My description")
+                .expectedInterfaces(Reflections.getAllInterfaces(TestEntity.class))
+                .applyAsserts(() -> client());
+        
+        RegisteredTypeAsserts.newInstance(itemSymbolicName, version)
+                .libraryNames(new VersionedName("org.apache.brooklyn.test", version))
+                .libraryUrls((String)null)
+                .applyAsserts(getManagementContext().getTypeRegistry());
+    }
+
+    @Test
+    public void testInstallSameArchiveTwice() throws Exception {
+        String version = "0.1.0";
+        String itemSymbolicName = "my-entity";
+        
+        File f = createZip(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  bundle: org.apache.brooklyn.test",
+                "  version: " + version,
+                "  itemType: entity",
+                "  id: " + itemSymbolicName,
+                "  name: My Catalog App",
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity")));
+
+        // Deploy first time
+        Response response = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .post(Streams.readFully(new FileInputStream(f)));
+
+        assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
+
+        RegisteredTypeAsserts.newInstance(itemSymbolicName, version)
+                .libraryNames(new VersionedName("org.apache.brooklyn.test", version))
+                .applyAsserts(getManagementContext().getTypeRegistry());
+        
+        // Deploy again
+        // Aled had expected a 200, but getting a 400 - assert existing behaviour.
+        // Also assert that type is still there
+        Response response2 = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .post(Streams.readFully(new FileInputStream(f)));
+        String response2Body = response2.readEntity(String.class);
+        
+        Map<?,?> response2Map = new Gson().fromJson(response2Body, Map.class);
+        String response2Message = (String) response2Map.get("message");
+        String response2Code = (String) ((Map<?,?>)response2Map.get("data")).get("code");
+        
+        assertEquals(response2.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
+        assertTrue(response2Code.equals("IGNORING_BUNDLE_AREADY_INSTALLED"), "body="+response2Body);
+        assertTrue(response2Message.toLowerCase().contains("bundle org.apache.brooklyn.test:0.1.0 already installed"), "body="+response2Body);
+
+        RegisteredTypeAsserts.newInstance(itemSymbolicName, version)
+                .libraryNames(new VersionedName("org.apache.brooklyn.test", version))
+                .applyAsserts(getManagementContext().getTypeRegistry());
     }
 
     @Test
