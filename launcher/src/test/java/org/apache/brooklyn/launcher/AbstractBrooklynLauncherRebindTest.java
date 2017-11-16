@@ -21,11 +21,13 @@ package org.apache.brooklyn.launcher;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -46,13 +48,16 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
+import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
@@ -61,6 +66,7 @@ import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.Streams;
@@ -184,7 +190,87 @@ public abstract class AbstractBrooklynLauncherRebindTest {
         }
         return bf;
     }
+
+    BundleFile.Builder bundleBuilder() {
+        return new BundleFile.Builder(this);
+    }
     
+    protected static class BundleFile {
+        public static class Builder {
+            private final AbstractBrooklynLauncherRebindTest test;
+            private VersionedName name;
+            private String catalogBom;
+            private Map<String, String> manifestLines;
+
+            public Builder(AbstractBrooklynLauncherRebindTest test) {
+                this.test = test;
+            }
+            public Builder name(VersionedName val) {
+                this.name = val;
+                return this;
+            }
+            public Builder name(String symbolicName, String version) {
+                this.name = new VersionedName(symbolicName, version);
+                return this;
+            }
+            public Builder catalogBom(String val) {
+                this.catalogBom = val;
+                return this;
+            }
+            protected Builder catalogBom(Iterable<URI> libraries, Iterable<VersionedName> entities) {
+                return catalogBom(libraries, ImmutableList.of(), entities, null);
+            }
+            protected Builder catalogBom(Iterable<URI> libraryUris, Iterable<VersionedName> libraryNames, Iterable<VersionedName> entities) {
+                return catalogBom(libraryUris, libraryNames, entities, null);
+            }
+            protected Builder catalogBom(Iterable<URI> libraryUris, Iterable<VersionedName> libraryNames, Iterable<VersionedName> entities, String randomNoise) {
+                return catalogBom(test.createCatalogYaml(libraryUris, libraryNames, entities, randomNoise));
+            }
+            public Builder manifestLines(Map<String, String> val) {
+                this.manifestLines = val;
+                return this;
+            }
+            public BundleFile build() {
+                if (name == null) {
+                    name = new VersionedName("com.example.brooklyntests."+Identifiers.makeRandomId(4), "1.0.0");
+                }
+                Map<String, byte[]> filesInBundle;
+                if (catalogBom != null) {
+                    filesInBundle = ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, catalogBom.getBytes(StandardCharsets.UTF_8));
+                } else {
+                    filesInBundle = ImmutableMap.of();
+                }
+                File file = test.newTmpBundle(filesInBundle, name, manifestLines);
+                
+                return new BundleFile(name, file);
+            }
+        }
+        
+        public final VersionedName name;
+        public final File file;
+        
+        BundleFile(VersionedName name, File file) {
+            this.name = name;
+            this.file = file;
+        }
+        
+        public VersionedName getVersionedName() {
+            return name;
+        }
+        
+        public File getFile() {
+            return file;
+        }
+    }
+
+    protected void assertHealthyMaster(BrooklynLauncher launcher) {
+        ManagementContextInternal mgmt = (ManagementContextInternal) launcher.getServerDetails().getManagementContext();
+        assertTrue(mgmt.isStartupComplete());
+        assertTrue(mgmt.isRunning());
+        assertTrue(mgmt.errors().isEmpty(), "errs="+mgmt.errors());
+        assertEquals(mgmt.getHighAvailabilityManager().getNodeState(), ManagementNodeState.MASTER);
+    }
+
     protected void assertCatalogConsistsOfIds(BrooklynLauncher launcher, Iterable<VersionedName> ids) {
         BrooklynTypeRegistry typeRegistry = launcher.getServerDetails().getManagementContext().getTypeRegistry();
         BrooklynCatalog catalog = launcher.getServerDetails().getManagementContext().getCatalog();
@@ -214,6 +300,15 @@ public abstract class AbstractBrooklynLauncherRebindTest {
         Assert.assertTrue(compareIterablesWithoutOrderMatters(ids, idsFromItems), String.format("Expected %s, found %s", ids, idsFromItems));
     }
 
+    protected ReferenceWithError<OsgiBundleInstallationResult> installBundle(BrooklynLauncher launcher, File file, boolean force) throws Exception {
+        return installBundle(launcher, java.nio.file.Files.readAllBytes(file.toPath()), force);
+    }
+
+    protected ReferenceWithError<OsgiBundleInstallationResult> installBundle(BrooklynLauncher launcher, byte[] zipInput, boolean force) {
+        ManagementContextInternal mgmt = (ManagementContextInternal)launcher.getManagementContext();
+        return mgmt.getOsgiManager().get().install(null, new ByteArrayInputStream(zipInput), true, true, force);
+    }
+    
     protected ManagedBundle findManagedBundle(BrooklynLauncher launcher, VersionedName bundleId) {
         ManagementContextInternal mgmt = (ManagementContextInternal)launcher.getManagementContext();
         ManagedBundle bundle = mgmt.getOsgiManager().get().getManagedBundle(bundleId);
@@ -358,6 +453,10 @@ public abstract class AbstractBrooklynLauncherRebindTest {
         public PersistedStateInitializer bundle(VersionedName bundleName, File file) throws Exception {
             bundles.put(bundleName, file);
             return this;
+        }
+        
+        public PersistedStateInitializer bundle(BundleFile bundleFile) throws Exception {
+            return bundle(bundleFile.getVersionedName(), bundleFile.getFile());
         }
         
         public PersistedStateInitializer bundles(Map<VersionedName, File> vals) throws Exception {
