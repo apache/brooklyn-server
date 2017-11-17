@@ -399,6 +399,15 @@ public class TypeCoercionsTest {
     }
 
     @Test
+    public void testStringToUriCoercion() {
+        Assert.assertEquals(coerce("http://localhost:1234/", URI.class), URI.create("http://localhost:1234/"));
+        
+        // Empty string is coerced to null; in contrast, `URI.create("")` gives a URI
+        // with null scheme, host, etc (which would be very surprising for Brooklyn users!).
+        Assert.assertEquals(coerce("", URI.class), null);
+    }
+
+    @Test
     public void testURLtoStringCoercion() throws MalformedURLException {
         String s = coerce(new URL("http://localhost:1234/"), String.class);
         Assert.assertEquals(s, "http://localhost:1234/");

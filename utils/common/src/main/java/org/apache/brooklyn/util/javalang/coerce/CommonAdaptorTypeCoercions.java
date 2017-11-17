@@ -148,7 +148,7 @@ public class CommonAdaptorTypeCoercions {
         registerAdapter(String.class, URI.class, new Function<String,URI>() {
             @Override
             public URI apply(String input) {
-                return URI.create(input);
+                return Strings.isNonBlank(input) ? URI.create(input) : null;
             }
         });
         registerAdapter(URI.class, String.class, new Function<URI,String>() {
