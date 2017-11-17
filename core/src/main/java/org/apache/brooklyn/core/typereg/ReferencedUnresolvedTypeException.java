@@ -38,7 +38,7 @@ public class ReferencedUnresolvedTypeException extends UnsupportedTypePlanExcept
     }
     
     public ReferencedUnresolvedTypeException(RegisteredType t, boolean attemptedAnyway, Throwable cause) {
-        this("Reference to known type "+t.getVersionedName()+" in plan but it's definition is unresolved (recursive plan or premature evaluation?)"
+        this("Reference to known type "+t.getVersionedName()+" in plan but its definition is unresolved (recursive plan or premature evaluation?)"
             + (attemptedAnyway ? "; attempted to read definition again" : ""), cause);
     }
     

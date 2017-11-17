@@ -541,10 +541,15 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
     /** See comments on {@link #collectCatalogItemsFromItemMetadataBlock(String, ManagedBundle, Map, List, boolean, Map, int, boolean)};
      * this is a shell around that that parses the `brooklyn.catalog` header on the BOM YAML file */
-    private void collectCatalogItemsFromCatalogBomRoot(String yaml, ManagedBundle containingBundle, 
+    private void collectCatalogItemsFromCatalogBomRoot(String contextForError, String yaml, ManagedBundle containingBundle, 
             List<CatalogItemDtoAbstract<?, ?>> resultLegacyFormat, Map<RegisteredType, RegisteredType> resultNewFormat, 
             boolean requireValidation, Map<?, ?> parentMeta, int depth, boolean force) {
-        Map<?,?> itemDef = Yamls.getAs(Yamls.parseAll(yaml), Map.class);
+        Map<?,?> itemDef;
+        try {
+            itemDef = Yamls.getAs(Yamls.parseAll(yaml), Map.class);
+        } catch (Exception e) {
+            throw Exceptions.propagateAnnotated("Error parsing YAML in "+contextForError, e);
+        }
         Map<?,?> catalogMetadata = getFirstAsMap(itemDef, "brooklyn.catalog").orNull();
         if (catalogMetadata==null)
             log.warn("No `brooklyn.catalog` supplied in catalog request; using legacy mode for "+itemDef);
@@ -1068,7 +1073,11 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             Exceptions.propagateIfFatal(e);
             throw new IllegalStateException("Remote catalog url " + url + " in "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+" can't be fetched.", e);
         }
-        collectCatalogItemsFromCatalogBomRoot(yaml, containingBundle, resultLegacyFormat, resultNewFormat, requireValidation, parentMeta, depth, force);
+        try {
+            collectCatalogItemsFromCatalogBomRoot("BOM expected at "+url, yaml, containingBundle, resultLegacyFormat, resultNewFormat, requireValidation, parentMeta, depth, force);
+        } catch (Exception e) {
+            Exceptions.propagateAnnotated("Error loading "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName()), e);
+        }
         log.debug("Catalog load, loaded referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+", now have "+
             (resultNewFormat!=null ? resultNewFormat.size() : resultLegacyFormat!=null ? resultLegacyFormat.size() : "(unknown)")+" items");
     }
@@ -1543,7 +1552,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         log.debug("Adding catalog item to "+mgmt+": "+yaml);
         checkNotNull(yaml, "yaml");
         List<CatalogItemDtoAbstract<?, ?>> result = MutableList.of();
-        collectCatalogItemsFromCatalogBomRoot(yaml, bundle, result, null, true, ImmutableMap.of(), 0, forceUpdate);
+        collectCatalogItemsFromCatalogBomRoot("caller-supplied YAML", yaml, bundle, result, null, true, ImmutableMap.of(), 0, forceUpdate);
 
         // do this at the end for atomic updates; if there are intra-yaml references, we handle them specially
         for (CatalogItemDtoAbstract<?, ?> item: result) {
@@ -1560,7 +1569,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         log.debug("Catalog load, adding catalog item to "+mgmt+": "+yaml);
         checkNotNull(yaml, "yaml");
         if (result==null) result = MutableMap.of();
-        collectCatalogItemsFromCatalogBomRoot(yaml, bundle, null, result, false, MutableMap.of(), 0, forceUpdate);
+        collectCatalogItemsFromCatalogBomRoot("bundle BOM in "+bundle, yaml, bundle, null, result, false, MutableMap.of(), 0, forceUpdate);
     }
     
     @Override @Beta
