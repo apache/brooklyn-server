@@ -18,14 +18,7 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
-import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecContains;
-import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecHasAtLeastOnce;
-import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecHasNever;
-import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecHasOnlyOnce;
-import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecSatisfies;
-import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecsContain;
-import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecsNotContains;
-import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecsSatisfy;
+import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.*;
 
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -150,6 +143,18 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
                 "checkRunningCommand", "stopCommand",  
                 "preLaunchCommand", "launchCommand", "postLaunchCommand", 
                 "checkRunningCommand"));
+
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
+
+        Entities.invokeEffector(app, entity, SoftwareProcess.STOP, ImmutableMap.of(
+                SoftwareProcess.StopSoftwareParameters.STOP_MACHINE_MODE.getName(), SoftwareProcess.StopSoftwareParameters.StopMode.NEVER))
+                .get();
+
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, false);
+
+        entity.start(ImmutableList.of());
+
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
     }
 
     
@@ -309,7 +314,7 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
         assertExecHasOnlyOnce(RecordingSshTool.getExecCmds(), "preInstallCommand");
         assertExecHasOnlyOnce(RecordingSshTool.getExecCmds(), "launchCommand");
     }
-    
+
     @Test
     public void testUseSshMonitoringDisabled() throws Exception {
         // Setup a custom health-check that returns true after launch is called, 
@@ -366,6 +371,14 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
 
         // Restart (see https://issues.apache.org/jira/browse/BROOKLYN-547)
         entity.restart();
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
+
+        Entities.invokeEffector(app, entity, SoftwareProcess.STOP, ImmutableMap.of(
+                SoftwareProcess.StopSoftwareParameters.STOP_MACHINE_MODE.getName(), SoftwareProcess.StopSoftwareParameters.StopMode.NEVER))
+                .get();
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, false);
+
+        entity.start(ImmutableList.of());
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
     }
 }
