@@ -363,7 +363,8 @@ public class BrooklynLauncherUpgradeCatalogOsgiTest extends AbstractBrooklynLaun
                 .catalogBom(ImmutableList.<URI>of(), ImmutableSet.<VersionedName>of(one_1_0_0))
                 .build();
 
-        // A bundle that references the forcibly-replaced bundle via name:version;
+        // A bundle that references the forcibly-replaced bundle via mvn url; 
+        // it's not really in mvn repo, we expect it to match the groupId.artifactId with the forcibly removed bundle;
         // (add this to persisted state).
         BundleFile bundleWithReferenceByNameVersionName = bundleBuilder()
                 .name("org.example.bundleWithReferenceByName", "1.0.0")
@@ -371,7 +372,7 @@ public class BrooklynLauncherUpgradeCatalogOsgiTest extends AbstractBrooklynLaun
                         "brooklyn.catalog:",
                         "  version: 1.0.0",
                         "  brooklyn.libraries:",
-                        "  - mvn:org.example/bundleWithReferenceByName/1.0.0"))
+                        "  - mvn:org.example/bundleBeingUpgraded/1.0.0"))
                 .build();
 
         newPersistedStateInitializer()

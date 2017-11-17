@@ -367,10 +367,25 @@ class OsgiArchiveInstaller {
 
             // Before even trying to find or download the bundle, check if it is supposed to be forcibly replaced.
             // If so, return the replacement (if any).
-            if (suppliedKnownBundleMetadata != null && suppliedKnownBundleMetadata.isNameResolved()) {
-                Maybe<VersionedName> forcedReplacementBundle = CatalogUpgrades.tryGetBundleForcedReplaced(mgmt(), suppliedKnownBundleMetadata.getVersionedName());
-                if (forcedReplacementBundle.isPresent()) {
-                    return generateForciblyRemovedResult(suppliedKnownBundleMetadata.getVersionedName(), Optional.fromNullable(forcedReplacementBundle.get()));
+            if (suppliedKnownBundleMetadata != null) {
+                if (suppliedKnownBundleMetadata.isNameResolved()) {
+                    Maybe<VersionedName> forcedReplacementBundle = CatalogUpgrades.tryGetBundleForcedReplaced(mgmt(), suppliedKnownBundleMetadata.getVersionedName());
+                    if (forcedReplacementBundle.isPresent()) {
+                        return generateForciblyRemovedResult(suppliedKnownBundleMetadata.getVersionedName(), Optional.fromNullable(forcedReplacementBundle.get()));
+                    }
+                } else if (suppliedKnownBundleMetadata.getUrl() != null && suppliedKnownBundleMetadata.getUrl().toLowerCase().startsWith("mvn:")) {
+                    // This inference is not guaranteed to get the right answer - you can put whatever 
+                    // you want in the MANIFEST.MF. Also, the maven-bundle-plugin does some surprising
+                    // transforms, but we take a simpler approach here.
+                    // If folk want it to work for such edge-cases, they should include the 
+                    // name:version explicitly in the `brooklyn.libraries list`.
+                    Optional<VersionedName> inferredName = inferBundleNameFromMvnUrl(suppliedKnownBundleMetadata.getUrl());
+                    if (inferredName.isPresent()) {
+                        Maybe<VersionedName> forcedReplacementBundle = CatalogUpgrades.tryGetBundleForcedReplaced(mgmt(), inferredName.get());
+                        if (forcedReplacementBundle.isPresent()) {
+                            return generateForciblyRemovedResult(inferredName.get(), Optional.fromNullable(forcedReplacementBundle.get()));
+                        }
+                    }
                 }
             }
             
@@ -715,6 +730,17 @@ class OsgiArchiveInstaller {
         } finally {
             close();
         }
+    }
+
+    @VisibleForTesting
+    static Optional<VersionedName> inferBundleNameFromMvnUrl(String url) {
+        // Assumes format 'mvn:<groupId>/<artifactId>/<version>'
+        // e.g. "mvn:io.brooklyn.etcd/brooklyn-etcd/2.7.0"
+        assert url.startsWith("mvn:") : "url="+url;
+        String[] parts = url.substring(4).split("/");
+        if (parts.length != 3) return Optional.absent();
+        if (parts[0].trim().isEmpty() || parts[1].trim().isEmpty() || parts[2].trim().isEmpty()) return Optional.absent();
+        return Optional.of(new VersionedName(parts[0]+"."+parts[1], parts[2]));
     }
 
     private ReferenceWithError<OsgiBundleInstallationResult> generateForciblyRemovedResult(VersionedName desiredBundle, Optional<VersionedName> replacementBundle) {
