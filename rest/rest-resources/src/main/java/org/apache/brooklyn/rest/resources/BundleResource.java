@@ -147,12 +147,6 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
         ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
             .install(null, new ByteArrayInputStream(zipInput), true, true, force);
 
-        if (OsgiBundleInstallationResult.ResultCode.IGNORING_BUNDLE_AREADY_INSTALLED.equals(result.getWithoutError().getCode())) {
-            result = ReferenceWithError.newInstanceThrowingError(result.getWithoutError(), new IllegalStateException(
-                    "Cannot add bundle" + result.getWithoutError().getMetadata().getVersionedName() +
-                    "; different bundle with same name already installed"));
-        }
-        
         if (result.hasError()) {
             // (rollback already done as part of install, if necessary)
             if (log.isTraceEnabled()) {
@@ -163,7 +157,17 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
         }
 
         BundleInstallationRestResult resultR = TypeTransformer.bundleInstallationResult(result.get(), mgmt(), brooklyn(), ui);
-        return Response.status(Status.CREATED).entity( resultR ).build();
+        Status status;
+        switch (result.get().getCode()) {
+            case IGNORING_BUNDLE_AREADY_INSTALLED:
+            case IGNORING_BUNDLE_FORCIBLY_REMOVED:
+                status = Status.OK;
+                break;
+            default:
+                // already checked that it was not an error; anything else means we created it.
+                status = Status.CREATED;
+                break;
+        }
+        return Response.status(status).entity(resultR).build();
     }
-
 }

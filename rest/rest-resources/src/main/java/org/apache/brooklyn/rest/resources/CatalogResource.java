@@ -161,12 +161,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
             .install(null, new ByteArrayInputStream(zipInput), true, true, forceUpdate);
 
-        if (OsgiBundleInstallationResult.ResultCode.IGNORING_BUNDLE_AREADY_INSTALLED.equals(result.getWithoutError().getCode())) {
-            result = ReferenceWithError.newInstanceThrowingError(result.getWithoutError(), new IllegalStateException(
-                    "Cannot add bundle" + result.getWithoutError().getMetadata().getVersionedName() +
-                    "; different bundle with same name already installed"));
-        }
-        
         if (result.hasError()) {
             // (rollback already done as part of install, if necessary)
             if (log.isTraceEnabled()) {
@@ -177,7 +171,18 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
 
         BundleInstallationRestResult resultR = TypeTransformer.bundleInstallationResult(result.get(), mgmt(), brooklyn(), ui);
-        return Response.status(Status.CREATED).entity( detail ? resultR : resultR.getTypes() ).build();
+        Status status;
+        switch (result.get().getCode()) {
+            case IGNORING_BUNDLE_AREADY_INSTALLED:
+            case IGNORING_BUNDLE_FORCIBLY_REMOVED:
+                status = Status.OK;
+                break;
+            default:
+                // already checked that it was not an error; anything else means we created it.
+                status = Status.CREATED;
+                break;
+        }
+        return Response.status(status).entity( detail ? resultR : resultR.getTypes() ).build();
     }
 
     private Response buildCreateResponse(Iterable<RegisteredType> catalogItems) {

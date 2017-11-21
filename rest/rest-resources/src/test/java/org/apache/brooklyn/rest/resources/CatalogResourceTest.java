@@ -725,18 +725,18 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .applyAsserts(getManagementContext().getTypeRegistry());
         
         // Deploy again
-        // Aled had expected a 200, but getting a 400 - assert existing behaviour.
-        // Also assert that type is still there
+        // Expect 200 (didn't create it, because already existed).
         Response response2 = client().path("/catalog")
+                .query("detail", "true")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
                 .post(Streams.readFully(new FileInputStream(f)));
         String response2Body = response2.readEntity(String.class);
         
         Map<?,?> response2Map = new Gson().fromJson(response2Body, Map.class);
         String response2Message = (String) response2Map.get("message");
-        String response2Code = (String) ((Map<?,?>)response2Map.get("data")).get("code");
+        String response2Code = (String) response2Map.get("code");
         
-        assertEquals(response2.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
+        assertEquals(response2.getStatus(), Response.Status.OK.getStatusCode());
         assertTrue(response2Code.equals("IGNORING_BUNDLE_AREADY_INSTALLED"), "body="+response2Body);
         assertTrue(response2Message.toLowerCase().contains("bundle org.apache.brooklyn.test:0.1.0 already installed"), "body="+response2Body);
 
