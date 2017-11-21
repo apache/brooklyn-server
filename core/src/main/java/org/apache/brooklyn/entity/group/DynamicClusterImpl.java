@@ -60,6 +60,7 @@ import org.apache.brooklyn.core.entity.trait.StartableMethods;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.location.cloud.AvailabilityZoneExtension;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.entity.group.zoneaware.ProportionalZoneFailureDetector;
 import org.apache.brooklyn.entity.stock.DelegateEntity;
 import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.function.FunctionPollConfig;
@@ -118,6 +119,17 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
      * Only used if {@link #MAX_CONCURRENT_CHILD_COMMANDS} is configured.
      */
     private transient Semaphore childTaskSemaphore;
+
+    /**
+     * Value is read from config, or if config is null then initialised automatically. Only set if
+     * isAvailabilityZoneEnabled. Set on init and on rebind.
+     * 
+     * Uses a transient field to avoid persistence of the default impl, which may be brittle
+     * in terms of backwards compatibilty (ZoneFailureDetector is marked beta). The consequence
+     * is that on rebind we will have lost details of previous failures that were detected. But
+     * that's fine - we'll just try again in those zones, and will presumably hit the problems again.
+     */
+    private transient ZoneFailureDetector zoneFailureDetector;
 
     private volatile FunctionFeed clusterOneAndAllMembersUp;
 
@@ -221,6 +233,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         super.init();
         initialiseMemberId();
         initialiseTaskPermitSemaphore();
+        initializeZoneFailureDetector();
         connectAllMembersUp();
     }
 
@@ -228,6 +241,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
     public void rebind() {
         super.rebind();
         initialiseTaskPermitSemaphore();
+        initializeZoneFailureDetector();
     }
 
     private void initialiseMemberId() {
@@ -249,6 +263,17 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         }
     }
 
+    private void initializeZoneFailureDetector() {
+        synchronized (mutex) {
+            if (zoneFailureDetector == null && isAvailabilityZoneEnabled()) {
+                zoneFailureDetector = config().get(ZONE_FAILURE_DETECTOR);
+                if (zoneFailureDetector == null) {
+                    zoneFailureDetector = new ProportionalZoneFailureDetector(2, Duration.ONE_HOUR, 0.9);
+                }
+            }
+        }
+    }
+    
     private void connectAllMembersUp() {
         clusterOneAndAllMembersUp = FunctionFeed.builder()
                 .entity(this)
@@ -321,10 +346,11 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
     @Override
     public void setZoneFailureDetector(ZoneFailureDetector val) {
         config().set(ZONE_FAILURE_DETECTOR, checkNotNull(val, "zoneFailureDetector"));
+        zoneFailureDetector = val;
     }
 
     protected ZoneFailureDetector getZoneFailureDetector() {
-        return checkNotNull(getConfig(ZONE_FAILURE_DETECTOR), "zoneFailureDetector config");
+        return checkNotNull(zoneFailureDetector, "zoneFailureDetector, isAvailabilityZoneEnabled=%s", isAvailabilityZoneEnabled());
     }
 
     protected EntitySpec<?> getFirstMemberSpec() {
