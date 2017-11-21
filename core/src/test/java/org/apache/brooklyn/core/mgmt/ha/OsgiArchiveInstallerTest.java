@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.mgmt.ha;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -66,6 +67,17 @@ public class OsgiArchiveInstallerTest extends BrooklynMgmtUnitTestSupport {
         assertFalse(installer.isBlacklistedForPersistence(newMockManagedBundle("org.apache.brooklyn.core", "1.0.0")));
     }
 
+    @Test
+    public void testInferBundleNameFromMvnUrl() throws Exception {
+        assertFalse(OsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:toofewslashes/1.0.0").isPresent());
+        assertFalse(OsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:too/many/slashes/1.0.0").isPresent());
+        assertFalse(OsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:emptystring//1.0.0").isPresent());
+        assertFalse(OsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:/emptystring/1.0.0").isPresent());
+        assertFalse(OsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:/emptystring/emptystring/").isPresent());
+        assertEquals(OsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:mygroupid/myartifactid/1.0.0").get(), new VersionedName("mygroupid.myartifactid", "1.0.0"));
+        assertEquals(OsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:my.group.id/my.artifact.id/1.0.0").get(), new VersionedName("my.group.id.my.artifact.id", "1.0.0"));
+    }
+    
     public OsgiManager newMockOsgiManager(ManagementContext mgmt) throws Exception {
         OsgiManager result = Mockito.mock(OsgiManager.class);
         Mockito.when(result.getManagementContext()).thenReturn(mgmt);

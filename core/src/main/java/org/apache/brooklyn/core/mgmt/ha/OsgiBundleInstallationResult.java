@@ -23,6 +23,7 @@ import java.util.List;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.osgi.framework.Bundle;
 
@@ -44,6 +45,9 @@ public class OsgiBundleInstallationResult {
          * (safe in that behaviour won't be different or dangerous; 
          * could potentially be surprising, but ability to idempotently install things is nicer) */
         IGNORING_BUNDLE_AREADY_INSTALLED(false),
+        /** Bundle has been forcibly removed; not installing; 
+         * bundle metadata for an upgrade may be returned, if there is one */
+        IGNORING_BUNDLE_FORCIBLY_REMOVED(false),
         /** bundle could not be made insto a state where it could be installed; bundle is not installed, even if forced */
         ERROR_PREPARING_BUNDLE(true),
         /** bundle successfully installed to OSGi container but there was an error launching it, 
@@ -96,6 +100,12 @@ public class OsgiBundleInstallationResult {
     void setIgnoringAlreadyInstalled() {
         code = OsgiBundleInstallationResult.ResultCode.IGNORING_BUNDLE_AREADY_INSTALLED;
         message = "Bundle "+getMetadata().getVersionedName()+" already installed as "+getMetadata().getId();
+    }
+    
+    void setIgnoringForciblyRemoved(VersionedName requestedBundle, Maybe<VersionedName> replacementBundle) {
+        code = OsgiBundleInstallationResult.ResultCode.IGNORING_BUNDLE_FORCIBLY_REMOVED;
+        message = "Bundle "+requestedBundle+" forcibly removed, "
+                +(replacementBundle.isPresentAndNonNull() ? "upgraded to "+replacementBundle.get().getOsgiVersionString() : "no upgrade defined");
     }
     
     @Override

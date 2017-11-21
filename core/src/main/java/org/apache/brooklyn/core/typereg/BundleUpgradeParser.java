@@ -308,9 +308,11 @@ public class BundleUpgradeParser {
         public Set<VersionedName> getUpgradesForBundle(VersionedName bundle) {
             return findUpgradesIn(bundle, upgradesProvidedByBundles);
         }
+        
         public Set<VersionedName> getUpgradesForType(VersionedName type) {
             return findUpgradesIn(type, upgradesProvidedByTypes);
         }
+        
         private static Set<VersionedName> findUpgradesIn(VersionedName item, Multimap<VersionedName,VersionRangedName> upgradesMap) {
             Set<VersionedName> result = new TreeSet<>(VersionedNameComparator.INSTANCE);
             for (Map.Entry<VersionedName,VersionRangedName> n: upgradesMap.entries()) {
@@ -350,6 +352,42 @@ public class BundleUpgradeParser {
             return builder().build();
         }
 
+        /**
+         * If the given bundle (vName) has been forcibly removed, return the bundle that
+         * upgrades it (if any).
+         * 
+         * The result will be one of:
+         * <ul>
+         *   <li>{@code Maybe.absent} if the bundle has not been forcibly removed
+         *   <li>{@code Maybe.of(replacementBundle} if the bundle has been forcibly removed
+         *       and there is a bundle for upgrading it.
+         *   <li>{@code Maybe.of(null} if the bundle has been forcibly removed, but there is no upgrade available.
+         * </ul>
+         * 
+         * See {@link BundleUpgradeParser#MANIFEST_HEADER_FORCE_REMOVE_BUNDLES}
+         */
+        @Beta
+        public static Maybe<VersionedName> tryGetBundleForcedReplaced(ManagementContext mgmt, VersionedName vName) {
+            // mgmt can be null in some edge cases, eg BasicCatalogItemRebindSupport.possiblyUpgradedBundle 
+            if (vName==null || mgmt==null) return Maybe.absent();
+            Maybe<OsgiManager> osgi = ((ManagementContextInternal)mgmt).getOsgiManager();
+            if (osgi.isAbsent()) {
+                // ignore upgrades if not osgi
+                return Maybe.absent();
+            }
+            
+            CatalogUpgrades cu = getFromManagementContext(mgmt);
+            if (!cu.isBundleRemoved(vName)) {
+                return Maybe.absent();
+            }
+            Set<VersionedName> upgrades = cu.getUpgradesForBundle(vName);
+            if (upgrades.isEmpty()) {
+                return Maybe.of((VersionedName)null);
+            } else {
+                return Maybe.of(upgrades.iterator().next());
+            }
+        }
+
         @Beta
         public static String getBundleUpgradedIfNecessary(ManagementContext mgmt, String vName) {
             // mgmt can be null in some edge cases, eg BasicCatalogItemRebindSupport.possiblyUpgradedBundle 
@@ -365,6 +403,7 @@ public class BundleUpgradeParser {
             }
             return getItemUpgradedIfNecessary(mgmt, vName, (cu,vn) -> cu.getUpgradesForBundle(vn));
         }
+        
         @Beta
         public static String getTypeUpgradedIfNecessary(ManagementContext mgmt, String vName) {
             if (vName==null || mgmt.getTypeRegistry().get(vName)!=null) {

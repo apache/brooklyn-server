@@ -43,10 +43,10 @@ import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -72,6 +72,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
@@ -363,6 +364,31 @@ class OsgiArchiveInstaller {
         
         try {
             init();
+
+            // Before even trying to find or download the bundle, check if it is supposed to be forcibly replaced.
+            // If so, return the replacement (if any).
+            if (suppliedKnownBundleMetadata != null) {
+                if (suppliedKnownBundleMetadata.isNameResolved()) {
+                    Maybe<VersionedName> forcedReplacementBundle = CatalogUpgrades.tryGetBundleForcedReplaced(mgmt(), suppliedKnownBundleMetadata.getVersionedName());
+                    if (forcedReplacementBundle.isPresent()) {
+                        return generateForciblyRemovedResult(suppliedKnownBundleMetadata.getVersionedName(), forcedReplacementBundle);
+                    }
+                } else if (suppliedKnownBundleMetadata.getUrl() != null && suppliedKnownBundleMetadata.getUrl().toLowerCase().startsWith("mvn:")) {
+                    // This inference is not guaranteed to get the right answer - you can put whatever 
+                    // you want in the MANIFEST.MF. Also, the maven-bundle-plugin does some surprising
+                    // transforms, but we take a simpler approach here.
+                    // If folk want it to work for such edge-cases, they should include the 
+                    // name:version explicitly in the `brooklyn.libraries list`.
+                    Optional<VersionedName> inferredName = inferBundleNameFromMvnUrl(suppliedKnownBundleMetadata.getUrl());
+                    if (inferredName.isPresent()) {
+                        Maybe<VersionedName> forcedReplacementBundle = CatalogUpgrades.tryGetBundleForcedReplaced(mgmt(), inferredName.get());
+                        if (forcedReplacementBundle.isPresent()) {
+                            return generateForciblyRemovedResult(inferredName.get(), forcedReplacementBundle);
+                        }
+                    }
+                }
+            }
+            
             makeLocalZipFileFromInputStreamOrUrl();
             if (result.code!=null) return ReferenceWithError.newInstanceWithoutError(result);
             discoverManifestFromCatalogBom(false);
@@ -437,13 +463,19 @@ class OsgiArchiveInstaller {
                 }
             } else {
                 // No such Brooklyn-managed bundle.
-                
+
                 // Check if likely-looking bundle already installed to OSGi subsystem, but brooklyn not aware of it.
                 // This will often happen on a karaf restart where bundle was cached by karaf, so we need to allow it;
                 // can also happen if brooklyn.libraries references an existing bundle.
                 //
                 // If we're not certain that the bundle is identical 
 
+                // First check if this bundle is forcibly removed (and optionally upgraded).
+                // If so, don't install it - return the replacement, if any.
+                Maybe<VersionedName> forcedReplacementBundle = CatalogUpgrades.tryGetBundleForcedReplaced(mgmt(), inferredMetadata.getVersionedName());
+                if (forcedReplacementBundle.isPresent()) {
+                    return generateForciblyRemovedResult(inferredMetadata.getVersionedName(), forcedReplacementBundle);
+                }
                 
                 result.metadata = inferredMetadata;
                 
@@ -699,7 +731,40 @@ class OsgiArchiveInstaller {
             close();
         }
     }
-    
+
+    @VisibleForTesting
+    static Optional<VersionedName> inferBundleNameFromMvnUrl(String url) {
+        // Assumes format 'mvn:<groupId>/<artifactId>/<version>'
+        // e.g. "mvn:io.brooklyn.etcd/brooklyn-etcd/2.7.0"
+        assert url.startsWith("mvn:") : "url="+url;
+        String[] parts = url.substring(4).split("/");
+        if (parts.length != 3) return Optional.absent();
+        if (parts[0].trim().isEmpty() || parts[1].trim().isEmpty() || parts[2].trim().isEmpty()) return Optional.absent();
+        return Optional.of(new VersionedName(parts[0]+"."+parts[1], parts[2]));
+    }
+
+    private ReferenceWithError<OsgiBundleInstallationResult> generateForciblyRemovedResult(VersionedName desiredBundle, Maybe<VersionedName> replacementBundle) {
+        if (replacementBundle.isPresentAndNonNull()) {
+            result.metadata = osgiManager.getManagedBundle(replacementBundle.get());
+            if (result.getMetadata() != null) {
+                result.bundle = osgiManager.framework.getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
+
+                log.debug("Bundle "+inferredMetadata+" forcibly replaced by bundle "+result.getMetadata()
+                        +"; install is no-op");
+                result.setIgnoringForciblyRemoved(inferredMetadata.getVersionedName(), replacementBundle);
+                return ReferenceWithError.newInstanceWithoutError(result);
+            } else {
+                throw new IllegalArgumentException("Bundle "+inferredMetadata+" forcibly replaced by bundle "
+                        +replacementBundle.get()+", but replacement not found");
+            }
+        } else {
+            log.debug("Bundle "+inferredMetadata+" forcibly removed, but no upgrade bundle supplied"
+                    + "; install is no-op");
+            result.setIgnoringForciblyRemoved(inferredMetadata.getVersionedName(), Maybe.absent());
+            return ReferenceWithError.newInstanceWithoutError(result);
+        }
+    }
+
     @VisibleForTesting
     boolean isBlacklistedForPersistence(ManagedBundle managedBundle) {
         // We treat as "managed bundles" (to extract their catalog.bom) the contents of:
