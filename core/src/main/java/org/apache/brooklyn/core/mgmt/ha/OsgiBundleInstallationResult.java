@@ -23,11 +23,11 @@ import java.util.List;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.osgi.framework.Bundle;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 @Beta
@@ -102,10 +102,10 @@ public class OsgiBundleInstallationResult {
         message = "Bundle "+getMetadata().getVersionedName()+" already installed as "+getMetadata().getId();
     }
     
-    void setIgnoringForciblyRemoved(VersionedName requestedBundle, Optional<VersionedName> replacementBundle) {
+    void setIgnoringForciblyRemoved(VersionedName requestedBundle, Maybe<VersionedName> replacementBundle) {
         code = OsgiBundleInstallationResult.ResultCode.IGNORING_BUNDLE_FORCIBLY_REMOVED;
         message = "Bundle "+requestedBundle+" forcibly removed, "
-                +(replacementBundle.isPresent() ? "upgraded to "+replacementBundle.get().getOsgiVersionString() : "no upgrade defined");
+                +(replacementBundle.isPresentAndNonNull() ? "upgraded to "+replacementBundle.get().getOsgiVersionString() : "no upgrade defined");
     }
     
     @Override

@@ -371,7 +371,7 @@ class OsgiArchiveInstaller {
                 if (suppliedKnownBundleMetadata.isNameResolved()) {
                     Maybe<VersionedName> forcedReplacementBundle = CatalogUpgrades.tryGetBundleForcedReplaced(mgmt(), suppliedKnownBundleMetadata.getVersionedName());
                     if (forcedReplacementBundle.isPresent()) {
-                        return generateForciblyRemovedResult(suppliedKnownBundleMetadata.getVersionedName(), Optional.fromNullable(forcedReplacementBundle.get()));
+                        return generateForciblyRemovedResult(suppliedKnownBundleMetadata.getVersionedName(), forcedReplacementBundle);
                     }
                 } else if (suppliedKnownBundleMetadata.getUrl() != null && suppliedKnownBundleMetadata.getUrl().toLowerCase().startsWith("mvn:")) {
                     // This inference is not guaranteed to get the right answer - you can put whatever 
@@ -383,7 +383,7 @@ class OsgiArchiveInstaller {
                     if (inferredName.isPresent()) {
                         Maybe<VersionedName> forcedReplacementBundle = CatalogUpgrades.tryGetBundleForcedReplaced(mgmt(), inferredName.get());
                         if (forcedReplacementBundle.isPresent()) {
-                            return generateForciblyRemovedResult(inferredName.get(), Optional.fromNullable(forcedReplacementBundle.get()));
+                            return generateForciblyRemovedResult(inferredName.get(), forcedReplacementBundle);
                         }
                     }
                 }
@@ -474,7 +474,7 @@ class OsgiArchiveInstaller {
                 // If so, don't install it - return the replacement, if any.
                 Maybe<VersionedName> forcedReplacementBundle = CatalogUpgrades.tryGetBundleForcedReplaced(mgmt(), inferredMetadata.getVersionedName());
                 if (forcedReplacementBundle.isPresent()) {
-                    return generateForciblyRemovedResult(inferredMetadata.getVersionedName(), Optional.fromNullable(forcedReplacementBundle.get()));
+                    return generateForciblyRemovedResult(inferredMetadata.getVersionedName(), forcedReplacementBundle);
                 }
                 
                 result.metadata = inferredMetadata;
@@ -743,8 +743,8 @@ class OsgiArchiveInstaller {
         return Optional.of(new VersionedName(parts[0]+"."+parts[1], parts[2]));
     }
 
-    private ReferenceWithError<OsgiBundleInstallationResult> generateForciblyRemovedResult(VersionedName desiredBundle, Optional<VersionedName> replacementBundle) {
-        if (replacementBundle.isPresent()) {
+    private ReferenceWithError<OsgiBundleInstallationResult> generateForciblyRemovedResult(VersionedName desiredBundle, Maybe<VersionedName> replacementBundle) {
+        if (replacementBundle.isPresentAndNonNull()) {
             result.metadata = osgiManager.getManagedBundle(replacementBundle.get());
             if (result.getMetadata() != null) {
                 result.bundle = osgiManager.framework.getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
@@ -760,7 +760,7 @@ class OsgiArchiveInstaller {
         } else {
             log.debug("Bundle "+inferredMetadata+" forcibly removed, but no upgrade bundle supplied"
                     + "; install is no-op");
-            result.setIgnoringForciblyRemoved(inferredMetadata.getVersionedName(), Optional.absent());
+            result.setIgnoringForciblyRemoved(inferredMetadata.getVersionedName(), Maybe.absent());
             return ReferenceWithError.newInstanceWithoutError(result);
         }
     }
