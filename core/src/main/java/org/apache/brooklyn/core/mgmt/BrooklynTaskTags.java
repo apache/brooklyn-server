@@ -331,12 +331,13 @@ public class BrooklynTaskTags extends TaskTags {
         return new WrappedStream(streamType, stream);
     }
     /** creates a tag suitable for marking a stream available on a task, but which might be GC'd */
+    // TODO only make it soft if/when stream exceeds a given size eg 1kb ?
     public static WrappedStream tagForStreamSoft(String streamType, ByteArrayOutputStream stream) {
         MemoryUsageTracker.SOFT_REFERENCES.track(stream, stream.size());
-        Maybe<ByteArrayOutputStream> weakStream = Maybe.softThen(stream, STREAM_GARBAGE_COLLECTED_MAYBE);
+        Maybe<ByteArrayOutputStream> softStream = Maybe.softThen(stream, STREAM_GARBAGE_COLLECTED_MAYBE);
         return new WrappedStream(streamType,
-            Suppliers.compose(Functions.toStringFunction(), weakStream),
-            Suppliers.compose(Streams.sizeFunction(), weakStream));
+            Suppliers.compose(Functions.toStringFunction(), softStream),
+            Suppliers.compose(Streams.sizeFunction(), softStream));
     }
 
     /** creates a tag suitable for marking a stream available on a task */
@@ -353,6 +354,7 @@ public class BrooklynTaskTags extends TaskTags {
             sb.append(kv.getKey()+"=" +
                 (val!=null ? BashStringEscapes.wrapBash(val.toString()) : "") + "\n");
         }
+        // TODO also make soft - this is often larger than the streams themselves
         return BrooklynTaskTags.tagForStream(BrooklynTaskTags.STREAM_ENV, Streams.byteArrayOfString(sb.toString()));
     }
 
