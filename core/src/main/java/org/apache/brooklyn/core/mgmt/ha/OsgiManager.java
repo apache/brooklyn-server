@@ -472,17 +472,17 @@ public class OsgiManager {
             }
             
             if (!leaveInOsgi) {
-                Bundle bundle = framework.getBundleContext().getBundle(bundleMetadata.getOsgiUniqueUrl());
-                result.bundle = bundle;
-                if (bundle==null) {
+                Maybe<Bundle> bundle = findBundle(bundleMetadata);
+                result.bundle = bundle.orNull();
+                if (bundle.isAbsent()) {
                     Exception e = new IllegalStateException("No such bundle installed in OSGi when uninstalling: "+bundleMetadata);
                     if (!force) Exceptions.propagate(e);
                     log.warn(e.getMessage());
                     errors.add(e);
                 } else {
                     try {
-                        bundle.stop();
-                        bundle.uninstall();
+                        bundle.get().stop();
+                        bundle.get().uninstall();
                     } catch (BundleException e) {
                         Exceptions.propagateIfFatal(e);
                         if (!force) Exceptions.propagate(e);
@@ -686,6 +686,16 @@ public class OsgiManager {
         }
     }
 
+    protected Maybe<Bundle> findBundle(ManagedBundle managedBundle) {
+        if (managedBundle.getOsgiUniqueUrl() != null) {
+            Bundle bundle = framework.getBundleContext().getBundle(managedBundle.getOsgiUniqueUrl());
+            if (bundle != null) {
+                return Maybe.of(bundle);
+            }
+        }
+        return findBundle((OsgiBundleWithUrl)managedBundle);
+    }
+    
     public Maybe<Bundle> findBundle(OsgiBundleWithUrl catalogBundle) {
         // Prefer OSGi Location as URL or the managed bundle recorded URL,
         // not bothering to check name:version if supplied here (eg to forgive snapshot version discrepancies);
