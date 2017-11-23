@@ -19,8 +19,6 @@
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Map;
 
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 
@@ -40,16 +38,6 @@ public class DslUtils {
             if (arg instanceof DeferredSupplier<?>) {
                 allResolved = false;
                 break;
-            } else if (arg instanceof Collection) {
-                if (!resolved((Collection<?>)arg)) {
-                    allResolved = false;
-                    break;
-                }
-            } else if (arg instanceof Map) {
-                if (!(resolved(((Map<?,?>)arg).keySet()) && resolved(((Map<?,?>)arg).values()))) {
-                    allResolved = false;
-                    break;
-                }
             }
         }
         return allResolved;

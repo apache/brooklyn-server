@@ -476,7 +476,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testFieldOfTypeListAsDeferredSuppliers() throws Exception {
+    public void testFieldOfTypeListAsDeferredSuppliersExplicitlyDeferred() throws Exception {
         {
             // Using explicit `deferred: true`
             Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
@@ -494,6 +494,11 @@ public class ObjectsYamlTest extends AbstractYamlTest {
             TestObject testObject = (TestObject) testEntity.getConfig(TestEntity.CONF_OBJECT);
             Assert.assertEquals(testObject.getList(), ImmutableList.of("myval"));
         }
+    }
+    
+    // TODO See https://issues.apache.org/jira/browse/BROOKLYN-565
+    @Test(groups="Broken")
+    public void testFieldOfTypeListAsDeferredSuppliers() throws Exception {
         {
             // See https://issues.apache.org/jira/browse/BROOKLYN-565
             // should defer evaluation automatically, and resolve config in `getConfig()`
