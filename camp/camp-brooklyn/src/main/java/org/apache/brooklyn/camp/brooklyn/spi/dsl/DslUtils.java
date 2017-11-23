@@ -18,27 +18,40 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
-import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Map;
 
-import com.google.common.collect.Iterables;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 
 public class DslUtils {
 
     /** true iff none of the args are deferred / tasks */
-    public static boolean resolved(Iterable<Object> args) {
-        return resolved(Iterables.toArray(args, Object.class));
-    }
-
-    /** true iff none of the args are deferred / tasks */
     public static boolean resolved(final Object... args) {
+        if (args == null) return true;
+        return resolved(Arrays.asList(args));
+    }
+    
+    /** true iff none of the args are deferred / tasks */
+    public static boolean resolved(Iterable<?> args) {
+        if (args == null) return true;
         boolean allResolved = true;
         for (Object arg: args) {
             if (arg instanceof DeferredSupplier<?>) {
                 allResolved = false;
                 break;
+            } else if (arg instanceof Collection) {
+                if (!resolved((Collection<?>)arg)) {
+                    allResolved = false;
+                    break;
+                }
+            } else if (arg instanceof Map) {
+                if (!(resolved(((Map<?,?>)arg).keySet()) && resolved(((Map<?,?>)arg).values()))) {
+                    allResolved = false;
+                    break;
+                }
             }
         }
         return allResolved;
     }
-
 }
