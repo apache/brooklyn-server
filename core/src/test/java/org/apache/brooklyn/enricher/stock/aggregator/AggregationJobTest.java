@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -48,10 +49,11 @@ public class AggregationJobTest {
 
     AggregationJob aggregationJob;
 
-    LocalManagementContext localManagementContext = LocalManagementContextForTests.newInstance();
+    LocalManagementContext localManagementContext;
 
     @BeforeMethod
     public void testSetup() {
+        localManagementContext = LocalManagementContextForTests.newInstance();
         testApplication = TestApplication.Factory.newManagedInstanceForTests(localManagementContext);
 
         parentEntity = testApplication.createAndManageChild(EntitySpec.create(TestEntity.class));
@@ -59,6 +61,11 @@ public class AggregationJobTest {
         childEntityTwo = parentEntity.createAndManageChild(EntitySpec.create(TestEntity.class));
 
         aggregationJob = new AggregationJob(parentEntity);
+    }
+
+    @AfterMethod
+    public void testTeardown(){
+        localManagementContext.terminate();
     }
 
     @Test
