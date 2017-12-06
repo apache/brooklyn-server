@@ -81,6 +81,16 @@ public class DynamicTasks {
         taskQueueingContext.remove();
     }
 
+    /** Convenience for {@link TaskBuilder#of(String, Runnable)} creating a {@link DynamicSequentialTask} instance.
+     * See also {@link Tasks#of(String, Runnable)}. */
+    public static Task<Void> of(String name, Runnable body) {
+        return TaskBuilder.of(name, body).dynamic(true).build();
+    }
+    /** As {@link #of(String, Runnable)} where the task returns a result. */
+    public static <T> Task<T> of(String name, Callable<T> body) {
+        return TaskBuilder.of(name, body).dynamic(true).build();
+    }
+
     public static class TaskQueueingResult<T> implements TaskWrapper<T> {
         private final Task<T> task;
         private final boolean wasQueued;

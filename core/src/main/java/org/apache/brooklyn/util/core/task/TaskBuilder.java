@@ -52,6 +52,20 @@ public class TaskBuilder<T> {
         return new TaskBuilder<T>();
     }
 
+    /** Convenience to create a new {@link TaskBuilder} with the given name and body. 
+     * Caller may then set {@link #build()} or {@link #buildFactory()},
+     * optionally first setting a {@link #description(String)}, 
+     * turning off {@link #dynamic(boolean)},
+     * adding {@link #tag(Object)}s,
+     * or listing children to {@link #add(TaskAdaptable)}. */
+    public static TaskBuilder<Void> of(String name, Runnable body) {
+        return TaskBuilder.<Void>builder().displayName(name).body(body);
+    }
+    /** As {@link #of(String, Runnable)} where the task returns a result. */ 
+    public static <T> TaskBuilder<T> of(String name, Callable<T> body) {
+        return TaskBuilder.<T>builder().displayName(name).body(body);
+    }
+
     public TaskBuilder<T> displayName(String displayName) {
         this.displayName = displayName;
         return this;

@@ -194,6 +194,16 @@ public class Tasks {
     public static <T> TaskBuilder<T> builder() {
         return TaskBuilder.<T>builder();
     }
+
+    /** Convenience for {@link TaskBuilder#of(String, Runnable)} for basic tasks.
+     * See also {@link DynamicTasks#of(String, Runnable)}. */
+    public static Task<Void> of(String name, Runnable body) {
+        return TaskBuilder.of(name, body).dynamic(false).build();
+    }
+    /** As {@link #of(String, Runnable)} where the task returns a result. */
+    public static <T> Task<T> of(String name, Callable<T> body) {
+        return TaskBuilder.of(name, body).dynamic(false).build();
+    }
     
     private static Task<?>[] asTasks(TaskAdaptable<?> ...tasks) {
         Task<?>[] result = new Task<?>[tasks.length];
