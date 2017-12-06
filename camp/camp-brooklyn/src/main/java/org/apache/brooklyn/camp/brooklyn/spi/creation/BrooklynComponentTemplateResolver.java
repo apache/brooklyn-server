@@ -509,13 +509,11 @@ public class BrooklynComponentTemplateResolver {
                 this.flag = flag;
             }
             @Override public EntitySpec<?> get() {
-                EntitySpecConfiguration specConfig = new EntitySpecConfiguration(flag.getSpecConfiguration());
                 // TODO: This should called from BrooklynAssemblyTemplateInstantiator.configureEntityConfig
                 // And have transformSpecialFlags(Object flag, ManagementContext mgmt) drill into the Object flag if it's a map or iterable?
                 @SuppressWarnings("unchecked")
-                Map<String, Object> resolvedConfig = (Map<String, Object>)transformSpecialFlags(specConfig.getSpecConfiguration());
-                specConfig.setSpecConfiguration(resolvedConfig);
-                EntitySpec<?> entitySpec = Factory.newInstance(getLoader(), specConfig.getSpecConfiguration()).resolveSpec(encounteredRegisteredTypeIds);
+                Map<String, Object> resolvedConfig = (Map<String, Object>)transformSpecialFlags(flag.getSpecConfiguration());
+                EntitySpec<?> entitySpec = Factory.newInstance(getLoader(), resolvedConfig).resolveSpec(encounteredRegisteredTypeIds);
 
                 return EntityManagementUtils.unwrapEntity(entitySpec);
             }
