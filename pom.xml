@@ -101,7 +101,7 @@
         <surefire.failIfNoSpecifiedTests>false</surefire.failIfNoSpecifiedTests>
 
         <!-- Dependency Versions -->
-        <jclouds.version>2.0.2</jclouds.version> <!-- JCLOUDS_VERSION -->
+        <jclouds.version>2.0.3</jclouds.version> <!-- JCLOUDS_VERSION -->
         <logback.version>1.0.7</logback.version>
         <slf4j.version>1.6.6</slf4j.version>  <!-- used for java.util.logging jul-to-slf4j interception -->
         <!-- Must match jclouds' version. From jclouds 1.9.3+ can be any version in the range [16-20) -->

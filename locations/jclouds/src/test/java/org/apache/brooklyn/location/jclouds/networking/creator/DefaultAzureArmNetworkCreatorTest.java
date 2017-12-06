@@ -144,7 +144,7 @@ public class DefaultAzureArmNetworkCreatorTest {
         verify(resourceGroupApi).get(TEST_RESOURCE_GROUP);
         verify(resourceGroupApi).create(eq(TEST_RESOURCE_GROUP), eq(TEST_LOCATION), any());
 
-        verify(virtualNetworkApi).createOrUpdate(eq(TEST_NETWORK_NAME), eq(TEST_LOCATION), any());
+        verify(virtualNetworkApi).createOrUpdate(eq(TEST_NETWORK_NAME), eq(TEST_LOCATION), any(), any());
 
         //verify templateOptions updated to include defaults
         Map<String, Object> templateOptions = configBag.get(TEMPLATE_OPTIONS);
@@ -176,7 +176,7 @@ public class DefaultAzureArmNetworkCreatorTest {
         verify(resourceGroupApi).get(TEST_RESOURCE_GROUP);
         verify(resourceGroupApi, never()).create(any(), any(), any());
 
-        verify(virtualNetworkApi).createOrUpdate(eq(TEST_NETWORK_NAME), eq(TEST_LOCATION), any());
+        verify(virtualNetworkApi).createOrUpdate(eq(TEST_NETWORK_NAME), eq(TEST_LOCATION), any(), any());
 
         //verify templateOptions updated to include defaults
         Map<String, Object> templateOptions = configBag.get(TEMPLATE_OPTIONS);
@@ -210,7 +210,7 @@ public class DefaultAzureArmNetworkCreatorTest {
         verify(resourceGroupApi).get(TEST_RESOURCE_GROUP);
         verify(resourceGroupApi, never()).create(any(), any(), any());
 
-        verify(virtualNetworkApi, never()).createOrUpdate(any(), any(), any());
+        verify(virtualNetworkApi, never()).createOrUpdate(any(), any(), any(), any());
 
         //verify templateOptions updated to include defaults
         Map<String, Object> templateOptions = configBag.get(TEMPLATE_OPTIONS);
