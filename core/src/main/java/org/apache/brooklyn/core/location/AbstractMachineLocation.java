@@ -26,6 +26,8 @@ import org.apache.brooklyn.api.location.OsDetails;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.mutex.MutexSupport;
+import org.apache.brooklyn.util.core.mutex.WithMutexes;
 
 import com.google.common.base.Optional;
 
@@ -45,6 +47,9 @@ public abstract class AbstractMachineLocation extends AbstractLocation implement
 
     private volatile MachineDetails machineDetails;
     private final Object machineDetailsLock = new Object();
+
+    private transient WithMutexes mutexSupport;
+    private transient final Object mutexSupportCreationLock = new Object();
 
 
     public AbstractMachineLocation() {
@@ -87,5 +92,15 @@ public abstract class AbstractMachineLocation extends AbstractLocation implement
     }
 
     protected abstract MachineDetails detectMachineDetails();
+
+    public WithMutexes mutexes() {
+        synchronized (mutexSupportCreationLock) {
+            // create on demand so that it is not null after serialization
+            if (mutexSupport == null) {
+                mutexSupport = new MutexSupport();
+            }
+            return mutexSupport;
+        }
+    }
 
 }

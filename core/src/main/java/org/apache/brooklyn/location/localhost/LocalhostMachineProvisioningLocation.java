@@ -113,7 +113,7 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
      * @see #LocalhostMachineProvisioningLocation()
      */
     @Deprecated
-    public LocalhostMachineProvisioningLocation(Map properties) {
+    public LocalhostMachineProvisioningLocation(Map<?,?> properties) {
         super(properties);
     }
     public LocalhostMachineProvisioningLocation(String name) {
@@ -269,7 +269,7 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
                 true);
 
         private static final WithMutexes mutexSupport = new MutexSupport();
-        
+
         private final Set<Integer> portsObtained = Sets.newLinkedHashSet();
 
         public LocalhostMachine() {
@@ -277,15 +277,15 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
         }
         /** @deprecated since 0.6.0 use no-arg constructor (and spec) then configure */
         @Deprecated
-        public LocalhostMachine(Map properties) {
-            super(MutableMap.builder().putAll(properties).put("mutexSupport", mutexSupport).build());
+        public LocalhostMachine(Map<?,?> properties) {
+            super(MutableMap.builder().putAll(properties).build());
         }
-        
+
         @Override
-        protected WithMutexes getMutexSupport() {
+        public WithMutexes mutexes() {
             return mutexSupport;
         }
-        
+
         @Override
         public boolean obtainSpecificPort(int portNumber) {
             if (!isSudoAllowed() && portNumber <= 1024)

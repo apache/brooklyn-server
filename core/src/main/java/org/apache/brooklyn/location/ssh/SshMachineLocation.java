@@ -79,7 +79,6 @@ import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshException;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
-import org.apache.brooklyn.util.core.mutex.MutexSupport;
 import org.apache.brooklyn.util.core.mutex.WithMutexes;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -166,6 +165,7 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
      */
     public static final String SSH_TOOL_CLASS_PROPERTIES_PREFIX = SSH_TOOL_CLASS.getName()+".";
 
+
     public static final ConfigKey<Duration> SSH_CACHE_EXPIRY_DURATION = ConfigKeys.newConfigKey(Duration.class,
             "sshCacheExpiryDuration", "Expiry time for unused cached ssh connections", Duration.FIVE_MINUTES);
 
@@ -188,12 +188,6 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
 
     @SetFromFlag(nullable = false)
     protected InetAddress address;
-
-    // TODO should not allow this to be set from flag; it is not persisted so that will be lost
-    // (mainly used for localhost currently so not a big problem)
-    @Nullable  // lazily initialized; use getMutexSupport()
-    @SetFromFlag
-    private transient WithMutexes mutexSupport;
 
     @SetFromFlag
     private Set<Integer> usedPorts;
@@ -419,17 +413,6 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
             }
         }
         return this;
-    }
-    
-    private transient final Object mutexSupportCreationLock = new Object();
-    protected WithMutexes getMutexSupport() {
-        synchronized (mutexSupportCreationLock) {
-            // create on demand so that it is not null after serialization
-            if (mutexSupport == null) {
-                mutexSupport = new MutexSupport();
-            }
-            return mutexSupport;
-        }
     }
     
     protected void addSshPoolCacheCleanupTask() {
@@ -1009,30 +992,6 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
         }
     }
 
-    @Override
-    public void acquireMutex(String mutexId, String description) throws RuntimeInterruptedException {
-        try {
-            getMutexSupport().acquireMutex(mutexId, description);
-        } catch (InterruptedException ie) {
-            throw new RuntimeInterruptedException("Interrupted waiting for mutex: " + mutexId, ie);
-        }
-    }
-
-    @Override
-    public boolean tryAcquireMutex(String mutexId, String description) {
-        return getMutexSupport().tryAcquireMutex(mutexId, description);
-    }
-
-    @Override
-    public void releaseMutex(String mutexId) {
-        getMutexSupport().releaseMutex(mutexId);
-    }
-
-    @Override
-    public boolean hasMutex(String mutexId) {
-        return getMutexSupport().hasMutex(mutexId);
-    }
-
     //We want the SshMachineLocation to be serializable and therefore the pool needs to be dealt with correctly.
     //In this case we are not serializing the pool (we made the field transient) and create a new pool when deserialized.
     //This fix is currently needed for experiments, but isn't used in normal Brooklyn usage.
@@ -1055,6 +1014,38 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
     /** returns the password being used to log in, if a password is being used, or else null */
     public String findPassword() {
         return getConfig(SshTool.PROP_PASSWORD);
+    }
+
+    /** @deprecated since 1.0.0; mutex-related methods are now accessible via {@link #mutexes()} */
+    @Override
+    @Deprecated
+    public void acquireMutex(String mutexId, String description) throws RuntimeInterruptedException {
+        try {
+            mutexes().acquireMutex(mutexId, description);
+        } catch (InterruptedException ie) {
+            throw new RuntimeInterruptedException("Interrupted waiting for mutex: " + mutexId, ie);
+        }
+    }
+
+    /** @deprecated since 1.0.0; mutex-related methods are now accessible via {@link #mutexes()} */
+    @Override
+    @Deprecated
+    public boolean tryAcquireMutex(String mutexId, String description) {
+        return mutexes().tryAcquireMutex(mutexId, description);
+    }
+
+    /** @deprecated since 1.0.0; mutex-related methods are now accessible via {@link #mutexes()} */
+    @Override
+    @Deprecated
+    public void releaseMutex(String mutexId) {
+        mutexes().releaseMutex(mutexId);
+    }
+
+    /** @deprecated since 1.0.0; mutex-related methods are now accessible via {@link #mutexes()} */
+    @Override
+    @Deprecated
+    public boolean hasMutex(String mutexId) {
+        return mutexes().hasMutex(mutexId);
     }
 
 }
