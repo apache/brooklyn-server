@@ -59,8 +59,8 @@ import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.BasicHardwareDetails;
+import org.apache.brooklyn.core.location.AbstractMachineLocation;
 import org.apache.brooklyn.core.location.BasicMachineDetails;
 import org.apache.brooklyn.core.location.BasicOsDetails;
 import org.apache.brooklyn.core.location.LocationConfigUtils;
@@ -137,7 +137,7 @@ import groovy.lang.Closure;
  * Additionally there are routines to copyTo, copyFrom; and installTo (which tries a curl, and falls back to copyTo
  * in event the source is accessible by the caller only).
  */
-public class SshMachineLocation extends AbstractLocation implements MachineLocation, PortSupplier, WithMutexes, Closeable {
+public class SshMachineLocation extends AbstractMachineLocation implements MachineLocation, PortSupplier, WithMutexes, Closeable {
 
     private static final Logger LOG = LoggerFactory.getLogger(SshMachineLocation.class);
     private static final Logger logSsh = LoggerFactory.getLogger(BrooklynLogging.SSH_IO);
