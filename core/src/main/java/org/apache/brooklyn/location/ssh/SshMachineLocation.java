@@ -83,7 +83,6 @@ import org.apache.brooklyn.util.core.mutex.WithMutexes;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.system.internal.ExecWithLoggingHelpers;
-import org.apache.brooklyn.util.core.task.system.internal.ExecWithLoggingHelpers.ExecRunner;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.KeyTransformingLoadingCache.KeyTransformingSameTypeLoadingCache;
@@ -119,8 +118,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.net.HostAndPort;
 import com.google.common.reflect.TypeToken;
-
-import groovy.lang.Closure;
 
 /**
  * Operations on a machine that is accessible via ssh.
@@ -269,7 +266,7 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
         this(MutableMap.of());
     }
 
-    public SshMachineLocation(Map properties) {
+    public SshMachineLocation(Map<?,?> properties) {
         super(properties);
         usedPorts = (usedPorts != null) ? Sets.newLinkedHashSet(usedPorts) : Sets.<Integer>newLinkedHashSet();
     }
@@ -574,7 +571,7 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
     }
 
     protected boolean previouslyConnected = false;
-    protected SshTool connectSsh(Map props) {
+    protected SshTool connectSsh(Map<?,?> props) {
         try {
             if (!groovyTruth(user)) {
                 String newUser = getUser();
