@@ -46,7 +46,6 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.location.MachineDetails;
 import org.apache.brooklyn.api.location.MachineLocation;
-import org.apache.brooklyn.api.location.OsDetails;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.location.PortSupplier;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -59,10 +58,8 @@ import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.location.BasicHardwareDetails;
 import org.apache.brooklyn.core.location.AbstractMachineLocation;
 import org.apache.brooklyn.core.location.BasicMachineDetails;
-import org.apache.brooklyn.core.location.BasicOsDetails;
 import org.apache.brooklyn.core.location.LocationConfigUtils;
 import org.apache.brooklyn.core.location.LocationConfigUtils.OsCredential;
 import org.apache.brooklyn.core.location.PortRanges;
@@ -106,7 +103,6 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
@@ -173,13 +169,6 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
     public static final ConfigKey<Duration> SSH_CACHE_EXPIRY_DURATION = ConfigKeys.newConfigKey(Duration.class,
             "sshCacheExpiryDuration", "Expiry time for unused cached ssh connections", Duration.FIVE_MINUTES);
 
-    public static final ConfigKey<MachineDetails> MACHINE_DETAILS = ConfigKeys.newConfigKey(
-            MachineDetails.class,
-            "machineDetails");
-
-    public static final ConfigKey<Boolean> DETECT_MACHINE_DETAILS = ConfigKeys.newBooleanConfigKey("detectMachineDetails",
-            "Attempt to detect machine details automatically. Works with SSH-accessible Linux instances.", true);
-
     @SuppressWarnings("serial")
     public static final ConfigKey<Iterable<String>> PRIVATE_ADDRESSES = ConfigKeys.newConfigKey(
             new TypeToken<Iterable<String>>() {},
@@ -208,9 +197,6 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
 
     @SetFromFlag
     private Set<Integer> usedPorts;
-
-    private volatile MachineDetails machineDetails;
-    private final Object machineDetailsLock = new Object();
 
     public static final ConfigKey<String> SSH_HOST = BrooklynConfigKeys.SSH_CONFIG_HOST;
     public static final ConfigKey<Integer> SSH_PORT = BrooklynConfigKeys.SSH_CONFIG_PORT;
@@ -1014,40 +1000,7 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
     }
 
     @Override
-    public OsDetails getOsDetails() {
-        return getMachineDetails().getOsDetails();
-    }
-
-    /**
-     * Returns the machine details only if they are already loaded, or available directly as 
-     * config.
-     */
-    protected Optional<MachineDetails> getOptionalMachineDetails() {
-        MachineDetails result = machineDetails != null ? machineDetails : config().get(MACHINE_DETAILS);
-        return Optional.fromNullable(result);
-    }
-    
-    @Override
-    public MachineDetails getMachineDetails() {
-        synchronized (machineDetailsLock) {
-            if (machineDetails == null) {
-                machineDetails = getConfig(MACHINE_DETAILS);
-            }
-            if (machineDetails == null) {
-                machineDetails = inferMachineDetails();
-            }
-        }
-        return machineDetails;
-    }
-
-    protected MachineDetails inferMachineDetails() {
-        boolean detectionEnabled = getConfig(DETECT_MACHINE_DETAILS);
-        if (!detectionEnabled) {
-            return new BasicMachineDetails(new BasicHardwareDetails(-1, -1), new BasicOsDetails("UNKNOWN", "UNKNOWN", "UNKNOWN"));
-        } else if (!isManaged()) {
-            return new BasicMachineDetails(new BasicHardwareDetails(-1, -1), new BasicOsDetails("UNKNOWN", "UNKNOWN", "UNKNOWN"));
-        }
-        
+    protected MachineDetails detectMachineDetails() {
         Tasks.setBlockingDetails("Waiting for machine details");
         try {
             return BasicMachineDetails.forSshMachineLocationLive(this);

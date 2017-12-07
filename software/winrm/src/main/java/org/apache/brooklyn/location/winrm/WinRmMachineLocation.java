@@ -191,7 +191,13 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
             }
         }
     }
-    
+
+    @Override
+    protected MachineDetails detectMachineDetails() {
+        // TODO: detect actual machine details via winRM
+        return UNKNOWN_MACHINE_DETAILS;
+    }
+
     public String getUser() {
         return config().get(USER);
     }

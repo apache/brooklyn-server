@@ -20,10 +20,32 @@ package org.apache.brooklyn.core.location;
 
 import java.util.Map;
 
+import org.apache.brooklyn.api.location.MachineDetails;
 import org.apache.brooklyn.api.location.MachineLocation;
+import org.apache.brooklyn.api.location.OsDetails;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.collections.MutableMap;
 
+import com.google.common.base.Optional;
+
 public abstract class AbstractMachineLocation extends AbstractLocation implements MachineLocation {
+
+    public static final ConfigKey<MachineDetails> MACHINE_DETAILS = ConfigKeys.newConfigKey(
+            MachineDetails.class,
+            "machineDetails");
+
+    public static final ConfigKey<Boolean> DETECT_MACHINE_DETAILS = ConfigKeys.newBooleanConfigKey("detectMachineDetails",
+            "Attempt to detect machine details automatically.", true);
+
+    protected static final MachineDetails UNKNOWN_MACHINE_DETAILS = new BasicMachineDetails(
+            new BasicHardwareDetails(-1, -1),
+            new BasicOsDetails("UNKNOWN", "UNKNOWN", "UNKNOWN")
+    );
+
+    private volatile MachineDetails machineDetails;
+    private final Object machineDetailsLock = new Object();
+
 
     public AbstractMachineLocation() {
         this(MutableMap.of());
@@ -32,5 +54,38 @@ public abstract class AbstractMachineLocation extends AbstractLocation implement
     public AbstractMachineLocation(Map<?,?> properties) {
         super(properties);
     }
+
+    /**
+     * Returns the machine details only if they are already loaded, or available directly as
+     * config.
+     */
+    protected Optional<MachineDetails> getOptionalMachineDetails() {
+        MachineDetails result = machineDetails != null ? machineDetails : config().get(MACHINE_DETAILS);
+        return Optional.fromNullable(result);
+    }
+
+    @Override
+    public MachineDetails getMachineDetails() {
+        synchronized (machineDetailsLock) {
+            if (machineDetails == null) {
+                machineDetails = getConfig(MACHINE_DETAILS);
+            }
+            if (machineDetails == null) {
+                boolean detectionEnabled = getConfig(DETECT_MACHINE_DETAILS);
+                if (!detectionEnabled || !isManaged()) {
+                    return UNKNOWN_MACHINE_DETAILS;
+                }
+                machineDetails = detectMachineDetails();
+            }
+            return machineDetails;
+        }
+    }
+
+    @Override
+    public OsDetails getOsDetails() {
+        return getMachineDetails().getOsDetails();
+    }
+
+    protected abstract MachineDetails detectMachineDetails();
 
 }
