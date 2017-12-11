@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.javalang.coerce;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -485,6 +486,13 @@ public class TypeCoercionsTest {
     }
 
     @Test
+    public void testCoerceToSameTypeIsNoop() {
+        assertCoerceToSame(Integer.valueOf(1), Integer.class);
+        assertCoerceToSame(Integer.valueOf(1), Number.class);
+        assertCoerceToSame("myval", String.class);
+    }
+
+    @Test
     public void testCoerceStringToPredicate() {
         assertEquals(coerce("alwaysFalse", Predicate.class), Predicates.alwaysFalse());
         assertEquals(coerce("alwaysTrue", Predicate.class), Predicates.alwaysTrue());
@@ -509,6 +517,10 @@ public class TypeCoercionsTest {
         assertEquals(coercer.function(Double.class).apply("1"), Double.valueOf(1));
     }
 
+    private <T> void assertCoerceToSame(T val, Class<? super T> type) {
+        assertSame(coerce(val, type), val);
+    }
+    
     public static class WithAs {
         String value;
         public WithAs(Object x) { value = ""+x; }

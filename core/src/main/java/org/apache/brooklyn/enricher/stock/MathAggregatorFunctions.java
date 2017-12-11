@@ -25,6 +25,9 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
@@ -32,6 +35,8 @@ import com.google.common.reflect.TypeToken;
 
 @Beta
 public class MathAggregatorFunctions {
+
+    private static final Logger LOG = LoggerFactory.getLogger(MathAggregatorFunctions.class);
 
     private MathAggregatorFunctions() {}
     
@@ -118,9 +123,10 @@ public class MathAggregatorFunctions {
             List<Number> postProcessedVals = new ArrayList<>();
             int count = 0;
             if (vals != null) {
-                for (Number val : vals) { 
-                    if (val != null) {
-                        postProcessedVals.add(val);
+                for (Object val : vals) {
+                    Maybe<Number> coercedVal = TypeCoercions.tryCoerce(val, Number.class);
+                    if (coercedVal.isPresentAndNonNull()) {
+                        postProcessedVals.add(coercedVal.get());
                         count++;
                     } else if (defaultValueForUnreportedSensors != null) {
                         postProcessedVals.add(defaultValueForUnreportedSensors);
@@ -145,7 +151,7 @@ public class MathAggregatorFunctions {
         @Override
         public Number applyImpl(Collection<Number> vals) {
             double result = 0d;
-            for (Number val : vals) { 
+            for (Number val : vals) {
                 result += val.doubleValue();
             }
             return result;
@@ -160,7 +166,7 @@ public class MathAggregatorFunctions {
         @Override
         public Number applyImpl(Collection<Number> vals) {
             double sum = 0d;
-            for (Number val : vals) { 
+            for (Number val : vals) {
                 sum += val.doubleValue();
             }
             return (sum / vals.size());

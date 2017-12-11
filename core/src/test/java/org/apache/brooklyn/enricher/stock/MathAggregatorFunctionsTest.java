@@ -88,6 +88,16 @@ public class MathAggregatorFunctionsTest {
         }
     }
     
+    // See https://issues.apache.org/jira/browse/BROOKLYN-569
+    // Casting like this can be required when used in aggregators - the input sensors may not have been cast.
+    @Test
+    public void testCastInputValuesToNumbers() throws Exception {
+        Function<Collection<? extends Number>, Integer> func = MathAggregatorFunctions.computingSum(null, null, Integer.class);
+        @SuppressWarnings({ "rawtypes", "unchecked" })
+        List<Number> input = (List<Number>) (List) MutableList.<Object>of("1", null, "4");
+        assertEquals(func.apply(input), (Integer)5);
+    }
+    
     @Test
     public void testSum() throws Exception {
         Function<Collection<? extends Number>, Integer> func = MathAggregatorFunctions.computingSum(null, null, Integer.class);
