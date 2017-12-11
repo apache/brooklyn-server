@@ -16,6 +16,7 @@
 package org.apache.brooklyn.util.core.json;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.util.time.Duration;
 
 import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,6 +42,7 @@ public class BrooklynObjectsJsonMapper {
         new BidiSerialization.TaskSerialization(mgmt).install(mapperModule);
         new BidiSerialization.ClassLoaderSerialization(mgmt).install(mapperModule);
 
+        mapperModule.addSerializer(Duration.class, new DurationSerializer());
         mapperModule.addSerializer(new MultimapSerializer());
         mapper.registerModule(mapperModule);
         return mapper;

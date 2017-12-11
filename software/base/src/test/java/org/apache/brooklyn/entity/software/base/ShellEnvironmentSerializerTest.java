@@ -21,6 +21,7 @@ import java.util.Date;
 
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
+import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -42,7 +43,7 @@ public class ShellEnvironmentSerializerTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testSerialize() {
         String str = "some string \" with ' special; characters {}[]";
-        Date dt = new Date();
+        Date date = new Date();
         String appExpected = "{\"type\":\"org.apache.brooklyn.api.entity.Entity\",\"id\":\"" + app.getId() + "\"}";
         assertSerialize(str, str);
         assertSerialize(3.14, "3.14");
@@ -51,7 +52,8 @@ public class ShellEnvironmentSerializerTest extends BrooklynAppUnitTestSupport {
         assertSerialize(0.140, "0.14");
         assertSerialize(Boolean.TRUE, "true");
         assertSerialize(Boolean.FALSE, "false");
-        assertSerialize(dt, Long.toString(dt.getTime()));
+        assertSerialize(date, Long.toString(date.getTime()));
+        assertSerialize(Duration.FIVE_MINUTES, "5m");
         assertSerialize(null, null);
         assertSerialize(ImmutableList.of(str, 3.14, 0.14));
         assertSerialize(ImmutableMap.of("string", str, "num1", 3.14, "num2", 0.14));

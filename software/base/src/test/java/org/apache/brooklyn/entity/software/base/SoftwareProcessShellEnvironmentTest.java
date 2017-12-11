@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
@@ -40,15 +41,18 @@ public class SoftwareProcessShellEnvironmentTest extends BrooklynAppUnitTestSupp
         VanillaSoftwareProcess entity = app.createAndManageChild(EntitySpec.create(VanillaSoftwareProcess.class));
         Date dt = new Date();
         Integer someInt = 12;
+        Duration someDuration = Duration.FIVE_MINUTES;
         String someString = "simple string";
         String specialString = "some \"\\\" escaped string ' ; to\" [] {}";
         entity.config().set(VanillaSoftwareProcess.SHELL_ENVIRONMENT, ImmutableMap.<String, Object>builder()
                 .put("some_int", someInt)
+                .put("some_duration", someDuration.toString())
                 .put("some_string", someString)
                 .put("some_boolean", Boolean.TRUE)
                 .put("some_map", ImmutableMap.of(
                         "more_keys", "more_values",
                         "some_more_keys", "some_more_values",
+                        "some_duration", someDuration,
                         "special_value", specialString))
                 .put("some_list", ImmutableList.of(
                         "idx1",
@@ -66,7 +70,12 @@ public class SoftwareProcessShellEnvironmentTest extends BrooklynAppUnitTestSupp
         assertEquals(env.get("some_int"), someInt.toString());
         assertEquals(env.get("some_string"), someString);
         assertEquals(env.get("some_boolean"), Boolean.TRUE.toString());
-        assertEquals(env.get("some_map"), "{\"more_keys\":\"more_values\",\"some_more_keys\":\"some_more_values\",\"special_value\":" + escapedString + "}");
+        assertEquals(env.get("some_map"), "{"
+                + "\"more_keys\":\"more_values\","
+                + "\"some_more_keys\":\"some_more_values\","
+                + "\"some_duration\":\""+someDuration.toString()+"\","
+                + "\"special_value\":" + escapedString
+                + "}");
         assertEquals(env.get("some_list"), "[\"idx1\",\"idx2\"," + escapedString + "]");
         assertEquals(env.get("some_time"), Long.toString(dt.getTime()));
         assertEquals(env.get("some_bean"), "{\"propString\":\"bean-string\",\"propInt\":-1}");
