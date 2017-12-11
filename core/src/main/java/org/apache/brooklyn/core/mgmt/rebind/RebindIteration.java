@@ -41,6 +41,7 @@ import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.mgmt.rebind.RebindContext;
@@ -107,6 +108,8 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
+import org.apache.brooklyn.util.core.task.BasicExecutionContext;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
@@ -653,16 +656,26 @@ public abstract class RebindIteration {
                 // usually because of creation-failure, when not using fail-fast
                 exceptionHandler.onNotFound(BrooklynObjectType.ENTITY, entityMemento.getId());
             } else {
-                try {
-                    entityMemento.injectTypeClass(entity.getClass());
-                    // TODO these call to the entity which in turn sets the entity on the underlying feeds and enrichers;
-                    // that is taken as the cue to start, but it should not be. start should be a separate call.
-                    ((EntityInternal)entity).getRebindSupport().addPolicies(rebindContext, entityMemento);
-                    ((EntityInternal)entity).getRebindSupport().addEnrichers(rebindContext, entityMemento);
-                    ((EntityInternal)entity).getRebindSupport().addFeeds(rebindContext, entityMemento);
-                } catch (Exception e) {
-                    exceptionHandler.onRebindFailed(BrooklynObjectType.ENTITY, entity, e);
-                }
+                // Must execute in entity's context, so policy.setEntity can resolve config (BROOKLYN-549).
+                Runnable body = new Runnable() {
+                    public void run() {
+                        try {
+                            entityMemento.injectTypeClass(entity.getClass());
+                            // TODO these call to the entity which in turn sets the entity on the underlying feeds and enrichers;
+                            // that is taken as the cue to start, but it should not be. start should be a separate call.
+                            ((EntityInternal)entity).getRebindSupport().addPolicies(rebindContext, entityMemento);
+                            ((EntityInternal)entity).getRebindSupport().addEnrichers(rebindContext, entityMemento);
+                            ((EntityInternal)entity).getRebindSupport().addFeeds(rebindContext, entityMemento);
+                        } catch (Exception e) {
+                            exceptionHandler.onRebindFailed(BrooklynObjectType.ENTITY, entity, e);
+                        }
+                    }
+                };
+                ((EntityInternal)entity).getExecutionContext().get(Tasks.<Void>builder()
+                        .displayName("rebind-adjuncts-"+entity.getId())
+                        .dynamic(false)
+                        .body(body)
+                        .build());
             }
         }
     }
