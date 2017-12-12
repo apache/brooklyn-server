@@ -20,11 +20,14 @@ package org.apache.brooklyn.location.jclouds;
 
 import java.util.Collection;
 
+import com.google.inject.Module;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.location.jclouds.api.JcloudsLocationConfigPublic;
+import org.apache.brooklyn.location.jclouds.domain.JcloudsContext;
 import org.apache.brooklyn.location.jclouds.networking.JcloudsPortForwarderExtension;
+import org.jclouds.Context;
 import org.jclouds.compute.domain.Image;
 import org.jclouds.compute.domain.OsFamily;
 import org.jclouds.compute.domain.TemplateBuilder;
@@ -89,4 +92,11 @@ public interface JcloudsLocationConfig extends JcloudsLocationConfigPublic {
             "Registry/Factory for creating jclouds ComputeService; default is almost always fine, except where tests want to customize behaviour",
             ComputeServiceRegistryImpl.INSTANCE);
 
+    ConfigKey<Iterable<? extends Module>> COMPUTE_SERVICE_MODULES = ConfigKeys.newConfigKey(
+            new TypeToken<Iterable<? extends Module>>() {},
+            "jclouds.computeServiceModules", "Optional Guice modules for a jclouds Compute Service Context");
+
+    ConfigKey<JcloudsContext> LINK_CONTEXT = ConfigKeys.newConfigKey(
+            JcloudsContext.class,
+            "jclouds.linkContext", "Optional link context for jclouds Compute Service Context");
 }

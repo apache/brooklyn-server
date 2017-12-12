@@ -33,9 +33,11 @@ import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.location.jclouds.domain.JcloudsContext;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.jclouds.Context;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.domain.Image;
 import org.slf4j.Logger;
@@ -64,6 +66,8 @@ public class JcloudsLocationResolverTest {
         brooklynProperties.put("brooklyn.location.jclouds.aws-ec2.credential", "aws-ec2-cred");
         brooklynProperties.put("brooklyn.location.jclouds.rackspace-cloudservers-uk.identity", "cloudservers-uk-id");
         brooklynProperties.put("brooklyn.location.jclouds.rackspace-cloudservers-uk.credential", "cloudservers-uk-cred");
+        brooklynProperties.put("brooklyn.location.jclouds.openstack-nova.identity", "openstack-nova-id");
+        brooklynProperties.put("brooklyn.location.jclouds.openstack-nova.credential", "openstack-nova-cred");
     }
 
     @AfterMethod(alwaysRun = true)
@@ -465,7 +469,16 @@ public class JcloudsLocationResolverTest {
         Assert.assertEquals(resolve("named:prod1").config().get(JcloudsLocationConfig.EXTRA_PUBLIC_KEY_URLS_TO_AUTH),
             MutableList.of());
     }
-    
+
+    @Test
+    public void testResolvesJcloudsWithLinkContext() throws Exception {
+        brooklynProperties.put("brooklyn.location.jclouds.openstack-nova.jclouds.linkContext", new JcloudsContext("openstack-neutron"));
+        Map<String, Object> conf = resolve("jclouds:openstack-nova").config().getBag().getAllConfig();
+
+        Assert.assertEquals(((JcloudsContext) conf.get(JcloudsLocationConfig.LINK_CONTEXT.getName())).getProviderOrApi(),
+                "openstack-neutron");
+    }
+
     private JcloudsLocation resolve(String spec) {
         return (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(spec);
     }
