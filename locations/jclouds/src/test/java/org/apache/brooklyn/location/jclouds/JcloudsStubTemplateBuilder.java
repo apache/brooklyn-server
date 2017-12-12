@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.inject.Provider;
 
+import com.google.common.base.MoreObjects;
 import org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions;
 import org.jclouds.compute.domain.Hardware;
 import org.jclouds.compute.domain.HardwareBuilder;
@@ -55,7 +56,6 @@ import org.jclouds.rest.AuthorizationException;
 import org.jclouds.softlayer.compute.options.SoftLayerTemplateOptions;
 
 import com.google.common.base.Functions;
-import com.google.common.base.Objects.ToStringHelper;
 import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -141,7 +141,7 @@ public class JcloudsStubTemplateBuilder {
                     templateBuilderProvider,
                     imageCache) {
                 @Override
-                protected ToStringHelper string() {
+                protected MoreObjects.ToStringHelper string() {
                     return super.string().add("type", "Stubbed-TemplateBuilder");
                 }
             };
@@ -154,7 +154,7 @@ public class JcloudsStubTemplateBuilder {
                     optionsProvider,
                     templateBuilderProvider) {
                 @Override
-                protected ToStringHelper string() {
+                protected MoreObjects.ToStringHelper string() {
                     return super.string().add("type", "Stubbed-TemplateBuilder");
                 }
             };
