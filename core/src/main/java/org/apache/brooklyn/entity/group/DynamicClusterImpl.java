@@ -621,10 +621,6 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
     @Override
     public Integer resize(Integer desiredSize) {
         synchronized (mutex) {
-            Optional<Integer> optionalMaxSize = Optional.fromNullable(config().get(MAX_SIZE));
-            if (optionalMaxSize.isPresent() && desiredSize > optionalMaxSize.get()) {
-                throw new Resizable.InsufficientCapacityException("Desired cluster size " + desiredSize + " exceeds maximum size of " + optionalMaxSize.get());
-            }
             int originalSize = getCurrentSize();
             int delta = desiredSize - originalSize;
             if (delta != 0) {
@@ -799,6 +795,14 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
     /** <strong>Note</strong> for sub-classes; this method can be called while synchronized on {@link #mutex}. */
     protected Collection<Entity> grow(int delta) {
         Preconditions.checkArgument(delta > 0, "Must call grow with positive delta.");
+        Integer maxSize = config().get(MAX_SIZE);
+        if (maxSize != null) {
+            final int desiredSize = getCurrentSize() + delta;
+            if (desiredSize > maxSize) {
+                throw new Resizable.InsufficientCapacityException(
+                        "Desired cluster size " + desiredSize + " exceeds maximum size of " + maxSize);
+            }
+        }
 
         // choose locations to be deployed to
         List<Location> chosenLocations;
