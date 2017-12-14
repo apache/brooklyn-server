@@ -31,11 +31,25 @@ import org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey;
 
 public final class AggregationJob implements Runnable {
 
-    public static BasicAttributeSensorAndConfigKey<Map<String, String>> DASHBOARD_COST_PER_MONTH = new BasicAttributeSensorAndConfigKey(Map.class, "dashboard.costPerMonth", "A map of VM ID to monthly cost. Please note if the same VM ID is reported more than once, only one of the sensors will be propagated");
-    public static BasicAttributeSensorAndConfigKey<List<Map<String, String>>> DASHBOARD_HA_PRIMARIES = new BasicAttributeSensorAndConfigKey(List.class, "dashboard.ha.primaries", "A list of high availability primaries "); //TODO: find out what this is and add a better description
-    public static BasicAttributeSensorAndConfigKey<List<Map<String, String>>> DASHBOARD_LICENSES = new BasicAttributeSensorAndConfigKey(List.class, "dashboard.licenses", "The licences in use for the running entities. This is a list of maps. The map should contain two keys: product and key");
-    public static BasicAttributeSensorAndConfigKey<Map<String, List<Map<String, Object>>>> DASHBOARD_LOCATIONS = new BasicAttributeSensorAndConfigKey(Map.class, "dashboard.locations", "Locations in which the VMs are running. A map where the key is category of location (e.g. server) and the value is a list of maps containing name/icon/count");
-    public static BasicAttributeSensorAndConfigKey<List<Map<String, String>>> DASHBOARD_POLICY_HIGHLIGHTS = new BasicAttributeSensorAndConfigKey(List.class, "dashboard.policyHighlights", "Highlights from policies. List of Masps, where each map should contain text and category");
+    public static BasicAttributeSensorAndConfigKey<Map<String, String>> DASHBOARD_COST_PER_MONTH = new BasicAttributeSensorAndConfigKey(Map.class,
+            "dashboard.costPerMonth",
+            "A map of VM ID to monthly cost. Please note if the same VM ID is reported more than once, only one of the sensors will be propagated");
+
+    public static BasicAttributeSensorAndConfigKey<List<Map<String, String>>> DASHBOARD_HA_PRIMARIES = new BasicAttributeSensorAndConfigKey(List.class,
+            "dashboard.ha.primaries",
+            "A list of high availability primaries "); //TODO: find out what this is and add a better description
+
+    public static BasicAttributeSensorAndConfigKey<List<Map<String, String>>> DASHBOARD_LICENSES = new BasicAttributeSensorAndConfigKey(List.class,
+            "dashboard.licenses",
+            "The licences in use for the running entities. This is a list of maps. The map should contain two keys: product and key");
+
+    public static BasicAttributeSensorAndConfigKey<Map<String, List<Map<String, Object>>>> DASHBOARD_LOCATIONS = new BasicAttributeSensorAndConfigKey(Map.class,
+            "dashboard.locations",
+            "Locations in which the VMs are running. A map where the key is category of location (e.g. server) and the value is a list of maps containing name/icon/count");
+
+    public static BasicAttributeSensorAndConfigKey<List<Map<String, String>>> DASHBOARD_POLICY_HIGHLIGHTS = new BasicAttributeSensorAndConfigKey(List.class,
+            "dashboard.policyHighlights",
+            "Highlights from policies. List of Masps, where each map should contain text and category");
 
     private final Entity entity;
 
@@ -73,21 +87,21 @@ public final class AggregationJob implements Runnable {
         entity.sensors().set(DASHBOARD_POLICY_HIGHLIGHTS, dashboardPolicyHighlights);
     }
 
-    protected void scanEntity(Entity entity,
+    protected void scanEntity(Entity entityToScan,
                               Map<String, String> costPerMonth,
                               List<Map<String, String>> haPrimaries,
                               List<Map<String, String>> licences,
                               Map<String, List<Map<String, Object>>> locations,
                               List<Map<String, String>> policyHighlights) {
 
-        updateFromConfig(entity, DASHBOARD_HA_PRIMARIES, haPrimaries);
-        updateFromConfig(entity, DASHBOARD_LICENSES, licences);
-        updateFromConfig(entity, DASHBOARD_POLICY_HIGHLIGHTS, policyHighlights);
+        updateFromConfig(entityToScan, DASHBOARD_HA_PRIMARIES, haPrimaries);
+        updateFromConfig(entityToScan, DASHBOARD_LICENSES, licences);
+        updateFromConfig(entityToScan, DASHBOARD_POLICY_HIGHLIGHTS, policyHighlights);
 
         //Cost per month
-        Map<String, String> costPerMonthFromEntity = entity.sensors().get(DASHBOARD_COST_PER_MONTH);
+        Map<String, String> costPerMonthFromEntity = entityToScan.sensors().get(DASHBOARD_COST_PER_MONTH);
         if (costPerMonthFromEntity == null || costPerMonthFromEntity.isEmpty()) {
-            costPerMonthFromEntity = entity.config().get(DASHBOARD_COST_PER_MONTH);
+            costPerMonthFromEntity = entityToScan.config().get(DASHBOARD_COST_PER_MONTH);
         }
 
         if (costPerMonthFromEntity != null) {
@@ -102,9 +116,9 @@ public final class AggregationJob implements Runnable {
         //Further complicating this is that the Map you get back from sensors/config doesn't conform to the generic expectations.
         //I.E. even if you type this as Map<String, List<Map<String, String>>> you will still get back an integer from
         //the inner map- hence all the weird casting bellow.
-        Map<String, List<Map<String, Object>>> outerLocationMapFromEntity = entity.sensors().get(DASHBOARD_LOCATIONS);
+        Map<String, List<Map<String, Object>>> outerLocationMapFromEntity = entityToScan.sensors().get(DASHBOARD_LOCATIONS);
         if (outerLocationMapFromEntity == null || outerLocationMapFromEntity.isEmpty()) {
-            outerLocationMapFromEntity = entity.config().get(DASHBOARD_LOCATIONS);
+            outerLocationMapFromEntity = entityToScan.config().get(DASHBOARD_LOCATIONS);
         }
 
         if (outerLocationMapFromEntity != null) {
@@ -131,7 +145,7 @@ public final class AggregationJob implements Runnable {
                                 }
                             }
 
-                            //If the entity has a "name" not found in the method param then add it to the method param
+                            //If the entityToScan has a "name" not found in the method param then add it to the method param
                             if (!foundInner) {
                                 outerLocationMapFromMethodParam.getValue().add(new HashMap<>(innerMapFromEntity));
                             }
@@ -140,7 +154,7 @@ public final class AggregationJob implements Runnable {
 
                 }
 
-                //If the entity has an entry in the outer map that isn't in the method param, then add it
+                //If the entityToScan has an entry in the outer map that isn't in the method param, then add it
                 if (!found) {
                     ArrayList clonedList = new ArrayList();
                     outerLocationMapFromEntityValue.forEach(mapToClone -> {
@@ -153,6 +167,6 @@ public final class AggregationJob implements Runnable {
             });
         }
 
-        entity.getChildren().forEach(childEntity -> scanEntity(childEntity, costPerMonth, haPrimaries, licences, locations, policyHighlights));
+        entityToScan.getChildren().forEach(childEntity -> scanEntity(childEntity, costPerMonth, haPrimaries, licences, locations, policyHighlights));
     }
 }

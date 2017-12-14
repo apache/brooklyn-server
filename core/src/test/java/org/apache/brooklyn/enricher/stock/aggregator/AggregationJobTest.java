@@ -36,37 +36,31 @@ import org.testng.annotations.Test;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 
-public class AggregationJobTest {
+public class AggregationJobTest extends BrooklynAppUnitTestSupport {
 
-    TestApplication testApplication;
+
     TestEntity parentEntity;
     TestEntity childEntityOne;
     TestEntity childEntityTwo;
 
     AggregationJob aggregationJob;
 
-    LocalManagementContext localManagementContext;
-
     @BeforeMethod
-    public void testSetup() {
-        localManagementContext = LocalManagementContextForTests.newInstance();
-        testApplication = TestApplication.Factory.newManagedInstanceForTests(localManagementContext);
-
-        parentEntity = testApplication.createAndManageChild(EntitySpec.create(TestEntity.class));
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        parentEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         childEntityOne = parentEntity.createAndManageChild(EntitySpec.create(TestEntity.class));
         childEntityTwo = parentEntity.createAndManageChild(EntitySpec.create(TestEntity.class));
 
         aggregationJob = new AggregationJob(parentEntity);
     }
 
-    @AfterMethod
-    public void testTeardown(){
-        localManagementContext.terminate();
-    }
 
     @Test
     public void policyHighlightTest() {
