@@ -22,6 +22,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +48,7 @@ import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityFunctions;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
@@ -61,6 +63,8 @@ import org.apache.brooklyn.entity.group.DynamicFabric;
 import org.apache.brooklyn.entity.software.base.SameServerEntity;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessShellEnvironmentTest.EnvRecordingLocation;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
+import org.apache.brooklyn.entity.stock.BasicApplication;
+import org.apache.brooklyn.entity.stock.BasicApplicationImpl;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -260,7 +264,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Assert.assertEquals(object, "");
     }
     
-    @SuppressWarnings("unchecked")
+    @Test
     public void testEmptyStructuredConfig() throws Exception {
         Entity app = createAndStartApplication(loadYaml("test-entity-basic-template.yaml",
             "  brooklyn.config:",
@@ -1065,6 +1069,62 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         assertEquals(env.get("BEAN"), "{\"propString\":\"bean-string\",\"propInt\":-1}");
     }
     
+    @Test
+    public void testEntitySynchronizingOnSelf() throws Exception {
+        Entity app = createStartWaitAndLogApplication(
+                "services:",
+                "- type: "+TestEntitySynchronizingInStartImpl.class.getName(),
+                "  id: myid",
+                "  brooklyn.config:",
+                "    confLookedUpInStart: $brooklyn:component(\"myid\")");
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        assertTrue(entity.getCallHistory().contains("start"));
+    }
+
+    @Test
+    public void testAppSynchronizingOnSelf() throws Exception {
+        Entity app = createStartWaitAndLogApplication(
+                "services:",
+                "- type: "+TestApplicationSynchronizingInStartImpl.class.getName(),
+                "  id: myid",
+                "  brooklyn.config:",
+                "    confLookedUpInStart: $brooklyn:component(\"myid\")");
+        EntityAsserts.assertEntityHealthy(app);
+    }
+
+    @Test
+    public void testNestedAppSynchronizingOnSelf() throws Exception {
+        Entity app = createStartWaitAndLogApplication(
+                "services:",
+                "- type: "+BasicApplication.class.getName(),
+                "  id: myid",
+                "  brooklyn.children:",
+                "  - type: "+TestApplicationSynchronizingInStartImpl.class.getName(),
+                "    brooklyn.config:",
+                "      confLookedUpInStart: $brooklyn:component(\"myid\")");
+        EntityAsserts.assertEntityHealthy(app);
+    }
+
+    public static class TestEntitySynchronizingInStartImpl extends TestEntityImpl {
+        @Override
+        public void start(Collection<? extends Location> locs) {
+            synchronized (this) {
+                assertNotNull(config().get(ConfigKeys.newConfigKey(Object.class, "confLookedUpInStart")));
+                super.start(locs);
+            }
+        }
+    }
+
+    public static class TestApplicationSynchronizingInStartImpl extends BasicApplicationImpl {
+        @Override
+        public void start(Collection<? extends Location> locs) {
+            synchronized (this) {
+                assertNotNull(config().get(ConfigKeys.newConfigKey(Object.class, "confLookedUpInStart")));
+                super.start(locs);
+            }
+        }
+    }
+
     public static class CustomTestEntityImpl extends TestEntityImpl {
         public CustomTestEntityImpl() {
             System.out.println("in CustomTestEntityImpl");
@@ -1109,5 +1169,4 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Assert.assertEquals(camp.platformComponentTemplates().links().size(), 0);
         Assert.assertEquals(camp.platformComponents().links().size(), 0);
     }
-
 }
