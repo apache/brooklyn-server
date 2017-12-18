@@ -46,7 +46,6 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.location.MachineDetails;
 import org.apache.brooklyn.api.location.MachineLocation;
-import org.apache.brooklyn.api.location.OsDetails;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.location.PortSupplier;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -59,10 +58,8 @@ import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.location.AbstractLocation;
-import org.apache.brooklyn.core.location.BasicHardwareDetails;
+import org.apache.brooklyn.core.location.AbstractMachineLocation;
 import org.apache.brooklyn.core.location.BasicMachineDetails;
-import org.apache.brooklyn.core.location.BasicOsDetails;
 import org.apache.brooklyn.core.location.LocationConfigUtils;
 import org.apache.brooklyn.core.location.LocationConfigUtils.OsCredential;
 import org.apache.brooklyn.core.location.PortRanges;
@@ -82,12 +79,10 @@ import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshException;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
-import org.apache.brooklyn.util.core.mutex.MutexSupport;
 import org.apache.brooklyn.util.core.mutex.WithMutexes;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.system.internal.ExecWithLoggingHelpers;
-import org.apache.brooklyn.util.core.task.system.internal.ExecWithLoggingHelpers.ExecRunner;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.KeyTransformingLoadingCache.KeyTransformingSameTypeLoadingCache;
@@ -106,7 +101,6 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
@@ -125,8 +119,6 @@ import com.google.common.collect.Sets;
 import com.google.common.net.HostAndPort;
 import com.google.common.reflect.TypeToken;
 
-import groovy.lang.Closure;
-
 /**
  * Operations on a machine that is accessible via ssh.
  * <p>
@@ -137,7 +129,7 @@ import groovy.lang.Closure;
  * Additionally there are routines to copyTo, copyFrom; and installTo (which tries a curl, and falls back to copyTo
  * in event the source is accessible by the caller only).
  */
-public class SshMachineLocation extends AbstractLocation implements MachineLocation, PortSupplier, WithMutexes, Closeable {
+public class SshMachineLocation extends AbstractMachineLocation implements MachineLocation, PortSupplier, WithMutexes, Closeable {
 
     private static final Logger LOG = LoggerFactory.getLogger(SshMachineLocation.class);
     private static final Logger logSsh = LoggerFactory.getLogger(BrooklynLogging.SSH_IO);
@@ -170,15 +162,9 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
      */
     public static final String SSH_TOOL_CLASS_PROPERTIES_PREFIX = SSH_TOOL_CLASS.getName()+".";
 
+
     public static final ConfigKey<Duration> SSH_CACHE_EXPIRY_DURATION = ConfigKeys.newConfigKey(Duration.class,
             "sshCacheExpiryDuration", "Expiry time for unused cached ssh connections", Duration.FIVE_MINUTES);
-
-    public static final ConfigKey<MachineDetails> MACHINE_DETAILS = ConfigKeys.newConfigKey(
-            MachineDetails.class,
-            "machineDetails");
-
-    public static final ConfigKey<Boolean> DETECT_MACHINE_DETAILS = ConfigKeys.newBooleanConfigKey("detectMachineDetails",
-            "Attempt to detect machine details automatically. Works with SSH-accessible Linux instances.", true);
 
     @SuppressWarnings("serial")
     public static final ConfigKey<Iterable<String>> PRIVATE_ADDRESSES = ConfigKeys.newConfigKey(
@@ -200,17 +186,8 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
     @SetFromFlag(nullable = false)
     protected InetAddress address;
 
-    // TODO should not allow this to be set from flag; it is not persisted so that will be lost
-    // (mainly used for localhost currently so not a big problem)
-    @Nullable  // lazily initialized; use getMutexSupport()
-    @SetFromFlag
-    private transient WithMutexes mutexSupport;
-
     @SetFromFlag
     private Set<Integer> usedPorts;
-
-    private volatile MachineDetails machineDetails;
-    private final Object machineDetailsLock = new Object();
 
     public static final ConfigKey<String> SSH_HOST = BrooklynConfigKeys.SSH_CONFIG_HOST;
     public static final ConfigKey<Integer> SSH_PORT = BrooklynConfigKeys.SSH_CONFIG_PORT;
@@ -289,7 +266,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
         this(MutableMap.of());
     }
 
-    public SshMachineLocation(Map properties) {
+    public SshMachineLocation(Map<?,?> properties) {
         super(properties);
         usedPorts = (usedPorts != null) ? Sets.newLinkedHashSet(usedPorts) : Sets.<Integer>newLinkedHashSet();
     }
@@ -433,17 +410,6 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
             }
         }
         return this;
-    }
-    
-    private transient final Object mutexSupportCreationLock = new Object();
-    protected WithMutexes getMutexSupport() {
-        synchronized (mutexSupportCreationLock) {
-            // create on demand so that it is not null after serialization
-            if (mutexSupport == null) {
-                mutexSupport = new MutexSupport();
-            }
-            return mutexSupport;
-        }
     }
     
     protected void addSshPoolCacheCleanupTask() {
@@ -605,7 +571,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
     }
 
     protected boolean previouslyConnected = false;
-    protected SshTool connectSsh(Map props) {
+    protected SshTool connectSsh(Map<?,?> props) {
         try {
             if (!groovyTruth(user)) {
                 String newUser = getUser();
@@ -1014,70 +980,13 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
     }
 
     @Override
-    public OsDetails getOsDetails() {
-        return getMachineDetails().getOsDetails();
-    }
-
-    /**
-     * Returns the machine details only if they are already loaded, or available directly as 
-     * config.
-     */
-    protected Optional<MachineDetails> getOptionalMachineDetails() {
-        MachineDetails result = machineDetails != null ? machineDetails : config().get(MACHINE_DETAILS);
-        return Optional.fromNullable(result);
-    }
-    
-    @Override
-    public MachineDetails getMachineDetails() {
-        synchronized (machineDetailsLock) {
-            if (machineDetails == null) {
-                machineDetails = getConfig(MACHINE_DETAILS);
-            }
-            if (machineDetails == null) {
-                machineDetails = inferMachineDetails();
-            }
-        }
-        return machineDetails;
-    }
-
-    protected MachineDetails inferMachineDetails() {
-        boolean detectionEnabled = getConfig(DETECT_MACHINE_DETAILS);
-        if (!detectionEnabled) {
-            return new BasicMachineDetails(new BasicHardwareDetails(-1, -1), new BasicOsDetails("UNKNOWN", "UNKNOWN", "UNKNOWN"));
-        } else if (!isManaged()) {
-            return new BasicMachineDetails(new BasicHardwareDetails(-1, -1), new BasicOsDetails("UNKNOWN", "UNKNOWN", "UNKNOWN"));
-        }
-        
+    protected MachineDetails detectMachineDetails() {
         Tasks.setBlockingDetails("Waiting for machine details");
         try {
             return BasicMachineDetails.forSshMachineLocationLive(this);
         } finally {
             Tasks.resetBlockingDetails();
         }
-    }
-
-    @Override
-    public void acquireMutex(String mutexId, String description) throws RuntimeInterruptedException {
-        try {
-            getMutexSupport().acquireMutex(mutexId, description);
-        } catch (InterruptedException ie) {
-            throw new RuntimeInterruptedException("Interrupted waiting for mutex: " + mutexId, ie);
-        }
-    }
-
-    @Override
-    public boolean tryAcquireMutex(String mutexId, String description) {
-        return getMutexSupport().tryAcquireMutex(mutexId, description);
-    }
-
-    @Override
-    public void releaseMutex(String mutexId) {
-        getMutexSupport().releaseMutex(mutexId);
-    }
-
-    @Override
-    public boolean hasMutex(String mutexId) {
-        return getMutexSupport().hasMutex(mutexId);
     }
 
     //We want the SshMachineLocation to be serializable and therefore the pool needs to be dealt with correctly.
@@ -1102,6 +1011,38 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
     /** returns the password being used to log in, if a password is being used, or else null */
     public String findPassword() {
         return getConfig(SshTool.PROP_PASSWORD);
+    }
+
+    /** @deprecated since 1.0.0; mutex-related methods are now accessible via {@link #mutexes()} */
+    @Override
+    @Deprecated
+    public void acquireMutex(String mutexId, String description) throws RuntimeInterruptedException {
+        try {
+            mutexes().acquireMutex(mutexId, description);
+        } catch (InterruptedException ie) {
+            throw new RuntimeInterruptedException("Interrupted waiting for mutex: " + mutexId, ie);
+        }
+    }
+
+    /** @deprecated since 1.0.0; mutex-related methods are now accessible via {@link #mutexes()} */
+    @Override
+    @Deprecated
+    public boolean tryAcquireMutex(String mutexId, String description) {
+        return mutexes().tryAcquireMutex(mutexId, description);
+    }
+
+    /** @deprecated since 1.0.0; mutex-related methods are now accessible via {@link #mutexes()} */
+    @Override
+    @Deprecated
+    public void releaseMutex(String mutexId) {
+        mutexes().releaseMutex(mutexId);
+    }
+
+    /** @deprecated since 1.0.0; mutex-related methods are now accessible via {@link #mutexes()} */
+    @Override
+    @Deprecated
+    public boolean hasMutex(String mutexId) {
+        return mutexes().hasMutex(mutexId);
     }
 
 }
