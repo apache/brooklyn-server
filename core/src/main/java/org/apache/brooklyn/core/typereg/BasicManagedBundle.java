@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
@@ -30,6 +29,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.mgmt.rebind.BasicManagedBundleRebindSupport;
 import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
+import org.apache.brooklyn.util.http.auth.Credentials;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 
@@ -43,12 +43,17 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     private String version;
     private String checksum;
     private String url;
+    private Credentials credentials;
     private transient boolean persistenceNeeded = false;
 
     /** Creates an empty one, with an ID, expecting other fields will be populated. */
     public BasicManagedBundle() {}
 
     public BasicManagedBundle(String name, String version, String url, @Nullable String checksum) {
+        this(name, version, url, null, checksum);
+    }
+
+    public BasicManagedBundle(String name, String version, String url, Credentials credentials, @Nullable String checksum) {
         if (name == null && version == null) {
             Preconditions.checkNotNull(url, "Either a URL or both name and version are required");
         } else {
@@ -59,6 +64,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         this.version = version;
         this.url = url;
         this.checksum = checksum;
+        this.credentials = credentials;
     }
     
     @Override
@@ -98,6 +104,11 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     @Override
     public String getUrl() {
         return url;
+    }
+
+    @Override
+    public Credentials getUrlCredential() {
+        return credentials;
     }
 
     public void setUrl(String url) {
@@ -200,7 +211,12 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
 
     public static ManagedBundle of(CatalogBundle bundle) {
         String checksum = (bundle instanceof ManagedBundle) ? ((ManagedBundle)bundle).getChecksum() : null;
-        return new BasicManagedBundle(bundle.getSymbolicName(), bundle.getSuppliedVersionString(), bundle.getUrl(), checksum);
+        return new BasicManagedBundle(
+                bundle.getSymbolicName(),
+                bundle.getSuppliedVersionString(),
+                bundle.getUrl(),
+                bundle.getUrlCredential(),
+                checksum);
     }
 
     public void setPersistenceNeeded(boolean val) {

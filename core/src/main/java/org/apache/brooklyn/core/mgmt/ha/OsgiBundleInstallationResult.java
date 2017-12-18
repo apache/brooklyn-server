@@ -41,7 +41,8 @@ public class OsgiBundleInstallationResult {
     public enum ResultCode { 
         INSTALLED_NEW_BUNDLE(false),
         UPDATED_EXISTING_BUNDLE(false),
-        /** Bundle is already installed at exact same version and same contents; safely ignoring 
+
+        /** Bundle is already installed at exact same version and same contents; safely ignoring
          * (safe in that behaviour won't be different or dangerous; 
          * could potentially be surprising, but ability to idempotently install things is nicer) */
         IGNORING_BUNDLE_AREADY_INSTALLED(false),

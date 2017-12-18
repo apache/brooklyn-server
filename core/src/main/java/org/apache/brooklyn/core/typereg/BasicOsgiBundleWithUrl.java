@@ -18,8 +18,11 @@
  */
 package org.apache.brooklyn.core.typereg;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
+import org.apache.brooklyn.util.http.auth.Credentials;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 
@@ -31,12 +34,17 @@ public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl 
     private String symbolicName;
     private String version;
     private String url;
+    private Credentials credential;
 
     // for deserializing (not sure if needed?)
     @SuppressWarnings("unused")
     private BasicOsgiBundleWithUrl() {}
 
     public BasicOsgiBundleWithUrl(String name, String version, String url) {
+        this(name, version, url, null);
+    }
+
+    public BasicOsgiBundleWithUrl(String name, String version, String url, @Nullable Credentials cred) {
         if (name == null && version == null) {
             Preconditions.checkNotNull(url, "Either a URL or both name and version are required");
         } else {
@@ -47,6 +55,7 @@ public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl 
         this.symbolicName = name;
         this.version = version;
         this.url = url;
+        this.credential = cred;
     }
     
     public BasicOsgiBundleWithUrl(OsgiBundleWithUrl b) {
@@ -82,6 +91,11 @@ public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl 
     @Override
     public String getUrl() {
         return url;
+    }
+
+    @Override
+    public Credentials getUrlCredential() {
+        return credential;
     }
 
     @Override

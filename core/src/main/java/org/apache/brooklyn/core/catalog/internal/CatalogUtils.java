@@ -168,10 +168,10 @@ public class CatalogUtils {
                     new Object[] {managementContext, Joiner.on(", ").join(libraries)});
             Stopwatch timer = Stopwatch.createStarted();
             List<OsgiBundleInstallationResult> results = MutableList.of();
-            for (CatalogBundle bundleUrl : libraries) {
-                OsgiBundleInstallationResult result = osgi.get().installDeferredStart(BasicManagedBundle.of(bundleUrl), null, true).get();
+            for (CatalogBundle bundle : libraries) {
+                OsgiBundleInstallationResult result = osgi.get().installDeferredStart(BasicManagedBundle.of(bundle), null, true).get();
                 if (log.isDebugEnabled()) {
-                    logDebugOrTraceIfRebinding(log, "Installation of library "+bundleUrl+": "+result);
+                    logDebugOrTraceIfRebinding(log, "Installation of library "+bundle+": "+result);
                 }
                 results.add(result);
             }

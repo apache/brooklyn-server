@@ -240,7 +240,7 @@ class OsgiArchiveInstaller {
                             throw Exceptions.propagate(e);
                         }
                     } else {
-                        zipIn = ResourceUtils.create(mgmt()).getResourceFromUrl(url);
+                        zipIn = ResourceUtils.create(mgmt()).getResourceFromUrl(url, suppliedKnownBundleMetadata.getUrlCredential());
                     }
                 } else {
                     // already installed, not forced, just say already installed
@@ -439,7 +439,7 @@ class OsgiArchiveInstaller {
                 
                 if (canUpdate()) { 
                     if (result.getBundle() == null) {
-                        log.warn("Brooklyn thought is was already managing bundle "+result.getMetadata().getVersionedName()
+                        log.warn("Brooklyn thought it was already managing bundle "+result.getMetadata().getVersionedName()
                                 +" but it's not installed to framework at location "+result.getMetadata().getOsgiUniqueUrl()+"; reinstalling it");
                         updating = false;
                     } else {

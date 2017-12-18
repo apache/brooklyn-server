@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.api.typereg;
 
+import javax.annotation.Nullable;
+
+import org.apache.brooklyn.util.http.auth.Credentials;
 import org.apache.brooklyn.util.osgi.VersionedName;
 
 import com.google.common.annotations.Beta;
@@ -34,7 +37,10 @@ public interface OsgiBundleWithUrl {
     
     /** where this bundle can be downloaded; typically required unless we are guaranteed the bundle will be manually installed or handled by persistence */
     public String getUrl();
-    
+
+    /** @return The credential that shold be used to obtain the bundle from {@link #getUrl}. */
+    @Nullable Credentials getUrlCredential();
+
     /** @return true if we have a name and version for this bundle;
      * false if not, e.g. if we only know the URL and we haven't loaded it yet */
     public boolean isNameResolved();

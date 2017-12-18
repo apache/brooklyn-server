@@ -203,7 +203,7 @@ public class ResourceUtils {
     }
 
     public InputStream getResourceFromUrl(String url,
-            @Nullable org.apache.brooklyn.util.http.executor.Credentials credentials) {
+            @Nullable org.apache.brooklyn.util.http.auth.Credentials credentials) {
         if (credentials != null) {
             return getResourceFromUrl(url, credentials.getUser(), credentials.getPassword());
         }
