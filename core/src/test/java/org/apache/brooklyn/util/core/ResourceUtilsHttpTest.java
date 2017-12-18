@@ -27,7 +27,7 @@ import java.io.InputStream;
 import org.apache.brooklyn.test.http.TestHttpRequestHandler;
 import org.apache.brooklyn.test.http.TestHttpServer;
 import org.apache.brooklyn.util.core.http.AuthHandler;
-import org.apache.brooklyn.util.http.executor.UsernamePassword;
+import org.apache.brooklyn.util.http.auth.UsernamePassword;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.http.HttpException;
 import org.apache.http.HttpRequest;

@@ -16,13 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.brooklyn.util.http.executor;
 
-import com.google.common.annotations.Beta;
-
-@Beta
-public interface Credentials {
-    String getUser();
-
-    String getPassword();
+/**
+ * @deprecated since 1.0.0 use {@link org.apache.brooklyn.util.http.auth.Credentials} instead.
+ */
+public interface Credentials extends org.apache.brooklyn.util.http.auth.Credentials {
 }

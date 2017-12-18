@@ -22,7 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.net.URI;
 
-import org.apache.brooklyn.util.http.executor.Credentials;
+import org.apache.brooklyn.util.http.auth.Credentials;
 
 import com.google.common.annotations.Beta;
 import com.google.common.collect.ArrayListMultimap;
