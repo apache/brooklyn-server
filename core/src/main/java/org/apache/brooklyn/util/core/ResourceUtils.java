@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
@@ -200,7 +201,15 @@ public class ResourceUtils {
     public Iterable<URL> getResources(String name) {
         return getLoader().getResources(name);
     }
-    
+
+    public InputStream getResourceFromUrl(String url,
+            @Nullable org.apache.brooklyn.util.http.executor.Credentials credentials) {
+        if (credentials != null) {
+            return getResourceFromUrl(url, credentials.getUser(), credentials.getPassword());
+        }
+        return getResourceFromUrl(url, null, null);
+    }
+
     /**
      * Takes a string which is treated as a URL (with some extended "schemes" also expected),
      * or as a path to something either on the classpath (absolute only) or the local filesystem (relative or absolute, depending on leading slash)
@@ -215,6 +224,10 @@ public class ResourceUtils {
      * @return a stream, or throws exception (never returns null)
      */
     public InputStream getResourceFromUrl(String url) {
+        return getResourceFromUrl(url, null, null);
+    }
+
+    private InputStream getResourceFromUrl(String url, String username, String password) {
         try {
             if (Strings.isBlank(url)) throw new IllegalArgumentException("Cannot read from empty string");
             String orig = url;
@@ -225,26 +238,26 @@ public class ResourceUtils {
                         return getResourceViaClasspath(url);
                     } catch (IOException e) {
                         //catch the above because both orig and modified url may be interesting
-                        throw new IOException("Error accessing "+orig+": "+e, e);
+                        throw new IOException("Error accessing " + orig + ": " + e, e);
                     }
                 }
                 if ("sftp".equals(protocol)) {
                     try {
                         return getResourceViaSftp(url);
                     } catch (IOException e) {
-                        throw new IOException("Error accessing "+orig+": "+e, e);
+                        throw new IOException("Error accessing " + orig + ": " + e, e);
                     }
                 }
 
                 if ("file".equals(protocol))
                     url = tidyFileUrl(url);
-                
+
                 if ("data".equals(protocol)) {
                     return new DataUriSchemeParser(url).lax().parse().getDataAsInputStream();
                 }
 
                 if ("http".equals(protocol) || "https".equals(protocol)) {
-                    return getResourceViaHttp(url);
+                    return getResourceViaHttp(url, username, password);
                 }
 
                 return new URL(url).openStream();
@@ -394,15 +407,19 @@ public class ResourceUtils {
             Streams.closeQuietly(machine);
         }
     }
-    
-    //For HTTP(S) targets use HttpClient so
-    //we can do authentication
-    private InputStream getResourceViaHttp(String resource) throws IOException {
+
+    private InputStream getResourceViaHttp(String resource, @Nullable String username, @Nullable String password) throws IOException {
         URI uri = URI.create(resource);
         HttpClientBuilder builder = HttpTool.httpClientBuilder()
                 .laxRedirect(true)
                 .uri(uri);
-        Credentials credentials = getUrlCredentials(uri.getRawUserInfo());
+        Credentials credentials;
+        if (username != null) {
+            credentials = new UsernamePasswordCredentials(username, password);
+        } else {
+            credentials = getUrlCredentials(uri.getRawUserInfo());
+        }
+
         if (credentials != null) {
             builder.credentials(credentials);
         }
@@ -418,7 +435,23 @@ public class ResourceUtils {
             }
         } else {
             EntityUtils.consume(result.getEntity());
-            throw new IllegalStateException("Invalid response invoking " + resource + ": response code " + statusCode);
+            StringBuilder message = new StringBuilder();
+            if (statusCode == 401 && credentials != null) {
+                message.append("User '")
+                        .append(credentials.getUserPrincipal().getName())
+                        .append("' is not authorized to access ")
+                        .append(resource);
+            } else if (statusCode == 401) {
+                message.append("Unable to retrieve ")
+                        .append(resource)
+                        .append(": unauthorized");
+            } else {
+                message.append("Invalid response invoking ")
+                        .append(resource)
+                        .append(": response code ")
+                        .append(statusCode);
+            }
+            throw new IllegalStateException(message.toString());
         }
     }
 
