@@ -100,7 +100,7 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
 
     @SuppressWarnings("deprecation")
     protected void initEntity(int seed) {
-        if (entity!=null) {
+        if (entity != null && Entities.isManaged(entity)) {
             Entities.destroy(entity.getApplication());
         }
         
@@ -158,6 +158,21 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
         assertHealthy(response);
         TaskSummary task = response.readEntity(TaskSummary.class);
         Assert.assertEquals(task.getId(), t.getId());
+    }
+    
+    // See https://issues.apache.org/jira/browse/BROOKLYN-571
+    @Test
+    public void testGetTaskOfUnmanagedEntity() {
+        Task<?> t = entity.invoke(effector, null);
+        Entities.unmanage(entity.getParent());
+        
+        Response response = client().path("/activities/"+t.getId())
+            .accept(MediaType.APPLICATION_JSON)
+            .get();
+        assertHealthy(response);
+        TaskSummary task = response.readEntity(TaskSummary.class);
+        Assert.assertEquals(task.getId(), t.getId());
+        Assert.assertEquals(task.getEntityId(), entity.getId());
     }
     
     @Test

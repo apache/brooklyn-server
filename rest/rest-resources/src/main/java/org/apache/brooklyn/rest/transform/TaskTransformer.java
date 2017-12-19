@@ -85,7 +85,8 @@ public class TaskTransformer {
         if (entity != null) {
             entityId = entity.getId();
             entityDisplayName = entity.getDisplayName();
-            entityLink = serviceUriBuilder(ub, EntityApi.class, "get").build(entity.getApplicationId(), entity.getId());
+            String appId = entity.getApplicationId();
+            entityLink = (appId != null) ? serviceUriBuilder(ub, EntityApi.class, "get").build(appId, entityId) : null;
         } else {
             entityId = null;
             entityDisplayName = null;
