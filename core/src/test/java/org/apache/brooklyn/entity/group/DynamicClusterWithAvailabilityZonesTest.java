@@ -47,6 +47,7 @@ import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.group.DynamicCluster.ZoneFailureDetector;
 import org.apache.brooklyn.entity.group.zoneaware.ProportionalZoneFailureDetector;
+import org.apache.brooklyn.location.multi.MultiLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.time.Duration;
@@ -200,6 +201,26 @@ public class DynamicClusterWithAvailabilityZonesTest extends BrooklynAppUnitTest
         assertZoneHistoriesEmpty(unrelatedZoneFailureDetector);
     }
 
+    @Test
+    public void testEnableAvailabilityZonesNotReinherited() throws Exception {
+        cluster = app.addChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.ENABLE_AVAILABILITY_ZONES, true)
+                .configure(DynamicCluster.INITIAL_SIZE, 2)
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(DynamicCluster.class)
+                        .configure(DynamicCluster.INITIAL_SIZE, 1)
+                        .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class))));
+        
+        MultiLocation<?> multiLoc = mgmt.getLocationManager().createLocation(LocationSpec.create(MultiLocation.class)
+                .configure(MultiLocation.SUB_LOCATION_SPECS, ImmutableList.of(
+                        LocationSpec.create(SimulatedLocation.class).displayName("loc1"),
+                        LocationSpec.create(SimulatedLocation.class).displayName("loc2"))));
+
+        cluster.start(ImmutableList.of(multiLoc));
+        
+        List<String> locsUsed = getLocationNames(getLocationsOf(Entities.descendantsAndSelf(cluster, Predicates.instanceOf(TestEntity.class))));
+        Asserts.assertEqualsIgnoringOrder(locsUsed, ImmutableList.of("loc1", "loc2"));
+    }
+    
     protected EntitySpec<DynamicCluster> clusterSpec() {
         return EntitySpec.create(DynamicCluster.class)
                 .configure(DynamicCluster.ENABLE_AVAILABILITY_ZONES, true)
