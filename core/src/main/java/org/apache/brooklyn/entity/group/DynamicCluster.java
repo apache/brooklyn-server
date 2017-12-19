@@ -162,8 +162,11 @@ public interface DynamicCluster extends AbstractGroup, Cluster, MemberReplaceabl
             Map.class, "dynamiccluster.customChildFlags", "Additional flags to be passed to children when they are being created", ImmutableMap.of());
 
     @SetFromFlag("enableAvailabilityZones")
-    ConfigKey<Boolean> ENABLE_AVAILABILITY_ZONES = ConfigKeys.newBooleanConfigKey(
-            "dynamiccluster.zone.enable", "Whether to use availability zones, or just deploy everything into the generic location", false);
+    ConfigKey<Boolean> ENABLE_AVAILABILITY_ZONES = ConfigKeys.builder(Boolean.class, "dynamiccluster.zone.enable")
+            .description("Whether to use availability zones, or just deploy everything into the generic location")
+            .defaultValue(false)
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
+            .build();
 
     @SetFromFlag("zoneFailureDetector")
     ConfigKey<ZoneFailureDetector> ZONE_FAILURE_DETECTOR = ConfigKeys.newConfigKey(
