@@ -26,9 +26,12 @@ import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 
+import com.google.common.annotations.Beta;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey;
 
+@Beta
 public final class AggregationJob implements Runnable {
 
     public static BasicAttributeSensorAndConfigKey<Map<String, String>> DASHBOARD_COST_PER_MONTH = new BasicAttributeSensorAndConfigKey(Map.class,

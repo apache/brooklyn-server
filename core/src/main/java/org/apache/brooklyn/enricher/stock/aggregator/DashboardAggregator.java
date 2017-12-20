@@ -21,6 +21,8 @@ package org.apache.brooklyn.enricher.stock.aggregator;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
+import com.google.common.annotations.Beta;
+
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
@@ -38,12 +40,13 @@ import org.apache.brooklyn.util.time.Duration;
  * The reason that this exists is to provide high level summary information, that could be useful to display on a dashboard.
  * Whilst brooklyn itself has no such dashboard, we can imagine this entity being used in that fashion.
  *
- * Please note, that the DashboardAggregator will aggregate all children of the entity it is attached to, even intermediate level children.
+ * Please note, that the DashboardAggregator will aggregate all descendants of the entity it is attached to, even intermediate level children.
  * Therefore, please only ever attach one DashboardAggregator to the top most entity.
  *
  * For a detailed list of the config that is combined, please see the AggregationJob class.
  *
  */
+@Beta
 public class DashboardAggregator extends AbstractEnricher {
 
     private ScheduledTask task;
@@ -76,6 +79,8 @@ public class DashboardAggregator extends AbstractEnricher {
     @Override
     public void destroy() {
         super.destroy();
-        task.cancel();
+        if (task != null) {
+            task.cancel();
+        }
     }
 }
