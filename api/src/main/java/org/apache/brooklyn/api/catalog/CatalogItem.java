@@ -20,7 +20,6 @@ package org.apache.brooklyn.api.catalog;
 
 import java.util.Collection;
 import java.util.Locale;
-
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Application;

@@ -392,7 +392,8 @@ public class OsgiManager {
     }
 
     /** See {@link OsgiArchiveInstaller#install()}, but deferring the start and catalog load */
-    public ReferenceWithError<OsgiBundleInstallationResult> installDeferredStart(@Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream zipIn, boolean validateTypes) {
+    public ReferenceWithError<OsgiBundleInstallationResult> installDeferredStart(
+            @Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream zipIn, boolean validateTypes) {
         OsgiArchiveInstaller installer = new OsgiArchiveInstaller(this, knownBundleMetadata, zipIn);
         installer.setDeferredStart(true);
         installer.setValidateTypes(validateTypes);
@@ -402,7 +403,8 @@ public class OsgiManager {
     
     /** See {@link OsgiArchiveInstaller#install()} - this exposes custom options */
     @Beta
-    public ReferenceWithError<OsgiBundleInstallationResult> install(@Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream zipIn,
+    public ReferenceWithError<OsgiBundleInstallationResult> install(
+            @Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream zipIn,
             boolean start, boolean loadCatalogBom, boolean forceUpdateOfNonSnapshots) {
         
         log.debug("Installing bundle from stream - known details: "+knownBundleMetadata);
@@ -525,7 +527,7 @@ public class OsgiManager {
         return mgmt.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(vn));
     }
     
-    /** @deprecated since 0.12.0 use {@link #install(ManagedBundle, InputStream, boolean, boolean)} */
+    /** @deprecated since 0.12.0 use {@link #install(ManagedBundle, InputStream, boolean, boolean, boolean)} */
     @Deprecated
     public synchronized Bundle registerBundle(CatalogBundle bundleMetadata) {
         try {
@@ -550,7 +552,7 @@ public class OsgiManager {
      * @param bundle
      * @param force
      * @param validate
-     * @param results optional parameter collecting all results, with new type as key, and any type it replaces as value
+     * @param result optional parameter collecting all results, with new type as key, and any type it replaces as value
      * 
      * @since 0.12.0
      */

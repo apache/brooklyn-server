@@ -25,6 +25,8 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.util.http.auth.Credentials;
+
 import com.google.common.annotations.Beta;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;

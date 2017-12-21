@@ -85,11 +85,11 @@ public class OsgiArchiveInstallerTest extends BrooklynMgmtUnitTestSupport {
     }
     
     private ManagedBundle newMockManagedBundle(String symbolicName, String version) {
-        VersionedName versioneName = new VersionedName(symbolicName, version);
+        VersionedName versionedName = new VersionedName(symbolicName, version);
         ManagedBundle result = Mockito.mock(ManagedBundle.class);
         Mockito.when(result.getSymbolicName()).thenReturn(symbolicName);
-        Mockito.when(result.getOsgiVersionString()).thenReturn(versioneName.getOsgiVersionString());
-        Mockito.when(result.getVersionedName()).thenReturn(versioneName);
+        Mockito.when(result.getOsgiVersionString()).thenReturn(versionedName.getOsgiVersionString());
+        Mockito.when(result.getVersionedName()).thenReturn(versionedName);
         return result;
     }
 }

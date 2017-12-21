@@ -16,14 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.brooklyn.util.http.auth;
 
-package org.apache.brooklyn.util.http.executor;
+import static com.google.common.base.Preconditions.checkNotNull;
 
-/**
- * @deprecated since 1.0.0 use {@link org.apache.brooklyn.util.http.auth.UsernamePassword} instead.
- */
-public class UsernamePassword extends org.apache.brooklyn.util.http.auth.UsernamePassword {
+import com.google.common.annotations.Beta;
+
+@Beta
+public class UsernamePassword implements Credentials {
+    private final String username;
+    private final String password;
+
     public UsernamePassword(String username, String password) {
-        super(username, password);
+        this.username = checkNotNull(username, "username");
+        this.password = password;
+    }
+
+    @Override
+    public String getUser() {
+        return username;
+    }
+
+    @Override
+    public String getPassword() {
+        return password;
     }
 }

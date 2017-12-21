@@ -53,7 +53,7 @@ import org.apache.brooklyn.util.http.executor.HttpConfig;
 import org.apache.brooklyn.util.http.executor.HttpExecutor;
 import org.apache.brooklyn.util.http.executor.HttpRequest;
 import org.apache.brooklyn.util.http.executor.HttpResponse;
-import org.apache.brooklyn.util.http.executor.UsernamePassword;
+import org.apache.brooklyn.util.http.auth.UsernamePassword;
 import org.apache.brooklyn.util.http.executor.apacheclient.HttpExecutorImpl;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.time.Duration;

@@ -16,14 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.brooklyn.util.http.auth;
 
-package org.apache.brooklyn.util.http.executor;
+import com.google.common.annotations.Beta;
 
-/**
- * @deprecated since 1.0.0 use {@link org.apache.brooklyn.util.http.auth.UsernamePassword} instead.
- */
-public class UsernamePassword extends org.apache.brooklyn.util.http.auth.UsernamePassword {
-    public UsernamePassword(String username, String password) {
-        super(username, password);
-    }
+@Beta
+public interface Credentials {
+
+    /**
+     * @return A username for an HTTP request.
+     */
+    String getUser();
+
+    /**
+     * @return A password for an HTTP request.
+     */
+    String getPassword();
+
 }
