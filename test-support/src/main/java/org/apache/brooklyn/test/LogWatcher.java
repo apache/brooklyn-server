@@ -197,4 +197,10 @@ public class LogWatcher implements Closeable {
             return ImmutableList.copyOf(Iterables.filter(events, filter));
         }
     }
+    
+    public void clearEvents() {
+        synchronized (events) {
+            events.clear();
+        }
+    }
 }
