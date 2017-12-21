@@ -18,13 +18,17 @@
  */
 package org.apache.brooklyn.enricher.stock;
 
+import static org.apache.brooklyn.test.LogWatcher.EventPredicates.containsMessage;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import org.apache.brooklyn.test.LogWatcher;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Function;
@@ -96,6 +100,42 @@ public class MathAggregatorFunctionsTest {
         @SuppressWarnings({ "rawtypes", "unchecked" })
         List<Number> input = (List<Number>) (List) MutableList.<Object>of("1", null, "4");
         assertEquals(func.apply(input), (Integer)5);
+    }
+    
+    // See https://issues.apache.org/jira/browse/BROOKLYN-569
+    @Test
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    public void testTryCastInputValuesWhenNotNumbers() throws Exception {
+        Function<Collection<? extends Number>, Integer> func = MathAggregatorFunctions.computingSum(null, null, Integer.class);
+        
+        final LogWatcher watcher = new LogWatcher(
+                ImmutableList.of(LoggerFactory.getLogger(MathAggregatorFunctions.class).getName()),
+                ch.qos.logback.classic.Level.WARN,
+                containsMessage("Input to numeric aggregator is not a number"));
+
+        watcher.start();
+        try {
+            // Sums only things that can be numbers, ingnoring others; logs non-numbers only once
+            List<Number> inputWithNonNumber = (List<Number>) (List) MutableList.<Object>of(1, null, "not a number", "4", true);
+            for (int i = 0; i < 2; i++) {
+                assertEquals(func.apply(inputWithNonNumber), (Integer)5);
+            }
+            assertEquals(watcher.getEvents().size(), 1, "events="+watcher.getEvents());
+
+            // Summing only numbers resets the flag, so we'll be willing to log again
+            watcher.clearEvents();
+            assertEquals(func.apply(ImmutableList.of(1, 4)), (Integer)5);
+            assertTrue(watcher.getEvents().isEmpty(), "events="+watcher.getEvents());
+            
+            // Assert that we log again when come across non-number, but only once
+            for (int i = 0; i < 2; i++) {
+                assertEquals(func.apply(inputWithNonNumber), (Integer)5);
+            }
+            assertEquals(watcher.getEvents().size(), 1, "events="+watcher.getEvents());
+            
+        } finally {
+            watcher.close();
+        }
     }
     
     @Test

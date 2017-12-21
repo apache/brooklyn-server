@@ -114,6 +114,8 @@ public class MathAggregatorFunctions {
 
     @Beta
     protected abstract static class BasicComputingNumber<T extends Number> extends AbstractComputingNumber<T> {
+        private boolean loggedNonNumber;
+        
         public BasicComputingNumber(Number defaultValueForUnreportedSensors, Number valueToReportIfNoSensors, TypeToken<T> typeToken) {
             super(defaultValueForUnreportedSensors, valueToReportIfNoSensors, typeToken);
         }
@@ -122,18 +124,34 @@ public class MathAggregatorFunctions {
         public T apply(@Nullable Collection<? extends Number> vals) {
             List<Number> postProcessedVals = new ArrayList<>();
             int count = 0;
+            boolean hasNonNumber = false;
             if (vals != null) {
                 for (Object val : vals) {
                     Maybe<Number> coercedVal = TypeCoercions.tryCoerce(val, Number.class);
                     if (coercedVal.isPresentAndNonNull()) {
                         postProcessedVals.add(coercedVal.get());
                         count++;
-                    } else if (defaultValueForUnreportedSensors != null) {
-                        postProcessedVals.add(defaultValueForUnreportedSensors);
-                        count++;
+                    } else {
+                        if (val != null) {
+                            // This function is used for example in an enricher, to compute an aggregated value.
+                            // Log at warn only once per enricher if we have a non-number; but if things go back to healthy
+                            // (i.e. no non-numbers) then we'll log again at warn next time.
+                            hasNonNumber = true;
+                            if (loggedNonNumber) {
+                                if (LOG.isTraceEnabled()) LOG.trace("Input to numeric aggregator is not a number (again): "+val+" ("+val.getClass()+")");
+                            } else {
+                                loggedNonNumber = true;
+                                LOG.warn("Input to numeric aggregator is not a number: "+val+" ("+val.getClass()+")");
+                            }
+                        }
+                        if (defaultValueForUnreportedSensors != null) {
+                            postProcessedVals.add(defaultValueForUnreportedSensors);
+                            count++;
+                        }
                     }
                 }
             }
+            if (!hasNonNumber) loggedNonNumber = false;
             if (count==0) return cast(valueToReportIfNoSensors, typeToken);
             
             Number result = applyImpl(postProcessedVals);
