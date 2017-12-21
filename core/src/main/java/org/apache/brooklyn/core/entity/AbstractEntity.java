@@ -214,6 +214,13 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     private Entity selfProxy;
     private volatile Application application;
     
+    /**
+     * Lock to be held when setting the application.
+     * Must not synchronize on `this`, as then entity authors can cause horrible hanging
+     * by also synchronize on this. Instead only synchronize on private fields.
+     */
+    private final Object appMutex = new Object();
+    
     // If FEATURE_USE_BROOKLYN_LIVE_OBJECTS_DATAGRID_STORAGE, then these are just temporary values 
     // (but may still be needed if something, such as an EntityFactory in a cluster/fabric, did not
     // use EntitySpec.
@@ -746,16 +753,18 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         return app;
     }
 
-    // FIXME Can this really be deleted? Overridden by AbstractApplication; needs careful review
+    // TODO Can this really be deleted? Overridden by AbstractApplication; needs careful review
     /** @deprecated since 0.4.0 should not be needed / leaked outwith brooklyn internals / mgmt support? */
     @Deprecated
-    protected synchronized void setApplication(Application app) {
-        if (application != null) {
-            if (application.getId() != app.getId()) {
-                throw new IllegalStateException("Cannot change application of entity (attempted for "+this+" from "+getApplication()+" to "+app);
+    protected void setApplication(Application app) {
+        synchronized (appMutex) {
+            if (application != null) {
+                if (application.getId() != app.getId()) {
+                    throw new IllegalStateException("Cannot change application of entity (attempted for "+this+" from "+getApplication()+" to "+app);
+                }
             }
+            this.application = app;
         }
-        this.application = app;
     }
 
     @Override
