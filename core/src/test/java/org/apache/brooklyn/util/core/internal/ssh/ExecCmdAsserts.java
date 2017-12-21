@@ -52,6 +52,15 @@ public class ExecCmdAsserts {
         fail(expectedCmdRegex + " not matched by any commands in " + actual+(errMsg != null ? "; "+errMsg : ""));
     }
 
+    public static void assertExecContainsLiteral(ExecCmd actual, String literal) {
+        for (String cmd : actual.commands) {
+            if (cmd.contains(literal)) {
+                return;
+            }
+        }
+        fail("No match for '"+literal+"' in "+actual);
+    }
+
     public static void assertExecsNotContains(List<? extends ExecCmd> actuals, List<String> expectedNotCmdRegexs) {
         for (ExecCmd actual : actuals) {
             assertExecNotContains(actual, expectedNotCmdRegexs);

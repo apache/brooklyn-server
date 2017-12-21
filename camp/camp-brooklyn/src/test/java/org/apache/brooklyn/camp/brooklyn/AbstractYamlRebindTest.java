@@ -43,7 +43,6 @@ import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixture;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.stream.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -162,13 +161,11 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
     }
     
     protected Entity createAndStartApplication(String input, Map<String,?> startParameters) throws Exception {
-        EntitySpec<?> spec = 
-            mgmt().getTypeRegistry().createSpecFromPlan(CampTypePlanTransformer.FORMAT, input, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
-        final Entity app = mgmt().getEntityManager().createEntity(spec);
-        getLogger().info("Test created app, and will now start " + app);
+        final Entity app = createApplicationUnstarted(input);
         
-        // start the app (happens automatically if we use camp to instantiate, but not if we use crate spec approach)
         app.invoke(Startable.START, startParameters).get();
+        getLogger().info("Test started app " + app);
+        
         return app;
     }
 
@@ -190,6 +187,19 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
         return app;
     }
 
+    protected Entity createApplicationUnstarted(String... multiLineYaml) throws Exception {
+        return createApplicationUnstarted(joinLines(multiLineYaml));
+    }
+    
+    protected Entity createApplicationUnstarted(String input) throws Exception {
+        // starting of the app happens automatically if we use camp to instantiate, but not if we use create spec approach.
+        EntitySpec<?> spec = 
+            mgmt().getTypeRegistry().createSpecFromPlan(CampTypePlanTransformer.FORMAT, input, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
+        final Entity app = mgmt().getEntityManager().createEntity(spec);
+        getLogger().info("Test created app (unstarted) " + app);
+        return app;
+    }
+    
     protected void addCatalogItems(Iterable<String> catalogYaml) {
         addCatalogItems(joinLines(catalogYaml));
     }
