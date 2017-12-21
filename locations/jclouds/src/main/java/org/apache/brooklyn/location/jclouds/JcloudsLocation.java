@@ -212,7 +212,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     private final Map<String,Map<String, ? extends Object>> tagMapping = Maps.newLinkedHashMap();
 
     @SetFromFlag // so it's persisted
-    private final Map<MachineLocation,String> vmInstanceIds = Maps.newLinkedHashMap();
+    private final Map<MachineLocation,String> vmInstanceIds = Collections.synchronizedMap(Maps.newLinkedHashMap());
 
     static {
         Networking.init();
