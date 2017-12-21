@@ -1416,6 +1416,24 @@ public class DynamicClusterTest extends AbstractDynamicClusterOrFabricTest {
         }
     }
 
+    @Test
+    public void testGrowsToClusterMaxSize() {
+        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class))
+                .configure(DynamicCluster.INITIAL_SIZE, 1)
+                .configure(DynamicCluster.MAX_SIZE, 3));
+        cluster.start(ImmutableList.of(loc));
+
+        cluster.resize(4);
+        Assert.assertEquals(cluster.getCurrentSize(), Integer.valueOf(3));
+        Assert.assertEquals(Iterables.size(Iterables.filter(Entities.descendantsAndSelf(app), TestEntity.class)), 3);
+        
+        cluster.resize(1);
+        cluster.resizeByDelta(3);
+        Assert.assertEquals(cluster.getCurrentSize(), Integer.valueOf(3));
+        Assert.assertEquals(Iterables.size(Iterables.filter(Entities.descendantsAndSelf(app), TestEntity.class)), 3);
+    }
+
     @ImplementedBy(ThrowOnAsyncStartEntityImpl.class)
     public interface ThrowOnAsyncStartEntity extends TestEntity {
         ConfigKey<Integer> MAX_CONCURRENCY = ConfigKeys.newConfigKey(Integer.class, "concurrency", "max concurrency", 1);
