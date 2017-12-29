@@ -2609,7 +2609,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     protected LoginCredentials waitForSshable(
             HostAndPort hostAndPort, Iterable<LoginCredentials> credentialsToTry, ConfigBag setup) {
         String waitForSshable = setup.get(WAIT_FOR_SSHABLE);
-        checkArgument(!"false".equalsIgnoreCase(waitForSshable), "waitForSshable called despite waitForSshable=%s for %s", waitForSshable, hostAndPort);
+//        checkArgument(!"false".equalsIgnoreCase(waitForSshable), "waitForSshable called despite waitForSshable=%s for %s", waitForSshable, hostAndPort);
         checkArgument(!Iterables.isEmpty(credentialsToTry), "waitForSshable called without credentials for %s", hostAndPort);
 
         Duration timeout = null;

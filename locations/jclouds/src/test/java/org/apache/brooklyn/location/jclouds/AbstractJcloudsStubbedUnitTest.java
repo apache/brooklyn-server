@@ -18,10 +18,7 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import java.util.Map;
-
+import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.config.ConfigKey;
@@ -38,13 +35,12 @@ import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableMap;
+import java.util.Map;
 
 /**
  * Stubs out all comms with the cloud provider.
- * 
- * Expects sub-classes to call {@link #initNodeCreatorAndJcloudsLocation(NodeCreator, Map)} before
+ * <p>
+ * Expects sub-classes to call {@link #initStubbedJcloudsLocation(Map)} before
  * the test methods are called.
  */
 public abstract class AbstractJcloudsStubbedUnitTest extends AbstractJcloudsLiveTest {
@@ -52,20 +48,22 @@ public abstract class AbstractJcloudsStubbedUnitTest extends AbstractJcloudsLive
     private static final Logger LOG = LoggerFactory.getLogger(AbstractJcloudsStubbedUnitTest.class);
 
     // TODO These values are hard-coded into the JcloudsStubTemplateBuilder, so best not to mess!
-    public static final String LOCATION_SPEC = "jclouds:aws-ec2:us-east-1";
-    
+    public static final String LOCATION_SPEC = "jclouds:stub";
+    public static final String PUBLIC_IP_ADDRESS = "144.175.1.1";
+    public static final String PRIVATE_IP_ADDRESS = "10.1.1.1";
+
     protected NodeCreator nodeCreator;
     protected ComputeServiceRegistry computeServiceRegistry;
-    
-    @BeforeMethod(alwaysRun=true)
+
+    @BeforeMethod(alwaysRun = true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
         RecordingSshTool.clear();
         RecordingWinRmTool.clear();
     }
-    
-    @AfterMethod(alwaysRun=true)
+
+    @AfterMethod(alwaysRun = true)
     @Override
     public void tearDown() throws Exception {
         try {
@@ -80,7 +78,7 @@ public abstract class AbstractJcloudsStubbedUnitTest extends AbstractJcloudsLive
     protected LocalManagementContext newManagementContext() {
         return LocalManagementContextForTests.builder(true).useAdditionalProperties(customBrooklynProperties()).build();
     }
-    
+
     /**
      * For overriding.
      */
@@ -89,20 +87,18 @@ public abstract class AbstractJcloudsStubbedUnitTest extends AbstractJcloudsLive
     }
 
     /**
-     * Expect sub-classes to call this - either in their {@link BeforeMethod} or at the very 
+     * Expect sub-classes to call this - either in their {@link BeforeMethod} or at the very
      * start of the test method (to allow custom config per test).
      */
-    protected void initNodeCreatorAndJcloudsLocation(NodeCreator nodeCreator, Map<?, ?> jcloudsLocationConfig) throws Exception {
-        this.nodeCreator = nodeCreator;
-        this.computeServiceRegistry = new StubbedComputeServiceRegistry(nodeCreator, false);
+    protected JcloudsLocation initStubbedJcloudsLocation(Map<?, ?> jcloudsLocationConfig) throws Exception {
         final Map<ConfigKey<?>, Object> defaults = ImmutableMap.<ConfigKey<?>, Object>builder()
-                .put(JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry)
-                .put(JcloudsLocationConfig.TEMPLATE_BUILDER, JcloudsStubTemplateBuilder.create(getProvider(), getRegion()))
                 .put(JcloudsLocationConfig.ACCESS_IDENTITY, "stub-identity")
                 .put(JcloudsLocationConfig.ACCESS_CREDENTIAL, "stub-credential")
                 .put(SshMachineLocation.SSH_TOOL_CLASS, RecordingSshTool.class.getName())
                 .put(WinRmMachineLocation.WINRM_TOOL_CLASS, RecordingWinRmTool.class.getName())
-                .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE, Predicates.alwaysTrue())
+                .put(JcloudsLocation.WAIT_FOR_SSHABLE, Boolean.FALSE)
+                .put(JcloudsLocationConfig.USE_JCLOUDS_SSH_INIT, Boolean.FALSE)
+                .put(JcloudsLocationConfig.POLL_FOR_FIRST_REACHABLE_ADDRESS, Boolean.FALSE)
                 .put(JcloudsLocationConfig.LOOKUP_AWS_HOSTNAME, Boolean.FALSE)
                 .build();
         final ImmutableMap.Builder<Object, Object> flags = ImmutableMap.builder()
@@ -117,8 +113,7 @@ public abstract class AbstractJcloudsStubbedUnitTest extends AbstractJcloudsLive
                 LOG.debug("Overridden default value for {} with: {}", new Object[]{key, overrideVal});
             }
         }
-        this.jcloudsLocation = (JcloudsLocation)managementContext.getLocationRegistry().getLocationManaged(
-                getLocationSpec(), flags.build());
+        return (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(getLocationSpec(), flags.build());
     }
 
     /**
@@ -127,27 +122,27 @@ public abstract class AbstractJcloudsStubbedUnitTest extends AbstractJcloudsLive
     protected String getLocationSpec() {
         return LOCATION_SPEC;
     }
-    
+
     protected NodeCreator newNodeCreator() {
         return new BasicNodeCreator();
     }
-    
+
     protected String getProvider() {
         LocationSpec<?> spec = mgmt().getLocationRegistry().getLocationSpec(getLocationSpec()).get();
         return getRequiredConfig(spec, JcloudsLocation.CLOUD_PROVIDER);
     }
-    
+
     protected String getRegion() {
         LocationSpec<? extends Location> spec = mgmt().getLocationRegistry().getLocationSpec(getLocationSpec()).get();
         return getRequiredConfig(spec, JcloudsLocation.CLOUD_REGION_ID);
     }
-    
+
     protected String getRequiredConfig(LocationSpec<?> spec, ConfigKey<String> key) {
         String result = (String) spec.getConfig().get(key);
         if (result != null) {
             return result;
         }
         result = (String) spec.getFlags().get(key.getName());
-        return checkNotNull(result, "config "+key.getName());
+        return result;
     }
 }

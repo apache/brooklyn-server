@@ -48,7 +48,7 @@ public class JcloudsTemplateOptionsStubbedTest extends AbstractJcloudsStubbedUni
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
+        jcloudsLocation = initStubbedJcloudsLocation(ImmutableMap.of());
     }
     
     /**

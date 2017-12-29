@@ -45,41 +45,18 @@ public class JcloudsSshMachineLocationAddressOverwriteTest extends AbstractJclou
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(JcloudsImageChoiceStubbedLiveTest.class);
     
-    private List<String> privateAddresses;
-    private List<String> publicAddresses;
-
     @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
-        privateAddresses = ImmutableList.of("172.168.10.11");
-        publicAddresses = ImmutableList.of("173.194.32.123");
-        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of(JcloudsLocationConfig.USE_MACHINE_PUBLIC_ADDRESS_AS_PRIVATE_ADDRESS.getName(), true));
+        jcloudsLocation = initStubbedJcloudsLocation(ImmutableMap.of(JcloudsLocationConfig.USE_MACHINE_PUBLIC_ADDRESS_AS_PRIVATE_ADDRESS.getName(), true));
     }
     
-    @Override
-    protected NodeCreator newNodeCreator() {
-        return new AbstractNodeCreator() {
-            @Override protected NodeMetadata newNode(String group, Template template) {
-                NodeMetadata result = new NodeMetadataBuilder()
-                        .id("myid")
-                        .credentials(LoginCredentials.builder().identity("myuser").credential("mypassword").build())
-                        .loginPort(22)
-                        .status(Status.RUNNING)
-                        .publicAddresses(publicAddresses)
-                        .privateAddresses(privateAddresses)
-                        .build();
-                return result;
-            }
-        };
-    }
-
-
     @Test
     public void testSetPrivateIpToPublicIp() throws Exception {
         JcloudsSshMachineLocation machine = obtainMachine(ImmutableMap.of());
 
-        assertEquals(publicAddresses, machine.getPublicAddresses());
+        assertEquals(machine.getPublicAddresses(), ImmutableList.of(PUBLIC_IP_ADDRESS));
 
         assertEquals(machine.getPublicAddresses().size(), 1);
         String publicAddress = machine.getPublicAddresses().iterator().next();

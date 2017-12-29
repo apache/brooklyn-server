@@ -166,7 +166,7 @@ public class JcloudsMaxConcurrencyStubbedTest extends AbstractJcloudsStubbedUnit
         CountDownLatch latch = new CountDownLatch(1);
         creationConcurrencyMonitor.setLatch(latch);
         
-        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of(JcloudsLocation.MAX_CONCURRENT_MACHINE_CREATIONS, 2));
+        jcloudsLocation = initStubbedJcloudsLocation(ImmutableMap.of(JcloudsLocation.MAX_CONCURRENT_MACHINE_CREATIONS, 2));
         
         List<ListenableFuture<?>> futures = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
@@ -187,7 +187,7 @@ public class JcloudsMaxConcurrencyStubbedTest extends AbstractJcloudsStubbedUnit
         CountDownLatch latch = new CountDownLatch(1);
         deletionConcurrencyMonitor.setLatch(latch);
         
-        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of(JcloudsLocation.MAX_CONCURRENT_MACHINE_DELETIONS, 2));
+        jcloudsLocation = initStubbedJcloudsLocation(ImmutableMap.of(JcloudsLocation.MAX_CONCURRENT_MACHINE_DELETIONS, 2));
 
         for (int i = 0; i < 3; i++) {
             obtainMachine();
