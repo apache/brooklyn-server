@@ -234,7 +234,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
      * Defaults to null which means to use the remote timestamp. 
      * Only for testing as this records the remote timestamp in the object.
      * <p>
-     * If this is supplied, one must also set {@link ManagementPlaneSyncRecordPersisterToObjectStore#useRemoteTimestampInMemento()}. */
+     * If this is supplied, one must also set {@link ManagementPlaneSyncRecordPersisterToObjectStore#preferRemoteTimestampInMemento()}. */
     @VisibleForTesting
     public HighAvailabilityManagerImpl setRemoteTicker(Ticker val) {
         this.optionalRemoteTickerUtc = val;
@@ -570,11 +570,6 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         return myNodeState;
     }
 
-    @Override
-    public ManagementPlaneSyncRecord getLastManagementPlaneSyncRecord() {
-        return lastSyncRecord;
-    }
-    
     protected void registerPollTask() {
         final Runnable job = new Runnable() {
             private boolean lastFailed;
@@ -1003,6 +998,11 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         lastSyncRecord = record;
         return record; 
     }
+
+    @Override
+    public ManagementPlaneSyncRecord getLastManagementPlaneSyncRecord() {
+        return lastSyncRecord;
+    }
     
     private ManagementPlaneSyncRecord loadManagementPlaneSyncRecordInternal(boolean useLocalKnowledgeForThisNode) {
         if (disabled) {
@@ -1020,7 +1020,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
             LOG.debug("High availablity manager has no persister; returning empty record");
             return ManagementPlaneSyncRecordImpl.builder().build();
         }
-        
+
         int maxLoadAttempts = 5;
         Exception lastException = null;
         Stopwatch timer = Stopwatch.createStarted();
