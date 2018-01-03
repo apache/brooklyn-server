@@ -797,10 +797,16 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         Preconditions.checkArgument(delta > 0, "Must call grow with positive delta.");
         Integer maxSize = config().get(MAX_SIZE);
         if (maxSize != null) {
-            final int desiredSize = getCurrentSize() + delta;
-            if (desiredSize > maxSize) {
+            Integer currentSize = getCurrentSize();
+            final int desiredSize = currentSize + delta;
+            if (currentSize >= maxSize) {
                 throw new Resizable.InsufficientCapacityException(
-                        "Desired cluster size " + desiredSize + " exceeds maximum size of " + maxSize);
+                        "Current cluster size " + currentSize + " already at maximum permitted");
+            } else if (desiredSize > maxSize) {
+                int allowedDelta = (maxSize - currentSize);
+                LOG.warn("Desired cluster size " + desiredSize + " exceeds maximum size of " + maxSize
+                        + "; will only grow by " + allowedDelta + " instead of " + delta + " for " + this);
+                delta = allowedDelta;
             }
         }
 
