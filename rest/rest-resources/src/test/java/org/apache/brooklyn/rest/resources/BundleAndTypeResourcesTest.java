@@ -71,6 +71,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
+import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.os.Os;
@@ -85,6 +86,7 @@ import org.testng.annotations.Test;
 import org.testng.reporters.Files;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -1095,4 +1097,271 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         return currentExpectedToBeWorking;
     }
 
+    @Test
+    public void testAddSameTypeTwiceInSameBundle_SilentlyDeduped() throws Exception {
+        final String symbolicName = "test.duplicate.type."+JavaClassNames.niceClassAndMethod();
+        final String entityName = symbolicName+".type";
+
+        File jar = createJar(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  bundle: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  items:",
+                "  - id: " + entityName,
+                "    itemType: entity",
+                "    name: T",
+                "    item:",
+                "      type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  - id: " + entityName,
+                "    itemType: entity",
+                "    name: T",
+                "    item:",
+                "      type: org.apache.brooklyn.core.test.entity.TestEntity")));
+
+        Response result = client().path("/catalog/bundles")
+            .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
+            .post(Streams.readFully(new FileInputStream(jar)));
+        HttpAsserts.assertHealthyStatusCode(result.getStatus());
+
+        TypeSummary entity = client().path("/catalog/types/" + entityName + "/" + TEST_VERSION)
+                .get(TypeSummary.class);
+        assertEquals(entity.getDisplayName(), "T");
+        
+        List<TypeSummary> entities = client().path("/catalog/types/" + entityName)
+                .get(new GenericType<List<TypeSummary>>() {});
+        Asserts.assertSize(entities, 1);
+        assertEquals(Iterables.getOnlyElement(entities), entity);
+        
+        BundleSummary bundle = client().path("/catalog/bundles/" + symbolicName + "/" + TEST_VERSION)
+            .get(BundleSummary.class);
+        Asserts.assertSize(bundle.getTypes(), 1);
+        assertEquals(Iterables.getOnlyElement(bundle.getTypes()), entity);
+
+    }
+    
+    @Test
+    // different metadata is allowed as that doesn't affect operation (but different definition is not, see below)
+    // if in same bundle, it's deduped and last one wins; should warn and could disallow, but if type is pulled in 
+    // multiple times from copied files, it feels convenient just to dedupe and forgive minor metadata changes;
+    // if in different bundles, see other test below, but in that case both are added
+    public void testAddSameTypeTwiceInSameBundleDifferentDisplayName_LastOneWins() throws Exception {
+        final String symbolicName = "test.duplicate.type."+JavaClassNames.niceClassAndMethod();
+        final String entityName = symbolicName+".type";
+
+        File jar = createJar(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  bundle: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  items:",
+                "  - id: " + entityName,
+                "    itemType: entity",
+                "    name: T",
+                "    item:",
+                "      type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  - id: " + entityName,
+                "    itemType: entity",
+                "    name: U",
+                "    item:",
+                "      type: org.apache.brooklyn.core.test.entity.TestEntity")));
+
+        Response result = client().path("/catalog/bundles")
+            .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
+            .post(Streams.readFully(new FileInputStream(jar)));
+        HttpAsserts.assertHealthyStatusCode(result.getStatus());
+
+        TypeSummary entity = client().path("/catalog/types/" + entityName + "/" + TEST_VERSION)
+                .get(TypeSummary.class);
+        assertEquals(entity.getDisplayName(), "U");
+        
+        List<TypeSummary> entities = client().path("/catalog/types/" + entityName)
+                .get(new GenericType<List<TypeSummary>>() {});
+        Asserts.assertSize(entities, 1);
+        assertEquals(Iterables.getOnlyElement(entities), entity);
+        
+        BundleSummary bundle = client().path("/catalog/bundles/" + symbolicName + "/" + TEST_VERSION)
+            .get(BundleSummary.class);
+        Asserts.assertSize(bundle.getTypes(), 1);
+        assertEquals(Iterables.getOnlyElement(bundle.getTypes()), entity);
+    }
+    
+    @Test
+    // would be confusing if the _definition_ is different however, as one will be ignored
+    public void testAddSameTypeTwiceInSameBundleDifferentDefinition_Disallowed() throws Exception {
+        final String symbolicName = "test.duplicate.type."+JavaClassNames.niceClassAndMethod();
+        final String entityName = symbolicName+".type";
+        final String entityNameOkay = symbolicName+".okayType";
+
+        File jar = createJar(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  bundle: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  items:",
+                "  - id: " + entityNameOkay,
+                "    itemType: entity",
+                "    item:",
+                "      type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  - id: " + entityName,
+                "    itemType: entity",
+                "    item:",
+                "      type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "      a.config: first_definition",
+                "  - id: " + entityName,
+                "    itemType: entity",
+                "    item:",
+                "      type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "      a.config: second_definition_makes_it_different_so_disallowed")));
+
+        Response result = client().path("/catalog/bundles")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
+                .post(Streams.readFully(new FileInputStream(jar)));
+        HttpAsserts.assertNotHealthyStatusCode(result.getStatus());
+        String resultS = Streams.readFullyString((InputStream)result.getEntity());
+        Asserts.assertStringContainsIgnoreCase(resultS, "different plan", entityName);
+        Asserts.assertStringDoesNotContain(resultS, entityNameOkay);
+
+        // entity not added
+        Response get = client().path("/catalog/types/" + entityName + "/" + TEST_VERSION).get();
+        assertEquals(get.getStatus(), 404);
+        
+        List<TypeSummary> entities = client().path("/catalog/types/" + entityName)
+                .get(new GenericType<List<TypeSummary>>() {});
+        Asserts.assertSize(entities, 0);
+        
+        // nor is the okay entity
+        Response getOkay = client().path("/catalog/types/" + entityNameOkay + "/" + TEST_VERSION).get();
+        assertEquals(getOkay.getStatus(), 404);
+        
+        // and nor is the bundle
+        Response getBundle = client().path("/catalog/bundles/" + symbolicName + "/" + TEST_VERSION).get();
+        assertEquals(getBundle.getStatus(), 404);
+    }
+    
+    // TODO might in future want to allow this if the user adding the type cannot see the other type due to entitlements;
+    // means however there might be another user who _can_ see the two different types 
+    private final static boolean DISALLOW_DIFFERENCES_IN_SAME_TYPE_ID_FROM_DIFFERENT_BUNDLES = true;
+    
+    @Test
+    public void testAddSameTypeTwiceInDifferentBundleDifferentDefinition_Disallowed() throws Exception {
+        Preconditions.checkArgument(DISALLOW_DIFFERENCES_IN_SAME_TYPE_ID_FROM_DIFFERENT_BUNDLES);
+        // if above changed, assert that both types are added
+        
+        final String symbolicName1 = "test.duplicate.type."+JavaClassNames.niceClassAndMethod()+".1";
+        final String symbolicName2 = "test.duplicate.type."+JavaClassNames.niceClassAndMethod()+".2";
+        final String entityName = "test.duplicate.type."+JavaClassNames.niceClassAndMethod()+".type";
+
+        File jar1 = createJar(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  bundle: " + symbolicName1,
+                "  version: " + TEST_VERSION,
+                "  items:",
+                "  - id: " + entityName,
+                "    itemType: entity",
+                "    item:",
+                "      type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "      a.config: in_bundle1")));
+        Response result1 = client().path("/catalog/bundles")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
+                .post(Streams.readFully(new FileInputStream(jar1)));
+        HttpAsserts.assertHealthyStatusCode(result1.getStatus());
+        
+        File jar2 = createJar(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+            "brooklyn.catalog:",
+            "  bundle: " + symbolicName2,
+            "  version: " + TEST_VERSION,
+            "  items:",
+            "  - id: " + entityName,
+            "    itemType: entity",
+            "    item:",
+            "      type: org.apache.brooklyn.core.test.entity.TestEntity",
+            "      a.config: in_bundle2")));
+        Response result2 = client().path("/catalog/bundles")
+            .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
+            .post(Streams.readFully(new FileInputStream(jar2)));
+        String resultS = Streams.readFullyString((InputStream)result2.getEntity());
+        HttpAsserts.assertNotHealthyStatusCode(result2.getStatus());
+        Asserts.assertStringContainsIgnoreCase(resultS, "it is different to", entityName, "different bundle", symbolicName1);
+    }
+    
+    @Test
+    // TODO fails as there is NOT a link to a specific type in a specific bundle currently - API assumes type name+id unique
+    // but they may differ in the containing bundle (and maybe in future differ in more things)
+    // ==> bug about to be fixed!
+    public void testAddSameTypeTwiceInDifferentBundleSameDefinition_AllowedAndApiMakesTheDifferentOnesClear() throws Exception {
+        final String symbolicName1 = "test.duplicate.type."+JavaClassNames.niceClassAndMethod()+".1";
+        final String symbolicName2 = "test.duplicate.type."+JavaClassNames.niceClassAndMethod()+".2";
+        final String entityName = "test.duplicate.type."+JavaClassNames.niceClassAndMethod()+".type";
+
+        File jar1 = createJar(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  bundle: " + symbolicName1,
+                "  version: " + TEST_VERSION,
+                "  items:",
+                "  - id: " + entityName,
+                "    itemType: entity",
+                "    name: T",
+                "    item:",
+                "      type: org.apache.brooklyn.core.test.entity.TestEntity")));
+        Response result1 = client().path("/catalog/bundles")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
+                .post(Streams.readFully(new FileInputStream(jar1)));
+        HttpAsserts.assertHealthyStatusCode(result1.getStatus());
+        
+        File jar2 = createJar(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+            "brooklyn.catalog:",
+            "  bundle: " + symbolicName2,
+            "  version: " + TEST_VERSION,
+            "  items:",
+            "  - id: " + entityName,
+            "    itemType: entity",
+            "    name: U",
+            "    item:",
+            "      type: org.apache.brooklyn.core.test.entity.TestEntity")));
+        Response result2 = client().path("/catalog/bundles")
+            .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
+            .post(Streams.readFully(new FileInputStream(jar2)));
+        HttpAsserts.assertHealthyStatusCode(result2.getStatus());
+        
+        TypeSummary entity = client().path("/catalog/types/" + entityName + "/" + TEST_VERSION)
+            .get(TypeSummary.class);
+        // type should be present twice, but bundle 1 preferred because first alphanumerically; 
+        assertEquals(entity.getContainingBundle(), symbolicName1+":"+TEST_VERSION);
+        // (however this might be weakened in future)
+//        Asserts.assertStringContains("["+symbolicName1+":"+TEST_VERSION+"] OR ["+symbolicName2+":"+TEST_VERSION+"]", 
+//            "["+entity.getContainingBundle()+"]");
+        TypeSummary entity1 = entity;
+        
+        List<TypeSummary> entities = client().path("/catalog/types/" + entityName)
+                .get(new GenericType<List<TypeSummary>>() {});
+        Asserts.assertSize(entities, 2);
+        assertEquals(entities.get(0), entity1);
+        TypeSummary entity2 = entities.get(1);
+        assertEquals(entity2.getContainingBundle(), symbolicName2+":"+TEST_VERSION);
+        Assert.assertNotEquals(entity1, entity2);
+        
+        assertEquals(entity1.getDisplayName(), "T");
+        assertEquals(entity2.getDisplayName(), "U");
+        
+        BundleSummary bundle1 = client().path("/catalog/bundles/" + symbolicName1 + "/" + TEST_VERSION)
+            .get(BundleSummary.class);
+        Asserts.assertSize(bundle1.getTypes(), 1);
+        assertEquals(Iterables.getOnlyElement(bundle1.getTypes()), entity1);        
+        
+        BundleSummary bundle2 = client().path("/catalog/bundles/" + symbolicName2 + "/" + TEST_VERSION)
+            .get(BundleSummary.class);
+        Asserts.assertSize(bundle2.getTypes(), 1);
+        assertEquals(Iterables.getOnlyElement(bundle2.getTypes()), entity2);
+        
+        @SuppressWarnings("unchecked")
+        String self1 = ((Map<String,String>)entity1.getExtraFields().get("links")).get("self");
+        @SuppressWarnings("unchecked")
+        String self2 = ((Map<String,String>)entity2.getExtraFields().get("links")).get("self");
+        
+        Assert.assertNotEquals(self1, self2);
+        
+        TypeSummary entity1r = client().path(self1).get(TypeSummary.class);
+        TypeSummary entity2r = client().path(self1).get(TypeSummary.class);
+        Assert.assertEquals(entity1r, entity1);
+        Assert.assertEquals(entity2r, entity2);
+    }
+    
 }
