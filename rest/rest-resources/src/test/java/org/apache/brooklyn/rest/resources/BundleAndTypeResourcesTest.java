@@ -698,12 +698,25 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         
         assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
 
-        TypeSummary entityItem = client().path("/catalog/types/"+symbolicName + "/" + version)
-                .get(TypeSummary.class);
-
+        TypeDetail entityItem = client().path("/catalog/types/"+symbolicName + "/" + version)
+                .get(TypeDetail.class);
         assertEquals(entityItem.getSymbolicName(), symbolicName);
         assertEquals(entityItem.getVersion(), version);
 
+        // assert we can cast it as summary
+        TypeSummary entityItemSummary = client().path("/catalog/types/"+symbolicName + "/" + version)
+            .get(TypeSummary.class);
+        assertEquals(entityItemSummary.getSymbolicName(), symbolicName);
+        assertEquals(entityItemSummary.getVersion(), version);
+
+        List<TypeSummary> typesInBundle = client().path("/catalog/bundles/" + symbolicName + "/" + version + "/types")
+            .get(new GenericType<List<TypeSummary>>() {});
+        assertEquals(Iterables.getOnlyElement(typesInBundle), entityItemSummary);
+
+        TypeDetail entityItemFromBundle = client().path("/catalog/bundles/" + symbolicName + "/" + version + "/types/" + symbolicName + "/" + version)
+            .get(TypeDetail.class);
+        assertEquals(entityItemFromBundle, entityItem);
+        
         // and internally let's check we have libraries
         RegisteredType item = getManagementContext().getTypeRegistry().get(symbolicName, version);
         Assert.assertNotNull(item);
@@ -1283,9 +1296,6 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
     }
     
     @Test
-    // TODO fails as there is NOT a link to a specific type in a specific bundle currently - API assumes type name+id unique
-    // but they may differ in the containing bundle (and maybe in future differ in more things)
-    // ==> bug about to be fixed!
     public void testAddSameTypeTwiceInDifferentBundleSameDefinition_AllowedAndApiMakesTheDifferentOnesClear() throws Exception {
         final String symbolicName1 = "test.duplicate.type."+JavaClassNames.niceClassAndMethod()+".1";
         final String symbolicName2 = "test.duplicate.type."+JavaClassNames.niceClassAndMethod()+".2";
@@ -1359,7 +1369,7 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         Assert.assertNotEquals(self1, self2);
         
         TypeSummary entity1r = client().path(self1).get(TypeSummary.class);
-        TypeSummary entity2r = client().path(self1).get(TypeSummary.class);
+        TypeSummary entity2r = client().path(self2).get(TypeSummary.class);
         Assert.assertEquals(entity1r, entity1);
         Assert.assertEquals(entity2r, entity2);
     }

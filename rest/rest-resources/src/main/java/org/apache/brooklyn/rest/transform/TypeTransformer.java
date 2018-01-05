@@ -49,6 +49,7 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.rest.api.BundleApi;
 import org.apache.brooklyn.rest.api.TypeApi;
 import org.apache.brooklyn.rest.domain.BundleInstallationRestResult;
 import org.apache.brooklyn.rest.domain.BundleSummary;
@@ -61,6 +62,8 @@ import org.apache.brooklyn.rest.domain.TypeSummary;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Sets;
@@ -185,7 +188,13 @@ public class TypeTransformer {
     }
     
     private static URI getSelfLink(RegisteredType item, UriBuilder ub) {
-        return serviceUriBuilder(ub, TypeApi.class, "detail").build(item.getSymbolicName(), item.getVersion());
+        Maybe<VersionedName> bundleM = VersionedName.parseMaybe(item.getContainingBundle(), true);
+        if (bundleM.isPresent()) {
+            return serviceUriBuilder(ub, BundleApi.class, "getTypeExplicitVersion").build(bundleM.get().getSymbolicName(), bundleM.get().getVersionString(),
+                item.getSymbolicName(), item.getVersion());
+        } else {
+            return serviceUriBuilder(ub, TypeApi.class, "detail").build(item.getSymbolicName(), item.getVersion());
+        }
     }
     private static String tidyIconLink(BrooklynRestResourceUtils b, RegisteredType item, String iconUrl, UriBuilder ub) {
         if (b.isUrlServerSideAndSafe(iconUrl)) {

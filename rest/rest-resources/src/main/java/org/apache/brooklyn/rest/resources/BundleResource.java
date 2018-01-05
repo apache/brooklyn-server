@@ -27,14 +27,19 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.rest.api.BundleApi;
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.domain.BundleInstallationRestResult;
 import org.apache.brooklyn.rest.domain.BundleSummary;
+import org.apache.brooklyn.rest.domain.TypeDetail;
+import org.apache.brooklyn.rest.domain.TypeSummary;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.TypeTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
@@ -48,6 +53,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
 
 @HaHotStateRequired
 public class BundleResource extends AbstractBrooklynRestResource implements BundleApi {
@@ -106,6 +112,42 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
             throw WebResourceUtils.notFound("Bundle with id '%s:%s' not found", symbolicName, version);
         }
         return b;
+    }
+    
+
+    @Override
+    public List<TypeSummary> getTypes(String symbolicName, String version) {
+        ManagedBundle b = lookup(symbolicName, version);
+        return TypeTransformer.bundleDetails(brooklyn(), b, ui.getBaseUriBuilder(), mgmt()).getTypes();
+    }
+
+    @Override
+    public TypeDetail getType(String symbolicName, String version, String typeSymbolicName) {
+        return getTypeExplicitVersion(symbolicName, version, typeSymbolicName, version);
+    }
+
+    @Override
+    public TypeDetail getTypeExplicitVersion(String symbolicName, String version, String typeSymbolicName, String typeVersion) {
+        ManagedBundle b = lookup(symbolicName, version);
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, typeSymbolicName+":"+typeVersion)) {
+            // TODO best to default to "not found" - unless maybe they have permission to "see null"
+            throw WebResourceUtils.forbidden("User '%s' not permitted to see info on this type (including whether or not installed)",
+                Entitlements.getEntitlementContext().user());
+        }
+        
+        Predicate<RegisteredType> pred = RegisteredTypePredicates.nameOrAlias(typeSymbolicName);
+        pred = Predicates.and(pred, RegisteredTypePredicates.containingBundle(b.getVersionedName()));
+        if (!LATEST.equalsIgnoreCase(typeVersion)) {
+            pred = Predicates.and(pred, RegisteredTypePredicates.version(typeVersion));
+        }
+        Iterable<RegisteredType> items = mgmt().getTypeRegistry().getMatching(pred);
+        
+        if (Iterables.isEmpty(items)) {
+            throw WebResourceUtils.notFound("Entity with id '%s:%s' not found", typeSymbolicName, typeVersion);
+        }
+        
+        RegisteredType item = RegisteredTypes.getBestVersion(items);
+        return TypeTransformer.detail(brooklyn(), item, ui.getBaseUriBuilder());
     }
 
     @Override
@@ -170,4 +212,5 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
         }
         return Response.status(status).entity(resultR).build();
     }
+    
 }

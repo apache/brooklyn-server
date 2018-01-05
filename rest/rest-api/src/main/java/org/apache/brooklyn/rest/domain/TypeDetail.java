@@ -23,6 +23,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.google.common.base.Objects;
 
 /** As {@link TypeSummary} but including plan information. */
 public class TypeDetail extends TypeSummary {
@@ -42,7 +43,22 @@ public class TypeDetail extends TypeSummary {
         public Object getData() {
             return data;
         }
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(format, data);
+        }
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null) return false;
+            if (getClass() != obj.getClass()) return false;
+            TypeImplementationPlanSummary other = (TypeImplementationPlanSummary) obj;
+            if (!Objects.equal(data, other.data)) return false;
+            if (!Objects.equal(format, other.format)) return false;
+            return true;
+        }
     }
+    
     private TypeImplementationPlanSummary plan;
     
     /** Constructor for JSON deserialization use only. */
