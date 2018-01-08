@@ -35,6 +35,8 @@ import javax.ws.rs.core.Response;
 
 import org.apache.brooklyn.rest.domain.BundleInstallationRestResult;
 import org.apache.brooklyn.rest.domain.BundleSummary;
+import org.apache.brooklyn.rest.domain.TypeDetail;
+import org.apache.brooklyn.rest.domain.TypeSummary;
 
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -88,6 +90,51 @@ public interface BundleApi {
         @PathParam("version")
         String version);
 
+
+    @Path("/{symbolicName}/{version}/types")
+    @GET
+    @ApiOperation(value = "Get all types declared in a given bundle", 
+            response = TypeDetail.class)
+    public List<TypeSummary> getTypes(
+        @ApiParam(name = "symbolicName", value = "Bundle name to query", required = true)
+        @PathParam("symbolicName")
+        String symbolicName,
+        @ApiParam(name = "version", value = "Version of bundle and of type to query", required = true)
+        @PathParam("version")
+        String version);
+    
+    @Path("/{symbolicName}/{version}/types/{typeSymbolicName}")
+    @GET
+    @ApiOperation(value = "Get detail on a given type in a given bundle", 
+            response = TypeDetail.class)
+    public TypeDetail getType(
+        @ApiParam(name = "symbolicName", value = "Bundle name to query", required = true)
+        @PathParam("symbolicName")
+        String symbolicName,
+        @ApiParam(name = "version", value = "Version of bundle and of type to query", required = true)
+        @PathParam("version")
+        String version,
+        @ApiParam(name = "typeSymbolicName", value = "Type name to query", required = true)
+        @PathParam("typeSymbolicName")
+        String typeSymbolicName);
+    
+    @Path("/{symbolicName}/{version}/types/{typeSymbolicName}/{typeVersion}")
+    @GET
+    @ApiOperation(value = "Get detail on a given type and version in a bundle (special method for unusual cases where type has different version)", 
+            response = TypeDetail.class)
+    public TypeDetail getTypeExplicitVersion(
+        @ApiParam(name = "symbolicName", value = "Bundle name to query", required = true)
+        @PathParam("symbolicName")
+        String symbolicName,
+        @ApiParam(name = "version", value = "Bundle version to query", required = true)
+        @PathParam("version")
+        String version,
+        @ApiParam(name = "typeSymbolicName", value = "Type name to query", required = true)
+        @PathParam("typeSymbolicName")
+        String typeSymbolicName,
+        @ApiParam(name = "typeVersion", value = "Version to query (if different to bundle version)", required = true)
+        @PathParam("typeVersion")
+        String typeVersion);
     
     @Path("/{symbolicName}/{version}")
     @DELETE
