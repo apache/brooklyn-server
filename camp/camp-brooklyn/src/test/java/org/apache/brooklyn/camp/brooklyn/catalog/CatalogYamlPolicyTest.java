@@ -27,6 +27,7 @@ import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.test.policy.TestPolicy;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.Iterables;
@@ -43,6 +44,28 @@ public class CatalogYamlPolicyTest extends AbstractYamlTest {
 
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
         assertEquals(item.getSymbolicName(), symbolicName);
+        Assert.assertNotNull(item.getDisplayName());
+        Assert.assertNotNull(item.getIconUrl());
+        Assert.assertNotNull(item.getDescription());
+        assertEquals(countCatalogPolicies(), 1);
+
+        deleteCatalogEntity(symbolicName);
+    }
+
+    @Test
+    public void testAddCatalogItemDetailsFromItemNotMetadata() throws Exception {
+        assertEquals(countCatalogPolicies(), 0);
+
+        String symbolicName = "my.catalog.policy.id.load";
+        addCatalogPolicyDetailsFromItemNotMetadata(symbolicName, POLICY_TYPE);
+
+        RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
+        assertEquals(item.getSymbolicName(), symbolicName);
+        Assert.assertNotNull(item.getDisplayName());
+        Assert.assertNotNull(item.getDescription());
+        // prior to 2018-01 the above could come from either but icon for policy could only come from metadata;
+        // fixed by the other change made in the same commit as this test and comment
+        Assert.assertNotNull(item.getIconUrl());
         assertEquals(countCatalogPolicies(), 1);
 
         deleteCatalogEntity(symbolicName);
@@ -146,8 +169,25 @@ public class CatalogYamlPolicyTest extends AbstractYamlTest {
             "  itemType: policy",
             "  name: My Catalog Policy",
             "  description: My description",
-            "  icon_url: classpath://path/to/myicon.jpg",
+            "  iconUrl: classpath://path/to/myicon.jpg",
             "  item:",
+            "    type: " + policyType,
+            "    brooklyn.config:",
+            "      config1: config1",
+            "      config2: config2");
+    }
+
+    private void addCatalogPolicyDetailsFromItemNotMetadata(String symbolicName, String policyType) {
+        // name, description, and icon can be set in the item _or_ in metadata
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  id: " + symbolicName,
+            "  version: " + TEST_VERSION,
+            "  itemType: policy",
+            "  item:",
+            "    name: My Catalog Policy",
+            "    description: My description",
+            "    iconUrl: classpath://path/to/myicon.jpg",
             "    type: " + policyType,
             "    brooklyn.config:",
             "      config1: config1",

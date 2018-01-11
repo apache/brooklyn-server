@@ -907,7 +907,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         description = setFromItemIfUnset(description, itemAsMap, "description");
 
         // icon.url is discouraged (using '.'), but kept for legacy compatibility; should deprecate this
-        final String catalogIconUrl = getFirstAs(catalogMetadata, String.class, "iconUrl", "icon_url", "icon.url").orNull();
+        String catalogIconUrl = getFirstAs(catalogMetadata, String.class, "iconUrl", "icon_url", "icon.url").orNull();
+        catalogIconUrl = setFromItemIfUnset(catalogIconUrl, itemAsMap, "iconUrl", "icon_url", "icon.url");
 
         final String deprecated = getFirstAs(catalogMetadata, String.class, "deprecated").orNull();
         final Boolean catalogDeprecated = Boolean.valueOf(deprecated);
@@ -1088,12 +1089,15 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         throw new UserFacingException("Expected "+JavaClassNames.superSimpleClassName(type)+" for "+description+", not "+JavaClassNames.superSimpleClassName(x));
     }
 
-    private String setFromItemIfUnset(String oldValue, Map<?,?> item, String fieldAttr) {
+    private String setFromItemIfUnset(String oldValue, Map<?,?> item, String ...fieldAttrs) {
         if (Strings.isNonBlank(oldValue)) return oldValue;
         if (item!=null) {
-            Object newValue = item.get(fieldAttr);
-            if (newValue instanceof String && Strings.isNonBlank((String)newValue)) 
-                return (String)newValue;
+            for (String fieldAttr: fieldAttrs) {
+                Object newValue = item.get(fieldAttr);
+                if (newValue instanceof String && Strings.isNonBlank((String)newValue)) { 
+                    return (String)newValue;
+                }
+            }
         }
         return oldValue;
     }
