@@ -23,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,14 +68,20 @@ public class MutexSupport implements WithMutexes {
         if (s!=null) return s.isCallingThreadAnOwner();
         return false;
     }
-    
+
     @Override
-    public void acquireMutex(String mutexId, String description) throws InterruptedException {
+    public void acquireMutex(String mutexId, String description) {
         SemaphoreWithOwners s = getSemaphore(mutexId, true);
         if (description!=null) Tasks.setBlockingDetails(description+" - waiting for "+mutexId);
         if (log.isDebugEnabled())
             log.debug("Acquiring mutex: "+mutexId+"@"+this+" - "+description);
-        s.acquire(); 
+
+        try {
+            s.acquire();
+        } catch (InterruptedException ie) {
+            throw Exceptions.propagate(ie);
+        }
+
         if (description!=null) Tasks.setBlockingDetails(null);
         s.setDescription(description);
         if (log.isDebugEnabled())
