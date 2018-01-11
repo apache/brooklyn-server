@@ -63,6 +63,7 @@ import org.testng.reporters.FailedReporter;
 
 import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableMap;
 
 // TODO this test is in the CAMP package because YAML not available in policies package
 public class ElectPrimaryTest extends AbstractYamlRebindTest {
@@ -287,6 +288,12 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
         runSelectionModeTest(SelectionMode.BEST, false);
     }
 
+    /**
+     * TODO Non-deterministic test failure. Policy invokes effector (due to sensor-changed)
+     * at same time as test explicitly invokes effector: it fails over to 'b' and then back
+     * to 'a'. See https://github.com/apache/brooklyn-server/pull/931 to reduce this race,
+     * and for more details.
+     */
     @Test
     public void testSelectionModeFailoverReelectWithPreference() throws Exception {
         runSelectionModeTest(SelectionMode.FAILOVER, false);
@@ -396,7 +403,7 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
         if (integration) {
             EntityAsserts.assertAttributeEqualsContinually(app, PRIMARY, a);
         } else {
-            EntityAsserts.assertAttributeEquals(app, PRIMARY, a);
+            EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", Duration.millis(100)), app, PRIMARY, a);
         }
     }
 
