@@ -19,7 +19,6 @@
 package org.apache.brooklyn.entity.software.base.lifecycle;
 
 import static java.lang.String.format;
-import groovy.lang.Closure;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -54,6 +53,8 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+
+import groovy.lang.Closure;
 
 public class ScriptHelper {
 
@@ -216,11 +217,7 @@ public class ScriptHelper {
         mutexAcquire = new Runnable() {
             @Override
             public void run() {
-                try {
-                    mutexSupport.acquireMutex(mutexId, description);
-                } catch (InterruptedException e) {
-                    throw new RuntimeInterruptedException(e);
-                }
+                mutexSupport.acquireMutex(mutexId, description);
             }
         };
 

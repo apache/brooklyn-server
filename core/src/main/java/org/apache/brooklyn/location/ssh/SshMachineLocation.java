@@ -84,7 +84,6 @@ import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.system.internal.ExecWithLoggingHelpers;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.KeyTransformingLoadingCache.KeyTransformingSameTypeLoadingCache;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.pool.BasicPool;
@@ -1016,12 +1015,8 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
     /** @deprecated since 1.0.0; mutex-related methods are now accessible via {@link #mutexes()} */
     @Override
     @Deprecated
-    public void acquireMutex(String mutexId, String description) throws RuntimeInterruptedException {
-        try {
-            mutexes().acquireMutex(mutexId, description);
-        } catch (InterruptedException ie) {
-            throw new RuntimeInterruptedException("Interrupted waiting for mutex: " + mutexId, ie);
-        }
+    public void acquireMutex(String mutexId, String description) {
+        mutexes().acquireMutex(mutexId, description);
     }
 
     /** @deprecated since 1.0.0; mutex-related methods are now accessible via {@link #mutexes()} */

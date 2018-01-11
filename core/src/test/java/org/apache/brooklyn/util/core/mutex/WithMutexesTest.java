@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.brooklyn.util.core.mutex.MutexSupport;
 import org.apache.brooklyn.util.core.mutex.SemaphoreWithOwners;
 import org.apache.brooklyn.util.core.mutex.WithMutexes;
+import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -70,7 +71,7 @@ public class WithMutexesTest {
             public void run() {
                 try {
                     m.acquireMutex("foo", "thread 2 foo");
-                } catch (InterruptedException e) {
+                } catch (RuntimeInterruptedException e) {
                     e.printStackTrace();
                 }
                 m.releaseMutex("foo");
@@ -92,13 +93,13 @@ public class WithMutexesTest {
 
     
     public static class SampleWithMutexesDelegatingMixin implements WithMutexes {
-        
+
         /* other behaviour would typically go here... */
-        
+
         WithMutexes mutexSupport = new MutexSupport();
-        
+
         @Override
-        public void acquireMutex(String mutexId, String description) throws InterruptedException {
+        public void acquireMutex(String mutexId, String description) {
             mutexSupport.acquireMutex(mutexId, description);
         }
 
@@ -117,7 +118,7 @@ public class WithMutexesTest {
             return mutexSupport.hasMutex(mutexId);
         }
     }
-    
+
     @Test
     public void testDelegatingMixinPattern() throws InterruptedException {
         WithMutexes m = new SampleWithMutexesDelegatingMixin();
