@@ -280,7 +280,6 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         String yaml = Joiner.on("\n").join(
                 "brooklyn.catalog:",
                 "  id: " + catalogItemId,
-                "  version: " + TEST_VERSION,
                 "  itemType: " + checkNotNull(itemType),
                 "  name: My Catalog App",
                 "  description: My description",

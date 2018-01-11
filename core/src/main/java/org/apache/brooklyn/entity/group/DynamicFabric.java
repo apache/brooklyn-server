@@ -55,14 +55,14 @@ public interface DynamicFabric extends AbstractGroup, Startable, Fabric {
     @SetFromFlag("memberSpec")
     ConfigKey<EntitySpec<?>> MEMBER_SPEC = ConfigKeys.newConfigKey(
             new TypeToken<EntitySpec<?>>() {}, 
-            "dynamiccfabric.memberspec", 
+            "dynamicfabric.memberspec", 
             "Entity spec for creating new members (one per location)", 
             null);
 
     @SetFromFlag("firstMemberSpec")
     ConfigKey<EntitySpec<?>> FIRST_MEMBER_SPEC = ConfigKeys.newConfigKey(
             new TypeToken<EntitySpec<?>>() {}, 
-            "dynamiccfabric.firstmemberspec", 
+            "dynamicfabric.firstmemberspec", 
             "Entity spec for the first member", 
             null);
 
