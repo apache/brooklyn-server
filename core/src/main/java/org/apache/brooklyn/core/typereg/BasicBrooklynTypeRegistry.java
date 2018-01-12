@@ -589,22 +589,23 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                 }
                 return changed;
             });
-        if (changedLocally) {
-            return;
-        }
-        legacyDelete(type);
+        legacyDelete(type, changedLocally);
     }
     
     @SuppressWarnings("deprecation")
-    private void legacyDelete(VersionedName type) {
-        // when we delete this, we should simply do the following (as contract is to throw if can't delete)
+    private void legacyDelete(VersionedName type, boolean alreadyDeletedLocally) {
+        // when we delete the legacy basic catalog, this method should simply do the following (as contract is to throw if can't delete)
+//        if (alreadyDeletedLocally) return;
 //        if (Strings.isBlank(type.getVersionString()) || BrooklynCatalog.DEFAULT_VERSION.equals(type.getVersionString())) {
 //            throw new IllegalStateException("Deleting items with unspecified version (argument DEFAULT_VERSION) not supported.");
 //        }
 //        throw new NoSuchElementException("No catalog item found with id "+type);
         
-        // NB the call below may call back to us, but max once)
-        mgmt.getCatalog().deleteCatalogItem(type.getSymbolicName(), type.getVersionString());
+        // but for now we should delete the CI - if it's a RT then CI deletion is optional
+        // (note that if a CI is added and validated, there is an RT created so there are both)
+        // if it was an RT that was added there is no CI.  (and if the CI was added without vbalidation,
+        // there is no RT, and in this case we have to fail if the CI is not found.)
+        mgmt.getCatalog().deleteCatalogItem(type.getSymbolicName(), type.getVersionString(), false, !alreadyDeletedLocally);
     }
     
     /** removes the given registered type in the noted bundle; 
@@ -626,11 +627,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                 }
                 return true;
             });
-        if (changedLocally) {
-            return;
-        }
-        
-        legacyDelete(type.getVersionedName());
+        legacyDelete(type.getVersionedName(), changedLocally);
     }
     
     /** as {@link #delete(VersionedName)} */

@@ -52,7 +52,7 @@ public class StaticTypePlanTransformerTest extends BrooklynMgmtUnitTestSupport {
     @Test
     public void testCreateSpec() {
         EntitySpec<?> spec = mgmt.getTypeRegistry().createSpec(
-            RegisteredTypes.spec(specId, "1", new BasicTypeImplementationPlan(StaticTypePlanTransformer.FORMAT, null), Entity.class),
+            RegisteredTypes.addSuperType(RegisteredTypes.spec(specId, "1", new BasicTypeImplementationPlan(StaticTypePlanTransformer.FORMAT, null)), Entity.class),
             null, EntitySpec.class);
         Assert.assertEquals(spec.getDisplayName(), DISPLAY_NAME);
         Assert.assertEquals(spec.getType(), BasicEntity.class);

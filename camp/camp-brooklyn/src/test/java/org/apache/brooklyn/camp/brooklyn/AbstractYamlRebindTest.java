@@ -209,7 +209,7 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
     }
 
     protected Iterable<? extends CatalogItem<?,?>> addCatalogItems(String catalogYaml) {
-        return mgmt().getCatalog().addItems(catalogYaml, forceUpdate);
+        return mgmt().getCatalog().addItems(catalogYaml);
     }
 
     protected void deleteCatalogEntity(String catalogItem) {

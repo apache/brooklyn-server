@@ -251,7 +251,7 @@ public abstract class AbstractYamlTest {
     }
 
     protected void addCatalogItems(String catalogYaml) {
-        mgmt().getCatalog().addItems(catalogYaml, forceUpdate);
+        mgmt().getCatalog().addItems(catalogYaml, true, forceUpdate);
     }
 
     /*

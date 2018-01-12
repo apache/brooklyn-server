@@ -135,6 +135,6 @@ public abstract class AbstractJcloudsRebindStubYamlTest extends JcloudsRebindStu
     }
     
     protected void addCatalogItems(String catalogYaml) {
-        mgmt().getCatalog().addItems(catalogYaml, false);
+        mgmt().getCatalog().addItems(catalogYaml);
     }
 }

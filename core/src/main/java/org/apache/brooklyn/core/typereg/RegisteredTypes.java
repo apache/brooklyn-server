@@ -109,7 +109,8 @@ public class RegisteredTypes {
             throw new IllegalStateException("Unsupported catalog item "+item+" when trying to create RegisteredType");
         }
         
-        BasicRegisteredType type = (BasicRegisteredType) spec(item.getSymbolicName(), item.getVersion(), impl, item.getCatalogItemJavaType());
+        BasicRegisteredType type = (BasicRegisteredType) RegisteredTypes.spec(item.getSymbolicName(), item.getVersion(), impl);
+        RegisteredTypes.addSuperType(type, item.getCatalogItemJavaType());
         type.containingBundle = item.getContainingBundle();
         type.displayName = item.getDisplayName();
         type.description = item.getDescription();
@@ -175,7 +176,10 @@ public class RegisteredTypes {
         if (symbolicName==null || version==null) log.warn("Deprecated use of RegisteredTypes API passing null name/version", new Exception("Location of deprecated use, wrt "+plan));
         return new BasicRegisteredType(RegisteredTypeKind.BEAN, symbolicName, version, plan);
     }
-    /** Convenience for {@link #bean(String, String, TypeImplementationPlan)} when there is a single known java signature/super type */
+    /** Convenience for {@link #bean(String, String, TypeImplementationPlan)} when there is a single known java signature/super type
+     * @deprecated since 1.0.0 no need for method which adds one explicit supertype; you can do it if you need with {@link #bean(String, String, TypeImplementationPlan)} then {@link #addSuperType(RegisteredType, Class)}
+     * but the type creation should set supertypes */
+    @Deprecated
     public static RegisteredType bean(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan, @Nonnull Class<?> superType) {
         if (superType==null) log.warn("Deprecated use of RegisteredTypes API passing null supertype", new Exception("Location of deprecated use, wrt "+symbolicName+":"+version+" "+plan));
         return addSuperType(bean(symbolicName, version, plan), superType);
@@ -187,7 +191,9 @@ public class RegisteredTypes {
         if (symbolicName==null || version==null) log.warn("Deprecated use of RegisteredTypes API passing null supertype", new Exception("Location of deprecated use, wrt "+plan));
         return new BasicRegisteredType(RegisteredTypeKind.SPEC, symbolicName, version, plan);
     }
-    /** Convenience for {@link #spec(String, String, TypeImplementationPlan)} when there is a single known java signature/super type */
+    /** Convenience for {@link #spec(String, String, TypeImplementationPlan)} when there is a single known java signature/super type
+     * @deprecated since 1.0.0 no need for method which adds one explicit supertype; you can do it if you need with {@link #spec(String, String, TypeImplementationPlan)} then {@link #addSuperType(RegisteredType, Class)}
+     * but the type creation should set supertypes */
     public static RegisteredType spec(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan, @Nonnull Class<?> superType) {
         if (superType==null) log.warn("Deprecated use of RegisteredTypes API passing null supertype", new Exception("Location of deprecated use, wrt "+symbolicName+":"+version+" "+plan));
         return addSuperType(spec(symbolicName, version, plan), superType);

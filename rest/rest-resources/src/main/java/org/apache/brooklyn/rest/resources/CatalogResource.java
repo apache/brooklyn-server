@@ -137,7 +137,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
 
         try {
-            final Iterable<? extends CatalogItem<?, ?>> items = brooklyn().getCatalog().addItems(yaml, forceUpdate);
+            final Iterable<? extends CatalogItem<?, ?>> items = brooklyn().getCatalog().addItems(yaml, true, forceUpdate);
             List<RegisteredType> itemsRT = MutableList.of();
             for (CatalogItem<?, ?> ci: items) {
                 RegisteredType rt = brooklyn().getTypeRegistry().get(ci.getId());
