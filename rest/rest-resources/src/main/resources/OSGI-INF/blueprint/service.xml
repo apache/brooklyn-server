@@ -132,6 +132,7 @@ limitations under the License.
             <bean class="org.apache.brooklyn.rest.filter.NoCacheFilter"/>
             <bean class="org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter"/>
             <bean class="org.apache.brooklyn.rest.filter.EntitlementContextFilter"/>
+            <bean class="org.apache.brooklyn.rest.filter.LoggingResourceFilter"/>
             <bean class="io.swagger.jaxrs.listing.SwaggerSerializers"/>
             <bean class="org.apache.brooklyn.rest.util.ShutdownHandlerProvider">
                 <argument ref="shutdownHandler"/>

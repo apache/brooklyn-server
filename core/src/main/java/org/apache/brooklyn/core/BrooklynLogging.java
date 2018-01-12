@@ -25,9 +25,9 @@ import org.slf4j.Logger;
 /** contains common logging categories */
 public class BrooklynLogging {
 
-    public static final String SSH_IO = "brooklyn.SSH";
+    public static final String SSH_IO = "org.apache.brooklyn.SSH";
 
-    public static final String REST = "brooklyn.REST";
+    public static final String REST = "org.apache.brooklyn.REST";
 
     /** For convenience here, since SLF4J does not define such an enum */
     public static enum LoggingLevel { ERROR, WARN, INFO, DEBUG, TRACE }
