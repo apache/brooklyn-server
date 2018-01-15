@@ -346,11 +346,13 @@ public class CatalogUtils {
         if (item!=null) {
             item.setDeprecated(newValue);
             mgmt.getCatalog().persist(item);
+        }
+        RegisteredType type = mgmt.getTypeRegistry().get(symbolicName, version);
+        if (type!=null) {
+            // won't be persisted
+            RegisteredTypes.setDeprecated(type, newValue);
         } else {
-            RegisteredType type = mgmt.getTypeRegistry().get(symbolicName, version);
-            if (type!=null) {
-                RegisteredTypes.setDeprecated(type, newValue);
-            } else {
+            if (item==null) {
                 throw new NoSuchElementException(symbolicName+":"+version);
             }
         }
@@ -363,11 +365,13 @@ public class CatalogUtils {
         if (item!=null) {
             item.setDisabled(newValue);
             mgmt.getCatalog().persist(item);
+        }
+        RegisteredType type = mgmt.getTypeRegistry().get(symbolicName, version);
+        if (type!=null) {
+            // won't be persisted
+            RegisteredTypes.setDisabled(type, newValue);
         } else {
-            RegisteredType type = mgmt.getTypeRegistry().get(symbolicName, version);
-            if (type!=null) {
-                RegisteredTypes.setDisabled(type, newValue);
-            } else {
+            if (item==null) {
                 throw new NoSuchElementException(symbolicName+":"+version);
             }
         }
