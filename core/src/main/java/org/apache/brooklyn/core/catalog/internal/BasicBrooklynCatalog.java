@@ -911,7 +911,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         catalogIconUrl = setFromItemIfUnset(catalogIconUrl, itemAsMap, "iconUrl", "icon_url", "icon.url");
 
         final String deprecated = getFirstAs(catalogMetadata, String.class, "deprecated").orNull();
-        final Boolean catalogDeprecated = Boolean.valueOf(deprecated);
+        final Boolean catalogDeprecated = Boolean.valueOf(setFromItemIfUnset(deprecated, itemAsMap, "deprecated"));
 
         // run again now that we know the ID to catch recursive definitions and possibly other mistakes (itemType inconsistency?)
         planInterpreter = new PlanInterpreterGuessingType(id, item, sourceYaml, itemType, libraryBundles, resultLegacyFormat).reconstruct();
@@ -1094,8 +1094,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (item!=null) {
             for (String fieldAttr: fieldAttrs) {
                 Object newValue = item.get(fieldAttr);
-                if (newValue instanceof String && Strings.isNonBlank((String)newValue)) { 
+                if (newValue instanceof String && Strings.isNonBlank((String)newValue)) {
                     return (String)newValue;
+                } else if (newValue instanceof Number || newValue instanceof Boolean) {
+                    return newValue.toString();
                 }
             }
         }

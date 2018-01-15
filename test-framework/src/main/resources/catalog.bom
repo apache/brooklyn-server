@@ -28,6 +28,7 @@ brooklyn.catalog:
         type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
         name: "[DEPRECATED] Simple Shell Command Test"
         description:  "[DEPRECATED] Instead use TestSshCommand"
+        deprecated: true
     - id: org.apache.brooklyn.test.framework.ParallelTestCase
       item:
         type: org.apache.brooklyn.test.framework.ParallelTestCase
