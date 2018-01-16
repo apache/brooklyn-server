@@ -73,7 +73,7 @@ public class LoggingResourceFilter implements ContainerRequestFilter, ContainerR
     private static final Set<String> UNINTERESTING_METHODS = ImmutableSet.of("GET", "HEAD");
 
     /** Headers whose values will not be logged. */
-    private static final Set<String> CENSORED_HEADERS = ImmutableSet.of("Authorization");
+    private static final Set<String> CENSORED_HEADERS = ImmutableSet.of("Authorization", "Cookie");
 
     /** Log all requests that take this time or longer to complete. */
     private static final Duration REQUEST_DURATION_LOG_POINT = Duration.FIVE_SECONDS;
@@ -156,7 +156,7 @@ public class LoggingResourceFilter implements ContainerRequestFilter, ContainerR
         String userName = (userPrincipal != null) ? userPrincipal.getName() : "<no-user>";
         String remoteAddr = servletRequest.getRemoteAddr();
         
-        boolean includeHeaders = (responseContext.getStatus() / 100 == 5) || LOG.isDebugEnabled();
+        boolean includeHeaders = (responseContext.getStatus() / 100 == 5) || LOG.isTraceEnabled();
 
         StringBuilder message = new StringBuilder("Request completed: ")
                 .append("status ")
