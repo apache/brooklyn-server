@@ -134,42 +134,58 @@ public class VanillaWindowsProcessTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testMutexForInstallSteps() throws Exception {
+    public void testMutexForSshInstallSteps() throws Exception {
         RecordingWithMutexes mutexSupport = new RecordingWithMutexes();
 
-        loc = app.getManagementContext().getLocationManager().createLocation(LocationSpec.create(FixedListMachineProvisioningLocation.class)
-                .configure(FixedListMachineProvisioningLocation.MACHINE_SPECS, ImmutableList.<LocationSpec<? extends MachineLocation>>of(
-                        LocationSpec.create(WinRmMachineLocationWithRecordingMutex.class)
-                                .configure("mutexSupport", mutexSupport)
-                                .configure("address", "1.2.3.4")
-                                .configure(WinRmMachineLocation.WINRM_TOOL_CLASS, RecordingWinRmTool.class.getName()))));
+        createLocationWithMutexSupport(mutexSupport);
 
-        class MyResponseGenerator implements CustomResponseGenerator {
-            private final boolean expectsMutex;
-            MyResponseGenerator(boolean expectsMutex) {
-                this.expectsMutex = expectsMutex;
-            }
-            @Override public CustomResponse generate(ExecParams execParams) {
-                assertEquals(mutexSupport.holdsMutex("installation lock at host"), expectsMutex);
-                return new CustomResponse(0, "", "");
-            }
-        };
+        RecordingWinRmTool.setCustomResponse(".*preInstallCommand.*", new MyResponseGenerator(true, mutexSupport));
+        RecordingWinRmTool.setCustomResponse(".*installCommand.*", new MyResponseGenerator(true, mutexSupport));
+        RecordingWinRmTool.setCustomResponse(".*postInstallCommand.*", new MyResponseGenerator(true, mutexSupport));
 
-        RecordingWinRmTool.setCustomResponse(".*preInstallCommand.*", new MyResponseGenerator(true));
-        RecordingWinRmTool.setCustomResponse(".*installCommand.*", new MyResponseGenerator(true));
-        RecordingWinRmTool.setCustomResponse(".*postInstallCommand.*", new MyResponseGenerator(true));
-
-        RecordingWinRmTool.setCustomResponse(".*preInstallPowershell.*", new MyResponseGenerator(true));
-        RecordingWinRmTool.setCustomResponse(".*installPowershell.*", new MyResponseGenerator(true));
-        RecordingWinRmTool.setCustomResponse(".*postInstallPowershell.*", new MyResponseGenerator(true));
-
-        RecordingWinRmTool.setCustomResponse(".*", new MyResponseGenerator(false));
+        RecordingWinRmTool.setCustomResponse(".*", new MyResponseGenerator(false, mutexSupport));
 
         app.createAndManageChild(EntitySpec.create(VanillaWindowsProcess.class)
                 .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true)
-//                .configure(VanillaWindowsProcess.PRE_INSTALL_COMMAND, "preInstallCommand")
-//                .configure(VanillaWindowsProcess.INSTALL_COMMAND, "installCommand")
-//                .configure(VanillaWindowsProcess.POST_INSTALL_COMMAND, "postInstallCommand")
+                .configure(VanillaWindowsProcess.PRE_INSTALL_COMMAND, "preInstallCommand")
+                .configure(VanillaWindowsProcess.INSTALL_COMMAND, "installCommand")
+                .configure(VanillaWindowsProcess.POST_INSTALL_COMMAND, "postInstallCommand")
+                .configure(VanillaWindowsProcess.PRE_CUSTOMIZE_COMMAND, "preCustomizeCommand")
+                .configure(VanillaWindowsProcess.CUSTOMIZE_COMMAND, "customizeCommand")
+                .configure(VanillaWindowsProcess.POST_CUSTOMIZE_COMMAND, "postCustomizeCommand")
+                .configure(VanillaWindowsProcess.PRE_LAUNCH_COMMAND, "preLaunchCommand")
+                .configure(VanillaWindowsProcess.LAUNCH_COMMAND, "launchCommand")
+                .configure(VanillaWindowsProcess.POST_LAUNCH_COMMAND, "postLaunchCommand")
+                .configure(VanillaWindowsProcess.CHECK_RUNNING_COMMAND, "checkRunningCommand")
+                .configure(VanillaWindowsProcess.STOP_COMMAND, "stopCommand"));
+        app.start(ImmutableList.of(loc));
+
+        assertExecsContain(RecordingWinRmTool.getExecs(), ImmutableList.of(
+                "preInstallCommand", "installCommand", "postInstallCommand",
+                "preCustomizeCommand", "customizeCommand", "postCustomizeCommand",
+                "preLaunchCommand", "launchCommand", "postLaunchCommand",
+                "checkRunningCommand"));
+
+        app.stop();
+
+        assertExecContains(RecordingWinRmTool.getLastExec(), "stopCommand");
+    }
+
+    @Test
+    public void testMutexForPowerShellInstallSteps() throws Exception {
+        RecordingWithMutexes mutexSupport = new RecordingWithMutexes();
+
+        createLocationWithMutexSupport(mutexSupport);
+
+
+        RecordingWinRmTool.setCustomResponse(".*preInstallPowershell.*", new MyResponseGenerator(true, mutexSupport));
+        RecordingWinRmTool.setCustomResponse(".*installPowershell.*", new MyResponseGenerator(true, mutexSupport));
+        RecordingWinRmTool.setCustomResponse(".*postInstallPowershell.*", new MyResponseGenerator(true, mutexSupport));
+
+        RecordingWinRmTool.setCustomResponse(".*", new MyResponseGenerator(false, mutexSupport));
+
+        app.createAndManageChild(EntitySpec.create(VanillaWindowsProcess.class)
+                .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true)
                 .configure(VanillaWindowsProcess.PRE_INSTALL_POWERSHELL_COMMAND, "preInstallPowershell")
                 .configure(VanillaWindowsProcess.INSTALL_POWERSHELL_COMMAND, "installPowershell")
                 .configure(VanillaWindowsProcess.POST_INSTALL_POWERSHELL_COMMAND, "postInstallPowershell")
@@ -184,7 +200,6 @@ public class VanillaWindowsProcessTest extends BrooklynAppUnitTestSupport {
         app.start(ImmutableList.of(loc));
 
         assertExecsContain(RecordingWinRmTool.getExecs(), ImmutableList.of(
-//                "preInstallCommand", "installCommand", "postInstallCommand",
                 "preInstallPowershell", "installPowershell", "postInstallPowershell",
                 "preCustomizeCommand", "customizeCommand", "postCustomizeCommand",
                 "preLaunchCommand", "launchCommand", "postLaunchCommand",
@@ -193,6 +208,15 @@ public class VanillaWindowsProcessTest extends BrooklynAppUnitTestSupport {
         app.stop();
 
         assertExecContains(RecordingWinRmTool.getLastExec(), "stopCommand");
+    }
+
+    void createLocationWithMutexSupport(RecordingWithMutexes mutexSupport) {
+        loc = app.getManagementContext().getLocationManager().createLocation(LocationSpec.create(FixedListMachineProvisioningLocation.class)
+                .configure(FixedListMachineProvisioningLocation.MACHINE_SPECS, ImmutableList.<LocationSpec<? extends MachineLocation>>of(
+                        LocationSpec.create(WinRmMachineLocationWithRecordingMutex.class)
+                                .configure("mutexSupport", mutexSupport)
+                                .configure("address", "1.2.3.4")
+                                .configure(WinRmMachineLocation.WINRM_TOOL_CLASS, RecordingWinRmTool.class.getName()))));
     }
 
     public static class RecordingWithMutexes implements WithMutexes {
@@ -226,6 +250,19 @@ public class VanillaWindowsProcessTest extends BrooklynAppUnitTestSupport {
         }
     }
 
+    private static class MyResponseGenerator implements CustomResponseGenerator {
+        private final boolean expectsMutex;
+        private RecordingWithMutexes mutexSupport;
+
+        MyResponseGenerator(boolean expectsMutex, RecordingWithMutexes mutexSupport) {
+            this.expectsMutex = expectsMutex;
+            this.mutexSupport = mutexSupport;
+        }
+        @Override public CustomResponse generate(ExecParams execParams) {
+            assertEquals(mutexSupport.holdsMutex("installation lock at host"), expectsMutex);
+            return new CustomResponse(0, "", "");
+        }
+    };
     public static class WinRmMachineLocationWithRecordingMutex extends WinRmMachineLocation {
         public static final ConfigKey<WithMutexes> MUTEX_SUPPORT = ConfigKeys.newConfigKey(WithMutexes.class, "mutexSupport");
 
