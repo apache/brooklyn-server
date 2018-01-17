@@ -293,9 +293,24 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
     }
 
     @Override
+    public void copyPreInstallResources() {
+        final WithMutexes mutexSupport = getLocation().mutexes();
+        String mutexId = "installation lock at host";
+        mutexSupport.acquireMutex(mutexId, "pre-installation lock at host for files and templates");
+        try {
+            super.copyPreInstallResources();
+        } catch (Exception e) {
+            log.warn("Error copying pre-install resources", e);
+            throw Exceptions.propagate(e);
+        } finally {
+            mutexSupport.releaseMutex(mutexId);
+        }
+    }
+
+    @Override
     public void copyInstallResources() {
         final WithMutexes mutexSupport = getLocation().mutexes();
-        final String mutexId = "installing " + elvis(entity, this);
+        String mutexId = "installation lock at host";
         mutexSupport.acquireMutex(mutexId, "installation lock at host for files and templates");
         try {
             super.copyInstallResources();
@@ -310,7 +325,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
     @Override
     public void copyCustomizeResources() {
         final WithMutexes mutexSupport = getLocation().mutexes();
-        final String mutexId = "customizing " + elvis(entity, this);
+        String mutexId = "installation lock at host";
         mutexSupport.acquireMutex(mutexId, "installation lock at host for files and templates");
         try {
             super.copyCustomizeResources();
