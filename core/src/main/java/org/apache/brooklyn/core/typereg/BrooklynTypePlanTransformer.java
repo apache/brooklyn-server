@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-import java.util.List;
 import java.util.ServiceLoader;
 
 import javax.annotation.Nonnull;
@@ -29,8 +28,6 @@ import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
-
-import com.google.common.annotations.Beta;
 
 /**
  * Interface for use by schemes which provide the capability to transform plans
@@ -69,6 +66,7 @@ public interface BrooklynTypePlanTransformer extends ManagementContextInjectable
      * <p>
      * */
     double scoreForType(@Nonnull RegisteredType type, @Nonnull RegisteredTypeLoadingContext context);
+    
     /** Creates a new instance of the indicated type, or throws if not supported;
      * this method is used by the {@link BrooklynTypeRegistry} when it creates instances,
      * so implementations must respect the {@link RegisteredTypeKind} semantics and the {@link RegisteredTypeLoadingContext}
@@ -81,11 +79,14 @@ public interface BrooklynTypePlanTransformer extends ManagementContextInjectable
      * if they cannot instantiate the given {@link RegisteredType#getPlan()}. */
     @Nullable Object create(@Nonnull RegisteredType type, @Nonnull RegisteredTypeLoadingContext context);
 
-    // TODO sketch methods for loading *catalog* definitions.  note some potential overlap
-    // with BrooklynTypeRegistery.createXxxFromPlan
-    @Beta
-    double scoreForTypeDefinition(String formatCode, Object catalogData);
-    @Beta
-    List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData);
-
+    /** Returns extended info for the given type, as it would be understood by this
+     * transformer. This may be incomplete, empty or even null if the transformer does not support type info.
+     * <p>
+     * The framework guarantees this will only be invoked when {@link #scoreForType(RegisteredType, RegisteredTypeLoadingContext)} 
+     * has returned a positive value, and the same constraints on the inputs as for that method apply.
+     * <p>
+     * Implementations should either return null or throw {@link UnsupportedTypePlanException} 
+     * if they cannot instantiate the given {@link RegisteredType#getPlan()}. */
+    @Nullable RegisteredTypeInfo getTypeInfo(RegisteredType type);
+    
 }

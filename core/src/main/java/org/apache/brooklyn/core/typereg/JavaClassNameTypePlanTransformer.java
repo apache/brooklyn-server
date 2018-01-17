@@ -18,12 +18,11 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-import java.util.List;
-
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.text.Identifiers;
 
 /**
@@ -74,18 +73,10 @@ public class JavaClassNameTypePlanTransformer extends AbstractTypePlanTransforme
     private Class<?> getType(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         return RegisteredTypes.loadActualJavaType((String)type.getPlan().getPlanData(), mgmt, type, context);
     }
-    
-    
-    // not supported as a catalog format (yet? should we?)
-    
-    @Override
-    public double scoreForTypeDefinition(String formatCode, Object catalogData) {
-        return 0;
-    }
 
     @Override
-    public List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData) {
-        throw new UnsupportedTypePlanException("this transformer does not support YAML catalog additions");
+    public RegisteredTypeInfo getTypeInfo(RegisteredType type) {
+        return RegisteredTypeInfo.create(type, this, null, MutableSet.of());
     }
 
 }

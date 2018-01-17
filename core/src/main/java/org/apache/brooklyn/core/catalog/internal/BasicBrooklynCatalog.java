@@ -69,8 +69,10 @@ import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.BasicRegisteredType;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer;
+import org.apache.brooklyn.core.typereg.RegisteredTypeInfo;
 import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.typereg.TypePlanTransformers;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -1799,11 +1801,21 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             }
             RegisteredTypes.cacheActualJavaType(resultT, resultS);
             
-            Set<Object> newSupers = MutableSet.of();
-            // TODO collect registered type name supertypes, as strings
+            MutableSet<Object> newSupers = MutableSet.of();
             newSupers.add(resultS);
+            
+            Maybe<RegisteredTypeInfo> typeInfo = TypePlanTransformers.getTypeInfo(mgmt, resultT, constraint);
+            if (typeInfo.isPresent()) {
+                Set<Object> supersTI = typeInfo.get().getSupertypes();
+                if (supersTI!=null) {
+                    newSupers.addAll(supersTI);
+                }
+            }
+            
+            // following should be redundant if the above worked, but the
+            // above might not have worked, and no harm in any case
             newSupers.addAll(supers);
-            newSupers.add(BrooklynObjectType.of(resultO.getClass()).getInterfaceType());
+            newSupers.addIfNotNull(BrooklynObjectType.of(resultO.getClass()).getInterfaceType());
             collectSupers(newSupers);
             RegisteredTypes.addSuperTypes(resultT, newSupers);
 
