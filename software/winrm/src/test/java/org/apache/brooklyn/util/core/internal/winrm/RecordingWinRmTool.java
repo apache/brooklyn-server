@@ -153,8 +153,9 @@ public class RecordingWinRmTool implements WinRmTool {
 
     @Override
     public WinRmToolResponse copyToServer(InputStream source, String destination) {
-        execs.add(new ExecParams(ExecType.COPY_TO_SERVER, ownConstructorProps, ImmutableList.of(new String(Streams.readFully(source)))));
-        return new WinRmToolResponse("", "", 0);
+        ExecParams execParams = new ExecParams(ExecType.COPY_TO_SERVER, ownConstructorProps, ImmutableList.of(new String(Streams.readFully(source))));
+        execs.add(execParams);
+        return generateResponse(execParams);
     }
 
     @Override

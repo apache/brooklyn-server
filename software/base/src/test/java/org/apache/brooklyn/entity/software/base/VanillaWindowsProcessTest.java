@@ -18,10 +18,10 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.testng.Assert.*;
 
+import java.io.File;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 
@@ -42,13 +42,16 @@ import org.apache.brooklyn.util.core.internal.winrm.RecordingWinRmTool.CustomRes
 import org.apache.brooklyn.util.core.internal.winrm.RecordingWinRmTool.ExecParams;
 import org.apache.brooklyn.util.core.mutex.MutexSupport;
 import org.apache.brooklyn.util.core.mutex.WithMutexes;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 public class VanillaWindowsProcessTest extends BrooklynAppUnitTestSupport {
 
@@ -177,15 +180,24 @@ public class VanillaWindowsProcessTest extends BrooklynAppUnitTestSupport {
 
         createLocationWithMutexSupport(mutexSupport);
 
-
+        RecordingWinRmTool.setCustomResponse(".*my.*File.*", new MyResponseGenerator(true,mutexSupport));;
+        RecordingWinRmTool.setCustomResponse(".*New-Item.*", new MyResponseGenerator(true,mutexSupport));;
         RecordingWinRmTool.setCustomResponse(".*preInstallPowershell.*", new MyResponseGenerator(true, mutexSupport));
         RecordingWinRmTool.setCustomResponse(".*installPowershell.*", new MyResponseGenerator(true, mutexSupport));
         RecordingWinRmTool.setCustomResponse(".*postInstallPowershell.*", new MyResponseGenerator(true, mutexSupport));
 
         RecordingWinRmTool.setCustomResponse(".*", new MyResponseGenerator(false, mutexSupport));
 
+        File instFile = Files.createTempFile("VanillaWindows-" + Identifiers.makeRandomId(6), "txt").toFile();
+        com.google.common.io.Files.write("myPreInstallFile", instFile, Charsets.UTF_8);
+
+        File custFile = Files.createTempFile("VanillaWindows-" + Identifiers.makeRandomId(6), "txt").toFile();
+        com.google.common.io.Files.write("myPreCustomizeFile", custFile, Charsets.UTF_8);
+
         app.createAndManageChild(EntitySpec.create(VanillaWindowsProcess.class)
                 .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true)
+                .configure(SoftwareProcess.INSTALL_FILES, ImmutableMap.of(instFile.getAbsolutePath(), "c:\\tempInstFile"))
+                .configure(SoftwareProcess.CUSTOMIZE_FILES, ImmutableMap.of(custFile.getAbsolutePath(), "c:\\tempCustFile"))
                 .configure(VanillaWindowsProcess.PRE_INSTALL_POWERSHELL_COMMAND, "preInstallPowershell")
                 .configure(VanillaWindowsProcess.INSTALL_POWERSHELL_COMMAND, "installPowershell")
                 .configure(VanillaWindowsProcess.POST_INSTALL_POWERSHELL_COMMAND, "postInstallPowershell")
@@ -200,8 +212,15 @@ public class VanillaWindowsProcessTest extends BrooklynAppUnitTestSupport {
         app.start(ImmutableList.of(loc));
 
         assertExecsContain(RecordingWinRmTool.getExecs(), ImmutableList.of(
-                "preInstallPowershell", "installPowershell", "postInstallPowershell",
-                "preCustomizeCommand", "customizeCommand", "postCustomizeCommand",
+                "preInstallPowershell",
+                "New-Item.*",
+                "myPreInstallFile",
+                "installPowershell",
+                "postInstallPowershell",
+                "New-Item.*",
+                "myPreCustomizeFile",
+                "preCustomizeCommand",
+                "customizeCommand", "postCustomizeCommand",
                 "preLaunchCommand", "launchCommand", "postLaunchCommand",
                 "checkRunningCommand"));
 

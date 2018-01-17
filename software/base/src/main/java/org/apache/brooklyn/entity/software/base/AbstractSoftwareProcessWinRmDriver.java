@@ -43,7 +43,7 @@ import org.apache.brooklyn.entity.software.base.lifecycle.WinRmExecuteHelper;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse;
-import org.apache.brooklyn.util.core.mutex.MutexSupport;
+import org.apache.brooklyn.util.core.mutex.WithMutexes;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
@@ -55,7 +55,6 @@ import org.apache.cxf.interceptor.Fault;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -78,7 +77,7 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     protected WinRmExecuteHelper newScript(String phase) {
         return newScript(Maps.<String, Object>newLinkedHashMap(), phase);
     }
-    
+
     protected WinRmExecuteHelper newScript(String command, String psCommand, String phase) {
         return newScript(command, psCommand, phase, null);
     }
@@ -172,6 +171,38 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
         }
     }
 
+
+    @Override
+    public void copyInstallResources() {
+        final WithMutexes mutexSupport = getLocation().mutexes();
+        String mutexId = "installation lock at host";
+        mutexSupport.acquireMutex(mutexId, "installing " + elvis(entity, this));
+        try {
+            super.copyInstallResources();
+        } catch (Exception e) {
+//            log.warn("Error copying install resources", e);
+            throw Exceptions.propagate(e);
+        } finally {
+            mutexSupport.releaseMutex(mutexId);
+        }
+    }
+
+    @Override
+    public void copyCustomizeResources() {
+        final WithMutexes mutexSupport = getLocation().mutexes();
+        final String description = "customizing " + elvis(entity, this);
+        String mutexId = "installation lock at host";
+        mutexSupport.acquireMutex(mutexId, description);
+        try {
+            super.copyCustomizeResources();
+        } catch (Exception e) {
+//            log.warn("Error copying customize resources", e);
+            throw Exceptions.propagate(e);
+        } finally {
+            mutexSupport.releaseMutex(mutexId);
+        }
+    }
+
     @Override
     public WinRmMachineLocation getLocation() {
         return (WinRmMachineLocation)super.getLocation();
@@ -199,7 +230,7 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     public int executePsCommand(Map flags, String command, String phase) {
         return executeNativeOrPsCommand(flags, null, command, phase, true);
     }
-    
+
     /**
      * @deprecated since 0.5.0; instead rely on {@link org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolverManager} to inc
      *
@@ -241,7 +272,7 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
         if (createParentDir) {
             createDirectory(getDirectory(target), "Creating resource directory");
         }
-        
+
         InputStream stream = null;
         try {
             Tasks.setBlockingDetails("retrieving resource "+source+" for copying across");
