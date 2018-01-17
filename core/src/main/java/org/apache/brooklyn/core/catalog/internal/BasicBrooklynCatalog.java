@@ -494,7 +494,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         while (item instanceof CatalogItemDo) item = ((CatalogItemDo<T,SpecT>)item).itemDto;
         if (item==null) return null;
         if (item instanceof CatalogItemDtoAbstract) return (CatalogItemDtoAbstract<T,SpecT>) item;
-        CatalogItem<?, ?> item2 = getCatalogItem(item.getSymbolicName(), item.getVersion());
+        CatalogItem<?, ?> item2 = getCatalogItemLegacy(item.getSymbolicName(), item.getVersion());
+        if (item2 instanceof CatalogItemDtoAbstract) return (CatalogItemDtoAbstract<T,SpecT>) item2;
         throw new IllegalStateException("Cannot unwrap catalog item '"+item+"' (type "+item.getClass()+") to restore DTO");
     }
     
@@ -1460,7 +1461,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     @Deprecated
     @Override
     public List<? extends CatalogItem<?,?>> addItems(String yaml, boolean forceUpdate) {
-        return addItems(yaml, true, false);
+        return addItems(yaml, true, forceUpdate);
     }
     
     @Override

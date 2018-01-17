@@ -63,7 +63,7 @@ public interface BrooklynCatalog {
     @Deprecated
     void deleteCatalogItem(String symbolicName, String version);
 
-    /** @return Deletes the item with the given {@link CatalogItem#getSymbolicName()
+    /** Deletes the item with the given {@link CatalogItem#getSymbolicName()
      * symbolicName} and version
      * @throws NoSuchElementException if not found 
      * @deprecated since introduced in 1.0.0, only used for transitioning */
