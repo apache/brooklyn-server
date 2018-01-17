@@ -171,6 +171,20 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
         }
     }
 
+    @Override
+    public void copyPreInstallResources() {
+        final WithMutexes mutexSupport = getLocation().mutexes();
+        String mutexId = "installation lock at host";
+        mutexSupport.acquireMutex(mutexId, "pre-installing " + elvis(entity, this));
+        try {
+            super.copyPreInstallResources();
+        } catch (Exception e) {
+            LOG.warn("Error copying pre-install resources", e);
+            throw Exceptions.propagate(e);
+        } finally {
+            mutexSupport.releaseMutex(mutexId);
+        }
+    }
 
     @Override
     public void copyInstallResources() {
@@ -180,7 +194,7 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
         try {
             super.copyInstallResources();
         } catch (Exception e) {
-//            log.warn("Error copying install resources", e);
+            LOG.warn("Error copying install resources", e);
             throw Exceptions.propagate(e);
         } finally {
             mutexSupport.releaseMutex(mutexId);
@@ -190,13 +204,12 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     @Override
     public void copyCustomizeResources() {
         final WithMutexes mutexSupport = getLocation().mutexes();
-        final String description = "customizing " + elvis(entity, this);
         String mutexId = "installation lock at host";
-        mutexSupport.acquireMutex(mutexId, description);
+        mutexSupport.acquireMutex(mutexId, "customizing " + elvis(entity, this));
         try {
             super.copyCustomizeResources();
         } catch (Exception e) {
-//            log.warn("Error copying customize resources", e);
+            LOG.warn("Error copying customize resources", e);
             throw Exceptions.propagate(e);
         } finally {
             mutexSupport.releaseMutex(mutexId);
