@@ -29,13 +29,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.cxf.interceptor.Fault;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
+import javax.xml.ws.WebServiceException;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -49,6 +43,7 @@ import org.apache.brooklyn.entity.software.base.lifecycle.WinRmExecuteHelper;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse;
+import org.apache.brooklyn.util.core.mutex.MutexSupport;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
@@ -56,8 +51,14 @@ import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.cxf.interceptor.Fault;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import javax.xml.ws.WebServiceException;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 
 public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwareProcessDriver implements NativeWindowsScriptRunner {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractSoftwareProcessWinRmDriver.class);
@@ -77,6 +78,19 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     protected WinRmExecuteHelper newScript(String phase) {
         return newScript(Maps.<String, Object>newLinkedHashMap(), phase);
     }
+    
+    protected WinRmExecuteHelper newScript(String command, String psCommand, String phase) {
+        return newScript(command, psCommand, phase, null);
+    }
+
+    protected WinRmExecuteHelper newScript(String command, String psCommand, String phase, String ntDomain) {
+        return newScript(phase)
+                .setNtDomain(ntDomain)
+                .setCommand(command)
+                .setPsCommand(psCommand)
+                .failOnNonZeroResultCode()
+                .gatherOutput();
+    }
 
     protected WinRmExecuteHelper newScript(Map<String, ?> flags, String phase) {
         if (!Entities.isManaged(getEntity()))
@@ -89,10 +103,12 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     @Override
     public void runPreInstallCommand() {
         if (Strings.isNonBlank(getEntity().getConfig(BrooklynConfigKeys.PRE_INSTALL_COMMAND)) || Strings.isNonBlank(getEntity().getConfig(VanillaWindowsProcess.PRE_INSTALL_POWERSHELL_COMMAND))) {
-            executeCommandInTask(
+            newScript(
                     getEntity().getConfig(BrooklynConfigKeys.PRE_INSTALL_COMMAND),
                     getEntity().getConfig(VanillaWindowsProcess.PRE_INSTALL_POWERSHELL_COMMAND),
-                    "pre-install-command");
+                    "pre-install-command")
+                .useMutex(getLocation().mutexes(), "installation lock at host", "installing "+elvis(entity,this))
+                .execute();
         }
         if (entity.getConfig(VanillaWindowsProcess.PRE_INSTALL_REBOOT_REQUIRED)) {
             rebootAndWait();
@@ -107,10 +123,12 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     @Override
     public void runPostInstallCommand() {
         if (Strings.isNonBlank(entity.getConfig(BrooklynConfigKeys.POST_INSTALL_COMMAND)) || Strings.isNonBlank(getEntity().getConfig(VanillaWindowsProcess.POST_INSTALL_POWERSHELL_COMMAND))) {
-            executeCommandInTask(
+            newScript(
                     getEntity().getConfig(BrooklynConfigKeys.POST_INSTALL_COMMAND),
                     getEntity().getConfig(VanillaWindowsProcess.POST_INSTALL_POWERSHELL_COMMAND),
-                    "post-install-command");
+                    "post-install-command")
+            .useMutex(getLocation().mutexes(), "installation lock at host", "installing "+elvis(entity,this))
+            .execute();
         }
     }
 
@@ -168,13 +186,8 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     }
 
     protected int executeCommandInTask(String command, String psCommand, String phase, String ntDomain) {
-        return newScript(phase)
-                .setNtDomain(ntDomain)
-                .setCommand(command)
-                .setPsCommand(psCommand)
-                .failOnNonZeroResultCode()
-                .gatherOutput()
-                .execute();
+        WinRmExecuteHelper helper = newScript(command, psCommand, phase, ntDomain);
+        return helper.execute();
     }
 
     @Override
