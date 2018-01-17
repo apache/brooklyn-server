@@ -18,10 +18,12 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 import java.util.List;
+import java.util.Map;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
@@ -33,10 +35,12 @@ import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.winrm.RecordingWinRmTool;
 import org.apache.brooklyn.util.core.internal.winrm.RecordingWinRmTool.CustomResponse;
 import org.apache.brooklyn.util.core.internal.winrm.RecordingWinRmTool.CustomResponseGenerator;
 import org.apache.brooklyn.util.core.internal.winrm.RecordingWinRmTool.ExecParams;
+import org.apache.brooklyn.util.core.mutex.MutexSupport;
 import org.apache.brooklyn.util.core.mutex.WithMutexes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -128,29 +132,29 @@ public class VanillaWindowsProcessTest extends BrooklynAppUnitTestSupport {
 
         assertExecContains(RecordingWinRmTool.getLastExec(), "stopCommand");
     }
-    
+
     @Test
     public void testMutexForInstallSteps() throws Exception {
         RecordingWithMutexes mutexSupport = new RecordingWithMutexes();
-        
+
         loc = app.getManagementContext().getLocationManager().createLocation(LocationSpec.create(FixedListMachineProvisioningLocation.class)
                 .configure(FixedListMachineProvisioningLocation.MACHINE_SPECS, ImmutableList.<LocationSpec<? extends MachineLocation>>of(
                         LocationSpec.create(WinRmMachineLocationWithRecordingMutex.class)
                                 .configure("mutexSupport", mutexSupport)
                                 .configure("address", "1.2.3.4")
                                 .configure(WinRmMachineLocation.WINRM_TOOL_CLASS, RecordingWinRmTool.class.getName()))));
-        
+
         class MyResponseGenerator implements CustomResponseGenerator {
-            private final boolean expectesMutex;
-            MyResponseGenerator(boolean expectesMutex) {
-                this.expectesMutex = expectesMutex;
+            private final boolean expectsMutex;
+            MyResponseGenerator(boolean expectsMutex) {
+                this.expectsMutex = expectsMutex;
             }
             @Override public CustomResponse generate(ExecParams execParams) {
-                assertEquals(mutexSupport.holdsMutex("installation lock at host"), expectesMutex);
+                assertEquals(mutexSupport.holdsMutex("installation lock at host"), expectsMutex);
                 return new CustomResponse(0, "", "");
             }
         };
-        
+
         RecordingWinRmTool.setCustomResponse(".*preInstallCommand.*", new MyResponseGenerator(true));
         RecordingWinRmTool.setCustomResponse(".*installCommand.*", new MyResponseGenerator(true));
         RecordingWinRmTool.setCustomResponse(".*postInstallCommand.*", new MyResponseGenerator(true));
@@ -163,9 +167,9 @@ public class VanillaWindowsProcessTest extends BrooklynAppUnitTestSupport {
 
         app.createAndManageChild(EntitySpec.create(VanillaWindowsProcess.class)
                 .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true)
-                .configure(VanillaWindowsProcess.PRE_INSTALL_COMMAND, "preInstallCommand")
-                .configure(VanillaWindowsProcess.INSTALL_COMMAND, "installCommand")
-                .configure(VanillaWindowsProcess.POST_INSTALL_COMMAND, "postInstallCommand")
+//                .configure(VanillaWindowsProcess.PRE_INSTALL_COMMAND, "preInstallCommand")
+//                .configure(VanillaWindowsProcess.INSTALL_COMMAND, "installCommand")
+//                .configure(VanillaWindowsProcess.POST_INSTALL_COMMAND, "postInstallCommand")
                 .configure(VanillaWindowsProcess.PRE_INSTALL_POWERSHELL_COMMAND, "preInstallPowershell")
                 .configure(VanillaWindowsProcess.INSTALL_POWERSHELL_COMMAND, "installPowershell")
                 .configure(VanillaWindowsProcess.POST_INSTALL_POWERSHELL_COMMAND, "postInstallPowershell")
@@ -180,30 +184,57 @@ public class VanillaWindowsProcessTest extends BrooklynAppUnitTestSupport {
         app.start(ImmutableList.of(loc));
 
         assertExecsContain(RecordingWinRmTool.getExecs(), ImmutableList.of(
-                "preInstallCommand", "installCommand", "postInstallCommand",
+//                "preInstallCommand", "installCommand", "postInstallCommand",
                 "preInstallPowershell", "installPowershell", "postInstallPowershell",
-                "preCustomizeCommand", "customizeCommand", "postCustomizeCommand", 
-                "preLaunchCommand", "launchCommand", "postLaunchCommand", 
+                "preCustomizeCommand", "customizeCommand", "postCustomizeCommand",
+                "preLaunchCommand", "launchCommand", "postLaunchCommand",
                 "checkRunningCommand"));
-        
+
         app.stop();
 
         assertExecContains(RecordingWinRmTool.getLastExec(), "stopCommand");
     }
-    
+
     public static class RecordingWithMutexes implements WithMutexes {
-        // TODO record whether we have the lock
-        
+        Map<String, Boolean> locks = new MutableMap<>();
+        WithMutexes mutexes = new MutexSupport();
+
+        @Override
+        public boolean hasMutex(String mutexId) {
+            return mutexes.hasMutex(mutexId);
+        }
+
+        @Override
+        public void acquireMutex(String mutexId, String description) {
+            locks.put(mutexId, true);
+            mutexes.acquireMutex(mutexId, description);
+        }
+
+        @Override
+        public boolean tryAcquireMutex(String mutexId, String description) {
+            return mutexes.tryAcquireMutex(mutexId, description);
+        }
+
+        @Override
+        public void releaseMutex(String mutexId) {
+            locks.put(mutexId, false);
+            mutexes.releaseMutex(mutexId);
+        }
+
+        public boolean holdsMutex(String mutexId) {
+            return locks.get(mutexId);
+        }
     }
+
     public static class WinRmMachineLocationWithRecordingMutex extends WinRmMachineLocation {
         public static final ConfigKey<WithMutexes> MUTEX_SUPPORT = ConfigKeys.newConfigKey(WithMutexes.class, "mutexSupport");
-        
+
         @Override
         public WithMutexes mutexes() {
             return config().get(MUTEX_SUPPORT);
         }
     }
-    
+
     protected void assertExecsContain(List<? extends ExecParams> actuals, List<String> expectedCmds) {
         String errMsg = "actuals="+actuals+"; expected="+expectedCmds;
         assertTrue(actuals.size() >= expectedCmds.size(), "actualSize="+actuals.size()+"; expectedSize="+expectedCmds.size()+"; "+errMsg);
