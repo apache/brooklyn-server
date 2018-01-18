@@ -33,6 +33,7 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskQueueingContext;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
+import org.apache.brooklyn.util.core.mutex.WithMutexes;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -64,6 +65,18 @@ public class WinRmExecuteHelper {
     protected Predicate<? super Integer> resultCodeCheck = Predicates.alwaysTrue();
     protected ByteArrayOutputStream stdout, stderr, stdin;
 
+    protected Runnable mutexAcquire = new Runnable() {
+        @Override
+        public void run() {
+        }
+    };
+
+    protected Runnable mutexRelease = new Runnable() {
+        @Override
+        public void run() {
+        }
+    };
+
     public WinRmExecuteHelper(NativeWindowsScriptRunner runner, String summary) {
         this.runner = runner;
         this.summary = summary;
@@ -81,6 +94,30 @@ public class WinRmExecuteHelper {
 
     public WinRmExecuteHelper setPsCommand(String psCommand) {
         this.psCommand = psCommand;
+        return this;
+    }
+
+    /**
+     * indicates that the script should acquire the given mutexId on the given mutexSupport
+     * and maintain it for the duration of script execution;
+     * typically used to prevent parallel scripts from conflicting in access to a resource
+     * (e.g. a folder, or a config file used by a process)
+     */
+    public WinRmExecuteHelper useMutex(final WithMutexes mutexSupport, final String mutexId, final String description) {
+        mutexAcquire = new Runnable() {
+            @Override
+            public void run() {
+                mutexSupport.acquireMutex(mutexId, description);
+            }
+        };
+
+        mutexRelease = new Runnable() {
+            @Override
+            public void run() {
+                mutexSupport.releaseMutex(mutexId);
+            }
+        };
+
         return this;
     }
 
@@ -144,16 +181,21 @@ public class WinRmExecuteHelper {
 
     public int executeInternal() {
         int result;
-        if (gatherOutput) {
-            if (stdout==null) stdout = new ByteArrayOutputStream();
-            if (stderr==null) stderr = new ByteArrayOutputStream();
-            flags.put("out", stdout);
-            flags.put("err", stderr);
-        }
-        flags.put(WinRmTool.COMPUTER_NAME, domain);
-        result = runner.executeNativeOrPsCommand(flags, command, psCommand, summary, false);
-        if (!resultCodeCheck.apply(result)) {
-            throw logWithDetailsAndThrow(format("Execution failed, invalid result %s for %s", result, summary), null);
+        mutexAcquire.run();
+        try {
+            if (gatherOutput) {
+                if (stdout==null) stdout = new ByteArrayOutputStream();
+                if (stderr==null) stderr = new ByteArrayOutputStream();
+                flags.put("out", stdout);
+                flags.put("err", stderr);
+            }
+            flags.put(WinRmTool.COMPUTER_NAME, domain);
+            result = runner.executeNativeOrPsCommand(flags, command, psCommand, summary, false);
+            if (!resultCodeCheck.apply(result)) {
+                throw logWithDetailsAndThrow(format("Execution failed, invalid result %s for %s", result, summary), null);
+            }
+        } finally {
+            mutexRelease.run();
         }
         return result;
     }

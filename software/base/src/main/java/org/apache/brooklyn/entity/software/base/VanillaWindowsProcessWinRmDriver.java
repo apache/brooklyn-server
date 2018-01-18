@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
+
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.entity.software.base.lifecycle.WinRmExecuteHelper;
@@ -58,11 +60,11 @@ public class VanillaWindowsProcessWinRmDriver extends AbstractSoftwareProcessWin
 
         // TODO: Follow install path of VanillaSoftwareProcessSshDriver
         if(Strings.isNonBlank(getEntity().getConfig(VanillaWindowsProcess.INSTALL_COMMAND)) || Strings.isNonBlank(getEntity().getConfig(VanillaWindowsProcess.INSTALL_POWERSHELL_COMMAND))) {
-            executeCommandInTask(
-                    getEntity().getConfig(VanillaWindowsProcess.INSTALL_COMMAND),
-                    getEntity().getConfig(VanillaWindowsProcess.INSTALL_POWERSHELL_COMMAND),
-                    "install-command",
-                    hostname);
+            String cmd = getEntity().getConfig(VanillaWindowsProcess.INSTALL_COMMAND);
+            String psCmd = getEntity().getConfig(VanillaWindowsProcess.INSTALL_POWERSHELL_COMMAND);
+            newScript(cmd, psCmd, "install-command", hostname)
+                    .useMutex(getLocation().mutexes(), "installation lock at host", "installing "+elvis(entity,this))
+                    .execute();
         }
         if (entity.getConfig(VanillaWindowsProcess.INSTALL_REBOOT_REQUIRED)) {
             rebootAndWait(hostname);

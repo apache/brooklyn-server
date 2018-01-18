@@ -21,6 +21,8 @@ package org.apache.brooklyn.util.core.internal.winrm;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.InputStream;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -30,7 +32,6 @@ import org.apache.brooklyn.util.stream.Streams;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 /**
  * For stubbing out the {@link WinRmTool}, so that no real winrm commands are executed.
@@ -98,7 +99,7 @@ public class RecordingWinRmTool implements WinRmTool {
     
     public static List<ExecParams> execs = Lists.newCopyOnWriteArrayList();
     public static List<Map<?,?>> constructorProps = Lists.newCopyOnWriteArrayList();
-    public static Map<String, CustomResponseGenerator> customResponses = Maps.newConcurrentMap();
+    public static Map<String, CustomResponseGenerator> customResponses = Collections.synchronizedMap(new LinkedHashMap<>());
     
     public static void clear() {
         execs.clear();
@@ -152,8 +153,9 @@ public class RecordingWinRmTool implements WinRmTool {
 
     @Override
     public WinRmToolResponse copyToServer(InputStream source, String destination) {
-        execs.add(new ExecParams(ExecType.COPY_TO_SERVER, ownConstructorProps, ImmutableList.of(new String(Streams.readFully(source)))));
-        return new WinRmToolResponse("", "", 0);
+        ExecParams execParams = new ExecParams(ExecType.COPY_TO_SERVER, ownConstructorProps, ImmutableList.of(new String(Streams.readFully(source))));
+        execs.add(execParams);
+        return generateResponse(execParams);
     }
 
     @Override
@@ -163,8 +165,12 @@ public class RecordingWinRmTool implements WinRmTool {
     }
     
     protected WinRmToolResponse generateResponse(ExecParams execParams) {
+        LinkedHashMap<String, CustomResponseGenerator> customResponsesCopy;
+        synchronized (customResponses) {
+            customResponsesCopy = new LinkedHashMap<>(customResponses);
+        }
         for (String cmd : execParams.commands) {
-            for (Entry<String, CustomResponseGenerator> entry : customResponses.entrySet()) {
+            for (Entry<String, CustomResponseGenerator> entry : customResponsesCopy.entrySet()) {
                 if (cmd.matches(entry.getKey())) {
                     CustomResponseGenerator responseGenerator = entry.getValue();
                     CustomResponse response = responseGenerator.generate(execParams);
