@@ -105,7 +105,7 @@ public class CatalogResourcePerformanceTest extends BrooklynRestResourcePerforma
                     "    description: My description",
                     "    item:",
                     "      type: " + Aggregator.class.getName());
-            getManagementContext().getCatalog().addItems(yaml, false);
+            getManagementContext().getCatalog().addItems(yaml);
         }
     }
 

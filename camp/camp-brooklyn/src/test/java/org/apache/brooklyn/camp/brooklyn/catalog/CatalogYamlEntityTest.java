@@ -29,6 +29,7 @@ import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.objs.Identifiable;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -42,6 +43,7 @@ import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.apache.brooklyn.entity.stock.BasicEntityImpl;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.testng.Assert;
@@ -62,10 +64,29 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION), BasicEntity.class.getName());
 
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
+        
+        assertEquals(item.getSymbolicName(), symbolicName);
+        assertEquals(item.getKind(), RegisteredTypeKind.SPEC);
+        assertEquals(item.getDescription(), null);
+        assertEquals(item.getDisplayName(), null);
+        
         String planYaml = RegisteredTypes.getImplementationDataStringForSpec(item);
         assertTrue(planYaml.contains("services:"), "expected 'services:' block: "+item+"\n"+planYaml);
+        
+        assertHasSuperType(item, Entity.class);
+        assertHasSuperType(item, BasicEntity.class);
+        assertHasSuperType(item, Identifiable.class);
+        
+        // impl won't be known until spec is instantiated
+        Asserts.assertFalse(item.getSuperTypes().contains(BasicEntityImpl.class), "Wrong supertypes (should not have impl): "+item.getSuperTypes());
+        // EntitySpec.class should not be included; it's the supers of the _target_
+        Asserts.assertFalse(item.getSuperTypes().contains(EntitySpec.class), "Wrong supertypes (should not have spec): "+item.getSuperTypes());
 
         deleteCatalogEntity(symbolicName);
+    } 
+    
+    private void assertHasSuperType(RegisteredType item, Object expectedSuper) {
+        assertTrue(item.getSuperTypes().contains(expectedSuper), "Wrong supertypes, missing "+expectedSuper+"; declared supertypes are: "+item.getSuperTypes());
     }
 
     // Legacy / backwards compatibility: should always specify itemType
@@ -203,6 +224,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         RegisteredType referrer = mgmt().getTypeRegistry().get(referrerSymbolicName, TEST_VERSION);
         String planYaml = RegisteredTypes.getImplementationDataStringForSpec(referrer);
         Asserts.assertStringContains(planYaml, "services");
+        assertHasSuperType(referrer, TestEntity.class);
+        // TODO: doesn't do this yet
+        // assertHasSuperType(referrer, mgmt().getTypeRegistry().get(referencedSymbolicName, TEST_VERSION));
         
         Entity app = createAndStartApplication("services:",
                       "- type: " + ver(referrerSymbolicName, TEST_VERSION));

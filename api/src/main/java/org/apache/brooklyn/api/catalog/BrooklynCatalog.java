@@ -63,6 +63,13 @@ public interface BrooklynCatalog {
     @Deprecated
     void deleteCatalogItem(String symbolicName, String version);
 
+    /** Deletes the item with the given {@link CatalogItem#getSymbolicName()
+     * symbolicName} and version
+     * @throws NoSuchElementException if not found 
+     * @deprecated since introduced in 1.0.0, only used for transitioning */
+    @Deprecated
+    void deleteCatalogItem(String symbolicName, String version, boolean alsoCheckTypeRegistry, boolean failIfNotFound);
+    
     /** variant of {@link #getCatalogItem(String, String)} which checks (and casts) type for convenience
      * (returns null if type does not match)
      * @deprecated since 0.12.0 use {@link BrooklynTypeRegistry} instead */ 
@@ -155,12 +162,14 @@ public interface BrooklynCatalog {
 
     /**
      * As {@link #addItemsFromBundle(String, ManagedBundle)} with a null bundle.
+     * (Only used for legacy-mode additions.) 
      */
     Iterable<? extends CatalogItem<?,?>> addItems(String yaml);
     
     /**
      * Adds items (represented in yaml) to the catalog coming from the indicated managed bundle.
      * Fails if the same version exists in catalog (unless snapshot).
+     * (Only used for legacy-mode additions.) 
      *
      * @throws IllegalArgumentException if the yaml was invalid
      */
@@ -168,15 +177,33 @@ public interface BrooklynCatalog {
     
     /**
      * Adds items (represented in yaml) to the catalog.
+     * (Only used for legacy-mode additions.) 
      * 
      * @param forceUpdate If true allows catalog update even when an
      * item exists with the same symbolicName and version
      *
      * @throws IllegalArgumentException if the yaml was invalid
+     * 
+     * @deprecated since 1.0.0 use {@link #addItems(String)} or {@link #addItems(String, boolean, boolean)}
      */
+    @Deprecated
     Iterable<? extends CatalogItem<?,?>> addItems(String yaml, boolean forceUpdate);
     
-    /** As {@link #addItems(String, ManagedBundle)} but exposing forcing option as per {@link #addItem(String, boolean)}. */
+    /**
+     * Adds items (represented in yaml) to the catalog.
+     * (Only used for legacy-mode additions.) 
+     * 
+     * @param validate Whether to validate the types (default true)
+     *
+     * @param forceUpdate If true allows catalog update even when an
+     * item exists with the same symbolicName and version
+     *
+     * @throws IllegalArgumentException if the yaml was invalid
+     */
+    Iterable<? extends CatalogItem<?,?>> addItems(String yaml, boolean validate, boolean forceUpdate);
+    
+    /** As {@link #addItems(String, ManagedBundle)} but exposing forcing option as per {@link #addItem(String, boolean)}. 
+     * (Only used for legacy-mode additions.) */
     Iterable<? extends CatalogItem<?,?>> addItems(String yaml, ManagedBundle bundle, boolean forceUpdate);
     
     /**

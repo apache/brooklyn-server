@@ -27,11 +27,14 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Queue;
 import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
@@ -301,9 +304,13 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
     
     private static ThreadLocal<Boolean> deletingCatalogItem = new ThreadLocal<>();
-    @Override
+    @Override @Deprecated
     public void deleteCatalogItem(String symbolicName, String version) {
-        if (!Boolean.TRUE.equals(deletingCatalogItem.get())) {
+        deleteCatalogItem(symbolicName, version, true, true);
+    }
+    @Override @Deprecated
+    public void deleteCatalogItem(String symbolicName, String version, boolean alsoCheckTypeRegistry, boolean failIfNotFound) {
+        if (alsoCheckTypeRegistry && !Boolean.TRUE.equals(deletingCatalogItem.get())) {
             // while we switch from catalog to type registry, make sure deletion covers both;
             // thread local lets us call to other once then he calls us and we do other code path
             deletingCatalogItem.set(true);
@@ -326,10 +333,14 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (DEFAULT_VERSION.equals(version)) {
             throw new IllegalStateException("Deleting items with unspecified version (argument DEFAULT_VERSION) not supported.");
         }
-        CatalogItem<?, ?> item = getCatalogItem(symbolicName, version);
+        CatalogItem<?, ?> item = getCatalogItemLegacy(symbolicName, version);
         CatalogItemDtoAbstract<?,?> itemDto = getAbstractCatalogItem(item);
         if (itemDto == null) {
-            throw new NoSuchElementException("No catalog item found with id "+symbolicName);
+            if (failIfNotFound) {
+                throw new NoSuchElementException("No catalog item found with id "+symbolicName);
+            } else {
+                return;
+            }
         }
         if (manualAdditionsCatalog==null) loadManualAdditionsCatalog();
         manualAdditionsCatalog.deleteEntry(itemDto);
@@ -483,6 +494,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         while (item instanceof CatalogItemDo) item = ((CatalogItemDo<T,SpecT>)item).itemDto;
         if (item==null) return null;
         if (item instanceof CatalogItemDtoAbstract) return (CatalogItemDtoAbstract<T,SpecT>) item;
+        CatalogItem<?, ?> item2 = getCatalogItemLegacy(item.getSymbolicName(), item.getVersion());
+        if (item2 instanceof CatalogItemDtoAbstract) return (CatalogItemDtoAbstract<T,SpecT>) item2;
         throw new IllegalStateException("Cannot unwrap catalog item '"+item+"' (type "+item.getClass()+") to restore DTO");
     }
     
@@ -1447,15 +1460,23 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     
     @Override
     public List<? extends CatalogItem<?,?>> addItems(String yaml) {
-        return addItems(yaml, false);
+        return addItems(yaml, true, false);
+    }
+    
+    /** @deprecated since 1.0.0 use {@link #addItems(String)} or {@link #addItems(String, boolean, boolean)} */
+    @Deprecated
+    @Override
+    public List<? extends CatalogItem<?,?>> addItems(String yaml, boolean forceUpdate) {
+        return addItems(yaml, true, forceUpdate);
     }
     
     @Override
-    public List<? extends CatalogItem<?,?>> addItems(String yaml, boolean forceUpdate) {
+    public List<? extends CatalogItem<?,?>> addItems(String yaml, boolean validate, boolean forceUpdate) {
         Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager();
         if (osgiManager.isPresent() && AUTO_WRAP_CATALOG_YAML_AS_BUNDLE) {
             // wrap in a bundle to be managed; need to get bundle and version from yaml
             OsgiBundleInstallationResult result = addItemsOsgi(yaml, forceUpdate, osgiManager.get());
+            // above will have done validation and supertypes recorded
             return toLegacyCatalogItems(result.getTypesInstalled());
 
             // if all items pertaining to an older anonymous catalog.bom bundle have been overridden
@@ -1566,6 +1587,18 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 item.setContainingBundle(bundle.getVersionedName());
             }
             addItemDto(item, forceUpdate);
+        }
+        // do type validation so supertypes are populated and errors are at least logged in legacy mode (only time this is used)
+        // (validation normally done by osgi load routines)
+        Map<String,Collection<Throwable>> errors = MutableMap.of();
+        for (CatalogItemDtoAbstract<?, ?> item: result) {
+            Collection<Throwable> errorsInItem = validateType(RegisteredTypes.of(item), null);
+            if (!errorsInItem.isEmpty()) {
+                errors.put(item.getCatalogItemId(), errorsInItem);
+            }
+        }
+        if (!errors.isEmpty()) {
+            log.warn("Error adding YAML"+(bundle!=null ? " for bundle "+bundle : "")+" (ignoring, but types will not be usable): "+errors);
         }
         return result;
     }
@@ -1758,12 +1791,21 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 // if it was a bean that points at a BO then switch it to a spec and try to re-validate
                 return resolve(RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, typeToValidate), constraint);
             }
-            RegisteredTypes.cacheActualJavaType(resultT, resultO.getClass());
+            Class<?> resultS;
+            if (resultT.getKind() == RegisteredTypeKind.SPEC) {
+                resultS = ((AbstractBrooklynObjectSpec<?,?>)resultO).getType();
+            } else {
+                resultS = resultO.getClass();
+            }
+            RegisteredTypes.cacheActualJavaType(resultT, resultS);
             
-            supers = MutableSet.copyOf(supers);
-            supers.add(resultO.getClass());
-            supers.add(BrooklynObjectType.of(resultO.getClass()).getInterfaceType());
-            RegisteredTypes.addSuperTypes(resultT, supers);
+            Set<Object> newSupers = MutableSet.of();
+            // TODO collect registered type name supertypes, as strings
+            newSupers.add(resultS);
+            newSupers.addAll(supers);
+            newSupers.add(BrooklynObjectType.of(resultO.getClass()).getInterfaceType());
+            collectSupers(newSupers);
+            RegisteredTypes.addSuperTypes(resultT, newSupers);
 
             return ReferenceWithError.newInstanceWithoutError(resultT);
         }
@@ -1774,6 +1816,22 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             .appendIfNotNull(beanError)
             .appendIfNotNull(specError);
         return ReferenceWithError.newInstanceThrowingError(null, Exceptions.create("Could not resolve "+typeToValidate, errors));
+    }
+
+    private void collectSupers(Set<Object> s) {
+        Queue<Object> remaining = new LinkedList<>();
+        remaining.addAll(s);
+        s.clear();
+        while (!remaining.isEmpty()) {
+            Object next = remaining.remove();
+            if (next instanceof Class<?>) {
+                if (!s.contains(next)) {
+                    s.add(next);
+                    remaining.add( ((Class<?>)next).getSuperclass() );
+                    remaining.addAll( Arrays.asList( ((Class<?>)next).getInterfaces() ) );
+                }
+            }
+        }
     }
 
     private CatalogItem<?,?> addItemDto(CatalogItemDtoAbstract<?, ?> itemDto, boolean forceUpdate) {
