@@ -135,7 +135,7 @@
         <bouncycastle.version>1.51</bouncycastle.version>
         <sshj.version>0.12.0</sshj.version>
         <felix.framework.version>5.6.1</felix.framework.version>
-        <reflections.version>0.9.9-RC1</reflections.version>
+        <reflections.version>0.9.10</reflections.version>
         <jetty.version>9.3.14.v20161028</jetty.version>
         <jetty-schemas.version>3.1.M0</jetty-schemas.version>
         <airline.version>0.7</airline.version>
