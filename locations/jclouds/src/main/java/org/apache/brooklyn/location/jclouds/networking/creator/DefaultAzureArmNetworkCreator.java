@@ -124,7 +124,7 @@ public class DefaultAzureArmNetworkCreator {
             VirtualNetwork.VirtualNetworkProperties virtualNetworkProperties = VirtualNetwork.VirtualNetworkProperties
                     .builder().addressSpace(VirtualNetwork.AddressSpace.create(Arrays.asList(DEFAULT_VNET_ADDRESS_PREFIX)))
                     .subnets(Arrays.asList(subnet)).build();
-            virtualNetworkApi.createOrUpdate(vnetName, location, virtualNetworkProperties);
+            virtualNetworkApi.createOrUpdate(vnetName, location, null, virtualNetworkProperties);
         } else {
             LOG.info("Network config not specified when provisioning Azure machine, and default subnet does not exists. "
                     + "Creating subnet [{}] on network [{}], and updating template options", subnetName, vnetName);
