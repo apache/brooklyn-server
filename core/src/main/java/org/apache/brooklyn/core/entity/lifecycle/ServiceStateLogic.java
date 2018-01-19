@@ -374,7 +374,6 @@ public class ServiceStateLogic {
         return newEnricherForServiceState(ComputeServiceState.class);
     }
     public static final EnricherSpec<?> newEnricherForServiceState(Class<? extends Enricher> type) {
-        newEnricherForServiceUpFromChildren();
         return EnricherSpec.create(type);
     }
 

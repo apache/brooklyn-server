@@ -226,21 +226,21 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         List<CatalogEntitySummary> entities = client().path("/catalog/entities")
                 .query("fragment", "vaNIllasOFTWAREpROCESS").get(new GenericType<List<CatalogEntitySummary>>() {});
         log.info("Matching entities: " + entities);
-        assertEquals(entities.size(), 1);
+        Asserts.assertSize(entities, 1);
 
         List<CatalogEntitySummary> entities2 = client().path("/catalog/entities")
                 .query("regex", "[Vv]an.[alS]+oftware\\w+").get(new GenericType<List<CatalogEntitySummary>>() {});
-        assertEquals(entities2.size(), 1);
+        Asserts.assertSize(entities2, 1);
 
         assertEquals(entities, entities2);
     
         List<CatalogEntitySummary> entities3 = client().path("/catalog/entities")
                 .query("fragment", "bweqQzZ").get(new GenericType<List<CatalogEntitySummary>>() {});
-        assertEquals(entities3.size(), 0);
+        Asserts.assertSize(entities3, 0);
 
         List<CatalogEntitySummary> entities4 = client().path("/catalog/entities")
                 .query("regex", "bweq+z+").get(new GenericType<List<CatalogEntitySummary>>() {});
-        assertEquals(entities4.size(), 0);
+        Asserts.assertSize(entities4, 0);
     }
 
     @Test

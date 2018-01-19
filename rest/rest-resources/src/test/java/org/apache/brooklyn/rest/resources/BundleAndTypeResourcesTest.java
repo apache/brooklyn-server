@@ -237,16 +237,16 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         List<TypeSummary> entities = client().path("/catalog/types")
                 .query("fragment", "vaNIllasOFTWAREpROCESS").get(new GenericType<List<TypeSummary>>() {});
         log.info("Matching entities: " + entities);
-        assertEquals(entities.size(), 1);
+        Asserts.assertSize(entities, 1);
 
         entities = client().path("/catalog/types").query("supertype", "entity")
                 .query("fragment", "vaNIllasOFTWAREpROCESS").get(new GenericType<List<TypeSummary>>() {});
         log.info("Matching entities: " + entities);
-        assertEquals(entities.size(), 1);
+        Asserts.assertSize(entities, 1);
 
         List<TypeSummary> entities2 = client().path("/catalog/types")
                 .query("regex", "[Vv]an.[alS]+oftware\\w+").get(new GenericType<List<TypeSummary>>() {});
-        assertEquals(entities2.size(), 1);
+        Asserts.assertSize(entities2, 1);
 
         assertEquals(entities, entities2);
     

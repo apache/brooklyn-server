@@ -142,11 +142,10 @@ public class ClassFinder {
     public static <T extends BrooklynObject> Set<Class<? extends T>> findClasses(Collection<URL> urls, Class<T> clazz) {
         ClassLoader classLoader = new UrlClassLoader(urls.toArray(new URL[urls.size()]));
         
-        Reflections reflections = new ConfigurationBuilder()
+        Reflections reflections = new Reflections(new ConfigurationBuilder()
                 .addClassLoader(classLoader)
                 .addScanners(new SubTypesScanner(), new TypeAnnotationsScanner(), new FieldAnnotationsScanner())
-                .addUrls(urls)
-                .build();
+                .addUrls(urls));
         
         Set<Class<? extends T>> types = reflections.getSubTypesOf(clazz);
         
