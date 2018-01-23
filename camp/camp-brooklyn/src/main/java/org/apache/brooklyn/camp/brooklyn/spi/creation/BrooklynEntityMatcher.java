@@ -80,7 +80,7 @@ public class BrooklynEntityMatcher implements PdpMatcher {
         String type = lookupType(deploymentPlanItem);
         if (type==null) return false;
 
-        log.debug("Item "+deploymentPlanItem+" being instantiated with "+type);
+        log.trace("Item {} being instantiated with {}", deploymentPlanItem, type);
 
         Object old = atc.getInstantiator();
         if (old!=null && !old.equals(BrooklynAssemblyTemplateInstantiator.class)) {
