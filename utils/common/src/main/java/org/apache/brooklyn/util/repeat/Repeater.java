@@ -400,7 +400,7 @@ public class Repeater implements Callable<Boolean> {
                     hasLoggedTransientException = false;
                 } catch (Throwable e) {
                     if (hasLoggedTransientException) {
-                        log.debug("{}: repeated failure; excluding stacktrace: {}", description, e);
+                        log.debug("{}: repeated failure; excluding stacktrace: {}", description, e.toString());
                     } else {
                         log.debug(description, e);
                         hasLoggedTransientException = true;
