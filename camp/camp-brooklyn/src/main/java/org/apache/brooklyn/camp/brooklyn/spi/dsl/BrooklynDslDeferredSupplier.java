@@ -97,8 +97,8 @@ public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier
 
     @Override
     public final T get() {
-        if (log.isDebugEnabled())
-            log.debug("Queuing task to resolve "+dsl+", called by "+Tasks.current());
+        if (log.isTraceEnabled())
+            log.trace("Queuing task to resolve {}, called by {}", dsl, Tasks.current());
 
         ExecutionContext exec = BrooklynTaskTags.getCurrentExecutionContext();
         if (exec == null) {

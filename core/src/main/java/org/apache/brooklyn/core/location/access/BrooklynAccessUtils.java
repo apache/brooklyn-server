@@ -66,7 +66,7 @@ public class BrooklynAccessUtils {
         // look up port forwarding
         PortForwardManager pfw = entity.getConfig(PORT_FORWARDING_MANAGER);
         if (pfw == null) {
-            log.debug("No PortForwardManager, using default");
+            log.trace("No PortForwardManager, using default");
             pfw = (PortForwardManager) entityInternal.getManagementContext().getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         }
 

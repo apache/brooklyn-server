@@ -67,7 +67,7 @@ public class InternalLocationFactory extends InternalFactory {
             if (Locations.isManaged(loc)) {
                 // Construct can return an existing instance, if using SpecialBrooklynObjectConstructor.Config.SPECIAL_CONSTRUCTOR.
                 // In which case, don't reconfigure it (don't change its parent, etc).
-                LOG.debug("Location-factory returning pre-existing location; skipping initialization of {}", loc);
+                LOG.trace("Location-factory returning pre-existing location; skipping initialization of {}", loc);
                 return loc;
             }
 
