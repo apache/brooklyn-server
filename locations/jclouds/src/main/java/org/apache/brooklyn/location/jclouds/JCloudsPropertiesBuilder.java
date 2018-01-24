@@ -33,6 +33,7 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.jclouds.Constants;
+import org.jclouds.compute.config.ComputeServiceProperties;
 import org.jclouds.ec2.reference.EC2Constants;
 import org.jclouds.location.reference.LocationConstants;
 import org.slf4j.Logger;
@@ -60,16 +61,51 @@ public class JCloudsPropertiesBuilder implements JcloudsLocationConfig{
         if (conf.get(OAUTH_ENDPOINT) != null)
             properties.setProperty(OAUTH_ENDPOINT.getName(), conf.get(OAUTH_ENDPOINT));
 
-        // See https://issues.apache.org/jira/browse/BROOKLYN-394
-        // For retries, the backoff times are:
-        //   Math.min(2^failureCount * retryDelayStart, retryDelayStart * 10) + random(10%)
-        // Therefore the backoff times will be: 500ms, 1s, 2s, 4s, 5s, 5s.
-        // The defaults (if not overridden here) are 50ms and 5 retires. This gives backoff
-        // times of 50ms, 100ms, 200ms, 400ms, 500ms (so a total backoff time of 1.25s),
-        // which is not long when you're being rate-limited and there are multiple thread all
-        // retrying their API calls.
-        properties.setProperty(Constants.PROPERTY_RETRY_DELAY_START, "500");
-        properties.setProperty(Constants.PROPERTY_MAX_RETRIES, "6");
+        /*
+         * See https://issues.apache.org/jira/browse/BROOKLYN-394
+         * For retries, the backoff times are:
+         *   Math.min(2^failureCount * retryDelayStart, retryDelayStart * 10) + random(10%)
+         * The overridden Brooklyn defaults give backoffs of:
+         *   2s, 4s, 8s, 16s, 20s, 20s, 20s, 20s, 20s, 20s
+         * (i.e. we'll keep trying for approx 2mins 30secs).
+         * 
+         * The jclouds defaults (if not overridden here) are 50ms and 5 retires. This gives backoff
+         * times of:
+         *   50ms, 100ms, 200ms, 400ms, 500ms
+         * That is only a total of 1.25s, which is not long when you're being rate-limited 
+         * and there are multiple thread all retrying their API calls.
+         * 
+         * Further improvements/considerations include:
+         *  - Users with huge deployments may want to backoff for even longer, e.g. setting:
+         *      jclouds.retries-delay-start: 3s
+         *      jclouds.max-retries: 20
+         *  - The jitter could be improved to include more randomness, but that is not yet 
+         *    configurable in jclouds. See:
+         *     - https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
+         *     - https://docs.aws.amazon.com/general/latest/gr/api-retries.html
+         *     - https://github.com/jclouds/jclouds/blob/rel/jclouds-2.0.2/core/src/main/java/org/jclouds/http/handlers/BackoffLimitedRetryHandler.java#L135-L136
+         */
+        properties.setProperty(Constants.PROPERTY_RETRY_DELAY_START, "2000");
+        properties.setProperty(Constants.PROPERTY_MAX_RETRIES, "10");
+        
+        /*
+         * Controls polling for the VM status as 'running', when provisioning a new VM.
+         * The backoff times are calculated as:
+         *   Math.min(1.5^(attempt-1) * initialPeriod, maxPeriod)
+         * See:
+         *   https://github.com/jclouds/jclouds/blob/rel/jclouds-2.0.2/core/src/main/java/org/jclouds/util/Predicates2.java#L157-L172
+         * The overridden Brooklyn defaults give backoffs of:
+         *   1s, 1.5s, 2s, 2s, ...
+         *  
+         * Defaults in jclouds are initial 50ms, backing off to max 1s. That would give backoffs of:
+         *   50ms, 75ms, 112ms, 169ms, 253ms, 380ms, 570ms, 854ms, 1s, ...
+         * i.e. approx 5 calls in the first second, and another 2 calls in the next second, etc.
+         * For detecting completion of VM provisioning (which even in a fast cloud currently 
+         * takes > 10s), that is far more load than is sensible with default settings.
+         */
+        properties.setProperty(ComputeServiceProperties.POLL_INITIAL_PERIOD, "1000");
+        properties.setProperty(ComputeServiceProperties.POLL_MAX_PERIOD, "2000");
+
         return this;
     }
 
