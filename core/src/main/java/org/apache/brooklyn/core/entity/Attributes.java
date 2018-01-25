@@ -114,7 +114,7 @@ public interface Attributes {
      * Lifecycle attributes
      */
     AttributeSensor<Boolean> SERVICE_UP = Sensors.newBooleanSensor("service.isUp", 
-            "Whether the service is active and availability (confirmed and monitored)");
+            "Whether the service is active and available (confirmed and monitored)");
     
     @SuppressWarnings("serial")
     AttributeSensor<Map<String,Object>> SERVICE_NOT_UP_INDICATORS = Sensors.newSensor(
