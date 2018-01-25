@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -106,6 +107,19 @@ public class TypePlanTransformers {
      * callers should generally use one of the create methods on {@link BrooklynTypeRegistry} rather than using this method directly. */
     @Beta
     public static Maybe<Object> transform(ManagementContext mgmt, RegisteredType type, RegisteredTypeLoadingContext constraint) {
+        return applyAtTransformers(mgmt, type, constraint, (t) -> t.create(type, constraint));
+    }
+
+    /** transforms the given type to an instance, if possible
+     * <p>
+     * callers should generally use one of the create methods on {@link BrooklynTypeRegistry} rather than using this method directly. */
+    @Beta
+    public static Maybe<RegisteredTypeInfo> getTypeInfo(ManagementContext mgmt, RegisteredType type, RegisteredTypeLoadingContext constraint) {
+        return applyAtTransformers(mgmt, type, constraint, (t) -> t.getTypeInfo(type));
+    }
+    
+    private static <T> Maybe<T> applyAtTransformers(ManagementContext mgmt, RegisteredType type, RegisteredTypeLoadingContext constraint,
+            Function<BrooklynTypePlanTransformer,T> fn) {
         if (type==null) return Maybe.absent("type cannot be null");
         if (type.getPlan()==null) return Maybe.absent("type plan cannot be null, when instantiating "+type);
         
@@ -114,7 +128,7 @@ public class TypePlanTransformers {
         Collection<Exception> failuresFromTransformers = new ArrayList<Exception>();
         for (BrooklynTypePlanTransformer t: transformers) {
             try {
-                Object result = t.create(type, constraint);
+                T result = fn.apply(t);
                 if (result==null) {
                     transformersWhoDontSupport.add(t.getFormatCode() + " (returned null)");
                     continue;

@@ -27,7 +27,9 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
+import org.apache.brooklyn.core.typereg.RegisteredTypeInfo;
 import org.apache.brooklyn.core.typereg.TypePlanTransformers;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.text.Identifiers;
 
 /**
@@ -78,15 +80,8 @@ public class StaticTypePlanTransformer extends AbstractTypePlanTransformer {
     }
 
     @Override
-    public double scoreForTypeDefinition(String formatCode, Object catalogData) {
-        // not supported
-        return 0;
-    }
-
-    @Override
-    public List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData) {
-        // not supported
-        return null;
+    public RegisteredTypeInfo getTypeInfo(RegisteredType type) {
+        return RegisteredTypeInfo.create(type, this, null, MutableSet.of());
     }
 
     @Override

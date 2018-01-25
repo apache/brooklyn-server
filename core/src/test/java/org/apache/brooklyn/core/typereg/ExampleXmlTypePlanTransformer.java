@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.io.StringReader;
-import java.util.List;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -31,6 +30,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.xstream.XmlSerializer;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.stream.ReaderInputStream;
@@ -80,17 +80,9 @@ public class ExampleXmlTypePlanTransformer extends AbstractTypePlanTransformer {
         return new XmlSerializer<Object>().fromString((String)type.getPlan().getPlanData());
     }
 
-
     @Override
-    public double scoreForTypeDefinition(String formatCode, Object catalogData) {
-        // defining types not supported
-        return 0;
-    }
-
-    @Override
-    public List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData) {
-        // defining types not supported
-        return null;
+    public RegisteredTypeInfo getTypeInfo(RegisteredType type) {
+        return RegisteredTypeInfo.create(type, this, null, MutableSet.of());
     }
 
     private Document parseXml(String plan) {
