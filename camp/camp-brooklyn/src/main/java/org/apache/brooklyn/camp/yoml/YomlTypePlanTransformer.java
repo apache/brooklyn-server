@@ -36,10 +36,12 @@ import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.typereg.AbstractFormatSpecificTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
+import org.apache.brooklyn.core.typereg.RegisteredTypeInfo;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
@@ -213,19 +215,13 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
             // and collected by tr.collectSerializers(...)
             coercer(new ValueResolver.ResolvingTypeCoercer());
     }
+
+    @Override
+    public RegisteredTypeInfo getTypeInfo(RegisteredType type) {
+        // TODO
+        return RegisteredTypeInfo.create(type, this, null, MutableSet.of());
+    }
     
-    @Override
-    public double scoreForTypeDefinition(String formatCode, Object catalogData) {
-        // TODO catalog parsing
-        return 0;
-    }
-
-    @Override
-    public List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData) {
-        // TODO catalog parsing
-        return null;
-    }
-
     static class YomlTypeImplementationPlan extends AbstractFormatSpecificTypeImplementationPlan<String> {
         final String javaType;
         final List<YomlSerializer> serializers;
