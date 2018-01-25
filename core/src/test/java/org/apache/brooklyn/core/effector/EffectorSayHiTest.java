@@ -34,8 +34,8 @@ import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.annotation.EffectorParam;
-import org.apache.brooklyn.core.effector.MethodEffector;
 import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -61,6 +61,7 @@ public class EffectorSayHiTest extends BrooklynAppUnitTestSupport {
     //TODO test edge/error conditions
     //(missing parameters, wrong number of params, etc)
 
+    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(EffectorSayHiTest.class);
 
     private MyEntity e;
@@ -96,6 +97,23 @@ public class EffectorSayHiTest extends BrooklynAppUnitTestSupport {
         // and with default greeting param value
         assertEquals("hi Bob", MyEntity.SAY_HI_1.call(e, ImmutableMap.of("name", "Bob", "greeting", "hi")) );
         assertEquals("hello Bob", e.invoke(MyEntity.SAY_HI_1, ImmutableMap.of("name", "Bob")).get() );
+    }
+
+    @Test
+    public void testInvocationSubmission() throws Exception {
+        assertEquals(((EntityInternal)e).getExecutionContext()
+            .submit( Effectors.invocation(e, MyEntity.SAY_HI_1, ImmutableMap.of("name", "Bob", "greeting", "hi")) ).get(), "hi Bob");
+    }
+    @Test
+    public void testInvocationGet() throws Exception {
+        assertEquals(((EntityInternal)e).getExecutionContext()
+            .get( Effectors.invocation(e, MyEntity.SAY_HI_1, ImmutableMap.of("name", "Bob", "greeting", "hi")) ), "hi Bob");
+    }
+    
+    @Test
+    public void testInvocationGetImmediately() throws Exception {
+        assertEquals(((EntityInternal)e).getExecutionContext()
+            .getImmediately( Effectors.invocation(e, MyEntity.SAY_HI_1, ImmutableMap.of("name", "Bob", "greeting", "hi")) ).get(), "hi Bob");
     }
 
     @Test

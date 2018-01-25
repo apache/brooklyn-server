@@ -24,7 +24,6 @@ import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -45,9 +44,6 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.text.Strings;
 import org.jclouds.compute.ComputeService;
-import org.jclouds.compute.ComputeServiceContext;
-import org.jclouds.compute.callables.RunScriptOnNode;
-import org.jclouds.compute.domain.ExecResponse;
 import org.jclouds.compute.domain.Hardware;
 import org.jclouds.compute.domain.Image;
 import org.jclouds.compute.domain.NodeMetadata;
@@ -55,10 +51,7 @@ import org.jclouds.compute.domain.OperatingSystem;
 import org.jclouds.compute.domain.OsFamily;
 import org.jclouds.compute.domain.Processor;
 import org.jclouds.compute.domain.Template;
-import org.jclouds.compute.options.RunScriptOptions;
 import org.jclouds.domain.LoginCredentials;
-import org.jclouds.scriptbuilder.domain.InterpretableStatement;
-import org.jclouds.scriptbuilder.domain.Statement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,7 +63,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
-import com.google.common.util.concurrent.ListenableFuture;
 
 public class JcloudsSshMachineLocation extends SshMachineLocation implements JcloudsMachineLocation {
     
@@ -300,23 +292,6 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
         return _node;
     }
     
-    /**
-     * @deprecated since 0.9.0
-     */
-    @Override
-    @Deprecated
-    public Template getTemplate() {
-        Optional<Template> result = getOptionalTemplate();
-        if (result.isPresent()) {
-            String msg = "Deprecated use of getTemplate() for "+this;
-            LOG.warn(msg + " - see debug log for stacktrace");
-            LOG.debug(msg, new Exception("for stacktrace"));
-            return result.get();
-        } else {
-            throw new IllegalStateException("Template for "+nodeId+" (in "+getParent()+") not cached (deprecated use of getTemplate())");
-        }
-    }
-    
     @Override
     public JcloudsLocation getParent() {
         return jcloudsParent;
@@ -437,67 +412,6 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
         return imageId;
     }
 
-    /** executes the given statements on the server using jclouds ScriptBuilder,
-     * wrapping in a script which is polled periodically.
-     * the output is returned once the script completes (disadvantage compared to other methods)
-     * but the process is nohupped and the SSH session is not kept, 
-     * so very useful for long-running processes
-     * 
-     * @deprecated since 0.9.0; use standard {@link #execScript(String, List)} and the other variants.
-     */
-    @Deprecated
-    public ListenableFuture<ExecResponse> submitRunScript(String ...statements) {
-        return submitRunScript(new InterpretableStatement(statements));
-    }
-
-    /**
-     * @deprecated since 0.9.0; use standard {@link #execScript(String, List)} and the other variants.
-     */
-    @Deprecated
-    public ListenableFuture<ExecResponse> submitRunScript(Statement script) {
-        return submitRunScript(script, new RunScriptOptions());            
-    }
-    
-    /**
-     * @deprecated since 0.9.0; use standard {@link #execScript(String, List)} and the other variants.
-     */
-    @Deprecated
-    public ListenableFuture<ExecResponse> submitRunScript(Statement script, RunScriptOptions options) {
-        JcloudsLocation jcloudsParent = getParent();
-        Optional<NodeMetadata> node = getOptionalNode();
-
-        if (!node.isPresent()) {
-            throw new IllegalStateException("Node "+nodeId+" not present in "+jcloudsParent);
-        }
-        if (jcloudsParent == null) {
-            throw new IllegalStateException("No jclouds parent location for "+this+"; cannot retrieve jclouds script-runner");
-        }
-
-        ComputeServiceContext context = jcloudsParent.getComputeService().getContext();
-        RunScriptOnNode.Factory runScriptFactory = context.utils().injector().getInstance(RunScriptOnNode.Factory.class);
-        
-        return runScriptFactory.submit(node.get(), script, options);
-    }
-    
-    /**
-     * Uses submitRunScript to execute the commands, and throws error if it fails or returns non-zero
-     * 
-     * @deprecated since 0.9.0; use standard {@link #execScript(String, List)} and the other variants.
-     */
-    @Deprecated
-    public void execRemoteScript(String ...commands) {
-        try {
-            ExecResponse result = submitRunScript(commands).get();
-            if (result.getExitStatus()!=0)
-                throw new IllegalStateException("Error running remote commands (code "+result.getExitStatus()+"): "+commands);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
-        } catch (ExecutionException e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
     /**
      * Retrieves the password for this VM, if one exists. The behaviour/implementation is different for different clouds.
      * e.g. on Rackspace, the password for a windows VM is available immediately; on AWS-EC2, for a Windows VM you need 
@@ -573,7 +487,7 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
     }
     
     @Override
-    protected MachineDetails inferMachineDetails() {
+    protected MachineDetails detectMachineDetails() {
         Optional<String> name = Optional.absent();
         Optional<String> version = Optional.absent();
         Optional<String> architecture = Optional.absent();
@@ -617,7 +531,7 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
                                 "arch={}, ram={}, #cpus={}",
                         new Object[]{this, name, version, architecture, ram, cpus});
             }
-            return super.inferMachineDetails();
+            return super.detectMachineDetails();
         }
     }
 

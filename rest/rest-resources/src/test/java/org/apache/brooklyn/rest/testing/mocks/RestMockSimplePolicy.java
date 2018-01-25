@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.rest.testing.mocks;
 
+import org.apache.brooklyn.api.objs.HighlightTuple;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
@@ -32,6 +33,8 @@ public class RestMockSimplePolicy extends AbstractPolicy {
 
     public RestMockSimplePolicy() {
         super();
+        this.setHighlight("testNameTask",  new HighlightTuple("testDescription", 123L, "testTaskId"));
+        this.setHighlight("testNameNoTask",  new HighlightTuple("testDescription", 123L, null));
     }
 
     @SetFromFlag("sampleConfig")

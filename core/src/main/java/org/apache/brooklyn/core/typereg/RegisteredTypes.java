@@ -65,7 +65,6 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
@@ -110,7 +109,8 @@ public class RegisteredTypes {
             throw new IllegalStateException("Unsupported catalog item "+item+" when trying to create RegisteredType");
         }
         
-        BasicRegisteredType type = (BasicRegisteredType) spec(item.getSymbolicName(), item.getVersion(), impl, item.getCatalogItemJavaType());
+        BasicRegisteredType type = (BasicRegisteredType) RegisteredTypes.spec(item.getSymbolicName(), item.getVersion(), impl);
+        RegisteredTypes.addSuperType(type, item.getCatalogItemJavaType());
         type.containingBundle = item.getContainingBundle();
         type.displayName = item.getDisplayName();
         type.description = item.getDescription();
@@ -142,18 +142,20 @@ public class RegisteredTypes {
         @Override public String getDisplayName() { return type.getDisplayName(); }
         @Override public String getCatalogItemId() { return type.getVersionedName().toString(); }
         @Override public String getId() { return type.getId(); }
-        @Override public String getName() { return type.getSymbolicName(); }
         @Override public String getSymbolicName() { return type.getSymbolicName(); }
-        @Override public String getRegisteredTypeName() { return type.getSymbolicName(); }
         @Override public String getDescription() { return type.getDescription(); }
         @Override public String getIconUrl() { return type.getIconUrl(); }
         @Override public String getContainingBundle() { return type.getContainingBundle(); }
         @Override public String getVersion() { return type.getVersion(); }
 
+        @Override public void setDeprecated(boolean deprecated) { RegisteredTypes.setDeprecated(type, deprecated); }
+        @Override public void setDisabled(boolean disabled) { RegisteredTypes.setDisabled(type, disabled); }
+        @Override public boolean isDeprecated() { return type.isDeprecated(); }
+        @Override public boolean isDisabled() { return type.isDisabled(); }
+        
         @Override public List<String> getCatalogItemIdSearchPath() { throw new UnsupportedOperationException(); }
         @Override public TagSupport tags() { throw new UnsupportedOperationException(); }
         @Override public RelationSupport<?> relations() { throw new UnsupportedOperationException(); }
-        @Override public <T> T setConfig(ConfigKey<T> key, T val) { throw new UnsupportedOperationException(); }
         @Override public <T> T getConfig(ConfigKey<T> key) { throw new UnsupportedOperationException(); }
         @Override public ConfigurationSupport config() { throw new UnsupportedOperationException(); }
         @Override public SubscriptionSupport subscriptions() { throw new UnsupportedOperationException(); }
@@ -166,10 +168,6 @@ public class RegisteredTypes {
         }
         @Override public String getPlanYaml() { throw new UnsupportedOperationException(); }
         @Override public RebindSupport<CatalogItemMemento> getRebindSupport() { throw new UnsupportedOperationException(); }
-        @Override public void setDeprecated(boolean deprecated) { throw new UnsupportedOperationException(); }
-        @Override public void setDisabled(boolean disabled) { throw new UnsupportedOperationException(); }
-        @Override public boolean isDeprecated() { throw new UnsupportedOperationException(); }
-        @Override public boolean isDisabled() { throw new UnsupportedOperationException(); }
     }
     
     /** Preferred mechanism for defining a bean {@link RegisteredType}. 
@@ -178,7 +176,10 @@ public class RegisteredTypes {
         if (symbolicName==null || version==null) log.warn("Deprecated use of RegisteredTypes API passing null name/version", new Exception("Location of deprecated use, wrt "+plan));
         return new BasicRegisteredType(RegisteredTypeKind.BEAN, symbolicName, version, plan);
     }
-    /** Convenience for {@link #bean(String, String, TypeImplementationPlan)} when there is a single known java signature/super type */
+    /** Convenience for {@link #bean(String, String, TypeImplementationPlan)} when there is a single known java signature/super type
+     * @deprecated since 1.0.0 no need for method which adds one explicit supertype; you can do it if you need with {@link #bean(String, String, TypeImplementationPlan)} then {@link #addSuperType(RegisteredType, Class)}
+     * but the type creation should set supertypes */
+    @Deprecated
     public static RegisteredType bean(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan, @Nonnull Class<?> superType) {
         if (superType==null) log.warn("Deprecated use of RegisteredTypes API passing null supertype", new Exception("Location of deprecated use, wrt "+symbolicName+":"+version+" "+plan));
         return addSuperType(bean(symbolicName, version, plan), superType);
@@ -190,7 +191,9 @@ public class RegisteredTypes {
         if (symbolicName==null || version==null) log.warn("Deprecated use of RegisteredTypes API passing null supertype", new Exception("Location of deprecated use, wrt "+plan));
         return new BasicRegisteredType(RegisteredTypeKind.SPEC, symbolicName, version, plan);
     }
-    /** Convenience for {@link #spec(String, String, TypeImplementationPlan)} when there is a single known java signature/super type */
+    /** Convenience for {@link #spec(String, String, TypeImplementationPlan)} when there is a single known java signature/super type
+     * @deprecated since 1.0.0 no need for method which adds one explicit supertype; you can do it if you need with {@link #spec(String, String, TypeImplementationPlan)} then {@link #addSuperType(RegisteredType, Class)}
+     * but the type creation should set supertypes */
     public static RegisteredType spec(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan, @Nonnull Class<?> superType) {
         if (superType==null) log.warn("Deprecated use of RegisteredTypes API passing null supertype", new Exception("Location of deprecated use, wrt "+symbolicName+":"+version+" "+plan));
         return addSuperType(spec(symbolicName, version, plan), superType);
@@ -406,12 +409,50 @@ public class RegisteredTypes {
      * to see whether any inherit from the given {@link Class} */
     public static boolean isAnyTypeSubtypeOf(Set<Object> candidateTypes, Class<?> superType) {
         if (superType == Object.class) return true;
-        return isAnyTypeOrSuperSatisfying(candidateTypes, Predicates.assignableFrom(superType));
+        return isAnyTypeOrSuper(candidateTypes, new Predicate<Object>() {
+            @Override
+            public boolean apply(Object input) {
+                return input instanceof Class && superType.isAssignableFrom( (Class<?>)input );
+            }
+        });
     }
 
     /** 
      * Queries recursively the given types (either {@link Class} or {@link RegisteredType}) 
-     * to see whether any java superclasses satisfy the given {@link Predicate} */
+     * to see whether any inherit from the given type either in the registry or a java class  */
+    public static boolean isAnyTypeSubtypeOf(Set<Object> candidateTypes, String superType) {
+        if (Object.class.getName().equals(superType)) return true;
+        return isAnyTypeOrSuper(candidateTypes, new Predicate<Object>() {
+            @Override
+            public boolean apply(Object input) {
+                if (input instanceof Class) input = ((Class<?>)input).getName();
+                return superType.equals(input);
+            }
+        });
+    }
+
+    /** 
+     * Queries recursively the given types (either {@link Class} or {@link RegisteredType}) 
+     * to see whether any superclasses satisfy the given {@link Predicate} comparing as string or class */
+    public static boolean isAnyTypeOrSuper(Set<Object> candidateTypes, Predicate<Object> filter) {
+        for (Object st: candidateTypes) {
+            if (filter.apply(st)) return true;
+        }
+        for (Object st: candidateTypes) {
+            if (st instanceof RegisteredType) {
+                if (isAnyTypeOrSuper(((RegisteredType)st).getSuperTypes(), filter)) return true;
+            }
+        }
+        return false;
+    }
+
+    /** 
+     * Queries recursively the given types (either {@link Class} or {@link RegisteredType}) 
+     * to see whether any java superclasses satisfy the given {@link Predicate} on the {@link Class} 
+     * @deprecated since 1.0.0 use {@link #isAnyTypeOrSuper(Set, Predicate)} accepting any object in the predicate,
+     * typically allowing string equivalence although it is valid to restrict to {@link Class} comparison
+     * (might be stricter in some OSGi cases) */
+    @Deprecated
     public static boolean isAnyTypeOrSuperSatisfying(Set<Object> candidateTypes, Predicate<Class<?>> filter) {
         for (Object st: candidateTypes) {
             if (st instanceof Class) {

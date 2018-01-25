@@ -52,6 +52,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.ExecutionListener;
+import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe.SoftlyPresent;
@@ -291,43 +292,33 @@ public class BrooklynGarbageCollector {
         }
     }
     
-    /** @deprecated since 0.7.0, method moved internal until semantics are clarified; see also {@link #shouldDeleteTaskImmediately(Task)} */
-    @Deprecated
-    public boolean shouldDeleteTask(Task<?> task) {
-        return shouldDeleteTaskImmediately(task);
-    }
     /** whether this task should be deleted on completion,
      * because it is transient, or because it is submitted background without much context information */
     protected boolean shouldDeleteTaskImmediately(Task<?> task) {
-        if (!task.isDone()) return false;
+        if (!task.isDone(true)) {
+            return false;
+        }
         
-        Set<Object> tags = task.getTags();
+        Set<Object> tags = BrooklynTaskTags.getTagsFast(task);
         if (tags.contains(ManagementContextInternal.TRANSIENT_TASK_TAG))
             return true;
         if (tags.contains(ManagementContextInternal.EFFECTOR_TAG) || tags.contains(ManagementContextInternal.NON_TRANSIENT_TASK_TAG))
             return false;
         
-        if (task.getSubmittedByTask()!=null) {
-            Task<?> parent = task.getSubmittedByTask();
-            if (executionManager.getTask(parent.getId())==null) {
-                // parent is already cleaned up
-                return true;
-            }
-            if (parent instanceof HasTaskChildren && Iterables.contains(((HasTaskChildren)parent).getChildren(), task)) {
-                // it is a child, let the parent manage this task's death
-                return false;
-            }
-            Entity associatedEntity = BrooklynTaskTags.getTargetOrContextEntity(task);
-            if (associatedEntity!=null) {
-                // this is associated to an entity; destroy only if the entity is unmanaged
-                return !Entities.isManaged(associatedEntity);
-            }
-            // if not associated to an entity, then delete immediately
-            return true;
+        if (!isSubmitterExpired(task)) {
+            return false;
+        }
+        if (isChild(task)) {
+            // parent should manage this task's death; but above already kicks in if parent is not expired, so probably shouldn't come here?
+            LOG.warn("Unexpected expiry candidacy for "+task);
+            return false;
+        }
+        if (isAssociatedToActiveEntity(task)) {
+            return false;
         }
         
         // e.g. scheduled tasks, sensor events, etc
-        // TODO (in future may keep some of these with another limit, based on a new TagCategory)
+        // (in future may keep some of these with another limit, based on a new TagCategory)
         // there may also be a server association for server-side tasks which should be kept
         // (but be careful not to keep too many subscriptions!)
         
@@ -339,7 +330,7 @@ public class BrooklynGarbageCollector {
      * {@link #maxTasksPerTag} and {@link #maxTaskAge}.
      */
     protected synchronized int gcTasks() {
-        // TODO Must be careful with memory usage here: have seen OOME if we get crazy lots of tasks.
+        // NB: be careful with memory usage here: have seen OOME if we get crazy lots of tasks.
         // hopefully the use new limits, filters, and use of live lists in some places (added Sep 2014) will help.
         // 
         // An option is for getTasksWithTag(tag) to return an ArrayList rather than a LinkedHashSet. That
@@ -399,11 +390,21 @@ public class BrooklynGarbageCollector {
         int deletedCount = 0;
         deletedCount += expireOverCapacityTagsInCategory(taskNonEntityTagsOverCapacity, taskAllTagsOverCapacity, TagCategory.NON_ENTITY_NORMAL, false);
         deletedCount += expireOverCapacityTagsInCategory(taskEntityTagsOverCapacity, taskAllTagsOverCapacity, TagCategory.ENTITY, true);
-        deletedCount += expireSubTasksWhoseSubmitterIsExpired();
         
-        int deletedGlobally = expireIfOverCapacityGlobally();
-        deletedCount += deletedGlobally;
-        if (deletedGlobally>0) deletedCount += expireSubTasksWhoseSubmitterIsExpired();
+        // if expensive we could optimize task GC here to avoid repeated lookups by
+        // counting all expired above (not just prev two lines) and skipping if none
+        // but that seems unlikely
+        int deletedHere = 0;
+        while ((deletedHere = expireHistoricTasksNowReadyForImmediateDeletion()) > 0) {
+            // delete in loop so we don't have descendants sticking around until deleted in later cycles
+            deletedCount += deletedHere; 
+        }
+        
+        deletedHere = expireIfOverCapacityGlobally();
+        deletedCount += deletedHere;
+        while (deletedHere > 0) {
+            deletedCount += (deletedHere = expireHistoricTasksNowReadyForImmediateDeletion()); 
+        }
         
         return deletedCount;
     }
@@ -429,7 +430,10 @@ public class BrooklynGarbageCollector {
         while (ei.hasNext()) {
             Entry<Entity, Task<?>> ee = ei.next();
             if (Entities.isManaged(ee.getKey())) continue;
-            if (ee.getValue()!=null && !ee.getValue().isDone()) continue;
+            if (ee.getValue()!=null && !ee.getValue().isDone(true)) {
+                // wait for the unmanagement task to complete
+                continue;
+            }
             deleteTasksForEntity(ee.getKey());
             synchronized (unmanagedEntitiesNeedingGc) {
                 unmanagedEntitiesNeedingGc.remove(ee.getKey());
@@ -445,7 +449,7 @@ public class BrooklynGarbageCollector {
 
         try {
             for (Task<?> task: allTasks) {
-                if (!task.isDone()) continue;
+                if (!task.isDone(true)) continue;
                 if (BrooklynTaskTags.isSubTask(task)) continue;
 
                 if (maxTaskAge.isShorterThan(Duration.sinceUtc(task.getEndTimeUtc())))
@@ -465,12 +469,14 @@ public class BrooklynGarbageCollector {
     protected void expireTransientTasks() {
         Set<Task<?>> transientTasks = executionManager.getTasksWithTag(BrooklynTaskTags.TRANSIENT_TASK_TAG);
         for (Task<?> t: transientTasks) {
-            if (!t.isDone()) continue;
+            if (!t.isDone(true)) continue;
             executionManager.deleteTask(t);
         }
     }
     
-    protected int expireSubTasksWhoseSubmitterIsExpired() {
+    protected int expireHistoricTasksNowReadyForImmediateDeletion() {
+        // find tasks which weren't ready for immediate deletion, but which now are 
+        
         // ideally we wouldn't have this; see comments on CHECK_SUBTASK_SUBMITTERS
         if (!brooklynProperties.getConfig(CHECK_SUBTASK_SUBMITTERS))
             return 0;
@@ -479,13 +485,15 @@ public class BrooklynGarbageCollector {
         Collection<Task<?>> tasksToDelete = MutableList.of();
         try {
             for (Task<?> task: allTasks) {
-                if (!task.isDone()) continue;
-                Task<?> submitter = task.getSubmittedByTask();
-                // if we've leaked, ie a subtask which is not a child task, 
-                // and the submitter is GC'd, then delete this also
-                if (submitter!=null && submitter.isDone() && executionManager.getTask(submitter.getId())==null) {
-                    tasksToDelete.add(task);
+                if (!shouldDeleteTaskImmediately(task)) {
+                    // 2017-09 previously we only checked done and submitter expired, and deleted if both were true
+                    // so could pick up even things that were non_transient -- now much stricter
+                    continue;
+                } else {
+                    if (LOG.isTraceEnabled()) LOG.trace("Deleting task which really is no longer wanted: "+task+" (submitted by "+task.getSubmittedByTask()+")");
                 }
+                
+                tasksToDelete.add(task);
             }
             
         } catch (ConcurrentModificationException e) {
@@ -499,6 +507,32 @@ public class BrooklynGarbageCollector {
         return tasksToDelete.size();
     }
     
+    private boolean isAssociatedToActiveEntity(Task<?> task) {
+        Entity associatedEntity = BrooklynTaskTags.getTargetOrContextEntity(task);
+        if (associatedEntity==null) {
+            return false;
+        }
+        // this is associated to an entity; destroy only if the entity is unmanaged
+        return Entities.isManaged(associatedEntity);
+    }
+    
+    private boolean isChild(Task<?> task) {
+        Task<?> parent = task.getSubmittedByTask();
+        return (parent instanceof HasTaskChildren && Iterables.contains(((HasTaskChildren)parent).getChildren(), task));
+    }
+    
+    private boolean isSubmitterExpired(Task<?> task) {
+        if (Strings.isBlank(task.getSubmittedByTaskId())) {
+            return false;
+        }
+        Task<?> submitter = task.getSubmittedByTask();
+        if (submitter!=null && (!submitter.isDone() || executionManager.getTask(submitter.getId())!=null)) {
+            return false;
+        }
+        // submitter task is GC'd
+        return true;
+    }
+
     protected enum TagCategory { 
         ENTITY, NON_ENTITY_NORMAL;
         
@@ -531,9 +565,9 @@ public class BrooklynGarbageCollector {
         List<Task<?>> tasksToConsiderDeleting = MutableList.of();
         try {
             for (Task<?> task: tasks) {
-                if (!task.isDone()) continue;
+                if (!task.isDone(true)) continue;
                 
-                Set<Object> tags = task.getTags();
+                Set<Object> tags = TaskTags.getTagsFast(task);
 
                 int categoryTags = 0, tooFullCategoryTags = 0;
                 for (Object tag: tags) {

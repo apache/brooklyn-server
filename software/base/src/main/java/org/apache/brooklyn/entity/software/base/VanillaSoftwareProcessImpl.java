@@ -18,20 +18,53 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
+import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.core.entity.EntityAdjuncts;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
+import org.apache.brooklyn.util.guava.Maybe;
 
 public class VanillaSoftwareProcessImpl extends SoftwareProcessImpl implements VanillaSoftwareProcess {
+    
     @Override
     public Class<?> getDriverInterface() {
         return VanillaSoftwareProcessDriver.class;
     }
+
     @Override
     protected void connectSensors() {
         super.connectSensors();
-        connectServiceUpIsRunning();
+        if (isSshMonitoringEnabled()) {
+            connectServiceUpIsRunning();
+        } else {
+            // See SoftwareProcessImpl.waitForEntityStart(). We will already have waited for driver.isRunning.
+            // We will not poll for that again.
+            // 
+            // Also disable the associated enricher - otherwise that would reset the not-up-indicator 
+            // if serviceUp=false temporarily (e.g. if restart effector is called).
+            // See https://issues.apache.org/jira/browse/BROOKLYN-547
+            Maybe<Enricher> enricher = EntityAdjuncts.tryFindWithUniqueTag(enrichers(), "service-process-is-running-updating-not-up");
+            if (enricher.isPresent()) {
+                enrichers().remove(enricher.get());
+            }
+            ServiceNotUpLogic.clearNotUpIndicator(this, SERVICE_PROCESS_IS_RUNNING);
+        }
     }
+
+    @Override
+    protected void postStop() {
+        super.postStop();
+        if (!isSshMonitoringEnabled()) {
+            ServiceNotUpLogic.updateNotUpIndicator(this, SERVICE_PROCESS_IS_RUNNING, "This service was stopped");
+        }
+    }
+
     @Override
     protected void disconnectSensors() {
         disconnectServiceUpIsRunning();
         super.disconnectSensors();
+    }
+    
+    protected boolean isSshMonitoringEnabled() {
+        return Boolean.TRUE.equals(getConfig(USE_SSH_MONITORING));
     }
 }

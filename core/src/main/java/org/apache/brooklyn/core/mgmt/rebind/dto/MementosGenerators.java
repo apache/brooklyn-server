@@ -148,9 +148,8 @@ public class MementosGenerators {
             builder.configUnmatched.put(key, value); 
         }
         
-        @SuppressWarnings("rawtypes")
-        Map<AttributeSensor, Object> allAttributes = entity.getAllAttributes();
-        for (@SuppressWarnings("rawtypes") Map.Entry<AttributeSensor, Object> entry : allAttributes.entrySet()) {
+        Map<AttributeSensor<?>, Object> allAttributes = entity.sensors().getAll();
+        for (Map.Entry<AttributeSensor<?>, Object> entry : allAttributes.entrySet()) {
             AttributeSensor<?> key = checkNotNull(entry.getKey(), allAttributes);
             if (key.getPersistenceMode() != SensorPersistenceMode.NONE) {
                 Object value = entry.getValue();
@@ -259,7 +258,9 @@ public class MementosGenerators {
             Object value = configValueToPersistable(entry.getValue(), policy, key.getName());
             builder.config.put(key.getName(), value); 
         }
-        
+
+        builder.highlights(policy.getHighlights());
+
         Map<String, Object> persistableFlags = MutableMap.<String, Object>builder()
                 .putAll(FlagUtils.getFieldsWithFlagsExcludingModifiers(policy, Modifier.STATIC ^ Modifier.TRANSIENT))
                 .remove("id")

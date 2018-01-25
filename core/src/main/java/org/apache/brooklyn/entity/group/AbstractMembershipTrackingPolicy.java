@@ -33,9 +33,11 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -93,22 +95,6 @@ public abstract class AbstractMembershipTrackingPolicy extends AbstractPolicy {
         }
     }
     
-    /**
-     * Sets the group to be tracked; unsubscribes from any previous group, and subscribes to this group.
-     * 
-     * Note this must be called *after* adding the policy to the entity.
-     * 
-     * @param group
-     * 
-     * @deprecated since 0.7; instead set the group as config
-     */
-    @Deprecated
-    public void setGroup(Group group) {
-        // relies on doReconfigureConfig to make the actual change
-        LOG.warn("Deprecated use of setGroup in "+AbstractMembershipTrackingPolicy.class.getSimpleName()+"; group should be set as config");
-        config().set(GROUP, group);
-    }
-    
     @Override
     protected <T> void doReconfigureConfig(ConfigKey<T> key, T val) {
         if (GROUP.getName().equals(key.getName())) {
@@ -126,16 +112,6 @@ public abstract class AbstractMembershipTrackingPolicy extends AbstractPolicy {
         }
     }
     
-    /**
-     * Unsubscribes from the group.
-     * 
-     * @deprecated since 0.7; misleading method name; either remove the policy, or suspend/resume
-     */
-    @Deprecated
-    public void reset() {
-        unsubscribeFromGroup();
-    }
-
     @Override
     public void suspend() {
         unsubscribeFromGroup();
@@ -202,6 +178,7 @@ public abstract class AbstractMembershipTrackingPolicy extends AbstractPolicy {
                 }
             });
         }
+        highlightTriggers(getSensorsToTrack(), "group members");
 
         // The policy will have already fired events for its members.
         if (!isRebinding()) {
@@ -213,13 +190,31 @@ public abstract class AbstractMembershipTrackingPolicy extends AbstractPolicy {
 
     protected void unsubscribeFromGroup() {
         Group group = getGroup();
-        if (getSubscriptionTracker() != null && group != null) subscriptions().unsubscribe(group);
+        if (group != null) subscriptions().unsubscribe(group);
     }
 
+    /** Invoked by framework prior to all entity events, to provide default highlight info;
+     * if subclasses provide their own they can overwrite this method to be no-op,
+     * or they can change the message passed to {@link #defaultHighlightAction(EventType, Entity, String)}
+     * which defaults to "Update on %s %s"  */
+    // bit of a cheat but more informative than doing nothing; callers can override of course
+    protected void defaultHighlightAction(EventType type, Entity entity) {
+        defaultHighlightAction(type, entity, "Update on %s %s");
+    }
+    /** Records an {@link AbstractEntityAdjunct#HIGHLIGHT_NAME_LAST_ACTION} with the given message,
+     * formatted with arguments entity and either 'added', 'changed', or 'removed'.
+     * Can be overridden to be no-op if caller wants to manage their own such highlights,
+     * or to provide further information. See also {@link #defaultHighlightAction(EventType, Entity)}. */
+    protected void defaultHighlightAction(EventType type, Entity entity, String formattedMessage) {
+        highlightAction(String.format(formattedMessage, entity, Strings.removeFromStart(type.toString().toLowerCase(), "entity_")), null);
+    }
+    
     /** All entity events pass through this method. Default impl delegates to onEntityXxxx methods, whose default behaviours are no-op.
      * Callers may override this to intercept all entity events in a single place, and to suppress subsequent processing if desired. 
      */
-    protected void onEntityEvent(EventType type, Entity entity) {
+    protected void onEntityEvent(EventType type, Entity entity) {  
+        defaultHighlightAction(type, entity);
+        
         switch (type) {
         case ENTITY_CHANGE: onEntityChange(entity); break;
         case ENTITY_ADDED: onEntityAdded(entity); break;

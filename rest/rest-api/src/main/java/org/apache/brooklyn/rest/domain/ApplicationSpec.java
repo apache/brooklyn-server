@@ -27,8 +27,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -85,12 +86,12 @@ public class ApplicationSpec implements HasName, Serializable {
     }
 
     private final String name;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final String type;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final Set<EntitySpec> entities;
     private final Set<String> locations;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_EMPTY)
+    @JsonInclude(Include.NON_EMPTY)
     private final Map<String, String> config;
 
   public ApplicationSpec(
@@ -106,7 +107,7 @@ public class ApplicationSpec implements HasName, Serializable {
       } else {
           this.entities = (entities.isEmpty() && type!=null) ? null : ImmutableSet.copyOf(entities);
       }
-      this.locations = ImmutableSet.copyOf(checkNotNull(locations, "locations must be provided for an application spec"));
+      this.locations = locations == null ? Collections.emptySet() : ImmutableSet.copyOf(locations);
       this.config = config == null ? Collections.<String, String>emptyMap() : ImmutableMap.<String, String>copyOf(config);
       if (this.entities!=null && this.type!=null) throw new IllegalStateException("cannot supply both type and entities for an application spec");
       // valid for both to be null, e.g. for an anonymous type

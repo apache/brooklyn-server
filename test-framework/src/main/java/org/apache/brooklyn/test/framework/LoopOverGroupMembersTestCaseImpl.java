@@ -21,6 +21,7 @@ package org.apache.brooklyn.test.framework;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -32,6 +33,8 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.repeat.Repeater;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,10 +81,10 @@ public class LoopOverGroupMembersTestCaseImpl extends TargetableTestComponentImp
             try {
                 TargetableTestComponent targetableTestComponent = this.addChild(testSpecCopy);
                 targetableTestComponent.start(locations);
-                if (Lifecycle.RUNNING.equals(targetableTestComponent.sensors().get(Attributes.SERVICE_STATE_ACTUAL))) {
+                if (isChildRunningEventually(targetableTestComponent, Duration.FIVE_SECONDS)) {
                     logger.debug("Task of {} successfully run, targetting {}", this, member);
                 } else {
-                    logger.warn("Problem in child test-case of {}, targetting {}", this, member);
+                    logger.warn("Problem in child test-case of {}, child {} targetting {}", new Object[] {this, targetableTestComponent, member});
                     allSuccesful = false;
                 }
             } catch (Throwable t) {
@@ -131,5 +134,25 @@ public class LoopOverGroupMembersTestCaseImpl extends TargetableTestComponentImp
         final Collection<Location> locations = Lists.newArrayList(getLocations());
         stop();
         start(locations);
+    }
+    
+    private boolean isChildRunningEventually(Entity entity, Duration timeout) {
+        // Use 'eventually' because start() does not guarantee that service.state will have been set;
+        // it could set service.isUp and expected state, so slight delay before service.state is inferred.
+        // However, if on_fire then fail immediately.
+        
+        Callable<Boolean> untilCondition = () -> {
+            return Lifecycle.RUNNING.equals(entity.sensors().get(Attributes.SERVICE_STATE_ACTUAL))
+                    || Lifecycle.ON_FIRE.equals(entity.sensors().get(Attributes.SERVICE_STATE_ACTUAL));
+        };
+        
+        Repeater.create("is-child-running "+entity)
+                .backoffTo(timeout.multiply(0.1))
+                .limitTimeTo(timeout)
+                .rethrowException()
+                .until(untilCondition)
+                .run();
+        
+        return Lifecycle.RUNNING.equals(entity.sensors().get(Attributes.SERVICE_STATE_ACTUAL));
     }
 }

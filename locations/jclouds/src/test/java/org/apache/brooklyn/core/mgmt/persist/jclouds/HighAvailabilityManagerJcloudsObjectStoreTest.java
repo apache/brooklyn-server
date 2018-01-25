@@ -23,17 +23,22 @@ import org.apache.brooklyn.core.mgmt.ha.HighAvailabilityManagerTestFixture;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.jclouds.JcloudsBlobStoreBasedObjectStore;
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import com.google.common.collect.ImmutableList;
 
 @Test(groups={"Live", "Live-sanity"})
 public class HighAvailabilityManagerJcloudsObjectStoreTest extends HighAvailabilityManagerTestFixture {
 
     @Override
     protected ManagementContextInternal newLocalManagementContext() {
-        return new LocalManagementContextForTests(BrooklynProperties.Factory.newDefault());
+        BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newDefault();
+        brooklynProperties.put(BrooklynServerConfig.MANAGEMENT_NODE_STATE_LISTENERS, ImmutableList.of(stateListener));
+        return new LocalManagementContextForTests(brooklynProperties);
     }
 
     @Override @BeforeMethod

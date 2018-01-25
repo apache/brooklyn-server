@@ -109,15 +109,6 @@ public class Machines {
         return Maybe.of(result);
     }
 
-    /**
-     * @deprecated since 0.9.0; see {@link #findUniqueMachineLocation(Iterable, Class)}, 
-     *             e.g. {@code findUniqueMachineLocation(locations, SshMachineLocation.class)}
-     */
-    @Deprecated
-    public static Maybe<SshMachineLocation> findUniqueSshMachineLocation(Iterable<? extends Location> locations) {
-        return findUniqueMachineLocation(locations, SshMachineLocation.class);
-    }
-
     public static Maybe<MachineLocation> findUniqueMachineLocation(Iterable<? extends Location> locations) {
         return findUniqueMachineLocation(locations, MachineLocation.class);
     }

@@ -18,27 +18,35 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
+import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.http.auth.Credentials;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.osgi.framework.Bundle;
+
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 
 public class CatalogBundleDto implements CatalogBundle {
     private String symbolicName;
     private String version;
     private String url;
+    private Credentials credential;
 
     public CatalogBundleDto() {}
 
     public CatalogBundleDto(String name, String version, String url) {
+        this(name, version, url, null);
+    }
+
+    public CatalogBundleDto(String name, String version, String url, @Nullable Credentials credential) {
         if (name == null && version == null) {
             Preconditions.checkNotNull(url, "url to an OSGi bundle is required");
         } else {
@@ -49,6 +57,7 @@ public class CatalogBundleDto implements CatalogBundle {
         this.symbolicName = name;
         this.version = version==null ? null : BrooklynVersionSyntax.toValidOsgiVersion(version);
         this.url = url;
+        this.credential = credential;
     }
 
     @Override
@@ -56,9 +65,6 @@ public class CatalogBundleDto implements CatalogBundle {
         return symbolicName != null && version != null;
     }
     
-    @Override
-    public boolean isNamed() { return isNameResolved(); }
-
     @Override
     public String getSymbolicName() {
         return symbolicName;
@@ -83,6 +89,11 @@ public class CatalogBundleDto implements CatalogBundle {
     @Override
     public String getUrl() {
         return url;
+    }
+
+    @Override
+    public Credentials getUrlCredential() {
+        return credential;
     }
 
     @Override

@@ -51,7 +51,7 @@ public abstract class AbstractEnricher extends AbstractEntityAdjunct implements 
             "Whether duplicate values published by this enricher should be suppressed");
 
     private static class DeduplicatingAttributeModifier<T> implements Function<T, Maybe<T>> {
-        public static <T> Function<T, Maybe<T>> create(T newVal) {
+        public static <T> DeduplicatingAttributeModifier<T> create(T newVal) {
             return new DeduplicatingAttributeModifier<T>(newVal);
         }
 
@@ -60,14 +60,19 @@ public abstract class AbstractEnricher extends AbstractEntityAdjunct implements 
         }
 
         private T newValue;
+        private Maybe<T> lastValue;
 
         @Override
         public Maybe<T> apply(T oldValue) {
             if (Objects.equal(oldValue, newValue)) {
-                return Maybe.absent("Skipping update, values equal");
+                return lastValue = Maybe.absent("Skipping update, values equal");
             } else {
-                return Maybe.of(newValue);
+                return lastValue = Maybe.of(newValue);
             }
+        }
+        
+        public Maybe<T> getLastValue() {
+            return lastValue;
         }
     }
 
@@ -117,7 +122,6 @@ public abstract class AbstractEnricher extends AbstractEntityAdjunct implements 
         requestPersist();
     }
 
-    @Override
     protected <T> void emit(Sensor<T> sensor, Object val) {
         checkState(entity != null, "entity must first be set");
         if (val == Entities.UNCHANGED) {
@@ -129,15 +133,21 @@ public abstract class AbstractEnricher extends AbstractEntityAdjunct implements 
         }
         
         T newVal = TypeCoercions.coerce(val, sensor.getTypeToken());
+        Maybe<T> published = Maybe.of(newVal);
         if (sensor instanceof AttributeSensor) {
             AttributeSensor<T> attribute = (AttributeSensor<T>)sensor;
             if (Boolean.TRUE.equals(suppressDuplicates)) {
-                entity.sensors().modify(attribute, DeduplicatingAttributeModifier.create(newVal));
+                DeduplicatingAttributeModifier<T> modifier = DeduplicatingAttributeModifier.create(newVal);
+                entity.sensors().modify(attribute, modifier);
+                published = modifier.getLastValue();
             } else {
                 entity.sensors().set(attribute, newVal);
             }
         } else { 
             entity.sensors().emit(sensor, newVal);
+        }
+        if (published!=null && published.isPresent()) {
+            highlightActionPublishSensor(sensor, published.get());
         }
     }
     

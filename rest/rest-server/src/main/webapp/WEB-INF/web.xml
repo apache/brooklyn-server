@@ -47,18 +47,22 @@
             <param-value>
                 org.apache.brooklyn.rest.resources.AccessResource,
                 org.apache.brooklyn.rest.resources.ActivityResource,
+                org.apache.brooklyn.rest.resources.AdjunctResource,
                 org.apache.brooklyn.rest.resources.ApidocResource,
                 org.apache.brooklyn.rest.resources.ApplicationResource,
+                org.apache.brooklyn.rest.resources.BundleResource,
                 org.apache.brooklyn.rest.resources.CatalogResource,
                 org.apache.brooklyn.rest.resources.EffectorResource,
                 org.apache.brooklyn.rest.resources.EntityConfigResource,
                 org.apache.brooklyn.rest.resources.EntityResource,
                 org.apache.brooklyn.rest.resources.LocationResource,
+                org.apache.brooklyn.rest.resources.LogoutResource,
                 org.apache.brooklyn.rest.resources.PolicyConfigResource,
                 org.apache.brooklyn.rest.resources.PolicyResource,
                 org.apache.brooklyn.rest.resources.ScriptResource,
                 org.apache.brooklyn.rest.resources.SensorResource,
                 org.apache.brooklyn.rest.resources.ServerResource,
+                org.apache.brooklyn.rest.resources.TypeResource,
                 org.apache.brooklyn.rest.resources.UsageResource,
             </param-value>
         </init-param>

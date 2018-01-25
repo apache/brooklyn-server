@@ -54,7 +54,8 @@ public class Sensors {
     @Beta
     public static class Builder<T> {
         private String name;
-        private TypeToken<T> type;
+        private Class<T> typeC;
+        private TypeToken<T> typeT;
         private String description;
         private SensorPersistenceMode persistence = SensorPersistenceMode.REQUIRED;
         
@@ -64,10 +65,10 @@ public class Sensors {
             this.name = checkNotNull(val, "name"); return this;
         }
         public Builder<T> type(Class<T> val) {
-            return type(TypeToken.of(val));
+            this.typeC = val; return this;
         }
         public Builder<T> type(TypeToken<T> val) {
-            this.type = checkNotNull(val, "type"); return this;
+            this.typeT = val; return this;
         }
         public Builder<T> description(String val) {
             this.description = val; return this;
@@ -76,7 +77,7 @@ public class Sensors {
             this.persistence = val; return this;
         }
         public AttributeSensor<T> build() {
-            return new BasicAttributeSensor<T>(type, name, description, persistence);
+            return new BasicAttributeSensor<T>(typeC, typeT, name, description, persistence);
         }
     }
 

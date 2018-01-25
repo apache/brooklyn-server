@@ -35,6 +35,7 @@ import org.testng.Assert;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.base.Supplier;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -92,6 +93,17 @@ public class RecordingSensorEventListener<T> implements SensorEventListener<T>, 
     }
 
     /**
+     * @return A supplier that returns the latest live read-only view of recorded events.
+     */
+    public Supplier<Iterable<T>> getEventValuesSupplier() {
+        return new Supplier<Iterable<T>>() {
+            @Override public Iterable<T> get() {
+                return getEventValues();
+            }
+        };
+    }
+
+    /**
      * @return A static read-only view of event values sorted by the time at which they occurred.
      */
     public Iterable<T> getEventValuesSortedByTimestamp() {
@@ -129,6 +141,10 @@ public class RecordingSensorEventListener<T> implements SensorEventListener<T>, 
         events.clear();
         tasks.clear();
         lastValue = null;
+    }
+    
+    public SensorEvent<T> removeEvent(int i) {
+        return events.remove(i);
     }
 
     @Override

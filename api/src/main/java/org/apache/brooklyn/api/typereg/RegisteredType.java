@@ -21,6 +21,8 @@ package org.apache.brooklyn.api.typereg;
 import java.util.Collection;
 import java.util.Set;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -71,18 +73,20 @@ public interface RegisteredType extends Identifiable {
      * For specs, this should refer to the {@link BrooklynObject} type that the created spec will point at 
      * (e.g. the concrete {@link Entity}, not the {@link EntitySpec}).
      * <p>
-     * This will normally not return all ancestor classes,
-     * and it is not required even to return the most specific java class or classes:
-     * such as if the concrete type is private and callers should know only about a particular public interface,
-     * or if precise type details are unavailable and all that is known at creation is some higher level interface/supertype
-     * (e.g. this may return {@link Entity} even though the spec points at a specific subclass,
-     * for instance because the YAML has not yet been parsed or OSGi bundles downloaded).
+     * For specs, this will normally return the most specific java interface it will create (e.g. BasicEntity),
+     * then the category (e.g. Entity), then other ancestor classes/interfaces.
+     * Registered supertypes and potentially marker registered type interfaces may also be included.
      * <p>
-     * This may include other registered types such as marker interfaces.
+     * In some places, e.g. for items not yet validated or fully loaded,
+     * this list may be incomplete, but it should normally for specs include at least the category the spec will create.
      * <p>
-     * It may even include multiple interfaces but exclude the concrete subclass which implements them all
+     * This may include multiple interfaces but exclude the concrete subclass which implements them all
      * (for instance if that concrete implementation is an internal private class). 
-     * However it must be possible for the corresponding transformer to instantiate that type at runtime. 
+     * However it must be possible for the corresponding transformer to instantiate that type at runtime.
+     * (It will never return two classes which cannot have a common subclass.)
+     * <p>
+     * Any {@link RegisteredType} instances returned by this method may be stale.
+     * (TODO Currently I don't think it ever includes {@link RegisteredType} supertypes.) 
      */
     @Beta
     Set<Object> getSuperTypes();
@@ -112,9 +116,10 @@ public interface RegisteredType extends Identifiable {
          * this may be null if the relevant transformer was not declared when created,
          * but in general we should look to determine the kind as early as possible 
          * and use that to retrieve the appropriate such transformer */
+        @Nullable 
         String getPlanFormat();
         /** data for the implementation; may be more specific */
-        Object getPlanData();
+        Object getPlanData(); // TODO unclear if this is allowed to return null; most (?) usages do a null check
         
         @Override boolean equals(Object obj);
         @Override int hashCode();

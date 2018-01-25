@@ -47,7 +47,7 @@
  ##
 
 brooklyn.catalog:
-  version: "0.12.0-SNAPSHOT" # BROOKLYN_VERSION
+  version: "1.0.0-SNAPSHOT" # BROOKLYN_VERSION
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
 
   items:
@@ -78,7 +78,7 @@ brooklyn.catalog:
                     - $brooklyn:config("db.url")
                     - "visitors"
                     - "brooklyn"
-                    - "br00k11n"
+                    - $brooklyn:external("brooklyn-demo-sample", "hidden-brooklyn-password")
             brooklyn.enrichers:
               - type: org.apache.brooklyn.core.network.OnPublicNetworkEnricher
                 brooklyn.config:
@@ -123,6 +123,8 @@ brooklyn.catalog:
         provisioning.properties:
           osFamily: centos
           osVersionRegex: 7
+        creation.script.password: $brooklyn:external("brooklyn-demo-sample", "hidden-brooklyn-password")
+        # config above won't actually be used until link below updated to 0.12 or later (but values are the same so will be fine)
         datastore.creation.script.url:
           "https://raw.githubusercontent.com/apache/brooklyn-library/0.11.x/examples/simple-web-cluster/src/main/resources/visitors-creation-script.sql"
       brooklyn.enrichers:

@@ -25,6 +25,9 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
@@ -32,6 +35,8 @@ import com.google.common.reflect.TypeToken;
 
 @Beta
 public class MathAggregatorFunctions {
+
+    private static final Logger LOG = LoggerFactory.getLogger(MathAggregatorFunctions.class);
 
     private MathAggregatorFunctions() {}
     
@@ -109,6 +114,8 @@ public class MathAggregatorFunctions {
 
     @Beta
     protected abstract static class BasicComputingNumber<T extends Number> extends AbstractComputingNumber<T> {
+        private boolean loggedNonNumber;
+        
         public BasicComputingNumber(Number defaultValueForUnreportedSensors, Number valueToReportIfNoSensors, TypeToken<T> typeToken) {
             super(defaultValueForUnreportedSensors, valueToReportIfNoSensors, typeToken);
         }
@@ -117,17 +124,34 @@ public class MathAggregatorFunctions {
         public T apply(@Nullable Collection<? extends Number> vals) {
             List<Number> postProcessedVals = new ArrayList<>();
             int count = 0;
+            boolean hasNonNumber = false;
             if (vals != null) {
-                for (Number val : vals) { 
-                    if (val != null) {
-                        postProcessedVals.add(val);
+                for (Object val : vals) {
+                    Maybe<Number> coercedVal = TypeCoercions.tryCoerce(val, Number.class);
+                    if (coercedVal.isPresentAndNonNull()) {
+                        postProcessedVals.add(coercedVal.get());
                         count++;
-                    } else if (defaultValueForUnreportedSensors != null) {
-                        postProcessedVals.add(defaultValueForUnreportedSensors);
-                        count++;
+                    } else {
+                        if (val != null) {
+                            // This function is used for example in an enricher, to compute an aggregated value.
+                            // Log at warn only once per enricher if we have a non-number; but if things go back to healthy
+                            // (i.e. no non-numbers) then we'll log again at warn next time.
+                            hasNonNumber = true;
+                            if (loggedNonNumber) {
+                                if (LOG.isTraceEnabled()) LOG.trace("Input to numeric aggregator is not a number (again): "+val+" ("+val.getClass()+")");
+                            } else {
+                                loggedNonNumber = true;
+                                LOG.warn("Input to numeric aggregator is not a number: "+val+" ("+val.getClass()+")");
+                            }
+                        }
+                        if (defaultValueForUnreportedSensors != null) {
+                            postProcessedVals.add(defaultValueForUnreportedSensors);
+                            count++;
+                        }
                     }
                 }
             }
+            if (!hasNonNumber) loggedNonNumber = false;
             if (count==0) return cast(valueToReportIfNoSensors, typeToken);
             
             Number result = applyImpl(postProcessedVals);
@@ -145,7 +169,7 @@ public class MathAggregatorFunctions {
         @Override
         public Number applyImpl(Collection<Number> vals) {
             double result = 0d;
-            for (Number val : vals) { 
+            for (Number val : vals) {
                 result += val.doubleValue();
             }
             return result;
@@ -160,7 +184,7 @@ public class MathAggregatorFunctions {
         @Override
         public Number applyImpl(Collection<Number> vals) {
             double sum = 0d;
-            for (Number val : vals) { 
+            for (Number val : vals) {
                 sum += val.doubleValue();
             }
             return (sum / vals.size());

@@ -22,7 +22,7 @@
     <parent>
         <groupId>org.apache.brooklyn</groupId>
         <artifactId>brooklyn-server</artifactId>
-        <version>0.12.0-SNAPSHOT</version>  <!-- BROOKLYN_VERSION -->
+        <version>1.0.0-SNAPSHOT</version>  <!-- BROOKLYN_VERSION -->
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -373,6 +373,12 @@
                 <groupId>org.reflections</groupId>
                 <artifactId>reflections</artifactId>
                 <version>${reflections.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
             <dependency>
                 <groupId>org.apache.felix</groupId>
@@ -1315,6 +1321,8 @@
                                 <Export-Package>brooklyn.*,org.apache.brooklyn.*</Export-Package>
                                 <Implementation-SHA-1>${buildNumber}</Implementation-SHA-1>
                                 <Implementation-Branch>${scmBranch}</Implementation-Branch>
+                                <Brooklyn-Catalog-Force-Remove-Bundles>*</Brooklyn-Catalog-Force-Remove-Bundles>
+                                <Brooklyn-Catalog-Upgrade-For-Bundles>*</Brooklyn-Catalog-Upgrade-For-Bundles>
                             </instructions>
                         </configuration>
                     </plugin>

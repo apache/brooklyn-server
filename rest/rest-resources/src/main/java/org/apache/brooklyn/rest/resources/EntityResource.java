@@ -25,7 +25,6 @@ import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriB
 
 import java.net.URI;
 import java.util.Comparator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -38,7 +37,6 @@ import javax.ws.rs.core.UriInfo;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
@@ -59,7 +57,6 @@ import org.apache.brooklyn.rest.transform.LocationTransformer.LocationDetailLeve
 import org.apache.brooklyn.rest.transform.TaskTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -67,11 +64,9 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Ordering;
 import com.google.common.io.Files;
 
 @HaHotStateRequired
@@ -135,31 +130,11 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
 
     @Override
     public List<TaskSummary> listTasks(String applicationId, String entityId, int limit, Boolean recurse) {
-        int sizeRemaining = limit;
         Entity entity = brooklyn().getEntity(applicationId, entityId);
-        List<Task<?>> tasksToScan = MutableList.copyOf(BrooklynTaskTags.getTasksInEntityContext(mgmt().getExecutionManager(), entity));
-        if (limit>0) {
-            tasksToScan = MutableList.copyOf(Ordering.from(new InterestingTasksFirstComparator(entity)).leastOf(tasksToScan, limit));
-        }
-        Map<String,Task<?>> tasksLoaded = MutableMap.of();
-        
-        while (!tasksToScan.isEmpty()) {
-            Task<?> t = tasksToScan.remove(0);
-            if (tasksLoaded.put(t.getId(), t)==null) {
-                if (--sizeRemaining==0) {
-                    break;
-                }
-                if (Boolean.TRUE.equals(recurse)) {
-                    if (t instanceof HasTaskChildren) {
-                        Iterables.addAll(tasksToScan, ((HasTaskChildren) t).getChildren() );
-                    }
-                }
-            }
-        }
-        return new LinkedList<TaskSummary>(Collections2.transform(tasksLoaded.values(), 
-            TaskTransformer.fromTask(ui.getBaseUriBuilder())));
+        return TaskTransformer.fromTasks(MutableList.copyOf(BrooklynTaskTags.getTasksInEntityContext(mgmt().getExecutionManager(), entity)),
+            limit, recurse, entity, ui);
     }
-    
+
     /** API does not guarantee order, but this is a the one we use (when there are lots of tasks):
      * prefer top-level tasks and to recent tasks, 
      * balanced such that the following are equal:

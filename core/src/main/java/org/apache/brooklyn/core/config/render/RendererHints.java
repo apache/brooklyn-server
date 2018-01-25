@@ -18,15 +18,12 @@
  */
 package org.apache.brooklyn.core.config.render;
 
-import groovy.lang.Closure;
-
 import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.render.RendererHints;
-import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -85,13 +82,6 @@ public class RendererHints {
     /** as {@link #getHintsFor(AttributeSensor)} */
     public static Set<Hint<?>> getHintsFor(Class<?> element) { return _getHintsFor(element, null); }
 
-    @Deprecated /** @deprecated since 0.7.0 only supported for certain types */
-    public static Set<Hint<?>> getHintsFor(Object element) { return getHintsFor(element, null); }
-
-    @Deprecated /** @deprecated since 0.7.0 only supported for certain types */
-    @SuppressWarnings({ "rawtypes", "unchecked" })
-    public static Set<Hint<?>> getHintsFor(Object element, Class<? extends Hint> optionalHintSuperClass) { return (Set<Hint<?>>) _getHintsFor(element, optionalHintSuperClass); }
-    
     @SuppressWarnings({ "unchecked", "rawtypes" })
     private static <T extends Hint> Set<T> _getHintsFor(Object element, Class<T> optionalHintSuperClass) {
         Set<Hint<?>> found = ImmutableSet.copyOf(registry.get(element));
@@ -159,20 +149,9 @@ public class RendererHints {
             this(actionName, (Function<T, String>)null);
         }
 
-        @SuppressWarnings("unchecked") @Deprecated /** @deprecated since 0.7.0 use Function */
-        public NamedActionWithUrl(String actionName, Closure<String> postProcessing) {
-            this.actionName = actionName;
-            this.postProcessing = (Function<T, String>) ((postProcessing == null) ? null : GroovyJavaMethods.functionFromClosure(postProcessing));
-        }
-
         public NamedActionWithUrl(String actionName, Function<T, String> postProcessing) {
             this.actionName = actionName;
             this.postProcessing = postProcessing;
-        }
-
-        /** @deprecated since 0.7.0 call {@link #getUrlFromValue(Object)}, parsing the sensor value yourself */ @Deprecated
-        public String getUrl(Entity e, AttributeSensor<T> s) {
-            return getUrlFromValue(e.getAttribute(s));
         }
 
         @Override

@@ -19,7 +19,6 @@
 package org.apache.brooklyn.api.location;
 
 import java.util.Collection;
-import java.util.Map;
 
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigKey;
@@ -94,22 +93,6 @@ public interface Location extends BrooklynObject {
      * @see {@link #getConfig(ConfigKey)}
      */
     <T> T getConfig(HasConfigKey<T> key);
-
-    /** 
-     * True iff the indication config key is set, either inherited (second argument true) or locally-only (second argument false).
-     * 
-     * @deprecated since 0.7.0; use {@link #config()}, such as {@code ((LocationInternal)location).config().getRaw(key).isPresent()}
-     */
-    @Deprecated
-    boolean hasConfig(ConfigKey<?> key, boolean includeInherited);
-
-    /** 
-     * Returns all config set, either inherited (argument true) or locally-only (argument false).
-     * 
-     * @deprecated since 0.7.0; use {@link #config()}, such as {@code policy.config().getBag()}
-     */
-    @Deprecated
-    public Map<String,Object> getAllConfig(boolean includeInherited);
     
     /**
      * Whether this location has support for the given extension type.

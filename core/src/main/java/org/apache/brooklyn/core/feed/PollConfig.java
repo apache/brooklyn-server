@@ -55,9 +55,9 @@ public class PollConfig<V, T, F extends PollConfig<V, T, F>> extends FeedConfig<
         return self();
     }
     
-    public F period(long val) {
-        checkArgument(val >= 0, "period must be greater than or equal to zero");
-        this.period = val; return self();
+    public F period(long millis) {
+        checkArgument(millis >= 0, "period must be greater than or equal to zero");
+        this.period = millis; return self();
     }
     
     public F period(long val, TimeUnit units) {

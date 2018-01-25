@@ -32,7 +32,7 @@ import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -65,6 +65,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         private String string;
         private Integer number;
         private Object object;
+        private List<String> list;
 
         // Factory method.
         public static TestObject newTestObjectWithNoArgs() {
@@ -94,6 +95,9 @@ public class ObjectsYamlTest extends AbstractYamlTest {
 
         public Object getObject() { return object; }
         public void setObject(Object object) { this.object = object; }
+
+        public List<String> getList() { return list; }
+        public void setList(List<String> list) { this.list = list; }
 
         @Override
         public void setManagementContext(ManagementContext managementContext) {
@@ -140,11 +144,6 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         @Override
         public <T> T getConfig(ConfigKey<T> key) {
             return config().get(key);
-        }
-        
-        @Override
-        public <T> T setConfig(ConfigKey<T> key, T value) {
-            return config().set(key, value);
         }
         
         @Override
@@ -218,7 +217,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         Assert.assertEquals(app.getDisplayName(), "test-entity-basic-template");
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         Assert.assertTrue(app.getChildren().iterator().hasNext(), "Expected app to have child entity");
         Entity entity = app.getChildren().iterator().next();
@@ -415,7 +414,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         String val = (String) testEntity.getConfig(TestEntity.CONF_OBJECT);
         assertEquals(val, "1970-01-01T00:00:01");
     }
-
+    
     @Test
     public void testFieldsAsDeferredSuppliers() throws Exception {
         // all fields as deferred suppliers
@@ -429,13 +428,16 @@ public class ObjectsYamlTest extends AbstractYamlTest {
                 "        type: "+ObjectsYamlTest.class.getName()+"$TestObject",
                 "        object.fields:",
                 "          number: $brooklyn:config(\"myint\")",
-                "          string: $brooklyn:config(\"mystring\")");
+                "          string: $brooklyn:config(\"mystring\")",
+                "          list: ",
+                "          - $brooklyn:config(\"mystring\")");
     
             TestObject testObject = (TestObject) testEntity.getConfig(TestEntity.CONF_OBJECT);
             Assert.assertEquals(testObject.getNumber(), Integer.valueOf(123));
             Assert.assertEquals(testObject.getString(), "myval");
+            Assert.assertEquals(testObject.getList(), ImmutableList.of("myval"));
         }
-        
+
         // Only first field as deferred supplier
         {
             Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
@@ -473,6 +475,49 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         }
     }
 
+    @Test
+    public void testFieldOfTypeListAsDeferredSuppliersExplicitlyDeferred() throws Exception {
+        {
+            // Using explicit `deferred: true`
+            Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
+                "  brooklyn.config:",
+                "    mystring: myval",
+                "    myint: 123",
+                "    test.confObject:",
+                "      $brooklyn:object:",
+                "        type: "+ObjectsYamlTest.class.getName()+"$TestObject",
+                "        deferred: true",
+                "        object.fields:",
+                "          list: ",
+                "          - $brooklyn:config(\"mystring\")");
+    
+            TestObject testObject = (TestObject) testEntity.getConfig(TestEntity.CONF_OBJECT);
+            Assert.assertEquals(testObject.getList(), ImmutableList.of("myval"));
+        }
+    }
+    
+    // TODO See https://issues.apache.org/jira/browse/BROOKLYN-565
+    @Test(groups="Broken")
+    public void testFieldOfTypeListAsDeferredSuppliers() throws Exception {
+        {
+            // See https://issues.apache.org/jira/browse/BROOKLYN-565
+            // should defer evaluation automatically, and resolve config in `getConfig()`
+            Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
+                "  brooklyn.config:",
+                "    mystring: myval",
+                "    myint: 123",
+                "    test.confObject:",
+                "      $brooklyn:object:",
+                "        type: "+ObjectsYamlTest.class.getName()+"$TestObject",
+                "        object.fields:",
+                "          list: ",
+                "          - $brooklyn:config(\"mystring\")");
+    
+            TestObject testObject = (TestObject) testEntity.getConfig(TestEntity.CONF_OBJECT);
+            Assert.assertEquals(testObject.getList(), ImmutableList.of("myval"));
+        }
+    }
+    
     @Test
     public void testConfigAsDeferredSuppliers() throws Exception {
         // all fields as deferred suppliers

@@ -112,12 +112,6 @@ public class HaHotCheckResourceFilter implements ContainerRequestFilter {
         return null;
     }
 
-    /** @deprecated since 0.9.0 use {@link BrooklynRestResourceUtils#getProblemMessageIfServerNotRunning(ManagementContext)} */
-    @Deprecated
-    public static String lookForProblemIfServerNotRunning(ManagementContext mgmt) {
-        return HaHotCheckHelperAbstract.getProblemMessageIfServerNotRunning(mgmt).orNull();
-    }
-    
     private boolean isMaster() {
         return ManagementNodeState.MASTER.equals(
                 mgmt.getContext(ManagementContext.class)

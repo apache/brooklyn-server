@@ -114,22 +114,6 @@ public class SshValueFunctions {
     }
 
     public static Function<SshPollValue, Boolean> exitStatusEquals(final int expected) {
-        return chain(SshValueFunctions.exitStatus(), Functions.forPredicate(Predicates.equalTo(expected)));
-    }
-
-    /**
-     * @deprecated since 0.9.0; use {@link Functionals#chain(Function, Function)}
-     */
-    @Deprecated
-    public static <A,B,C> Function<A,C> chain(final Function<A,? extends B> f1, final Function<B,C> f2) {
-        return Functionals.chain(f1, f2);
-    }
-
-    /**
-     * @deprecated since 0.9.0; use {@link Functionals#chain(Function, Function, Function)}
-     */
-    @Deprecated
-    public static <A,B,C,D> Function<A,D> chain(final Function<A,? extends B> f1, final Function<B,? extends C> f2, final Function<C,D> f3) {
-        return Functionals.chain(f1, f2, f3);
+        return Functionals.chain(SshValueFunctions.exitStatus(), Functions.forPredicate(Predicates.equalTo(expected)));
     }
 }

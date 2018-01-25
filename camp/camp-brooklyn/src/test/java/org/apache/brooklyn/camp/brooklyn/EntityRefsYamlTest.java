@@ -23,6 +23,7 @@ import static org.testng.Assert.assertEquals;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -157,7 +158,7 @@ public class EntityRefsYamlTest extends AbstractYamlTest {
                 "    id: "+duplicatedId,
                 "    name: entity2.2");
         
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         Entity entity1 = Iterables.find(Entities.descendantsAndSelf(app), EntityPredicates.displayNameEqualTo("entity1"));
         Entity entity1_1 = Iterables.find(Entities.descendantsAndSelf(app), EntityPredicates.displayNameEqualTo("entity1.1"));

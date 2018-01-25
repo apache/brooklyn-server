@@ -77,7 +77,7 @@ public class JcloudsRebindWithYamlDslTest extends AbstractJcloudsRebindStubYamlT
             "    - name: password",
             "      default: myYamlPassword",
             "    type: "+ MachineEntity.class.getName());
-        mgmt().getCatalog().addItems(catalogYaml, true);
+        mgmt().getCatalog().addItems(catalogYaml, true, true);
 
         String yaml = Joiner.on("\n").join(
                 "location: " + LOCATION_CATALOG_ID,

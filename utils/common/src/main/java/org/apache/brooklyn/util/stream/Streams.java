@@ -29,6 +29,7 @@ import java.io.OutputStream;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.Writer;
+import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
@@ -71,11 +72,6 @@ public class Streams {
         }
     }
 
-    /** @deprecated since 0.7.0 use {@link #newInputStreamWithContents(String)} */ @Deprecated
-    public static InputStream fromString(String contents) {
-        return newInputStreamWithContents(contents);
-    }
-    
     public static InputStream newInputStreamWithContents(String contents) {
         byte[] bytes = checkNotNull(contents, "contents").getBytes(Charsets.UTF_8);
         return KnownSizeInputStream.of(bytes);
@@ -102,6 +98,18 @@ public class Streams {
         } catch (IOException ioe) {
             throw Exceptions.propagate(ioe);
         }
+    }
+    
+    /** reads the input stream fully into the given byte buffer or until the supplied buffer is full,
+     * returning the number of bytes read */
+    public static int readFully(InputStream s, byte[] buf) throws IOException {
+        int count = 0;
+        while (count < buf.length) {
+            int countHere = s.read(buf, count, buf.length-count);
+            if (countHere<=0) return count;
+            count += countHere;
+        }
+        return count;
     }
     
     public static byte[] readFullyAndClose(InputStream is) {
@@ -159,10 +167,9 @@ public class Streams {
     public static void copyClose(InputStream input, OutputStream output) {
         try {
             copy(input, output);
-        } catch (RuntimeException e) {
+        } finally {
             closeQuietly(input);
             closeQuietly(output);
-            throw e;
         }
     }
 
@@ -235,5 +242,29 @@ public class Streams {
         }
         return result.toString().toUpperCase();
     }
-    
+
+    /** True iff the input streams read to completion give identical contents. Streams are closed afterwards. */
+    public static boolean compare(InputStream s1, InputStream s2) throws IOException {
+        try {
+            if (s1==null || s2==null) {
+                return s1==null && s2==null;
+            }
+            byte[] buf1 = new byte[4096], buf2 = new byte[4096];
+            while (true) {
+                int r1 = readFully(s1, buf1);
+                int r2 = readFully(s2, buf2);
+                // do this in case HeapByteBuffer.equals has an efficient intrinsic comparison;
+                // curiously there is no efficient array-compare a la System.arraycopy;
+                // the only thing I've found is that Arrays.equals(char[], char[]) is optimized/intrinsic,
+                // and allegedly 8 times faster than all other array comparison routines!
+                // https://stackoverflow.com/questions/41153992/why-is-arrays-equalschar-char-8-times-faster-than-all-the-other-versions
+                if (!ByteBuffer.wrap(buf1,0,r1).equals(ByteBuffer.wrap(buf2,0,r2))) return false;
+                if (r1<4096) return true;
+            }
+        } finally {
+            closeQuietly(s1);
+            closeQuietly(s2);
+        }
+    }
+
 }

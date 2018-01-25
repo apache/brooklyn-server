@@ -23,8 +23,9 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Objects;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableMap;
 
 public class SensorSummary implements HasName, Serializable {
@@ -33,9 +34,9 @@ public class SensorSummary implements HasName, Serializable {
 
     private final String name;
     private final String type;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final String description;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final Map<String, URI> links;
 
     public SensorSummary(

@@ -19,17 +19,22 @@
 create database visitors;
 use visitors;
 
-# not necessary to create user if we grant (and not supported in some dialects)
-create user 'brooklyn' identified by 'br00k11n';
 
-grant usage on *.* to 'brooklyn'@'%' identified by 'br00k11n';
+# Create two users: 'brooklyn'@'%' and 'brooklyn'@'localhost' with full access
+# default password specified for compatibility with older blueprints that don't provide config;
+# if your blueprint sets the password it can be removed here
+grant usage on *.* to 'brooklyn'@'%' identified by '${config["creation.script.password"]!"br00k11n"}';
+# useful if sockets work also
+grant all privileges on *.* to 'brooklyn'@'localhost' identified by '${config["creation.script.password"]!"br00k11n"}';
 
-# ''@localhost is sometimes set up, overriding brooklyn@'%', so do a second explicit grant
-grant usage on *.* to 'brooklyn'@'localhost' identified by 'br00k11n';
-
-grant all privileges on visitors.* to 'brooklyn'@'%';
+# drop the anonymous users eg ''@'localhost' and sometimes other local hostnames
+# (necessary for same-host access as these are more restrictive rules that trump the wildcard above)
+delete from mysql.user where User='';
 
 flush privileges;
+
+
+# and now the table for visitors
 
 CREATE TABLE MESSAGES (
         id BIGINT NOT NULL AUTO_INCREMENT,

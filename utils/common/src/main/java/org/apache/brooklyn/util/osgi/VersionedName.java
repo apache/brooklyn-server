@@ -17,23 +17,28 @@ package org.apache.brooklyn.util.osgi;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.util.Comparator;
+
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
+import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.text.VersionComparator;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.Version;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.ComparisonChain;
 
 /** Records a name (string) and version (string),
  * with conveniences for pretty-printing and converting to OSGi format. */
-public class VersionedName {
+public class VersionedName implements Comparable<VersionedName> {
     private final String name;
     private final String v;
     
-    @Deprecated // since 0.12.0 - remove along with version and readResolve in 0.13.0
+    @Deprecated // since 0.12.0 - remove along with version and readResolve in 1.0.0
     private final String symbolicName = null;
     @Deprecated // since 0.12.0
     private final Version version = null;
@@ -170,6 +175,39 @@ public class VersionedName {
             return Maybe.absent("Identifier '"+symbolicNameWithVersion+"' has too many parts; max one ':' symbol");
         }
         return Maybe.of(new VersionedName(parts[0], parts.length == 2 ? parts[1] : null));
+    }
+
+    @Override
+    public int compareTo(VersionedName other) {
+        return VersionedNameComparator.INSTANCE.compare(this, other);
+    }
+
+    /** Comparator which puts a:3 < a:1 < b:2 < null */
+    public static class VersionedNameComparator implements Comparator<VersionedName> {
+        public static final VersionedNameComparator INSTANCE = new VersionedNameComparator();
+        
+        @Override
+        public int compare(VersionedName o1, VersionedName o2) {
+            if (o1==null) { return o2==null ? 0 : 1; }
+            if (o2==null) { return -1; }
+            return ComparisonChain.start()
+                .compare(o1.getSymbolicName(), o2.getSymbolicName(), NaturalOrderComparator.INSTANCE)
+                .compare(o2.getOsgiVersionString(), o1.getOsgiVersionString(), VersionComparator.INSTANCE)
+                .compare(o2.getVersionString(), o1.getVersionString(), VersionComparator.INSTANCE)
+                .result();
+        }
+    }
+    
+    // RegisteredTypeNameThenWorstFirstComparator
+    
+    /** Comparator which puts a:3 < a:1 < b:2 < null */
+    public static class VersionedNameStringComparator implements Comparator<String> {
+        public static final VersionedNameStringComparator INSTANCE = new VersionedNameStringComparator();
+        
+        @Override
+        public int compare(String s1, String s2) {
+            return VersionedNameComparator.INSTANCE.compare(parseMaybe(s1, false).orNull(), parseMaybe(s2, false).orNull());
+        }
     }
 
 }

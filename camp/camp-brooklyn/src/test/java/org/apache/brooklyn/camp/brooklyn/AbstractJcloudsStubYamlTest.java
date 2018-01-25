@@ -144,7 +144,7 @@ public abstract class AbstractJcloudsStubYamlTest extends AbstractJcloudsStubbed
     }
     
     protected void addCatalogItems(String catalogYaml) {
-        mgmt().getCatalog().addItems(catalogYaml, false);
+        mgmt().getCatalog().addItems(catalogYaml);
     }
     
     protected Entity createAndStartApplication(Reader input) throws Exception {

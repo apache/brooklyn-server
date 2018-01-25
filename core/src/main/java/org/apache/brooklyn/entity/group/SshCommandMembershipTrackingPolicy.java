@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutionException;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
@@ -143,8 +144,9 @@ public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTracki
                     execute(member, command, type.name(), member.getId());
                     break;
                 case ALL_MEMBERS:
+                    highlightAction("Run at all members ("+getGroup().getMembers().size()+")", null);
                     for (Entity each : getGroup().getMembers()) {
-                        execute(each, command, type.name(), member.getId());
+                        execute(each, command, type.name(), member.getId(), false);
                     }
                     break;
                 default:
@@ -153,8 +155,11 @@ public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTracki
         }
     }
 
-    @SuppressWarnings("unchecked")
     public void execute(Entity target, String command, String type, String memberId) {
+        execute(target, command, type, memberId, true);
+    }
+    @SuppressWarnings("unchecked")
+    private void execute(Entity target, String command, String type, String memberId, boolean highlight) {
         if (Entities.isNoLongerManaged(target)) return;
         Lifecycle state = target.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
         if (state==Lifecycle.STOPPING || state==Lifecycle.STOPPED) return;
@@ -181,7 +186,7 @@ public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTracki
 
         // Try to resolve the configuration in the env Map
         try {
-            env = (Map<String, Object>) Tasks.resolveDeepValue(env, Object.class, ((EntityInternal) entity).getExecutionContext());
+            env = (Map<String, Object>) Tasks.resolveDeepValue(env, Object.class, getExecutionContext());
         } catch (InterruptedException | ExecutionException e) {
             throw Exceptions.propagate(e);
         }
@@ -194,7 +199,11 @@ public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTracki
                 .summary("group-" + CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.LOWER_HYPHEN, type))
                 .environmentVariables(serializer.serialize(env));
 
-        String output = DynamicTasks.submit(task.newTask(), target).getUnchecked();
+        Task<String> taskI = DynamicTasks.submit(task.newTask(), target);
+        if (highlight) {
+            highlightAction("Run at "+machine.get().getAddress().getHostAddress(), taskI);
+        }
+        String output = taskI.getUnchecked();
         LOG.trace("Command returned: {}", output);
     }
 }

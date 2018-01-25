@@ -28,7 +28,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
@@ -103,7 +103,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
                 "- type: t2");
         waitForApplicationTasks(app);
         
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         Entity t1a = Iterables.get(app.getChildren(), 0);
         Entity t1b = Iterables.get(app.getChildren(), 1);
         assertEquals(app.getChildren().size(), 2);
@@ -141,7 +141,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
                 "- type: t2");
         waitForApplicationTasks(app);
         
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         Entity t2 = Iterables.getOnlyElement(app.getChildren());
         Entity t1 = Iterables.getOnlyElement(t2.getChildren());
         assertEquals(t1.getChildren().size(), 0);
@@ -181,7 +181,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
                 "- type: t2");
         waitForApplicationTasks(app);
         
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         DynamicCluster t2 = (DynamicCluster) Iterables.getOnlyElement(app.getChildren());
         Entity t1 = Iterables.getOnlyElement(t2.getMembers());
         assertEquals(t1.getChildren().size(), 0);

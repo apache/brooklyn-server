@@ -26,8 +26,9 @@ import java.io.InputStream;
 
 import org.apache.brooklyn.test.http.TestHttpRequestHandler;
 import org.apache.brooklyn.test.http.TestHttpServer;
+import org.apache.brooklyn.util.core.http.AuthHandler;
+import org.apache.brooklyn.util.http.auth.UsernamePassword;
 import org.apache.brooklyn.util.stream.Streams;
-import org.apache.brooklyn.util.text.Strings;
 import org.apache.http.HttpException;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
@@ -93,6 +94,13 @@ public class ResourceUtilsHttpTest {
     }
 
     @Test
+    public void testSupplyCredentialGetProtected() throws Exception {
+        UsernamePassword credential = new UsernamePassword("test", "test");
+        InputStream stream = utils.getResourceFromUrl(baseUrl + "/auth", credential);
+        assertEquals(Streams.readFullyStringAndClose(stream), "OK");
+    }
+
+    @Test
     public void testGetProtectedEscape() throws Exception {
         String url = baseUrl.replace("http://", "http://test%40me%3A%2F:test@") + "/auth_escape";
         InputStream stream = utils.getResourceFromUrl(url);
@@ -100,9 +108,24 @@ public class ResourceUtilsHttpTest {
     }
 
     @Test
+    public void testSupplyCredentialGetProtectedEscape() {
+        final UsernamePassword credential = new UsernamePassword("test@me:/", "test");
+        InputStream stream = utils.getResourceFromUrl(baseUrl + "/auth_escape", credential);
+        assertEquals(Streams.readFullyStringAndClose(stream), "OK");
+    }
+
+    @Test
     public void testGetProtectedEscape2() throws Exception {
         String url = baseUrl.replace("http://", "http://test%40me%3Atest@") + "/auth_escape2";
         InputStream stream = utils.getResourceFromUrl(url);
+        assertEquals(Streams.readFullyStringAndClose(stream), "OK");
+    }
+
+    @Test
+    public void testUrlCredentialOverridesArgument() {
+        String url = baseUrl.replace("http://", "http://test:test@") + "/auth";
+        final UsernamePassword credential = new UsernamePassword("test", "wrong");
+        InputStream stream = utils.getResourceFromUrl(url, credential);
         assertEquals(Streams.readFullyStringAndClose(stream), "OK");
     }
 
@@ -145,37 +168,6 @@ public class ResourceUtilsHttpTest {
     public void testResourceFromUrlFollowsRedirect() throws Exception {
         String contents = new ResourceUtils(this).getResourceAsString("http://bit.ly/brooklyn-visitors-creation-script");
         assertFalse(contents.contains("bit.ly"), "contents="+contents);
-    }
-
-    private static class AuthHandler implements HttpRequestHandler {
-        private String username;
-        private String password;
-        private String responseBody;
-
-        public AuthHandler(String username, String password, String response) {
-            this.username = username;
-            this.password = password;
-            this.responseBody = response;
-        }
-
-        @Override
-        public void handle(HttpRequest request, HttpResponse response, HttpContext context) throws HttpException, IOException {
-            String creds = (String) context.getAttribute("creds");
-            if (creds == null || !creds.equals(getExpectedCredentials())) {
-                response.setStatusCode(HttpStatus.SC_UNAUTHORIZED);
-            } else {
-                response.setEntity(new StringEntity(responseBody));
-            }
-        }
-
-        private String getExpectedCredentials() {
-            if (Strings.isEmpty(password)) {
-                return username;
-            } else {
-                return username + ":" + password;
-            }
-        }
-
     }
 
     private static class CheckNoCredentials implements HttpRequestHandler {

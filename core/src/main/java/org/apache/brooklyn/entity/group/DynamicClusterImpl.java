@@ -60,6 +60,7 @@ import org.apache.brooklyn.core.entity.trait.StartableMethods;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.location.cloud.AvailabilityZoneExtension;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.entity.group.zoneaware.ProportionalZoneFailureDetector;
 import org.apache.brooklyn.entity.stock.DelegateEntity;
 import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.function.FunctionPollConfig;
@@ -118,6 +119,17 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
      * Only used if {@link #MAX_CONCURRENT_CHILD_COMMANDS} is configured.
      */
     private transient Semaphore childTaskSemaphore;
+
+    /**
+     * Value is read from config, or if config is null then initialised automatically. Only set if
+     * isAvailabilityZoneEnabled. Set on init and on rebind.
+     * 
+     * Uses a transient field to avoid persistence of the default impl, which may be brittle
+     * in terms of backwards compatibilty (ZoneFailureDetector is marked beta). The consequence
+     * is that on rebind we will have lost details of previous failures that were detected. But
+     * that's fine - we'll just try again in those zones, and will presumably hit the problems again.
+     */
+    private transient ZoneFailureDetector zoneFailureDetector;
 
     private volatile FunctionFeed clusterOneAndAllMembersUp;
 
@@ -221,6 +233,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         super.init();
         initialiseMemberId();
         initialiseTaskPermitSemaphore();
+        initializeZoneFailureDetector();
         connectAllMembersUp();
     }
 
@@ -228,6 +241,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
     public void rebind() {
         super.rebind();
         initialiseTaskPermitSemaphore();
+        initializeZoneFailureDetector();
     }
 
     private void initialiseMemberId() {
@@ -249,6 +263,17 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         }
     }
 
+    private void initializeZoneFailureDetector() {
+        synchronized (mutex) {
+            if (zoneFailureDetector == null && isAvailabilityZoneEnabled()) {
+                zoneFailureDetector = config().get(ZONE_FAILURE_DETECTOR);
+                if (zoneFailureDetector == null) {
+                    zoneFailureDetector = new ProportionalZoneFailureDetector(2, Duration.ONE_HOUR, 0.9);
+                }
+            }
+        }
+    }
+    
     private void connectAllMembersUp() {
         clusterOneAndAllMembersUp = FunctionFeed.builder()
                 .entity(this)
@@ -321,10 +346,11 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
     @Override
     public void setZoneFailureDetector(ZoneFailureDetector val) {
         config().set(ZONE_FAILURE_DETECTOR, checkNotNull(val, "zoneFailureDetector"));
+        zoneFailureDetector = val;
     }
 
     protected ZoneFailureDetector getZoneFailureDetector() {
-        return checkNotNull(getConfig(ZONE_FAILURE_DETECTOR), "zoneFailureDetector config");
+        return checkNotNull(zoneFailureDetector, "zoneFailureDetector, isAvailabilityZoneEnabled=%s", isAvailabilityZoneEnabled());
     }
 
     protected EntitySpec<?> getFirstMemberSpec() {
@@ -595,10 +621,6 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
     @Override
     public Integer resize(Integer desiredSize) {
         synchronized (mutex) {
-            Optional<Integer> optionalMaxSize = Optional.fromNullable(config().get(MAX_SIZE));
-            if (optionalMaxSize.isPresent() && desiredSize > optionalMaxSize.get()) {
-                throw new Resizable.InsufficientCapacityException("Desired cluster size " + desiredSize + " exceeds maximum size of " + optionalMaxSize.get());
-            }
             int originalSize = getCurrentSize();
             int delta = desiredSize - originalSize;
             if (delta != 0) {
@@ -773,6 +795,20 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
     /** <strong>Note</strong> for sub-classes; this method can be called while synchronized on {@link #mutex}. */
     protected Collection<Entity> grow(int delta) {
         Preconditions.checkArgument(delta > 0, "Must call grow with positive delta.");
+        Integer maxSize = config().get(MAX_SIZE);
+        if (maxSize != null) {
+            Integer currentSize = getCurrentSize();
+            final int desiredSize = currentSize + delta;
+            if (currentSize >= maxSize) {
+                throw new Resizable.InsufficientCapacityException(
+                        "Current cluster size " + currentSize + " already at maximum permitted");
+            } else if (desiredSize > maxSize) {
+                int allowedDelta = (maxSize - currentSize);
+                LOG.warn("Desired cluster size " + desiredSize + " exceeds maximum size of " + maxSize
+                        + "; will only grow by " + allowedDelta + " instead of " + delta + " for " + this);
+                delta = allowedDelta;
+            }
+        }
 
         // choose locations to be deployed to
         List<Location> chosenLocations;
@@ -827,10 +863,8 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         for (Entity member : removedStartables) {
             tasks.add(newThrottledEffectorTask(member, Startable.STOP, Collections.emptyMap()));
         }
-        Task<?> invoke = Tasks.parallel(tasks.build());
-        DynamicTasks.queueIfPossible(invoke).orSubmitAsync();
         try {
-            invoke.get();
+            DynamicTasks.get( Tasks.parallel(tasks.build()) );
             return removedEntities;
         } catch (Exception e) {
             throw Exceptions.propagate(e);
@@ -1075,8 +1109,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         try {
             if (member instanceof Startable) {
                 Task<?> task = newThrottledEffectorTask(member, Startable.STOP, Collections.<String, Object>emptyMap());
-                DynamicTasks.queueIfPossible(task).orSubmitAsync();
-                task.getUnchecked();
+                DynamicTasks.get(task);
             }
         } finally {
             Entities.unmanage(member);

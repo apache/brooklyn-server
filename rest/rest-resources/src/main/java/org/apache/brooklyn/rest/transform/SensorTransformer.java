@@ -18,25 +18,28 @@
  */
 package org.apache.brooklyn.rest.transform;
 
+import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
+
 import java.net.URI;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import javax.ws.rs.core.UriBuilder;
+
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.core.config.render.RendererHints;
+import org.apache.brooklyn.rest.api.ApplicationApi;
+import org.apache.brooklyn.rest.api.EntityApi;
+import org.apache.brooklyn.rest.api.SensorApi;
 import org.apache.brooklyn.rest.domain.SensorSummary;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Iterables;
-import javax.ws.rs.core.UriBuilder;
-import org.apache.brooklyn.rest.api.ApplicationApi;
-import org.apache.brooklyn.rest.api.EntityApi;
-import org.apache.brooklyn.rest.api.SensorApi;
-import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
 
 public class SensorTransformer {
 
@@ -71,7 +74,7 @@ public class SensorTransformer {
     }
     
     @SuppressWarnings("unchecked")
-    static <T> void addNamedAction(MutableMap.Builder<String, URI> lb, RendererHints.NamedAction na, T value, Object context, Entity contextEntity) {
+    static <T> void addNamedAction(MutableMap.Builder<String, URI> lb, RendererHints.NamedAction na, T value, Object contextKeyOrSensor, BrooklynObject contextObject) {
         if (na instanceof RendererHints.NamedActionWithUrl) {
             try {
                 String v = ((RendererHints.NamedActionWithUrl<T>) na).getUrlFromValue(value);
@@ -81,7 +84,7 @@ public class SensorTransformer {
                 }
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
-                log.warn("Unable to make action "+na+" from "+context+" on "+contextEntity+": "+e, e);
+                log.warn("Unable to make action "+na+" from "+contextKeyOrSensor+" on "+contextObject+": "+e, e);
             }
         }
     }

@@ -56,15 +56,18 @@ public interface SoftwareProcess extends Entity, Startable {
     ConfigKey<Collection<Integer>> REQUIRED_OPEN_LOGIN_PORTS = ConfigKeys.newConfigKey(
             new TypeToken<Collection<Integer>>() {},
             "requiredOpenLoginPorts",
-            "The port(s) to be opened, to allow login",
+            "The port(s) to be opened (also see 'inboundPorts.autoInfer')",
             ImmutableSet.of(22));
 
     ConfigKey<String> INBOUND_PORTS_CONFIG_REGEX = ConfigKeys.newStringConfigKey("inboundPorts.configRegex",
-            "Regex governing the opening of ports based on config names",
+            "Regex governing the opening of ports based on config names (see 'inboundPorts.autoInfer')",
             ".*\\.port");
 
     ConfigKey<Boolean> INBOUND_PORTS_AUTO_INFER = ConfigKeys.newBooleanConfigKey("inboundPorts.autoInfer",
-            "If set to false turns off the opening of ports based on naming convention, and also those that are of type PortRange in Java entities",
+            "By default, the ports to open in iptables and security group is inferred from the config keys. "
+                    + "This follows a naming convention (defaulting to all config keys matching the name '*.\\.port', "
+                    + "but customizable with the config key 'inboundPorts.configRegex'), and also including all "
+                    + "config keys of type 'PortRange'. This behaviour is turned off by setting it to 'false'.",
             true);
 
     @SetFromFlag("startTimeout")
@@ -150,16 +153,20 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("runDir")
     AttributeSensorAndConfigKey<String,String> RUN_DIR = BrooklynConfigKeys.RUN_DIR;
 
-    ConfigKey<Boolean> ADD_OPEN_INBOUND_PORTS_EFFECTOR = ConfigKeys.newBooleanConfigKey("effector.add.openInboundPorts",
-            "Flag which adds effector for opening ports through Cloud security groups", false);
+    ConfigKey<Boolean> ADD_OPEN_INBOUND_PORTS_EFFECTOR = ConfigKeys.newBooleanConfigKey(
+            "effector.add.openInboundPorts",
+            "Whether to add an effector to the entity for opening ports through Cloud security groups", 
+            false);
 
     ConfigKey<Boolean> OPEN_IPTABLES = ConfigKeys.newBooleanConfigKey("openIptables",
             "Whether to open the INBOUND_PORTS via iptables rules; " +
-            "if true then ssh in to run iptables commands, as part of machine provisioning", false);
+            "if true then ssh in to run iptables commands, as part of machine provisioning", 
+            false);
 
     ConfigKey<Boolean> STOP_IPTABLES = ConfigKeys.newBooleanConfigKey("stopIptables",
             "Whether to stop iptables entirely; " +
-            "if true then ssh in to stop the iptables service, as part of machine provisioning", false);
+            "if true then ssh in to stop the iptables service, as part of machine provisioning", 
+            false);
 
     ConfigKey<Boolean> DONT_REQUIRE_TTY_FOR_SUDO = ConfigKeys.newBooleanConfigKey("dontRequireTtyForSudo",
             "Whether to explicitly set /etc/sudoers, so don't need tty (will leave unchanged if 'false'); " +
@@ -187,7 +194,7 @@ public interface SoftwareProcess extends Entity, Startable {
     @Beta
     @SetFromFlag("preInstallFiles")
     MapConfigKey<String> PRE_INSTALL_FILES = new MapConfigKey.Builder<String>(String.class, "files.preinstall")
-            .description("Mapping of files, to be copied before install, to destination name relative to installDir") 
+            .description("Files to be copied before pre-install; mapping from resource to the destination name relative to installDir")
             .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();
@@ -200,7 +207,7 @@ public interface SoftwareProcess extends Entity, Startable {
     @Beta
     @SetFromFlag("preInstallTemplates")
     MapConfigKey<String> PRE_INSTALL_TEMPLATES = new MapConfigKey.Builder<String>(String.class, "templates.preinstall")
-            .description("Mapping of templates, to be filled in and copied before pre-install, to destination name relative to installDir") 
+            .description("Templated files to be filled in and copied before pre-install; mapping from resource to the destination name relative to installDir")
             .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();
@@ -216,7 +223,7 @@ public interface SoftwareProcess extends Entity, Startable {
     @Beta
     @SetFromFlag("installFiles")
     MapConfigKey<String> INSTALL_FILES = new MapConfigKey.Builder<String>(String.class, "files.install")
-            .description("Mapping of files, to be copied before install, to destination name relative to installDir") 
+            .description("Files to be copied before install; mapping from resource to the destination name relative to installDir")
             .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();
@@ -229,7 +236,7 @@ public interface SoftwareProcess extends Entity, Startable {
     @Beta
     @SetFromFlag("installTemplates")
     MapConfigKey<String> INSTALL_TEMPLATES = new MapConfigKey.Builder<String>(String.class, "templates.install")
-            .description("Mapping of templates, to be filled in and copied before install, to destination name relative to installDir") 
+            .description("Templated files to be filled in and copied before install; mapping from resource to the destination name relative to installDir")
             .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();
@@ -245,7 +252,7 @@ public interface SoftwareProcess extends Entity, Startable {
     @Beta
     @SetFromFlag("customizeFiles")
     MapConfigKey<String> CUSTOMIZE_FILES = new MapConfigKey.Builder<String>(String.class, "files.customize")
-            .description("Mapping of files, to be copied before customize, to destination name relative to installDir")
+            .description("Files to be copied before customize; mapping from resource to the destination name relative to installDir")
             .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();
@@ -258,7 +265,7 @@ public interface SoftwareProcess extends Entity, Startable {
     @Beta
     @SetFromFlag("customizeTemplates")
     MapConfigKey<String> CUSTOMIZE_TEMPLATES = new MapConfigKey.Builder<String>(String.class, "templates.customize")
-            .description("Mapping of templates, to be filled in and copied before customize, to destination name relative to installDir")
+            .description("Templated files to be filled in and copied before customize; mapping from resource to the destination name relative to installDir")
             .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();
@@ -274,7 +281,7 @@ public interface SoftwareProcess extends Entity, Startable {
     @Beta
     @SetFromFlag("runtimeFiles")
     MapConfigKey<String> RUNTIME_FILES = new MapConfigKey.Builder<String>(String.class, "files.runtime")
-            .description("Mapping of files, to be copied before customisation, to destination name relative to runDir") 
+            .description("Files to be copied before launch (and before pre-launch); mapping from resource to the destination name relative to runDir")
             .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();
@@ -287,7 +294,7 @@ public interface SoftwareProcess extends Entity, Startable {
     @Beta
     @SetFromFlag("runtimeTemplates")
     MapConfigKey<String> RUNTIME_TEMPLATES = new MapConfigKey.Builder<String>(String.class, "templates.runtime")
-            .description("Mapping of templates, to be filled in and copied before customisation, to destination name relative to runDir") 
+            .description("Templated files to be filled in and copied before launch (and before pre-launch); mapping from resource to the destination name relative to installDir")
             .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();

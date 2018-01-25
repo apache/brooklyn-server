@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -213,20 +212,16 @@ public class RebindManagerImpl implements RebindManager {
         this.periodicPersistPeriod = period;
     }
 
-    /**
-     * @deprecated since 0.7.0; use {@link #setPeriodicPersistPeriod(Duration)}
-     */
-    @Deprecated
-    public void setPeriodicPersistPeriod(long periodMillis) {
-        setPeriodicPersistPeriod(Duration.of(periodMillis, TimeUnit.MILLISECONDS));
-    }
-
     public boolean isPersistenceRunning() {
         return persistenceRunning;
     }
     
     public boolean isReadOnlyRunning() {
         return readOnlyRunning;
+    }
+    
+    public boolean isReadOnlyStopping() {
+        return readOnlyTask!=null && !readOnlyRunning;
     }
     
     @Override
@@ -355,7 +350,7 @@ public class RebindManagerImpl implements RebindManager {
             }
         };
         readOnlyTask = (ScheduledTask) managementContext.getServerExecutionContext().submit(
-            new ScheduledTask(MutableMap.of("displayName", "Periodic read-only rebind"), taskFactory).period(periodicPersistPeriod));
+            ScheduledTask.builder(taskFactory).displayName("scheduled:[periodic-read-only-rebind]").period(periodicPersistPeriod).build() );
     }
     
     @Override
@@ -372,6 +367,11 @@ public class RebindManagerImpl implements RebindManager {
             readOnlyTask = null;
             LOG.debug("Stopped read-only rebinding ("+this+"), mgmt "+managementContext.getManagementNodeId());
         }
+    }
+
+    @Override
+    public void reset() {
+        if (persistenceRealChangeListener != null && !persistenceRealChangeListener.isActive()) persistenceRealChangeListener.reset();
     }
     
     @Override
@@ -455,12 +455,6 @@ public class RebindManagerImpl implements RebindManager {
 
     @Override
     @VisibleForTesting
-    public void forcePersistNow() {
-        forcePersistNow(false, null);
-    }
-
-    @Override
-    @VisibleForTesting
     public void forcePersistNow(boolean full, PersistenceExceptionHandler exceptionHandler) {
         if (persistenceStoreAccess == null || persistenceRealChangeListener == null) {
             LOG.info("Skipping forced persist; no persistence mechanism available");
@@ -485,21 +479,6 @@ public class RebindManagerImpl implements RebindManager {
     }
     
     @Override
-    public List<Application> rebind() {
-        return rebind(null, null, null);
-    }
-    
-    @Override
-    public List<Application> rebind(final ClassLoader classLoader) {
-        return rebind(classLoader, null, null);
-    }
-
-    @Override
-    public List<Application> rebind(final ClassLoader classLoader, final RebindExceptionHandler exceptionHandler) {
-        return rebind(classLoader, exceptionHandler, null);
-    }
-    
-    @Override
     public List<Application> rebind(ClassLoader classLoaderO, RebindExceptionHandler exceptionHandlerO, ManagementNodeState modeO) {
         final ClassLoader classLoader = classLoaderO!=null ? classLoaderO :
             managementContext.getCatalogClassLoader();
@@ -520,15 +499,8 @@ public class RebindManagerImpl implements RebindManager {
         ExecutionContext ec = BasicExecutionContext.getCurrentExecutionContext();
         if (ec == null) {
             ec = managementContext.getServerExecutionContext();
-            Task<List<Application>> task = ec.submit(new Callable<List<Application>>() {
-                @Override public List<Application> call() throws Exception {
-                    return rebindImpl(classLoader, exceptionHandler, mode);
-                }});
-            try {
-                return task.get();
-            } catch (Exception e) {
-                throw Exceptions.propagate(e);
-            }
+            return ec.get(Tasks.<List<Application>>builder().displayName("rebind").dynamic(false)
+                .body(() -> rebindImpl(classLoader, exceptionHandler, mode)).build());
         } else {
             return rebindImpl(classLoader, exceptionHandler, mode);
         }

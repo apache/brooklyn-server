@@ -41,10 +41,6 @@ import com.google.common.base.Predicate;
  */
 public class FeedConfig<V, T, F extends FeedConfig<V, T, F>> {
 
-    /** The onSuccess or onError functions can return this value to indicate that the sensor should not change. 
-     * @deprecated since 0.7.0 use UNCHANGED */
-    @Deprecated
-    public static final Object UNSET = Entities.UNCHANGED;
     /** The onSuccess or onError functions can return this value to indicate that the sensor should not change. */ 
     public static final Object UNCHANGED = Entities.UNCHANGED;
     /** The onSuccess or onError functions can return this value to indicate that the sensor value should be removed

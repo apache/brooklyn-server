@@ -24,6 +24,7 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.FeedMemento;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -32,6 +33,7 @@ import org.apache.brooklyn.core.mgmt.rebind.BasicFeedRebindSupport;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,7 +62,7 @@ public abstract class AbstractFeed extends AbstractEntityAdjunct implements Feed
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);
         if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_FEED_REGISTRATION_PROPERTY)) {
-            ((EntityInternal)entity).feeds().addFeed(this);
+            ((EntityInternal)entity).feeds().add(this);
         }
     }
 
@@ -101,7 +103,7 @@ public abstract class AbstractFeed extends AbstractEntityAdjunct implements Feed
             throw new IllegalStateException(String.format("Attempt to re-start feed %s of entity %s", this, entity));
         }
         
-        poller = new Poller<Object>(entity, getConfig(ONLY_IF_SERVICE_UP));
+        poller = new Poller<Object>(entity, this, getConfig(ONLY_IF_SERVICE_UP));
         activated = true;
         preStart();
         synchronized (pollerStateMutex) {
@@ -224,5 +226,17 @@ public abstract class AbstractFeed extends AbstractEntityAdjunct implements Feed
      */
     protected Poller<?> getPoller() {
         return poller;
+    }
+
+    void highlightTriggerPeriod(Duration minPeriod) {
+        highlightTriggers("Running every "+minPeriod);
+    }
+
+    void onRemoveSensor(Sensor<?> sensor) {
+        highlightActionPublishSensor("Clear sensor "+sensor.getName());
+    }
+
+    void onPublishSensor(Sensor<?> sensor, Object v) {
+        highlightActionPublishSensor(sensor, v);
     }
 }

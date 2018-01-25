@@ -25,7 +25,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -54,12 +53,6 @@ public class MockItemEntityImpl extends AbstractEntity implements MockItemEntity
     @Override
     public boolean isStopped() {
         return stopped;
-    }
-
-    @Override
-    public <T> T setAttribute(AttributeSensor<T> attribute, T val) {
-        if (LOG.isDebugEnabled()) LOG.debug("Mocks: item {} setting {} to {}", new Object[] {this, attribute, val});
-        return super.sensors().set(attribute, val);
     }
 
     @Override

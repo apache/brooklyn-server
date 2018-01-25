@@ -131,7 +131,15 @@ public class SecureKeys extends SecureKeysWithoutBouncyCastle {
      * this starts -----BEGIN PRIVATE KEY----- and ends similarly, like id_rsa.
      * also see {@link #readPem(byte[], String)} */
     public static String toPem(KeyPair key) {
-        return stringPem(key);
+        try {
+            StringWriter sw = new StringWriter();
+            PEMWriter w = new PEMWriter(sw);
+            w.writeObject(key);
+            w.close();
+            return sw.toString();
+        } catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     /** returns id_rsa.pub style file, of public key */
@@ -142,18 +150,5 @@ public class SecureKeys extends SecureKeysWithoutBouncyCastle {
     /** opposite of {@link #toPub(KeyPair)}, given text */
     public static PublicKey fromPub(String pubText) {
         return AuthorizedKeysParser.decodePublicKey(pubText);
-    }
-
-    /** @deprecated since 0.7.0, use {@link #toPem(KeyPair)} */ @Deprecated
-    public static String stringPem(KeyPair key) {
-        try {
-            StringWriter sw = new StringWriter();
-            PEMWriter w = new PEMWriter(sw);
-            w.writeObject(key);
-            w.close();
-            return sw.toString();
-        } catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
     }
 }

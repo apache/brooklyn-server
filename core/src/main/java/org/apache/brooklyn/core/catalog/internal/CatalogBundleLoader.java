@@ -25,6 +25,7 @@ import java.net.URL;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -103,11 +104,13 @@ public class CatalogBundleLoader {
                 this.managementContext.getCatalog().addTypesFromBundleBom(bomText, mb, force, result.mapOfNewToReplaced);
                 if (validate) {
                     Set<RegisteredType> matches = MutableSet.copyOf(this.managementContext.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(mb.getVersionedName())));
-                    if (!(matches.containsAll(result.mapOfNewToReplaced.keySet()) && result.mapOfNewToReplaced.keySet().containsAll(matches))) {
+                    Set<String> resultNames = result.mapOfNewToReplaced.keySet().stream().map((type) -> type.getId()).collect(Collectors.toSet());
+                    Set<String> matchesNames = matches.stream().map((type) -> type.getId()).collect(Collectors.toSet());
+                    if (!(matchesNames.containsAll(resultNames) && resultNames.containsAll(matchesNames))) {
                         // sanity check
                         LOG.warn("Discrepancy in list of Brooklyn items found for "+mb.getVersionedName()+": "+
-                            "installer said "+result.mapOfNewToReplaced.keySet()+" ("+result.mapOfNewToReplaced.keySet().size()+") "+
-                            "but registry search found "+matches+" ("+matches.size()+")");
+                            "installer gave "+result+" (of "+result.mapOfNewToReplaced.keySet().size()+" total installed), "+
+                            "but registry search gave "+matches+" (from "+matches.size()+" total found for this bundle)");
                     }
                     Map<RegisteredType, Collection<Throwable>> validationErrors = this.managementContext.getCatalog().validateTypes( matches );
                     if (!validationErrors.isEmpty()) {

@@ -97,13 +97,10 @@ public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier
 
     @Override
     public final T get() {
-        if (log.isDebugEnabled())
-            log.debug("Queuing task to resolve "+dsl+", called by "+Tasks.current());
+        if (log.isTraceEnabled())
+            log.trace("Queuing task to resolve {}, called by {}", dsl, Tasks.current());
 
-        EntityInternal entity = (EntityInternal) BrooklynTaskTags.getTargetOrContextEntity(Tasks.current());
-        ExecutionContext exec =
-                (entity != null) ? entity.getExecutionContext()
-                                 : BasicExecutionContext.getCurrentExecutionContext();
+        ExecutionContext exec = BrooklynTaskTags.getCurrentExecutionContext();
         if (exec == null) {
             throw new IllegalStateException("No execution context available to resolve " + dsl);
         }

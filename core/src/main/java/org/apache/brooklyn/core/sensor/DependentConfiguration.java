@@ -70,6 +70,7 @@ import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.Maybe.Absent;
+import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.StringFunctions;
 import org.apache.brooklyn.util.text.StringFunctions.RegexReplacer;
@@ -82,6 +83,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
@@ -274,6 +276,8 @@ public class DependentConfiguration {
         @SuppressWarnings({ "rawtypes", "unchecked" })
         @Override
         public V call() {
+            Preconditions.checkNotNull(source, "source");
+            Preconditions.checkNotNull(sensor, "sensor on "+source);
             T value = source.getAttribute(sensor);
 
             // return immediately if either the ready predicate or the abort conditions hold
@@ -283,13 +287,13 @@ public class DependentConfiguration {
             long start = System.currentTimeMillis();
             
             for (AttributeAndSensorCondition abortCondition : abortSensorConditions) {
-                Object abortValue = abortCondition.source.getAttribute(abortCondition.sensor);
-                if (abortCondition.predicate.apply(abortValue)) {
-                    abortionExceptions.add(new Exception("Abort due to "+abortCondition.source+" -> "+abortCondition.sensor));
+                Object currentValue = abortCondition.source.getAttribute(abortCondition.sensor);
+                if (abortCondition.predicate.apply(currentValue)) {
+                    abortionExceptions.add(new Exception("Abort due to "+abortCondition+": "+currentValue));
                 }
             }
-            if (abortionExceptions.size() > 0) {
-                throw new CompoundRuntimeException("Aborted waiting for ready from "+source+" "+sensor, abortionExceptions);
+            if (!abortionExceptions.isEmpty()) {
+                throw new CompoundRuntimeException("Aborted waiting for ready value from "+source+" "+sensor.getName(), abortionExceptions);
             }
 
             TaskInternal<?> current = (TaskInternal<?>) Tasks.current();
@@ -313,17 +317,17 @@ public class DependentConfiguration {
                     abortSubscriptions.add(entity.subscriptions().subscribe(abortCondition.source, abortCondition.sensor, new SensorEventListener<Object>() {
                         @Override public void onEvent(SensorEvent<Object> event) {
                             if (abortCondition.predicate.apply(event.getValue())) {
-                                abortionExceptions.add(new Exception("Abort due to "+abortCondition.source+" -> "+abortCondition.sensor));
+                                abortionExceptions.add(new Exception("Abort due to "+abortCondition+": "+event.getValue()));
                                 semaphore.release();
                             }
                         }}));
-                    Object abortValue = abortCondition.source.getAttribute(abortCondition.sensor);
-                    if (abortCondition.predicate.apply(abortValue)) {
-                        abortionExceptions.add(new Exception("Abort due to "+abortCondition.source+" -> "+abortCondition.sensor));
+                    Object currentValue = abortCondition.source.getAttribute(abortCondition.sensor);
+                    if (abortCondition.predicate.apply(currentValue)) {
+                        abortionExceptions.add(new Exception("Abort due to "+abortCondition+": "+currentValue));
                     }
                 }
-                if (abortionExceptions.size() > 0) {
-                    throw new CompoundRuntimeException("Aborted waiting for ready from "+source+" "+sensor, abortionExceptions);
+                if (!abortionExceptions.isEmpty()) {
+                    throw new CompoundRuntimeException("Aborted waiting for ready value from "+source+" "+sensor.getName(), abortionExceptions);
                 }
 
                 CountdownTimer timer = timeout!=null ? timeout.countdownTimer() : null;
@@ -372,11 +376,11 @@ public class DependentConfiguration {
                         throw new NotManagedException(entity);                        
                     }
                     
-                    if (abortionExceptions.size() > 0) {
-                        throw new CompoundRuntimeException("Aborted waiting for ready from "+source+" "+sensor, abortionExceptions);
+                    if (!abortionExceptions.isEmpty()) {
+                        throw new CompoundRuntimeException("Aborted waiting for ready value from "+source+" "+sensor.getName(), abortionExceptions);
                     }
 
-                    nextPeriod = nextPeriod.multiply(2).upperBound(maxPeriod);
+                    nextPeriod = nextPeriod.multiply(1.2).upperBound(maxPeriod);
                 }
                 if (LOG.isDebugEnabled()) LOG.debug("Attribute-ready for {} in entity {}", sensor, source);
                 return postProcess(value);
@@ -818,6 +822,11 @@ public class DependentConfiguration {
             this.sensor = checkNotNull(sensor, "sensor");
             this.predicate = checkNotNull(predicate, "predicate");
         }
+        
+        @Override
+        public String toString() {
+            return JavaClassNames.simpleClassName(this)+"["+source+"["+sensor.getName()+"] "+predicate+"]";
+        }
     }
     
     public static ProtoBuilder builder() {
@@ -879,19 +888,6 @@ public class DependentConfiguration {
             this.sensor = sensor;
         }
         
-        /**
-         * Will wait for the attribute on the given entity.
-         * If that entity report {@link Lifecycle#ON_FIRE} for its {@link Attributes#SERVICE_STATE_ACTUAL} then it will abort.
-         * @deprecated since 0.7.0 use {@link DependentConfiguration#builder()} then {@link ProtoBuilder#attributeWhenReady(Entity, AttributeSensor)} then {@link #abortIfOnFire()} 
-         */
-        @Deprecated
-        @SuppressWarnings({ "unchecked", "rawtypes" })
-        public <T2> Builder<T2,T2> attributeWhenReady(Entity source, AttributeSensor<T2> sensor) {
-            this.source = checkNotNull(source, "source");
-            this.sensor = (AttributeSensor) checkNotNull(sensor, "sensor");
-            abortIfOnFire();
-            return (Builder<T2, T2>) this;
-        }
         /**
          * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
          */

@@ -337,7 +337,7 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
                 return;
             
             log.warn("Did not abort as expected: "+e, e);
-            Entities.dumpInfo(entity);
+            Dumper.dumpInfo(entity);
             
             throw Exceptions.propagate(e);
         }

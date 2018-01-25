@@ -24,6 +24,7 @@ import static org.testng.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -48,7 +49,6 @@ import org.testng.annotations.Test;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Callables;
 
 
@@ -103,12 +103,11 @@ public class TasksTest extends BrooklynAppUnitTestSupport {
         assertResolvesValue(orig, String.class, expected);
     }
     
-    @SuppressWarnings("unchecked")
     @Test
-    public void testResolvesIterableOfMapsWithAttributeWhenReady() throws Exception {
+    public void testResolvesListOfMapsWithAttributeWhenReady() throws Exception {
         app.sensors().set(TestApplication.MY_ATTRIBUTE, "myval");
         // using Iterables.concat so that orig is of type FluentIterable rather than List etc
-        Iterable<?> orig = Iterables.concat(ImmutableList.of(ImmutableMap.of("mykey", attributeWhenReady(app, TestApplication.MY_ATTRIBUTE))));
+        List<?> orig = ImmutableList.copyOf(ImmutableList.of(ImmutableMap.of("mykey", attributeWhenReady(app, TestApplication.MY_ATTRIBUTE))));
         Iterable<Map<?,?>> expected = ImmutableList.<Map<?,?>>of(ImmutableMap.of("mykey", "myval"));
         assertResolvesValue(orig, String.class, expected);
     }
@@ -248,8 +247,8 @@ public class TasksTest extends BrooklynAppUnitTestSupport {
             for (Object tag : Tasks.current().getTags()) {
                 if (tag instanceof WrappedEntity) {
                     WrappedEntity wrapped = (WrappedEntity)tag;
-                    if (BrooklynTaskTags.CONTEXT_ENTITY.equals(wrapped.wrappingType)) {
-                        context.add(wrapped.entity);
+                    if (BrooklynTaskTags.CONTEXT_ENTITY.equals(wrapped.getWrappingType())) {
+                        context.add(wrapped.unwrap());
                     }
                 }
             }

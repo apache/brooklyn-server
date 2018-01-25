@@ -40,6 +40,8 @@ import com.google.common.collect.Multimap;
 
 /**
  * Default node placement strategy: attempts to keep the number of nodes balanced across the available locations.
+ * <p>
+ * Instance(s) are immutable. It is safe to use this as a shared default config value.
  */
 public class BalancingNodePlacementStrategy implements NodePlacementStrategy {
     private static final Logger LOG = LoggerFactory.getLogger(BalancingNodePlacementStrategy.class);

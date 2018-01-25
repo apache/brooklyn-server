@@ -424,7 +424,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                                 builder.catalogItem(memento);
                             }
                         } catch (Exception e) {
-                            exceptionHandler.onLoadMementoFailed(type, "memento "+objectId+" early catalog deserialization error", e);
+                            exceptionHandler.onLoadMementoFailed(type, "catalog memento "+objectId+" early catalog deserialization error", e);
                         }
                         break;
                     case MANAGED_BUNDLE:
@@ -433,7 +433,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                             builder.bundle( memento );
                             memento.setJarContent(mementoData.getBundleJars().get(objectId));
                         } catch (Exception e) {
-                            exceptionHandler.onLoadMementoFailed(type, "memento "+objectId+" early catalog deserialization error", e);
+                            exceptionHandler.onLoadMementoFailed(type, "bundle memento "+objectId+" early catalog deserialization error", e);
                         }
                         break;
                         
@@ -476,14 +476,20 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             @Override
             public void visit(BrooklynObjectType type, String objectId, String contents) throws Exception {
                 try {
-                    Memento memento = (Memento) getSerializerWithCustomClassLoader(lookupContext, type, objectId).fromString(contents);
+                    Memento memento;
+                    try {
+                        lookupContext.pushContextDescription(""+type.toString().toLowerCase()+" "+objectId);
+                        memento = (Memento) getSerializerWithCustomClassLoader(lookupContext, type, objectId).fromString(contents);
+                    } finally {
+                        lookupContext.popContextDescription();
+                    }
                     if (memento == null) {
                         LOG.warn("No "+type.toCamelCase()+"-memento deserialized from " + objectId + "; ignoring and continuing");
                     } else {
                         builder.memento(memento);
                     }
                 } catch (Exception e) {
-                    exceptionHandler.onLoadMementoFailed(type, "memento "+objectId+" deserialization error", e);
+                    exceptionHandler.onLoadMementoFailed(type, "memento "+objectId+" ("+type+") deserialization error", e);
                 }
             }
 

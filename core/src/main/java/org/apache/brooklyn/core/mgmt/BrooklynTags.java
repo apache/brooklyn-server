@@ -39,6 +39,7 @@ public class BrooklynTags {
     public static final String NOTES_KIND = "notes";
     public static final String OWNER_ENTITY_ID = "owner_entity_id";
     public static final String ICON_URL = "icon_url";
+    public static final String UPGRADED_FROM = "upgraded_from";
     /** tag on a registered type indicating that an item is intended to be used as a template,
      * and does not have to resolve */
     public static final Object CATALOG_TEMPLATE = "catalog_template";
@@ -140,6 +141,10 @@ public class BrooklynTags {
 
     public static NamedStringTag newIconUrlTag(String iconUrl) {
         return new NamedStringTag(ICON_URL, iconUrl);
+    }
+
+    public static NamedStringTag newUpgradedFromTag(String oldVersion) {
+        return new NamedStringTag(UPGRADED_FROM, oldVersion);
     }
 
     public static TraitsTag newTraitsTag(List<Class<?>> interfaces) {

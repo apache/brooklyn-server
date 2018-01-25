@@ -22,20 +22,19 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.time.Duration;
@@ -51,13 +50,16 @@ import com.google.common.base.Preconditions;
  * this gives up and emits {@link #ENTITY_RESTART_FAILED} 
  */
 @Catalog(name="Service Restarter", description="HA policy for restarting a service automatically, "
-        + "and for emitting an events if the service repeatedly fails")
+        + "and for emitting an events if the service repeatedly fails",
+        iconUrl="classpath://org/apache/brooklyn/policy/ha/service-restarter.png")
 public class ServiceRestarter extends AbstractPolicy {
 
     private static final Logger LOG = LoggerFactory.getLogger(ServiceRestarter.class);
 
     public static final BasicNotificationSensor<FailureDescriptor> ENTITY_RESTART_FAILED = new BasicNotificationSensor<FailureDescriptor>(
-            FailureDescriptor.class, "ha.entityFailed.restart", "Indicates that an entity restart attempt has failed");
+            FailureDescriptor.class, 
+            "ha.entityFailed.restart", 
+            "Indicates that an entity restart attempt has failed");
 
     /** skips retry if a failure re-occurs within this time interval */
     @SetFromFlag("failOnRecurringFailuresInThisDuration")
@@ -68,12 +70,20 @@ public class ServiceRestarter extends AbstractPolicy {
             Duration.minutes(3));
 
     @SetFromFlag("setOnFireOnFailure")
-    public static final ConfigKey<Boolean> SET_ON_FIRE_ON_FAILURE = ConfigKeys.newBooleanConfigKey("setOnFireOnFailure", "", true);
+    public static final ConfigKey<Boolean> SET_ON_FIRE_ON_FAILURE = ConfigKeys.newBooleanConfigKey(
+            "setOnFireOnFailure", 
+            "Whether to set the entity as 'ON_FIRE' if restart fails", 
+            true);
 
     /** monitors this sensor, by default ENTITY_FAILED */
     @SetFromFlag("failureSensorToMonitor")
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    public static final ConfigKey<Sensor<?>> FAILURE_SENSOR_TO_MONITOR = (ConfigKey) ConfigKeys.newConfigKey(Sensor.class, "failureSensorToMonitor", "", HASensors.ENTITY_FAILED); 
+    public static final ConfigKey<Sensor<?>> FAILURE_SENSOR_TO_MONITOR = (ConfigKey) ConfigKeys.newConfigKey(
+            Sensor.class, 
+            "failureSensorToMonitor", 
+            "The sensor, emitted by an entity, used to trigger its restart. Defaults to 'ha.entityFailed' "
+                    + "(i.e. a 'ServiceFailureDetector' policy detected failure)", 
+            HASensors.ENTITY_FAILED); 
     
     protected final AtomicReference<Long> lastFailureTime = new AtomicReference<Long>();
 
@@ -101,15 +111,13 @@ public class ServiceRestarter extends AbstractPolicy {
                     
                     if (isRunning()) {
                         LOG.info("ServiceRestarter notified; dispatching job for "+entity+" ("+event.getValue()+")");
-                        ((EntityInternal)entity).getExecutionContext().submit(MutableMap.of(), new Runnable() {
-                            @Override public void run() {
-                                onDetectedFailure(event);
-                            }});
+                        getExecutionContext().submit("Analyzing detected failure", () -> onDetectedFailure(event));
                     } else {
                         LOG.warn("ServiceRestarter not running, so not acting on failure detected at "+entity+" ("+event.getValue()+")");
                     }
                 }
             });
+        highlightTriggers(getConfig(FAILURE_SENSOR_TO_MONITOR), entity);
     }
     
     // TODO semaphores would be better to allow at-most-one-blocking behaviour
@@ -117,6 +125,7 @@ public class ServiceRestarter extends AbstractPolicy {
     // (as has been done in ServiceReplacer)
     protected synchronized void onDetectedFailure(SensorEvent<Object> event) {
         if (isSuspended()) {
+            highlightViolation("Failure detected but policy suspended");
             LOG.warn("ServiceRestarter suspended, so not acting on failure detected at "+entity+" ("+event.getValue()+")");
             return;
         }
@@ -126,12 +135,16 @@ public class ServiceRestarter extends AbstractPolicy {
         Long last = lastFailureTime.getAndSet(current);
         long elapsed = last==null ? -1 : current-last;
         if (elapsed>=0 && elapsed <= getConfig(FAIL_ON_RECURRING_FAILURES_IN_THIS_DURATION).toMilliseconds()) {
+            highlightViolation("Failure detected but policy ran "+Duration.millis(elapsed)+" ago (cannot run again within "+getConfig(FAIL_ON_RECURRING_FAILURES_IN_THIS_DURATION)+")");
             onRestartFailed("Restart failure (failed again after "+Time.makeTimeStringRounded(elapsed)+") at "+entity+": "+event.getValue());
             return;
         }
         try {
+            highlightViolation("Failure detected and restart triggered");
             ServiceStateLogic.setExpectedState(entity, Lifecycle.STARTING);
-            Entities.invokeEffector(entity, entity, Startable.RESTART).get();
+            Task<Void> t = Entities.invokeEffector(entity, entity, Startable.RESTART);
+            highlightAction("Restart node on failure", t);
+            t.get();
         } catch (Exception e) {
             onRestartFailed("Restart failure (error "+e+") at "+entity+": "+event.getValue());
         }

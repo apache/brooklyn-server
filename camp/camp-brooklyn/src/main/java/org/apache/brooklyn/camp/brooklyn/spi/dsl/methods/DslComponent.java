@@ -46,7 +46,6 @@ import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
@@ -339,10 +338,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     }
 
     static ExecutionContext findExecutionContext(Object callerContext) {
-        EntityInternal contextEntity = (EntityInternal) BrooklynTaskTags.getTargetOrContextEntity(Tasks.current());
-        ExecutionContext execContext =
-                (contextEntity != null) ? contextEntity.getExecutionContext()
-                                        : BasicExecutionContext.getCurrentExecutionContext();
+        ExecutionContext execContext = BrooklynTaskTags.getCurrentExecutionContext();
         if (execContext == null) {
             throw new IllegalStateException("No execution context available to resolve " + callerContext);
         }

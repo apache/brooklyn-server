@@ -274,7 +274,7 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
             Asserts.shouldHaveFailedPreviously("Expected deployment to fail rebind; instead got "+app2);
         } catch (Exception e) {
             // should fail to rebind this entity
-            Asserts.expectedFailureContainsIgnoreCase(e, more.getId(), "unable to load", BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
+            Asserts.expectedFailureContainsIgnoreCase(e, more.getId(), "class", BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY, "not found");
         }
     }
     
@@ -339,6 +339,10 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
     
     @Test
     public void testClusterWithEntitySpecFromOsgi() throws Exception {
+
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), BROOKLYN_TEST_MORE_ENTITIES_V2_PATH);
+
         // install dependencies
         ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
             new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_OSGI_ENTITIES_URL) ).checkNoError();
@@ -356,7 +360,11 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
         rebind();
     }
 
-    protected RegisteredType installWrappedMoreEntity() {
+    protected RegisteredType installWrappedMoreEntity() throws Exception {
+
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), BROOKLYN_TEST_MORE_ENTITIES_V2_PATH);
+
         ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
             new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_OSGI_ENTITIES_URL) ).checkNoError();
         ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 

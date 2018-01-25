@@ -25,12 +25,15 @@ import java.util.List;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectPredicate;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -112,11 +115,21 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
     abstract Iterable<ConfigKey<?>> getBrooklynObjectTypeConfigKeys();
 
     public Iterable<ConfigKey<?>> getViolations() {
-        return validateAll();
+        ExecutionContext exec = 
+            getBrooklynObject() instanceof EntityInternal ? ((EntityInternal)getBrooklynObject()).getExecutionContext() :
+            getBrooklynObject() instanceof AbstractEntityAdjunct ? ((AbstractEntityAdjunct)getBrooklynObject()).getExecutionContext() :
+            null;
+        if (exec!=null) {
+            return exec.get(
+                Tasks.<Iterable<ConfigKey<?>>>builder().dynamic(false).displayName("Validating config").body(
+                    () -> validateAll() ).build() );
+        } else {
+            return validateAll();
+        }
     }
 
     @SuppressWarnings("unchecked")
-    private Iterable<ConfigKey<?>> validateAll() {
+    protected Iterable<ConfigKey<?>> validateAll() {
         List<ConfigKey<?>> violating = Lists.newLinkedList();
         Iterable<ConfigKey<?>> configKeys = getBrooklynObjectTypeConfigKeys();
         LOG.trace("Checking config keys on {}: {}", getBrooklynObject(), configKeys);

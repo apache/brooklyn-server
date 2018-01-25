@@ -20,6 +20,8 @@ package org.apache.brooklyn.api.mgmt.ha;
 
 import java.util.Map;
 
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 
@@ -42,6 +44,13 @@ import com.google.common.annotations.VisibleForTesting;
 @Beta
 public interface HighAvailabilityManager {
 
+    /** Returns the current node state, including {@link ManagementNodeState#INITIALIZING} on some transitions,
+     * but may return {@link ManagementNodeState#MASTER} before server is persisting.
+     * <p>
+     * See {@link ManagementContext#getNodeState()} to ensure {@link ManagementNodeState#MASTER} is definitive and ready for use.
+     */
+    // Not sure why this has to return MASTER early, comment in impl says to prevent other nodes taking it which sounds plausible.
+    // Don't think we should change that behaviour lightly though, hence extra check in ManagementContextInternal.
     ManagementNodeState getNodeState();
     
     /** The time in milliseconds when the state was last changed. -1 if no state transition has occurred yet.*/
@@ -67,7 +76,7 @@ public interface HighAvailabilityManager {
      * this is called after this HA Manager is started.
      */
     @Beta
-    void disabled();
+    void disabled(boolean persistenceEnabled);
 
     /** Whether HA mode is operational */
     boolean isRunning();

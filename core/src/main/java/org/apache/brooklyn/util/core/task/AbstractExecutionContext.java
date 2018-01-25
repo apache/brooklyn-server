@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.util.collections.MutableMap;
 
 import com.google.common.collect.Maps;
 
@@ -41,11 +42,16 @@ public abstract class AbstractExecutionContext implements ExecutionContext {
     public Task<?> submit(Map<?,?> properties, Runnable runnable) { return submitInternal(properties, runnable); }
     
     /** @see #submit(Map, Runnable) */
-    @Override
+    @Override 
+    public Task<?> submit(String displayName, Runnable runnable) { return submitInternal(MutableMap.of("displayName", displayName), runnable); }
+    @Override @Deprecated
     public Task<?> submit(Runnable runnable) { return submitInternal(Maps.newLinkedHashMap(), runnable); }
+    
  
     /** @see #submit(Map, Runnable) */
-    @Override
+    @Override 
+    public <T> Task<T> submit(String displayName, Callable<T> callable) { return submitInternal(MutableMap.of("displayName", displayName), callable); }
+    @Override @Deprecated
     public <T> Task<T> submit(Callable<T> callable) { return submitInternal(Maps.newLinkedHashMap(), callable); }
     
     /** @see #submit(Map, Runnable) */

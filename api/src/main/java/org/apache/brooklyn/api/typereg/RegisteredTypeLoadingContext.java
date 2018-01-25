@@ -46,7 +46,7 @@ public interface RegisteredTypeLoadingContext {
      * the instantiator can avoid recursive cycles */
     @Nonnull public Set<String> getAlreadyEncounteredTypes();
     
-    /** A loader to use, supplying additional search paths */
+    /** A loader to use, supplying preferred or additional bundles and search paths */
     @Nullable public BrooklynClassLoadingContext getLoader();
     
     /** Optional instructions on how to invoke the constructor,

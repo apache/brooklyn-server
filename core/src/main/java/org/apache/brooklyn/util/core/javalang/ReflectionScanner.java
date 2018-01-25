@@ -106,17 +106,19 @@ public class ReflectionScanner {
     public Store getStore() {
         return reflections.getStore();
     }
-    
+
     /** overrides delegate so as to log rather than throw exception if a class cannot be loaded */
     public <T> Set<Class<? extends T>> getSubTypesOf(final Class<T> type) {
-        Set<String> subTypes = getStore().getSubTypesOf(type.getName());
-        return ImmutableSet.copyOf(this.<T>forNames(subTypes, "sub-type of "+type));
+        return ImmutableSet.copyOf(reflections.getSubTypesOf(type));
     }
     
     /** overrides delegate so as to log rather than throw exception if a class cannot be loaded */
     public Set<Class<?>> getTypesAnnotatedWith(Class<? extends Annotation> annotation) {
-        Set<String> annotatedWith = getStore().getTypesAnnotatedWith(annotation.getName());
-        return ImmutableSet.copyOf(this.forNames(annotatedWith, "annotated "+annotation.getName()));
+        // Second parameter to getTypesAnnotatedWith instructs reflections to honour the
+        // Inherited meta-annotation. When `false` the returned set includes unannotated
+        // classes that implement annotated interfaces. In practice this means that the
+        // Brooklyn catalog would include entity implementations.
+        return ImmutableSet.copyOf(reflections.getTypesAnnotatedWith(annotation, true));
     }
 
     @SuppressWarnings("unchecked")

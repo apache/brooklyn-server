@@ -51,8 +51,6 @@ import org.apache.brooklyn.core.mgmt.usage.UsageManager;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -136,29 +134,6 @@ public class LocalUsageManager implements UsageManager {
         }
     }
     
-    // Register a coercion from String->UsageListener, so that USAGE_LISTENERS defined in brooklyn.properties
-    // will be instantiated, given their class names.
-    static {
-        TypeCoercions.registerAdapter(String.class, UsageListener.class, new Function<String, UsageListener>() {
-            @Override public UsageListener apply(String input) {
-                Class<?> clazz;
-                try {
-                    clazz = new ClassLoaderUtils(this.getClass()).loadClass(input);
-                } catch (ClassNotFoundException e) {
-                    throw new IllegalStateException("Failed to load usage listener class: " + input, e);
-                }
-                Maybe<Object> result = Reflections.invokeConstructorFromArgs(clazz);
-                if (result.isPresentAndNonNull() && result.get() instanceof UsageListener) {
-                    return (UsageListener) result.get();
-                } else if (result.isPresent()) {
-                    throw new IllegalStateException("Object is not a UsageListener: " + result.get());
-                } else {
-                    throw new IllegalStateException("Failed to create UsageListener from class name '"+input+"' using no-arg constructor");
-                }
-            }
-        });
-    }
-    
     @VisibleForTesting
     public static final String APPLICATION_USAGE_KEY = "usage-application";
     
@@ -179,6 +154,12 @@ public class LocalUsageManager implements UsageManager {
 
     public LocalUsageManager(LocalManagementContext managementContext) {
         this.managementContext = checkNotNull(managementContext, "managementContext");
+        
+        // Register a coercion from String->UsageListener, so that USAGE_LISTENERS defined in brooklyn.properties
+        // will be instantiated, given their class names.
+        TypeCoercions.BrooklynCommonAdaptorTypeCoercions.registerInstanceForClassnameAdapter(
+                new ClassLoaderUtils(this.getClass(), managementContext), 
+                UsageListener.class);
         
         // Although changing listeners to Collection<UsageListener> is valid at compile time
         // the collection will contain any objects that could not be coerced by the function

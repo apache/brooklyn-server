@@ -171,6 +171,26 @@ public class DynamicClusterTest extends AbstractDynamicClusterOrFabricTest {
     }
 
     @Test
+    public void testMemberSpecNotInherited() throws Exception {
+        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class)));
+        DynamicCluster child = cluster.addChild(EntitySpec.create(DynamicCluster.class));
+        Asserts.assertNull(child.getConfig(DynamicCluster.MEMBER_SPEC));
+        DynamicCluster memberChild = cluster.addMemberChild(EntitySpec.create(DynamicCluster.class));
+        Asserts.assertNull(memberChild.getConfig(DynamicCluster.MEMBER_SPEC));
+    }
+
+    @Test
+    public void testFirstMemberSpecNotInherited() throws Exception {
+        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.FIRST_MEMBER_SPEC, EntitySpec.create(TestEntity.class)));
+        DynamicCluster child = cluster.addChild(EntitySpec.create(DynamicCluster.class));
+        Asserts.assertNull(child.getConfig(DynamicCluster.FIRST_MEMBER_SPEC));
+        DynamicCluster memberChild = cluster.addMemberChild(EntitySpec.create(DynamicCluster.class));
+        Asserts.assertNull(memberChild.getConfig(DynamicCluster.FIRST_MEMBER_SPEC));
+    }
+
+    @Test
     public void testClusterHasOneLocationAfterStarting() throws Exception {
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
                 .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class)));
@@ -1127,7 +1147,7 @@ public class DynamicClusterTest extends AbstractDynamicClusterOrFabricTest {
         
         // and after re-size
         cluster.resize(4);
-//        Entities.dumpInfo(cluster);
+//        Dumper.dumpInfo(cluster);
         assertFirstAndNonFirstCounts(cluster.getMembers(), 1, 3);
         
         // and re-size to 1
@@ -1325,12 +1345,8 @@ public class DynamicClusterTest extends AbstractDynamicClusterOrFabricTest {
                 .body(new Callable<Boolean>() {
                     @Override
                     public Boolean call() throws Exception {
-                        Task<Entity> first = DependentConfiguration.attributeWhenReady(cluster, DynamicCluster.FIRST);
-                        DynamicTasks.queueIfPossible(first).orSubmitAsync();
-                        final Entity source = first.get();
-                        final Task<Boolean> booleanTask = DependentConfiguration.attributeWhenReady(source, Attributes.SERVICE_UP);
-                        DynamicTasks.queueIfPossible(booleanTask).orSubmitAsync();
-                        return booleanTask.get();
+                        final Entity source = DynamicTasks.get( DependentConfiguration.attributeWhenReady(cluster, DynamicCluster.FIRST) );
+                        return DynamicTasks.get( DependentConfiguration.attributeWhenReady(source, Attributes.SERVICE_UP) );
                     }
                 })
                 .build();
@@ -1382,18 +1398,40 @@ public class DynamicClusterTest extends AbstractDynamicClusterOrFabricTest {
     public void testClusterMaxSize() {
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
                 .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class))
-                .configure(DynamicCluster.INITIAL_SIZE, 2)
-                .configure(DynamicCluster.MAX_SIZE, 6));
+                .configure(DynamicCluster.INITIAL_SIZE, 1)
+                .configure(DynamicCluster.MAX_SIZE, 1));
         cluster.start(ImmutableList.of(loc));
-
-        cluster.resize(4);
-        EntityAsserts.assertAttributeEqualsEventually(cluster, DynamicCluster.GROUP_SIZE, 4);
         try {
-            cluster.resize(8);
+            cluster.resize(3);
             Asserts.shouldHaveFailedPreviously("Cluster resize should have failed because max size was exceeded");
         } catch (Exception e) {
             assertNotNull(Exceptions.getFirstThrowableOfType(e, Resizable.InsufficientCapacityException.class), "Expected InsufficientCapacityException");
         }
+        // resizeByDelta should also fail.
+        try {
+            cluster.resizeByDelta(2);
+            Asserts.shouldHaveFailedPreviously("Cluster resize should have failed because max size was exceeded");
+        } catch (Exception e) {
+            assertNotNull(Exceptions.getFirstThrowableOfType(e, Resizable.InsufficientCapacityException.class), "Expected InsufficientCapacityException");
+        }
+    }
+
+    @Test
+    public void testGrowsToClusterMaxSize() {
+        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class))
+                .configure(DynamicCluster.INITIAL_SIZE, 1)
+                .configure(DynamicCluster.MAX_SIZE, 3));
+        cluster.start(ImmutableList.of(loc));
+
+        cluster.resize(4);
+        Assert.assertEquals(cluster.getCurrentSize(), Integer.valueOf(3));
+        Assert.assertEquals(Iterables.size(Iterables.filter(Entities.descendantsAndSelf(app), TestEntity.class)), 3);
+        
+        cluster.resize(1);
+        cluster.resizeByDelta(3);
+        Assert.assertEquals(cluster.getCurrentSize(), Integer.valueOf(3));
+        Assert.assertEquals(Iterables.size(Iterables.filter(Entities.descendantsAndSelf(app), TestEntity.class)), 3);
     }
 
     @ImplementedBy(ThrowOnAsyncStartEntityImpl.class)

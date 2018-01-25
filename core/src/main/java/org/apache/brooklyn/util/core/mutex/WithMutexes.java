@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.util.core.mutex;
 
+import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
+
 /** interface which allows multiple callers to co-operate using named mutexes, inspectably,
  * and containing implementation as inner class
  * <p>
@@ -31,8 +33,10 @@ public interface WithMutexes {
     public boolean hasMutex(String mutexId);
     
     /** acquires a mutex, if available, otherwise blocks on its becoming available;
-     * caller must release after use */
-    public void acquireMutex(String mutexId, String description) throws InterruptedException;
+     * caller must release after use
+     * @throws RuntimeInterruptedException if the thread was interrupted waiting for the underlying mutex
+     */
+    public void acquireMutex(String mutexId, String description);
 
     /** acquires a mutex and returns true, if available; otherwise immediately returns false;
      * caller must release after use if this returns true */

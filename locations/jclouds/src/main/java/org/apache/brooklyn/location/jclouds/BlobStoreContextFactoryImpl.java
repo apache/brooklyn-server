@@ -27,9 +27,9 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
+import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingJcloudsRenamesProvider;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.jclouds.Constants;
 import org.jclouds.ContextBuilder;
 import org.jclouds.blobstore.BlobStoreContext;
@@ -88,7 +88,7 @@ public class BlobStoreContextFactoryImpl implements BlobStoreContextFactory {
         overrides.setProperty(Constants.PROPERTY_STRIP_EXPECT_HEADER, "true");
 
         // Add extra jclouds-specific configuration
-        Map<String, Object> extra = Maps.filterKeys(location.getAllConfig(true), Predicates.containsPattern("^jclouds\\."));
+        Map<String, Object> extra = Maps.filterKeys(((LocationInternal)location).config().getBag().getAllConfig(), Predicates.containsPattern("^jclouds\\."));
         if (extra.size() > 0) {
             LOG.debug("Configuring custom jclouds property overrides for {}: {}", provider, Sanitizer.sanitize(extra));
         }

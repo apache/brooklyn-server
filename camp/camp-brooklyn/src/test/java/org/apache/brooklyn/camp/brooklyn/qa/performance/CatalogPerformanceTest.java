@@ -85,7 +85,7 @@ public class CatalogPerformanceTest extends AbstractYamlTest {
                 "    description: My description",
                 "    item:",
                 "      type: " + TestPolicy.class.getName());
-        return ImmutableList.copyOf(mgmt().getCatalog().addItems(yaml, false));
+        return ImmutableList.copyOf(mgmt().getCatalog().addItems(yaml));
     }
     
     @Test(groups={"Integration"})

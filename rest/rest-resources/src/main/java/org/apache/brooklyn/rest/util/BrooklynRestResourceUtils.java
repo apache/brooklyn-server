@@ -38,7 +38,10 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationRegistry;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
+import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
@@ -112,6 +115,16 @@ public class BrooklynRestResourceUtils {
     public Policy getPolicy(String application, String entity, String policy) {
         return getPolicy(getEntity(application, entity), policy);
     }
+    
+    /** finds the policy indicated by the given ID or name.
+     * @see {@link #getEntity(String,String)}; it then searches the policies of that
+     * entity for one whose ID or name matches that given.
+     * <p>
+     * 
+     * @throws 404 or 412 (unless input is null in which case output is null) */
+    public EntityAdjunct getAdjunct(String application, String entity, String adjunct) {
+        return getAdjunct(getEntity(application, entity), adjunct);
+    }
 
     /** finds the policy indicated by the given ID or name.
      * @see {@link #getPolicy(String,String,String)}.
@@ -129,6 +142,37 @@ public class BrooklynRestResourceUtils {
         }
         
         throw WebResourceUtils.notFound("Cannot find policy '%s' in entity '%s'", policy, entity);
+    }
+    
+    /** finds the policy indicated by the given ID or name.
+     * @see {@link #getAdjunct(String,String,String)}.
+     * <p>
+     * 
+     * @throws 404 or 412 (unless input is null in which case output is null) */
+    public EntityAdjunct getAdjunct(Entity entity, String adjunct) {
+        if (adjunct==null) return null;
+
+        for (Policy p: entity.policies()) {
+            if (adjunct.equals(p.getId())) return p;
+        }
+        for (Enricher p: entity.enrichers()) {
+            if (adjunct.equals(p.getId())) return p;
+        }
+        for (Feed p: ((EntityInternal)entity).feeds()) {
+            if (adjunct.equals(p.getId())) return p;
+        }
+        
+        for (Policy p: entity.policies()) {
+            if (adjunct.equals(p.getDisplayName())) return p;
+        }
+        for (Enricher p: entity.enrichers()) {
+            if (adjunct.equals(p.getDisplayName())) return p;
+        }
+        for (Feed p: ((EntityInternal)entity).feeds()) {
+            if (adjunct.equals(p.getDisplayName())) return p;
+        }
+        
+        throw WebResourceUtils.notFound("Cannot find adjunct '%s' in entity '%s'", adjunct, entity);
     }
 
     /** finds the entity indicated by the given ID or name

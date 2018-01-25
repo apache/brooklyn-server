@@ -39,6 +39,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
@@ -75,11 +76,15 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
     public static final BasicNotificationSensor<FailureDescriptor> ENTITY_FAILED = HASensors.ENTITY_FAILED;
 
     @SetFromFlag("onlyReportIfPreviouslyUp")
-    public static final ConfigKey<Boolean> ENTITY_FAILED_ONLY_IF_PREVIOUSLY_UP = ConfigKeys.newBooleanConfigKey("onlyReportIfPreviouslyUp", 
-        "Prevents the policy from emitting ENTITY_FAILED if the entity fails on startup (ie has never been up)", true);
+    public static final ConfigKey<Boolean> ENTITY_FAILED_ONLY_IF_PREVIOUSLY_UP = ConfigKeys.newBooleanConfigKey(
+            "onlyReportIfPreviouslyUp", 
+            "Prevents the policy from emitting ENTITY_FAILED if the entity fails on startup (ie has never been up)", 
+            true);
     
-    public static final ConfigKey<Boolean> MONITOR_SERVICE_PROBLEMS = ConfigKeys.newBooleanConfigKey("monitorServiceProblems", 
-        "Whether to monitor service problems, and emit on failures there (if set to false, this monitors only service up)", true);
+    public static final ConfigKey<Boolean> MONITOR_SERVICE_PROBLEMS = ConfigKeys.newBooleanConfigKey(
+            "monitorServiceProblems", 
+            "Whether to monitor service problems, and emit on failures there (if set to false, this monitors only service up)", 
+            true);
 
     @SetFromFlag("serviceOnFireStabilizationDelay")
     public static final ConfigKey<Duration> SERVICE_ON_FIRE_STABILIZATION_DELAY = BasicConfigKey.builder(Duration.class)
@@ -237,7 +242,7 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                         publishEntityFailedTime = now + republishDelay.toMilliseconds();
                         recomputeIn = Math.min(recomputeIn, republishDelay.toMilliseconds());
                     }
-                    entity.sensors().emit(HASensors.ENTITY_FAILED, new HASensors.FailureDescriptor(entity, getFailureDescription(now)));
+                    emit(HASensors.ENTITY_FAILED, new HASensors.FailureDescriptor(entity, getFailureDescription(now)));
                     config().set(LAST_PUBLISHED, LastPublished.FAILED);
                 } else {
                     recomputeIn = Math.min(recomputeIn, delayBeforeCheck);
@@ -248,7 +253,7 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                     if (LOG.isDebugEnabled()) LOG.debug("{} publishing recovered (state={}; currentRecoveryStartTime={}; now={}", 
                             new Object[] {this, state, Time.makeDateString(currentRecoveryStartTime), Time.makeDateString(now)});
                     publishEntityRecoveredTime = null;
-                    entity.sensors().emit(HASensors.ENTITY_RECOVERED, new HASensors.FailureDescriptor(entity, null));
+                    emit(HASensors.ENTITY_RECOVERED, new HASensors.FailureDescriptor(entity, null));
                     config().set(LAST_PUBLISHED, LastPublished.RECOVERED);
                 } else {
                     recomputeIn = Math.min(recomputeIn, delayBeforeCheck);
@@ -310,7 +315,6 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
         return description;
     }
     
-    @SuppressWarnings({ "rawtypes" })
     protected void recomputeAfterDelay(long delay) {
         // TODO Execute in same thread as other onEvent calls are done in (i.e. same conceptually 
         // single-threaded executor as the subscription-manager will use).
@@ -348,8 +352,9 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
             }
         };
         
-        ScheduledTask task = new ScheduledTask(MutableMap.of("delay", Duration.of(delay, TimeUnit.MILLISECONDS)), new BasicTask(job));
-        ((EntityInternal)entity).getExecutionContext().submit(task);
+        ScheduledTask task = ScheduledTask.builder(() -> Tasks.builder().body(job).dynamic(false).displayName("Failure detector recompute").build())
+            .delay(Duration.millis(delay)).displayName("Failure detector recompute after delay").build();
+        getExecutionContext().submit(task);
     }
     
     private String getTimeStringSince(Long time) {

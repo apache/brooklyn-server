@@ -25,6 +25,7 @@ import java.util.NoSuchElementException;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
@@ -45,24 +46,60 @@ public interface BrooklynCatalog {
      * {@link CatalogItem#getSymbolicName() symbolicName} 
      * and optionally {@link CatalogItem#getVersion()},
      * taking the best version if the version is {@link #DEFAULT_VERSION} or null,
-     * returning null if no matches are found. */
+     * returning null if no matches are found. 
+     * @deprecated since 0.12.0 use {@link BrooklynTypeRegistry} instead */ 
+    @Deprecated
     CatalogItem<?,?> getCatalogItem(String symbolicName, String version);
+    
+    /** As {@link #getCatalogItem(String, String)} but only looking in legacy catalog
+     * @deprecated since 0.12.0 only provided to allow TypeRegistry to see the legacy items */
+    @Deprecated
+    CatalogItem<?,?> getCatalogItemLegacy(String symbolicName, String version);
 
     /** @return Deletes the item with the given {@link CatalogItem#getSymbolicName()
      * symbolicName} and version
-     * @throws NoSuchElementException if not found */
+     * @throws NoSuchElementException if not found 
+     * @deprecated since 0.12.0 use {@link BrooklynTypeRegistry} instead */
+    @Deprecated
     void deleteCatalogItem(String symbolicName, String version);
 
+    /** Deletes the item with the given {@link CatalogItem#getSymbolicName()
+     * symbolicName} and version
+     * @throws NoSuchElementException if not found 
+     * @deprecated since introduced in 1.0.0, only used for transitioning */
+    @Deprecated
+    void deleteCatalogItem(String symbolicName, String version, boolean alsoCheckTypeRegistry, boolean failIfNotFound);
+    
     /** variant of {@link #getCatalogItem(String, String)} which checks (and casts) type for convenience
-     * (returns null if type does not match) */
+     * (returns null if type does not match)
+     * @deprecated since 0.12.0 use {@link BrooklynTypeRegistry} instead */ 
+    @Deprecated
     <T,SpecT> CatalogItem<T,SpecT> getCatalogItem(Class<T> type, String symbolicName, String version);
+    
+    /** As non-legacy method but only looking in legacy catalog
+     * @deprecated since 0.12.0 only provided to allow TypeRegistry to see the legacy items */
+    @Deprecated
+    <T,SpecT> CatalogItem<T,SpecT> getCatalogItemLegacy(Class<T> type, String symbolicName, String version);
 
-    /** @return All items in the catalog */
+    /** @return All items in the catalog
+     * @deprecated since 0.12.0 use {@link BrooklynTypeRegistry} instead */ 
+    @Deprecated
     <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItems();
 
-    /** convenience for filtering items in the catalog; see CatalogPredicates for useful filters */
-//    XXX
+    /** As non-legacy method but only looking in legacy catalog
+     * @deprecated since 0.12.0 only provided to allow TypeRegistry to see the legacy items */
+    @Deprecated
+    <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItemsLegacy();
+
+    /** convenience for filtering items in the catalog; see CatalogPredicates for useful filters
+     * @deprecated since 0.12.0 use {@link BrooklynTypeRegistry} instead */ 
+    @Deprecated
     <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItems(Predicate<? super CatalogItem<T,SpecT>> filter);
+
+    /** As non-legacy method but only looking in legacy catalog
+     * @deprecated since 0.12.0 only provided to allow TypeRegistry to see the legacy items */
+    @Deprecated
+    <T,SpecT> Iterable<CatalogItem<T,SpecT>> getCatalogItemsLegacy(Predicate<? super CatalogItem<T,SpecT>> filter);
 
     /** persists the catalog item to the object store, if persistence is enabled */
     public void persist(CatalogItem<?, ?> catalogItem);
@@ -123,37 +160,16 @@ public interface BrooklynCatalog {
     @Beta  // method may move elsewhere
     Collection<Throwable> validateType(RegisteredType typeToValidate, @Nullable RegisteredTypeLoadingContext optionalConstraint);
 
-
-    /**
-     * Adds an item (represented in yaml) to the catalog.
-     * Fails if the same version exists in catalog.
-     *
-     * @throws IllegalArgumentException if the yaml was invalid
-     * @deprecated since 0.7.0 use {@link #addItems(String, boolean)}
-     */
-    @Deprecated
-    CatalogItem<?,?> addItem(String yaml);
-    
-    /**
-     * Adds an item (represented in yaml) to the catalog.
-     * 
-     * @param forceUpdate If true allows catalog update even when an
-     * item exists with the same symbolicName and version
-     *
-     * @throws IllegalArgumentException if the yaml was invalid
-     * @deprecated since 0.7.0 use {@link #addItems(String, boolean)}
-     */
-    @Deprecated
-    CatalogItem<?,?> addItem(String yaml, boolean forceUpdate);
-    
     /**
      * As {@link #addItemsFromBundle(String, ManagedBundle)} with a null bundle.
+     * (Only used for legacy-mode additions.) 
      */
     Iterable<? extends CatalogItem<?,?>> addItems(String yaml);
     
     /**
      * Adds items (represented in yaml) to the catalog coming from the indicated managed bundle.
      * Fails if the same version exists in catalog (unless snapshot).
+     * (Only used for legacy-mode additions.) 
      *
      * @throws IllegalArgumentException if the yaml was invalid
      */
@@ -161,15 +177,33 @@ public interface BrooklynCatalog {
     
     /**
      * Adds items (represented in yaml) to the catalog.
+     * (Only used for legacy-mode additions.) 
      * 
      * @param forceUpdate If true allows catalog update even when an
      * item exists with the same symbolicName and version
      *
      * @throws IllegalArgumentException if the yaml was invalid
+     * 
+     * @deprecated since 1.0.0 use {@link #addItems(String)} or {@link #addItems(String, boolean, boolean)}
      */
+    @Deprecated
     Iterable<? extends CatalogItem<?,?>> addItems(String yaml, boolean forceUpdate);
     
-    /** As {@link #addItems(String, ManagedBundle)} but exposing forcing option as per {@link #addItem(String, boolean)}. */
+    /**
+     * Adds items (represented in yaml) to the catalog.
+     * (Only used for legacy-mode additions.) 
+     * 
+     * @param validate Whether to validate the types (default true)
+     *
+     * @param forceUpdate If true allows catalog update even when an
+     * item exists with the same symbolicName and version
+     *
+     * @throws IllegalArgumentException if the yaml was invalid
+     */
+    Iterable<? extends CatalogItem<?,?>> addItems(String yaml, boolean validate, boolean forceUpdate);
+    
+    /** As {@link #addItems(String, ManagedBundle)} but exposing forcing option as per {@link #addItem(String, boolean)}. 
+     * (Only used for legacy-mode additions.) */
     Iterable<? extends CatalogItem<?,?>> addItems(String yaml, ManagedBundle bundle, boolean forceUpdate);
     
     /**
@@ -181,6 +215,17 @@ public interface BrooklynCatalog {
     // TODO maybe this should stay on the API? -AH Apr 2015 
     @Deprecated
     void addItem(CatalogItem<?,?> item);
+
+    /**
+     * adds the given items to the catalog, similar to {@link #reset(Collection)} but where it 
+     * just adds without removing the existing content. Note this is very different from 
+     * {@link #addItem(CatalogItem)}, which adds to the 'manual' catalog.
+     *
+     * @since 1.0.0 (only for legacy backwards compatibility)
+     * @deprecated since 1.0.0; instead use bundles in persisted state!
+     */
+    @Deprecated
+    void addCatalogLegacyItemsOnRebind(Iterable<? extends CatalogItem<?,?>> items);
 
     /**
      * Creates a catalog item and adds it to the 'manual' catalog,

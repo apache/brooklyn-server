@@ -66,7 +66,7 @@ public class BrooklynAccessUtils {
         // look up port forwarding
         PortForwardManager pfw = entity.getConfig(PORT_FORWARDING_MANAGER);
         if (pfw == null) {
-            log.debug("No PortForwardManager, using default");
+            log.trace("No PortForwardManager, using default");
             pfw = (PortForwardManager) entityInternal.getManagementContext().getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         }
 
@@ -119,7 +119,7 @@ public class BrooklynAccessUtils {
     public static String getResolvedAddress(Entity entity, SshMachineLocation origin, String hostnameTarget) {
         ProcessTaskWrapper<Integer> task = SshTasks.newSshExecTaskFactory(origin, "ping -c 1 -t 1 "+hostnameTarget)
             .summary("checking resolution of "+hostnameTarget).allowingNonZeroExitCode().newTask();
-        DynamicTasks.queueIfPossible(task).orSubmitAndBlock(entity).asTask().blockUntilEnded();
+        DynamicTasks.queueIfPossible(task).orSubmitAndBlock(entity).getTask().blockUntilEnded();
         if (task.asTask().isError()) {
             log.warn("ping could not be run, at "+entity+" / "+origin+": "+Tasks.getError(task.asTask()));
             return "";

@@ -209,7 +209,13 @@ public class BundleMakerTest extends BrooklynMgmtUnitTestSupport {
                 "Manifest-Version: 1.2.3\r\n" + 
                 "mykey: myval\r\n" +
                 "\r\n";
-        assertJarContents(generatedJar, ImmutableMap.of(JarFile.MANIFEST_NAME, expectedManifest, "myfile.txt", "mytext", "subdir/myfile2.txt", "mytext2"), false);
+        assertJarContents(generatedJar, 
+                ImmutableMap.of(
+                        JarFile.MANIFEST_NAME, expectedManifest,
+                        "myfile.txt", "mytext",
+                        "myemptyfile.txt", "", 
+                        "subdir/myfile2.txt", "mytext2"),
+                false);
     }
     
     @SuppressWarnings("deprecation")

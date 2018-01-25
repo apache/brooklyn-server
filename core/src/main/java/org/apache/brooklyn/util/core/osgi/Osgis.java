@@ -26,7 +26,6 @@ import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.jar.JarInputStream;
 import java.util.jar.Manifest;
 
@@ -47,6 +46,7 @@ import org.apache.brooklyn.util.text.VersionComparator;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.Version;
+import org.osgi.framework.VersionRange;
 import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -173,19 +173,31 @@ public class Osgis {
             boolean urlMatched = false;
             List<Bundle> result = MutableList.of();
             String v=null, vDep = null;
+            VersionRange vRange = null;
             if (version!=null) {
-                v = BrooklynVersionSyntax.toValidOsgiVersion(version);
-                vDep = OsgiUtils.toOsgiVersion(version);
+                if (isVersionRange(version)) {
+                    vRange = VersionRange.valueOf(version);
+                } else {
+                    v = BrooklynVersionSyntax.toValidOsgiVersion(version);
+                    vDep = OsgiUtils.toOsgiVersion(version);
+                }
             }
             for (Bundle b: framework.getBundleContext().getBundles()) {
                 if (symbolicName!=null && !symbolicName.equals(b.getSymbolicName())) continue;
                 if (version!=null) {
-                    String bv = b.getVersion().toString();
-                    if (!v.equals(bv)) {
-                        if (!vDep.equals(bv)) {
+                    Version bv = b.getVersion();
+                    if (vRange != null) {
+                        if (!vRange.includes(bv)) {
                             continue;
                         }
-                        LOG.warn("Legacy inferred OSGi version string '"+vDep+"' found to match "+symbolicName+":"+version+"; switch to '"+v+"' format to avoid issues with deprecated version syntax");
+                    } else {
+                        String bvString = bv.toString();
+                        if (!v.equals(bvString)) {
+                            if (!vDep.equals(bvString)) {
+                                continue;
+                            }
+                            LOG.warn("Legacy inferred OSGi version string '"+vDep+"' found to match "+symbolicName+":"+version+"; switch to '"+v+"' format to avoid issues with deprecated version syntax");
+                        }
                     }
                 }
                 if (!Predicates.and(predicates).apply(b)) continue;
@@ -262,43 +274,16 @@ public class Osgis {
             predicates.add(predicate);
             return this;
         }
+        
+        private boolean isVersionRange(String version) {
+            return (version != null) && (version.length() > 2) 
+                    && (version.charAt(0) == VersionRange.LEFT_OPEN || version.charAt(0) == VersionRange.LEFT_CLOSED)
+                    && (version.charAt(version.length()-1) == VersionRange.RIGHT_OPEN || version.charAt(version.length()-1) == VersionRange.RIGHT_CLOSED);
+        }
     }
     
     public static BundleFinder bundleFinder(Framework framework) {
         return new BundleFinder(framework);
-    }
-
-    /** @deprecated since 0.7.0 use {@link #bundleFinder(Framework)} */ @Deprecated
-    public static List<Bundle> getBundlesByName(Framework framework, String symbolicName, Predicate<Version> versionMatcher) {
-        return bundleFinder(framework).symbolicName(symbolicName).version(versionMatcher).findAll();
-    }
-
-    /** @deprecated since 0.7.0 use {@link #bundleFinder(Framework)} */ @Deprecated
-    public static List<Bundle> getBundlesByName(Framework framework, String symbolicName) {
-        return bundleFinder(framework).symbolicName(symbolicName).findAll();
-    }
-
-    /**
-     * Tries to find a bundle in the given framework with name matching either `name' or `name:version'.
-     * @deprecated since 0.7.0 use {@link #bundleFinder(Framework)} */ @Deprecated
-    public static Maybe<Bundle> getBundle(Framework framework, String symbolicNameOptionallyWithVersion) {
-        return bundleFinder(framework).id(symbolicNameOptionallyWithVersion).find();
-    }
-    
-    /** @deprecated since 0.7.0 use {@link #bundleFinder(Framework)} */ @Deprecated
-    public static Maybe<Bundle> getBundle(Framework framework, String symbolicName, String version) {
-        return bundleFinder(framework).symbolicName(symbolicName).version(version).find();
-    }
-
-    /** @deprecated since 0.7.0 use {@link #bundleFinder(Framework)} */ @Deprecated
-    public static Maybe<Bundle> getBundle(Framework framework, String symbolicName, Version version) {
-        return bundleFinder(framework).symbolicName(symbolicName).version(Predicates.equalTo(version)).findUnique();
-    }
-
-    /** @deprecated since 0.9.0, replaced by {@link #getFramework(java.lang.String, boolean) } */
-    @Deprecated
-    public static Framework newFrameworkStarted(String felixCacheDir, boolean clean, Map<?,?> extraStartupConfig) {
-        return getFramework(felixCacheDir, clean);
     }
 
     /** 
@@ -325,20 +310,6 @@ public class Osgis {
      */
     public static void ungetFramework(Framework framework) {
         SystemFrameworkLoader.get().ungetFramework(framework);
-    }
-
-
-
-    /** @deprecated since 0.9.0, replaced with {@link OsgiUtils#getVersionedId(org.osgi.framework.Bundle) } */
-    @Deprecated
-    public static String getVersionedId(Bundle b) {
-        return OsgiUtils.getVersionedId(b);
-    }
-
-    /** @deprecated since 0.9.0, replaced with {@link OsgiUtils#getVersionedId(java.util.jar.Manifest) } */
-    @Deprecated
-    public static String getVersionedId(Manifest manifest) {
-        return OsgiUtils.getVersionedId(manifest);
     }
 
     /**
@@ -431,16 +402,9 @@ public class Osgis {
         return ResourceUtils.create(Osgis.class).getResourceFromUrl(url);
     }
 
-    /** @deprecated since 0.9.0, replaced with {@code SystemFrameworkLoader.get().isSystemBundle(bundle)} */
-    @Deprecated
-    public static boolean isExtensionBundle(Bundle bundle) {
-        return SystemFrameworkLoader.get().isSystemBundle(bundle);
-    }
-
     @Beta
     public static Optional<Bundle> getBundleOf(Class<?> clazz) {
         Bundle bundle = org.osgi.framework.FrameworkUtil.getBundle(clazz);
         return Optional.fromNullable(bundle);
     }
-
 }

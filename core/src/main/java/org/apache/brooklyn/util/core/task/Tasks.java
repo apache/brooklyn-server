@@ -21,8 +21,10 @@ package org.apache.brooklyn.util.core.task;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -37,6 +39,7 @@ import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.mgmt.TaskQueueingContext;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
@@ -170,9 +173,9 @@ public class Tasks {
      * 
      *   {@code Object result = resolveDeepValue(ImmutableList.of(ImmutableMap.of(1, true)), String.class, exec)} 
      *
-     * To perform a deep conversion of futures contained within Iterables or Maps without coercion of each element,
+     * To perform a deep conversion of futures contained within a {@link Collection} or {@link Map} without coercion of each element,
      * the type should normally be Object, not the type of the collection. This differs from
-     * {@link #resolveValue(Object, Class, ExecutionContext, String)} which will accept Map and Iterable
+     * {@link #resolveValue(Object, Class, ExecutionContext, String)} which will accept {@link Map} and {@link Collection}
      * as the required type.
      */
     public static <T> T resolveDeepValue(Object v, Class<T> type, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
@@ -190,6 +193,16 @@ public class Tasks {
 
     public static <T> TaskBuilder<T> builder() {
         return TaskBuilder.<T>builder();
+    }
+
+    /** Convenience for {@link TaskBuilder#of(String, Runnable)} for basic tasks.
+     * See also {@link DynamicTasks#of(String, Runnable)}. */
+    public static Task<Void> of(String name, Runnable body) {
+        return TaskBuilder.of(name, body).dynamic(false).build();
+    }
+    /** As {@link #of(String, Runnable)} where the task returns a result. */
+    public static <T> Task<T> of(String name, Callable<T> body) {
+        return TaskBuilder.of(name, body).dynamic(false).build();
     }
     
     private static Task<?>[] asTasks(TaskAdaptable<?> ...tasks) {
@@ -234,7 +247,7 @@ public class Tasks {
         return sequential(name, asTasks(Iterables.toArray(tasks, TaskAdaptable.class)));
     }
     private static Task<List<?>> sequentialInternal(String name, Task<?>[] tasks) {
-        return Tasks.<List<?>>builder().displayName(name).parallel(false).add(tasks).build();
+        return Tasks.<List<?>>builder().displayName(name).dynamic(false).parallel(false).add(tasks).build();
     }
     private static TaskFactory<?> sequentialInternal(final String name, final TaskFactory<?> ...taskFactories) {
         return new TaskFactory<TaskAdaptable<?>>() {
@@ -253,7 +266,7 @@ public class Tasks {
     public static <T> T tag(@Nullable Task<?> task, Class<T> type, boolean recurseHierarchy) {
         // support null task to make it easier for callers to walk hierarchies
         if (task==null) return null;
-        for (Object tag: task.getTags())
+        for (Object tag: TaskTags.getTagsFast(task))
             if (type.isInstance(tag)) return (T)tag;
         if (!recurseHierarchy) return null;
         return tag(task.getSubmittedByTask(), type, true);
@@ -278,11 +291,11 @@ public class Tasks {
     }
     
     /**
-     * Adds the given task to the given context. Does not throw an exception if the addition fails.
-     * @return true if the task was added, false otherwise.
+     * Adds the given task to the given context. Does not throw an exception if the addition fails or would fail.
+     * @return true if the task was added, false otherwise including if context is null or thread is interrupted.
      */
     public static boolean tryQueueing(TaskQueueingContext adder, TaskAdaptable<?> task) {
-        if (task==null || isQueued(task))
+        if (task==null || adder==null || isQueued(task) || Thread.currentThread().isInterrupted())
             return false;
         try {
             adder.queue(task.asTask());
@@ -356,7 +369,10 @@ public class Tasks {
         } }).build();
     }
     public static Task<Void> warning(final String message, final Throwable optionalError) {
-        log.warn(message);
+        return warning(message, optionalError, true);
+    }
+    public static Task<Void> warning(final String message, final Throwable optionalError, boolean logWarning) {
+        if (logWarning) log.warn(message);
         return TaskTags.markInessential(fail(message, optionalError));
     }
 
@@ -502,20 +518,34 @@ public class Tasks {
     }
 
 
+    /**
+     * @deprecated since 1.0.0; instead use {@link Dumper} methods
+     */
+    @Deprecated
     public static void dumpInfo(Task<?> t) {
-        try {
-            dumpInfo(t, new PrintWriter(System.out), "", "  ");
-        } catch (IOException exc) {
-            // system.out throwing an exception is odd, so don't have IOException on signature
-            throw new RuntimeException(exc);
-        }
+        Dumper.dumpInfo(t);
     }
+    
+    /**
+     * @deprecated since 1.0.0; instead use {@link Dumper} methods
+     */
+    @Deprecated
     public static void dumpInfo(Task<?> t, Writer out) throws IOException {
-        dumpInfo(t, out, "", "  ");
+        Dumper.dumpInfo(t, out);
     }
+    
+    /**
+     * @deprecated since 1.0.0; instead use {@link Dumper} methods
+     */
+    @Deprecated
     public static void dumpInfo(Task<?> t, String currentIndentation, String tab) throws IOException {
         dumpInfo(t, new PrintWriter(System.out), currentIndentation, tab);
     }
+    
+    /**
+     * @deprecated since 1.0.0; instead use {@link Dumper} methods
+     */
+    @Deprecated
     public static void dumpInfo(Task<?> t, Writer out, String currentIndentation, String tab) throws IOException {
         out.append(currentIndentation+t+": "+t.getStatusDetail(false)+"\n");
 

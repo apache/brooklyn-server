@@ -63,13 +63,20 @@ public interface AbstractGroup extends Entity, Group, Changeable {
     ConfigKey<Boolean> MEMBER_DELEGATE_CHILDREN = ConfigKeys.newBooleanConfigKey(
             "group.members.delegate", "Deprecated: Add delegate child entities for members of the group", Boolean.FALSE);
 
+    /**
+     * @deprecated since 0.12.0, but was only ever used in {@link #MEMBER_DELEGATE_CHILDREN} was set (so effectively deprecated since 0.9.0).
+     */
+    @Deprecated
     ConfigKey<String> MEMBER_DELEGATE_NAME_FORMAT = ConfigKeys.newStringConfigKey(
-            "group.members.delegate.nameFormat", "Delegate members name format string (Use %s for the original entity display name)", "%s");
+            "group.members.delegate.nameFormat", 
+            "Deprecated: Delegate members name format string (Use %s for the original entity display name)", 
+            "%s");
 
-    public static final ConfigKey<QuorumCheck> UP_QUORUM_CHECK = ConfigKeys.newConfigKeyWithDefault(ComputeServiceIndicatorsFromChildrenAndMembers.UP_QUORUM_CHECK, 
+    ConfigKey<QuorumCheck> UP_QUORUM_CHECK = ConfigKeys.newConfigKeyWithDefault(ComputeServiceIndicatorsFromChildrenAndMembers.UP_QUORUM_CHECK, 
         "Up check, applied by default to members, requiring at least one present and up",
         QuorumChecks.atLeastOne());
-    public static final ConfigKey<QuorumCheck> RUNNING_QUORUM_CHECK = ConfigKeys.newConfigKeyWithDefault(ComputeServiceIndicatorsFromChildrenAndMembers.RUNNING_QUORUM_CHECK,
+    
+    ConfigKey<QuorumCheck> RUNNING_QUORUM_CHECK = ConfigKeys.newConfigKeyWithDefault(ComputeServiceIndicatorsFromChildrenAndMembers.RUNNING_QUORUM_CHECK,
         "Problems check from children actual states (lifecycle), applied by default to members and children, not checking upness, but requiring by default that none are on-fire",
         QuorumChecks.all());
 

@@ -142,10 +142,6 @@ public class MutableMap<K,V> extends LinkedHashMap<K,V> {
         return Maybe.absent("No entry for key '"+key+"' in this map");
     }
     
-    /** @deprecated since 0.7.0, use {@link #asImmutableCopy()}, or {@link #asUnmodifiable()} / {@link #asUnmodifiableCopy()} */ @Deprecated
-    public ImmutableMap<K,V> toImmutable() {
-        return ImmutableMap.copyOf(this);
-    }
     /** as {@link MutableList#asImmutableCopy()} */
     public Map<K,V> asImmutableCopy() {
         try {

@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.core.task;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -435,7 +436,13 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                         // (should discourage this in favour of task factories which can be transiently interrupted?)
                         BrooklynTaskTags.addTagDynamically(task, BrooklynTaskTags.NON_TRANSIENT_TASK_TAG);
                     }
-                    exec.submit(task);
+                    if (timer==null && !Thread.currentThread().isInterrupted() && !isEvaluatingImmediately()) {
+                        // if all conditions above:  no timeout, not immediate, and not interrupted,
+                        // then we can run in this thread
+                        exec.get(task);
+                    } else {
+                        exec.submit(task);
+                    }
                 }
             }
 
@@ -484,7 +491,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                     String description = getDescription();
                     TaskBuilder<Object> tb = Tasks.<Object>builder()
                             .body(callable)
-                            .displayName("Resolving dependent value")
+                            .displayName("Resolving dependent value of deferred supplier")
                             .description(description);
                     if (isTransientTask) tb.tag(BrooklynTaskTags.TRANSIENT_TASK_TAG);
                     
@@ -504,49 +511,55 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                     }
                 }
 
-            } else if (v instanceof Map) {
-                //and if a map or list we look inside
-                Map result = Maps.newLinkedHashMap();
-                for (Map.Entry<?,?> entry : ((Map<?,?>)v).entrySet()) {
-                    Maybe<?> kk = new ValueResolver(entry.getKey(), type, this)
-                        .description( (description!=null ? description+", " : "") + "map key "+entry.getKey() )
-                        .getMaybe();
-                    if (kk.isAbsent()) return (Maybe<T>)kk;
-                    Maybe<?> vv = new ValueResolver(entry.getValue(), type, this)
-                        .description( (description!=null ? description+", " : "") + "map value for key "+kk.get() )
-                        .getMaybe();
-                    if (vv.isAbsent()) return (Maybe<T>)vv;
-                    result.put(kk.get(), vv.get());
-                }
-                return Maybe.of((T) result);
-
-            } else if (v instanceof Set) {
-                Set result = Sets.newLinkedHashSet();
-                int count = 0;
-                for (Object it : (Set)v) {
-                    Maybe<?> vv = new ValueResolver(it, type, this)
-                        .description( (description!=null ? description+", " : "") + "entry "+count )
-                        .getMaybe();
-                    if (vv.isAbsent()) return (Maybe<T>)vv;
-                    result.add(vv.get());
-                    count++;
-                }
-                return Maybe.of((T) result);
-
-            } else if (v instanceof Iterable) {
-                List result = Lists.newArrayList();
-                int count = 0;
-                for (Object it : (Iterable)v) {
-                    Maybe<?> vv = new ValueResolver(it, type, this)
-                        .description( (description!=null ? description+", " : "") + "entry "+count )
-                        .getMaybe();
-                    if (vv.isAbsent()) return (Maybe<T>)vv;
-                    result.add(vv.get());
-                    count++;
-                }
-                return Maybe.of((T) result);
-
             } else {
+                if (supportsDeepResolution(v)) {
+                    // restrict deep resolution to the same set of types as calling code;
+                    // in particular need to avoid for "interesting iterables" such as PortRange
+                    
+                    if (v instanceof Map) {
+                        //and if a map or list we look inside
+                        Map result = Maps.newLinkedHashMap();
+                        for (Map.Entry<?,?> entry : ((Map<?,?>)v).entrySet()) {
+                            Maybe<?> kk = new ValueResolver(entry.getKey(), type, this)
+                                .description( (description!=null ? description+", " : "") + "map key "+entry.getKey() )
+                                .getMaybe();
+                            if (kk.isAbsent()) return (Maybe<T>)kk;
+                            Maybe<?> vv = new ValueResolver(entry.getValue(), type, this)
+                                .description( (description!=null ? description+", " : "") + "map value for key "+kk.get() )
+                                .getMaybe();
+                            if (vv.isAbsent()) return (Maybe<T>)vv;
+                            result.put(kk.get(), vv.get());
+                        }
+                        return Maybe.of((T) result);
+        
+                    } else if (v instanceof Set) {
+                        Set result = Sets.newLinkedHashSet();
+                        int count = 0;
+                        for (Object it : (Set)v) {
+                            Maybe<?> vv = new ValueResolver(it, type, this)
+                                .description( (description!=null ? description+", " : "") + "entry "+count )
+                                .getMaybe();
+                            if (vv.isAbsent()) return (Maybe<T>)vv;
+                            result.add(vv.get());
+                            count++;
+                        }
+                        return Maybe.of((T) result);
+        
+                    } else if (v instanceof Iterable) {
+                        List result = Lists.newArrayList();
+                        int count = 0;
+                        for (Object it : (Iterable)v) {
+                            Maybe<?> vv = new ValueResolver(it, type, this)
+                                .description( (description!=null ? description+", " : "") + "entry "+count )
+                                .getMaybe();
+                            if (vv.isAbsent()) return (Maybe<T>)vv;
+                            result.add(vv.get());
+                            count++;
+                        }
+                        return Maybe.of((T) result);
+                    }
+                }
+                
                 return TypeCoercions.tryCoerce(v, TypeToken.of(type));
             }
 
@@ -569,11 +582,16 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         if (recursive) {
             return new ValueResolver(v, type, this).getMaybe();
         } else {
-            // T expected to be Object.class
             return (Maybe<T>) Maybe.of(v);
         }
     }
 
+    // whether value resolution supports deep resolution
+    @Beta
+    public static boolean supportsDeepResolution(Object v) {
+        return (v instanceof Map || v instanceof Collection);
+    }
+    
     protected String getDescription() {
         return description!=null ? description : ""+value;
     }

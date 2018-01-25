@@ -50,11 +50,6 @@ public class BrooklynInitialization {
         PortRanges.init();
     }
 
-    @SuppressWarnings("deprecation")
-    public static void initLegacyLanguageExtensions() {
-        org.apache.brooklyn.util.core.BrooklynLanguageExtensions.init();
-    }
-
     /* other things:
      * 
      * RendererHints - done by the entity classes which need them, including Sensors
@@ -67,15 +62,11 @@ public class BrooklynInitialization {
             initSecureKeysBouncyCastleProvider();
             initNetworking();
             initPortRanges();
-            initLegacyLanguageExtensions();
         }
     }
 
-    @SuppressWarnings("deprecation")
     public synchronized static void reinitAll() {
         done.set(false);
-        org.apache.brooklyn.util.core.BrooklynLanguageExtensions.reinit();
         initAll();
     }
-
 }

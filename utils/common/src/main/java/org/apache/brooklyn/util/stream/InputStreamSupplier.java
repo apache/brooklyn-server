@@ -31,9 +31,7 @@ public class InputStreamSupplier implements InputSupplier<InputStream> {
 
     private final InputStream target;
 
-    /** @deprecated since 0.7.0; use {@link InputStreamSupplier#of(InputStream)} instead */
-    @Deprecated
-    public InputStreamSupplier(InputStream target) {
+    private InputStreamSupplier(InputStream target) {
         this.target = target;
     }
 

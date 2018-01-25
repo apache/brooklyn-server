@@ -29,32 +29,49 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.collections.Jsonya;
+import org.apache.brooklyn.util.text.StringPredicates;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.base.Function;
+import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-public abstract class ConfigSummary implements HasName, Serializable {
+public class ConfigSummary implements HasName, Serializable {
 
     private static final long serialVersionUID = -2831796487073496730L;
 
     private final String name;
     private final String type;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final Object defaultValue;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final String description;
     @JsonSerialize
     private final boolean reconfigurable;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final String label;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final Double priority;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final List<Map<String, String>> possibleValues;
+    @JsonInclude(Include.NON_NULL)
+    private final Boolean pinned;
+    @JsonInclude(Include.NON_NULL)
+    private final List<String> constraints;
 
+    @JsonInclude(Include.NON_NULL)
+    private final Map<String, URI> links;
+
+    // json deserialization
+    ConfigSummary() {
+        this(null, null, null, null, false, null, null, null, null, null, null);
+    }
+    
     protected ConfigSummary(
             @JsonProperty("name") String name,
             @JsonProperty("type") String type,
@@ -63,7 +80,10 @@ public abstract class ConfigSummary implements HasName, Serializable {
             @JsonProperty("reconfigurable") boolean reconfigurable,
             @JsonProperty("label") String label,
             @JsonProperty("priority") Double priority,
-            @JsonProperty("possibleValues") List<Map<String, String>> possibleValues) {
+            @JsonProperty("possibleValues") List<Map<String, String>> possibleValues,
+            @JsonProperty("pinned") Boolean pinned,
+            @JsonProperty("constraints") List<String> constraints,
+            @JsonProperty("links") Map<String, URI> links) {
         this.name = name;
         this.type = type;
         this.description = description;
@@ -72,14 +92,12 @@ public abstract class ConfigSummary implements HasName, Serializable {
         this.label = label;
         this.priority = priority;
         this.possibleValues = possibleValues;
+        this.pinned = pinned;
+        this.constraints = (constraints == null) ? ImmutableList.<String>of() : ImmutableList.copyOf(constraints);
+        this.links = (links == null) ? ImmutableMap.<String, URI>of() : ImmutableMap.copyOf(links);
     }
 
-    protected ConfigSummary(ConfigKey<?> config) {
-        this(config, null, null);
-    }
-
-    @SuppressWarnings("rawtypes")
-    protected ConfigSummary(ConfigKey<?> config, String label, Double priority) {
+    public ConfigSummary(ConfigKey<?> config, String label, Double priority, Boolean pinned, Map<String, URI> links) {
         this.name = config.getName();
         this.description = config.getDescription();
         this.reconfigurable = config.isReconfigurable();
@@ -90,15 +108,19 @@ public abstract class ConfigSummary implements HasName, Serializable {
          */
         this.label = label;
         this.priority = priority;
+        this.pinned = pinned;
+        this.constraints = !config.getConstraint().equals(Predicates.alwaysTrue())
+                ? ImmutableList.of((config.getConstraint().getClass().equals(StringPredicates.isNonBlank().getClass()) ? "required" : config.getConstraint().toString()))
+                : ImmutableList.<String>of();
         if (config.getType().isEnum()) {
             this.type = Enum.class.getName();
-            this.defaultValue = (config.getDefaultValue() == null) ? null : ((Enum) config.getDefaultValue()).name();
+            this.defaultValue = (config.getDefaultValue() == null) ? null : ((Enum<?>) config.getDefaultValue()).name();
             this.possibleValues = FluentIterable
-                    .from(Arrays.asList((Enum[])(config.getType().getEnumConstants())))
-                    .transform(new Function<Enum, Map<String, String>>() {
+                    .from(Arrays.asList((Enum<?>[])(config.getType().getEnumConstants())))
+                    .transform(new Function<Enum<?>, Map<String, String>>() {
                         @Nullable
                         @Override
-                        public Map<String, String> apply(@Nullable Enum input) {
+                        public Map<String, String> apply(@Nullable Enum<?> input) {
                             return ImmutableMap.of(
                                     "value", input != null ? input.name() : null,
                                    "description", input != null ? input.toString() : null);
@@ -109,6 +131,7 @@ public abstract class ConfigSummary implements HasName, Serializable {
             this.defaultValue = Jsonya.convertToJsonPrimitive(config.getDefaultValue());
             this.possibleValues = null;
         }
+        this.links = (links == null) ? ImmutableMap.<String, URI>of() : ImmutableMap.copyOf(links);
     }
 
     @Override
@@ -145,7 +168,17 @@ public abstract class ConfigSummary implements HasName, Serializable {
         return possibleValues;
     }
 
-    public abstract Map<String, URI> getLinks();
+    public Boolean isPinned() {
+        return pinned;
+    }
+
+    public List<String> getConstraints() {
+        return constraints;
+    }
+
+    public Map<String, URI> getLinks() {
+        return links;
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -159,12 +192,16 @@ public abstract class ConfigSummary implements HasName, Serializable {
                 Objects.equals(description, that.description) &&
                 Objects.equals(label, that.label) &&
                 Objects.equals(priority, that.priority) &&
-                Objects.equals(possibleValues, that.possibleValues);
+                Objects.equals(possibleValues, that.possibleValues) &&
+                Objects.equals(pinned, that.pinned) &&
+                Objects.equals(constraints, that.constraints) &&
+                Objects.equals(links, that.links);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(name, type, defaultValue, description, reconfigurable, label, priority, possibleValues);
+        return Objects.hash(name, type, defaultValue, description, reconfigurable, label, priority, 
+            possibleValues, pinned, constraints);
     }
 
     @Override
@@ -178,6 +215,8 @@ public abstract class ConfigSummary implements HasName, Serializable {
                 ", label='" + label + '\'' +
                 ", priority=" + priority +
                 ", possibleValues=" + possibleValues +
+                ", pinned=" + pinned +
+                ", constraints=" + constraints +
                 '}';
     }
 }

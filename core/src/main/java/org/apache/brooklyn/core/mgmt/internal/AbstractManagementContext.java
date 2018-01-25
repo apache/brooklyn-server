@@ -25,6 +25,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +52,7 @@ import org.apache.brooklyn.api.mgmt.entitlement.EntitlementManager;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityManager;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.StringConfigMap;
@@ -70,9 +72,9 @@ import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContex
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.HighAvailabilityManagerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
+import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
@@ -87,6 +89,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -143,6 +146,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
     protected ClassLoader baseClassLoader;
     protected Iterable<URL> baseClassPathForScanning;
 
+    private final ManagementNodeStateListenerManager managementNodeStateListenerManager;
     private final RebindManager rebindManager;
     private final HighAvailabilityManager highAvailabilityManager;
     
@@ -162,7 +166,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
     protected final List<Throwable> errors = Collections.synchronizedList(MutableList.<Throwable>of());
 
     protected Maybe<URI> uri = Maybe.absent();
-    protected CatalogInitialization catalogInitialization;
+    private CatalogInitialization catalogInitialization;
 
     public AbstractManagementContext(BrooklynProperties brooklynProperties) {
         this.managementNodeId = Strings.makeRandomId(8);
@@ -177,7 +181,8 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         
         this.storage = new BrooklynStorageImpl();
         this.rebindManager = new RebindManagerImpl(this); // TODO leaking "this" reference; yuck
-        this.highAvailabilityManager = new HighAvailabilityManagerImpl(this); // TODO leaking "this" reference; yuck
+        this.managementNodeStateListenerManager = new ManagementNodeStateListenerManager(this); // TODO leaking "this" reference; yuck
+        this.highAvailabilityManager = new HighAvailabilityManagerImpl(this, managementNodeStateListenerManager); // TODO leaking "this" reference; yuck
         
         this.entitlementManager = Entitlements.newManager(this, brooklynProperties);
         this.configSupplierRegistry = new BasicExternalConfigSupplierRegistry(this); // TODO leaking "this" reference; yuck
@@ -188,6 +193,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         highAvailabilityManager.stop();
         running = false;
         rebindManager.stop();
+        managementNodeStateListenerManager.terminate();
         storage.terminate();
         // Don't unmanage everything; different entities get given their events at different times 
         // so can cause problems (e.g. a group finds out that a member is unmanaged, before the
@@ -237,7 +243,22 @@ public abstract class AbstractManagementContext implements ManagementContextInte
                     BrooklynTaskTags.tagForContextEntity(e),
                     this
             );
-            return new BasicExecutionContext(MutableMap.of("tags", tags), getExecutionManager());
+            return new BasicExecutionContext(getExecutionManager(), tags);
+        } else {
+            return ((EntityInternal)e).getExecutionContext();
+        }
+    }
+    
+    @Override
+    public ExecutionContext getExecutionContext(Entity e, EntityAdjunct adjunct) {
+        // BEC is a thin wrapper around EM so fine to create a new one here; but make sure it gets the real entity
+        if (e instanceof AbstractEntityAdjunct) {
+            ImmutableSet<Object> tags = ImmutableSet.<Object>of(
+                    BrooklynTaskTags.tagForContextAdjunct(adjunct),
+                    BrooklynTaskTags.tagForContextEntity(e),
+                    this
+            );
+            return new BasicExecutionContext(getExecutionManager(), tags);
         } else {
             return ((EntityInternal)e).getExecutionContext();
         }
@@ -250,13 +271,21 @@ public abstract class AbstractManagementContext implements ManagementContextInte
                 this,
                 BrooklynTaskTags.BROOKLYN_SERVER_TASK_TAG
         );
-        return new BasicExecutionContext(MutableMap.of("tags", tags), getExecutionManager());
+        return new BasicExecutionContext(getExecutionManager(), tags);
     }
 
     @Override
     public SubscriptionContext getSubscriptionContext(Entity e) {
         // BSC is a thin wrapper around SM so fine to create a new one here
         Map<String, ?> flags = ImmutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(e)));
+        return new BasicSubscriptionContext(flags, getSubscriptionManager(), e);
+    }
+    
+    @Override
+    public SubscriptionContext getSubscriptionContext(Entity e, EntityAdjunct a) {
+        // BSC is a thin wrapper around SM so fine to create a new one here
+        Map<String, ?> flags = ImmutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(e), BrooklynTaskTags.tagForContextAdjunct(a)),
+            "subscriptionDescription", "adjunct "+a.getId());
         return new BasicSubscriptionContext(flags, getSubscriptionManager(), e);
     }
 
@@ -394,12 +423,6 @@ public abstract class AbstractManagementContext implements ManagementContextInte
 
     @Override
     public BrooklynCatalog getCatalog() {
-        if (!getCatalogInitialization().hasRunAnyInitialization()) {
-            // catalog init is needed; normally this will be done from start sequence,
-            // but if accessed early -- and in tests -- we will load it here
-            getCatalogInitialization().setManagementContext(this);
-            getCatalogInitialization().populateUnofficial(catalog);
-        }
         return catalog;
     }
     
@@ -478,7 +501,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         return uri;
     }
     
-    private Object catalogInitMutex = new Object();
+    private final Object catalogInitMutex = new Object();
     @Override
     public CatalogInitialization getCatalogInitialization() {
         synchronized (catalogInitMutex) {
@@ -508,6 +531,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
     @Override
     @SuppressWarnings("unchecked")
     public <T extends BrooklynObject> T lookup(String id, Class<T> type) {
+        if (id==null) return null;
         Object result;
         result = getEntityManager().getEntity(id);
         if (result!=null && type.isInstance(result)) return (T)result;
@@ -515,8 +539,52 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         result = getLocationManager().getLocation(id);
         if (result!=null && type.isInstance(result)) return (T)result;
 
-        // TODO policies, enrichers, feeds; bundles?
-        return null;
+        return lookup((o) -> { return type.isInstance(o) && Objects.equal(id, o.getId()); });
+    }
+    
+    @Override
+    public <T extends BrooklynObject> T lookup(Predicate<? super T> filter) {
+        Collection<T> list = lookupAll(filter, true);
+        if (list.isEmpty()) return null;
+        return list.iterator().next();
+    }
+
+    @Override
+    public <T extends BrooklynObject> Collection<T> lookupAll(Predicate<? super T> filter) {
+        return lookupAll(filter, false);
+    }
+    
+    @SuppressWarnings("unchecked")
+    private <T extends BrooklynObject> Collection<T> lookupAll(Predicate<? super T> filter, boolean justOne) {
+        List<T> result = MutableList.of();
+
+        final class Scanner {
+            public boolean scan(Iterable<? extends BrooklynObject> items) {
+                for (BrooklynObject i: items) {
+                    try {
+                        if (filter.apply((T)i)) {
+                            result.add((T)i);
+                            if (justOne) return true;
+                        }
+                    } catch (Exception exc) {
+                        Exceptions.propagateIfFatal(exc);
+                        // just assume filter isn't for this type, class cast
+                        return false;
+                    }
+                }
+                return false;
+            }
+        }
+        Scanner scanner = new Scanner();
+        if (scanner.scan( getEntityManager().getEntities() ) && justOne) return result;
+        if (scanner.scan( getLocationManager().getLocations() ) && justOne) return result;
+        for (Entity e: getEntityManager().getEntities()) {
+            if (scanner.scan( e.policies() ) && justOne) return result;
+            if (scanner.scan( e.enrichers() ) && justOne) return result;
+            if (scanner.scan( ((EntityInternal)e).feeds() ) && justOne) return result;
+        }
+        
+        return result;
     }
 
     @Override

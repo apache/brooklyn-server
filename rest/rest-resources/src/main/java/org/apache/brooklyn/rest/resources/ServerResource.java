@@ -29,7 +29,6 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -52,6 +51,7 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
@@ -63,7 +63,6 @@ import org.apache.brooklyn.rest.domain.HighAvailabilitySummary;
 import org.apache.brooklyn.rest.domain.VersionSummary;
 import org.apache.brooklyn.rest.transform.BrooklynFeatureTransformer;
 import org.apache.brooklyn.rest.transform.HighAvailabilityTransformer;
-import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -442,6 +441,11 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         ManagementPlaneSyncRecord memento = mgmt().getHighAvailabilityManager().getLastManagementPlaneSyncRecord();
         if (memento==null) memento = mgmt().getHighAvailabilityManager().loadManagementPlaneSyncRecord(true);
         if (memento==null) return null;
+        // This may be the case if this method was called before persistence was properly initialised.
+        // Retry so that the server doesn't get stuck. See https://issues.apache.org/jira/browse/BROOKLYN-167.
+        if (memento.getMasterNodeId() == null) {
+            memento = mgmt().getHighAvailabilityManager().loadManagementPlaneSyncRecord(true);
+        }
         return HighAvailabilityTransformer.highAvailabilitySummary(mgmt().getManagementNodeId(), memento);
     }
 

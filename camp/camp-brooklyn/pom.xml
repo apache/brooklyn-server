@@ -29,7 +29,7 @@
     <parent>
         <groupId>org.apache.brooklyn</groupId>
         <artifactId>brooklyn-parent</artifactId>
-        <version>0.12.0-SNAPSHOT</version><!-- BROOKLYN_VERSION -->
+        <version>1.0.0-SNAPSHOT</version><!-- BROOKLYN_VERSION -->
         <relativePath>../../parent/pom.xml</relativePath>
     </parent>
 
@@ -127,6 +127,13 @@
         </dependency>
         <dependency>
             <groupId>org.apache.brooklyn</groupId>
+            <artifactId>brooklyn-policy</artifactId>
+            <version>${project.version}</version>
+            <classifier>tests</classifier>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.brooklyn</groupId>
             <artifactId>brooklyn-software-base</artifactId>
             <version>${project.version}</version>
             <classifier>tests</classifier>
@@ -173,6 +180,13 @@
             <groupId>org.apache.brooklyn</groupId>
             <artifactId>brooklyn-utils-common</artifactId>
             <version>${project.version}</version>
+            <classifier>tests</classifier>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>${httpclient.version}</version>
             <classifier>tests</classifier>
             <scope>test</scope>
         </dependency>

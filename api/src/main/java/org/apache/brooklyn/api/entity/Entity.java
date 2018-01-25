@@ -164,56 +164,6 @@ public interface Entity extends BrooklynObject {
     boolean removeChild(Entity child);
     
     /**
-     * @return an immutable thread-safe view of the policies.
-     * 
-     * @deprecated since 0.9.0; see {@link PolicySupport#asList()}
-     */
-    @Deprecated
-    Collection<Policy> getPolicies();
-    
-    /**
-     * @return an immutable thread-safe view of the enrichers.
-     * 
-     * @deprecated since 0.9.0; see {@link EnricherSupport#asList()}
-     */
-    @Deprecated
-    Collection<Enricher> getEnrichers();
-    
-    /**
-     * The {@link Collection} of {@link Group}s that this entity is a member of.
-     *
-     * Groupings can be used to allow easy management/monitoring of a group of entities.
-     * 
-     * @deprecated since 0.9.0; see {@link #groups()} and {@link GroupSupport#iterator()}
-     */
-    @Deprecated
-    Collection<Group> getGroups();
-
-    /**
-     * Add this entity as a member of the given {@link Group}. Called by framework.
-     * <p>
-     * Users should call {@link Group#addMember(Entity)} instead; this method will then 
-     * automatically be called. However, the reverse is not true (calling this method will 
-     * not tell the group; this behaviour may change in a future release!)
-     * 
-     * @deprecated since 0.9.0; see {@link GroupSupport#add()} and {@link #groups()}
-     */
-    @Deprecated
-    void addGroup(Group group);
-
-    /**
-     * Removes this entity as a member of the given {@link Group}. Called by framework.
-     * <p>
-     * Users should call {@link Group#removeMember(Entity)} instead; this method will then 
-     * automatically be called. However, the reverse is not true (calling this method will 
-     * not tell the group; this behaviour may change in a future release!)
-     * 
-     * @deprecated since 0.9.0; see {@link GroupSupport#remove()} and {@link #groups()}
-     */
-    @Deprecated
-    void removeGroup(Group group);
-
-    /**
      * Return all the {@link Location}s this entity is deployed to.
      */
     Collection<Location> getLocations();
@@ -235,58 +185,11 @@ public interface Entity extends BrooklynObject {
     <T> Task<T> invoke(Effector<T> eff, Map<String,?> parameters);
     
     /**
-     * Adds the given policy to this entity. Also calls policy.setEntity if available.
-     * 
-     * @deprecated since 0.9.0; see {@link PolicySupport#add(Policy)}
-     */
-    @Deprecated
-    void addPolicy(Policy policy);
-    
-    /**
-     * Adds the given policy to this entity. Also calls policy.setEntity if available.
-     * 
-     * @deprecated since 0.9.0; see {@link PolicySupport#add(PolicySpec)}
-     */
-    @Deprecated
-    <T extends Policy> T addPolicy(PolicySpec<T> policy);
-    
-    /**
-     * Removes the given policy from this entity. 
-     * @return True if the policy existed at this entity; false otherwise
-     * 
-     * @deprecated since 0.9.0; see {@link PolicySupport#remove(Policy)}
-     */
-    @Deprecated
-    boolean removePolicy(Policy policy);
-    
-    /**
-     * Adds the given enricher to this entity. Also calls enricher.setEntity if available.
-     * 
-     * @deprecated since 0.9.0; see {@link EnricherSupport#add(Enricher)}
-     */
-    @Deprecated
-    void addEnricher(Enricher enricher);
-    
-    /**
-     * Adds the given enricher to this entity. Also calls enricher.setEntity if available.
-     * 
-     * @deprecated since 0.9.0; see {@link EnricherSupport#add(EnricherSpec)}
-     */
-    @Deprecated
-    <T extends Enricher> T addEnricher(EnricherSpec<T> enricher);
-    
-    /**
-     * Removes the given enricher from this entity. 
-     * @return True if the policy enricher at this entity; false otherwise
-     * 
-     * @deprecated since 0.9.0; see {@link EnricherSupport#remove(Enricher)}
-     */
-    @Deprecated
-    boolean removeEnricher(Enricher enricher);
-    
-    /**
      * Adds the given feed to this entity. Also calls feed.setEntity if available.
+     * 
+     * @deprecated since 1.0.0; see {@link FeedSupport#add(Feed)}
      */
+    @Deprecated
     <T extends Feed> T addFeed(T feed);
     
     SensorSupport sensors();
@@ -399,7 +302,7 @@ public interface Entity extends BrooklynObject {
         
         /**
          * Removes the given enricher from this entity. 
-         * @return True if the policy enricher at this entity; false otherwise
+         * @return True if the enricher existed at this entity; false otherwise
          */
         @Override
         boolean remove(Enricher enricher);

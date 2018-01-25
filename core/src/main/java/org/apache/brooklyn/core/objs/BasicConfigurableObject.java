@@ -52,7 +52,7 @@ public class BasicConfigurableObject implements Configurable, Identifiable, Mana
     private String id = Identifiers.makeRandomId(8);
 
     private volatile ManagementContext managementContext;
-    private BasicConfigurationSupport config;
+    private final BasicConfigurationSupport config;
 
     public BasicConfigurableObject() {
         config = new BasicConfigurationSupport();
@@ -79,17 +79,11 @@ public class BasicConfigurableObject implements Configurable, Identifiable, Mana
     }
 
     @Override
-    @Deprecated
-    public <T> T setConfig(ConfigKey<T> key, T value) {
-        return config().set(key, value);
-    }
-
-    @Override
     public <T> T getConfig(ConfigKey<T> key) {
         return config().get(key);
     }
 
-    private static class BasicConfigurationSupport implements ConfigurationSupport {
+    public static class BasicConfigurationSupport implements ConfigurationSupport {
         private final ConfigBag config = ConfigBag.newInstance();
 
         @Override

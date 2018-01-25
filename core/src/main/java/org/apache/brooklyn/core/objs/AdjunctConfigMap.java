@@ -69,9 +69,7 @@ public class AdjunctConfigMap extends AbstractConfigMapImpl<EntityAdjunct> {
 
     @Override
     protected ExecutionContext getExecutionContext(BrooklynObject bo) {
-        // TODO expose ((AbstractEntityAdjunct)bo).execution ?
-        Entity entity = ((AbstractEntityAdjunct)bo).entity;
-        return (entity != null) ? ((EntityInternal)entity).getExecutionContext() : null;
+        return ((AbstractEntityAdjunct)bo).getExecutionContext();
     }
     
     @Override

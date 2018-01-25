@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.google.common.base.Joiner;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolver;
 import org.apache.brooklyn.config.ConfigKey;
@@ -46,6 +45,7 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
+import org.apache.brooklyn.util.core.mutex.WithMutexes;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
@@ -60,6 +60,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -292,28 +293,47 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
     }
 
     @Override
+    public void copyPreInstallResources() {
+        final WithMutexes mutexSupport = getLocation().mutexes();
+        String mutexId = "installation lock at host";
+        mutexSupport.acquireMutex(mutexId, "pre-installation lock at host for files and templates");
+        try {
+            super.copyPreInstallResources();
+        } catch (Exception e) {
+            log.warn("Error copying pre-install resources", e);
+            throw Exceptions.propagate(e);
+        } finally {
+            mutexSupport.releaseMutex(mutexId);
+        }
+    }
+
+    @Override
     public void copyInstallResources() {
-        getLocation().acquireMutex("installing " + elvis(entity, this), "installation lock at host for files and templates");
+        final WithMutexes mutexSupport = getLocation().mutexes();
+        String mutexId = "installation lock at host";
+        mutexSupport.acquireMutex(mutexId, "installation lock at host for files and templates");
         try {
             super.copyInstallResources();
         } catch (Exception e) {
             log.warn("Error copying install resources", e);
             throw Exceptions.propagate(e);
         } finally {
-            getLocation().releaseMutex("installing " + elvis(entity, this));
+            mutexSupport.releaseMutex(mutexId);
         }
     }
 
     @Override
     public void copyCustomizeResources() {
-        getLocation().acquireMutex("customizing " + elvis(entity, this), "installation lock at host for files and templates");
+        final WithMutexes mutexSupport = getLocation().mutexes();
+        String mutexId = "installation lock at host";
+        mutexSupport.acquireMutex(mutexId, "installation lock at host for files and templates");
         try {
             super.copyCustomizeResources();
         } catch (Exception e) {
             log.warn("Error copying customize resources", e);
             throw Exceptions.propagate(e);
         } finally {
-            getLocation().releaseMutex("customizing " + elvis(entity, this));
+            mutexSupport.releaseMutex(mutexId);
         }
     }
 
@@ -565,7 +585,8 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
             }
             if (INSTALLING.equals(phase)) {
                 // mutexId should be global because otherwise package managers will contend with each other
-                s.useMutex(getLocation(), "installation lock at host", "installing "+elvis(entity,this));
+                final String mutexId = "installation lock at host";
+                s.useMutex(getLocation().mutexes(), mutexId, "installing "+elvis(entity,this));
                 s.header.append(
                         "export INSTALL_DIR=\""+getInstallDir()+"\"",
                         "mkdir -p $INSTALL_DIR",

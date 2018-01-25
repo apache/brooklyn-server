@@ -16,28 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.brooklyn.util.http.executor;
 
-import com.google.common.annotations.Beta;
+/**
+ * @deprecated since 1.0.0 use {@link org.apache.brooklyn.util.http.auth.UsernamePassword} instead.
+ */
+public class UsernamePassword extends org.apache.brooklyn.util.http.auth.UsernamePassword 
+        implements org.apache.brooklyn.util.http.executor.Credentials {
 
-@Beta
-public class UsernamePassword implements Credentials {
-    private final String username;
-    private final String password;
+    // Kept for backwards compatibility of persisted state. If deleting, ensure you add it to
+    // `/org/apache/brooklyn/core/mgmt/persist/deserializingClassRenames.properties`
+    // 
+    // Not doing that yet, as code using it may cast it to 
+    // org.apache.brooklyn.util.http.executor.Credentials, so don't want to 
+    // deserialize it as org.apache.brooklyn.util.http.auth.UsernamePassword.
 
     public UsernamePassword(String username, String password) {
-        this.username = username;
-        this.password = password;
-    }
-
-    @Override
-    public String getUser() {
-        return username;
-    }
-
-    @Override
-    public String getPassword() {
-        return password;
+        super(username, password);
     }
 }
-

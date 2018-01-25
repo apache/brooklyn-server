@@ -131,32 +131,6 @@ public class PortForwardManagerRebindTest extends RebindTestFixtureWithApp {
     }
     
     @Test
-    public void testAssociationPreservedOnRebindLegacy() throws Exception {
-        String publicIpId = "5.6.7.8";
-        String publicAddress = "5.6.7.8";
-
-        TestEntity origEntity = origApp.createAndManageChild(EntitySpec.create(TestEntity.class).impl(MyEntity.class));
-        PortForwardManager origPortForwardManager = origEntity.getConfig(MyEntity.PORT_FORWARD_MANAGER);
-
-        // We first wait for persisted, to ensure that it is the PortForwardManager.onChanged that is causing persistence.
-        RebindTestUtils.waitForPersisted(origApp);
-        origPortForwardManager.recordPublicIpHostname(publicIpId, publicAddress);
-        origPortForwardManager.acquirePublicPortExplicit(publicIpId, 40080);
-        origPortForwardManager.associate(publicIpId, 40080, origSimulatedMachine, 80);
-     
-        newApp = rebind();
-        
-        // After rebind, confirm that lookups still work
-        TestEntity newEntity = (TestEntity) Iterables.find(newApp.getChildren(), Predicates.instanceOf(TestEntity.class));
-        Location newSimulatedMachine = newApp.getManagementContext().getLocationManager().getLocation(origSimulatedMachine.getId());
-        PortForwardManager newPortForwardManager = newEntity.getConfig(MyEntity.PORT_FORWARD_MANAGER);
-        
-        assertEquals(newPortForwardManager.getPublicIpHostname(publicIpId), publicAddress);
-        assertEquals(newPortForwardManager.lookup(newSimulatedMachine, 80), HostAndPort.fromParts(publicAddress, 40080));
-        assertEquals(newPortForwardManager.lookup(publicIpId, 80), HostAndPort.fromParts(publicAddress, 40080));
-    }
-    
-    @Test
     public void testAcquirePortCounterPreservedOnRebindLegacy() throws Exception {
         String publicIpId = "5.6.7.8";
 

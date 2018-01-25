@@ -58,7 +58,7 @@ public interface CatalogApi {
     @Consumes("application/json-deprecated")  // prevent this from taking things
     @POST
     @ApiOperation(
-            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading YAML descriptor.",
+            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading YAML descriptor (deprecated, use POST of yaml or ZIP/JAR instead)",
             notes = "Return value is map of ID to CatalogItemSummary.",
             response = String.class,
             hidden = true
@@ -153,10 +153,13 @@ public interface CatalogApi {
             @QueryParam("forceUpdate") @DefaultValue("false")
                     boolean forceUpdate);
     
+    /** @deprecated since 1.0.0 delete the bundle via DELETE /catalog/bundles/xxx */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @DELETE
     @Path("/applications/{symbolicName}/{version}")
     @ApiOperation(
-            value = "Deletes a specific version of an application's definition from the catalog",
+            value = "Deletes a specific version of an application's definition from the catalog (deprecated, use /catalog/bundles endpoint instead)",
             notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
                     "pick up the latest version for the given 'symbolicName'"
     )
@@ -170,10 +173,13 @@ public interface CatalogApi {
         @ApiParam(name = "version", value = "The version identifier of the application or template to delete", required = true)
         @PathParam("version") String version) throws Exception;
 
+    /** @deprecated since 1.0.0 delete the bundle via DELETE /catalog/bundles/xxx */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @DELETE
     @Path("/entities/{symbolicName}/{version}")
     @ApiOperation(
-            value = "Deletes a specific version of an entity's definition from the catalog",
+            value = "Deletes a specific version of an entity's definition from the catalog (deprecated, use /catalog/bundles endpoint instead, as we add/delete bundles now)",
             notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
                     "pick up the latest version for the given 'symbolicName'"
     )
@@ -187,10 +193,13 @@ public interface CatalogApi {
         @ApiParam(name = "version", value = "The version identifier of the entity or template to delete", required = true)
         @PathParam("version") String version) throws Exception;
 
+    /** @deprecated since 1.0.0 delete the bundle via DELETE /catalog/bundles/xxx */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @DELETE
     @Path("/policies/{policyId}/{version}")
     @ApiOperation(
-            value = "Deletes a specific version of an policy's definition from the catalog",
+            value = "Deletes a specific version of an policy's definition from the catalog (deprecated, use /catalog/bundles endpoint instead, as we add/delete bundles now)",
             notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
                     "pick up the latest version for the given 'policyId'")
     @ApiResponses(value = {
@@ -203,10 +212,13 @@ public interface CatalogApi {
         @ApiParam(name = "version", value = "The version identifier of the policy to delete", required = true)
         @PathParam("version") String version) throws Exception;
 
+    /** @deprecated since 1.0.0 delete the bundle via DELETE /catalog/bundles/xxx */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @DELETE
     @Path("/locations/{locationId}/{version}")
     @ApiOperation(
-            value = "Deletes a specific version of an location's definition from the catalog",
+            value = "Deletes a specific version of an location's definition from the catalog (deprecated, use /catalog/bundles endpoint instead, as we add/delete bundles now)",
             notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
                     "pick up the latest version for the given 'locationId'"
     )
@@ -220,9 +232,12 @@ public interface CatalogApi {
         @ApiParam(name = "version", value = "The version identifier of the location to delete", required = true)
         @PathParam("version") String version) throws Exception;
 
+    /** @deprecated since 1.0.0 use /catalog/bundles and /catalog/types?supertype=... */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @GET
     @Path("/entities")
-    @ApiOperation(value = "List available entity types optionally matching a query", 
+    @ApiOperation(value = "List available entity types optionally matching a query  (deprecated, use /catalog/types endpoint instead, with supertype=entity)", 
             response = CatalogItemSummary.class,
             responseContainer = "List")
     public List<CatalogEntitySummary> listEntities(
@@ -234,9 +249,12 @@ public interface CatalogApi {
         @QueryParam("allVersions") @DefaultValue("false") boolean includeAllVersions);
 
     // bad name - it is just templates
+    /** @deprecated since 1.0.0 use /catalog/bundles and /catalog/types?supertype=... */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @GET
     @Path("/applications")
-    @ApiOperation(value = "Fetch a list of templates (for applications) optionally matching a query", 
+    @ApiOperation(value = "Fetch a list of templates (for applications) optionally matching a query (deprecated, use /catalog/types endpoint instead, with supertype=application; note some semantics of templates are changing as definition becomes more precise)", 
             response = CatalogItemSummary.class,
             responseContainer = "List")
     public List<CatalogItemSummary> listApplications(
@@ -247,10 +265,13 @@ public interface CatalogApi {
             @ApiParam(name = "allVersions", value = "Include all versions (defaults false, only returning the best version)")
             @QueryParam("allVersions") @DefaultValue("false") boolean includeAllVersions);
 
+    /** @deprecated since 1.0.0 use /catalog/bundles and /catalog/types?supertype=... */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @GET
     @Path("/entities/{symbolicName}/{version}")
     @ApiOperation(
-            value = "Fetch a specific version of an entity's definition from the catalog",
+            value = "Fetch a specific version of an entity's definition from the catalog (deprecated, use /catalog/types endpoint instead)",
             notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
                     "pick up the latest version for the given 'symbolicName'",
             response = CatalogEntitySummary.class,
@@ -265,10 +286,13 @@ public interface CatalogApi {
         @ApiParam(name = "version", value = "The version identifier of the entity or template to retrieve", required = true)
         @PathParam("version") String version) throws Exception;
 
+    /** @deprecated since 1.0.0 use /catalog/bundles and /catalog/types?supertype=... */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @GET
     @Path("/applications/{symbolicName}/{version}")
     @ApiOperation(
-            value = "Fetch a specific version of an application's definition from the catalog",
+            value = "Fetch a specific version of an application's definition from the catalog (deprecated, use /catalog/types endpoint instead)",
             notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
                     "pick up the latest version for the given 'symbolicName'",
             response = CatalogEntitySummary.class,
@@ -283,9 +307,12 @@ public interface CatalogApi {
         @ApiParam(name = "version", value = "The version identifier of the application to retrieve", required = true)
         @PathParam("version") String version) throws Exception;
 
+    /** @deprecated since 1.0.0 use /catalog/bundles and /catalog/types?supertype=... */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @GET
     @Path("/policies")
-    @ApiOperation(value = "List available policies optionally matching a query", 
+    @ApiOperation(value = "List available policies optionally matching a query (deprecated, use /catalog/types endpoint instead)", 
             response = CatalogPolicySummary.class,
             responseContainer = "List")
     public List<CatalogPolicySummary> listPolicies(
@@ -296,10 +323,13 @@ public interface CatalogApi {
             @ApiParam(name = "allVersions", value = "Include all versions (defaults false, only returning the best version)")
             @QueryParam("allVersions") @DefaultValue("false") boolean includeAllVersions);
 
+    /** @deprecated since 1.0.0 use /catalog/bundles and /catalog/types?supertype=... */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @GET
     @Path("/policies/{policyId}/{version}")
     @ApiOperation(
-            value = "Fetch a policy's definition from the catalog",
+            value = "Fetch a policy's definition from the catalog (deprecated, use /catalog/types endpoint instead)",
             notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
                     "pick up the latest version for the given 'policyId'",
             response = CatalogItemSummary.class,
@@ -313,9 +343,12 @@ public interface CatalogApi {
         @ApiParam(name = "version", value = "The version identifier of the application to retrieve", required = true)
         @PathParam("version") String version) throws Exception;
 
+    /** @deprecated since 1.0.0 use /catalog/bundles and /catalog/types?supertype=... */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @GET
     @Path("/locations")
-    @ApiOperation(value = "List available locations optionally matching a query", 
+    @ApiOperation(value = "List available locations optionally matching a query (deprecated, use /catalog/types endpoint instead)", 
             response = CatalogLocationSummary.class,
             responseContainer = "List")
     public List<CatalogLocationSummary> listLocations(
@@ -326,10 +359,13 @@ public interface CatalogApi {
             @ApiParam(name = "allVersions", value = "Include all versions (defaults false, only returning the best version)")
             @QueryParam("allVersions") @DefaultValue("false") boolean includeAllVersions);
 
+    /** @deprecated since 1.0.0 use /catalog/bundles and /catalog/types?supertype=... */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @GET
     @Path("/locations/{locationId}/{version}")
     @ApiOperation(
-            value = "Fetch a location's definition from the catalog",
+            value = "Fetch a location's definition from the catalog (deprecated, use /catalog/types endpoint instead)",
             notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
                     "pick up the latest version for the given 'locationId'",
             response = CatalogItemSummary.class,
@@ -361,11 +397,16 @@ public interface CatalogApi {
         @ApiParam(name = "version", value = "version identifier of catalog item (application, entity, policy, location)", required=true)
         @PathParam("version") String version);
     
+    /** @deprecated since 1.0.0 use /catalog/bundles and /catalog/types?supertype=...;
+     * deprecation/disabling needs to be done in the bundle, and we might support deprecating/disabling bundles */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @POST
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Undefined catalog item"),
     })
+    @ApiOperation(value = "Deprecate an item (deprecated, use /catalog/types endpoint instead, but disabled/deprecating is not supported for individual types)")
     @Path("/entities/{itemId}/deprecated")
     public void setDeprecated(
         @ApiParam(name = "itemId", value = "The ID of the catalog item to be deprecated", required = true)
@@ -373,8 +414,13 @@ public interface CatalogApi {
         @ApiParam(name = "deprecated", value = "Whether or not the catalog item is deprecated", required = true)
         boolean deprecated);
     
+    /** @deprecated since 1.0.0 use /catalog/bundles and /catalog/types?supertype=...;
+     * deprecation/disabling needs to be done in the bundle, and we might support deprecating/disabling bundles */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @POST
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})
+    @ApiOperation(value = "Disable an item (deprecated, use /catalog/types endpoint instead, but disabled/deprecating is not supported for individual types)")
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Undefined catalog item"),
     })
@@ -385,9 +431,12 @@ public interface CatalogApi {
         @ApiParam(name = "disabled", value = "Whether or not the catalog item is disabled", required = true)
         boolean disabled);
 
+    /** @deprecated since 1.0.0 use /catalog/bundles and /catalog/types?supertype=... */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @GET
     @Path("/enrichers")
-    @ApiOperation(value = "List available enrichers types optionally matching a query",
+    @ApiOperation(value = "List available enrichers types optionally matching a query (deprecated, use /catalog/types endpoint instead)",
             response = CatalogItemSummary.class,
             responseContainer = "List")
     public List<CatalogEnricherSummary> listEnrichers(
@@ -398,9 +447,12 @@ public interface CatalogApi {
             @ApiParam(name = "allVersions", value = "Include all versions (defaults false, only returning the best version)")
             @QueryParam("allVersions") @DefaultValue("false") boolean includeAllVersions);
 
+    /** @deprecated since 1.0.0 use /catalog/bundles and /catalog/types?supertype=... */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @GET
     @Path("/enrichers/{enricherId}/{version}")
-    @ApiOperation(value = "Fetch an enricher's definition from the catalog",
+    @ApiOperation(value = "Fetch an enricher's definition from the catalog (deprecated, use /catalog/types endpoint instead)",
             response = CatalogItemSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
@@ -412,9 +464,12 @@ public interface CatalogApi {
             @ApiParam(name = "version", value = "The version identifier of the enricher to retrieve", required = true)
             @PathParam("version") String version) throws Exception;
 
+    /** @deprecated since 1.0.0 delete the bundle via DELETE /catalog/bundles/xxx */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @DELETE
     @Path("/enrichers/{enricherId}/{version}")
-    @ApiOperation(value = "Deletes a specific version of an enricher's definition from the catalog")
+    @ApiOperation(value = "Deletes a specific version of an enricher's definition from the catalog (deprecated, use /catalog/types endpoint instead)")
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Enricher not found")
     })

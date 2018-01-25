@@ -218,7 +218,8 @@ public class AttributePollHandler<V> implements PollHandler<V> {
         if (v == FeedConfig.UNCHANGED) {
             // nothing
         } else if (v == FeedConfig.REMOVE) {
-            ((EntityInternal)entity).removeAttribute(sensor);
+            ((EntityInternal)entity).sensors().remove(sensor);
+            feed.onRemoveSensor(sensor);
         } else if (sensor == FeedConfig.NO_SENSOR) {
             // nothing
         } else {
@@ -227,6 +228,7 @@ public class AttributePollHandler<V> implements PollHandler<V> {
                 // no change; nothing
             } else {
                 entity.sensors().set(sensor, coercedV);
+                feed.onPublishSensor(sensor, coercedV);
             }
         }
     }

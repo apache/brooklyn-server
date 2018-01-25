@@ -23,10 +23,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import org.apache.brooklyn.rest.api.TypeApi;
+
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
+/** @deprecated since 1.0.0 new {@link TypeApi} returns {@link TypeSummary} */
+@Deprecated
 public class CatalogEntitySummary extends CatalogItemSummary {
 
     private static final long serialVersionUID = 1063908984191424539L;

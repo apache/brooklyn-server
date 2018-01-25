@@ -285,6 +285,7 @@ public class ServiceStateLogic {
             if (uniqueTag==null) uniqueTag = DEFAULT_ENRICHER_UNIQUE_TAG;
         }
 
+        @SuppressWarnings("unchecked")
         @Override
         public void setEntity(EntityLocal entity) {
             super.setEntity(entity);
@@ -297,6 +298,8 @@ public class ServiceStateLogic {
             subscriptions().subscribe(notifyOfInitialValue, entity, SERVICE_PROBLEMS, this);
             subscriptions().subscribe(notifyOfInitialValue, entity, SERVICE_UP, this);
             subscriptions().subscribe(notifyOfInitialValue, entity, SERVICE_STATE_EXPECTED, this);
+            
+            highlightTriggers(MutableList.of(SERVICE_PROBLEMS, SERVICE_UP, SERVICE_STATE_EXPECTED), null);
         }
 
         @Override
@@ -371,7 +374,6 @@ public class ServiceStateLogic {
         return newEnricherForServiceState(ComputeServiceState.class);
     }
     public static final EnricherSpec<?> newEnricherForServiceState(Class<? extends Enricher> type) {
-        newEnricherForServiceUpFromChildren();
         return EnricherSpec.create(type);
     }
 

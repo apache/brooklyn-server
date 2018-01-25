@@ -112,8 +112,8 @@ public class CatalogUtils {
         return newClassLoadingContext(mgmt, catalogItemId, libraries, JavaBrooklynClassLoadingContext.create(mgmt));
     }
     
-    @Deprecated /** @deprecated since 0.9.0; becoming private because we should now always have a registered type callers can pass instead of the catalog item id */
-    public static BrooklynClassLoadingContext newClassLoadingContext(@Nullable ManagementContext mgmt, String catalogItemId, Collection<? extends OsgiBundleWithUrl> libraries, BrooklynClassLoadingContext loader) {
+    @Deprecated /** @deprecated since 0.9.0; we should now always have a registered type callers can pass instead of the catalog item id */
+    private static BrooklynClassLoadingContext newClassLoadingContext(@Nullable ManagementContext mgmt, String catalogItemId, Collection<? extends OsgiBundleWithUrl> libraries, BrooklynClassLoadingContext loader) {
         BrooklynClassLoadingContextSequential result = new BrooklynClassLoadingContextSequential(mgmt);
 
         if (libraries!=null && !libraries.isEmpty()) {
@@ -134,25 +134,6 @@ public class CatalogUtils {
         return result;
     }
 
-    /**
-     * @deprecated since 0.7.0 only for legacy catalog items which provide a non-osgi loader; see {@link #newDefault(ManagementContext)}
-     */ @Deprecated
-    public static BrooklynClassLoadingContext newClassLoadingContext(@Nullable ManagementContext mgmt, String catalogItemId, Collection<CatalogBundle> libraries, ClassLoader customClassLoader) {
-        BrooklynClassLoadingContextSequential result = new BrooklynClassLoadingContextSequential(mgmt);
-
-        if (libraries!=null && !libraries.isEmpty()) {
-            result.add(new OsgiBrooklynClassLoadingContext(mgmt, catalogItemId, libraries));
-        }
-
-        BrooklynClassLoadingContext loader = BrooklynLoaderTracker.getLoader();
-        if (loader != null) {
-            result.add(loader);
-        }
-
-        result.addSecondary(JavaBrooklynClassLoadingContext.create(mgmt, customClassLoader));
-        return result;
-    }
-
     public static BrooklynClassLoadingContext newClassLoadingContextForCatalogItems(
         ManagementContext managementContext, String primaryItemId, List<String> searchPath) {
 
@@ -168,6 +149,11 @@ public class CatalogUtils {
      * Registers all bundles with the management context's OSGi framework.
      */
     public static void installLibraries(ManagementContext managementContext, @Nullable Collection<CatalogBundle> libraries) {
+        installLibraries(managementContext, libraries, true);
+    }
+    /** As {@link #installLibraries(ManagementContext, Collection)} but letting caller suppress the deferred start/install
+     * (for use in tests where bundles' BOMs aren't resolvable). */
+    public static void installLibraries(ManagementContext managementContext, @Nullable Collection<CatalogBundle> libraries, boolean startBundlesAndInstallToBrooklyn) {
         if (libraries == null) return;
 
         ManagementContextInternal mgmt = (ManagementContextInternal) managementContext;
@@ -182,24 +168,26 @@ public class CatalogUtils {
                     new Object[] {managementContext, Joiner.on(", ").join(libraries)});
             Stopwatch timer = Stopwatch.createStarted();
             List<OsgiBundleInstallationResult> results = MutableList.of();
-            for (CatalogBundle bundleUrl : libraries) {
-                OsgiBundleInstallationResult result = osgi.get().installDeferredStart(BasicManagedBundle.of(bundleUrl), null, true).get();
+            for (CatalogBundle bundle : libraries) {
+                OsgiBundleInstallationResult result = osgi.get().installDeferredStart(BasicManagedBundle.of(bundle), null, true).get();
                 if (log.isDebugEnabled()) {
-                    logDebugOrTraceIfRebinding(log, "Installation of library "+bundleUrl+": "+result);
+                    logDebugOrTraceIfRebinding(log, "Installation of library "+bundle+": "+result);
                 }
                 results.add(result);
             }
             Map<String, Throwable> errors = MutableMap.of();
-            for (OsgiBundleInstallationResult r: results) {
-                if (r.getDeferredStart()!=null) {
-                    try {
-                        r.getDeferredStart().run();
-                    } catch (Throwable t) {
-                        Exceptions.propagateIfFatal(t);
-                        // above will done rollback for the failed item, but we need consistent behaviour for all libraries;
-                        // for simplicity we simply have each bundle either fully installed or fully rolled back
-                        // (alternative would be to roll back everything)
-                        errors.put(r.getVersionedName().toString(), t);
+            if (startBundlesAndInstallToBrooklyn) {
+                for (OsgiBundleInstallationResult r: results) {
+                    if (r.getDeferredStart()!=null) {
+                        try {
+                            r.getDeferredStart().run();
+                        } catch (Throwable t) {
+                            Exceptions.propagateIfFatal(t);
+                            // above will done rollback for the failed item, but we need consistent behaviour for all libraries;
+                            // for simplicity we simply have each bundle either fully installed or fully rolled back
+                            // (alternative would be to roll back everything)
+                            errors.put(r.getVersionedName().toString(), t);
+                        }
                     }
                 }
             }
@@ -215,8 +203,8 @@ public class CatalogUtils {
             }
             if (log.isDebugEnabled()) { 
                 logDebugOrTraceIfRebinding(log, 
-                    "Registered {} bundles in {}",
-                    new Object[]{libraries.size(), Time.makeTimeStringRounded(timer)});
+                    "Registered {} bundle{} in {}",
+                    new Object[]{libraries.size(), Strings.s(libraries.size()), Time.makeTimeStringRounded(timer)});
             }
         }
     }
@@ -335,19 +323,6 @@ public class CatalogUtils {
         return (best.getVersion().equals(item.getVersion()));
     }
 
-    /** @deprecated since 0.9.0 use {@link BrooklynTypeRegistry#get(String, org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind, Class)} */
-    // only one item left, in deprecated service resolver
-    @Deprecated
-    public static <T,SpecT> CatalogItem<T, SpecT> getCatalogItemOptionalVersion(ManagementContext mgmt, Class<T> type, String versionedId) {
-        if (looksLikeVersionedId(versionedId)) {
-            String id = getSymbolicNameFromVersionedId(versionedId);
-            String version = getVersionFromVersionedId(versionedId);
-            return mgmt.getCatalog().getCatalogItem(type, id, version);
-        } else {
-            return mgmt.getCatalog().getCatalogItem(type, versionedId, BrooklynCatalog.DEFAULT_VERSION);
-        }
-    }
-
     /** @deprecated since it was introduced in 0.9.0; TBD where this should live */
     @Deprecated
     public static void setDeprecated(ManagementContext mgmt, String symbolicNameAndOptionalVersion, boolean newValue) {
@@ -371,11 +346,13 @@ public class CatalogUtils {
         if (item!=null) {
             item.setDeprecated(newValue);
             mgmt.getCatalog().persist(item);
+        }
+        RegisteredType type = mgmt.getTypeRegistry().get(symbolicName, version);
+        if (type!=null) {
+            // won't be persisted
+            RegisteredTypes.setDeprecated(type, newValue);
         } else {
-            RegisteredType type = mgmt.getTypeRegistry().get(symbolicName, version);
-            if (type!=null) {
-                RegisteredTypes.setDeprecated(type, newValue);
-            } else {
+            if (item==null) {
                 throw new NoSuchElementException(symbolicName+":"+version);
             }
         }
@@ -388,11 +365,13 @@ public class CatalogUtils {
         if (item!=null) {
             item.setDisabled(newValue);
             mgmt.getCatalog().persist(item);
+        }
+        RegisteredType type = mgmt.getTypeRegistry().get(symbolicName, version);
+        if (type!=null) {
+            // won't be persisted
+            RegisteredTypes.setDisabled(type, newValue);
         } else {
-            RegisteredType type = mgmt.getTypeRegistry().get(symbolicName, version);
-            if (type!=null) {
-                RegisteredTypes.setDisabled(type, newValue);
-            } else {
+            if (item==null) {
                 throw new NoSuchElementException(symbolicName+":"+version);
             }
         }

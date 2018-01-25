@@ -68,8 +68,13 @@ public class CatalogClasspathDo {
          * then editing the resulting XML (e.g. setting the classpath and removing the scan attribute) */
         NONE, 
         
-        /** types in the classpath are scanned for annotations indicating inclusion in the catalog ({@link Catalog});
-         * this is the default if no catalog is supplied, scanning the local classpath */
+        /** 
+         * Types in the classpath are scanned for annotations indicating inclusion in the catalog ({@link Catalog});
+         * this is the default if no catalog is supplied, scanning the local classpath.
+         * 
+         * @deprecated since 1.0.0; instead use catalog.bom files
+         */
+        @Deprecated
         ANNOTATIONS,
         
         @Beta
@@ -197,6 +202,7 @@ public class CatalogClasspathDo {
         if (scanner!=null) {
             int count = 0, countApps = 0;
             if (scanMode==CatalogScanningModes.ANNOTATIONS) {
+                log.warn("Deprecated scanning of @Catalog annotations; instead use catalog.bom");
                 Set<Class<?>> catalogClasses = scanner.getTypesAnnotatedWith(Catalog.class);
                 for (Class<?> c: catalogClasses) {
                     try {

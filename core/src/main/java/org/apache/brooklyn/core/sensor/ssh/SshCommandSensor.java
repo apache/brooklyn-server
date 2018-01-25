@@ -52,6 +52,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableMap;
 
 /** 
  * Configurable {@link EntityInitializer} which adds an SSH sensor feed running the <code>command</code> supplied
@@ -105,6 +106,8 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
             @SuppressWarnings("unchecked")
             @Override
             public Map<String, String> get() {
+                if (entity == null) return ImmutableMap.of(); // See BROOKLYN-568
+                
                 Map<String, Object> env = MutableMap.copyOf(entity.getConfig(BrooklynConfigKeys.SHELL_ENVIRONMENT));
 
                 // Add the shell environment entries from our configuration
@@ -126,6 +129,9 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
         Supplier<String> commandSupplier = new Supplier<String>() {
             @Override
             public String get() {
+                // Note that entity may be null during rebind (e.g. if this SshFeed is orphaned, with no associated entity):
+                // See https://issues.apache.org/jira/browse/BROOKLYN-568.
+                // We therefore guard against null in makeCommandExecutingInDirectory.
                 return makeCommandExecutingInDirectory(command, executionDir, entity);
             }
         };
@@ -158,14 +164,14 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
         String execDir = executionDir;
         if (Strings.isBlank(execDir)) {
             // default to run dir
-            execDir = entity.getAttribute(BrooklynConfigKeys.RUN_DIR);
+            execDir = (entity != null) ? entity.getAttribute(BrooklynConfigKeys.RUN_DIR) : null;
             // if no run dir, default to home
             if (Strings.isBlank(execDir)) {
                 execDir = "~";
             }
         } else if (!Os.isAbsolutish(execDir)) {
             // relative paths taken wrt run dir
-            String runDir = entity.getAttribute(BrooklynConfigKeys.RUN_DIR);
+            String runDir = (entity != null) ? entity.getAttribute(BrooklynConfigKeys.RUN_DIR) : null;
             if (!Strings.isBlank(runDir)) {
                 execDir = Os.mergePaths(runDir, execDir);
             }

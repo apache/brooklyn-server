@@ -28,12 +28,12 @@ import java.util.Set;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import org.apache.brooklyn.api.objs.HighlightTuple;
 import org.apache.brooklyn.rest.domain.ApplicationSpec;
 import org.apache.brooklyn.rest.domain.EntitySpec;
 import org.apache.brooklyn.rest.domain.PolicyConfigSummary;
@@ -45,6 +45,7 @@ import org.apache.brooklyn.rest.testing.mocks.RestMockSimplePolicy;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+
 import javax.ws.rs.core.GenericType;
 
 @Test(singleThreaded = true,
@@ -139,5 +140,26 @@ public class PolicyResourceTest extends BrooklynRestResourceTest {
         String configVal = client().path(ENDPOINT + policyId + "/config/" + configName)
                 .get(String.class);
         assertEquals(configVal, expectedVal);
+    }
+
+    @Test
+    public void testHighlights() throws Exception {
+        Set<PolicySummary> policies = client().path(ENDPOINT).get(new GenericType<Set<PolicySummary>>() {});
+
+        assertEquals(policies.size(), 1);
+        PolicySummary policySummary = policies.iterator().next();
+
+        Map<String, HighlightTuple> highlights = policySummary.getHighlights();
+
+        assertEquals(highlights.size(), 2);
+        HighlightTuple highlightTupleTask = highlights.get("testNameTask");
+        assertEquals(highlightTupleTask.getDescription(), "testDescription");
+        assertEquals(highlightTupleTask.getTime(), 123L);
+        assertEquals(highlightTupleTask.getTaskId(), "testTaskId");
+
+        HighlightTuple highlightTupleNoTask = highlights.get("testNameNoTask");
+        assertEquals(highlightTupleNoTask.getDescription(), "testDescription");
+        assertEquals(highlightTupleNoTask.getTime(), 123L);
+        assertEquals(highlightTupleNoTask.getTaskId(), null);
     }
 }

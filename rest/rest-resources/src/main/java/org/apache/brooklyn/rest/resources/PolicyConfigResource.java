@@ -41,6 +41,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 @HaHotStateRequired
+@Deprecated
 public class PolicyConfigResource extends AbstractBrooklynRestResource implements PolicyConfigApi {
 
     @Override

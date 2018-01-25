@@ -24,7 +24,6 @@ import java.util.Map.Entry;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.Locations;
@@ -47,35 +46,6 @@ public class InternalLocationFactory extends InternalFactory {
 
     private static final Logger LOG = LoggerFactory.getLogger(InternalLocationFactory.class);
 
-    /**
-     * Returns true if this is a "new-style" location (i.e. where not expected to call the constructor to instantiate it).
-     * 
-     * @param managementContext
-     * @param clazz
-     * 
-     * @deprecated since 0.7.0; use {@link InternalFactory#isNewStyle(Class)}
-     */
-    @Deprecated
-    public static boolean isNewStyleLocation(ManagementContext managementContext, Class<?> clazz) {
-        try {
-            return isNewStyleLocation(clazz);
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
-    }
-    
-    /**
-     * @deprecated since 0.7.0; use {@link InternalFactory#isNewStyle(Class)}
-     */
-    @Deprecated
-    public static boolean isNewStyleLocation(Class<?> clazz) {
-        if (!Location.class.isAssignableFrom(clazz)) {
-            throw new IllegalArgumentException("Class "+clazz+" is not an location");
-        }
-        
-        return InternalFactory.isNewStyle(clazz);
-    }
-    
     public InternalLocationFactory(ManagementContextInternal managementContext) {
         super(managementContext);
     }
@@ -97,7 +67,7 @@ public class InternalLocationFactory extends InternalFactory {
             if (Locations.isManaged(loc)) {
                 // Construct can return an existing instance, if using SpecialBrooklynObjectConstructor.Config.SPECIAL_CONSTRUCTOR.
                 // In which case, don't reconfigure it (don't change its parent, etc).
-                LOG.debug("Location-factory returning pre-existing location; skipping initialization of {}", loc);
+                LOG.trace("Location-factory returning pre-existing location; skipping initialization of {}", loc);
                 return loc;
             }
 

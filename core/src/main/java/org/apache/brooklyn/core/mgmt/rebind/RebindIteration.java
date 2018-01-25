@@ -25,8 +25,10 @@ import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoa
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,6 +41,7 @@ import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.mgmt.rebind.RebindContext;
@@ -70,6 +73,7 @@ import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.BrooklynLogging.LoggingLevel;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
+import org.apache.brooklyn.core.catalog.internal.CatalogInitialization.InstallableManagedBundle;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.AbstractApplication;
@@ -80,7 +84,6 @@ import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
-import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagementMode;
 import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagerInternal;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
@@ -99,13 +102,14 @@ import org.apache.brooklyn.core.objs.proxy.InternalLocationFactory;
 import org.apache.brooklyn.core.objs.proxy.InternalPolicyFactory;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
+import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
-import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
+import org.apache.brooklyn.util.core.task.BasicExecutionContext;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
@@ -120,7 +124,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -132,7 +135,7 @@ Multi-phase deserialization:
 <li> 1. load the manifest files and populate the summaries (ID+type) in {@link BrooklynMementoManifest}
 <li> 2. install bundles, instantiate and reconstruct catalog items
 <li> 3. instantiate entities+locations -- so that inter-entity references can subsequently 
-       be set during deserialize (and entity config/state is set).
+           be set during deserialize (and entity config/state is set).
 <li> 4. deserialize the manifests to instantiate the mementos
 <li> 5. instantiate policies+enrichers+feeds 
         (could probably merge this with (3), depending how they are implemented)
@@ -255,6 +258,8 @@ public abstract class RebindIteration {
         installBundlesAndRebuildCatalog();
         instantiateLocationsAndEntities();
         instantiateMementos();
+        // adjuncts depend on actual mementos; whereas entity works off special memento manifest, 
+        // and location, bundles etc just take type and id
         instantiateAdjuncts(instantiator); 
         reconstructEverything();
         associateAdjunctsWithEntities();
@@ -322,64 +327,71 @@ public abstract class RebindIteration {
         isEmpty = mementoManifest.isEmpty();
     }
 
-    @SuppressWarnings("deprecation")
     protected void installBundlesAndRebuildCatalog() {
-        
-        // Build catalog early so we can load other things
+        // Build catalog early so we can load other things.
+        // Reads the persisted catalog contents, and passes it all to CatalogInitialization, which decides what to do with it.
         checkEnteringPhase(2);
         
-        // Install bundles
+        CatalogInitialization.RebindLogger rebindLogger = new CatalogInitialization.RebindLogger() {
+            @Override
+            public void debug(String message, Object... args) {
+                logRebindingDebug(message, args);
+            }
+            @Override
+            public void info(String message, Object... args) {
+                logRebindingInfo(message, args);
+            }
+        };
+
+        class InstallableManagedBundleImpl implements CatalogInitialization.InstallableManagedBundle {
+            private final ManagedBundleMemento memento;
+            private final ManagedBundle managedBundle;
+            
+            InstallableManagedBundleImpl(ManagedBundleMemento memento, ManagedBundle managedBundle) {
+                this.memento = memento;
+                this.managedBundle = managedBundle;
+            }
+
+            @Override public ManagedBundle getManagedBundle() {
+                return managedBundle;
+            }
+
+            @Override public InputStream getInputStream() throws IOException {
+                return memento.getJarContent().openStream();
+            }
+        }
+        
+        Map<VersionedName, InstallableManagedBundle> bundles = new LinkedHashMap<>();
+        Collection<CatalogItem<?,?>> legacyCatalogItems = new ArrayList<>();
+        
+        // Find the bundles
         if (rebindManager.persistBundlesEnabled) {
-            List<OsgiBundleInstallationResult> installs = MutableList.of();
-            logRebindingDebug("RebindManager installing bundles: {}", mementoManifest.getBundleIds());
-            for (ManagedBundleMemento bundleM : mementoManifest.getBundles().values()) {
-                logRebindingDebug("RebindManager installing bundle {}", bundleM.getId());
-                try (InputStream in = bundleM.getJarContent().openStream()) {
-                    installs.add(rebindContext.installBundle(instantiator.newManagedBundle(bundleM), in));
-                } catch (Exception e) {
-                    exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, bundleM.getId(), bundleM.getSymbolicName(), e);
-                }
+            for (ManagedBundleMemento bundleMemento : mementoManifest.getBundles().values()) {
+                ManagedBundle managedBundle = instantiator.newManagedBundle(bundleMemento);
+                bundles.put(managedBundle.getVersionedName(), new InstallableManagedBundleImpl(bundleMemento, managedBundle));
             }
-            // Start them all after we've installed them
-            Set<RegisteredType> installedTypes = MutableSet.of();
-            for (OsgiBundleInstallationResult br: installs) {
-                try {
-                    rebindContext.startBundle(br);
-                    Iterables.addAll(installedTypes, managementContext.getTypeRegistry().getMatching(
-                        RegisteredTypePredicates.containingBundle(br.getVersionedName())));
-                } catch (Exception e) {
-                    exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, br.getMetadata().getId(), br.getMetadata().getSymbolicName(), e);
-                }
-            }
-            if (!installedTypes.isEmpty()) {
-                validateAllTypes(installedTypes);
-            }
-
-
         } else {
             logRebindingDebug("Not rebinding bundles; feature disabled: {}", mementoManifest.getBundleIds());
         }
         
-        // Do legacy items
+        // Construct the legacy catalog items; don't add them to the catalog here, 
+        // but instead pass them to catalogInitialization.populateCatalog.
         
-        // Instantiate catalog items
         if (rebindManager.persistCatalogItemsEnabled) {
+            // Instantiate catalog items
             logRebindingDebug("RebindManager instantiating catalog items: {}", mementoManifest.getCatalogItemIds());
             for (CatalogItemMemento catalogItemMemento : mementoManifest.getCatalogItemMementos().values()) {
                 logRebindingDebug("RebindManager instantiating catalog item {}", catalogItemMemento);
                 try {
                     CatalogItem<?, ?> catalogItem = instantiator.newCatalogItem(catalogItemMemento);
                     rebindContext.registerCatalogItem(catalogItemMemento.getId(), catalogItem);
+                    legacyCatalogItems.add(catalogItem);
                 } catch (Exception e) {
                     exceptionHandler.onCreateFailed(BrooklynObjectType.CATALOG_ITEM, catalogItemMemento.getId(), catalogItemMemento.getType(), e);
                 }
             }
-        } else {
-            logRebindingDebug("Not rebinding catalog; feature disabled: {}", mementoManifest.getCatalogItemIds());
-        }
-
-        // Reconstruct catalog entries
-        if (rebindManager.persistCatalogItemsEnabled) {
+            
+            // Reconstruct catalog entries
             logRebindingDebug("RebindManager reconstructing catalog items");
             for (CatalogItemMemento catalogItemMemento : mementoManifest.getCatalogItemMementos().values()) {
                 CatalogItem<?, ?> item = rebindContext.getCatalogItem(catalogItemMemento.getId());
@@ -397,111 +409,17 @@ public abstract class RebindIteration {
                     }
                 }
             }
-        }
 
-        // See notes in CatalogInitialization
-        
-        Collection<CatalogItem<?, ?>> catalogItems = rebindContext.getCatalogItems();
-        CatalogInitialization catInit = managementContext.getCatalogInitialization();
-        catInit.applyCatalogLoadMode();
-        Collection<CatalogItem<?,?>> itemsForResettingCatalog = null;
-        boolean needsInitialItemsLoaded, needsAdditionalItemsLoaded;
-        if (rebindManager.persistCatalogItemsEnabled) {
-            if (!catInit.hasRunFinalInitialization() && catInit.isInitialResetRequested()) {
-                String message = "RebindManager resetting catalog on first run (catalog persistence enabled, but reset explicitly specified). ";
-                if (catalogItems.isEmpty()) {
-                    message += "Catalog was empty anyway.";
-                } else {
-                    message += "Deleting "+catalogItems.size()+" persisted catalog item"+Strings.s(catalogItems)+": "+catalogItems;
-                    if (shouldLogRebinding()) {
-                        LOG.info(message);
-                    }
-                }
-                logRebindingDebug(message);
-
-                // we will have unnecessarily tried to load the catalog item manifests earlier in this iteration,
-                // and problems there could fail a rebind even when we are resetting;
-                // it might be cleaner to check earlier whether a reset is happening and not load those items at all,
-                // but that would be a significant new code path (to remove a directory in the persistent store, essentially),
-                // and as it stands we don't do much with those manifests (e.g. we won't register them or fail on missing types)
-                // so we think it's only really corrupted XML or CatalogItem schema changes which would cause such problems.
-                // in extremis someone might need to wipe their store but for most purposes i don't think there will be any issue
-                // with loading the catalog item manifests before wiping all those files.
-                
-                itemsForResettingCatalog = MutableList.<CatalogItem<?,?>>of();
-                
-                PersisterDeltaImpl delta = new PersisterDeltaImpl();
-                delta.removedCatalogItemIds.addAll(mementoRawData.getCatalogItems().keySet());
-                getPersister().queueDelta(delta);
-                
-                mementoRawData.clearCatalogItems();
-                rebindContext.clearCatalogItems();
-                needsInitialItemsLoaded = true;
-                needsAdditionalItemsLoaded = true;
-            } else {
-                if (!isEmpty) {
-                    logRebindingDebug("RebindManager clearing local catalog and loading from persisted state");
-                    itemsForResettingCatalog = rebindContext.getCatalogItems();
-                    needsInitialItemsLoaded = false;
-                    // only apply "add" if we haven't yet done so while in MASTER mode
-                    needsAdditionalItemsLoaded = !catInit.hasRunFinalInitialization();
-                } else {
-                    if (catInit.hasRunFinalInitialization()) {
-                        logRebindingDebug("RebindManager has already done the final official run, not doing anything (even though persisted state empty)");
-                        needsInitialItemsLoaded = false;
-                        needsAdditionalItemsLoaded = false;
-                    } else {
-                        logRebindingDebug("RebindManager loading initial catalog locally because persisted state empty and the final official run has not yet been performed");
-                        needsInitialItemsLoaded = true;
-                        needsAdditionalItemsLoaded = true;
-                    }
-                }
-            }
         } else {
-            if (catInit.hasRunFinalInitialization()) {
-                logRebindingDebug("RebindManager skipping catalog init because it has already run (catalog persistence disabled)");
-                needsInitialItemsLoaded = false;
-                needsAdditionalItemsLoaded = false;
-            } else {
-                logRebindingDebug("RebindManager will initialize catalog locally because catalog persistence is disabled and the final official run has not yet been performed");
-                needsInitialItemsLoaded = true;
-                needsAdditionalItemsLoaded = true;
-            }
+            logRebindingDebug("Not rebinding catalog; feature disabled: {}", mementoManifest.getCatalogItemIds());
         }
 
-        // TODO in read-only mode, perhaps do this less frequently than entities etc, maybe only if things change?
-        catInit.populateCatalog(mode, needsInitialItemsLoaded, needsAdditionalItemsLoaded, itemsForResettingCatalog);
-    }
 
-    private void validateAllTypes(Set<RegisteredType> installedTypes) {
-        Stopwatch sw = Stopwatch.createStarted();
-        LOG.debug("Getting catalog to validate all types");
-        final BrooklynCatalog catalog = this.managementContext.getCatalog();
-        LOG.debug("Got catalog in {} now validate", sw.toString());
-        sw.reset(); sw.start();
-        Map<RegisteredType, Collection<Throwable>> validationErrors = catalog.validateTypes( installedTypes );
-        LOG.debug("Validation done in {}", sw.toString());
-        if (!validationErrors.isEmpty()) {
-            Map<VersionedName, Map<RegisteredType,Collection<Throwable>>> errorsByBundle = MutableMap.of();
-            for (RegisteredType t: validationErrors.keySet()) {
-                VersionedName vn = VersionedName.fromString(t.getContainingBundle());
-                Map<RegisteredType, Collection<Throwable>> errorsInBundle = errorsByBundle.get(vn);
-                if (errorsInBundle==null) {
-                    errorsInBundle = MutableMap.of();
-                    errorsByBundle.put(vn, errorsInBundle);
-                }
-                errorsInBundle.put(t, validationErrors.get(t));
-            }
-            for (VersionedName vn: errorsByBundle.keySet()) {
-                Map<RegisteredType, Collection<Throwable>> errorsInBundle = errorsByBundle.get(vn);
-                ManagedBundle b = managementContext.getOsgiManager().get().getManagedBundle(vn);
-                exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE,
-                    b!=null ? b.getId() : /* just in case it was uninstalled concurrently somehow */ vn.toString(),
-                    vn.getSymbolicName(),
-                    Exceptions.create("Failed to install "+vn+", types "+errorsInBundle.keySet()+" gave errors",
-                        Iterables.concat(errorsInBundle.values())));
-            }
-        }
+        // Delegates to CatalogInitialization; see notes there.
+        CatalogInitialization.PersistedCatalogState persistedCatalogState = new CatalogInitialization.PersistedCatalogState(bundles, legacyCatalogItems);
+        
+        CatalogInitialization catInit = managementContext.getCatalogInitialization();
+        catInit.populateInitialAndPersistedCatalog(mode, persistedCatalogState, exceptionHandler, rebindLogger);
     }
 
     protected void instantiateLocationsAndEntities() {
@@ -738,16 +656,26 @@ public abstract class RebindIteration {
                 // usually because of creation-failure, when not using fail-fast
                 exceptionHandler.onNotFound(BrooklynObjectType.ENTITY, entityMemento.getId());
             } else {
-                try {
-                    entityMemento.injectTypeClass(entity.getClass());
-                    // TODO these call to the entity which in turn sets the entity on the underlying feeds and enrichers;
-                    // that is taken as the cue to start, but it should not be. start should be a separate call.
-                    ((EntityInternal)entity).getRebindSupport().addPolicies(rebindContext, entityMemento);
-                    ((EntityInternal)entity).getRebindSupport().addEnrichers(rebindContext, entityMemento);
-                    ((EntityInternal)entity).getRebindSupport().addFeeds(rebindContext, entityMemento);
-                } catch (Exception e) {
-                    exceptionHandler.onRebindFailed(BrooklynObjectType.ENTITY, entity, e);
-                }
+                // Must execute in entity's context, so policy.setEntity can resolve config (BROOKLYN-549).
+                Runnable body = new Runnable() {
+                    public void run() {
+                        try {
+                            entityMemento.injectTypeClass(entity.getClass());
+                            // TODO these call to the entity which in turn sets the entity on the underlying feeds and enrichers;
+                            // that is taken as the cue to start, but it should not be. start should be a separate call.
+                            ((EntityInternal)entity).getRebindSupport().addPolicies(rebindContext, entityMemento);
+                            ((EntityInternal)entity).getRebindSupport().addEnrichers(rebindContext, entityMemento);
+                            ((EntityInternal)entity).getRebindSupport().addFeeds(rebindContext, entityMemento);
+                        } catch (Exception e) {
+                            exceptionHandler.onRebindFailed(BrooklynObjectType.ENTITY, entity, e);
+                        }
+                    }
+                };
+                ((EntityInternal)entity).getExecutionContext().get(Tasks.<Void>builder()
+                        .displayName("rebind-adjuncts-"+entity.getId())
+                        .dynamic(false)
+                        .body(body)
+                        .build());
             }
         }
     }
@@ -849,14 +777,15 @@ public abstract class RebindIteration {
         if (!isEmpty) {
             BrooklynLogging.log(LOG, shouldLogRebinding() ? LoggingLevel.INFO : LoggingLevel.DEBUG, 
                 "Rebind complete " + "("+mode+(readOnlyRebindCount.get()>=0 ? ", iteration "+readOnlyRebindCount : "")+")" +
-                    " in {}: {} app{}, {} entit{}, {} location{}, {} polic{}, {} enricher{}, {} feed{}, {} catalog item{}",
+                    " in {}: {} app{}, {} entit{}, {} location{}, {} polic{}, {} enricher{}, {} feed{}, {} catalog item{}, {} catalog bundle{}",
                 Time.makeTimeStringRounded(timer), applications.size(), Strings.s(applications),
                 rebindContext.getEntities().size(), Strings.ies(rebindContext.getEntities()),
                 rebindContext.getLocations().size(), Strings.s(rebindContext.getLocations()),
                 rebindContext.getPolicies().size(), Strings.ies(rebindContext.getPolicies()),
                 rebindContext.getEnrichers().size(), Strings.s(rebindContext.getEnrichers()),
                 rebindContext.getFeeds().size(), Strings.s(rebindContext.getFeeds()),
-                rebindContext.getCatalogItems().size(), Strings.s(rebindContext.getCatalogItems())
+                rebindContext.getCatalogItems().size(), Strings.s(rebindContext.getCatalogItems()),
+                rebindContext.getBundles().size(), Strings.s(rebindContext.getBundles())
             );
         }
 
@@ -1057,25 +986,45 @@ public abstract class RebindIteration {
         }
         
         @SuppressWarnings("unchecked")
+        // TODO should prefer a registered type as the type to load (in lieu of jType),
+        // but note some callers (enrichers etc) use catalogItemId to be the first entry in search path rather than their actual type,
+        // so until callers are all updated all we can do here is load the java type with no guarantee the catalogItemId should be the same.
+        // (yoml should help a lot with this.)
         protected <T extends BrooklynObject> LoadedClass<? extends T> load(Class<T> bType, String jType,
                 String catalogItemId, List<String> searchPath, String contextSuchAsId) {
             checkNotNull(jType, "Type of %s (%s) must not be null", contextSuchAsId, bType.getSimpleName());
 
+            CatalogUpgrades.markerForCodeThatLoadsJavaTypesButShouldLoadRegisteredType();
+            
+            List<String> warnings = MutableList.of();
             List<String> reboundSearchPath = MutableList.of();
             if (searchPath != null && !searchPath.isEmpty()) {
                 for (String searchItemId : searchPath) {
                     String fixedSearchItemId = null;
                     RegisteredType t1 = managementContext.getTypeRegistry().get(searchItemId);
+                    if (t1==null) {
+                        String newSearchItemId = CatalogUpgrades.getTypeUpgradedIfNecessary(managementContext, searchItemId);
+                        if (!newSearchItemId.equals(searchItemId)) {
+                            logRebindingDebug("Upgrading search path entry of "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+" from "+searchItemId+" to "+newSearchItemId);
+                            searchItemId = newSearchItemId;
+                            t1 = managementContext.getTypeRegistry().get(newSearchItemId);
+                        }
+                    }
                     if (t1!=null) fixedSearchItemId = t1.getId();
                     if (fixedSearchItemId==null) {
                         CatalogItem<?, ?> ci = findCatalogItemInReboundCatalog(bType, searchItemId, contextSuchAsId);
-                        if (ci!=null) fixedSearchItemId = ci.getCatalogItemId();
+                        if (ci!=null) {
+                            fixedSearchItemId = ci.getCatalogItemId();
+                            logRebindingWarn("Needed rebind catalog to resolve search path entry "+searchItemId+" (now "+fixedSearchItemId+") for "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+
+                                ", persistence should remove this in future but future versions will not support this and definitions should be fixed");
+                        } else {
+                            logRebindingWarn("Could not find search path entry "+searchItemId+" for "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+", ignoring");
+                        }
                     }
                     if (fixedSearchItemId != null) {
                         reboundSearchPath.add(fixedSearchItemId);
                     } else {
-                        LOG.warn("Unable to load catalog item "+ searchItemId
-                            + " for search path of "+contextSuchAsId + " (" + bType.getSimpleName()+"); attempting to load "+jType+" nevertheless");
+                        warnings.add("unable to resolve search path entry "+ searchItemId);
                     }
                 }
             }
@@ -1083,11 +1032,28 @@ public abstract class RebindIteration {
             if (catalogItemId != null) {
                 String transformedCatalogItemId = null;
                 
-                Maybe<RegisteredType> registeredType = managementContext.getTypeRegistry().getMaybe(catalogItemId,
-                    // ignore bType; catalog item ID gives us the search path, but doesn't need to be of the requested type
+                Maybe<RegisteredType> contextRegisteredType = managementContext.getTypeRegistry().getMaybe(catalogItemId,
+                    // this is context RT, not item we are loading, so bType does not apply here
+                    // if we were instantiating from an RT instead of a JT (ideal) then we would use bType to filter
                     null );
-                if (registeredType.isPresent()) {
-                    transformedCatalogItemId = registeredType.get().getId();
+                if (contextRegisteredType.isAbsent()) {
+                    transformedCatalogItemId = CatalogUpgrades.getTypeUpgradedIfNecessary(managementContext, catalogItemId);
+                    if (!transformedCatalogItemId.equals(catalogItemId)) {
+                        // catalog item id is sometimes the type of the item, but sometimes just the first part of the search path
+                        logRebindingInfo("Upgrading "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+
+                            " stored catalog item context on rebind"+
+                            " from "+catalogItemId+" to "+transformedCatalogItemId);
+                        
+                        // again ignore bType
+                        contextRegisteredType = managementContext.getTypeRegistry().getMaybe(transformedCatalogItemId, null);
+                        
+                    } else {
+                        transformedCatalogItemId = null;
+                    }
+                }
+                
+                if (contextRegisteredType.isPresent()) {
+                    transformedCatalogItemId = contextRegisteredType.get().getId();
                 } else {
                     CatalogItem<?, ?> catalogItem = findCatalogItemInReboundCatalog(bType, catalogItemId, contextSuchAsId);
                     if (catalogItem != null) {
@@ -1103,39 +1069,54 @@ public abstract class RebindIteration {
                         return new LoadedClass<T>(loader.loadClass(jType, bType), transformedCatalogItemId, reboundSearchPath);
                     } catch (Exception e) {
                         Exceptions.propagateIfFatal(e);
-                        LOG.warn("Unable to load class "+jType+" needed for "+catalogItemId+" for "+contextSuchAsId+", via "+transformedCatalogItemId+" loader (will try reflections)");
+                        warnings.add("unable to load class "+jType+" for resovled context type "+transformedCatalogItemId);
                     }
                 } else {
-                    LOG.warn("Unable to load catalog item "+catalogItemId+" ("+bType+") for " + contextSuchAsId +
-                      " ("+bType.getSimpleName()+"); will try reflection");
+                    // TODO fail, rather than fallback to java?
+                    warnings.add("unable to resolve context type "+catalogItemId);
                 }
+            } else {
+                // can happen for enrichers etc added by java, and for BasicApplication when things are deployed;
+                // no need to warn
             }
 
             try {
-                return new LoadedClass<T>((Class<T>)loadClass(jType), catalogItemId, reboundSearchPath);
+                Class<T> jTypeC = (Class<T>)loadClass(jType);
+                if (!warnings.isEmpty()) {
+                    LOG.warn("Loaded java type "+jType+" for "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+" but had errors: "+Strings.join(warnings, ";"));
+                }
+                return new LoadedClass<T>(jTypeC, catalogItemId, reboundSearchPath);
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
-                LOG.warn("Unable to load class "+jType+" needed for "+catalogItemId+" for "+contextSuchAsId+", via reflections (may try others, will throw if fails)");
             }
 
             if (catalogItemId != null) {
-                throw new IllegalStateException("Unable to load "+jType+" for catalog item " + catalogItemId + " for " + contextSuchAsId);
+                String msg = "Class "+jType+" not found for "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+" ("+catalogItemId+"): "+Strings.join(warnings, ";");
+                LOG.warn(msg+" (rethrowing)");
+                throw new IllegalStateException(msg);
                 
             } else if (BrooklynFeatureEnablement.isEnabled(FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND)) {
-                //Try loading from whichever catalog bundle succeeds.
+                //Try loading from whichever catalog bundle succeeds (legacy CI items only; also disabling this, as no longer needed 2017-09)
                 BrooklynCatalog catalog = managementContext.getCatalog();
-                for (CatalogItem<?, ?> item : catalog.getCatalogItems()) {
+                for (CatalogItem<?, ?> item : catalog.getCatalogItemsLegacy()) {
                     BrooklynClassLoadingContext catalogLoader = CatalogUtils.newClassLoadingContext(managementContext, item);
                     Maybe<Class<?>> catalogClass = catalogLoader.tryLoadClass(jType);
                     if (catalogClass.isPresent()) {
+                        LOG.warn("Falling back to java type "+jType+" for "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+" using catalog search paths, found on "+item+
+                            (warnings.isEmpty() ? "" : ", after errors: "+Strings.join(warnings, ";")));
                         return new LoadedClass<T>((Class<? extends T>) catalogClass.get(), catalogItemId, reboundSearchPath);
                     }
                 }
-                throw new IllegalStateException("No catalogItemId specified for " + contextSuchAsId +
-                    " and can't load class (" + jType + ") from either classpath or catalog items");
+                String msg = "Class "+jType+" not found for "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+", even after legacy global classpath search"+
+                    (warnings.isEmpty() ? "" : ": "+Strings.join(warnings, ";"));
+                LOG.warn(msg+" (rethrowing)");
+                throw new IllegalStateException(msg);
+
             } else {
-                throw new IllegalStateException("No catalogItemId specified for " + contextSuchAsId +
-                    " and can't load class (" + jType + ") from classpath");
+                String msg = "Class "+jType+" not found for "+bType.getSimpleName().toLowerCase()+" "+contextSuchAsId+
+                    (warnings.isEmpty() ? "" : ": "+Strings.join(warnings, ";"));
+                LOG.warn(msg+" (rethrowing)");
+                throw new IllegalStateException(msg);
             }
         }
 
@@ -1228,6 +1209,7 @@ public abstract class RebindIteration {
                 policy = policyFactory.constructPolicy(policyClazz);
                 FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", id), policy);
                 ((AbstractPolicy)policy).setManagementContext(managementContext);
+                ((AbstractPolicy)policy).setHighlights(memento.getHighlights());
 
             } else {
                 LOG.warn("Deprecated rebind of policy without no-arg constructor; " +
@@ -1318,7 +1300,7 @@ public abstract class RebindIteration {
         }
 
         protected ManagedBundle newManagedBundle(ManagedBundleMemento memento) {
-            ManagedBundle result = new BasicManagedBundle(memento.getSymbolicName(), memento.getVersion(), memento.getUrl());
+            ManagedBundle result = new BasicManagedBundle(memento.getSymbolicName(), memento.getVersion(), memento.getUrl(), memento.getChecksum());
             FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", memento.getId()), result);
             return result;
         }
@@ -1361,6 +1343,24 @@ public abstract class RebindIteration {
     protected void logRebindingDebug(String message, Object... args) {
         if (shouldLogRebinding()) {
             LOG.debug(message, args);
+        } else {
+            LOG.trace(message, args);
+        }
+    }
+    
+    /** logs at info, except during subsequent read-only rebinds, in which it logs trace */
+    protected void logRebindingInfo(String message, Object... args) {
+        if (shouldLogRebinding()) {
+            LOG.info(message, args);
+        } else {
+            LOG.trace(message, args);
+        }
+    }
+    
+    /** logs at warn, except during subsequent read-only rebinds, in which it logs trace */
+    protected void logRebindingWarn(String message, Object... args) {
+        if (shouldLogRebinding()) {
+            LOG.warn(message, args);
         } else {
             LOG.trace(message, args);
         }

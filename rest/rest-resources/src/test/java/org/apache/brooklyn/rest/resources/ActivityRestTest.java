@@ -33,6 +33,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.effector.SampleManyTasksEffector;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils.CreationResult;
@@ -43,7 +44,6 @@ import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.time.CountdownTimer;
@@ -100,7 +100,7 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
 
     @SuppressWarnings("deprecation")
     protected void initEntity(int seed) {
-        if (entity!=null) {
+        if (entity != null && Entities.isManaged(entity)) {
             Entities.destroy(entity.getApplication());
         }
         
@@ -133,7 +133,7 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
             }
             i++;
         } while (true);
-        Tasks.dumpInfo(me.lastTask);
+        Dumper.dumpInfo(me.lastTask);
         log.info("Seed "+i+" is good ^");
     }
     
@@ -158,6 +158,21 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
         assertHealthy(response);
         TaskSummary task = response.readEntity(TaskSummary.class);
         Assert.assertEquals(task.getId(), t.getId());
+    }
+    
+    // See https://issues.apache.org/jira/browse/BROOKLYN-571
+    @Test
+    public void testGetTaskOfUnmanagedEntity() {
+        Task<?> t = entity.invoke(effector, null);
+        Entities.unmanage(entity.getParent());
+        
+        Response response = client().path("/activities/"+t.getId())
+            .accept(MediaType.APPLICATION_JSON)
+            .get();
+        assertHealthy(response);
+        TaskSummary task = response.readEntity(TaskSummary.class);
+        Assert.assertEquals(task.getId(), t.getId());
+        Assert.assertEquals(task.getEntityId(), entity.getId());
     }
     
     @Test

@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.rest.api;
 
-import io.swagger.annotations.Api;
 import java.util.List;
 import java.util.Map;
 
@@ -32,12 +31,13 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
-import org.apache.brooklyn.rest.domain.EntityConfigSummary;
+import org.apache.brooklyn.rest.domain.ConfigSummary;
 
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
+import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
 
 @Path("/applications/{application}/entities/{entity}/config")
 @Api("Entity Config")
@@ -52,7 +52,7 @@ public interface EntityConfigApi {
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Could not find application or entity")
     })
-    public List<EntityConfigSummary> list(
+    public List<ConfigSummary> list(
             @ApiParam(value = "Application ID or name", required = true)
             @PathParam("application") final String application,
             @ApiParam(value = "Entity ID or name", required = true)

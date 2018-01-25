@@ -18,37 +18,40 @@
  */
 package org.apache.brooklyn.core.objs;
 
-import static com.google.common.base.Preconditions.checkState;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+
+import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
-import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.objs.HighlightTuple;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
-import org.apache.brooklyn.core.enricher.AbstractEnricher;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.core.mgmt.internal.SubscriptionTracker;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
@@ -61,6 +64,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
 
@@ -78,6 +82,8 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     @Deprecated
     protected Map<String,Object> leftoverProperties = Maps.newLinkedHashMap();
 
+    /** @deprecated since 1.0.0, going private, use {@link #getExecutionContext()} */
+    @Deprecated
     protected transient ExecutionContext execution;
 
     private final BasicConfigurationSupport config = new BasicConfigurationSupport();
@@ -90,11 +96,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
      */
     private final AdjunctConfigMap configsInternal = new AdjunctConfigMap(this);
 
-    /**
-     * @deprecated since 0.7.0; use {@link #getAdjunctType()} instead; this field may be made private or deleted in a future release.
-     */
-    @Deprecated
-    protected final AdjunctType adjunctType = new AdjunctType(this);
+    private final AdjunctType adjunctType = new AdjunctType(this);
 
     @SetFromFlag
     protected String name;
@@ -108,6 +110,17 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     
     @SetFromFlag(value="uniqueTag")
     protected String uniqueTag;
+
+    private Map<String, HighlightTuple> highlights = new HashMap<>();
+
+    /** Name of a highlight that indicates the last action taken by this adjunct. */
+    public static String HIGHLIGHT_NAME_LAST_ACTION = "lastAction";
+    /** Name of a highlight that indicates the last confirmation detected by this adjunct. */
+    public static String HIGHLIGHT_NAME_LAST_CONFIRMATION= "lastConfirmation";
+    /** Name of a highlight that indicates the last violation detected by this adjunct. */
+    public static String HIGHLIGHT_NAME_LAST_VIOLATION= "lastViolation";
+    /** Name of a highlight that indicates the triggers for this adjunct. */
+    public static String HIGHLIGHT_NAME_TRIGGERS = "triggers";
 
     public AbstractEntityAdjunct() {
         this(Collections.emptyMap());
@@ -194,6 +207,14 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         return _legacyNoConstructionInit;
     }
 
+    /** If the entity has been set, returns the execution context indicating this adjunct.
+     * Primarily intended for this adjunct to execute tasks, but in some cases, mainly low level,
+     * it may make sense for other components to execute tasks against this adjunct. */
+    @Beta
+    public ExecutionContext getExecutionContext() {
+        return execution;
+    }
+    
     @Override
     public ConfigurationSupportInternal config() {
         return config;
@@ -257,7 +278,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
             synchronized (AbstractEntityAdjunct.this) {
                 if (_subscriptionTracker!=null) return _subscriptionTracker;
                 if (entity==null) return null;
-                _subscriptionTracker = new SubscriptionTracker(((EntityInternal)entity).subscriptions().getSubscriptionContext());
+                _subscriptionTracker = new SubscriptionTracker(getManagementContext().getSubscriptionContext(entity, AbstractEntityAdjunct.this));
                 return _subscriptionTracker;
             }
         }
@@ -315,7 +336,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
 
         @Override
         protected ExecutionContext getContext() {
-            return AbstractEntityAdjunct.this.execution;
+            return AbstractEntityAdjunct.this.getExecutionContext();
         }
 
         @Override
@@ -344,12 +365,6 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         if (result==null) 
             throw new NullPointerException("Value required for '"+key.getName()+"' in "+this);
         return result;
-    }
-
-    @Override
-    @Deprecated
-    public <T> T setConfig(ConfigKey<T> key, T val) {
-        return config().set(key, val);
     }
 
     /**
@@ -383,10 +398,20 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         this.name = name;
     }
 
+    @Override
+    public ManagementContext getManagementContext() {
+        ManagementContext result = super.getManagementContext();
+        if (result!=null) return result;
+        if (entity!=null) {
+            return ((EntityInternal)entity).getManagementContext();
+        }
+        return null;
+    }
+    
     public void setEntity(EntityLocal entity) {
         if (destroyed.get()) throw new IllegalStateException("Cannot set entity on a destroyed entity adjunct");
         this.entity = entity;
-        this.execution = ((EntityInternal) entity).getExecutionContext();
+        this.execution = getManagementContext().getExecutionContext(entity, this);
         if (entity!=null && getCatalogItemId() == null) {
             setCatalogItemIdAndSearchPath(entity.getCatalogItemId(), entity.getCatalogItemIdSearchPath());
         }
@@ -396,113 +421,13 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         return entity;
     }
     
-    /** @deprecated since 0.7.0 only {@link AbstractEnricher} has emit convenience */
-    @Deprecated
-    protected <T> void emit(Sensor<T> sensor, Object val) {
-        checkState(entity != null, "entity must first be set");
-        if (val == Entities.UNCHANGED) {
-            return;
-        }
-        if (val == Entities.REMOVE) {
-            ((EntityInternal)entity).removeAttribute((AttributeSensor<T>) sensor);
-            return;
-        }
-        
-        T newVal = TypeCoercions.coerce(val, sensor.getTypeToken());
-        if (sensor instanceof AttributeSensor) {
-            entity.sensors().set((AttributeSensor<T>)sensor, newVal);
-        } else { 
-            entity.sensors().emit(sensor, newVal);
-        }
-    }
-
-    /**
-     * @deprecated since 0.9.0; for internal use only
-     */
-    @Deprecated
-    protected synchronized SubscriptionTracker getSubscriptionTracker() {
+    private synchronized SubscriptionTracker getSubscriptionTracker() {
         if (_subscriptionTracker!=null) return _subscriptionTracker;
         if (entity==null) return null;
         _subscriptionTracker = new SubscriptionTracker(((EntityInternal)entity).subscriptions().getSubscriptionContext());
         return _subscriptionTracker;
     }
-    
-    /**
-     * @deprecated since 0.9.0; see {@link SubscriptionSupport#subscribe(Entity, Sensor, SensorEventListener)} and {@link BrooklynObject#subscriptions()}
-     */
-    @Deprecated
-    public <T> SubscriptionHandle subscribe(Entity producer, Sensor<T> sensor, SensorEventListener<? super T> listener) {
-        if (!checkCanSubscribe()) return null;
-        return getSubscriptionTracker().subscribe(producer, sensor, listener);
-    }
 
-    /**
-     * @deprecated since 0.9.0; see {@link SubscriptionSupport#subscribeToMembers(Entity, Sensor, SensorEventListener)} and {@link BrooklynObject#subscriptions()}
-     */
-    @Deprecated
-    public <T> SubscriptionHandle subscribeToMembers(Group producerGroup, Sensor<T> sensor, SensorEventListener<? super T> listener) {
-        if (!checkCanSubscribe(producerGroup)) return null;
-        return getSubscriptionTracker().subscribeToMembers(producerGroup, sensor, listener);
-    }
-
-    /**
-     * @deprecated since 0.9.0; see {@link SubscriptionSupport#subscribeToChildren(Entity, Sensor, SensorEventListener)} and {@link BrooklynObject#subscriptions()}
-     */
-    @Deprecated
-    public <T> SubscriptionHandle subscribeToChildren(Entity producerParent, Sensor<T> sensor, SensorEventListener<? super T> listener) {
-        if (!checkCanSubscribe(producerParent)) return null;
-        return getSubscriptionTracker().subscribeToChildren(producerParent, sensor, listener);
-    }
-
-    /**
-     * @deprecated since 0.7.0 use {@link BasicSubscriptionSupport#checkCanSubscribe(Entity)
-     */
-    @Deprecated
-    protected boolean check(Entity requiredEntity) {
-        return checkCanSubscribe(requiredEntity);
-    }
-    
-    /**
-     * @deprecated since 0.9.0; for internal use only
-     */
-    @Deprecated
-    protected boolean checkCanSubscribe(Entity producer) {
-        return subscriptions().checkCanSubscribe(producer);
-    }
-    
-    /**
-     * @deprecated since 0.9.0; for internal use only
-     */
-    @Deprecated
-    protected boolean checkCanSubscribe() {
-        return subscriptions().checkCanSubscribe();
-    }
-        
-    /**
-     * @deprecated since 0.9.0; see {@link SubscriptionSupport#unsubscribe(Entity)} and {@link BrooklynObject#subscriptions()}
-     */
-    @Deprecated
-    public boolean unsubscribe(Entity producer) {
-        return subscriptions().unsubscribe(producer);
-    }
-
-    /**
-     * @deprecated since 0.9.0; see {@link SubscriptionSupport#unsubscribe(Entity, SubscriptionHandle)} and {@link BrooklynObject#subscriptions()}
-     */
-    @Deprecated
-    public boolean unsubscribe(Entity producer, SubscriptionHandle handle) {
-        return subscriptions().unsubscribe(producer, handle);
-    }
-
-    /**
-     * @deprecated since 0.9.0; for internal use only
-     */
-    @Deprecated
-    protected Collection<SubscriptionHandle> getAllSubscriptions() {
-        SubscriptionTracker tracker = getSubscriptionTracker();
-        return (tracker != null) ? tracker.getAllSubscriptions() : Collections.<SubscriptionHandle>emptyList();
-    }
-    
     /** 
      * Unsubscribes and clears all managed subscriptions; is called by the owning entity when a policy is removed
      * and should always be called by any subclasses overriding this method
@@ -545,6 +470,110 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         }
         public void setUniqueTag(String uniqueTag) {
             AbstractEntityAdjunct.this.uniqueTag = uniqueTag;
+        }
+    }
+
+    @Override
+    public Map<String, HighlightTuple> getHighlights() {
+        HashMap<String, HighlightTuple> highlightsToReturn = new HashMap<>();
+        highlightsToReturn.putAll(highlights);
+        return highlightsToReturn;
+    }
+
+    /** Records a named highlight against this object, for persistence and API access.
+     * See common highlights including {@link #HIGHLIGHT_NAME_LAST_ACTION} and
+     * {@link #HIGHLIGHT_NAME_LAST_CONFIRMATION}.
+     * Also see convenience methods eg  {@link #highlightOngoing(String, String)} and {@link #highlight(String, String, Task)}
+     * and {@link HighlightTuple}. 
+     */
+    protected void setHighlight(String name, HighlightTuple tuple) {
+        highlights.put(name, tuple);
+    }
+
+    /** As {@link #setHighlight(String, HighlightTuple)}, convenience for recording an item which is intended to be ongoing. */
+    protected void highlightOngoing(String name, String description) {
+        setHighlight(name, new HighlightTuple(description, 0, null));
+    }
+    /** As {@link #setHighlight(String, HighlightTuple)}, convenience for recording an item with the current time. */
+    protected void highlightNow(String name, String description) {
+        setHighlight(name, new HighlightTuple(description, System.currentTimeMillis(), null));
+    }
+    /** As {@link #setHighlight(String, HighlightTuple)}, convenience for recording an item with the current time and given task. */
+    protected void highlight(String name, String description, @Nullable Task<?> t) {
+        setHighlight(name, new HighlightTuple(description, System.currentTimeMillis(), t!=null ? t.getId() : null));
+    }
+    
+    /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_TRIGGERS} (as ongoing). */
+    protected void highlightTriggers(String description) {
+        highlightOngoing(HIGHLIGHT_NAME_TRIGGERS, description);
+    }
+    /** As {@link #highlightTriggers(String)} but convenience to generate a message given a sensor and source (entity or string description) */
+    protected <T> void highlightTriggers(Sensor<?> s, Object source) {
+        highlightTriggers(Collections.singleton(s), Collections.singleton(source));
+    }
+    /** As {@link #highlightTriggers(String)} but convenience to generate a message given a list of sensors and source (entity or string description) */
+    protected <T> void highlightTriggers(Iterable<? extends Sensor<? extends T>> s, Object source) {
+        highlightTriggers(s, (Iterable<?>) (source instanceof Iterable ? (Iterable<?>)source : Collections.singleton(source)));
+    }
+    /** As {@link #highlightTriggers(String)} but convenience to generate a message given a sensor and list of sources (entity or string description) */
+    protected <U> void highlightTriggers(Sensor<?> s, Iterable<U> sources) {
+        highlightTriggers(Collections.singleton(s), sources);
+    }
+    /** As {@link #highlightTriggers(String)} but convenience to generate a message given a list of sensors and list of sources (entity or string description) */
+    protected <T,U> void highlightTriggers(Iterable<? extends Sensor<? extends T>> sensors, Iterable<U> sources) {
+        StringBuilder msg = new StringBuilder("Listening for ");
+
+        if (sensors==null || Iterables.isEmpty(sensors)) {
+            msg.append("<nothing>");
+        } else {
+            String sensorsText = MutableSet.<Object>copyOf(sensors).stream()
+                    .filter(s -> s != null)
+                    .map(s -> (s instanceof Sensor ? ((Sensor<?>) s).getName() : s.toString()))
+                    .collect(Collectors.joining(", "));
+            msg.append(sensorsText);
+        }
+
+        if (sources!=null && !Iterables.isEmpty(sources)) {
+            String sourcesText = MutableSet.<Object>copyOf(sources).stream()
+                    .filter(s -> s != null)
+                    .map(s -> (s.equals(getEntity()) ? "self" : s.toString()))
+                    .collect(Collectors.joining(", "));
+            if (!"self".equals(sourcesText)) {
+                msg.append(" on ").append(sourcesText);
+            }
+        }
+
+        highlightTriggers(msg.toString());
+    }
+
+    /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_CONFIRMATION}. */
+    protected void highlightConfirmation(String description) {
+        highlightNow(HIGHLIGHT_NAME_LAST_CONFIRMATION, description);
+    }
+    /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_ACTION}. */
+    protected void highlightAction(String description, Task<?> t) {
+        highlight(HIGHLIGHT_NAME_LAST_ACTION, description, t);
+    }
+    /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_ACTION} when publishing a sensor. */
+    protected void highlightActionPublishSensor(Sensor<?> s, Object v) {
+        highlightActionPublishSensor("Publish "+s.getName()+" "+v);
+    }
+    /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_ACTION} when publishing a sensor (freeform text). */
+    protected void highlightActionPublishSensor(String description) {
+        highlight(HIGHLIGHT_NAME_LAST_ACTION, description, null);
+    }
+    /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_VIOLATION}. */
+    protected void highlightViolation(String description) {
+        highlightNow(HIGHLIGHT_NAME_LAST_VIOLATION, description);
+    }
+    
+    /**
+     * Should only be used for rebind
+     * @param highlights
+     */
+    public void setHighlights(Map<String, HighlightTuple> highlights) {
+        if(highlights != null) {
+            this.highlights.putAll(highlights);
         }
     }
 

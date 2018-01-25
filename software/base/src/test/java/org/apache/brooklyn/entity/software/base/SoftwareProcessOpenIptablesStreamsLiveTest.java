@@ -70,7 +70,7 @@ public class SoftwareProcessOpenIptablesStreamsLiveTest extends BrooklynAppLiveT
 
         Set<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(mgmt.getExecutionManager(), softwareProcessEntity);
 
-        Task<?> subTask = findTaskOrSubTask(tasks, TaskPredicates.displayNameMatches(StringPredicates.matchesRegex("open iptables.*"))).get();
+        Task<?> subTask = findTaskOrSubTask(tasks, TaskPredicates.displayNameSatisfies(StringPredicates.matchesRegex("open iptables.*"))).get();
 
         String stdout = AbstractSoftwareProcessStreamsTest.getStreamOrFail(subTask, BrooklynTaskTags.STREAM_STDOUT);
         String msg = "stdout="+stdout;

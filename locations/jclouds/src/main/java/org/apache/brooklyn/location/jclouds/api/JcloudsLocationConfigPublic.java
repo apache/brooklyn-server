@@ -65,10 +65,6 @@ public interface JcloudsLocationConfigPublic extends CloudLocationConfig {
     public static final ConfigKey<Boolean> AUTO_GENERATE_KEYPAIRS = ConfigKeys.newBooleanConfigKey("jclouds.openstack-nova.auto-generate-keypairs",
         "Whether to generate keypairs automatically (OpenStack Nova)");
 
-    /** @deprecated since 0.9.0 Use {@link #AUTO_ASSIGN_FLOATING_IP} instead (deprecated in 0.7.0 but warning not given until 0.9.0) */
-    @Deprecated
-    public static final ConfigKey<Boolean> AUTO_CREATE_FLOATING_IPS = ConfigKeys.newBooleanConfigKey("jclouds.openstack-nova.auto-create-floating-ips",
-            "Whether to generate floating ips for Nova");
     public static final ConfigKey<Boolean> AUTO_ASSIGN_FLOATING_IP = ConfigKeys.newBooleanConfigKey("autoAssignFloatingIp",
             "Whether to generate floating ips (in Nova paralance), or elastic IPs (in CloudStack parlance)");
 
@@ -141,25 +137,14 @@ public interface JcloudsLocationConfigPublic extends CloudLocationConfig {
     public static final ConfigKey<String> USER_METADATA_STRING = ConfigKeys.newStringConfigKey("userMetadataString", 
         "Arbitrary user data, as a single string, on supported clouds (AWS)", null);
 
-    @Deprecated /** @deprecated since 0.7.0 even AWS (the only one where this was supported) does not seem to want this uuencoded;
-      use #USER_METADATA_STRING */
-    public static final ConfigKey<String> USER_DATA_UUENCODED = ConfigKeys.newStringConfigKey("userData", 
-        "Arbitrary user data, as a single string in uuencoded format, on supported clouds (AWS)", null);
-
     public static final ConfigKey<Object> STRING_TAGS = new BasicConfigKey<Object>(Object.class, "tags", 
             "Tags to be applied when creating a VM, on supported clouds " +
             "(either a single tag as a String, or an Iterable<String> or String[];" +
             "note this is not key-value pairs (e.g. what AWS calls 'tags'), for that see userMetadata)", null);
 
-    @Deprecated /** @deprecated since 0.7.0 use #STRING_TAGS */
-    public static final ConfigKey<Object> TAGS = STRING_TAGS;
-
     public static final ConfigKey<Object> USER_METADATA_MAP = new BasicConfigKey<Object>(Object.class, "userMetadata", 
             "Arbitrary user metadata, as a map (or String of comma-separated key=value pairs), on supported clouds; " +
             "note often values cannot be null", null);
-    @Deprecated /** @deprecated since 0.7.0 use #USER_METADATA_MAP */
-    public static final ConfigKey<Object> USER_METADATA = USER_METADATA_MAP;
-
     public static final ConfigKey<Boolean> INCLUDE_BROOKLYN_USER_METADATA = ConfigKeys.newBooleanConfigKey("includeBrooklynUserMetadata", 
         "Whether to set metadata about the context of a machine, e.g. brooklyn-entity-id, brooklyn-app-name (default true)", true);
 
@@ -228,8 +213,14 @@ public interface JcloudsLocationConfigPublic extends CloudLocationConfig {
     public static final ConfigKey<Integer> MAX_CONCURRENT_MACHINE_CREATIONS = ConfigKeys.newIntegerConfigKey(
             "maxConcurrentMachineCreations", "Maximum number of concurrent machine-creations", Integer.MAX_VALUE);
 
+    public static final ConfigKey<Integer> MAX_CONCURRENT_MACHINE_DELETIONS = ConfigKeys.newIntegerConfigKey(
+            "maxConcurrentMachineDeletions", "Maximum number of concurrent machine-deletions", Integer.MAX_VALUE);
+
     public static final ConfigKey<Semaphore> MACHINE_CREATION_SEMAPHORE = ConfigKeys.newConfigKey(
             Semaphore.class, "machineCreationSemaphore", "Semaphore for controlling concurrent machine creation", null);
+    
+    public static final ConfigKey<Semaphore> MACHINE_DELETION_SEMAPHORE = ConfigKeys.newConfigKey(
+            Semaphore.class, "machineDeletionSemaphore", "Semaphore for controlling concurrent machine deletion", null);
     
     @SuppressWarnings("serial")
     public static final ConfigKey<Map<String,Object>> TEMPLATE_OPTIONS = ConfigKeys.newConfigKey(

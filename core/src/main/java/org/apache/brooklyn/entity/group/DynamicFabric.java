@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.entity.group;
 
+import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -50,25 +51,37 @@ public interface DynamicFabric extends AbstractGroup, Startable, Fabric {
                     + "for each given location).",
             true);
     
+    @CatalogConfig(label = "Member spec")
     @SetFromFlag("memberSpec")
     ConfigKey<EntitySpec<?>> MEMBER_SPEC = ConfigKeys.newConfigKey(
-            new TypeToken<EntitySpec<?>>() {}, "dynamiccfabric.memberspec", "entity spec for creating new cluster members", null);
+            new TypeToken<EntitySpec<?>>() {}, 
+            "dynamicfabric.memberspec", 
+            "Entity spec for creating new members (one per location)", 
+            null);
 
     @SetFromFlag("firstMemberSpec")
     ConfigKey<EntitySpec<?>> FIRST_MEMBER_SPEC = ConfigKeys.newConfigKey(
-            new TypeToken<EntitySpec<?>>() {}, "dynamiccfabric.firstmemberspec", "entity spec for creating new cluster members", null);
+            new TypeToken<EntitySpec<?>>() {}, 
+            "dynamicfabric.firstmemberspec", 
+            "Entity spec for the first member", 
+            null);
 
     @SetFromFlag("displayNamePrefix")
     ConfigKey<String> DISPLAY_NAME_PREFIX = ConfigKeys.newStringConfigKey(
-            "dynamicfabric.displayNamePrefix", "Display name prefix, for created children");
+            "dynamicfabric.displayNamePrefix", 
+            "Display name prefix, for created children");
 
     @SetFromFlag("displayNameSuffix")
     ConfigKey<String> DISPLAY_NAME_SUFFIX = ConfigKeys.newStringConfigKey(
-            "dynamicfabric.displayNameSuffix", "Display name suffix, for created children");
+            "dynamicfabric.displayNameSuffix", 
+            "Display name suffix, for created children");
 
     @SetFromFlag("customChildFlags")
     MapConfigKey<Object> CUSTOM_CHILD_FLAGS = new MapConfigKey<Object>(
-            Object.class, "dynamicfabric.customChildFlags", "Additional flags to be passed to children when they are being created", ImmutableMap.<String,Object>of());
+            Object.class, 
+            "dynamicfabric.customChildFlags", 
+            "Additional flags to be passed to children when they are being created", 
+            ImmutableMap.<String,Object>of());
 
     AttributeSensor<Integer> FABRIC_SIZE = Sensors.newIntegerSensor("fabric.size", "Fabric size");
     

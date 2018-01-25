@@ -96,10 +96,7 @@ public class BasicMachineDetails implements MachineDetails {
      */
     @Beta
     public static BasicMachineDetails forSshMachineLocationLive(SshMachineLocation location) {
-        return TaskTags.markInessential(DynamicTasks.queueIfPossible(taskForSshMachineLocation(location))
-                .orSubmitAsync()
-                .asTask())
-                .getUnchecked();
+        return DynamicTasks.get(TaskTags.markInessential(taskForSshMachineLocation(location)));
     }
 
     /**

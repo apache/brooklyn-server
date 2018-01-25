@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.entity;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -53,15 +52,5 @@ public class AttributeTest extends BrooklynAppUnitTestSupport {
     @Test
     public void missingAttributeIsNull() {
         assertEquals(entity.getAttribute(COLOR), null);
-    }
-    
-    @Test
-    public void canGetAttributeByNameParts() {
-        // Initially null
-        assertNull(entityImpl.getAttributeByNameParts(COLOR.getNameParts()));
-        
-        // Once set, returns val
-        entity.sensors().set(COLOR, "red");
-        assertEquals(entityImpl.getAttributeByNameParts(COLOR.getNameParts()), "red");
     }
 }

@@ -37,6 +37,7 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.rest.filter.CorsImplSupplierFilter;
 import org.apache.brooklyn.rest.filter.CsrfTokenFilter;
 import org.apache.brooklyn.rest.filter.EntitlementContextFilter;
@@ -167,7 +168,7 @@ public class BrooklynRestApiLauncher {
 
     public Server start() {
         if (this.mgmt == null) {
-            mgmt = new LocalManagementContext();
+            mgmt = new LocalManagementContextForTests();
         }
         BrooklynCampPlatformLauncherAbstract platform = new BrooklynCampPlatformLauncherNoServer()
                 .useManagementContext(mgmt)
@@ -303,8 +304,9 @@ public class BrooklynRestApiLauncher {
                 ((BrooklynProperties)mgmt.getConfig()).put(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME, AnyoneSecurityProvider.class.getName());
             }
         }
-        if (mgmt != null && disableHighAvailability)
-            mgmt.getHighAvailabilityManager().disabled();
+        if (mgmt != null && disableHighAvailability) {
+            mgmt.getHighAvailabilityManager().disabled(false);
+        }
         InetSocketAddress bindLocation = new InetSocketAddress(
                 secure ? Networking.ANY_NIC : Networking.LOOPBACK,
                         Networking.nextAvailablePort(FAVOURITE_PORT));

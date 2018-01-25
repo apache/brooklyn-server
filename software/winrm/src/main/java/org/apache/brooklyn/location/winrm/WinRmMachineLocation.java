@@ -41,7 +41,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.location.AbstractLocation;
+import org.apache.brooklyn.core.location.AbstractMachineLocation;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
@@ -71,7 +71,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
 import com.google.common.reflect.TypeToken;
 
-public class WinRmMachineLocation extends AbstractLocation implements MachineLocation {
+public class WinRmMachineLocation extends AbstractMachineLocation implements MachineLocation {
 
     private static final Logger LOG = LoggerFactory.getLogger(WinRmMachineLocation.class);
 
@@ -191,7 +191,13 @@ public class WinRmMachineLocation extends AbstractLocation implements MachineLoc
             }
         }
     }
-    
+
+    @Override
+    protected MachineDetails detectMachineDetails() {
+        // TODO: detect actual machine details via winRM
+        return UNKNOWN_MACHINE_DETAILS;
+    }
+
     public String getUser() {
         return config().get(USER);
     }
@@ -485,4 +491,5 @@ public class WinRmMachineLocation extends AbstractLocation implements MachineLoc
 //                        "AAgAD0AIAAkAFIARABQAC4AUwBlAHQAQQBsAGwAbwB3AFQAUwBDAG8AbgBuAGUAYwB0AGkAbwBuAHMAKAAxACwAMQApAA=="
 //        ));
     }
+
 }

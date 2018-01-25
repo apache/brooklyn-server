@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -32,11 +33,22 @@ import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
 import org.apache.brooklyn.api.mgmt.SubscriptionManager;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
+import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.sensor.BasicSensorEvent;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.group.BasicGroup;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.BasicExecutionContext;
+import org.apache.brooklyn.util.time.Duration;
+import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * testing the {@link SubscriptionManager} and associated classes.
@@ -170,4 +182,97 @@ public class LocalSubscriptionManagerTest extends BrooklynAppUnitTestSupport {
         if (threadException.get() != null) throw threadException.get();
     }
 
+    @Test
+    // same test as in PolicySubscriptionTest, but for entities / simpler
+    public void testSubscriptionReceivesInitialValueEventsInOrder() {
+        RecordingSensorEventListener<Object> listener = new RecordingSensorEventListener<>();
+        
+        entity.sensors().set(TestEntity.NAME, "myname");
+        entity.sensors().set(TestEntity.SEQUENCE, 123);
+        entity.sensors().emit(TestEntity.MY_NOTIF, -1);
+
+        // delivery should be in subscription order, so 123 then 456
+        entity.subscriptions().subscribe(ImmutableMap.of("notifyOfInitialValue", true), entity, TestEntity.SEQUENCE, listener);
+        // wait for the above delivery - otherwise it might get dropped
+        Asserts.succeedsEventually(() -> Asserts.assertSize(listener.getEvents(), 1));
+        entity.sensors().set(TestEntity.SEQUENCE, 456);
+        
+        // notifications don't have "initial value" so don't get -1
+        entity.subscriptions().subscribe(ImmutableMap.of("notifyOfInitialValue", true), entity, TestEntity.MY_NOTIF, listener);
+        // but do get 1, after 456
+        entity.sensors().emit(TestEntity.MY_NOTIF, 1);
+        
+        // STOPPING and myname received, in subscription order, after everything else
+        entity.sensors().set(TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.STOPPING);
+        entity.subscriptions().subscribe(ImmutableMap.of("notifyOfInitialValue", true), entity, TestEntity.SERVICE_STATE_ACTUAL, listener);
+        entity.subscriptions().subscribe(ImmutableMap.of("notifyOfInitialValue", true), entity, TestEntity.NAME, listener);
+        
+        Asserts.succeedsEventually(() -> {
+                Asserts.assertEquals(listener.getEvents(), ImmutableList.of(
+                        new BasicSensorEvent<Integer>(TestEntity.SEQUENCE, entity, 123),
+                        new BasicSensorEvent<Integer>(TestEntity.SEQUENCE, entity, 456),
+                        new BasicSensorEvent<Integer>(TestEntity.MY_NOTIF, entity, 1),
+                        new BasicSensorEvent<Lifecycle>(TestEntity.SERVICE_STATE_ACTUAL, entity, Lifecycle.STOPPING),
+                        new BasicSensorEvent<String>(TestEntity.NAME, entity, "myname")),
+                    "actually got: "+listener.getEvents());
+            });
+    }
+    
+    @Test
+    public void testNotificationOrderMatchesSetValueOrderWhenSynched() {
+        RecordingSensorEventListener<Object> listener = new RecordingSensorEventListener<>();
+        
+        AtomicInteger count = new AtomicInteger();
+        Runnable set = () -> { 
+            synchronized (count) { 
+                entity.sensors().set(TestEntity.SEQUENCE, count.incrementAndGet()); 
+            } 
+        };
+        entity.subscriptions().subscribe(ImmutableMap.of(), entity, TestEntity.SEQUENCE, listener);
+        for (int i=0; i<10; i++) {
+            new Thread(set).start();
+        }
+        
+        Asserts.succeedsEventually(MutableMap.of("timeout", Duration.seconds(5)), () -> { 
+            Asserts.assertSize(listener.getEvents(), 10); });
+        for (int i=0; i<10; i++) {
+            Assert.assertEquals(listener.getEvents().get(i).getValue(), i+1);
+        }
+    }
+
+    @Test
+    public void testNotificationOrderMatchesSetValueOrderWhenNotSynched() {
+        RecordingSensorEventListener<Object> listener = new RecordingSensorEventListener<>();
+        
+        AtomicInteger count = new AtomicInteger();
+        Runnable set = () -> { 
+            // as this is not synched, the sets may interleave
+            entity.sensors().set(TestEntity.SEQUENCE, count.incrementAndGet()); 
+        };
+        entity.subscriptions().subscribe(ImmutableMap.of(), entity, TestEntity.SEQUENCE, listener);
+        for (int i=0; i<10; i++) {
+            new Thread(set).start();
+        }
+        
+        Asserts.succeedsEventually(MutableMap.of("timeout", Duration.seconds(5)), () -> { 
+            Asserts.assertSize(listener.getEvents(), 10); });
+        // all we expect for sure is that the last value is whatever the sensor is at the end - internal update and publish is mutexed
+        Assert.assertEquals(listener.getEvents().get(9).getValue(), entity.sensors().get(TestEntity.SEQUENCE));
+    }
+
+    @Test
+    public void testSubscriptionHasSubscribersExecutionContext() throws Exception {
+        final AtomicReference<BasicExecutionContext> result = new AtomicReference<>();
+        final CountDownLatch latch = new CountDownLatch(1);
+        app.subscriptions().subscribe(entity, TestEntity.SEQUENCE, new SensorEventListener<Object>() {
+                @Override public void onEvent(SensorEvent<Object> event) {
+                    result.set(BasicExecutionContext.getCurrentExecutionContext());
+                    latch.countDown();
+                }});
+        entity.setSequenceValue(1234);
+        if (!latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+            fail("Timeout waiting for Event on TestEntity listener");
+        }
+        Assert.assertEquals(result.get(), app.getExecutionContext());
+    }
 }

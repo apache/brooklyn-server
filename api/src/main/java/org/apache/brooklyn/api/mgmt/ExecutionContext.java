@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Supplier;
 
 /**
  * This is a Brooklyn extension to the Java {@link Executor}.
@@ -51,11 +52,21 @@ public interface ExecutionContext extends Executor {
      */
     <T> Task<T> submit(Map<?,?> properties, Callable<T> callable);
 
-    /** {@link ExecutionManager#submit(Runnable) */
+    /** {@link ExecutionManager#submit(Runnable) 
+     * @deprecated since 1.0.0 pass a display name or a more detailed map */
+    @Deprecated
     Task<?> submit(Runnable runnable);
  
-    /** {@link ExecutionManager#submit(Callable) */
+    /** {@link ExecutionManager#submit(Callable)
+     * @deprecated since 1.0.0 pass a display name or a more detailed map */
+    @Deprecated
     <T> Task<T> submit(Callable<T> callable);
+
+    /** {@link ExecutionManager#submit(String, Runnable) */
+    Task<?> submit(String displayName, Runnable runnable);
+ 
+    /** {@link ExecutionManager#submit(String, Callable) */
+    <T> Task<T> submit(String displayName, Callable<T> callable);
 
     /** See {@link ExecutionManager#submit(Map, TaskAdaptable)}. */
     <T> Task<T> submit(TaskAdaptable<T> task);
@@ -71,14 +82,46 @@ public interface ExecutionContext extends Executor {
      * Gets the value promptly, or returns {@link Maybe#absent()} if the value is not yet available.
      * It may throw an error if it cannot be determined whether a value is available immediately or not.
      * <p>
-     * Implementations will typically attempt to execute in the current thread, with appropriate
-     * tricks to make it look like it is in a sub-thread, and will attempt to be non-blocking but
-     * if needed they may block.
+     * Implementations will typically act like {@link #get(TaskAdaptable)} with additional
+     * tricks to attempt to be non-blocking, such as recognizing some "immediate" markers.  
      * <p>
-     * Supports {@link Callable} and {@link Runnable} and some {@link Task} targets to be evaluated with "immediate" semantics.
+     * Supports {@link Callable}, {@link Runnable}, {@link Supplier}, and {@link TaskFactory} argument types.
+     * <p>
+     * Passing in {@link Task} is deprecated and discouraged - see {@link #getImmediately(Task)}.
      */
     // TODO reference ImmediateSupplier when that class is moved to utils project
     @Beta
-    <T> Maybe<T> getImmediately(Object callableOrSupplierOrTask);
+    <T> Maybe<T> getImmediately(Object callableOrSupplierOrTaskFactory);
+    
+    /**
+     * As {@link #getImmediately(Object)} but strongly typed for a task.
+     * 
+     * @deprecated since 1.0.0; this can cause the task to be interrupted/cancelled, such that subsequent  
+     *             use of {@code task.get()} will fail (if the value was not resolved immediately previously).
+     *             It is only safe to call this if the the given task is for a one-off usage (not expected
+     *             to be used again later). Consider supplying a {@link TaskFactory} if this tasks's 
+     *             {@link Task#cancel(boolean)} is problematic, or consider other utilities 
+     *             (such as ValueResolver with immediate(true) in the brooklyn-core project).
+     */
+    @Beta
+    <T> Maybe<T> getImmediately(Task<T> task);
 
+    /**
+     * Efficient implementation of common case when {@link #submit(TaskAdaptable)} is followed by an immediate {@link Task#get()}.
+     * <p>
+     * This is efficient in that it may typically attempt to execute in the current thread, 
+     * with appropriate configuration to make it look like it is in a sub-thread, 
+     * ie registering this as a task and allowing context methods on tasks to see the given sub-task.
+     * However it will normally be non-blocking which reduces overhead and 
+     * is permissible within a {@link #getImmediately(Object)} task
+     * <p>
+     * If the argument has already been submitted it simply blocks on it 
+     * (i.e. no additional execution, and in that case would fail within a {@link #getImmediately(Object)}).
+     * 
+     * @param task the task whose result is being sought
+     * @return result of the task execution
+     */
+    @Beta
+    <T> T get(TaskAdaptable<T> task);
+    
 }

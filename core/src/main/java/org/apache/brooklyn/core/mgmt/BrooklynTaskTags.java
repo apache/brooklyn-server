@@ -30,12 +30,17 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.AbstractManagementContext;
+import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -59,13 +64,14 @@ import com.google.common.collect.ImmutableSet;
 /** Provides utilities for making Tasks easier to work with in Brooklyn.
  * Main thing at present is to supply (and find) wrapped entities for tasks to understand the
  * relationship of the entity to the task.
- * TODO Longer term it would be better to remove 'tags' on Tasks and use a strongly typed context object.
+ * <p>
+ * Eventually it may be better to replace these 'tags' on Tasks with strongly typed context objects.
  * (Tags there are used mainly for determining who called it (caller), what they called it on (target entity),
  * and what type of task it is (effector, schedule/sensor, etc).)
  */
 public class BrooklynTaskTags extends TaskTags {
 
-    private static final Logger log = LoggerFactory.getLogger(BrooklynTaskTags.WrappedEntity.class);
+    private static final Logger log = LoggerFactory.getLogger(BrooklynTaskTags.class);
 
     /** Tag for tasks which are running on behalf of the management server, rather than any entity */
     public static final String BROOKLYN_SERVER_TASK_TAG = "BROOKLYN-SERVER";
@@ -85,36 +91,65 @@ public class BrooklynTaskTags extends TaskTags {
 
     // ------------- entity tags -------------------------
     
-    public static class WrappedEntity {
+    public abstract static class WrappedItem<T> {
+        /** @deprecated since 1.0.0 going private; use {@link #getWrappingType()} */
+        @Deprecated
         public final String wrappingType;
-        public final Entity entity;
-        protected WrappedEntity(String wrappingType, Entity entity) {
+        protected WrappedItem(String wrappingType) {
             Preconditions.checkNotNull(wrappingType);
-            Preconditions.checkNotNull(entity);
             this.wrappingType = wrappingType;
-            this.entity = entity;
+        }
+        public abstract T unwrap();
+        public String getWrappingType() {
+            return wrappingType;
         }
         @Override
         public String toString() {
-            return "Wrapped["+wrappingType+":"+entity+"]";
+            return "Wrapped["+getWrappingType()+":"+unwrap()+"]";
         }
         @Override
         public int hashCode() {
-            return Objects.hashCode(entity, wrappingType);
+            return Objects.hashCode(unwrap(), getWrappingType());
         }
         @Override
         public boolean equals(Object obj) {
             if (this==obj) return true;
-            if (!(obj instanceof WrappedEntity)) return false;
+            if (!(obj instanceof WrappedItem)) return false;
             return 
-                Objects.equal(entity, ((WrappedEntity)obj).entity) &&
-                Objects.equal(wrappingType, ((WrappedEntity)obj).wrappingType);
+                Objects.equal(unwrap(), ((WrappedItem<?>)obj).unwrap()) &&
+                Objects.equal(getWrappingType(), ((WrappedItem<?>)obj).getWrappingType());
         }
+    }
+    public static class WrappedEntity extends WrappedItem<Entity> {
+        /** @deprecated since 1.0.0 going private; use {@link #unwrap()} */
+        @Deprecated
+        public final Entity entity;
+        protected WrappedEntity(String wrappingType, Entity entity) {
+            super(wrappingType);
+            this.entity = Preconditions.checkNotNull(entity);
+        }
+        @Override
+        public Entity unwrap() {
+            return entity;
+        }
+    }
+    public static class WrappedObject<T> extends WrappedItem<T> {
+        private final T object;
+        protected WrappedObject(String wrappingType, T object) {
+            super(wrappingType);
+            this.object = Preconditions.checkNotNull(object);
+        }
+        @Override
+        public T unwrap() {
+            return object;
+        }        
     }
     
     public static final String CONTEXT_ENTITY = "contextEntity";
     public static final String CALLER_ENTITY = "callerEntity";
     public static final String TARGET_ENTITY = "targetEntity";
+    
+    public static final String CONTEXT_ADJUNCT = "contextAdjunct";
     
     /**
      * Marks a task as running in the context of the entity. This means
@@ -138,15 +173,38 @@ public class BrooklynTaskTags extends TaskTags {
         return new WrappedEntity(TARGET_ENTITY, entity);
     }
 
+    /**
+     * As {@link #tagForContextEntity(Entity)} but wrapping an adjunct.
+     * Tasks with this tag will also have a {@link #tagForContextEntity(Entity)}.
+     */
+    public static WrappedObject<EntityAdjunct> tagForContextAdjunct(EntityAdjunct adjunct) {
+        return new WrappedObject<EntityAdjunct>(CONTEXT_ADJUNCT, adjunct);
+    }
+    
+
     public static WrappedEntity getWrappedEntityTagOfType(Task<?> t, String wrappingType) {
         if (t==null) return null;
-        return getWrappedEntityTagOfType(t.getTags(), wrappingType);
+        return getWrappedEntityTagOfType( getTagsFast(t), wrappingType);
     }
     public static WrappedEntity getWrappedEntityTagOfType(Collection<?> tags, String wrappingType) {
+        if (tags==null) return null;
         for (Object x: tags)
             if ((x instanceof WrappedEntity) && ((WrappedEntity)x).wrappingType.equals(wrappingType))
                 return (WrappedEntity)x;
         return null;
+    }
+    
+    @SuppressWarnings("unchecked")
+    public static <T> WrappedObject<T> getWrappedObjectTagOfType(Collection<?> tags, String wrappingType, Class<T> type) {
+        if (tags==null) return null;
+        for (Object x: tags)
+            if ((x instanceof WrappedObject) && ((WrappedObject<?>)x).wrappingType.equals(wrappingType) && type.isInstance( ((WrappedObject<?>)x).object ))
+                return (WrappedObject<T>)x;
+        return null;
+    }
+    public static <T> T getUnwrappedObjectTagOfType(Collection<?> tags, String wrappingType, Class<T> type) {
+        WrappedObject<T> result = getWrappedObjectTagOfType(tags, wrappingType, type);
+        return result!=null ? result.unwrap() : null;
     }
 
     public static Entity getWrappedEntityOfType(Task<?> t, String wrappingType) {
@@ -195,8 +253,12 @@ public class BrooklynTaskTags extends TaskTags {
         return em.getTasksWithTag(tagForContextEntity(e));
     }
 
+    public static Set<Task<?>> getTasksInAdjunctContext(ExecutionManager em, EntityAdjunct a) {
+        return em.getTasksWithTag(tagForContextAdjunct(a));
+    }
+
     public static ManagementContext getManagementContext(Task<?> task) {
-        for (Object tag : task.getTags())
+        for (Object tag : getTagsFast(task))
             if ((tag instanceof ManagementContext))
                 return (ManagementContext) tag;
         return null;
@@ -269,12 +331,13 @@ public class BrooklynTaskTags extends TaskTags {
         return new WrappedStream(streamType, stream);
     }
     /** creates a tag suitable for marking a stream available on a task, but which might be GC'd */
+    // TODO only make it soft if/when stream exceeds a given size eg 1kb ?
     public static WrappedStream tagForStreamSoft(String streamType, ByteArrayOutputStream stream) {
         MemoryUsageTracker.SOFT_REFERENCES.track(stream, stream.size());
-        Maybe<ByteArrayOutputStream> weakStream = Maybe.softThen(stream, STREAM_GARBAGE_COLLECTED_MAYBE);
+        Maybe<ByteArrayOutputStream> softStream = Maybe.softThen(stream, STREAM_GARBAGE_COLLECTED_MAYBE);
         return new WrappedStream(streamType,
-            Suppliers.compose(Functions.toStringFunction(), weakStream),
-            Suppliers.compose(Streams.sizeFunction(), weakStream));
+            Suppliers.compose(Functions.toStringFunction(), softStream),
+            Suppliers.compose(Streams.sizeFunction(), softStream));
     }
 
     /** creates a tag suitable for marking a stream available on a task */
@@ -291,13 +354,14 @@ public class BrooklynTaskTags extends TaskTags {
             sb.append(kv.getKey()+"=" +
                 (val!=null ? BashStringEscapes.wrapBash(val.toString()) : "") + "\n");
         }
+        // TODO also make soft - this is often larger than the streams themselves
         return BrooklynTaskTags.tagForStream(BrooklynTaskTags.STREAM_ENV, Streams.byteArrayOfString(sb.toString()));
     }
 
     /** returns the set of tags indicating the streams available on a task */
     public static Set<WrappedStream> streams(Task<?> task) {
         Set<WrappedStream> result = new LinkedHashSet<BrooklynTaskTags.WrappedStream>();
-        for (Object tag: task.getTags()) {
+        for (Object tag: getTagsFast(task)) {
             if (tag instanceof WrappedStream) {
                 result.add((WrappedStream)tag);
             }
@@ -308,7 +372,7 @@ public class BrooklynTaskTags extends TaskTags {
     /** returns the tag for the indicated stream, or null */
     public static WrappedStream stream(Task<?> task, String streamType) {
         if (task==null) return null;
-        for (Object tag: task.getTags())
+        for (Object tag: getTagsFast(task))
             if ((tag instanceof WrappedStream) && ((WrappedStream)tag).streamType.equals(streamType))
                 return (WrappedStream)tag;
         return null;
@@ -432,7 +496,7 @@ public class BrooklynTaskTags extends TaskTags {
     public static EffectorCallTag getEffectorCallTag(Task<?> task, boolean recurse) {
         Task<?> t = task;
         while (t!=null) {
-            for (Object tag: t.getTags()) {
+            for (Object tag: getTagsFast(task)) {
                 if (tag instanceof EffectorCallTag)
                     return (EffectorCallTag)tag;
             }
@@ -473,7 +537,7 @@ public class BrooklynTaskTags extends TaskTags {
 
     public static EntitlementContext getEntitlement(Task<?> task) {
         if (task==null) return null;
-        return getEntitlement(task.getTags());
+        return getEntitlement(getTagsFast(task));
     }
     
     public static EntitlementContext getEntitlement(Collection<?> tags) {
@@ -495,6 +559,37 @@ public class BrooklynTaskTags extends TaskTags {
         EntitlementTag tag = new EntitlementTag();
         tag.entitlementContext = context;
         return tag;
+    }
+
+    public static ExecutionContext getExecutionContext(Collection<?> tags) {
+        EntityAdjunct ea = getUnwrappedObjectTagOfType(tags, CONTEXT_ADJUNCT, EntityAdjunct.class);
+        if (ea instanceof AbstractEntityAdjunct) {
+            return ((AbstractEntityAdjunct)ea).getExecutionContext();
+        }
+        Entity e = getWrappedEntityOfType(tags, CONTEXT_ENTITY);
+        if (e==null) e= getWrappedEntityOfType(tags, TARGET_ENTITY);
+        if (e instanceof EntityInternal) {
+            return ((EntityInternal)e).getExecutionContext();
+        }
+        
+        return null;
+    }
+    public static ExecutionContext getExecutionContext(Task<?> t) {
+        return getExecutionContext(getTagsFast(t));
+    }
+    /** 
+     * This should always be identical to {@link BasicExecutionContext#getCurrentExecutionContext()} as
+     * there are two ways to derive the {@link ExecutionContext}:  one is the {@link ThreadLocal} accessed from the above method
+     * and set by {@link BasicExecutionContext} submissions; the other is by looking at {@link #getTargetOrContextEntity(Task)}
+     * and {@link #CONTEXT_ADJUNCT} tags on the current task.  As {@link BasicExecutionContext} also sets those tags,
+     * the only time the two will be different is if {@link ExecutionManager#submit(org.apache.brooklyn.api.mgmt.TaskAdaptable)}
+     * is used supplying one or more of these context tags, in which case only this method will determine the execution context.
+     */
+    public static ExecutionContext getCurrentExecutionContext() {
+        Task<?> t = Tasks.current();
+        ExecutionContext result = t!=null ? getExecutionContext(t) : null;
+        if (result==null) result = BasicExecutionContext.getCurrentExecutionContext();
+        return result;
     }
     
 }

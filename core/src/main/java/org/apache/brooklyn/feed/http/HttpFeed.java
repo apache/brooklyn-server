@@ -45,6 +45,7 @@ import org.apache.brooklyn.core.feed.DelegatingPollHandler;
 import org.apache.brooklyn.core.feed.Poller;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.location.Machines;
+import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.util.executor.HttpExecutorFactory;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.http.HttpToolResponse;
@@ -52,7 +53,7 @@ import org.apache.brooklyn.util.http.executor.HttpConfig;
 import org.apache.brooklyn.util.http.executor.HttpExecutor;
 import org.apache.brooklyn.util.http.executor.HttpRequest;
 import org.apache.brooklyn.util.http.executor.HttpResponse;
-import org.apache.brooklyn.util.http.executor.UsernamePassword;
+import org.apache.brooklyn.util.http.auth.UsernamePassword;
 import org.apache.brooklyn.util.http.executor.apacheclient.HttpExecutorImpl;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.time.Duration;
@@ -342,7 +343,7 @@ public class HttpFeed extends AbstractFeed {
             Maybe<MachineLocation> location =  Machines.findUniqueElement(locations, MachineLocation.class);
             if (location.isPresent() && location.get().hasExtension(HttpExecutorFactory.class)) {
                 httpExecutorFactory = location.get().getExtension(HttpExecutorFactory.class);
-                Map<String, Object> httpExecutorProps = location.get().getAllConfig(true);
+                Map<String, Object> httpExecutorProps = ((LocationInternal)location.get()).config().getBag().getAllConfig();
                 httpExecutor = httpExecutorFactory.getHttpExecutor(httpExecutorProps);
             } else {
                 httpExecutor = HttpExecutorImpl.newInstance();

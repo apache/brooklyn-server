@@ -34,6 +34,8 @@ import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
@@ -57,6 +59,8 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
 
     private static final long serialVersionUID = -2247153452919128990L;
     
+    private static final Logger LOG = LoggerFactory.getLogger(EntitySpec.class);
+
     /**
      * Creates a new {@link EntitySpec} instance for an entity of the given type. The returned 
      * {@link EntitySpec} can then be customized.
@@ -104,9 +108,7 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
 
     private Class<? extends T> impl;
     private Entity parent;
-    private final List<Policy> policies = Lists.newArrayList();
     private final List<PolicySpec<?>> policySpecs = Lists.newArrayList();
-    private final List<Enricher> enrichers = Lists.newArrayList();
     private final List<EnricherSpec<?>> enricherSpecs = Lists.newArrayList();
     private final List<Location> locations = Lists.newArrayList();
     private final List<LocationSpec<?>> locationSpecs = Lists.newArrayList();
@@ -116,19 +118,34 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
     private final List<Entity> members = Lists.newArrayList();
     private final List<Group> groups = Lists.newArrayList();
     private volatile boolean immutable;
-    
+
+    // Kept for backwards compatibility of persisted state
+    private List<Policy> policies;
+    private List<Enricher> enrichers;
+
     public EntitySpec(Class<T> type) {
         super(type);
     }
 
     @Override
+    protected Object readResolve() {
+        if (policies != null && policies.size() > 0) {
+            LOG.warn("NOT SUPPORTED: EntitySpec "+this+" has hard-coded policies, rather than use of PolicySpec - policies will be ignored ("+policies+")");
+            policies = null;
+        }
+        if (enrichers != null && enrichers.size() > 0) {
+            LOG.warn("NOT SUPPORTED: EntitySpec "+this+" has hard-coded enrichers, rather than use of EnricherSpec - enrichers will be ignored ("+enrichers+")");
+            enrichers = null;
+        }
+        return super.readResolve();
+    }
+    
+    @Override
     protected EntitySpec<T> copyFrom(EntitySpec<T> otherSpec) {
         super.copyFrom(otherSpec)
                 .additionalInterfaces(otherSpec.getAdditionalInterfaces())
                 .policySpecs(otherSpec.getPolicySpecs())
-                .policies(otherSpec.getPolicies())
                 .enricherSpecs(otherSpec.getEnricherSpecs())
-                .enrichers(otherSpec.getEnrichers())
                 .addInitializers(otherSpec.getInitializers())
                 .children(copyFromSpecs(otherSpec.getChildren()))
                 .members(otherSpec.getMembers())
@@ -210,18 +227,8 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
         return policySpecs;
     }
     
-    /** @deprecated since 0.9.0 in future only {@link #getPolicySpecs()} will be supported */ @Deprecated
-    public List<Policy> getPolicies() {
-        return policies;
-    }
-    
     public List<EnricherSpec<?>> getEnricherSpecs() {
         return enricherSpecs;
-    }
-    
-    /** @deprecated since 0.9.0 in future only {@link #getEnricherSpecs()} will be supported */ @Deprecated
-    public List<Enricher> getEnrichers() {
-        return enrichers;
     }
     
     public List<LocationSpec<?>> getLocationSpecs() {
@@ -321,14 +328,6 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
         return this;
     }
 
-    /** adds a policy to the spec 
-     * @deprecated since 0.9.0 pass a spec, using {@link #policy(EnricherSpec)} */ @Deprecated
-    public <V> EntitySpec<T> policy(Policy val) {
-        checkMutable();
-        policies.add(checkNotNull(val, "policy"));
-        return this;
-    }
-
     /** adds a policy to the spec */
     public <V> EntitySpec<T> policy(PolicySpec<?> val) {
         checkMutable();
@@ -343,22 +342,6 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
         return this;
     }
     
-    /** adds the supplied policies to the spec 
-     * @deprecated since 0.9.0 pass a spec, using {@link #policySpecs(Iterable)} */ @Deprecated
-    public <V> EntitySpec<T> policies(Iterable<? extends Policy> val) {
-        checkMutable();
-        policies.addAll(MutableList.copyOf(checkNotNull(val, "policies")));
-        return this;
-    }
-    
-    /** adds an enricher to the spec 
-     * @deprecated since 0.9.0 pass a spec, using {@link #enricher(EnricherSpec)} */ @Deprecated
-    public <V> EntitySpec<T> enricher(Enricher val) {
-        checkMutable();
-        enrichers.add(checkNotNull(val, "enricher"));
-        return this;
-    }
-
     /** adds an enricher to the spec */
     public <V> EntitySpec<T> enricher(EnricherSpec<?> val) {
         checkMutable();
@@ -370,14 +353,6 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
     public <V> EntitySpec<T> enricherSpecs(Iterable<? extends EnricherSpec<?>> val) {
         checkMutable();
         enricherSpecs.addAll(MutableList.copyOf(checkNotNull(val, "enricherSpecs")));
-        return this;
-    }
-    
-    /** adds the supplied policies to the spec 
-     * @deprecated since 0.9.0 pass a spec, using {@link #enricherSpecs(Iterable)} */ @Deprecated
-    public <V> EntitySpec<T> enrichers(Iterable<? extends Enricher> val) {
-        checkMutable();
-        enrichers.addAll(MutableList.copyOf(checkNotNull(val, "enrichers")));
         return this;
     }
     

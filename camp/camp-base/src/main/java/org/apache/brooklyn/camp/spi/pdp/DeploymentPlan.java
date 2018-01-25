@@ -40,10 +40,6 @@ public class DeploymentPlan {
     List<Service> services;
     Map<String,Object> customAttributes;
 
-    @Deprecated /** @deprecated since 0.7.0; supply source code also, for reference */
-    public static DeploymentPlan of(Map<String,Object> root) {
-        return of(root, null);
-    }
     @SuppressWarnings("unchecked")
     public static DeploymentPlan of(Map<String,Object> root, String optionalSourceCode) {
         Map<String,Object> attrs = MutableMap.copyOf(root);

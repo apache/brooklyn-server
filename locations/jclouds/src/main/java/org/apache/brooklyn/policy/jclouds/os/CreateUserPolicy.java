@@ -110,11 +110,7 @@ public class CreateUserPolicy extends AbstractPolicy implements SensorEventListe
     }
 
     protected void addUserAsync(final Entity entity, final SshMachineLocation machine) {
-        ((EntityInternal)entity).getExecutionContext().execute(new Runnable() {
-            @Override
-            public void run() {
-                addUser(entity, machine);
-            }});
+        getExecutionContext().execute(() -> addUser(entity, machine));
     }
     
     protected void addUser(Entity entity, SshMachineLocation machine) {

@@ -82,14 +82,13 @@ public class TaskPredicatesTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testIsDone() throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
-        Task<?> task = app.getExecutionContext().submit(new Runnable() {
-            public void run() {
+        Task<?> task = app.getExecutionContext().submit("await latch", () -> {
                 try {
                     latch.await();
                 } catch (InterruptedException e) {
                     throw Exceptions.propagate(e);
                 }
-            }});
+            });
         
         assertFalse(TaskPredicates.isDone().apply(task));
         

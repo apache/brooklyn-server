@@ -22,7 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -36,9 +36,7 @@ import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.objs.SpecParameter;
-import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
-import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
@@ -48,6 +46,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -90,11 +89,13 @@ public class InternalEntityFactory extends InternalFactory {
     
     private final EntityTypeRegistry entityTypeRegistry;
     private final InternalPolicyFactory policyFactory;
+    private final ClassLoaderCache classLoaderCache;
     
     public InternalEntityFactory(ManagementContextInternal managementContext, EntityTypeRegistry entityTypeRegistry, InternalPolicyFactory policyFactory) {
         super(managementContext);
         this.entityTypeRegistry = checkNotNull(entityTypeRegistry, "entityTypeRegistry");
         this.policyFactory = checkNotNull(policyFactory, "policyFactory");
+        this.classLoaderCache = new ClassLoaderCache();
     }
 
     @VisibleForTesting
@@ -132,38 +133,12 @@ public class InternalEntityFactory extends InternalFactory {
         // referenced from the entity and its interfaces with the single passed loader
         // while a normal class loading would nest the class loaders (loading interfaces'
         // references with their own class loaders which in our case are different).
-        Collection<ClassLoader> loaders = Sets.newLinkedHashSet();
-        addClassLoaders(entity.getClass(), loaders);
-        for (Class<?> iface : allInterfaces) {
-            loaders.add(iface.getClassLoader());
-        }
-
-        AggregateClassLoader aggregateClassLoader =  AggregateClassLoader.newInstanceWithNoLoaders();
-        for (ClassLoader cl : loaders) {
-            aggregateClassLoader.addLast(cl);
-        }
+        AggregateClassLoader aggregateClassLoader = classLoaderCache.getClassLoaderForProxy(entity.getClass(), allInterfaces);
 
         return (T) java.lang.reflect.Proxy.newProxyInstance(
                 aggregateClassLoader,
                 allInterfaces.toArray(new Class[allInterfaces.size()]),
                 new EntityProxyImpl(entity));
-    }
-
-    private void addClassLoaders(Class<?> type, Collection<ClassLoader> loaders) {
-        ClassLoader cl = type.getClassLoader();
-
-        //java.lang.Object.getClassLoader() = null
-        if (cl != null) {
-            loaders.add(cl);
-        }
-
-        Class<?> superType = type.getSuperclass();
-        if (superType != null) {
-            addClassLoaders(superType, loaders);
-        }
-        for (Class<?> iface : type.getInterfaces()) {
-            addClassLoaders(iface, loaders);
-        }
     }
 
     /** creates a new entity instance from a spec, with all children, policies, etc,
@@ -207,6 +182,11 @@ public class InternalEntityFactory extends InternalFactory {
             T entity = constructEntity(clazz, spec, entityId);
             
             loadUnitializedEntity(entity, spec);
+            
+            List<NamedStringTag> upgradedFrom = BrooklynTags.findAll(BrooklynTags.UPGRADED_FROM, spec.getTags());
+            if (!upgradedFrom.isEmpty()) {
+                log.warn("Entity "+entity.getId()+" created with upgraded type "+entity.getCatalogItemId()+" "+upgradedFrom+" (in "+entity.getApplicationId()+", under "+entity.getParent()+")");
+            }
 
             entitiesByEntityId.put(entity.getId(), entity);
             specsByEntityId.put(entity.getId(), spec);
@@ -334,7 +314,7 @@ public class InternalEntityFactory extends InternalFactory {
          * which currently show up at the top level once the initializer task completes.
          * TODO It would be nice if these schedule tasks were grouped in a bucket! 
          */
-        ((EntityInternal)entity).getExecutionContext().submit(Tasks.builder().dynamic(false).displayName("Entity initialization")
+        ((EntityInternal)entity).getExecutionContext().get(Tasks.builder().dynamic(false).displayName("Entity initialization")
                 .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
                 .body(new Runnable() {
             @Override
@@ -357,16 +337,8 @@ public class InternalEntityFactory extends InternalFactory {
                     initializer.apply((EntityInternal)entity);
                 }
 
-                for (Enricher enricher : spec.getEnrichers()) {
-                    entity.enrichers().add(enricher);
-                }
-
                 for (EnricherSpec<?> enricherSpec : spec.getEnricherSpecs()) {
                     entity.enrichers().add(policyFactory.createEnricher(enricherSpec));
-                }
-
-                for (Policy policy : spec.getPolicies()) {
-                    entity.policies().add(policy);
                 }
 
                 for (PolicySpec<?> policySpec : spec.getPolicySpecs()) {
@@ -379,7 +351,7 @@ public class InternalEntityFactory extends InternalFactory {
                     initEntityAndDescendants(child.getId(), entitiesByEntityId, specsByEntityId);
                 }
             }
-        }).build()).getUnchecked();
+        }).build());
     }
     
     /**

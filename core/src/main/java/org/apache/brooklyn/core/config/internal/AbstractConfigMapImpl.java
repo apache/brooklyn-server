@@ -52,8 +52,12 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.ValueResolver;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.Maybe.MaybeSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -359,9 +363,27 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
     }
 
     @SuppressWarnings("unchecked")
-    protected <T> T coerce(Object value, Class<T> type) {
+    protected <T> T coerceDefaultValue(TContainer container, String name, Object value, Class<T> type) {
         if (type==null || value==null) return (T) value;
-        return TypeCoercions.coerce(value, type);
+        ExecutionContext exec = getExecutionContext(container);
+        try {
+            T result;
+            if (ValueResolver.supportsDeepResolution(value)) {
+                result = (T) Tasks.resolveDeepValue(value, Object.class, exec, "Resolving deep default config "+name);
+            } else {
+                result = Tasks.resolveValue(value, type, exec, "Resolving default config "+name);
+            }
+            
+            // best effort to preserve/enforce immutability for defaults
+            if (result instanceof Map) return (T) Collections.unmodifiableMap((Map<?,?>)result);
+            if (result instanceof List) return (T) Collections.unmodifiableList((List<?>)result);
+            if (result instanceof Set) return (T) Collections.unmodifiableSet((Set<?>)result);
+            if (result instanceof Collection) return (T) Collections.unmodifiableCollection((Collection<?>)result);
+            
+            return result;
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
     }
 
     protected <T> ReferenceWithError<ConfigValueAtContainer<TContainer,T>> getConfigImpl(final ConfigKey<T> queryKey, final boolean raw) {
@@ -382,7 +404,8 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         if (ownKey1==null) ownKey1 = queryKey;
         final ConfigKey<T> ownKey = ownKey1;
         @SuppressWarnings("unchecked")
-        final Class<T> type = (Class<T>) ownKey.getType();
+        // NB: can't use ""+getContainerImpl() as this can loop in the case of locations looking up ports
+        final Class<T> type = (Class<T>) moreSpecificOrWarningPreferringFirst(ownKey, queryKey, ""+getContainer().getId()+"["+getContainer().getDisplayName()+"]");
 
         // takes type of own key (or query key if own key not available)
         // takes default of own key if available and has default, else of query key
@@ -390,7 +413,9 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         Function<Maybe<Object>, Maybe<T>> coerceFn = new Function<Maybe<Object>, Maybe<T>>() {
             @SuppressWarnings("unchecked") @Override public Maybe<T> apply(Maybe<Object> input) {
                 if (raw || input==null || input.isAbsent()) return (Maybe<T>)input;
-                return Maybe.ofAllowingNull(coerce(input.get(), type));
+                // use lambda to defer execution if default value not needed.
+                // this coercion should never be persisted so this is safe.
+                return new MaybeSupplier<T>(() -> (coerceDefaultValue(getContainer(), ownKey.getName(), input.get(), type)));
             }
         };
         // prefer default and type of ownKey
@@ -430,6 +455,29 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         }
     }
 
+    private static Class<?> moreSpecificOrWarningPreferringFirst(ConfigKey<?> ownKey, ConfigKey<?> queryKey, String context) {
+        if (ownKey==null && queryKey==null) return null;
+        if (queryKey==null) return ownKey.getType();
+        if (ownKey==null) return queryKey.getType();
+        
+        Class<?> ownType = ownKey.getType();
+        Class<?> queryType = queryKey.getType();
+        if (queryType.isAssignableFrom(ownType)) {
+            // own type is same or more specific, normal path
+            return ownType;
+        }
+        if (ownType.isAssignableFrom(queryType)) {
+            // query type is more specific than type defined; unusual but workable
+            LOG.debug("Query for "+queryKey+" wants more specific type than key "+ownKey+" declared on "+context+" (unusual but clear what to do)");
+            // previously (to 2017-11) we used the less specific type, only issue noticed was if an anonymous key is persisted
+            // ie so a non-declared key before rebind becomes a declared key afterwards.  we're going to fix that also.
+            return queryType;
+        }
+        // types are incompatible - continue previous behaviour of preferring own key, but warn
+        LOG.warn("Query for "+queryKey+" on "+context+" matched incompatible declared type in key "+ownKey+"; using the declared type");
+        return ownType;
+    }
+    
     @Override
     public List<ConfigValueAtContainer<TContainer,?>> getConfigAllInheritedRaw(ConfigKey<?> queryKey) {
         List<ConfigValueAtContainer<TContainer, ?>> result = MutableList.of();

@@ -18,14 +18,21 @@
  */
 package org.apache.brooklyn.rest.domain;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.common.collect.ImmutableMap;
-
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Map;
 import java.util.Objects;
+
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.javalang.JavaClassNames;
+
+import com.fasterxml.jackson.annotation.JsonAnyGetter;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 
 public class EntitySummary implements HasId, HasName, Serializable {
 
@@ -34,9 +41,14 @@ public class EntitySummary implements HasId, HasName, Serializable {
     private final String id;
     private final String name;
     private final String type;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final String catalogItemId;
     private final Map<String, URI> links;
+
+    // not exported directly, but used to provide other top-level json fields
+    // for specific types
+    @JsonIgnore
+    private final Map<String,Object> others = MutableMap.of();
 
     public EntitySummary(
             @JsonProperty("id") String id,
@@ -73,6 +85,16 @@ public class EntitySummary implements HasId, HasName, Serializable {
         return links;
     }
 
+    /** Mutable map of other top-level metadata included on this DTO (eg listing config keys or effectors) */ 
+    @JsonAnyGetter 
+    public Map<String,Object> getExtraFields() {
+        return others;
+    }
+    @JsonAnySetter
+    public void setExtraField(String name, Object value) {
+        others.put(name, value);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -92,11 +114,12 @@ public class EntitySummary implements HasId, HasName, Serializable {
 
     @Override
     public String toString() {
-        return "EntitySummary{" +
+        return JavaClassNames.simpleClassName(this)+"{" +
                 "id='" + id + '\'' +
                 ", name='" + name + '\'' +
                 ", type='" + type + '\'' +
                 ", catalogItemId='" + catalogItemId + '\'' +
+                (!getExtraFields().isEmpty() ? ", others='"+getExtraFields()+"'" : "")+
                 ", links=" + links +
                 '}';
     }

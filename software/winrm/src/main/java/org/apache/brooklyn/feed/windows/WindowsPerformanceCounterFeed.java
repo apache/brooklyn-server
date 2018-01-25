@@ -211,14 +211,14 @@ public class WindowsPerformanceCounterFeed extends AbstractFeed {
         String command = JOINER_ON_SPACE.join(allParams);
         log.debug("Windows performance counter poll command for {} will be: {}", entity, command);
 
-        GetPerformanceCountersJob<WinRmToolResponse> job = new GetPerformanceCountersJob(getEntity(), command);
+        GetPerformanceCountersJob job = new GetPerformanceCountersJob(getEntity(), command);
         getPoller().scheduleAtFixedRate(
-                new CallInEntityExecutionContext(entity, job),
+                new CallInExecutionContext<WinRmToolResponse>(this, job),
                 new SendPerfCountersToSensors(getEntity(), polls),
                 minPeriod);
     }
 
-    private static class GetPerformanceCountersJob<T> implements Callable<T> {
+    private static class GetPerformanceCountersJob implements Callable<WinRmToolResponse> {
 
         private final Entity entity;
         private final String command;
@@ -229,15 +229,14 @@ public class WindowsPerformanceCounterFeed extends AbstractFeed {
         }
 
         @Override
-        @SuppressWarnings("unchecked")
-        public T call() throws Exception {
+        public WinRmToolResponse call() throws Exception {
             Maybe<WinRmMachineLocation> machineLocationMaybe = Machines.findUniqueMachineLocation(entity.getLocations(), WinRmMachineLocation.class);
             if (machineLocationMaybe.isAbsent()) {
                 return null;
             }
             WinRmMachineLocation machine = EffectorTasks.getMachine(entity, WinRmMachineLocation.class);
             WinRmToolResponse response = machine.executePsScript(command);
-            return (T)response;
+            return response;
         }
     }
 
@@ -254,18 +253,18 @@ public class WindowsPerformanceCounterFeed extends AbstractFeed {
      *
      * @param <T> The type of the {@link java.util.concurrent.Callable}.
      */
-    private static class CallInEntityExecutionContext<T> implements Callable<T> {
+    private static class CallInExecutionContext<T> implements Callable<T> {
         private final Callable<T> job;
-        private Entity entity;
+        private AbstractFeed feed;
 
-        private CallInEntityExecutionContext(Entity entity, Callable<T> job) {
+        private CallInExecutionContext(AbstractFeed feed, Callable<T> job) {
             this.job = job;
-            this.entity = entity;
+            this.feed = feed;
         }
 
         @Override
         public T call() throws Exception {
-            ExecutionContext executionContext = ((EntityInternal) entity).getExecutionContext();
+            ExecutionContext executionContext = feed.getExecutionContext();
             return executionContext.submit(Maps.newHashMap(), job).get();
         }
     }

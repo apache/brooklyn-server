@@ -82,11 +82,6 @@ public class MutableSet<V> extends LinkedHashSet<V> {
         super((source instanceof Collection) ? (Collection<? extends V>)source : Sets.newLinkedHashSet(source));
     }
     
-    /** @deprecated since 0.7.0, use {@link #asImmutableCopy()}, or {@link #asUnmodifiable()} / {@link #asUnmodifiableCopy()} */ @Deprecated
-    public Set<V> toImmutable() {
-        // Don't use ImmutableSet as that does not accept nulls
-        return Collections.unmodifiableSet(Sets.newLinkedHashSet(this));
-    }
     /** as {@link MutableList#asImmutableCopy()()} */
     public Set<V> asImmutableCopy() {
         try {
@@ -211,6 +206,18 @@ public class MutableSet<V> extends LinkedHashSet<V> {
     /** as {@link #addAll(Collection)} but fluent style and permitting null */
     public MutableSet<V> putAll(Iterable<? extends V> setToAdd) {
         if (setToAdd!=null) addAll(setToAdd);
+        return this;
+    }
+
+    /** as {@link #add(V)} but fluent style */
+    public MutableSet<V> put(V e) {
+        add(e);
+        return this;
+    }
+
+    /** as {@link #addIfNotNull(V)} but fluent style */
+    public MutableSet<V> putIfNotNull(V e) {
+        if (e!=null) add(e);
         return this;
     }
 

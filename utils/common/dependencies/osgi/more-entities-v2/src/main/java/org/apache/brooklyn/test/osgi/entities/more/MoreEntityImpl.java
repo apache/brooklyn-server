@@ -23,6 +23,8 @@ import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 
+import com.google.common.util.concurrent.CycleDetectingLockFactory.Policies;
+
 public class MoreEntityImpl extends AbstractEntity implements MoreEntity {
 
     /** Unlike v1, this declares an explicit dependency on SimplePolicy */
@@ -35,7 +37,7 @@ public class MoreEntityImpl extends AbstractEntity implements MoreEntity {
                 return sayHI((String)parameters.getStringKey("name"));
             }
         });
-        addPolicy(PolicySpec.create(org.apache.brooklyn.test.osgi.entities.SimplePolicy.class));
+        policies().add(PolicySpec.create(org.apache.brooklyn.test.osgi.entities.SimplePolicy.class));
     }
     
     /** Unlike v1, this returns "HI " rather than "Hi " */

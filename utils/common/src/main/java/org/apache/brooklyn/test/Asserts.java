@@ -119,9 +119,6 @@ public class Asserts {
      */
     public static final Duration DEFAULT_SHORT_TIMEOUT = Duration.ONE_SECOND;
     
-    /** @deprecated since 0.9.0 use {@link #DEFAULT_LONG_TIMEOUT} */ @Deprecated
-    public static final Duration DEFAULT_TIMEOUT = DEFAULT_LONG_TIMEOUT;
-    
     private static final Duration DEFAULT_SHORT_PERIOD = Repeater.DEFAULT_REAL_QUICK_PERIOD;
 
     private static final Logger log = LoggerFactory.getLogger(Asserts.class);
@@ -795,20 +792,15 @@ public class Asserts {
         eventually(supplier, predicate, null, null, null);
     }
     
-    /** @deprecated since 0.9.0 use {@link #eventually(Supplier, Predicate, Duration, Duration, String)} */ @Deprecated
-    public static <T> void eventually(Map<String,?> flags, Supplier<? extends T> supplier, Predicate<T> predicate) {
-        eventually(flags, supplier, predicate, (String)null);
-    }
-    /** @deprecated since 0.9.0 use {@link #eventually(Supplier, Predicate, Duration, Duration, String)} */ @Deprecated
-    public static <T> void eventually(Map<String,?> flags, Supplier<? extends T> supplier, Predicate<T> predicate, String errMsg) {
-        eventually(supplier, predicate, toDuration(flags.get("timeout"), null), toDuration(flags.get("period"), null), errMsg);
-    }
-    
     /**  As {@link #eventually(Supplier, Predicate, Duration, Duration, String)} with default. */
     public static <T> void eventually(Supplier<? extends T> supplier, Predicate<T> predicate, Duration timeout) {
         eventually(supplier, predicate, timeout, null, null);
     }
-    
+
+    /** As {@link #eventually(Supplier, Predicate, Duration, Duration, String)} when no object is going to be notified. */
+    public static <T> void eventually(Supplier<? extends T> supplier, Predicate<T> predicate, Duration timeout, Duration period, String errMsg) {
+        eventually(supplier, predicate, timeout, period, errMsg, null);
+    }
     /** Asserts that eventually the supplier gives a value accepted by the predicate. 
      * Tests periodically and succeeds as soon as the supplier gives an allowed value.
      * Other arguments can be null.
@@ -817,9 +809,12 @@ public class Asserts {
      * @param predicate the {@link Predicate} to apply to each value given by the supplier
      * @param timeout how long to wait, default {@link #DEFAULT_LONG_TIMEOUT}
      * @param period how often to check, default quite often so you won't notice but letting the CPU do work
-     * @param errMsg an error message to display if not satisfied, in addition to the last-tested supplied value and the predicate
+     * @param errMsg optional error message to display if not satisfied, in addition to the last-tested supplied value and the predicate
+     * @param notifyObject optional object that will be notified of change and should pre-empt the period to redo the check
      */
-    public static <T> void eventually(Supplier<? extends T> supplier, Predicate<T> predicate, Duration timeout, Duration period, String errMsg) {
+    public static <T> void eventually(Supplier<? extends T> supplier, Predicate<T> predicate, Duration timeout, Duration period, String errMsg, Object notifyObject) {
+        // TODO use Repeater (there are too many args here)
+        
         if (timeout==null) timeout = DEFAULT_LONG_TIMEOUT;
         if (period==null) period = DEFAULT_SHORT_PERIOD;
         CountdownTimer timeleft = timeout.countdownTimer();
@@ -827,7 +822,19 @@ public class Asserts {
         T supplied;
         int count = 0;
         do {
-            if (count++ > 0) Duration.sleep(period);
+            if (count++ > 0) {
+                if (notifyObject!=null) {
+                    synchronized (notifyObject) {
+                        try {
+                            notifyObject.wait(period.toMilliseconds());
+                        } catch (InterruptedException e) {
+                            throw Exceptions.propagate(e);
+                        }
+                    }
+                } else {
+                    Duration.sleep(period);
+                }
+            }
             supplied = supplier.get();
             if (predicate.apply(supplied)) return;
         } while (timeleft.isNotExpired());
@@ -839,19 +846,9 @@ public class Asserts {
     
     /**  As {@link #continually(Supplier, Predicate, Duration, Duration, String)} with defaults. */
     public static <T> void continually(Supplier<? extends T> supplier, Predicate<T> predicate) {
-        continually(ImmutableMap.<String,Object>of(), supplier, predicate);
+        continually(supplier, predicate, (Duration)null, (Duration)null, (String)null); 
     }
 
-    /** @deprecated since 0.9.0 use {@link #continually(Supplier, Predicate, Duration, Duration, String)} */ @Deprecated
-    public static <T> void continually(Map<String,?> flags, Supplier<? extends T> supplier, Predicate<? super T> predicate) {
-        continually(flags, supplier, predicate, null);
-    }
-
-    /** @deprecated since 0.9.0 use {@link #continually(Supplier, Predicate, Duration, Duration, String)} */ @Deprecated
-    public static <T> void continually(Map<String,?> flags, Supplier<? extends T> supplier, Predicate<T> predicate, String errMsg) {
-        continually(supplier, predicate, toDuration(flags.get("timeout"), toDuration(flags.get("duration"), null)), 
-            toDuration(flags.get("period"), null), null);
-    }
     /** 
      * Asserts that continually the supplier gives a value accepted by the predicate. 
      * Tests periodically and fails if the supplier gives a disallowed value.
@@ -1436,8 +1433,24 @@ public class Asserts {
     }
 
     public static void assertSize(Iterable<?> list, int expectedSize) {
-        if (list==null) fail("List is null");
-        if (Iterables.size(list)!=expectedSize) fail("List has wrong size "+Iterables.size(list)+" (expected "+expectedSize+"): "+list);
+        if (list==null) fail("Collection is null");
+        if (Iterables.size(list)!=expectedSize) fail("Collection has wrong size "+Iterables.size(list)+" (expected "+expectedSize+"): "+list);
+    }
+
+    public static void assertSize(Map<?,?> map, int expectedSize) {
+        if (map==null) fail("Map is null");
+        if (Iterables.size(map.keySet())!=expectedSize) fail("Map has wrong size "+map.size()+" (expected "+expectedSize+"): "+map);
+    }
+
+    /** Ignores duplicates and order */
+    public static void assertSameUnorderedContents(Iterable<?> i1, Iterable<?> i2) {
+        if (i1==null || i2==null) {
+            if (i1==null && i2==null) {
+                return ;
+            }
+            fail("Collections differ in that one is null: "+i1+" and "+i2);
+        }
+        assertEquals(MutableSet.copyOf(i1), MutableSet.copyOf(i2));
     }
 
     public static void assertInstanceOf(Object obj, Class<?> type) {

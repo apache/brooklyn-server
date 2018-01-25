@@ -43,9 +43,9 @@ import java.util.concurrent.TimeoutException;
 
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
@@ -57,10 +57,10 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.Callables;
 import com.google.common.util.concurrent.ExecutionList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -140,18 +140,6 @@ public class BasicTask<T> implements TaskInternal<T> {
         this(flags, JavaGroovyEquivalents.toCallable(job));
     }
     
-    /**
-     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
-     */
-    @Deprecated
-    public BasicTask(Closure<T> job) { this(GroovyJavaMethods.callableFromClosure(job)); }
-    
-    /**
-     * @deprecated since 0.11.0; explicit groovy utilities/support will be deleted.
-     */
-    @Deprecated
-    public BasicTask(Map<?,?> flags, Closure<T> job) { this(flags, GroovyJavaMethods.callableFromClosure(job)); }
-
     @Override
     public String getId() {
         return id;
@@ -215,6 +203,7 @@ public class BasicTask<T> implements TaskInternal<T> {
     protected long startTimeUtc = -1;
     protected long endTimeUtc = -1;
     protected Maybe<Task<?>> submittedByTask;
+    protected String submittedByTaskId;
 
     protected volatile Thread thread = null;
     protected volatile boolean cancelled = false;
@@ -255,6 +244,12 @@ public class BasicTask<T> implements TaskInternal<T> {
     public Task<?> getSubmittedByTask() { 
         if (submittedByTask==null) return null;
         return submittedByTask.orNull(); 
+    }
+    @Override
+    public String getSubmittedByTaskId() {
+        if (submittedByTaskId!=null) return submittedByTaskId;
+        if (submittedByTask==null || submittedByTask.isAbsent()) return null;
+        throw new IllegalStateException("Task was set up with a submitted task but no task ID");
     }
 
     /** the thread where the task is running, if it is running */
@@ -327,11 +322,10 @@ public class BasicTask<T> implements TaskInternal<T> {
         return true;
     }
     
-    @SuppressWarnings("deprecation")
     protected boolean doCancel(TaskCancellationMode mode) {
         if (internalFuture!=null) { 
-            if (internalFuture instanceof ListenableForwardingFuture) {
-                return ((ListenableForwardingFuture<?>)internalFuture).cancel(mode);
+            if (internalFuture instanceof TaskInternalCancellableWithMode) {
+                return ((TaskInternalCancellableWithMode)internalFuture).cancel(mode);
             } else {
                 return internalFuture.cancel(mode.isAllowedToInterruptTask());
             }
@@ -345,11 +339,19 @@ public class BasicTask<T> implements TaskInternal<T> {
     }
 
     @Override
+    public boolean isDone(boolean andTaskNotRunning) {
+        if (!cancelled && !(internalFuture!=null && internalFuture.isDone()) && endTimeUtc<=0) {
+            return false;
+        }
+        if (andTaskNotRunning && cancelled && isBegun() && endTimeUtc<=0) {
+            return false;
+        }
+        return true;
+    }
+    
+    @Override
     public boolean isDone() {
-        // if endTime is set, result might not be completed yet, but it will be set very soon 
-        // (the two values are set close in time, result right after the endTime;
-        // but callback hooks might not see the result yet)
-        return cancelled || (internalFuture!=null && internalFuture.isDone()) || endTimeUtc>0;
+        return isDone(false);
     }
 
     /**
@@ -399,17 +401,19 @@ public class BasicTask<T> implements TaskInternal<T> {
         blockUntilStarted(null);
     }
 
-    // TODO: This should log a message if timeout is null and the method blocks for an unreasonably long time -
-    // it probably means someone called .get() and forgot to submit the task.
     @Override
     public synchronized boolean blockUntilStarted(Duration timeout) {
         Long endTime = timeout==null ? null : System.currentTimeMillis() + timeout.toMillisecondsRoundingUp();
         while (true) {
             if (cancelled) throw new CancellationException();
+            if (startTimeUtc>0) return true;
             if (internalFuture==null)
                 try {
                     if (timeout==null) {
-                        wait();
+                        // 5s so that it will repeat in case something sets the future without notifying;
+                        // can of course repeat here forever if someone calls get on an unsubmitted task,
+                        // but that is not hard to discover with a thread dump, seeing it waiting here
+                        wait(5*1000);
                     } else {
                         long remaining = endTime - System.currentTimeMillis();
                         if (remaining>0)
@@ -805,10 +809,10 @@ public class BasicTask<T> implements TaskInternal<T> {
                 return;
             }
             if (!t.isDone()) {
-                // shouldn't happen
-                // TODO But does happen if management context was terminated (e.g. running test suite).
-                //      Should check if Execution Manager is running, and only log if it was not terminated?
-                log.warn("Task "+t+" is being finalized before completion");
+                if (!BrooklynTaskTags.getExecutionContext(t).isShutdown()) {
+                    // not sure how this could happen
+                    log.warn("Task "+t+" was submitted but forgotten before it was run (finalized before completion)");
+                }
                 return;
             }
         }
@@ -906,18 +910,14 @@ public class BasicTask<T> implements TaskInternal<T> {
         submitTimeUtc = val;
     }
     
-    private static <T> Task<T> newGoneTaskFor(Task<?> task) {
-        Task<T> t = Tasks.<T>builder().dynamic(false).displayName(task.getDisplayName())
-            .description("Details of the original task "+task+" have been forgotten.")
-            .body(Callables.returning((T)null)).build();
-        ((BasicTask<T>)t).ignoreIfNotRun();
-        return t;
-    }
-    
-    @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     public void setSubmittedByTask(Task<?> task) {
-        submittedByTask = Maybe.softThen((Task)task, (Maybe)Maybe.of(BasicTask.newGoneTaskFor(task)));
+        setSubmittedByTask(Maybe.ofDisallowingNull(task), task==null ? null : task.getId());
+    }
+    @Override
+    public void setSubmittedByTask(Maybe<Task<?>> taskM, String taskId) {
+        submittedByTask = Preconditions.checkNotNull(taskM);
+        submittedByTaskId = taskId;
     }
     
     @Override

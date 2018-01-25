@@ -23,8 +23,10 @@ import java.util.List;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
+import org.apache.brooklyn.util.math.MathPredicates;
 
 @Beta
 public class ExecCmdAsserts {
@@ -48,6 +50,15 @@ public class ExecCmdAsserts {
             }
         }
         fail(expectedCmdRegex + " not matched by any commands in " + actual+(errMsg != null ? "; "+errMsg : ""));
+    }
+
+    public static void assertExecContainsLiteral(ExecCmd actual, String literal) {
+        for (String cmd : actual.commands) {
+            if (cmd.contains(literal)) {
+                return;
+            }
+        }
+        fail("No match for '"+literal+"' in "+actual);
     }
 
     public static void assertExecsNotContains(List<? extends ExecCmd> actuals, List<String> expectedNotCmdRegexs) {
@@ -92,7 +103,15 @@ public class ExecCmdAsserts {
         assertExecHasExactly(actuals, expectedCmd, 1);
     }
 
+    public static void assertExecHasAtLeastOnce(List<ExecCmd> actuals, String expectedCmd) {
+        assertExecHasExactly(actuals, expectedCmd, MathPredicates.greaterThanOrEqual(1));
+    }
+
     public static void assertExecHasExactly(List<ExecCmd> actuals, String expectedCmd, int expectedCount) {
+        assertExecHasExactly(actuals, expectedCmd, Predicates.equalTo(expectedCount));
+    }
+
+    public static void assertExecHasExactly(List<ExecCmd> actuals, String expectedCmd, Predicate<Integer> countChecker) {
         String errMsg = "actuals="+actuals+"; expected="+expectedCmd;
         int count = 0;
         for (ExecCmd actual : actuals) {
@@ -103,7 +122,7 @@ public class ExecCmdAsserts {
                 }
             }
         }
-        assertEquals(count, expectedCount, errMsg);
+        assertTrue(countChecker.apply(count), "actualCount="+count+"; expectedCount="+countChecker+"; "+errMsg);
     }
 
     public static ExecCmd findExecContaining(List<ExecCmd> actuals, String cmdRegex) {

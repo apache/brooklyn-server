@@ -370,11 +370,6 @@ public class FlagUtilsTest {
             return config().get(key);
         }
         
-        @Override
-        public <T> T setConfig(ConfigKey<T> key, T val) {
-            return config().set(key, val);
-        }
-        
         private class BasicConfigurationSupport implements ConfigurationSupport {
             @Override
             public <T> T get(ConfigKey<T> key) {

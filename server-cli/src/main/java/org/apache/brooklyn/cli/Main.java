@@ -23,23 +23,18 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.io.Console;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
-import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
@@ -55,17 +50,13 @@ import org.apache.brooklyn.cli.CloudExplorer.ComputeTerminateInstancesCommand;
 import org.apache.brooklyn.cli.ItemLister.ListAllCommand;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
-import org.apache.brooklyn.core.entity.AbstractApplication;
-import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
-import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.launcher.BrooklynLauncher;
 import org.apache.brooklyn.launcher.BrooklynServerDetails;
@@ -89,11 +80,8 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Objects.ToStringHelper;
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import groovy.lang.GroovyClassLoader;
 import groovy.lang.GroovyShell;
@@ -113,7 +101,6 @@ import io.airlift.airline.Option;
  * <li> providing an overridden {@link LaunchCommand} via {@link #cliLaunchCommand()} if desired
  * <li> providing any other CLI customisations by overriding {@link #cliBuilder()}
  *      (typically calling the parent and then customizing the builder)
- * <li> populating a custom catalog using {@link LaunchCommand#populateCatalog(BrooklynCatalog)}
  */
 public class Main extends AbstractMain {
 
@@ -229,20 +216,6 @@ public class Main extends AbstractMain {
             description = "Specifies a catalog.bom URI to be used to populate the initial catalog, "
                 + "loaded on first run, or when persistence is off/empty or the catalog is reset")
         public String catalogInitial;
-
-        @Option(name = { "--catalogReset" }, 
-            description = "Specifies that any catalog items which have been persisted should be cleared")
-        public boolean catalogReset;
-
-        // Unfortunately does not support arity of 1 or more; only exactly n
-        @Option(name = { "--catalogAdd" }, title = "catalog bom URIs to add",
-            description = "Specifies one or more catalog.bom URIs (or files) to be added to the catalog, as a comma-separated list")
-        public String catalogAdd;
-
-        @Option(name = { "--catalogForce" }, 
-            description = "Specifies that catalog items added via the CLI should be forcibly added, "
-                + "replacing any identical versions already registered (use with care!)")
-        public boolean catalogForce;
 
         @Option(name = { "-p", "--port" }, title = "port number",
                 description = "Use this port for the brooklyn management web console and REST API; "
@@ -425,22 +398,7 @@ public class Main extends AbstractMain {
     
                 launcher = createLauncher();
 
-                List<String> catalogsAdd = Strings.isBlank(catalogAdd) ? ImmutableList.<String>of() : JavaStringEscapes.unwrapJsonishListIfPossible(catalogAdd);
-                CatalogInitialization catInit = new CatalogInitialization(catalogInitial, catalogReset, catalogsAdd, catalogForce);
-                catInit.addPopulationCallback(new Function<CatalogInitialization,Void>() {
-                    @Override
-                    public Void apply(CatalogInitialization catInit) {
-                        try {
-                            populateCatalog(catInit.getManagementContext().getCatalog());
-                        } catch (Throwable e) {
-                            catInit.handleException(e, "in main class populate catalog override");
-                        }
-                        
-                        // Force load of catalog (so web console is up to date)
-                        confirmCatalog(catInit);
-                        return null;
-                    }
-                });
+                CatalogInitialization catInit = new CatalogInitialization(catalogInitial);
                 catInit.setFailOnStartupErrors(startupFailOnCatalogErrors);
                 launcher.catalogInitialization(catInit);
                 
@@ -631,37 +589,15 @@ public class Main extends AbstractMain {
             return launcher;
         }
 
-        /** method intended for subclassing, to add custom items to the catalog */
-        protected void populateCatalog(BrooklynCatalog catalog) {
+        /**
+         * method intended for subclassing, to add custom items to the catalog.
+         * 
+         * @deprecated since 1.0.0; no longer supported; does nothing - subclasses should not try to extend it!
+         */
+        protected final void populateCatalog(BrooklynCatalog catalog) {
             // nothing else added here
         }
 
-        protected void confirmCatalog(CatalogInitialization catInit) {
-            // Force load of catalog (so web console is up to date)
-            Stopwatch time = Stopwatch.createStarted();
-            BrooklynCatalog catalog = catInit.getManagementContext().getCatalog();
-            Iterable<CatalogItem<Object, Object>> items = catalog.getCatalogItems();
-            for (CatalogItem<Object, Object> item: items) {
-                try {
-                    if (item.getCatalogItemType()==CatalogItemType.TEMPLATE) {
-                        // skip validation of templates, they might contain instructions,
-                        // and additionally they might contain multiple items in which case
-                        // the validation below won't work anyway (you need to go via a deployment plan)
-                    } else {
-                        AbstractBrooklynObjectSpec<?, ?> spec = catalog.peekSpec(item);
-                        if (spec instanceof EntitySpec) {
-                            BrooklynTypes.getDefinedEntityType(((EntitySpec<?>)spec).getType());
-                        }
-                        log.debug("Catalog loaded spec "+spec+" for item "+item);
-                    }
-                } catch (Throwable throwable) {
-                    catInit.handleException(throwable, item);
-                }
-            }
-            log.debug("Catalog (size "+Iterables.size(items)+") confirmed in "+Duration.of(time));                      
-            // nothing else added here
-        }
-        
         /** convenience for subclasses to specify that an app should run,
          * throwing the right (caught) error if another app has already been specified */
         protected void setAppToLaunch(String className) {
@@ -803,9 +739,6 @@ public class Main extends AbstractMain {
                     .add("startupContinueOnWebErrors", startupContinueOnWebErrors)
                     .add("startupFailOnManagedAppsErrors", startupFailOnManagedAppsErrors)
                     .add("catalogInitial", catalogInitial)
-                    .add("catalogAdd", catalogAdd)
-                    .add("catalogReset", catalogReset)
-                    .add("catalogForce", catalogForce)
                     .add("stopWhichAppsOnShutdown", stopWhichAppsOnShutdown)
                     .add("stopOnKeyPress", stopOnKeyPress)
                     .add("localBrooklynProperties", localBrooklynProperties)

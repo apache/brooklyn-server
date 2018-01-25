@@ -64,7 +64,7 @@ public class RebindContextImpl implements RebindContext {
         this.mgmt = checkNotNull(mgmt, "mgmt");
         this.exceptionHandler = checkNotNull(exceptionHandler, "exceptionHandler");
         this.classLoader = checkNotNull(classLoader, "classLoader");
-        this.lookupContext = new RebindContextLookupContext(mgmt, this, exceptionHandler);
+        this.lookupContext = new RebindContextLookupContext("root-rebind-context", mgmt, this, exceptionHandler);
     }
 
     public void registerEntity(String id, Entity entity) {

@@ -261,7 +261,7 @@ public class EntityConcurrencyTest extends BrooklynAppUnitTestSupport {
         for (int i = 0; i < NUM_TASKS; i++) {
             ListenableFuture<?> future = executor.submit(new Runnable() {
                 @Override public void run() {
-                    entity.feeds().addFeed(new MyFeed());
+                    entity.feeds().add(new MyFeed());
                 }});
             futures.add(future);
         }

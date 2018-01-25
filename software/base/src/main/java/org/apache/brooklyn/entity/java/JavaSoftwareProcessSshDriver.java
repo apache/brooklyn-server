@@ -333,14 +333,6 @@ public abstract class JavaSoftwareProcessSshDriver extends AbstractSoftwareProce
     }
 
     /**
-    * @deprecated since 0.7.0; instead use {@link #getInstalledJavaVersion()}
-    */
-    @Deprecated
-    protected Optional<String> getCurrentJavaVersion() {
-        return getInstalledJavaVersion();
-    }
-
-    /**
      * Checks for the version of Java installed on the entity's location over SSH.
      * @return An Optional containing the version portion of `java -version`, or absent if no Java found.
      */

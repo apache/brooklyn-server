@@ -31,10 +31,13 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
@@ -48,6 +51,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.objs.Identifiable;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -74,7 +78,10 @@ import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.StringPredicates;
+import org.apache.cxf.jaxrs.client.WebClient;
 import org.apache.http.HttpHeaders;
 import org.apache.http.entity.ContentType;
 import org.eclipse.jetty.http.HttpStatus;
@@ -85,9 +92,11 @@ import org.testng.annotations.Test;
 import org.testng.reporters.Files;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.gson.Gson;
 
 @Test( // by using a different suite name we disallow interleaving other tests between the methods of this test class, which wrecks the test fixtures
         suiteName = "CatalogResourceTest")
@@ -130,11 +139,12 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     public void testRegisterCustomEntityTopLevelSyntaxWithBundleWhereEntityIsFromCoreAndIconFromBundle() {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
 
-        String symbolicName = "my.catalog.entity.id";
+        String itemSymbolicName = "my.catalog.entity.id";
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
+        VersionedName bundleName = new VersionedName(OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FULL, OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_VERSION);
         String yaml = Joiner.on("\n").join(
                 "brooklyn.catalog:",
-                "  id: " + symbolicName,
+                "  id: " + itemSymbolicName,
                 "  version: " + TEST_VERSION,
                 "  itemType: entity",
                 "  name: My Catalog App",
@@ -150,41 +160,19 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
 
         assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
 
-        CatalogEntitySummary entityItem = client().path("/catalog/entities/"+symbolicName + "/" + TEST_VERSION)
-                .get(CatalogEntitySummary.class);
+        CatalogSummaryAsserts.newInstance(CatalogItemType.ENTITY, itemSymbolicName, TEST_VERSION)
+                .planYamlPredicate(StringPredicates.containsLiteral("org.apache.brooklyn.core.test.entity.TestEntity"))
+                .name("My Catalog App")
+                .description("My description")
+                .expectedInterfaces(Reflections.getAllInterfaces(TestEntity.class))
+                .iconData((data) -> {assertEquals(data.length, 43); return true;})
+                .applyAsserts(() -> client());
 
-        Assert.assertNotNull(entityItem.getPlanYaml());
-        Assert.assertTrue(entityItem.getPlanYaml().contains("org.apache.brooklyn.core.test.entity.TestEntity"));
-
-        assertEquals(entityItem.getId(), ver(symbolicName));
-        assertEquals(entityItem.getSymbolicName(), symbolicName);
-        assertEquals(entityItem.getVersion(), TEST_VERSION);
-
-        // and internally let's check we have libraries
-        RegisteredType item = getManagementContext().getTypeRegistry().get(symbolicName, TEST_VERSION);
-        Assert.assertNotNull(item);
-        Collection<OsgiBundleWithUrl> libs = item.getLibraries();
-        assertEquals(libs.size(), 1);
-        assertEquals(Iterables.getOnlyElement(libs).getUrl(), bundleUrl);
-
-        // now let's check other things on the item
-        URI expectedIconUrl = URI.create(getEndpointAddress() + "/catalog/icon/" + symbolicName + "/" + entityItem.getVersion()).normalize();
-        assertEquals(entityItem.getName(), "My Catalog App");
-        assertEquals(entityItem.getDescription(), "My description");
-        assertEquals(entityItem.getIconUrl(), expectedIconUrl.getPath());
-        assertEquals(item.getIconUrl(), "classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif");
-
-        // an InterfacesTag should be created for every catalog item
-        Map<String, List<String>> traitsMapTag = Iterables.getOnlyElement(Iterables.filter(entityItem.getTags(), Map.class));
-        List<String> actualInterfaces = traitsMapTag.get("traits");
-        List<Class<?>> expectedInterfaces = Reflections.getAllInterfaces(TestEntity.class);
-        assertEquals(actualInterfaces.size(), expectedInterfaces.size());
-        for (Class<?> expectedInterface : expectedInterfaces) {
-            assertTrue(actualInterfaces.contains(expectedInterface.getName()));
-        }
-
-        byte[] iconData = client().path("/catalog/icon/" + symbolicName + "/" + TEST_VERSION).get(byte[].class);
-        assertEquals(iconData.length, 43);
+        RegisteredTypeAsserts.newInstance(itemSymbolicName, TEST_VERSION)
+                .libraryNames(bundleName)
+                .libraryUrls(bundleUrl)
+                .iconUrl("classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif")
+                .applyAsserts(getManagementContext().getTypeRegistry());
     }
 
     @Test
@@ -200,21 +188,21 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 "  id: " + symbolicName,
                 "  version: " + TEST_VERSION,
                 "  itemType: policy",
-                "  name: My Catalog App",
+                "  name: My Catalog Policy",
                 "  description: My description",
                 "  libraries:",
                 "  - url: " + bundleUrl,
                 "  item:",
                 "    type: " + policyType);
 
-        CatalogPolicySummary entityItem = Iterables.getOnlyElement( client().path("/catalog")
+        CatalogPolicySummary item = Iterables.getOnlyElement( client().path("/catalog")
                 .post(yaml, new GenericType<Map<String,CatalogPolicySummary>>() {}).values() );
 
-        Assert.assertNotNull(entityItem.getPlanYaml());
-        Assert.assertTrue(entityItem.getPlanYaml().contains(policyType));
-        assertEquals(entityItem.getId(), ver(symbolicName));
-        assertEquals(entityItem.getSymbolicName(), symbolicName);
-        assertEquals(entityItem.getVersion(), TEST_VERSION);
+        CatalogSummaryAsserts.newInstance(CatalogItemType.POLICY, symbolicName, TEST_VERSION)
+                .planYamlPredicate(StringPredicates.containsLiteral(policyType))
+                .name("My Catalog Policy")
+                .description("My description")
+                .applyAsserts(item);
     }
 
     @Test
@@ -238,21 +226,21 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         List<CatalogEntitySummary> entities = client().path("/catalog/entities")
                 .query("fragment", "vaNIllasOFTWAREpROCESS").get(new GenericType<List<CatalogEntitySummary>>() {});
         log.info("Matching entities: " + entities);
-        assertEquals(entities.size(), 1);
+        Asserts.assertSize(entities, 1);
 
         List<CatalogEntitySummary> entities2 = client().path("/catalog/entities")
                 .query("regex", "[Vv]an.[alS]+oftware\\w+").get(new GenericType<List<CatalogEntitySummary>>() {});
-        assertEquals(entities2.size(), 1);
+        Asserts.assertSize(entities2, 1);
 
         assertEquals(entities, entities2);
     
         List<CatalogEntitySummary> entities3 = client().path("/catalog/entities")
                 .query("fragment", "bweqQzZ").get(new GenericType<List<CatalogEntitySummary>>() {});
-        assertEquals(entities3.size(), 0);
+        Asserts.assertSize(entities3, 0);
 
         List<CatalogEntitySummary> entities4 = client().path("/catalog/entities")
                 .query("regex", "bweq+z+").get(new GenericType<List<CatalogEntitySummary>>() {});
-        assertEquals(entities4.size(), 0);
+        Asserts.assertSize(entities4, 0);
     }
 
     @Test
@@ -347,16 +335,12 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .post(yaml, new GenericType<Map<String,CatalogLocationSummary>>() {});
         CatalogLocationSummary locationItem = Iterables.getOnlyElement(items.values());
 
-        Assert.assertNotNull(locationItem.getPlanYaml());
-        Assert.assertTrue(locationItem.getPlanYaml().contains(locationType));
-        assertEquals(locationItem.getId(), ver(symbolicName));
-        assertEquals(locationItem.getSymbolicName(), symbolicName);
-        assertEquals(locationItem.getVersion(), TEST_VERSION);
-
-        // Retrieve location item
-        CatalogLocationSummary location = client().path("/catalog/locations/"+symbolicName+"/"+TEST_VERSION)
-                .get(CatalogLocationSummary.class);
-        assertEquals(location.getSymbolicName(), symbolicName);
+        CatalogSummaryAsserts.newInstance(CatalogItemType.LOCATION, symbolicName, TEST_VERSION)
+                .planYamlPredicate(StringPredicates.containsLiteral(locationType))
+                .name("My Catalog Location")
+                .description("My description")
+                .applyAsserts(locationItem)
+                .applyAsserts(() -> client());
 
         // Retrieve all locations
         Set<CatalogLocationSummary> locations = client().path("/catalog/locations")
@@ -413,16 +397,12 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .post(yaml, new GenericType<Map<String, CatalogEnricherSummary>>() {});
         CatalogEnricherSummary enricherItem = Iterables.getOnlyElement(items.values());
 
-        Assert.assertNotNull(enricherItem.getPlanYaml());
-        Assert.assertTrue(enricherItem.getPlanYaml().contains(enricherType));
-        assertEquals(enricherItem.getId(), ver(symbolicName));
-        assertEquals(enricherItem.getSymbolicName(), symbolicName);
-        assertEquals(enricherItem.getVersion(), TEST_VERSION);
-
-        // Retrieve location item
-        CatalogEnricherSummary enricher = client().path("/catalog/enrichers/"+symbolicName+"/"+TEST_VERSION)
-                .get(CatalogEnricherSummary.class);
-        assertEquals(enricher.getSymbolicName(), symbolicName);
+        CatalogSummaryAsserts.newInstance(CatalogItemType.ENRICHER, symbolicName, TEST_VERSION)
+                .planYamlPredicate(StringPredicates.containsLiteral(enricherType))
+                .name("My Catalog Enricher")
+                .description("My description")
+                .applyAsserts(enricherItem)
+                .applyAsserts(() -> client());
 
         // Retrieve all locations
         Set<CatalogEnricherSummary> enrichers = client().path("/catalog/enrichers")
@@ -467,14 +447,15 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 "  item:",
                 "    type: " + enricherType);
 
-        CatalogEnricherSummary entityItem = Iterables.getOnlyElement( client().path("/catalog")
+        CatalogEnricherSummary enricherItem = Iterables.getOnlyElement( client().path("/catalog")
                 .post(yaml, new GenericType<Map<String,CatalogEnricherSummary>>() {}).values() );
 
-        Assert.assertNotNull(entityItem.getPlanYaml());
-        Assert.assertTrue(entityItem.getPlanYaml().contains(enricherType));
-        assertEquals(entityItem.getId(), ver(symbolicName));
-        assertEquals(entityItem.getSymbolicName(), symbolicName);
-        assertEquals(entityItem.getVersion(), TEST_VERSION);
+        CatalogSummaryAsserts.newInstance(CatalogItemType.ENRICHER, symbolicName, TEST_VERSION)
+                .planYamlPredicate(StringPredicates.containsLiteral(enricherType))
+                .name("My Catalog Enricher")
+                .description("My description")
+                .applyAsserts(enricherItem)
+                .applyAsserts(() -> client());
     }
 
     @Test
@@ -683,6 +664,88 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     }
 
     @Test
+    public void testArchiveWithBundleAndVersion() throws Exception {
+        String version = "0.1.0";
+        String itemSymbolicName = "my-entity";
+        
+        File f = createZip(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  bundle: org.apache.brooklyn.test",
+                "  version: " + version,
+                "  itemType: entity",
+                "  id: " + itemSymbolicName,
+                "  name: My Catalog App",
+                "  description: My description",
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity")));
+
+        Response response = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .post(Streams.readFully(new FileInputStream(f)));
+
+        assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
+
+        CatalogSummaryAsserts.newInstance(CatalogItemType.ENTITY, itemSymbolicName, version)
+                .planYamlPredicate(StringPredicates.containsLiteral("org.apache.brooklyn.core.test.entity.TestEntity"))
+                .name("My Catalog App")
+                .description("My description")
+                .expectedInterfaces(Reflections.getAllInterfaces(TestEntity.class))
+                .applyAsserts(() -> client());
+        
+        RegisteredTypeAsserts.newInstance(itemSymbolicName, version)
+                .libraryNames(new VersionedName("org.apache.brooklyn.test", version))
+                .libraryUrls((String)null)
+                .applyAsserts(getManagementContext().getTypeRegistry());
+    }
+
+    @Test
+    public void testInstallSameArchiveTwice() throws Exception {
+        String version = "0.1.0";
+        String itemSymbolicName = "my-entity";
+        
+        File f = createZip(ImmutableMap.<String, String>of("catalog.bom", Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  bundle: org.apache.brooklyn.test",
+                "  version: " + version,
+                "  itemType: entity",
+                "  id: " + itemSymbolicName,
+                "  name: My Catalog App",
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity")));
+
+        // Deploy first time
+        Response response = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .post(Streams.readFully(new FileInputStream(f)));
+
+        assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
+
+        RegisteredTypeAsserts.newInstance(itemSymbolicName, version)
+                .libraryNames(new VersionedName("org.apache.brooklyn.test", version))
+                .applyAsserts(getManagementContext().getTypeRegistry());
+        
+        // Deploy again
+        // Expect 200 (didn't create it, because already existed).
+        Response response2 = client().path("/catalog")
+                .query("detail", "true")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .post(Streams.readFully(new FileInputStream(f)));
+        String response2Body = response2.readEntity(String.class);
+        
+        Map<?,?> response2Map = new Gson().fromJson(response2Body, Map.class);
+        String response2Message = (String) response2Map.get("message");
+        String response2Code = (String) response2Map.get("code");
+        
+        assertEquals(response2.getStatus(), Response.Status.OK.getStatusCode());
+        assertTrue(response2Code.equals("IGNORING_BUNDLE_AREADY_INSTALLED"), "body="+response2Body);
+        assertTrue(response2Message.toLowerCase().contains("bundle org.apache.brooklyn.test:0.1.0 already installed"), "body="+response2Body);
+
+        RegisteredTypeAsserts.newInstance(itemSymbolicName, version)
+                .libraryNames(new VersionedName("org.apache.brooklyn.test", version))
+                .applyAsserts(getManagementContext().getTypeRegistry());
+    }
+
+    @Test
     public void testJarWithoutMatchingBundle() throws Exception {
         String name = "My Catalog App";
         String bundle = "org.apache.brooklyn.test";
@@ -753,18 +816,19 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     @Test
     public void testOsgiBundleWithBom() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
-        final String symbolicName = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FULL;
+        final String bundleSymbolicName = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FULL;
         final String version = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_VERSION;
         final String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
+        final String itemSymbolicName = "my-entity";
         BundleMaker bm = new BundleMaker(manager);
         File f = Os.newTempFile("osgi", "jar");
         Files.copyFile(ResourceUtils.create(this).getResourceFromUrl(bundleUrl), f);
         
         String bom = Joiner.on("\n").join(
                 "brooklyn.catalog:",
-                "  bundle: " + symbolicName,
+                "  bundle: " + bundleSymbolicName,
                 "  version: " + version,
-                "  id: " + symbolicName,
+                "  id: " + itemSymbolicName,
                 "  itemType: entity",
                 "  name: My Catalog App",
                 "  description: My description",
@@ -778,68 +842,41 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
                 .post(Streams.readFully(new FileInputStream(f)));
 
-        
         assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
 
-        CatalogEntitySummary entityItem = client().path("/catalog/entities/"+symbolicName + "/" + version)
-                .get(CatalogEntitySummary.class);
-
-        Assert.assertNotNull(entityItem.getPlanYaml());
-        Assert.assertTrue(entityItem.getPlanYaml().contains("org.apache.brooklyn.core.test.entity.TestEntity"));
-
-        assertEquals(entityItem.getId(), CatalogUtils.getVersionedId(symbolicName, version));
-        assertEquals(entityItem.getSymbolicName(), symbolicName);
-        assertEquals(entityItem.getVersion(), version);
-
-        // and internally let's check we have libraries
-        RegisteredType item = getManagementContext().getTypeRegistry().get(symbolicName, version);
-        Assert.assertNotNull(item);
-        Collection<OsgiBundleWithUrl> libs = item.getLibraries();
-        assertEquals(libs.size(), 1);
-        OsgiBundleWithUrl lib = Iterables.getOnlyElement(libs);
-        Assert.assertNull(lib.getUrl());
-
-        assertEquals(lib.getSymbolicName(), "org.apache.brooklyn.test.resources.osgi.brooklyn-test-osgi-entities");
-        assertEquals(lib.getSuppliedVersionString(), version);
-
-        // now let's check other things on the item
-        URI expectedIconUrl = URI.create(getEndpointAddress() + "/catalog/icon/" + symbolicName + "/" + entityItem.getVersion()).normalize();
-        assertEquals(entityItem.getName(), "My Catalog App");
-        assertEquals(entityItem.getDescription(), "My description");
-        assertEquals(entityItem.getIconUrl(), expectedIconUrl.getPath());
-        assertEquals(item.getIconUrl(), "classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif");
-
-        // an InterfacesTag should be created for every catalog item
-        @SuppressWarnings("unchecked")
-        Map<String, List<String>> traitsMapTag = Iterables.getOnlyElement(Iterables.filter(entityItem.getTags(), Map.class));
-        List<String> actualInterfaces = traitsMapTag.get("traits");
-        List<Class<?>> expectedInterfaces = Reflections.getAllInterfaces(TestEntity.class);
-        assertEquals(actualInterfaces.size(), expectedInterfaces.size());
-        for (Class<?> expectedInterface : expectedInterfaces) {
-            assertTrue(actualInterfaces.contains(expectedInterface.getName()));
-        }
-
-        byte[] iconData = client().path("/catalog/icon/" + symbolicName + "/" + version).get(byte[].class);
-        assertEquals(iconData.length, 43);
+        CatalogSummaryAsserts.newInstance(CatalogItemType.ENTITY, itemSymbolicName, version)
+                .planYamlPredicate(StringPredicates.containsLiteral("org.apache.brooklyn.core.test.entity.TestEntity"))
+                .name("My Catalog App")
+                .description("My description")
+                .expectedInterfaces(Reflections.getAllInterfaces(TestEntity.class))
+                .iconData((data) -> {assertEquals(data.length, 43); return true;})
+                .applyAsserts(() -> client());
+        
+        RegisteredTypeAsserts.newInstance(itemSymbolicName, version)
+                .libraryNames(new VersionedName(bundleSymbolicName, version))
+                .libraryUrls((String)null)
+                .iconUrl("classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif")
+                .applyAsserts(getManagementContext().getTypeRegistry());
     }
 
     @Test
     public void testOsgiBundleWithBomNotInBrooklynNamespace() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH);
-        final String symbolicName = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_SYMBOLIC_NAME_FULL;
+        final String bundleSymbolicName = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_SYMBOLIC_NAME_FULL;
         final String version = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_VERSION;
         final String bundleUrl = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_URL;
         final String entityType = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ENTITY;
         final String iconPath = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ICON_PATH;
+        final String itemSymbolicName = "my-item";
         BundleMaker bm = new BundleMaker(manager);
         File f = Os.newTempFile("osgi", "jar");
         Files.copyFile(ResourceUtils.create(this).getResourceFromUrl(bundleUrl), f);
 
         String bom = Joiner.on("\n").join(
                 "brooklyn.catalog:",
-                "  bundle: " + symbolicName,
+                "  bundle: " + bundleSymbolicName,
                 "  version: " + version,
-                "  id: " + symbolicName,
+                "  id: " + itemSymbolicName,
                 "  itemType: entity",
                 "  name: My Catalog App",
                 "  description: My description",
@@ -856,47 +893,24 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
 
         assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
 
-        CatalogEntitySummary entityItem = client().path("/catalog/entities/"+symbolicName + "/" + version)
-                .get(CatalogEntitySummary.class);
-
-        Assert.assertNotNull(entityItem.getPlanYaml());
-        Assert.assertTrue(entityItem.getPlanYaml().contains(entityType));
-
-        assertEquals(entityItem.getId(), CatalogUtils.getVersionedId(symbolicName, version));
-        assertEquals(entityItem.getSymbolicName(), symbolicName);
-        assertEquals(entityItem.getVersion(), version);
-
-        // and internally let's check we have libraries
-        RegisteredType item = getManagementContext().getTypeRegistry().get(symbolicName, version);
-        Assert.assertNotNull(item);
-        Collection<OsgiBundleWithUrl> libs = item.getLibraries();
-        assertEquals(libs.size(), 1);
-        OsgiBundleWithUrl lib = Iterables.getOnlyElement(libs);
-        Assert.assertNull(lib.getUrl());
-
-        assertEquals(lib.getSymbolicName(), symbolicName);
-        assertEquals(lib.getSuppliedVersionString(), version);
-
-        // now let's check other things on the item
-        URI expectedIconUrl = URI.create(getEndpointAddress() + "/catalog/icon/" + symbolicName + "/" + entityItem.getVersion()).normalize();
-        assertEquals(entityItem.getName(), "My Catalog App");
-        assertEquals(entityItem.getDescription(), "My description");
-        assertEquals(entityItem.getIconUrl(), expectedIconUrl.getPath());
-        assertEquals(item.getIconUrl(), "classpath:" + iconPath);
-
-        // an InterfacesTag should be created for every catalog item
-        Map<String, List<String>> traitsMapTag = Iterables.getOnlyElement(Iterables.filter(entityItem.getTags(), Map.class));
-        List<String> actualInterfaces = traitsMapTag.get("traits");
-        List<String> expectedInterfaces = ImmutableList.of(Entity.class.getName(), BrooklynObject.class.getName(), Identifiable.class.getName(), Configurable.class.getName());
-        assertTrue(actualInterfaces.containsAll(expectedInterfaces), "actual="+actualInterfaces);
-
-        byte[] iconData = client().path("/catalog/icon/" + symbolicName + "/" + version).get(byte[].class);
-        assertEquals(iconData.length, 43);
+        CatalogSummaryAsserts.newInstance(CatalogItemType.ENTITY, itemSymbolicName, version)
+                .planYamlPredicate(StringPredicates.containsLiteral(entityType))
+                .name("My Catalog App")
+                .description("My description")
+                .expectedInterfaces(ImmutableList.of(Entity.class, BrooklynObject.class, Identifiable.class, Configurable.class))
+                .iconData((data) -> {assertEquals(data.length, 43); return true;})
+                .applyAsserts(() -> client());
+        
+        RegisteredTypeAsserts.newInstance(itemSymbolicName, version)
+                .libraryNames(new VersionedName(bundleSymbolicName, version))
+                .libraryUrls((String)null)
+                .iconUrl("classpath:"+iconPath)
+                .applyAsserts(getManagementContext().getTypeRegistry());
 
         // Check that the catalog item is useable (i.e. can deploy the entity)
         String appYaml = Joiner.on("\n").join(
                 "services:",
-                "- type: " + symbolicName + ":" + version,
+                "- type: " + itemSymbolicName + ":" + version,
                 "  name: myEntityName");
 
         Response appResponse = client().path("/applications")
@@ -1139,10 +1153,10 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
 
         client().path("/catalog").post(initialYaml);
 
-        CatalogItemSummary initialApplication = client().path("/catalog/applications/" + symbolicName + "/" + TEST_VERSION)
-                .get(CatalogItemSummary.class);
-        assertEquals(initialApplication.getName(), initialName);
-        assertEquals(initialApplication.getDescription(), initialDescription);
+        CatalogSummaryAsserts.newInstance(CatalogItemType.APPLICATION, symbolicName, TEST_VERSION)
+                .name(initialName)
+                .description(initialDescription)
+                .applyAsserts(() -> client());
 
         Response invalidResponse = client().path("/catalog").post(updatedYaml);
 
@@ -1152,10 +1166,10 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
 
         assertEquals(validResponse.getStatus(), Response.Status.CREATED.getStatusCode());
 
-        CatalogItemSummary application = client().path("/catalog/applications/" + symbolicName + "/" + TEST_VERSION)
-                .get(CatalogItemSummary.class);
-        assertEquals(application.getName(), updatedName);
-        assertEquals(application.getDescription(), updatedDescription);
+        CatalogSummaryAsserts.newInstance(CatalogItemType.APPLICATION, symbolicName, TEST_VERSION)
+                .name(updatedName)
+                .description(updatedDescription)
+                .applyAsserts(() -> client());
     }
 
     @Test
@@ -1193,11 +1207,11 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
                 .post(Streams.readFully(new FileInputStream(initialZip)));
 
-        CatalogItemSummary initialEntity = client().path("/catalog/entities/" + symbolicName + "/" + TEST_VERSION)
-                .get(CatalogItemSummary.class);
-        assertEquals(initialEntity.getName(), initialName);
-        assertEquals(initialEntity.getDescription(), initialDescription);
-
+        CatalogSummaryAsserts.newInstance(CatalogItemType.ENTITY, symbolicName, TEST_VERSION)
+                .name(initialName)
+                .description(initialDescription)
+                .applyAsserts(() -> client());
+        
         Response invalidResponse = client().path("/catalog")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
                 .post(Streams.readFully(new FileInputStream(updatedZip)));
@@ -1211,10 +1225,10 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
 
         assertEquals(validResponse.getStatus(), Response.Status.CREATED.getStatusCode());
 
-        CatalogItemSummary entity = client().path("/catalog/entities/" + symbolicName + "/" + TEST_VERSION)
-                .get(CatalogItemSummary.class);
-        assertEquals(entity.getName(), updatedName);
-        assertEquals(entity.getDescription(), updatedDescription);
+        CatalogSummaryAsserts.newInstance(CatalogItemType.ENTITY, symbolicName, TEST_VERSION)
+                .name(updatedName)
+                .description(updatedDescription)
+                .applyAsserts(() -> client());
     }
 
     @Test
@@ -1252,10 +1266,10 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
                 .post(Streams.readFully(new FileInputStream(initialJar)));
 
-        CatalogItemSummary initialEntity = client().path("/catalog/entities/" + symbolicName + "/" + TEST_VERSION)
-                .get(CatalogItemSummary.class);
-        assertEquals(initialEntity.getName(), initialName);
-        assertEquals(initialEntity.getDescription(), initialDescription);
+        CatalogSummaryAsserts.newInstance(CatalogItemType.ENTITY, symbolicName, TEST_VERSION)
+                .name(initialName)
+                .description(initialDescription)
+                .applyAsserts(() -> client());
 
         Response invalidResponse = client().path("/catalog")
                 .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
@@ -1270,9 +1284,182 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
 
         assertEquals(validResponse.getStatus(), Response.Status.CREATED.getStatusCode());
 
-        CatalogItemSummary entity = client().path("/catalog/entities/" + symbolicName + "/" + TEST_VERSION)
-                .get(CatalogItemSummary.class);
-        assertEquals(entity.getName(), updatedName);
-        assertEquals(entity.getDescription(), updatedDescription);
+        CatalogSummaryAsserts.newInstance(CatalogItemType.ENTITY, symbolicName, TEST_VERSION)
+                .name(updatedName)
+                .description(updatedDescription)
+                .applyAsserts(() -> client());
+    }
+    
+    enum CatalogItemType {
+        APPLICATION("applications", CatalogEntitySummary.class),
+        ENTITY("entities", CatalogEntitySummary.class),
+        POLICY("policies", CatalogPolicySummary.class),
+        ENRICHER("enrichers", CatalogEnricherSummary.class),
+        LOCATION("locations", CatalogLocationSummary.class);
+        
+        private final String urlPart;
+        private final Class<? extends CatalogItemSummary> summaryType;
+        
+        private CatalogItemType(String urlPart, Class<? extends CatalogItemSummary> summaryType) {
+            this.urlPart = urlPart;
+            this.summaryType = summaryType;
+        }
+        public String getUrlPart() {
+            return urlPart;
+        }
+        public Class<? extends CatalogItemSummary> getSummaryClass() {
+            return summaryType;
+        }
+    }
+    
+    static class CatalogSummaryAsserts {
+        protected final CatalogItemType itemType;
+        protected final VersionedName versionedName;
+        protected Predicate<? super String> planYamlPredicate;
+        protected String name;
+        protected String description;
+        protected List<? extends Class<?>> expectedInterfaces;
+        protected Predicate<? super byte[]> iconData;
+        protected boolean expectsIcon;
+        
+        public static CatalogSummaryAsserts newInstance(CatalogItemType itemType, String symbolicName, String version) {
+            return newInstance(itemType, new VersionedName(symbolicName, version));
+        }
+        public static CatalogSummaryAsserts newInstance(CatalogItemType itemType, VersionedName versionedName) {
+            return new CatalogSummaryAsserts(itemType, versionedName);
+        }
+        CatalogSummaryAsserts(CatalogItemType itemType, VersionedName versionedName) {
+            this.itemType = itemType;
+            this.versionedName = versionedName;
+        }
+        public CatalogSummaryAsserts planYamlPredicate(Predicate<? super String> val) {
+            planYamlPredicate = val;
+            return this;
+        }
+        public CatalogSummaryAsserts name(String val) {
+            name = val;
+            return this;
+        }
+        public CatalogSummaryAsserts description(String val) {
+            description = val;
+            return this;
+        }
+        public CatalogSummaryAsserts expectsIcon() {
+            expectsIcon = true;
+            return this;
+        }
+        public CatalogSummaryAsserts iconData(Predicate<? super byte[]> val) {
+            expectsIcon = true;
+            iconData = val;
+            return this;
+        }
+        public CatalogSummaryAsserts expectedInterfaces(List<? extends Class<?>> vals) {
+            expectedInterfaces = vals;
+            return this;
+        }
+        public CatalogSummaryAsserts applyAsserts(Supplier<WebClient> client) {
+            CatalogItemSummary item = getSummary(client);
+            return applyAsserts(item, client);
+        }
+        public CatalogSummaryAsserts applyAsserts(CatalogItemSummary item) {
+            return applyAsserts(item, null);
+        }
+        public CatalogSummaryAsserts applyAsserts(CatalogItemSummary item, Supplier<WebClient> client) {
+            assertEquals(item.getId(), CatalogUtils.getVersionedId(versionedName.getSymbolicName(), versionedName.getVersionString()));
+            assertEquals(item.getSymbolicName(), versionedName.getSymbolicName());
+            assertEquals(item.getVersion(), versionedName.getVersionString());
+            
+            if (planYamlPredicate != null) {
+                Assert.assertNotNull(item.getPlanYaml());
+                Assert.assertTrue(planYamlPredicate.apply(item.getPlanYaml()), "plan="+item.getPlanYaml());
+            }
+            if (name != null) {
+                Assert.assertEquals(item.getName(), name);
+            }
+            if (description != null) {
+                Assert.assertEquals(item.getDescription(), description);
+            }
+            if (expectedInterfaces != null) {
+                // an InterfacesTag should be created for every catalog item
+                Map<String, List<String>> traitsMapTag = Iterables.getOnlyElement(Iterables.filter(item.getTags(), Map.class));
+                List<String> actualInterfaces = traitsMapTag.get("traits");
+                assertEquals(actualInterfaces.size(), expectedInterfaces.size(), "actual="+actualInterfaces);
+                for (Class<?> expectedInterface : expectedInterfaces) {
+                    assertTrue(actualInterfaces.contains(expectedInterface.getName()), "actual="+actualInterfaces);
+                }
+            }
+            if (expectsIcon) {
+                URI expectedIconUrl = URI.create("http://dummy/catalog/icon/" + versionedName.getSymbolicName() + "/" + versionedName.getVersionString()).normalize();
+                assertEquals(item.getIconUrl(), expectedIconUrl.getPath());
+                if (iconData != null) {
+                    byte[] bytes = client.get().path("/catalog/icon/" + versionedName.getSymbolicName() + "/" + versionedName.getVersionString()).get(byte[].class);
+                    assertTrue(iconData.apply(bytes));
+                }
+            }
+            return this;
+        }
+        private CatalogItemSummary getSummary(Supplier<WebClient> client) {
+            return client.get().path("/catalog/"+itemType.urlPart+"/"+versionedName.getSymbolicName() + "/" + versionedName.getVersionString())
+                    .get(itemType.getSummaryClass());
+        }
+    }
+    
+    static class RegisteredTypeAsserts {
+        public static RegisteredTypeAsserts newInstance(String symbolicName, String version) {
+            return newInstance(new VersionedName(symbolicName, version));
+        }
+        public static RegisteredTypeAsserts newInstance(VersionedName versionedName) {
+            return new RegisteredTypeAsserts(versionedName);
+        }
+        private VersionedName versionedName;
+        private VersionedName containingBundle;
+        private String iconUrl;
+        Iterable<VersionedName> libraryNames;
+        Iterable<String> libraryUrls;
+        
+        RegisteredTypeAsserts(VersionedName versionedName) {
+            this.versionedName = versionedName;
+        }
+        public RegisteredTypeAsserts containingBundle(VersionedName val) {
+            containingBundle = val;
+            return this;
+        }
+        public RegisteredTypeAsserts iconUrl(String val) {
+            iconUrl = val;
+            return this;
+        }
+        public RegisteredTypeAsserts libraryNames(VersionedName... vals) {
+            libraryNames = Arrays.asList(vals);
+            return this;
+        }
+        public RegisteredTypeAsserts libraryUrls(String... vals) {
+            libraryUrls = Arrays.asList(vals);
+            return this;
+        }
+        public void applyAsserts(BrooklynTypeRegistry typeRegistry) {
+            RegisteredType type = typeRegistry.get(versionedName.getSymbolicName(), versionedName.getVersionString());
+            Assert.assertNotNull(type);
+            if (containingBundle != null) {
+                assertEquals(type.getContainingBundle(), containingBundle.getSymbolicName()+":"+containingBundle.getVersionString());
+            }
+            if (iconUrl != null) {
+                assertEquals(type.getIconUrl(), iconUrl);
+            }
+            if (libraryNames != null || libraryUrls != null) {
+                Collection<OsgiBundleWithUrl> libs = type.getLibraries();
+                Set<VersionedName> actualLibraryNames = new LinkedHashSet<>();
+                Set<String> actualLibraryUrls = new LinkedHashSet<>();
+                for (OsgiBundleWithUrl lib : libs) {
+                    actualLibraryNames.add(lib.getVersionedName());
+                    actualLibraryUrls.add(lib.getUrl());
+                }
+                if (libraryNames != null) {
+                    Asserts.assertSameUnorderedContents(actualLibraryNames, libraryNames);
+                }
+                if (libraryUrls != null) {
+                    Asserts.assertSameUnorderedContents(actualLibraryUrls, libraryUrls);
+                }
+            }
+        }
     }
 }

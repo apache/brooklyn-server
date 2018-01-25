@@ -34,7 +34,7 @@ import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.camp.spi.PlatformRootSummary;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
@@ -43,7 +43,6 @@ import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixture;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.stream.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -137,11 +136,11 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
     }
 
     protected Reader loadYaml(String yamlFileName, String ...extraLines) throws Exception {
-        String input = new ResourceUtils(this).getResourceAsString(yamlFileName).trim();
-        StringBuilder builder = new StringBuilder(input);
-        for (String l: extraLines)
-            builder.append("\n").append(l);
-        return new StringReader(builder.toString());
+        return new StringReader(AbstractYamlTest.loadYaml(this, yamlFileName, extraLines));
+    }
+
+    protected String loadYamlString(String yamlFileName, String ...extraLines) throws Exception {
+        return AbstractYamlTest.loadYaml(this, yamlFileName, extraLines);
     }
     
     /**
@@ -162,13 +161,11 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
     }
     
     protected Entity createAndStartApplication(String input, Map<String,?> startParameters) throws Exception {
-        EntitySpec<?> spec = 
-            mgmt().getTypeRegistry().createSpecFromPlan(CampTypePlanTransformer.FORMAT, input, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
-        final Entity app = mgmt().getEntityManager().createEntity(spec);
-        getLogger().info("Test created app, and will now start " + app);
+        final Entity app = createApplicationUnstarted(input);
         
-        // start the app (happens automatically if we use camp to instantiate, but not if we use crate spec approach)
         app.invoke(Startable.START, startParameters).get();
+        getLogger().info("Test started app " + app);
+        
         return app;
     }
 
@@ -185,11 +182,24 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
         waitForApplicationTasks(app);
 
         getLogger().info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         return app;
     }
 
+    protected Entity createApplicationUnstarted(String... multiLineYaml) throws Exception {
+        return createApplicationUnstarted(joinLines(multiLineYaml));
+    }
+    
+    protected Entity createApplicationUnstarted(String input) throws Exception {
+        // starting of the app happens automatically if we use camp to instantiate, but not if we use create spec approach.
+        EntitySpec<?> spec = 
+            mgmt().getTypeRegistry().createSpecFromPlan(CampTypePlanTransformer.FORMAT, input, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
+        final Entity app = mgmt().getEntityManager().createEntity(spec);
+        getLogger().info("Test created app (unstarted) " + app);
+        return app;
+    }
+    
     protected void addCatalogItems(Iterable<String> catalogYaml) {
         addCatalogItems(joinLines(catalogYaml));
     }
@@ -199,7 +209,7 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
     }
 
     protected Iterable<? extends CatalogItem<?,?>> addCatalogItems(String catalogYaml) {
-        return mgmt().getCatalog().addItems(catalogYaml, forceUpdate);
+        return mgmt().getCatalog().addItems(catalogYaml);
     }
 
     protected void deleteCatalogEntity(String catalogItem) {

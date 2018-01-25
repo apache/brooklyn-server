@@ -30,8 +30,9 @@ import java.util.Set;
 import org.apache.brooklyn.util.collections.Jsonya;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -58,14 +59,14 @@ public class TaskSummary implements HasId, Serializable {
     private final List<LinkWithMetadata> children;
     private final LinkWithMetadata submittedByTask;
 
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final LinkWithMetadata blockingTask;
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final String blockingDetails;
 
     private final String detailedStatus;
 
-    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    @JsonInclude(Include.NON_NULL)
     private final Map<String, LinkWithMetadata> streams;
 
     private final Map<String, URI> links;
@@ -166,20 +167,6 @@ public class TaskSummary implements HasId, Serializable {
 
     public Object getResult() {
         return result;
-    }
-
-    /** @deprecated since 0.7.0 use {@link #isError} instead. */
-    @Deprecated
-    @JsonIgnore
-    public boolean getIsError() {
-        return isError;
-    }
-
-    /** @deprecated since 0.7.0 use {@link #isCancelled} instead. */
-    @Deprecated
-    @JsonIgnore
-    public boolean getIsCancelled() {
-        return isCancelled;
     }
 
     public boolean isError() {

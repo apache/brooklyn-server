@@ -343,15 +343,4 @@ public class Duration implements Comparable<Duration>, Serializable {
         if (isLongerThan(alternateMaximumValue)) return alternateMaximumValue;
         return this;
     }
-
-    /** @deprecated since 0.7.0 use {@link #lowerBound(Duration)} */ @Deprecated
-    public Duration minimum(Duration alternateMinimumValue) {
-        return lowerBound(alternateMinimumValue);
-    }
-
-    /** @deprecated since 0.7.0 use {@link #upperBound(Duration)} */ @Deprecated
-    /** returns the smaller of this value or the argument */
-    public Duration maximum(Duration alternateMaximumValue) {
-        return upperBound(alternateMaximumValue);
-    }
 }

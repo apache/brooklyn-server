@@ -120,7 +120,6 @@ public class JcloudsByonRebindLiveTest extends RebindTestFixtureWithApp {
         JcloudsLocation origJcloudsLocation = origMachine.getParent();
         String origHostname = origMachine.getHostname();
         NodeMetadata origNode = origMachine.getNode();
-        Template origTemplate = origMachine.getTemplate();
         assertSshable(origMachine);
 
         rebind();
@@ -131,7 +130,6 @@ public class JcloudsByonRebindLiveTest extends RebindTestFixtureWithApp {
         JcloudsLocation newJcloudsLocation = newMachine.getParent();
         String newHostname = newMachine.getHostname();
         NodeMetadata newNode = newMachine.getNode();
-        Template newTemplate = newMachine.getTemplate();
         assertSshable(newMachine);
         
         assertEquals(newHostname, origHostname);

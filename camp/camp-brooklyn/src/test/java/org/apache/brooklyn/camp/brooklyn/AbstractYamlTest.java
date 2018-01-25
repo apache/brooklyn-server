@@ -27,6 +27,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
@@ -58,12 +60,14 @@ import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.time.Duration;
 import org.osgi.framework.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
@@ -138,19 +142,29 @@ public abstract class AbstractYamlTest {
     }
 
     protected void waitForApplicationTasks(Entity app) {
+        waitForApplicationTasks(app, null);
+    }
+    
+    protected void waitForApplicationTasks(Entity app, @Nullable Duration timeout) {
         Set<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(brooklynMgmt.getExecutionManager(), app);
         getLogger().info("Waiting on " + tasks.size() + " task(s)");
         for (Task<?> t : tasks) {
-            t.blockUntilEnded();
+            boolean done = t.blockUntilEnded(timeout);
+            if (!done) throw new RuntimeException("Timeout waiting for task to complete: " + t);
         }
     }
 
     protected String loadYaml(String yamlFileName, String ...extraLines) throws Exception {
-        ResourceUtils ru = new ResourceUtils(this);
+        return loadYaml(this, yamlFileName, extraLines);
+    }
+
+    @Beta
+    public static String loadYaml(Object loadContext, String yamlFileName, String ...extraLines) throws Exception {
+        ResourceUtils ru = new ResourceUtils(loadContext);
         if (!ru.doesUrlExist(yamlFileName)) {
-            if (ru.doesUrlExist(Urls.mergePaths(getClass().getPackage().getName().replace('.', '/'), yamlFileName))) {
+            if (ru.doesUrlExist(Urls.mergePaths(loadContext.getClass().getPackage().getName().replace('.', '/'), yamlFileName))) {
                 // look in package-specific folder if not found at root
-                yamlFileName = Urls.mergePaths(getClass().getPackage().getName().replace('.', '/'), yamlFileName);
+                yamlFileName = Urls.mergePaths(loadContext.getClass().getPackage().getName().replace('.', '/'), yamlFileName);
             }
         }
         String input = ru.getResourceAsString(yamlFileName).trim();
@@ -174,10 +188,7 @@ public abstract class AbstractYamlTest {
         return createAndStartApplication(input, MutableMap.<String,String>of());
     }
     protected Entity createAndStartApplication(String input, Map<String,?> startParameters) throws Exception {
-        EntitySpec<?> spec = 
-            mgmt().getTypeRegistry().createSpecFromPlan(CampTypePlanTransformer.FORMAT, input, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
-        final Entity app = brooklynMgmt.getEntityManager().createEntity(spec);
-        // start the app (happens automatically if we use camp to instantiate, but not if we use crate spec approach)
+        final Entity app = createApplicationUnstarted(input);
         app.invoke(Startable.START, startParameters).get();
         return app;
     }
@@ -191,12 +202,22 @@ public abstract class AbstractYamlTest {
     }
     
     protected Entity createAndStartApplicationAsync(String yaml, Map<String,?> startParameters) throws Exception {
+        final Entity app = createApplicationUnstarted(yaml);
+        // Not calling .get() on task, so this is non-blocking.
+        app.invoke(Startable.START, startParameters);
+        return app;
+    }
+
+    protected Entity createApplicationUnstarted(String... multiLineYaml) throws Exception {
+        return createApplicationUnstarted(joinLines(multiLineYaml));
+    }
+    
+    protected Entity createApplicationUnstarted(String yaml) throws Exception {
+        // not starting the app (would have happened automatically if we use camp to instantiate, 
+        // but not if we use create spec approach).
         EntitySpec<?> spec = 
             mgmt().getTypeRegistry().createSpecFromPlan(CampTypePlanTransformer.FORMAT, yaml, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
         final Entity app = brooklynMgmt.getEntityManager().createEntity(spec);
-        // start the app (happens automatically if we use camp to instantiate, but not if we use create spec approach).
-        // Note calling .get() on task, so this is non-blocking.
-        app.invoke(Startable.START, startParameters);
         return app;
     }
 
@@ -230,7 +251,7 @@ public abstract class AbstractYamlTest {
     }
 
     protected void addCatalogItems(String catalogYaml) {
-        mgmt().getCatalog().addItems(catalogYaml, forceUpdate);
+        mgmt().getCatalog().addItems(catalogYaml, true, forceUpdate);
     }
 
     /*
@@ -248,7 +269,7 @@ public abstract class AbstractYamlTest {
             File bf = bundleMaker.createTempZip("test", MutableMap.of(
                 new ZipEntry(BasicBrooklynCatalog.CATALOG_BOM), new ByteArrayInputStream(catalogYaml.getBytes())));
             ReferenceWithError<OsgiBundleInstallationResult> b = ((ManagementContextInternal)mgmt).getOsgiManager().get().installDeferredStart(
-                new BasicManagedBundle(bundleName.getSymbolicName(), bundleName.getVersionString(), null), 
+                new BasicManagedBundle(bundleName.getSymbolicName(), bundleName.getVersionString(), null, null), 
                 new FileInputStream(bf),
                 false);
             

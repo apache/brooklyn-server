@@ -32,13 +32,16 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationRegistry;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementManager;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityManager;
+import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Predicate;
 
 /**
  * This is the entry point for accessing and interacting with a realm of applications and their entities in Brooklyn.
@@ -165,6 +168,9 @@ public interface ManagementContext {
      */
     ExecutionContext getExecutionContext(Entity entity);
     
+    /** As {@link #getExecutionContext(Entity)} where there is also an adjunct */
+    ExecutionContext getExecutionContext(Entity e, EntityAdjunct a);
+    
     /**
      * Returns a {@link SubscriptionContext} instance representing subscriptions
      * (from the {@link SubscriptionManager}) associated with this entity, and capable 
@@ -176,6 +182,9 @@ public interface ManagementContext {
      */
     SubscriptionContext getSubscriptionContext(Entity entity);
 
+    /** As {@link #getSubscriptionContext(Entity)} where there is also an adjunct */
+    SubscriptionContext getSubscriptionContext(Entity e, EntityAdjunct a);
+    
     /**
      * Returns a {@link SubscriptionContext} instance representing subscriptions
      * (from the {@link SubscriptionManager}) associated with this location, and capable 
@@ -229,11 +238,19 @@ public interface ManagementContext {
      * but some subsystems (e.g. persistence, OSGi, webapps, entities started at startup)
      * may not be available until this returns true.
      * <p>
-     * Also see {@link #isStartupComplete()}.
+     * Also returns false if HA state is transitioning.  See {@link #getNodeState()} to atomically check node state,
+     * as the preferred way to tell if a node is master.
      */
     @Beta  // see comment on isRunning() as items might move to a status handler
     public boolean isStartupComplete();
 
+    /** Returns node state, always reporting {@link ManagementNodeState#INITIALIZING} if there is any transition
+     * and {@link ManagementNodeState#FAILED} if there are any server errors.
+     * If this returns {@link ManagementNodeState#MASTER} we can guarantee the node to be in master state,
+     * unlike {@link HighAvailabilityManager#getNodeState()} which may return {@link ManagementNodeState#MASTER} slightly early. 
+     */
+    public ManagementNodeState getNodeState();
+    
     /** Record of configured locations and location resolvers */
     LocationRegistry getLocationRegistry();
     
@@ -293,8 +310,17 @@ public interface ManagementContext {
     /** As {@link #lookup(String, Class)} but not constraining the return type */
     public BrooklynObject lookup(String id);
     
-    /** Finds an entity with the given ID known at this management context */
-    // TODO in future support policies etc
+    /** As {@link #lookup(Predicate)} comparing the ID of the object with the given string */
+    @Beta
     public <T extends BrooklynObject> T lookup(String id, Class<T> type); 
 
+    /** Finds a {@link BrooklynObject} known in this management context 
+     * satisfying the given predicate, or null */
+    @Beta
+    public <T extends BrooklynObject> T lookup(Predicate<? super T> filter);
+    
+    /** As {@link #lookup(Predicate)} but returning all such instances */
+    @Beta
+    public <T extends BrooklynObject> Collection<T> lookupAll(Predicate<? super T> filter);
+    
 }

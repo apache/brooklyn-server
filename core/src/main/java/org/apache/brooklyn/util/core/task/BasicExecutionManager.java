@@ -34,6 +34,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -46,17 +47,21 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.config.Sanitizer;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
@@ -69,9 +74,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.Callables;
 import com.google.common.util.concurrent.ExecutionList;
+import com.google.common.util.concurrent.ForwardingFuture.SimpleForwardingFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
@@ -105,10 +113,11 @@ public class BasicExecutionManager implements ExecutionManager {
     private final ExecutorService runner;
         
     private final ScheduledExecutorService delayedRunner;
-    
-    // TODO Could have a set of all knownTasks; but instead we're having a separate set per tag,
-    // so the same task could be listed multiple times if it has multiple tags...
 
+    // inefficient having so many records, and also doing searches through ...
+    // many things in here could be more efficient however (different types of lookup etc),
+    // do that when we need to.
+    
     //access to this field AND to members in this field is synchronized, 
     //to allow us to preserve order while guaranteeing thread-safe
     //(but more testing is needed before we are completely sure it is thread-safe!)
@@ -239,7 +248,7 @@ public class BasicExecutionManager implements ExecutionManager {
     }
 
     protected boolean deleteTaskNonRecursive(Task<?> task) {
-        Set<?> tags = checkNotNull(task, "task").getTags();
+        Set<?> tags = TaskTags.getTagsFast(checkNotNull(task, "task"));
         for (Object tag : tags) {
             synchronized (tasksByTag) {
                 Set<Task<?>> tasks = tasksWithTagLiveOrNull(tag);
@@ -253,8 +262,13 @@ public class BasicExecutionManager implements ExecutionManager {
         }
         Task<?> removed = tasksById.remove(task.getId());
         incompleteTaskIds.remove(task.getId());
-        if (removed!=null && removed.isSubmitted() && !removed.isDone()) {
-            log.warn("Deleting submitted task before completion: "+removed+"; this task will continue to run in the background outwith "+this+", but perhaps it should have been cancelled?");
+        if (removed!=null && removed.isSubmitted() && !removed.isDone(true)) {
+            Entity context = BrooklynTaskTags.getContextEntity(removed);
+            if (context!=null && !Entities.isManaged(context)) {
+                log.debug("Forgetting about active task on unmanagement of "+context+": "+removed);
+            } else {
+                log.warn("Deleting submitted task before completion: "+removed+"; this task will continue to run in the background outwith "+this+", but perhaps it should have been cancelled?");
+            }
         }
         return removed != null;
     }
@@ -374,10 +388,12 @@ public class BasicExecutionManager implements ExecutionManager {
         }
     }
 
-    @Override public Task<?> submit(Runnable r) { return submit(new LinkedHashMap<Object,Object>(1), r); }
+    @Override @Deprecated public Task<?> submit(Runnable r) { return submit(new LinkedHashMap<Object,Object>(1), r); }
+    @Override public Task<?> submit(String displayName, Runnable r) { return submit(MutableMap.of("displayName", displayName), r); }
     @Override public Task<?> submit(Map<?,?> flags, Runnable r) { return submit(flags, new BasicTask<Void>(flags, r)); }
 
-    @Override public <T> Task<T> submit(Callable<T> c) { return submit(new LinkedHashMap<Object,Object>(1), c); }
+    @Override @Deprecated public <T> Task<T> submit(Callable<T> c) { return submit(new LinkedHashMap<Object,Object>(1), c); }
+    @Override public <T> Task<T> submit(String displayName, Callable<T> c) { return submit(MutableMap.of("displayName", displayName), c); }
     @Override public <T> Task<T> submit(Map<?,?> flags, Callable<T> c) { return submit(flags, new BasicTask<T>(flags, c)); }
 
     @Override public <T> Task<T> submit(TaskAdaptable<T> t) { return submit(new LinkedHashMap<Object,Object>(1), t); }
@@ -401,22 +417,22 @@ public class BasicExecutionManager implements ExecutionManager {
     }
 
     protected Task<?> submitNewScheduledTask(final Map<?,?> flags, final ScheduledTask task) {
-        tasksById.put(task.getId(), task);
-        totalTaskCount.incrementAndGet();
-        
         beforeSubmitScheduledTaskAllIterations(flags, task);
         
-        return submitSubsequentScheduledTask(flags, task);
+        if (!submitSubsequentScheduledTask(flags, task)) {
+            afterEndScheduledTaskAllIterations(flags, task, null);
+        }
+        return task;
     }
     
-    protected Task<?> submitSubsequentScheduledTask(final Map<?,?> flags, final ScheduledTask task) {
+    private boolean submitSubsequentScheduledTask(final Map<?,?> flags, final ScheduledTask task) {
         if (!task.isDone()) {
             task.internalFuture = delayedRunner.schedule(new ScheduledTaskCallable(task, flags),
                 task.delay.toNanoseconds(), TimeUnit.NANOSECONDS);
+            return true;
         } else {
-            afterEndScheduledTaskAllIterations(flags, task);
+            return false;
         }
-        return task;
     }
 
     protected class ScheduledTaskCallable implements Callable<Object> {
@@ -431,15 +447,24 @@ public class BasicExecutionManager implements ExecutionManager {
         @Override
         @SuppressWarnings({ "rawtypes", "unchecked" })
         public Object call() {
-            if (task.startTimeUtc==-1) task.startTimeUtc = System.currentTimeMillis();
+            if (task.startTimeUtc==-1) {
+                // this is overwritten on each run; not sure if that's best or not
+                task.startTimeUtc = System.currentTimeMillis();
+            }
             TaskInternal<?> taskScheduled = null;
+            Throwable error = null;
             try {
-                beforeStartScheduledTaskSubmissionIteration(flags, task);
                 taskScheduled = (TaskInternal<?>) task.newTask();
                 taskScheduled.setSubmittedByTask(task);
+                beforeStartScheduledTaskSubmissionIteration(flags, task, taskScheduled);
                 final Callable<?> oldJob = taskScheduled.getJob();
                 final TaskInternal<?> taskScheduledF = taskScheduled;
                 taskScheduled.setJob(new Callable() { @Override public Object call() {
+                    if (task.isCancelled()) {
+                        afterEndScheduledTaskAllIterations(flags, task, new CancellationException("cancel detected"));
+                        throw new CancellationException("cancel detected");  // above throws, but for good measure
+                    }
+                    Throwable lastError = null;
                     boolean shouldResubmit = true;
                     task.recentRun = taskScheduledF;
                     try {
@@ -451,16 +476,18 @@ public class BasicExecutionManager implements ExecutionManager {
                             result = oldJob.call();
                             task.lastThrownType = null;
                         } catch (Exception e) {
+                            lastError = e;
                             shouldResubmit = shouldResubmitOnException(oldJob, e);
                             throw Exceptions.propagate(e);
                         }
                         return result;
                     } finally {
                         // do in finally block in case we were interrupted
-                        if (shouldResubmit) {
-                            resubmit();
+                        if (shouldResubmit && resubmit()) {
+                            // resubmitted fine, no-op
                         } else {
-                            afterEndScheduledTaskAllIterations(flags, task);
+                            // not resubmitted, note ending
+                            afterEndScheduledTaskAllIterations(flags, task, lastError);
                         }
                     }
                 }});
@@ -468,16 +495,23 @@ public class BasicExecutionManager implements ExecutionManager {
                 BasicExecutionContext ec = BasicExecutionContext.getCurrentExecutionContext();
                 if (ec!=null) return ec.submit(taskScheduled);
                 else return submit(taskScheduled);
+
+            } catch (Exception e) {
+                error = e;
+                throw Exceptions.propagate(e);
+                
             } finally {
-                afterEndScheduledTaskSubmissionIteration(flags, task, taskScheduled);
+                afterEndScheduledTaskSubmissionIteration(flags, task, taskScheduled, error);
             }
         }
 
-        private void resubmit() {
+        private boolean resubmit() {
             task.runCount++;
             if (task.period!=null && !task.isCancelled()) {
                 task.delay = task.period;
-                submitSubsequentScheduledTask(flags, task);
+                return submitSubsequentScheduledTask(flags, task);
+            } else {
+                return false;
             }
         }
 
@@ -520,47 +554,21 @@ public class BasicExecutionManager implements ExecutionManager {
 
         @Override
         public T call() {
+            T result = null;
+            Throwable error = null;
             try {
-                T result = null;
-                Throwable error = null;
-                try {
-                    beforeStartAtomicTask(flags, task);
-                    if (!task.isCancelled()) {
-                        result = ((TaskInternal<T>)task).getJob().call();
-                    } else throw new CancellationException();
-                } catch(Throwable e) {
-                    error = e;
-                } finally {
-                    afterEndAtomicTask(flags, task);
+                beforeStartAtomicTask(flags, task);
+                if (task.isCancelled()) {
+                    afterEndForCancelBeforeStart(flags, task, false);
+                    throw new CancellationException();
                 }
-                if (error!=null) {
-                    /* we throw, after logging debug.
-                     * the throw means the error is available for task submitters to monitor.
-                     * however it is possible no one is monitoring it, in which case we will have debug logging only for errors.
-                     * (the alternative, of warn-level logging in lots of places where we don't want it, seems worse!) 
-                     */
-                    if (log.isDebugEnabled()) {
-                        // debug only here, because most submitters will handle failures
-                        if (error instanceof InterruptedException || error instanceof RuntimeInterruptedException) {
-                            log.debug("Detected interruption on task "+task+" (rethrowing)" +
-                                    (Strings.isNonBlank(error.getMessage()) ? ": "+error.getMessage() : ""));
-                        } else if (error instanceof NullPointerException ||
-                                error instanceof IndexOutOfBoundsException ||
-                                error instanceof ClassCastException) {
-                            log.debug("Exception running task "+task+" (rethrowing): "+error, error);
-                        } else {
-                            log.debug("Exception running task "+task+" (rethrowing): "+error);
-                        }
-                        if (log.isTraceEnabled()) {
-                            log.trace("Trace for exception running task "+task+" (rethrowing): "+error, error);
-                        }
-                    }
-                    throw Exceptions.propagate(error);
-                }
-                return result;
+                result = ((TaskInternal<T>)task).getJob().call();
+            } catch(Throwable e) {
+                error = e;
             } finally {
-                ((TaskInternal<?>)task).runListeners();
+                afterEndAtomicTask(flags, task, error);
             }
+            return result;
         }
 
         @Override
@@ -569,19 +577,32 @@ public class BasicExecutionManager implements ExecutionManager {
         }
     }
 
-    @SuppressWarnings("deprecation")
-    // TODO do we even need a listenable future here?  possibly if someone wants to interrogate the future it might
-    // be interesting, so possibly it is useful that we implement ListenableFuture...
-    private final static class CancellingListenableForwardingFutureForTask<T> extends ListenableForwardingFuture<T> {
+    final static class CancellingListenableForwardingFutureForTask<T> extends SimpleForwardingFuture<T> implements ListenableFuture<T>, TaskInternalCancellableWithMode {
         private final Task<T> task;
         private BasicExecutionManager execMgmt;
-
+        private final ExecutionList listeners;
+        
         private CancellingListenableForwardingFutureForTask(BasicExecutionManager execMgmt, Future<T> delegate, ExecutionList list, Task<T> task) {
-            super(delegate, list);
+            super(delegate);
+            this.listeners = list;
             this.execMgmt = execMgmt;
             this.task = task;
         }
 
+        @Override
+        public final boolean cancel(boolean mayInterrupt) {
+            return cancel(TaskCancellationMode.INTERRUPT_TASK_AND_DEPENDENT_SUBMITTED_TASKS);
+        }
+
+        @Override
+        public void addListener(Runnable listener, Executor executor) {
+            listeners.add(listener, executor);
+        }
+
+        public ExecutionList getListeners() {
+            return listeners;
+        }
+        
         @Override
         public boolean cancel(TaskCancellationMode mode) {
             boolean result = false;
@@ -615,7 +636,6 @@ public class BasicExecutionManager implements ExecutionManager {
                         }
                     }
                 }
-                // TODO this is inefficient; might want to keep an index on submitted-by
                 for (Task<?> t: execMgmt.getAllTasks()) {
                     if (task.equals(t.getSubmittedByTask())) {
                         if (mode.isAllowedToInterruptAllSubmittedTasks() || BrooklynTaskTags.isTransient(t)) {
@@ -634,27 +654,24 @@ public class BasicExecutionManager implements ExecutionManager {
                     log.trace("On cancel of "+task+", applicable subtask count "+subtasksFound+", of which "+subtasksReallyCancelled+" were actively cancelled");
                 }
             }
-            
-            ((TaskInternal<?>)task).runListeners();
+  
+            execMgmt.afterEndForCancelBeforeStart(null, task, true);
             return result;
         }
     }
 
-    private final class SubmissionListenerToCallOtherListeners<T> implements Runnable {
+    // NB: intended to be run by task.runListeners, used to run any listeners the manager wants 
+    private final class SubmissionListenerToCallManagerListeners<T> implements Runnable {
         private final Task<T> task;
+        private final CancellingListenableForwardingFutureForTask<T> listenerSource;
 
-        private SubmissionListenerToCallOtherListeners(Task<T> task) {
+        public SubmissionListenerToCallManagerListeners(Task<T> task, CancellingListenableForwardingFutureForTask<T> listenableFuture) {
             this.task = task;
+            listenerSource = listenableFuture;
         }
 
         @Override
         public void run() {
-            try {
-                ((TaskInternal<?>)task).runListeners();
-            } catch (Exception e) {
-                log.warn("Error running task listeners for task "+task+" done", e);
-            }
-            
             for (ExecutionListener listener : listeners) {
                 try {
                     listener.onTaskDone(task);
@@ -662,6 +679,8 @@ public class BasicExecutionManager implements ExecutionManager {
                     log.warn("Error running execution listener "+listener+" of task "+task+" done", e);
                 }
             }
+            // run any listeners the task owner has added to its future
+            listenerSource.getListeners().execute();
         }
     }
 
@@ -669,7 +688,7 @@ public class BasicExecutionManager implements ExecutionManager {
     protected <T> Task<T> submitNewTask(final Map<?,?> flags, final Task<T> task) {
         if (log.isTraceEnabled()) {
             log.trace("Submitting task {} ({}), with flags {}, and tags {}, job {}; caller {}", 
-                new Object[] {task.getId(), task, Sanitizer.sanitize(flags), task.getTags(), 
+                new Object[] {task.getId(), task, Sanitizer.sanitize(flags), BrooklynTaskTags.getTagsFast(task), 
                 (task instanceof TaskInternal ? ((TaskInternal<T>)task).getJob() : "<unavailable>"),
                 Tasks.current() });
             if (Tasks.current()==null && BrooklynTaskTags.isTransient(task)) {
@@ -680,9 +699,6 @@ public class BasicExecutionManager implements ExecutionManager {
         if (task instanceof ScheduledTask)
             return (Task<T>) submitNewScheduledTask(flags, (ScheduledTask)task);
         
-        tasksById.put(task.getId(), task);
-        totalTaskCount.incrementAndGet();
-        
         beforeSubmitAtomicTask(flags, task);
         
         if (((TaskInternal<T>)task).getJob() == null) 
@@ -692,7 +708,7 @@ public class BasicExecutionManager implements ExecutionManager {
         
         // If there's a scheduler then use that; otherwise execute it directly
         Set<TaskScheduler> schedulers = null;
-        for (Object tago: task.getTags()) {
+        for (Object tago: BrooklynTaskTags.getTagsFast(task)) {
             TaskScheduler scheduler = getTaskSchedulerForTag(tago);
             if (scheduler!=null) {
                 if (schedulers==null) schedulers = new LinkedHashSet<TaskScheduler>(2);
@@ -706,19 +722,23 @@ public class BasicExecutionManager implements ExecutionManager {
         } else {
             future = runner.submit(job);
         }
+        afterSubmitRecordFuture(task, future);
+        
+        return task;
+    }
+
+    protected <T> void afterSubmitRecordFuture(final Task<T> task, Future<T> future) {
         // SubmissionCallable (above) invokes the listeners on completion;
         // this future allows a caller to add custom listeners
         // (it does not notify the listeners; that's our job);
         // except on cancel we want to listen
-        ListenableFuture<T> listenableFuture = new CancellingListenableForwardingFutureForTask<T>(this, future, ((TaskInternal<T>)task).getListeners(), task);
+        CancellingListenableForwardingFutureForTask<T> listenableFuture = new CancellingListenableForwardingFutureForTask<T>(this, future, ((TaskInternal<T>)task).getListeners(), task);
         // and we want to make sure *our* (manager) listeners are given suitable callback 
-        ((TaskInternal<T>)task).addListener(new SubmissionListenerToCallOtherListeners<T>(task), runner);
+        ((TaskInternal<T>)task).addListener(new SubmissionListenerToCallManagerListeners<T>(task, listenableFuture), runner);
         // NB: can the above mean multiple callbacks to TaskInternal#runListeners?
         
         // finally expose the future to callers
         ((TaskInternal<T>)task).initInternalFuture(listenableFuture);
-        
-        return task;
     }
     
     protected void beforeSubmitScheduledTaskAllIterations(Map<?,?> flags, Task<?> task) {
@@ -727,32 +747,80 @@ public class BasicExecutionManager implements ExecutionManager {
     protected void beforeSubmitAtomicTask(Map<?,?> flags, Task<?> task) {
         internalBeforeSubmit(flags, task);
     }
+    protected void beforeSubmitInSameThreadTask(Map<?,?> flags, Task<?> task) {
+        internalBeforeSubmit(flags, task);
+    }
     /** invoked when a task is submitted */
     protected void internalBeforeSubmit(Map<?,?> flags, Task<?> task) {
         incompleteTaskIds.add(task.getId());
         
-        Task<?> currentTask = Tasks.current();
-        if (currentTask!=null) ((TaskInternal<?>)task).setSubmittedByTask(currentTask);
+        if (task.getSubmittedByTaskId()==null) {
+            Task<?> currentTask = Tasks.current();
+            if (currentTask!=null) ((TaskInternal<?>)task).setSubmittedByTask(
+                    // do this instead of soft reference (2017-09) as soft refs impact GC 
+                    Maybe.of(new TaskLookup(this, currentTask)),
+                    currentTask.getId());
+        }
         ((TaskInternal<?>)task).setSubmitTimeUtc(System.currentTimeMillis());
         
-        if (flags.get("tag")!=null) ((TaskInternal<?>)task).getMutableTags().add(flags.remove("tag"));
-        if (flags.get("tags")!=null) ((TaskInternal<?>)task).getMutableTags().addAll((Collection<?>)flags.remove("tags"));
+        if (flags!=null && flags.get("tag")!=null) ((TaskInternal<?>)task).getMutableTags().add(flags.remove("tag"));
+        if (flags!=null && flags.get("tags")!=null) ((TaskInternal<?>)task).getMutableTags().addAll((Collection<?>)flags.remove("tags"));
 
-        for (Object tag: ((TaskInternal<?>)task).getTags()) {
+        for (Object tag: BrooklynTaskTags.getTagsFast(task)) {
             tasksWithTagCreating(tag).add(task);
+        }
+        
+        tasksById.put(task.getId(), task);
+        totalTaskCount.incrementAndGet();
+    }
+    
+    private static class TaskLookup implements Supplier<Task<?>> {
+        // this class is not meant to be serialized, but if it is, make sure exec mgr doesn't sneak in
+        transient BasicExecutionManager mgr;
+        
+        String id;
+        String displayName;
+        public TaskLookup(BasicExecutionManager mgr, Task<?> t) {
+            this.mgr = mgr;
+            id = t.getId();
+            if (mgr.getTask(id)==null) {
+                log.warn("Created task lookup for task which is not registered: "+t);
+            }
+            displayName = t.getDisplayName();
+        }
+        @Override
+        public Task<?> get() {
+            if (mgr==null) return gone();
+            Task<?> result = mgr.getTask(id);
+            if (result!=null) return result;
+            return gone();
+        }
+        private <T> Task<T> gone() {
+            Task<T> t = Tasks.<T>builder().dynamic(false).displayName(displayName+" (placeholder for "+id+")")
+                .description("Details of the original task have been forgotten.")
+                .body(Callables.returning((T)null)).build();
+            // don't really want anyone executing the "gone" task...
+            // also if we are GC'ing tasks then cancelled may help with cleanup 
+            // of sub-tasks that have lost their submitted-by-task reference ?
+            // also don't want warnings when it's finalized, this means we don't need ignoreIfNotRun()
+            ((BasicTask<T>)t).cancelled = true;
+            return t;
         }
     }
 
-    protected void beforeStartScheduledTaskSubmissionIteration(Map<?,?> flags, Task<?> task) {
-        internalBeforeStart(flags, task);
+    protected void beforeStartScheduledTaskSubmissionIteration(Map<?,?> flags, Task<?> taskRepeatedlyScheduling, Task<?> taskIteration) {
+        internalBeforeStart(flags, taskRepeatedlyScheduling, true);
     }
     protected void beforeStartAtomicTask(Map<?,?> flags, Task<?> task) {
-        internalBeforeStart(flags, task);
+        internalBeforeStart(flags, task, true);
+    }
+    protected void beforeStartInSameThreadTask(Map<?,?> flags, Task<?> task) {
+        internalBeforeStart(flags, task, false);
     }
     
     /** invoked in a task's thread when a task is starting to run (may be some time after submitted), 
      * but before doing any of the task's work, so that we can update bookkeeping and notify callbacks */
-    protected void internalBeforeStart(Map<?,?> flags, Task<?> task) {
+    protected void internalBeforeStart(Map<?,?> flags, Task<?> task, boolean allowJitter) {
         int count = activeTaskCount.incrementAndGet();
         if (count % 1000==0) {
             log.warn("High number of active tasks: task #"+count+" is "+task);
@@ -772,9 +840,12 @@ public class BasicExecutionManager implements ExecutionManager {
             ((TaskInternal<?>)task).setStartTimeUtc(System.currentTimeMillis());
         }
 
-        jitterThreadStart(task);
-
-        invokeCallback(flags.get("newTaskStartCallback"), task);
+        if (allowJitter) {
+            jitterThreadStart(task);
+        }
+        if (flags!=null) {
+            invokeCallback(flags.get("newTaskStartCallback"), task);
+        }
     }
 
     private void jitterThreadStart(Task<?> task) {
@@ -814,49 +885,107 @@ public class BasicExecutionManager implements ExecutionManager {
     private static boolean loggedClosureDeprecatedInInvokeCallback;
     
     /** normally (if not interrupted) called once for each call to {@link #beforeSubmitScheduledTaskAllIterations(Map, Task)} */
-    protected void afterEndScheduledTaskAllIterations(Map<?,?> flags, Task<?> task) {
-        internalAfterEnd(flags, task, false, true);
+    protected void afterEndScheduledTaskAllIterations(Map<?,?> flags, Task<?> taskRepeatedlyScheduling, Throwable error) {
+        internalAfterEnd(flags, taskRepeatedlyScheduling, false, true, error);
     }
     /** called once for each call to {@link #beforeStartScheduledTaskSubmissionIteration(Map, Task)},
      * with a per-iteration task generated by the surrounding scheduled task */
-    protected void afterEndScheduledTaskSubmissionIteration(Map<?,?> flags, Task<?> scheduledTask, Task<?> taskIteration) {
-        internalAfterEnd(flags, scheduledTask, true, false);
+    protected void afterEndScheduledTaskSubmissionIteration(Map<?,?> flags, Task<?> taskRepeatedlyScheduling, Task<?> taskIteration, Throwable error) {
+        internalAfterEnd(flags, taskRepeatedlyScheduling, true, false, error);
     }
     /** called once for each task on which {@link #beforeStartAtomicTask(Map, Task)} is invoked,
      * and normally (if not interrupted prior to start) 
      * called once for each task on which {@link #beforeSubmitAtomicTask(Map, Task)} */
-    protected void afterEndAtomicTask(Map<?,?> flags, Task<?> task) {
-        internalAfterEnd(flags, task, true, true);
+    protected void afterEndAtomicTask(Map<?,?> flags, Task<?> task, Throwable error) {
+        internalAfterEnd(flags, task, true, true, error);
     }
+    protected void afterEndInSameThreadTask(Map<?,?> flags, Task<?> task, Throwable error) {
+        internalAfterEnd(flags, task, true, true, error);
+    }
+    protected void afterEndForCancelBeforeStart(Map<?,?> flags, Task<?> task, boolean calledFromCanceller) {
+        if (calledFromCanceller) {
+            if (task.isBegun()) {
+                // do nothing from canceller thread if task has begin;
+                // we don't want to set end time or listeners prematurely.
+                return ;
+            } else {
+                // normally task won't be submitted by executor, so do some of the end operations.
+                // there is a chance task has begun but not set start time,
+                // in which case _both_ canceller thread and task thread will run this,
+                // but they will happen very close in time so end time is set sensibly by either,
+                // and dedupe will be done based on presence in "incompleteTaskIds"
+                // to ensure listeners and callback only invoked once
+            }
+        }
+        internalAfterEnd(flags, task, !calledFromCanceller, true, null);
+    }
+    
     /** normally (if not interrupted) called once for each call to {@link #internalBeforeSubmit(Map, Task)},
      * and, for atomic tasks and scheduled-task submission iterations where 
      * always called once if {@link #internalBeforeStart(Map, Task)} is invoked and in the same thread as that method */
-    protected void internalAfterEnd(Map<?,?> flags, Task<?> task, boolean startedInThisThread, boolean isEndingAllIterations) {
-        if (log.isTraceEnabled()) log.trace(this+" afterEnd, task: "+task);
-        if (startedInThisThread) {
-            activeTaskCount.decrementAndGet();
-        }
-        if (isEndingAllIterations) {
-            incompleteTaskIds.remove(task.getId());
-            invokeCallback(flags.get("newTaskEndCallback"), task);
-            ((TaskInternal<?>)task).setEndTimeUtc(System.currentTimeMillis());
-        }
-
-        if (startedInThisThread) {
-            PerThreadCurrentTaskHolder.perThreadCurrentTask.remove();
-            //clear thread _after_ endTime set, so we won't get a null thread when there is no end-time
-            if (RENAME_THREADS && startedInThisThread) {
-                Thread thread = task.getThread();
-                if (thread==null) {
-                    log.warn("BasicTask.afterEnd invoked without corresponding beforeStart");
-                } else {
-                    thread.setName(threadOriginalName.get());
-                    threadOriginalName.remove();
+    protected void internalAfterEnd(Map<?,?> flags, Task<?> task, boolean startedInThisThread, boolean isEndingAllIterations, Throwable error) {
+        boolean taskWasSubmittedAndNotYetEnded = true;
+        try {
+            if (log.isTraceEnabled()) log.trace(this+" afterEnd, task: "+task);
+            if (startedInThisThread) {
+                activeTaskCount.decrementAndGet();
+            }
+            if (isEndingAllIterations) {
+                taskWasSubmittedAndNotYetEnded = incompleteTaskIds.remove(task.getId());
+                if (flags!=null && taskWasSubmittedAndNotYetEnded) {
+                    invokeCallback(flags.get("newTaskEndCallback"), task);
+                }
+                ((TaskInternal<?>)task).setEndTimeUtc(System.currentTimeMillis());
+            }
+    
+            if (startedInThisThread) {
+                PerThreadCurrentTaskHolder.perThreadCurrentTask.remove();
+                //clear thread _after_ endTime set, so we won't get a null thread when there is no end-time
+                if (RENAME_THREADS) {
+                    Thread thread = task.getThread();
+                    if (thread==null) {
+                        log.warn("BasicTask.afterEnd invoked without corresponding beforeStart");
+                    } else {
+                        thread.setName(threadOriginalName.get());
+                        threadOriginalName.remove();
+                    }
+                }
+                ((TaskInternal<?>)task).setThread(null);
+            }
+        } finally {
+            try {
+                if (error!=null) {
+                    /* we throw, after logging debug.
+                     * the throw means the error is available for task submitters to monitor.
+                     * however it is possible no one is monitoring it, in which case we will have debug logging only for errors.
+                     * (the alternative, of warn-level logging in lots of places where we don't want it, seems worse!) 
+                     */
+                    if (log.isDebugEnabled()) {
+                        // debug only here, because most submitters will handle failures
+                        if (error instanceof InterruptedException || error instanceof RuntimeInterruptedException) {
+                            log.debug("Detected interruption on task "+task+" (rethrowing)" +
+                                    (Strings.isNonBlank(error.getMessage()) ? ": "+error.getMessage() : ""));
+                        } else if (error instanceof NullPointerException ||
+                                error instanceof IndexOutOfBoundsException ||
+                                error instanceof ClassCastException) {
+                            log.debug("Exception running task "+task+" (rethrowing): "+error, error);
+                        } else {
+                            log.debug("Exception running task "+task+" (rethrowing): "+error);
+                        }
+                        if (log.isTraceEnabled()) {
+                            log.trace("Trace for exception running task "+task+" (rethrowing): "+error, error);
+                        }
+                    }
+                    throw Exceptions.propagate(error);
+                }
+            } finally {
+                synchronized (task) { task.notifyAll(); }
+                if (isEndingAllIterations && taskWasSubmittedAndNotYetEnded) {
+                    // prevent from running twice on cancellation after start
+                    ((TaskInternal<?>)task).runListeners();
                 }
             }
-            ((TaskInternal<?>)task).setThread(null);
         }
-        synchronized (task) { task.notifyAll(); }
     }
 
     public TaskScheduler getTaskSchedulerForTag(Object tag) {

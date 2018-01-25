@@ -22,6 +22,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -41,10 +42,13 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityFunctions;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
@@ -59,8 +63,12 @@ import org.apache.brooklyn.entity.group.DynamicFabric;
 import org.apache.brooklyn.entity.software.base.SameServerEntity;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessShellEnvironmentTest.EnvRecordingLocation;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
+import org.apache.brooklyn.entity.stock.BasicApplication;
+import org.apache.brooklyn.entity.stock.BasicApplicationImpl;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Functionals;
@@ -88,12 +96,12 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Entity app = createAndStartApplication(loadYaml("test-entity-basic-template.yaml", extras));
         waitForApplicationTasks(app);
 
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         Assert.assertEquals(app.getDisplayName(), "test-entity-basic-template");
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         Assert.assertTrue(app.getChildren().iterator().hasNext(), "Expected app to have child entity");
         Entity entity = app.getChildren().iterator().next();
@@ -238,7 +246,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Assert.assertEquals(app.getDisplayName(), "test-entity-basic-template");
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         Entity entity = app.getChildren().iterator().next();
         Assert.assertNotNull(entity, "Expected app to have child entity");
@@ -256,7 +264,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Assert.assertEquals(object, "");
     }
     
-    @SuppressWarnings("unchecked")
+    @Test
     public void testEmptyStructuredConfig() throws Exception {
         Entity app = createAndStartApplication(loadYaml("test-entity-basic-template.yaml",
             "  brooklyn.config:",
@@ -269,7 +277,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Assert.assertEquals(app.getDisplayName(), "test-entity-basic-template");
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         Entity entity = app.getChildren().iterator().next();
         Assert.assertNotNull(entity, "Expected app to have child entity");
@@ -293,7 +301,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Assert.assertEquals(app.getDisplayName(), "test-entity-basic-template");
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         Entity entity = app.getChildren().iterator().next();
         Assert.assertNotNull(entity, "Expected app to have child entity");
@@ -313,7 +321,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         waitForApplicationTasks(app);
 
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         TestEntity entity = (TestEntity) app.getChildren().iterator().next();
         Object object = entity.getConfig(TestEntity.CONF_OBJECT);
@@ -413,7 +421,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Assert.assertNotNull(testWithConfigInit, "Expected app to contain TestEntityWithInitConfig child");
         Assert.assertEquals(testWithConfigInit.getEntityCachedOnInit(), testEntity);
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
     }
 
     @Test
@@ -448,7 +456,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         final Entity app = createAndStartApplication(loadYaml("test-referencing-entities.yaml"));
         waitForApplicationTasks(app);
         
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         Assert.assertEquals(app.getDisplayName(), "test-referencing-entities");
 
@@ -910,7 +918,12 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         
         Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
-        EntitySpec<?> entitySpec = (EntitySpec<?>) entity.config().getBag().getStringKey("key.does.not.match");
+        Object entitySpecOrSupplier = entity.config().getBag().getStringKey("key.does.not.match");
+        if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_PERSIST_ENTITY_SPEC_AS_SUPPLIER)) {
+            Asserts.assertInstanceOf(entitySpecOrSupplier, DeferredSupplier.class);
+            entitySpecOrSupplier = entity.config().get(ConfigKeys.newConfigKey(Object.class, "key.does.not.match"));
+        }
+        EntitySpec<?> entitySpec = (EntitySpec<?>) entitySpecOrSupplier;
         assertEquals(entitySpec.getType(), TestEntity.class);
         assertEquals(entitySpec.getConfig(), ImmutableMap.of(TestEntity.CONF_NAME, "inchildspec"));
     }
@@ -1056,6 +1069,62 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         assertEquals(env.get("BEAN"), "{\"propString\":\"bean-string\",\"propInt\":-1}");
     }
     
+    @Test
+    public void testEntitySynchronizingOnSelf() throws Exception {
+        Entity app = createStartWaitAndLogApplication(
+                "services:",
+                "- type: "+TestEntitySynchronizingInStartImpl.class.getName(),
+                "  id: myid",
+                "  brooklyn.config:",
+                "    confLookedUpInStart: $brooklyn:component(\"myid\")");
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        assertTrue(entity.getCallHistory().contains("start"));
+    }
+
+    @Test
+    public void testAppSynchronizingOnSelf() throws Exception {
+        Entity app = createStartWaitAndLogApplication(
+                "services:",
+                "- type: "+TestApplicationSynchronizingInStartImpl.class.getName(),
+                "  id: myid",
+                "  brooklyn.config:",
+                "    confLookedUpInStart: $brooklyn:component(\"myid\")");
+        EntityAsserts.assertEntityHealthy(app);
+    }
+
+    @Test
+    public void testNestedAppSynchronizingOnSelf() throws Exception {
+        Entity app = createStartWaitAndLogApplication(
+                "services:",
+                "- type: "+BasicApplication.class.getName(),
+                "  id: myid",
+                "  brooklyn.children:",
+                "  - type: "+TestApplicationSynchronizingInStartImpl.class.getName(),
+                "    brooklyn.config:",
+                "      confLookedUpInStart: $brooklyn:component(\"myid\")");
+        EntityAsserts.assertEntityHealthy(app);
+    }
+
+    public static class TestEntitySynchronizingInStartImpl extends TestEntityImpl {
+        @Override
+        public void start(Collection<? extends Location> locs) {
+            synchronized (this) {
+                assertNotNull(config().get(ConfigKeys.newConfigKey(Object.class, "confLookedUpInStart")));
+                super.start(locs);
+            }
+        }
+    }
+
+    public static class TestApplicationSynchronizingInStartImpl extends BasicApplicationImpl {
+        @Override
+        public void start(Collection<? extends Location> locs) {
+            synchronized (this) {
+                assertNotNull(config().get(ConfigKeys.newConfigKey(Object.class, "confLookedUpInStart")));
+                super.start(locs);
+            }
+        }
+    }
+
     public static class CustomTestEntityImpl extends TestEntityImpl {
         public CustomTestEntityImpl() {
             System.out.println("in CustomTestEntityImpl");
@@ -1100,5 +1169,4 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Assert.assertEquals(camp.platformComponentTemplates().links().size(), 0);
         Assert.assertEquals(camp.platformComponents().links().size(), 0);
     }
-
 }

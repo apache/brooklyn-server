@@ -57,4 +57,23 @@ public class CreatePasswordSensorTest extends BrooklynAppUnitTestSupport{
         String password = entity.getAttribute(SENSOR_STRING);
         Asserts.assertEquals(password.length(), 12);
     }
+
+    @Test
+    public void testCreatePasswordCharacterGroups() {
+        final CreatePasswordSensor sensor = new CreatePasswordSensor(ConfigBag.newInstance()
+                .configure(CreatePasswordSensor.SENSOR_NAME, SENSOR_STRING.getName())
+                .configure(CreatePasswordSensor.PASSWORD_LENGTH, 6)
+                .configure(CreatePasswordSensor.CHARACTER_GROUPS, ImmutableList.of("abc", "def", "ghi"))
+        );
+        sensor.apply(entity);
+
+        String password = entity.getAttribute(SENSOR_STRING);
+        Asserts.assertEquals(password.length(), 6);
+        Asserts.assertStringMatchesRegex(password,
+                "[a-i]{6}", // whole string consists of exactly 6 characters from all groups
+                ".*[a-c].*", // at least one from the a-c group
+                ".*[d-f].*", // at least one from the d-f group
+                ".*[g-i].*" // at least one from the g-i group
+        );
+    }
 }

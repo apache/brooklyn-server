@@ -38,19 +38,24 @@ public class BasicAttributeSensor<T> extends BasicSensor<T> implements Attribute
     }
     
     public BasicAttributeSensor(Class<T> type, String name, String description) {
-        this(TypeToken.of(type), name, description);
+        this(type, name, description, SensorPersistenceMode.REQUIRED);
     }
     
     public BasicAttributeSensor(TypeToken<T> typeToken, String name) {
         this(typeToken, name, name);
     }
-    
     public BasicAttributeSensor(TypeToken<T> typeToken, String name, String description) {
         this(typeToken, name, description, SensorPersistenceMode.REQUIRED);
     }
     
+    public BasicAttributeSensor(Class<T> type, String name, String description, SensorPersistenceMode persistence) {
+        this(type, null, name, description, persistence);
+    }
     public BasicAttributeSensor(TypeToken<T> typeToken, String name, String description, SensorPersistenceMode persistence) {
-        super(typeToken, name, description);
+        this(null, typeToken, name, description, persistence);
+    }
+    public BasicAttributeSensor(Class<T> type, TypeToken<T> typeToken, String name, String description, SensorPersistenceMode persistence) {
+        super(type, typeToken, name, description);
         this.persistence = checkNotNull(persistence, "persistence");
     }
 

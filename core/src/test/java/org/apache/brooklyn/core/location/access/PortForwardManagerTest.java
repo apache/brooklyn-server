@@ -22,30 +22,28 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
 
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.net.Networking;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.location.access.PortForwardManager;
-import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 
 import com.google.common.base.Predicate;
 import com.google.common.net.HostAndPort;
 
 public class PortForwardManagerTest extends BrooklynAppUnitTestSupport {
 
+    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(PortForwardManagerTest.class);
 
-    private Map<HostAndPort, HostAndPort> portMapping;
     private SshMachineLocation machine1;
     private SshMachineLocation machine2;
     private PortForwardManager pfm;
@@ -144,19 +142,6 @@ public class PortForwardManagerTest extends BrooklynAppUnitTestSupport {
         assertEquals(pfm.lookup(machine2, 80), HostAndPort.fromParts(publicAddress, 40082));
     }
     
-    @Test
-    public void testAssociateLegacy() throws Exception {
-        String publicIpId = "myipid";
-        String publicAddress = "5.6.7.8";
-
-        pfm.acquirePublicPortExplicit(publicIpId, 40080);
-        pfm.recordPublicIpHostname(publicIpId, publicAddress);
-        pfm.associate(publicIpId, 40080, machine1, 80);
-        
-        assertEquals(pfm.lookup(publicIpId, 80), HostAndPort.fromParts(publicAddress, 40080));
-        assertEquals(pfm.lookup(machine1, 80), HostAndPort.fromParts(publicAddress, 40080));
-    }
-
     @Test
     public void testAssociationListeners() throws Exception {
         final AtomicInteger associationCreatedCount = new AtomicInteger(0);

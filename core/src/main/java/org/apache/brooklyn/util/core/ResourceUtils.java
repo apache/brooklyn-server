@@ -23,7 +23,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
@@ -33,16 +32,27 @@ import java.net.URL;
 import java.net.URLDecoder;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
-import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog.BrooklynLoaderTracker;
+import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.text.DataUriSchemeParser;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.http.HttpTool;
+import org.apache.brooklyn.util.http.HttpTool.HttpClientBuilder;
+import org.apache.brooklyn.util.net.Urls;
+import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.osgi.OsgiUtils;
+import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.auth.Credentials;
@@ -52,24 +62,11 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.http.HttpTool;
-import org.apache.brooklyn.util.http.HttpTool.HttpClientBuilder;
-import org.apache.brooklyn.util.core.text.DataUriSchemeParser;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.javalang.Threads;
-import org.apache.brooklyn.util.net.Urls;
-import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.stream.Streams;
-import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
-
-import org.apache.brooklyn.util.osgi.OsgiUtils;
 
 public class ResourceUtils {
     
@@ -204,7 +201,15 @@ public class ResourceUtils {
     public Iterable<URL> getResources(String name) {
         return getLoader().getResources(name);
     }
-    
+
+    public InputStream getResourceFromUrl(String url,
+            @Nullable org.apache.brooklyn.util.http.auth.Credentials credentials) {
+        if (credentials != null) {
+            return getResourceFromUrl(url, credentials.getUser(), credentials.getPassword());
+        }
+        return getResourceFromUrl(url, null, null);
+    }
+
     /**
      * Takes a string which is treated as a URL (with some extended "schemes" also expected),
      * or as a path to something either on the classpath (absolute only) or the local filesystem (relative or absolute, depending on leading slash)
@@ -219,6 +224,10 @@ public class ResourceUtils {
      * @return a stream, or throws exception (never returns null)
      */
     public InputStream getResourceFromUrl(String url) {
+        return getResourceFromUrl(url, null, null);
+    }
+
+    private InputStream getResourceFromUrl(String url, String username, String password) {
         try {
             if (Strings.isBlank(url)) throw new IllegalArgumentException("Cannot read from empty string");
             String orig = url;
@@ -229,26 +238,26 @@ public class ResourceUtils {
                         return getResourceViaClasspath(url);
                     } catch (IOException e) {
                         //catch the above because both orig and modified url may be interesting
-                        throw new IOException("Error accessing "+orig+": "+e, e);
+                        throw new IOException("Error accessing " + orig + ": " + e, e);
                     }
                 }
                 if ("sftp".equals(protocol)) {
                     try {
                         return getResourceViaSftp(url);
                     } catch (IOException e) {
-                        throw new IOException("Error accessing "+orig+": "+e, e);
+                        throw new IOException("Error accessing " + orig + ": " + e, e);
                     }
                 }
 
                 if ("file".equals(protocol))
                     url = tidyFileUrl(url);
-                
+
                 if ("data".equals(protocol)) {
                     return new DataUriSchemeParser(url).lax().parse().getDataAsInputStream();
                 }
 
                 if ("http".equals(protocol) || "https".equals(protocol)) {
-                    return getResourceViaHttp(url);
+                    return getResourceViaHttp(url, username, password);
                 }
 
                 return new URL(url).openStream();
@@ -347,21 +356,6 @@ public class ResourceUtils {
         }
     }
 
-    /** @deprecated since 0.7.0; use method {@link Os#mergePaths(String...)} */ @Deprecated
-    public static String mergeFilePaths(String... items) {
-        return Os.mergePaths(items);
-    }
-    
-    /** @deprecated since 0.7.0; use method {@link Os#tidyPath(String)} */ @Deprecated
-    public static String tidyFilePath(String path) {
-        return Os.tidyPath(path);
-    }
-    
-    /** @deprecated since 0.7.0; use method {@link Urls#getProtocol(String)} */ @Deprecated
-    public static String getProtocol(String url) {
-        return Urls.getProtocol(url);
-    }
-    
     private InputStream getResourceViaClasspath(String url) throws IOException {
         assert url.startsWith("classpath:");
         String subUrl = url.substring("classpath:".length());
@@ -413,15 +407,19 @@ public class ResourceUtils {
             Streams.closeQuietly(machine);
         }
     }
-    
-    //For HTTP(S) targets use HttpClient so
-    //we can do authentication
-    private InputStream getResourceViaHttp(String resource) throws IOException {
+
+    private InputStream getResourceViaHttp(String resource, @Nullable String username, @Nullable String password) throws IOException {
         URI uri = URI.create(resource);
         HttpClientBuilder builder = HttpTool.httpClientBuilder()
                 .laxRedirect(true)
                 .uri(uri);
-        Credentials credentials = getUrlCredentials(uri.getRawUserInfo());
+        Credentials credentials;
+        if (username != null) {
+            credentials = new UsernamePasswordCredentials(username, password);
+        } else {
+            credentials = getUrlCredentials(uri.getRawUserInfo());
+        }
+
         if (credentials != null) {
             builder.credentials(credentials);
         }
@@ -437,7 +435,23 @@ public class ResourceUtils {
             }
         } else {
             EntityUtils.consume(result.getEntity());
-            throw new IllegalStateException("Invalid response invoking " + resource + ": response code " + statusCode);
+            StringBuilder message = new StringBuilder();
+            if (statusCode == 401 && credentials != null) {
+                message.append("User '")
+                        .append(credentials.getUserPrincipal().getName())
+                        .append("' is not authorized to access ")
+                        .append(resource);
+            } else if (statusCode == 401) {
+                message.append("Unable to retrieve ")
+                        .append(resource)
+                        .append(": unauthorized");
+            } else {
+                message.append("Invalid response invoking ")
+                        .append(resource)
+                        .append(": response code ")
+                        .append(statusCode);
+            }
+            throw new IllegalStateException(message.toString());
         }
     }
 
@@ -560,51 +574,5 @@ public class ResourceUtils {
 
     public static URL getContainerUrl(URL url, String resourceInThatDir) {
         return OsgiUtils.getContainerUrl(url, resourceInThatDir);
-    }
-    
-    /** @deprecated since 0.7.0 use {@link Streams#copy(InputStream, OutputStream)} */ @Deprecated
-    public static void copy(InputStream input, OutputStream output) throws IOException {
-        Streams.copy(input, output);
-    }
-
-    /** @deprecated since 0.7.0; use same method in {@link Os} */ @Deprecated
-    public static File mkdirs(File dir) {
-        return Os.mkdirs(dir);
-    }
-
-    /** @deprecated since 0.7.0; use same method in {@link Os} */ @Deprecated
-    public static File writeToTempFile(InputStream is, String prefix, String suffix) {
-        return Os.writeToTempFile(is, prefix, suffix);
-    }
-    
-    /** @deprecated since 0.7.0; use same method in {@link Os} */ @Deprecated
-    public static File writeToTempFile(InputStream is, File tempDir, String prefix, String suffix) {
-        return Os.writeToTempFile(is, tempDir, prefix, suffix);
-    }
-
-    /** @deprecated since 0.7.0; use method {@link Os#writePropertiesToTempFile(Properties, String, String)} */ @Deprecated
-    public static File writeToTempFile(Properties props, String prefix, String suffix) {
-        return Os.writePropertiesToTempFile(props, prefix, suffix);
-    }
-    
-    /** @deprecated since 0.7.0; use method {@link Os#writePropertiesToTempFile(Properties, File, String, String)} */ @Deprecated
-    public static File writeToTempFile(Properties props, File tempDir, String prefix, String suffix) {
-        return Os.writePropertiesToTempFile(props, tempDir, prefix, suffix);
-    }
-
-    /** @deprecated since 0.7.0; use method {@link Threads#addShutdownHook(Runnable)} */ @Deprecated
-    public static Thread addShutdownHook(final Runnable task) {
-        return Threads.addShutdownHook(task);
-    }
-    /** @deprecated since 0.7.0; use method {@link Threads#removeShutdownHook(Thread)} */ @Deprecated
-    public static boolean removeShutdownHook(Thread hook) {
-        return Threads.removeShutdownHook(hook);
-    }
-
-    /** returns the items with exactly one "/" between items (whether or not the individual items start or end with /),
-     * except where character before the / is a : (url syntax) in which case it will permit multiple (will not remove any) 
-     * @deprecated since 0.7.0 use either {@link Os#mergePathsUnix(String...)} {@link Urls#mergePaths(String...) */ @Deprecated
-    public static String mergePaths(String ...items) {
-        return Urls.mergePaths(items);
     }
 }

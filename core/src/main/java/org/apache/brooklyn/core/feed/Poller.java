@@ -51,6 +51,7 @@ public class Poller<V> {
     public static final Logger log = LoggerFactory.getLogger(Poller.class);
 
     private final Entity entity;
+    private final AbstractFeed feed;
     private final boolean onlyIfServiceUp;
     private final Set<Callable<?>> oneOffJobs = new LinkedHashSet<Callable<?>>();
     private final Set<PollJob<V>> pollJobs = new LinkedHashSet<PollJob<V>>();
@@ -92,14 +93,15 @@ public class Poller<V> {
             };
         }
     }
-    
-    /** @deprecated since 0.7.0, pass in whether should run onlyIfServiceUp */
+
+    /** @deprecated since 0.12.0 pass in feed */
     @Deprecated
-    public Poller(Entity entity) {
-        this(entity, false);
-    }
     public Poller(Entity entity, boolean onlyIfServiceUp) {
+        this(entity, null, onlyIfServiceUp);
+    }
+    public Poller(Entity entity, AbstractFeed feed, boolean onlyIfServiceUp) {
         this.entity = entity;
+        this.feed = feed;
         this.onlyIfServiceUp = onlyIfServiceUp;
     }
     
@@ -137,38 +139,43 @@ public class Poller<V> {
         
         for (final Callable<?> oneOffJob : oneOffJobs) {
             Task<?> task = Tasks.builder().dynamic(false).body((Callable<Object>) oneOffJob).displayName("Poll").description("One-time poll job "+oneOffJob).build();
-            oneOffTasks.add(((EntityInternal)entity).getExecutionContext().submit(task));
+            oneOffTasks.add(feed.getExecutionContext().submit(task));
         }
         
+        Duration minPeriod = null;
         for (final PollJob<V> pollJob : pollJobs) {
             final String scheduleName = pollJob.handler.getDescription();
             if (pollJob.pollPeriod.compareTo(Duration.ZERO) > 0) {
-                Callable<Task<?>> pollingTaskFactory = new Callable<Task<?>>() {
-                    @Override
-                    public Task<?> call() {
-                        DynamicSequentialTask<Void> task = new DynamicSequentialTask<Void>(MutableMap.of("displayName", scheduleName, "entity", entity), 
-                            new Callable<Void>() { @Override public Void call() {
-                                if (!Entities.isManaged(entity)) {
-                                    return null;
-                                }
-                                if (onlyIfServiceUp && !Boolean.TRUE.equals(entity.getAttribute(Attributes.SERVICE_UP))) {
-                                    return null;
-                                }
-                                pollJob.wrappedJob.run();
-                                return null; 
-                            } } );
-                        BrooklynTaskTags.setTransient(task);
-                        return task;
-                    }
-                };
-                Map<String, ?> taskFlags = MutableMap.of("displayName", "scheduled:" + scheduleName);
-                ScheduledTask task = new ScheduledTask(taskFlags, pollingTaskFactory)
+                ScheduledTask t = ScheduledTask.builder(() -> {
+                            DynamicSequentialTask<Void> task = new DynamicSequentialTask<Void>(MutableMap.of("displayName", scheduleName, "entity", entity), 
+                                new Callable<Void>() { @Override public Void call() {
+                                    if (!Entities.isManaged(entity)) {
+                                        return null;
+                                    }
+                                    if (onlyIfServiceUp && !Boolean.TRUE.equals(entity.getAttribute(Attributes.SERVICE_UP))) {
+                                        return null;
+                                    }
+                                    pollJob.wrappedJob.run();
+                                    return null; 
+                                } } );
+                            BrooklynTaskTags.setTransient(task);
+                            return task;
+                        })
+                        .displayName("scheduled:" + scheduleName)
                         .period(pollJob.pollPeriod)
-                        .cancelOnException(false);
-                tasks.add(Entities.submit(entity, task));
+                        .cancelOnException(false)
+                        .build();
+                tasks.add(Entities.submit(entity, t));
+                if (minPeriod==null || (pollJob.pollPeriod.isShorterThan(minPeriod))) {
+                    minPeriod = pollJob.pollPeriod;
+                }
             } else {
                 if (log.isDebugEnabled()) log.debug("Activating poll (but leaving off, as period {}) for {} (using {})", new Object[] {pollJob.pollPeriod, entity, this});
             }
+        }
+        
+        if (minPeriod!=null && feed!=null) {
+            feed.highlightTriggerPeriod(minPeriod);
         }
     }
     

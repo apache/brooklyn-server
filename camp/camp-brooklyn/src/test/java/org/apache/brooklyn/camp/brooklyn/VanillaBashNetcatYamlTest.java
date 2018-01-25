@@ -24,7 +24,7 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Attributes;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
@@ -58,7 +58,7 @@ public class VanillaBashNetcatYamlTest extends AbstractYamlTest {
         waitForApplicationTasks(app);
         
         log.info("App started:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         Assert.assertEquals(app.getDisplayName(), "Simple Netcat with Client");
         
@@ -102,7 +102,7 @@ public class VanillaBashNetcatYamlTest extends AbstractYamlTest {
         EntityAsserts.assertAttributeEventually(app, Sensors.newStringSensor("output.last"), StringPredicates.containsLiteral("yo yo yo"));
         
         log.info("after all is said and done, app is:");
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
     }
     
     @Override

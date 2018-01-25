@@ -47,6 +47,7 @@ import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.cli.AbstractMain.BrooklynCommand;
 import org.apache.brooklyn.cli.AbstractMain.BrooklynCommandCollectingArgs;
 import org.apache.brooklyn.cli.AbstractMain.DefaultInfoCommand;
@@ -54,7 +55,6 @@ import org.apache.brooklyn.cli.AbstractMain.HelpCommand;
 import org.apache.brooklyn.cli.Main.AppShutdownHandler;
 import org.apache.brooklyn.cli.Main.GeneratePasswordCommand;
 import org.apache.brooklyn.cli.Main.LaunchCommand;
-import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.AbstractApplication;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
@@ -436,37 +436,19 @@ public class CliTest {
     }
 
     @Test
-    public void testAddBomToCatalog() throws Exception {
-        runAddBomToCatalog(1);
-    }
-
-    @Test
-    public void testAddMultipleBomsToCatalog() throws Exception {
-        runAddBomToCatalog(3);
-    }
-
-    // This method assumes that only one test at a time will be running in the JVM!
-    protected void runAddBomToCatalog(int numBoms) throws Exception {
-        final List<String> bomFiles = Lists.newArrayList();
-        final List<String> itemSymbolicNames = Lists.newArrayList();
-        for (int i = 0; i < numBoms; i++) {
-            String itemName = "testAddToCatalog."+i+"."+Identifiers.makeRandomId(8);
-            String itemVersion = "1.2."+i;
-            File bomFile = generateSimpleBomFile(itemName, itemVersion);
-            bomFiles.add(bomFile.getAbsolutePath());
-            itemSymbolicNames.add(itemName+":"+itemVersion);
-        }
+    public void testInitialCatalog() throws Exception {
+        final String itemName = "testAddToCatalog."+Identifiers.makeRandomId(8);
+        final String itemVersion = "1.2.3";
+        File bomFile = generateSimpleBomFile(itemName, itemVersion);
 
         Cli<BrooklynCommand> cli = buildCli();
-        BrooklynCommand command = cli.parse("launch", "--noConsole", "--catalogAdd", Joiner.on(",").join(bomFiles));
+        BrooklynCommand command = cli.parse("launch", "--noConsole", "--catalogInitial", bomFile.getAbsolutePath());
         submitCommandAndAssertFunctionSucceeds(command, new Function<ManagementContext, Void>() {
                 @Override
                 public Void apply(ManagementContext mgmt) {
                     assertMgmtStartedEventually(mgmt);
-                    for (String itemName : itemSymbolicNames) {
-                        CatalogItem<?, ?> item = mgmt.getCatalog().getCatalogItem(CatalogUtils.getSymbolicNameFromVersionedId(itemName), CatalogUtils.getVersionFromVersionedId(itemName));
-                        assertNotNull(item);
-                    }
+                    CatalogItem<?, ?> item = mgmt.getCatalog().getCatalogItem(itemName, itemVersion);
+                    assertNotNull(item);
                     return null;
                 }
                 private void assertMgmtStartedEventually(final ManagementContext mgmt) {
@@ -474,6 +456,7 @@ public class CliTest {
                         @Override
                         public void run() {
                             assertTrue(mgmt.isStartupComplete());
+                            assertEquals(mgmt.getNodeState(), ManagementNodeState.MASTER);
                         }});
                 }
             });

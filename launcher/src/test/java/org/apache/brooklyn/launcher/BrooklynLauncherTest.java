@@ -35,6 +35,7 @@ import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -272,12 +273,11 @@ public class BrooklynLauncherTest {
     @Test  // takes a bit of time because starts webapp, but also tests rest api so useful
     public void testErrorsCaughtByApiAndRestApiWorks() throws Exception {
         launcher = newLauncherForTests(true)
-                .catalogInitialization(new CatalogInitialization(null, false, null, false).addPopulationCallback(new Function<CatalogInitialization, Void>() {
-                    @Override
-                    public Void apply(CatalogInitialization input) {
+                .catalogInitialization(new CatalogInitialization(null) {
+                    @Override public void populateInitialCatalogOnly() {
                         throw new RuntimeException("deliberate-exception-for-testing");
-                    }
-                }))
+                    }})
+                .persistMode(PersistMode.DISABLED)
                 .installSecurityFilter(false)
                 .start();
         // 'deliberate-exception' error above should be thrown, then caught in this calling thread

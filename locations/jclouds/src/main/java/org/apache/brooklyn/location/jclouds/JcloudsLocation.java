@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 import static org.apache.brooklyn.util.ssh.BashCommands.sbinPath;
+import static org.jclouds.compute.predicates.NodePredicates.withIds;
 import static org.jclouds.util.Throwables2.getFirstThrowableOfType;
 
 import java.io.ByteArrayOutputStream;
@@ -47,7 +48,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import javax.xml.ws.WebServiceException;
 
-import com.google.common.primitives.Ints;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -181,6 +181,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.net.HostAndPort;
+import com.google.common.primitives.Ints;
 
 /**
  * For provisioning and managing VMs in a particular provider/region, using jclouds.
@@ -211,7 +212,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     private final Map<String,Map<String, ? extends Object>> tagMapping = Maps.newLinkedHashMap();
 
     @SetFromFlag // so it's persisted
-    private final Map<MachineLocation,String> vmInstanceIds = Maps.newLinkedHashMap();
+    private final Map<MachineLocation,String> vmInstanceIds = Collections.synchronizedMap(Maps.newLinkedHashMap());
 
     static {
         Networking.init();
@@ -250,6 +251,14 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
             config().set(MACHINE_CREATION_SEMAPHORE, new Semaphore(maxConcurrent, true));
         }
+
+        if (getConfig(MACHINE_DELETION_SEMAPHORE) == null) {
+            Integer maxConcurrent = getConfig(MAX_CONCURRENT_MACHINE_DELETIONS);
+            if (maxConcurrent == null || maxConcurrent < 1) {
+                throw new IllegalStateException(MAX_CONCURRENT_MACHINE_DELETIONS.getName() + " must be >= 1, but was "+maxConcurrent);
+            }
+            config().set(MACHINE_DELETION_SEMAPHORE, new Semaphore(maxConcurrent, true));
+        }
         return this;
     }
 
@@ -262,6 +271,30 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     @Override
+    public void rebind() {
+        super.rebind();
+        
+        // Fix for https://issues.apache.org/jira/browse/BROOKLYN-554:
+        // Historic persisted state will not have done the init checks to ensure these are non-null.
+        if (getConfig(MACHINE_CREATION_SEMAPHORE) == null) {
+            Integer maxConcurrent = getConfig(MAX_CONCURRENT_MACHINE_CREATIONS);
+            if (maxConcurrent == null || maxConcurrent < 1) {
+                LOG.warn(MAX_CONCURRENT_MACHINE_CREATIONS.getName()+" must be >= 1, but was "+maxConcurrent+", overwriting with "+Integer.MAX_VALUE);
+                maxConcurrent = Integer.MAX_VALUE;
+            }
+            config().set(MACHINE_CREATION_SEMAPHORE, new Semaphore(maxConcurrent, true));
+        }
+
+        if (getConfig(MACHINE_DELETION_SEMAPHORE) == null) {
+            Integer maxConcurrent = getConfig(MAX_CONCURRENT_MACHINE_DELETIONS);
+            if (maxConcurrent == null || maxConcurrent < 1) {
+                LOG.warn(MAX_CONCURRENT_MACHINE_DELETIONS.getName()+" must be >= 1, but was "+maxConcurrent+", overwriting with "+Integer.MAX_VALUE);
+            }
+            config().set(MACHINE_DELETION_SEMAPHORE, new Semaphore(maxConcurrent, true));
+        }
+    }
+    
+    @Override
     public JcloudsLocation newSubLocation(Map<?,?> newFlags) {
         return newSubLocation(getClass(), newFlags);
     }
@@ -273,6 +306,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 .parent(this)
                 .configure(config().getLocalBag().getAllConfig())  // FIXME Should this just be inherited?
                 .configure(MACHINE_CREATION_SEMAPHORE, getMachineCreationSemaphore())
+                .configure(MACHINE_DELETION_SEMAPHORE, getMachineDeletionSemaphore())
                 .configure(newFlags));
     }
 
@@ -376,6 +410,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     protected Semaphore getMachineCreationSemaphore() {
         return checkNotNull(getConfig(MACHINE_CREATION_SEMAPHORE), MACHINE_CREATION_SEMAPHORE.getName());
+    }
+
+    protected Semaphore getMachineDeletionSemaphore() {
+        return checkNotNull(getConfig(MACHINE_DELETION_SEMAPHORE), MACHINE_DELETION_SEMAPHORE.getName());
     }
 
     protected CloudMachineNamer getCloudMachineNamer(ConfigBag config) {
@@ -520,7 +558,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     @Override
     public void killMachine(String cloudServiceId) {
-        getComputeService().destroyNode(cloudServiceId);
+        // FIXME revert to computeService.destroyNode(cloudServiceId); once JCLOUDS-1332 gets fixed
+        Set<? extends NodeMetadata> destroyed = getComputeService().destroyNodesMatching(withIds(cloudServiceId));
+        LOG.debug("Destroyed nodes %s%n", destroyed);
     }
 
     @Override
@@ -1235,7 +1275,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     /** properties which cause customization of the TemplateOptions */
     public static final Map<ConfigKey<?>, ? extends TemplateOptionCustomizer>SUPPORTED_TEMPLATE_OPTIONS_PROPERTIES = ImmutableMap.<ConfigKey<?>, TemplateOptionCustomizer>builder()
             .put(AUTO_ASSIGN_FLOATING_IP, TemplateOptionCustomizers.autoAssignFloatingIp())
-            .put(AUTO_CREATE_FLOATING_IPS, TemplateOptionCustomizers.autoCreateFloatingIps())
             .put(AUTO_GENERATE_KEYPAIRS, TemplateOptionCustomizers.autoGenerateKeypairs())
             .put(DOMAIN_NAME, TemplateOptionCustomizers.domainName())
             .put(EXTRA_PUBLIC_KEY_DATA_TO_AUTH, TemplateOptionCustomizers.extraPublicKeyDataToAuth())
@@ -1250,7 +1289,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             .put(SECURITY_GROUPS, TemplateOptionCustomizers.securityGroups())
             .put(STRING_TAGS, TemplateOptionCustomizers.stringTags())
             .put(TEMPLATE_OPTIONS, TemplateOptionCustomizers.templateOptions())
-            .put(USER_DATA_UUENCODED, TemplateOptionCustomizers.userDataUuencoded())
             .put(USER_METADATA_MAP, TemplateOptionCustomizers.userMetadataMap())
             .put(USER_METADATA_STRING, TemplateOptionCustomizers.userMetadataString())
             .build();
@@ -2101,6 +2139,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     @Override
     public void release(MachineLocation rawMachine) {
+        Duration preSemaphoreTimestamp = null;
+        Duration semaphoreTimestamp = null;
+        Duration destroyTimestamp = null;
+        Stopwatch destroyingStopwatch = Stopwatch.createStarted();
+
         String instanceId = vmInstanceIds.remove(rawMachine);
         if (instanceId == null) {
             LOG.info("Attempted release of unknown machine "+rawMachine+" in "+toString());
@@ -2138,14 +2181,34 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
 
         try {
-            releaseNode(instanceId);
-        } catch (Exception e) {
-            LOG.error("Problem releasing machine "+machine+" in "+this+", instance id "+instanceId+
-                    "; ignoring and continuing, "
-                    + (tothrow==null ? "will throw subsequently" : "swallowing due to previous error")+": "+e, e);
-            if (tothrow==null) tothrow = e;
-        }
+            preSemaphoreTimestamp = Duration.of(destroyingStopwatch);
+            Semaphore machineDeletionSemaphore = getMachineDeletionSemaphore();
+            boolean acquired = machineDeletionSemaphore.tryAcquire(0, TimeUnit.SECONDS);
+            if (!acquired) {
+                LOG.info("Waiting in {} for machine-deletion permit ({} other queuing requests already)", new Object[] {this, machineDeletionSemaphore.getQueueLength()});
+                Stopwatch blockStopwatch = Stopwatch.createStarted();
+                machineDeletionSemaphore.acquire();
+                LOG.info("Acquired in {} machine-deletion permit, after waiting {}", this, Time.makeTimeStringRounded(blockStopwatch));
+            } else {
+                LOG.debug("Acquired in {} machine-deletion permit immediately", this);
+            }
+            semaphoreTimestamp = Duration.of(destroyingStopwatch);
 
+            try {
+                releaseNode(instanceId);
+                destroyTimestamp = Duration.of(destroyingStopwatch);
+            } catch (Exception e) {
+                LOG.error("Problem releasing machine "+machine+" in "+this+", instance id "+instanceId+
+                        "; ignoring and continuing, "
+                        + (tothrow==null ? "will throw subsequently" : "swallowing due to previous error")+": "+e, e);
+                if (tothrow==null) tothrow = e;
+            } finally {
+                machineDeletionSemaphore.release();
+            }
+        } catch (InterruptedException e) {
+            throw Exceptions.propagate(e);
+        }
+        
         removeChild(machine);
 
         try {
@@ -2158,8 +2221,24 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
         
         if (tothrow != null) {
+            LOG.error("Problem releasing machine " + machine + " (propagating) " 
+                    + " after "+Duration.of(destroyingStopwatch).toStringRounded()
+                    + (semaphoreTimestamp != null ? " ("
+                            + "semaphore obtained in "+Duration.of(semaphoreTimestamp).subtract(preSemaphoreTimestamp).toStringRounded()+";"
+                            + (destroyTimestamp != null ? " node destroyed in "+Duration.of(destroyTimestamp).subtract(semaphoreTimestamp).toStringRounded() : "")
+                            + ")"
+                            : "")
+                    + ": "+tothrow.getMessage());
+            
             throw Exceptions.propagate(tothrow);
         }
+        
+        String logMessage = "Released machine " + machine +":"
+                + " total time "+Duration.of(destroyingStopwatch).toStringRounded()
+                + " ("
+                + "semaphore obtained in "+Duration.of(semaphoreTimestamp).subtract(preSemaphoreTimestamp).toStringRounded()+";"
+                + " node destroyed in "+Duration.of(destroyTimestamp).subtract(semaphoreTimestamp).toStringRounded()+")";
+        LOG.info(logMessage);
     }
 
     protected void releaseSafely(MachineLocation machine) {
@@ -2183,10 +2262,13 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     protected void releaseNode(String instanceId) {
-        ComputeService computeService = null;
+        ComputeService computeService;
         try {
             computeService = getComputeService(config().getBag());
-            computeService.destroyNode(instanceId);
+            // FIXME revert to computeService.destroyNode(instanceId); once JCLOUDS-1332 gets fixed
+            Set<? extends NodeMetadata> destroyed = computeService.destroyNodesMatching(withIds(instanceId));
+            LOG.debug("Destroyed nodes %s%n", destroyed);
+
         } finally {
         /*
             // we don't close the compute service; this means if we provision add'l it is fast;

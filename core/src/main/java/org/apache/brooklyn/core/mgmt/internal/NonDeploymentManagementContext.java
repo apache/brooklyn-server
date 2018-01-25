@@ -58,6 +58,7 @@ import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
@@ -76,6 +77,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -101,7 +103,6 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
     private ManagementContextInternal initialManagementContext;
     
     private final QueueingSubscriptionManager qsm;
-    private final BasicSubscriptionContext subscriptionContext;
     private NonDeploymentEntityManager entityManager;
     private NonDeploymentLocationManager locationManager;
     private NonDeploymentAccessManager accessManager;
@@ -112,10 +113,6 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
         this.mode = checkNotNull(mode, "mode");
         qsm = new QueueingSubscriptionManager();
         
-        // For subscription flags, see AbstractManagementContext.getSubscriptionContext. This is 
-        // needed for callbacks, to ensure the correct entity context is set.
-        Map<String, ?> subscriptionFlags = ImmutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(entity)));
-        subscriptionContext = new BasicSubscriptionContext(subscriptionFlags, qsm, entity);
         entityManager = new NonDeploymentEntityManager(null);
         locationManager = new NonDeploymentLocationManager(null);
         accessManager = new NonDeploymentAccessManager(null);
@@ -176,12 +173,14 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
     
     @Override
     public boolean isStartupComplete() {
-        // This mgmt context is only used by items who are not yet fully started.
-        // It's slightly misleading as this does not refer to the main mgmt context.
-        // OTOH it probably won't be used.  TBC.  -Alex, Apr 2015
         return false;
     }
 
+    @Override
+    public ManagementNodeState getNodeState() {
+        return ManagementNodeState.INITIALIZING;
+    }
+    
     @Override
     public InternalEntityFactory getEntityFactory() {
         checkInitialManagementContextReal();
@@ -254,7 +253,19 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
         if (!this.entity.equals(entity)) throw new IllegalStateException("Non-deployment context "+this+" can only use a single Entity: has "+this.entity+", but passed "+entity);
         if (mode==NonDeploymentManagementContextMode.MANAGEMENT_STOPPED)
             throw new IllegalStateException("Entity "+entity+" is no longer managed; subscription context not available");
-        return subscriptionContext;
+        // see also AbstractManagementContext.getSubscriptionContext - needed for callbacks, to ensure the correct entity context is set
+        Map<String, ?> subscriptionFlags = ImmutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(entity)));
+        return new BasicSubscriptionContext(subscriptionFlags, qsm, entity);
+    }
+    
+    @Override
+    public SubscriptionContext getSubscriptionContext(Entity entity, EntityAdjunct adjunct) {
+        if (!this.entity.equals(entity)) throw new IllegalStateException("Non-deployment context "+this+" can only use a single Entity: has "+this.entity+", but passed "+entity);
+        if (mode==NonDeploymentManagementContextMode.MANAGEMENT_STOPPED)
+            throw new IllegalStateException("Entity "+entity+" is no longer managed; subscription context not available");
+        // see also AbstractManagementContext.getSubscriptionContext - needed for callbacks, to ensure the correct entity context is set
+        Map<String, ?> subscriptionFlags = ImmutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(entity), BrooklynTaskTags.tagForContextAdjunct(adjunct)));
+        return new BasicSubscriptionContext(subscriptionFlags, qsm, entity);
     }
 
     @Override
@@ -271,6 +282,15 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
             throw new IllegalStateException("Entity "+entity+" is no longer managed; execution context not available");
         checkInitialManagementContextReal();
         return initialManagementContext.getExecutionContext(entity);
+    }
+
+    @Override
+    public ExecutionContext getExecutionContext(Entity entity, EntityAdjunct adjunct) {
+        if (!this.entity.equals(entity)) throw new IllegalStateException("Non-deployment context "+this+" can only use a single Entity: has "+this.entity+", but passed "+entity);
+        if (mode==NonDeploymentManagementContextMode.MANAGEMENT_STOPPED)
+            throw new IllegalStateException("Entity "+entity+" is no longer managed; execution context not available");
+        checkInitialManagementContextReal();
+        return initialManagementContext.getExecutionContext(entity, adjunct);
     }
 
     @Override
@@ -485,6 +505,18 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
     }
 
     @Override
+    public <T extends BrooklynObject> T lookup(Predicate<? super T> filter) {
+        checkInitialManagementContextReal();
+        return initialManagementContext.lookup(filter);
+    }
+
+    @Override
+    public <T extends BrooklynObject> Collection<T> lookupAll(Predicate<? super T> filter) {
+        checkInitialManagementContextReal();
+        return initialManagementContext.lookupAll(filter);
+    }
+    
+    @Override
     public List<Throwable> errors() {
         checkInitialManagementContextReal();
         return initialManagementContext.errors();
@@ -536,21 +568,6 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
         }
 
         @Override
-        public List<Application> rebind() {
-            throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
-        }
-
-        @Override
-        public List<Application> rebind(ClassLoader classLoader) {
-            throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
-        }
-
-        @Override
-        public List<Application> rebind(ClassLoader classLoader, RebindExceptionHandler exceptionHandler) {
-            throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
-        }
-        
-        @Override
         public List<Application> rebind(ClassLoader classLoader, RebindExceptionHandler exceptionHandler, ManagementNodeState mode) {
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }
@@ -576,6 +593,11 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
         }
 
         @Override
+        public void reset() {
+            throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
+        }
+
+        @Override
         public void start() {
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }
@@ -587,10 +609,6 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
 
         @Override
         public void waitForPendingComplete(Duration timeout, boolean canTrigger) throws InterruptedException, TimeoutException {
-            throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
-        }
-        @Override
-        public void forcePersistNow() {
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }
         @Override
@@ -631,7 +649,7 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }
         @Override
-        public void disabled() {
+        public void disabled(boolean persistenceEnabled) {
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }
         @Override

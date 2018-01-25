@@ -34,6 +34,8 @@ import org.apache.brooklyn.core.test.policy.TestEnricher;
 import org.apache.brooklyn.core.test.policy.TestPolicy;
 import org.apache.brooklyn.entity.group.BasicGroup;
 import org.apache.brooklyn.test.Asserts;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -44,7 +46,9 @@ import com.google.common.collect.Iterables;
 
 public class EntitySubscriptionTest extends BrooklynAppUnitTestSupport {
 
-    // TODO Duplication between this and PolicySubscriptionTest
+    // TODO Duplication between this and PolicySubscriptionTest and LocalSubscriptionManagerTest
+
+    private static final Logger log = LoggerFactory.getLogger(EntitySubscriptionTest.class);
     
     private static final long SHORT_WAIT_MS = 100;
 
@@ -221,6 +225,7 @@ public class EntitySubscriptionTest extends BrooklynAppUnitTestSupport {
     }
     
     @Test
+    @SuppressWarnings("unused")
     public void testUnsubscribeUsingHandleStopsEvents() {
         SubscriptionHandle handle1 = entity.subscriptions().subscribe(observedEntity, TestEntity.SEQUENCE, listener);
         SubscriptionHandle handle2 = entity.subscriptions().subscribe(observedEntity, TestEntity.NAME, listener);
@@ -300,6 +305,8 @@ public class EntitySubscriptionTest extends BrooklynAppUnitTestSupport {
     
     @Test
     public void testContextEntityOnSubscriptionCallbackTask() {
+        log.info("Observing "+observedEntity+" from "+entity);
+        
         observedEntity.sensors().set(TestEntity.NAME, "myval");
         entity.subscriptions().subscribe(ImmutableMap.of("notifyOfInitialValue", true), observedEntity, TestEntity.NAME, listener);
         

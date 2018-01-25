@@ -41,8 +41,10 @@ public interface DynamicGroup extends AbstractGroup {
 
     @SuppressWarnings("serial")
     @SetFromFlag("entityFilter")
-    ConfigKey<Predicate<? super Entity>> ENTITY_FILTER = ConfigKeys.newConfigKey(new TypeToken<Predicate<? super Entity>>() { },
-            "dynamicgroup.entityfilter", "Filter for entities which will automatically be in the group");
+    ConfigKey<Predicate<? super Entity>> ENTITY_FILTER = ConfigKeys.newConfigKey(
+            new TypeToken<Predicate<? super Entity>>() { },
+            "dynamicgroup.entityfilter", 
+            "Filter for entities which will automatically be in the group");
 
     AttributeSensor<Boolean> RUNNING = Sensors.newBooleanSensor(
             "dynamicgroup.running", "Whether the entity is running, and will automatically update group membership");
@@ -67,10 +69,6 @@ public interface DynamicGroup extends AbstractGroup {
 
     /** Sets {@link #ENTITY_FILTER}, overriding (and rescanning all) if already set. */
     void setEntityFilter(Predicate<? super Entity> filter);
-
-    /** @deprecated since 0.7.0; use {@link #setEntityFilter(Predicate)} */
-    @Deprecated
-    void setEntityFilter(Closure<Boolean> filter);
 
     /** As {@link #addSubscription(Entity, Sensor)} but with an additional filter. */
     <T> void addSubscription(Entity producer, Sensor<T> sensor, Predicate<? super SensorEvent<? super T>> filter);

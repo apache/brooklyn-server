@@ -23,14 +23,9 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.MethodCoercions;
-import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -53,10 +48,7 @@ public class TemplateOptionsOption implements TemplateOptionCustomizer {
             if (optionValue != null) {
 
                 try {
-                    final EntityInternal entity = (EntityInternal) BrooklynTaskTags.getTargetOrContextEntity(Tasks.current());
-                    final ExecutionContext exec = (null != entity
-                        ? entity.getExecutionContext()
-                        : BasicExecutionContext.getCurrentExecutionContext());
+                    final ExecutionContext exec = BrooklynTaskTags.getCurrentExecutionContext();
                     if (exec != null) {
                         optionValue = Tasks.resolveDeepValue(optionValue, Object.class, exec);
                     }

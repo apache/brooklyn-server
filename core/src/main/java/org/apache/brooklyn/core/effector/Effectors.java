@@ -202,7 +202,7 @@ public class Effectors {
 
     /** returns an unsubmitted task which will invoke the given effector on the given entities
      * (this form of method is a convenience for {@link #invocation(Effector, Map, Iterable)}) */
-    public static TaskAdaptable<List<?>> invocation(Effector<?> eff, MutableMap<?, ?> params, Entity ...entities) {
+    public static TaskAdaptable<List<?>> invocation(Effector<?> eff, Map<?, ?> params, Entity ...entities) {
         return invocation(eff, params, Arrays.asList(entities));
     }
     

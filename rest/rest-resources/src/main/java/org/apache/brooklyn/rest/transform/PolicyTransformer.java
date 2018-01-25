@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.policy.Policies;
+import org.apache.brooklyn.rest.domain.AdjunctSummary;
 import org.apache.brooklyn.rest.domain.ApplicationSummary;
 import org.apache.brooklyn.rest.domain.PolicyConfigSummary;
 import org.apache.brooklyn.rest.domain.PolicySummary;
@@ -42,7 +43,9 @@ import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
 
 /**
  * Converts from Brooklyn entities to restful API summary objects
+ * @deprecated since 1.0.0 use {@link AdjunctTransformer} and {@link AdjunctSummary}
  */
+@Deprecated
 public class PolicyTransformer {
 
     public static PolicySummary policySummary(Entity entity, Policy policy, UriBuilder ub) {
@@ -65,7 +68,12 @@ public class PolicyTransformer {
                 .put("entity", entityUri)
                 .build();
 
-        return new PolicySummary(policy.getId(), policy.getDisplayName(), policy.getCatalogItemId(), ApplicationTransformer.statusFromLifecycle(Policies.getPolicyStatus(policy)), links);
+        return new PolicySummary(   policy.getId(),
+                                    policy.getDisplayName(),
+                                    policy.getCatalogItemId(),
+                                    ApplicationTransformer.statusFromLifecycle(Policies.getPolicyStatus(policy)),
+                                    policy.getHighlights(),
+                                    links);
     }
 
     public static PolicyConfigSummary policyConfigSummary(BrooklynRestResourceUtils utils, ApplicationSummary application, Entity entity, Policy policy, ConfigKey<?> config, UriBuilder ub) {
@@ -91,7 +99,8 @@ public class PolicyTransformer {
 
         return new PolicyConfigSummary(config.getName(), config.getTypeName(), config.getDescription(), 
                 PolicyConfigResource.getStringValueForDisplay(utils, policy, config.getDefaultValue()), 
-                config.isReconfigurable(), 
+                config.isReconfigurable(),
+                null, null, null, null, null, 
                 links);
     }
 }

@@ -19,12 +19,10 @@
 package org.apache.brooklyn.core.entity;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -41,9 +39,7 @@ import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
-import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
 import org.apache.brooklyn.core.entity.trait.FailingEntity;
-import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -52,15 +48,14 @@ import org.apache.brooklyn.core.test.entity.TestApplicationNoEnrichersImpl;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityNoEnrichersImpl;
 import org.apache.brooklyn.enricher.stock.AbstractMultipleSensorAggregator;
-import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.core.task.ValueResolver;
-import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicates;
@@ -69,7 +64,6 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Ordering;
 
 @Test
 public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
@@ -180,18 +174,7 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
         assertHealthEventually(app, Lifecycle.ON_FIRE, false);
     }
 
-    // TODO Fails in a full `mvn clean install`, but I can't get it to fail in Eclipse running 
-    // lots of times, or with `mvn test -Dtest=ApplicationLifecycleStateTest`. The failure is:
-    //     java.lang.AssertionError: (Dumped entity info - see log); entity=Application[6q37l8cu]; state=on-fire; up=true; notUpIndicators={}; serviceProblems={service-lifecycle-indicators-from-children-and-members=Required entity not healthy: FailingEntityImpl{id=exz9n1pti0}}
-    //     at org.apache.brooklyn.core.entity.ApplicationLifecycleStateTest.assertUpAndRunningEventually(ApplicationLifecycleStateTest.java:204)
-    //     at org.apache.brooklyn.core.entity.ApplicationLifecycleStateTest.testChildFailuresOnStartButWithQuorumCausesAppToSucceed(ApplicationLifecycleStateTest.java:146)
-    //
-    // See https://github.com/apache/brooklyn-server/pull/452 and https://github.com/apache/brooklyn-server/pull/454 
-    // for further discussion of fix/issue.
-    //
-    // AbstractMultipleSensorAggregator.onEvent sees SERVICE_STATE_ACTUAL events in the wrong order (running, starting) which leads to 
-    // the quorum check failing in ComputeServiceIndicatorsFromChildrenAndMembers.
-    @Test(groups="Broken")
+    @Test
     public void testChildFailuresOnStartButWithQuorumCausesAppToSucceed() throws Exception {
         TestApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
                 .configure(StartableApplication.UP_QUORUM_CHECK, QuorumCheck.QuorumChecks.atLeastOne())
@@ -204,8 +187,7 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
         assertUpAndRunningEventually(app);
     }
 
-    // Same as testChildFailuresOnStartButWithQuorumCausesAppToSucceed
-    @Test(groups="Broken")
+    @Test
     public void testStartsThenChildFailsButWithQuorumCausesAppToSucceed() throws Exception {
         TestApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
                 .configure(StartableApplication.UP_QUORUM_CHECK, QuorumCheck.QuorumChecks.atLeastOne())
@@ -227,8 +209,7 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
         mgmt.getEntityManager().unmanage(app);
     }
 
-    // Same as testChildFailuresOnStartButWithQuorumCausesAppToSucceed
-    @Test(groups="Broken")
+    @Test
     public void testStartsThenChildFailsButWithQuorumCausesAppToStayHealthy() throws Exception {
         TestApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
                 .configure(StartableApplication.UP_QUORUM_CHECK, QuorumCheck.QuorumChecks.atLeastOne())
@@ -245,15 +226,16 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
     }
 
     /**
-     * Sensor value does not match the order of events. For example events are running, starting,
-     * but sensor value is running.
-     * Causes a problem with ComputeServiceIndicatorsFromChildrenAndMembers which will flag the entity
-     * on-fire event though children are running.
+     * Tests concurrent modifications to a sensor, asserting that the last notification the subscribers 
+     * receives equals the last value that sensor has.
      * 
-     * Indeterministic, fails a couple of times per 100 invocations when run with "mvn test" in the
-     * brooklyn-itest docker container.
+     * Prior to this being fixed (see https://github.com/apache/brooklyn-server/pull/622), it caused 
+     * problems in ComputeServiceIndicatorsFromChildrenAndMembers: it saw a child transition 
+     * from "running" to "starting", and thus emitted the on-fire event for the parent entity. As asserted
+     * by this test, the enricher should now always receive the events in the correct order (e.g. "starting",
+     * "running").
      */
-    @Test(groups="Broken")
+    @Test
     public void testSettingSensorFromThreads() {
         final TestApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
         final AttributeSensor<String> TEST_SENSOR = Sensors.newStringSensor("test.sensor");
@@ -267,20 +249,14 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
             }
         });
 
-        Task<?> first = mgmt.getExecutionManager().submit(new Runnable() {
-            @Override
-            public void run() {
+        Task<?> first = mgmt.getExecutionManager().submit("setting test sensor", () -> {
                 app.sensors().set(TEST_SENSOR, "first");
                 log.debug("set first");
-            }
-        });
-        Task<?> second = mgmt.getExecutionManager().submit(new Runnable() {
-            @Override
-            public void run() {
+            });
+        Task<?> second = mgmt.getExecutionManager().submit("setting test sensor", () -> {
                 app.sensors().set(TEST_SENSOR, "second");
                 log.debug("set second");
-            }
-        });
+            });
         first.blockUntilEnded();
         second.blockUntilEnded();
 
@@ -294,7 +270,8 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
 
     public static class RecodingChildSensorEnricher extends AbstractMultipleSensorAggregator<Void> {
         public static AttributeSensor<String> RECORDED_SENSOR = Sensors.newStringSensor("recorded.sensor");
-        List<String> seenValues = new ArrayList<>();
+        List<String> seenValuesAllCollected = Collections.synchronizedList(new ArrayList<>());
+        List<String> seenValuesPublished = Collections.synchronizedList(new ArrayList<>());
 
         @Override
         protected Collection<Sensor<?>> getSourceSensors() {
@@ -311,44 +288,72 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
         }
 
         @Override
+        public void onEvent(SensorEvent<Object> event) {
+            super.onEvent(event);
+            
+            if (event.getSensor().equals(RECORDED_SENSOR)) {
+                seenValuesPublished.add((String)event.getValue());
+            }
+        }
+        
+        @Override
         protected void onUpdated() {
-            Iterator<String> values = getValues(RECORDED_SENSOR).values().iterator();
-            if (values.hasNext()) {
-                seenValues.add(values.next());
+            // called in onEvent, this is longwinded way to add the event.value we are interested in
+            Collection<String> vv = getValues(RECORDED_SENSOR).values();
+            if (!vv.isEmpty()) {
+                seenValuesAllCollected.add(vv.iterator().next());
             }
         }
     }
 
-    /**
-     * Enricher sees state in the wrong order -> running, starting, running
-     * 
-     * Indeterministic, fails a couple of times per 100 invocations when run with "mvn test" in the
-     * brooklyn-itest docker container.
-     */
-    @Test(groups="Broken")
-    public void testWrongSensorInitValue() {
+    @Test
+    public void testSensorInitAndPublishOrderNonStrict() {
+        // this mirrors how most code is working - the initial values seen for an added child may be later than other published values
+        doTestSensorInitAndPublishOrder(false);
+    }
+    
+    @Test
+    public void testSensorInitAndPublishOrder() {
+        // this enforces canonical order by waiting on expected events
+        doTestSensorInitAndPublishOrder(true);
+    }
+    
+    private void doTestSensorInitAndPublishOrder(boolean strict) {
         TestApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
                 .impl(TestApplicationNoEnrichersImpl.class)
                 .enricher(EnricherSpec.create(RecodingChildSensorEnricher.class))
                 .child(EntitySpec.create(TestEntity.class)
                         .impl(TestEntityNoEnrichersImpl.class)));
+        
+        final RecodingChildSensorEnricher enricher = getFirstEnricher(app, RecodingChildSensorEnricher.class);
+        if (strict) {
+            Asserts.eventually(Suppliers.ofInstance(enricher.seenValuesAllCollected), CollectionFunctionals.sizeEquals(2));
+        }
 
         Entity child = Iterables.get(app.getChildren(), 0);
         child.sensors().set(RecodingChildSensorEnricher.RECORDED_SENSOR, "first");
         child.sensors().set(RecodingChildSensorEnricher.RECORDED_SENSOR, "second");
-
-        final RecodingChildSensorEnricher enricher = getFirstEnricher(app, RecodingChildSensorEnricher.class);
-
-        // setEntity -> onUpdate
-        // CHILD_ADDED -> onUpdate
-        // set RECORDED_SENSOR=first -> onUpdate
-        // set RECORDED_SENSOR=second -> onUpdate
-        Asserts.eventually(Suppliers.ofInstance(enricher.seenValues), CollectionFunctionals.sizeEquals(4));
-
-        boolean isOrdered = Ordering.explicit(MutableList.of("first", "second"))
-                .nullsFirst()
-                .isOrdered(enricher.seenValues);
-        assertTrue(isOrdered, "Unexpected ordering for " + enricher.seenValues);
+        
+        // usually:
+        //   setEntity -> onUpdate (sees current value)
+        //   CHILD_ADDED -> onUpdate (sees current value)
+        //   set RECORDED_SENSOR=first -> onUpdate (sees event)
+        //   set RECORDED_SENSOR=second -> onUpdate (sees event)
+        
+        Asserts.eventually(Suppliers.ofInstance(enricher.seenValuesAllCollected), CollectionFunctionals.sizeEquals(4));
+        
+        Assert.assertEquals(enricher.seenValuesPublished, MutableList.of("first", "second"),
+            "Unexpected ordering for vP " + enricher.seenValuesPublished + " (vC "+enricher.seenValuesAllCollected+")");
+        
+        List<String> vC = MutableList.copyOf(enricher.seenValuesAllCollected); 
+        if (!strict) {
+            // CHILD_ADDED (and other handlers) are running in parallel to this thread, however,
+            // their order is guaranteed to be the above, but it is in parallel to this main thread, thus the current value
+            // it takes can be any of null, first, or second, unless we run in strict mode
+            vC.set(1, null);
+        }
+        Assert.assertEquals(vC, MutableList.of(null, null, "first", "second"),
+            "Unexpected ordering for vC " + enricher.seenValuesAllCollected + " (vP "+enricher.seenValuesPublished+")");
     }
 
     public static class EmittingEnricher extends AbstractEnricher {
@@ -394,8 +399,8 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
         };
 
         // Simulates firing the emit method from event handlers in different threads
-        mgmt.getExecutionManager().submit(overrideJob);
-        mgmt.getExecutionManager().submit(overrideJob);
+        mgmt.getExecutionManager().submit("emitting test sensor", overrideJob);
+        mgmt.getExecutionManager().submit("emitting test sensor", overrideJob);
 
         Asserts.eventually(Suppliers.ofInstance(seenValues), CollectionFunctionals.sizeEquals(2));
         Asserts.succeedsContinually(new Runnable() {
@@ -425,7 +430,7 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
             EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
             EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
         } catch (Throwable t) {
-            Entities.dumpInfo(entity);
+            Dumper.dumpInfo(entity);
             String err = "(Dumped entity info - see log); entity=" + entity + "; " + 
                     "state=" + entity.sensors().get(Attributes.SERVICE_STATE_ACTUAL) + "; " + 
                     "up="+entity.sensors().get(Attributes.SERVICE_UP) + "; " +
@@ -450,5 +455,19 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
             .first()
             .get();
     }
-    
+
+    // for running the tests below many times and stopping when they fail;
+    // they seem happy (and this breaks the subclass @Test class annotation)
+    // but kept as comment just in case
+//    public static void main(String[] args) throws Exception {
+//        int i = 0;
+//        while (true) {
+//            log.info("test "+(++i));
+//            ApplicationLifecycleStateTest l = new ApplicationLifecycleStateTest();
+//            l.setUp();
+//            l.testSensorInitAndPublishOrder();
+//            l.testSensorInitAndPublishOrderNonStrict();
+//            l.tearDown();
+//        }
+//    }
 }

@@ -20,10 +20,13 @@ package org.apache.brooklyn.entity.group;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -33,6 +36,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.trait.FailingEntity;
 import org.apache.brooklyn.core.location.SimulatedLocation;
@@ -41,16 +45,20 @@ import org.apache.brooklyn.core.location.cloud.AvailabilityZoneExtension;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.entity.group.DynamicCluster;
+import org.apache.brooklyn.entity.group.DynamicCluster.ZoneFailureDetector;
 import org.apache.brooklyn.entity.group.zoneaware.ProportionalZoneFailureDetector;
+import org.apache.brooklyn.location.multi.MultiLocation;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -64,10 +72,7 @@ public class DynamicClusterWithAvailabilityZonesTest extends BrooklynAppUnitTest
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                .configure(DynamicCluster.ENABLE_AVAILABILITY_ZONES, true)
-                .configure(DynamicCluster.INITIAL_SIZE, 0)
-                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class)));
+        cluster = app.createAndManageChild(clusterSpec());
         
         loc = mgmt.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class));
         loc.addExtension(AvailabilityZoneExtension.class, new SimulatedAvailabilityZoneExtension(mgmt, loc, ImmutableList.of("zone1", "zone2", "zone3", "zone4")));
@@ -143,10 +148,12 @@ public class DynamicClusterWithAvailabilityZonesTest extends BrooklynAppUnitTest
             }
         };
         
-        cluster.config().set(DynamicCluster.ZONE_FAILURE_DETECTOR, new ProportionalZoneFailureDetector(2, Duration.ONE_HOUR, 0.9, ticker));
-        cluster.config().set(DynamicCluster.AVAILABILITY_ZONE_NAMES, ImmutableList.of("zone1", "zone2"));
-        cluster.config().set(DynamicCluster.MEMBER_SPEC, EntitySpec.create(FailingEntity.class)
-                .configure(FailingEntity.FAIL_ON_START_CONDITION, failurePredicate));
+        // Don't change zoneFailureDetector on-the-fly; create a new cluster
+        cluster = app.createAndManageChild(clusterSpec()
+                .configure(DynamicCluster.ZONE_FAILURE_DETECTOR, new ProportionalZoneFailureDetector(2, Duration.ONE_HOUR, 0.9, ticker))
+                .configure(DynamicCluster.AVAILABILITY_ZONE_NAMES, ImmutableList.of("zone1", "zone2"))
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(FailingEntity.class)
+                        .configure(FailingEntity.FAIL_ON_START_CONDITION, failurePredicate)));
         cluster.start(ImmutableList.of(loc));
         
         cluster.resize(1);
@@ -172,6 +179,68 @@ public class DynamicClusterWithAvailabilityZonesTest extends BrooklynAppUnitTest
         Asserts.assertEqualsIgnoringOrder(locsUsed, ImmutableList.of(locUsed, locUsed, locUsed, otherLoc));
     }
     
+    // If default config value for ZoneFailureDetector is mutable, causes problems where apps interfere.
+    // Worse, it can cause rebind issues - if the original app and its location have been deleted,
+    // another cluster might still have a ZoneFailureDetector whose default value references th
+    // unmanaged location!
+    @Test
+    public void testZoneFailureDetectorNotShared() throws Exception {
+        SimulatedLocation locWithFailures = mgmt.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class));
+        locWithFailures.addExtension(AvailabilityZoneExtension.class, new SimulatedAvailabilityZoneExtension(mgmt, loc, 
+                ImmutableList.of("zone1", "zone2"),
+                ImmutableMap.of("zone1", Predicates.alwaysTrue())));
+
+        cluster.config().set(DynamicCluster.INITIAL_SIZE, 2);
+        cluster.start(ImmutableList.of(loc));
+        ZoneFailureDetector zoneFailureDetector = ((DynamicClusterImpl)Entities.deproxy(cluster)).getZoneFailureDetector();
+        assertZoneHistoriesNotEmpty(zoneFailureDetector);
+        
+        DynamicCluster unrelatedCluster = app.addChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.ENABLE_AVAILABILITY_ZONES, true));
+        ZoneFailureDetector unrelatedZoneFailureDetector = ((DynamicClusterImpl)Entities.deproxy(unrelatedCluster)).getZoneFailureDetector();
+        assertZoneHistoriesEmpty(unrelatedZoneFailureDetector);
+    }
+
+    @Test
+    public void testEnableAvailabilityZonesNotReinherited() throws Exception {
+        cluster = app.addChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.ENABLE_AVAILABILITY_ZONES, true)
+                .configure(DynamicCluster.INITIAL_SIZE, 2)
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(DynamicCluster.class)
+                        .configure(DynamicCluster.INITIAL_SIZE, 1)
+                        .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class))));
+        
+        MultiLocation<?> multiLoc = mgmt.getLocationManager().createLocation(LocationSpec.create(MultiLocation.class)
+                .configure(MultiLocation.SUB_LOCATION_SPECS, ImmutableList.of(
+                        LocationSpec.create(SimulatedLocation.class).displayName("loc1"),
+                        LocationSpec.create(SimulatedLocation.class).displayName("loc2"))));
+
+        cluster.start(ImmutableList.of(multiLoc));
+        
+        List<String> locsUsed = getLocationNames(getLocationsOf(Entities.descendantsAndSelf(cluster, Predicates.instanceOf(TestEntity.class))));
+        Asserts.assertEqualsIgnoringOrder(locsUsed, ImmutableList.of("loc1", "loc2"));
+    }
+    
+    protected EntitySpec<DynamicCluster> clusterSpec() {
+        return EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.ENABLE_AVAILABILITY_ZONES, true)
+                .configure(DynamicCluster.INITIAL_SIZE, 0)
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class));
+    }
+
+    private void assertZoneHistoriesEmpty(ZoneFailureDetector zoneFailureDetector) {
+        // Poke inside ProportionalZoneFailureDetector, to make sure it is empty.
+        // Live with the reflection for the test; it's in a .zoneaware sub-package,
+        // so can't just make it package-private either.
+        Map<?,?> zoneHistories = (Map<?,?>) Reflections.getFieldValueMaybe((ProportionalZoneFailureDetector)zoneFailureDetector, "zoneHistories").get();
+        assertTrue(zoneHistories.isEmpty(), "zoneHistories="+zoneHistories);
+    }
+
+    private void assertZoneHistoriesNotEmpty(ZoneFailureDetector zoneFailureDetector) {
+        Map<?,?> zoneHistories = (Map<?,?>) Reflections.getFieldValueMaybe((ProportionalZoneFailureDetector)zoneFailureDetector, "zoneHistories").get();
+        assertFalse(zoneHistories.isEmpty(), "zoneHistories="+zoneHistories);
+    }
+
     protected List<String> getLocationNames(Iterable<? extends Location> locs) {
         List<String> result = Lists.newArrayList();
         for (Location subLoc : locs) {
@@ -193,11 +262,19 @@ public class DynamicClusterWithAvailabilityZonesTest extends BrooklynAppUnitTest
     public static class SimulatedAvailabilityZoneExtension extends AbstractAvailabilityZoneExtension implements AvailabilityZoneExtension {
         private final SimulatedLocation loc;
         private final List<String> subLocNames;
+        private final Map<String, ? extends Predicate<? super SimulatedLocation>> subLocFailConditions;
+
+        public SimulatedAvailabilityZoneExtension(ManagementContext managementContext, SimulatedLocation loc, 
+                List<String> subLocNames) {
+            this(managementContext, loc, subLocNames, ImmutableMap.of());
+        }
         
-        public SimulatedAvailabilityZoneExtension(ManagementContext managementContext, SimulatedLocation loc, List<String> subLocNames) {
+        public SimulatedAvailabilityZoneExtension(ManagementContext managementContext, SimulatedLocation loc, 
+                List<String> subLocNames, Map<String, ? extends Predicate<? super SimulatedLocation>> subLocFailCondition) {
             super(managementContext);
             this.loc = checkNotNull(loc, "loc");
             this.subLocNames = subLocNames;
+            this.subLocFailConditions = subLocFailCondition;
         }
 
         @Override
@@ -214,11 +291,12 @@ public class DynamicClusterWithAvailabilityZonesTest extends BrooklynAppUnitTest
             return namePredicate.apply(loc.getDisplayName());
         }
         
-        protected SimulatedLocation newSubLocation(Location parent, String displayName) {
+        protected SimulatedLocation newSubLocation(Location parent, String subLocName) {
             return managementContext.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class)
                     .parent(parent)
                     .configure(((LocationInternal)parent).config().getBag().getAllConfig())
-                    .displayName(displayName));
+                    .configure(SimulatedLocation.FAIL_ON_PROVISION_CONDITION, subLocFailConditions.get(subLocName))
+                    .displayName(subLocName));
         }
     }
 }

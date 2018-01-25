@@ -18,7 +18,10 @@
  */
 package org.apache.brooklyn.core.typereg;
 
+import javax.annotation.Nonnull;
+
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -42,8 +45,12 @@ public class BasicBrooklynTypeRegistryTest extends BrooklynMgmtUnitTestSupport {
         registry().addToLocalUnpersistedTypeRegistry(type, canForce);
     }
     
-    private final static RegisteredType SAMPLE_TYPE = RegisteredTypes.bean("item.A", "1", new BasicTypeImplementationPlan("ignore", null), String.class);
-    private final static RegisteredType SAMPLE_TYPE2 = RegisteredTypes.bean("item.A", "2", new BasicTypeImplementationPlan("ignore", null), String.class);
+    private static RegisteredType beanWithSuper(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan, @Nonnull Class<?> superType) {
+        return RegisteredTypes.addSuperType(RegisteredTypes.bean(symbolicName, version, plan), superType);
+    }
+    
+    private final static RegisteredType SAMPLE_TYPE = beanWithSuper("item.A", "1", new BasicTypeImplementationPlan("ignore", null), String.class);
+    private final static RegisteredType SAMPLE_TYPE2 = beanWithSuper("item.A", "2", new BasicTypeImplementationPlan("ignore", null), String.class);
     
     @Test
     public void testAddAndGet() {
@@ -63,7 +70,7 @@ public class BasicBrooklynTypeRegistryTest extends BrooklynMgmtUnitTestSupport {
     @Test
     public void testCantAddSameIdUnlessSameInstanceOrForced() {
         add(SAMPLE_TYPE);
-        RegisteredType sampleTypeDifferent = RegisteredTypes.bean("item.A", "1", new BasicTypeImplementationPlan("ignore2", null), String.class);
+        RegisteredType sampleTypeDifferent = beanWithSuper("item.A", "1", new BasicTypeImplementationPlan("ignore2", null), String.class);
         add(sampleTypeDifferent, true);
         Assert.assertSame( registry().get(SAMPLE_TYPE.getId()), sampleTypeDifferent );
         Assert.assertNotSame( registry().get(SAMPLE_TYPE.getId()), SAMPLE_TYPE );
@@ -132,7 +139,7 @@ public class BasicBrooklynTypeRegistryTest extends BrooklynMgmtUnitTestSupport {
         add(SAMPLE_TYPE2);
         
         RegisteredType sampleType15WithAliases = RegisteredTypes.addAliases(
-            RegisteredTypes.bean("item.A", "1.1", new BasicTypeImplementationPlan("ignore", null), String.class),
+            beanWithSuper("item.A", "1.1", new BasicTypeImplementationPlan("ignore", null), String.class),
             MutableList.of("my_a", "the_a"));
         add(sampleType15WithAliases);
         Assert.assertEquals(sampleType15WithAliases.getAliases(), MutableSet.of("my_a", "the_a"));
@@ -162,7 +169,7 @@ public class BasicBrooklynTypeRegistryTest extends BrooklynMgmtUnitTestSupport {
         add(SAMPLE_TYPE2);
         
         RegisteredType sampleType15WithTags = RegisteredTypes.addTags(
-            RegisteredTypes.bean("item.A", "1.1", new BasicTypeImplementationPlan("ignore", null), String.class),
+            beanWithSuper("item.A", "1.1", new BasicTypeImplementationPlan("ignore", null), String.class),
             MutableList.of("my_a", "the_a"));
         add(sampleType15WithTags);
         Assert.assertEquals(sampleType15WithTags.getTags(), MutableSet.of("my_a", "the_a"));

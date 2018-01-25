@@ -87,12 +87,6 @@ public class CatalogItemBuilder<CIConcreteType extends CatalogItemDtoAbstract<?,
         return this;
     }
 
-    /** @deprecated since 0.7.0 use {@link #displayName}*/
-    @Deprecated
-    public CatalogItemBuilder<CIConcreteType> name(String name) {
-        return displayName(name);
-    }
-
     public CatalogItemBuilder<CIConcreteType> displayName(String displayName) {
         dto.setDisplayName(displayName);
         return this;

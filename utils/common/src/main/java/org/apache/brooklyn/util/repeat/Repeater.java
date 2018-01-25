@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -42,6 +43,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.Callables;
 import com.google.common.util.concurrent.MoreExecutors;
 
@@ -110,18 +112,6 @@ public class Repeater implements Callable<Boolean> {
     }
     public static Repeater create(String description) {
         return new Repeater(description);
-    }
-
-    /**
-     * Sets the main body of the loop to be a no-op; useful if using {@link #until(Callable)} instead
-     * 
-     * @return {@literal this} to aid coding in a fluent style.
-     * @deprecated since 0.7.0 this is no-op, as the repeater defaults to repeating nothing, simply remove the call,
-     * using just <code>Repeater.until(...)</code>.
-     */
-    @Deprecated
-    public Repeater repeat() {
-        return repeat(Callables.returning(null));
     }
 
     /**
@@ -246,6 +236,10 @@ public class Repeater implements Callable<Boolean> {
         return backoff(Duration.millis(10), 1.2, finalDelay);
     }
 
+    // TODO support waitingOn to allow notify to interrupt the waits;
+    // however TBC whether such a wake increases iteration count and backoff timer;
+    // probably not as there could be any number of spurious wakes to increment that unexpectedly
+    
     /**
      * Set code fragment that tests if the loop has completed.
      *
@@ -265,6 +259,23 @@ public class Repeater implements Callable<Boolean> {
             @Override
             public Boolean call() throws Exception {
                 return exitCondition.apply(target);
+            }
+        });
+    }
+
+    public <T> Repeater until(final Supplier<T> supplier, final Predicate<T> exitCondition) {
+        Preconditions.checkNotNull(supplier, "supplier must not be null");
+        Preconditions.checkNotNull(exitCondition, "exitCondition must not be null");
+        return until(new Callable<Boolean>() {
+            private Maybe<T> lastValue = Maybe.absent();
+            @Override
+            public Boolean call() throws Exception {
+                lastValue = Maybe.ofAllowingNull(supplier.get());
+                return exitCondition.apply(lastValue.get());
+            }
+            @Override
+            public String toString() {
+                return ""+(lastValue.isPresent() ? lastValue.get() : supplier) + " " + exitCondition;
             }
         });
     }
@@ -350,7 +361,7 @@ public class Repeater implements Callable<Boolean> {
         ReferenceWithError<Boolean> result = runKeepingError();
         result.checkNoError();
         if (!result.get()) {
-            throw new IllegalStateException(description+" unsatisfied after "+Duration.of(timer));
+            throw new IllegalStateException(description+" unsatisfied after "+Duration.of(timer)+": "+exitCondition);
         }
     }
 
@@ -389,7 +400,7 @@ public class Repeater implements Callable<Boolean> {
                     hasLoggedTransientException = false;
                 } catch (Throwable e) {
                     if (hasLoggedTransientException) {
-                        log.debug("{}: repeated failure; excluding stacktrace: {}", description, e);
+                        log.debug("{}: repeated failure; excluding stacktrace: {}", description, e.toString());
                     } else {
                         log.debug(description, e);
                         hasLoggedTransientException = true;

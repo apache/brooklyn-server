@@ -20,11 +20,8 @@ package org.apache.brooklyn.core.mgmt.rebind;
 
 import static org.testng.Assert.assertEquals;
 
-import java.util.concurrent.Callable;
-
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.util.core.task.BasicTask;
@@ -48,15 +45,7 @@ public class RebindManagerTest extends RebindTestFixtureWithApp {
         @Override
         public void rebind() {
             super.rebind();
-            Task<String> task = new BasicTask<String>(new Callable<String>() {
-                @Override public String call() {
-                    return "abc";
-                }});
-            String val = DynamicTasks.queueIfPossible(task)
-                    .orSubmitAsync()
-                    .asTask()
-                    .getUnchecked();
-            sensors().set(TestEntity.NAME, val);
+            sensors().set(TestEntity.NAME, DynamicTasks.get(new BasicTask<String>(() -> "abc")));
         }
     }
 }

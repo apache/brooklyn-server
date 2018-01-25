@@ -33,20 +33,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.time.Time;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
@@ -63,14 +62,12 @@ public class LocalEntitiesTest extends BrooklynAppUnitTestSupport {
     public static final Logger log = LoggerFactory.getLogger(LocalEntitiesTest.class);
     
     private SimulatedLocation loc;
-    private EntityManager entityManager;
             
     @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
         loc = new SimulatedLocation();
-        entityManager = mgmt.getEntityManager();
     }
 
     @Test
@@ -165,9 +162,10 @@ public class LocalEntitiesTest extends BrooklynAppUnitTestSupport {
         h.setAge(6);
         long totalTime = stopwatch.elapsed(TimeUnit.MILLISECONDS);
         
-        // TODO guava util for (1..5)
-        Asserts.continually(MutableMap.of("timeout", 50), Suppliers.ofInstance(data), Predicates.<Object>equalTo(ImmutableList.of(1,2,3,4,5)));
-        assertTrue(totalTime < 2000, "totalTime="+totalTime);  //shouldn't have blocked for anywhere close to 2s (Aled says TODO: too time sensitive for BuildHive?)
+        Asserts.continually(
+            Suppliers.ofInstance(data), Predicates.<Object>equalTo(ImmutableList.of(1,2,3,4,5)),
+            Duration.millis(50), null, null);
+        assertTrue(totalTime < 2000, "totalTime="+totalTime);  //shouldn't have blocked for anywhere close to 2s (unless build machine v v slow eg BuildHive)
     }
 
     @Test
@@ -224,8 +222,8 @@ public class LocalEntitiesTest extends BrooklynAppUnitTestSupport {
         assertTrue(System.currentTimeMillis() - startTime < 1500);
         synchronized (sonsConfig) {
             assertEquals(null, sonsConfig[0]);
-            for (Task tt : ((EntityInternal)dad).getExecutionContext().getTasks()) { log.info("task at dad:  {}, {}", tt, tt.getStatusDetail(false)); }
-            for (Task tt : ((EntityInternal)son).getExecutionContext().getTasks()) { log.info("task at son:  {}, {}", tt, tt.getStatusDetail(false)); }
+            for (Task<?> tt : ((EntityInternal)dad).getExecutionContext().getTasks()) { log.info("task at dad:  {}, {}", tt, tt.getStatusDetail(false)); }
+            for (Task<?> tt : ((EntityInternal)son).getExecutionContext().getTasks()) { log.info("task at son:  {}, {}", tt, tt.getStatusDetail(false)); }
             dad.sensors().set(HelloEntity.FAVOURITE_NAME, "Dan");
             if (!s1.tryAcquire(2, TimeUnit.SECONDS)) fail("race mismatch, missing permits");
         }

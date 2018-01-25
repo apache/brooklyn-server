@@ -130,13 +130,8 @@ public class HaMasterCheckFilterTest extends BrooklynRestApiLauncherTestFixture 
                 .persistPeriodMillis(1)
                 .forLive(false)
                 .emptyCatalog(true)
-                .buildUnstarted();
-
-        if (mode == HighAvailabilityMode.DISABLED) {
-            mgmt.getHighAvailabilityManager().disabled();
-        } else {
-            mgmt.getHighAvailabilityManager().start(mode);
-        }
+                .haMode(mode)
+                .buildStarted();
 
         new BrooklynCampPlatformLauncherNoServer()
             .useManagementContext(mgmt)

@@ -20,7 +20,6 @@ package org.apache.brooklyn.api.catalog;
 
 import java.util.Collection;
 import java.util.Locale;
-
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Application;
@@ -76,9 +75,6 @@ public interface CatalogItem<T,SpecT> extends BrooklynObject, Rebindable {
     }
     
     public static interface CatalogBundle extends OsgiBundleWithUrl {
-        /** @deprecated since 0.9.0, use {@link #isNameResolved()} */
-        @Deprecated
-        public boolean isNamed();
     }
 
     /**
@@ -114,14 +110,6 @@ public interface CatalogItem<T,SpecT> extends BrooklynObject, Rebindable {
      */
     @Deprecated
     @Nullable public String getJavaType();
-
-    /** @deprecated since 0.7.0. Use {@link #getDisplayName} */
-    @Deprecated
-    public String getName();
-
-    /** @deprecated since 0.7.0. Use {@link #getSymbolicName} */
-    @Deprecated
-    public String getRegisteredTypeName();
 
     @Nullable public String getDescription();
 

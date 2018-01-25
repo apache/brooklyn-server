@@ -63,26 +63,6 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
     void clearLocations();
 
     /**
-     * @deprecated since 0.8.0; use {@link SensorSupportInternal#setWithoutPublishing(AttributeSensor, Object)} via code like {@code sensors().setWithoutPublishing(attribute, val)}.
-     */
-    @Deprecated
-    <T> T setAttributeWithoutPublishing(AttributeSensor<T> sensor, T val);
-
-    /**
-     * @deprecated since 0.8.0; use {@link SensorSupportInternal#getAll()} via code like {@code sensors().getAll()}.
-     */
-    @Deprecated
-    @Beta
-    Map<AttributeSensor, Object> getAllAttributes();
-
-    /**
-     * @deprecated since 0.8.0; use {@link SensorSupportInternal#remove(AttributeSensor)} via code like {@code sensors().remove(attribute)}.
-     */
-    @Deprecated
-    @Beta
-    void removeAttribute(AttributeSensor<?> attribute);
-
-    /**
      * Must be called before the entity is started.
      * 
      * @return this entity (i.e. itself)
@@ -127,13 +107,6 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
     
     FeedSupport feeds();
     
-    /**
-     * @since 0.7.0-M2
-     * @deprecated since 0.7.0-M2; use {@link #feeds()}
-     */
-    @Deprecated
-    FeedSupport getFeedSupport();
-
     Map<String, String> toMetadataRecord();
     
     /**
@@ -178,7 +151,8 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
     public interface SensorSupportInternal extends Entity.SensorSupport {
         /**
          * 
-         * Like {@link EntityLocal#setAttribute(AttributeSensor, Object)}, except does not publish an attribute-change event.
+         * Like {@link #set(AttributeSensor, Object)}, except does not publish an attribute-change event.
+         * Used for rebinding.
          */
         <T> T setWithoutPublishing(AttributeSensor<T> sensor, T val);
         
@@ -189,28 +163,26 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
         void remove(AttributeSensor<?> attribute);
     }
 
-    public interface FeedSupport {
+    // TODO extend AdjunctSupport<Feed>, after 1.0.0
+    public interface FeedSupport extends Iterable<Feed> {
 
         Collection<Feed> getFeeds();
 
         /**
          * Adds the given feed to this entity. The feed will automatically be re-added on brooklyn restart.
+         * 
+         * @deprecated since 1.0.0 will change to return type 'void', for consistency with other {@link AdjunctSupport}
          */
-        <T extends Feed> T add(T feed);
-
-        /** @deprecated since 0.10.0; use {@link #add()} */
         @Deprecated
-        <T extends Feed> T addFeed(T feed);
+//        @Override
+        <T extends Feed> T add(T feed);
 
         /**
          * Removes the given feed from this entity. 
          * @return True if the feed existed at this entity; false otherwise
          */
+//        @Override
         boolean remove(Feed feed);
-
-        /** @deprecated since 0.10.0; use {@link #remove()} */
-        @Deprecated
-        boolean removeFeed(Feed feed);
 
         /**
          * Removes all feeds from this entity.

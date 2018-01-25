@@ -333,7 +333,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
             addCatalogOSGiEntity(id, SIMPLE_ENTITY_TYPE, true);
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
-            Asserts.expectedFailureContainsIgnoreCase(e, id, "already installed", "cannot install a different bundle at a same non-snapshot version");
+            Asserts.expectedFailureContainsIgnoreCase(e, id, "already installed", "cannot install a different bundle with the same non-snapshot version");
         }
     }
 

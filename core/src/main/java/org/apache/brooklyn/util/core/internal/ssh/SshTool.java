@@ -103,15 +103,6 @@ public interface SshTool extends ShellTool {
      */
     public void connect();
 
-    /**
-     * @deprecated since 0.7.0; (since much earlier) this ignores the argument in favour of {@link #PROP_SSH_TRIES}
-     * 
-     * @param maxAttempts
-     * @throws SshException
-     */
-    @Deprecated
-    public void connect(int maxAttempts);
-
     public void disconnect();
 
     public boolean isConnected();

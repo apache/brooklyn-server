@@ -42,6 +42,7 @@ import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.QuorumCheck;
+import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -94,6 +95,15 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
         private RebindManager.RebindFailureMode deserializePolicyFailureMode = RebindManager.RebindFailureMode.CONTINUE;
         private QuorumCheck danglingRefsQuorumRequiredHealthy = RebindManagerImpl.DANGLING_REFERENCES_MIN_REQUIRED_HEALTHY.getDefaultValue();
 
+        public Builder strict() {
+            danglingRefFailureMode = RebindManager.RebindFailureMode.FAIL_AT_END;
+            rebindFailureMode = RebindManager.RebindFailureMode.FAIL_AT_END;
+            addConfigFailureMode = RebindManager.RebindFailureMode.FAIL_AT_END;
+            addPolicyFailureMode = RebindManager.RebindFailureMode.FAIL_AT_END;
+            deserializePolicyFailureMode = RebindManager.RebindFailureMode.FAIL_AT_END;
+            danglingRefsQuorumRequiredHealthy = QuorumChecks.all();
+            return this;
+        }
         public Builder danglingRefFailureMode(RebindManager.RebindFailureMode val) {
             danglingRefFailureMode = val;
             return this;
@@ -242,7 +252,7 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
         if (danglingRefFailureMode == RebindManager.RebindFailureMode.FAIL_FAST) {
             throw new IllegalStateException("No catalog item found with id "+id);
         } else {
-            warn("No catalog item found with id "+id+"; dangling reference on rebind");
+            warn("No catalog item found with id "+id+"; dangling reference on rebind (subsequent log messages will indicate context)");
             return null;
         }
     }
@@ -453,7 +463,7 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
                     warn("Dangling item"+Strings.s(totalDangling)+" ("+totalDangling+" of "+totalItems+") found on rebind exceeds quorum, assuming failed: "+danglingIds);
                     allExceptions.add(new IllegalStateException("Too many dangling references: "+totalDangling+" of "+totalItems));
                 } else {
-                    LOG.info("Dangling item"+Strings.s(totalDangling)+" ("+totalDangling+" of "+totalItems+") found on rebind, assuming deleted: "+danglingIds);
+                    LOG.info("Dangling item"+Strings.s(totalDangling)+" ("+totalDangling+" of "+totalItems+") found on rebind, within quorum, assuming deleted: "+danglingIds);
                 }
             }
         }

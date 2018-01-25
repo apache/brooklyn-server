@@ -91,11 +91,6 @@ public abstract class AbstractBrooklynRestResource {
         return mapper;
     }
 
-    /** @deprecated since 0.7.0 use {@link #getValueForDisplay(Object, boolean, boolean, Boolean, EntityLocal, Duration)} */ @Deprecated
-    protected Object getValueForDisplay(Object value, boolean preferJson, boolean isJerseyReturnValue) {
-        return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(isJerseyReturnValue).resolve();
-    }
-
     protected RestValueResolver resolving(Object v) {
         return resolving(v, mgmt());
     }

@@ -21,7 +21,6 @@ package org.apache.brooklyn.rest.util;
 import java.io.IOException;
 import java.util.Map;
 
-import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
@@ -183,12 +182,6 @@ public class WebResourceUtils {
         } else {
             return Urls.encode(versionedId);
         }
-    }
-
-    /** @deprecated since 0.9.0, use {@link #applyJsonResponse(ManagementContext, Response, HttpServletResponse)} */
-    @Deprecated
-    public static void applyJsonResponse(ServletContext servletContext, Response source, HttpServletResponse target) throws IOException {
-        applyJsonResponse(OsgiCompat.getManagementContext(servletContext), source, target);
     }
 
     /** Sets the {@link HttpServletResponse} target (last argument) from the given source {@link Response};

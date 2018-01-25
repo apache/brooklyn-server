@@ -20,20 +20,16 @@ package org.apache.brooklyn.core.mgmt;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Callable;
 
 import javax.annotation.Nullable;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.Effectors;
@@ -57,7 +53,6 @@ import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Runnables;
@@ -91,8 +86,11 @@ public class EntityManagementUtils {
      */
     @Beta
     public static <T extends Application> T createUnstarted(ManagementContext mgmt, EntitySpec<T> spec, Optional<String> entityId) {
-        T app = ((EntityManagerInternal)mgmt.getEntityManager()).createEntity(spec, entityId);
-        return app;
+        return mgmt.getServerExecutionContext().get(Tasks.<T>builder().dynamic(false)
+            .displayName("Creating entity "+
+                (Strings.isNonBlank(spec.getDisplayName()) ? spec.getDisplayName() : spec.getType().getName()) )
+            .body(() -> ((EntityManagerInternal)mgmt.getEntityManager()).createEntity(spec, entityId))
+            .build() );
     }
 
     /** as {@link #createUnstarted(ManagementContext, EntitySpec)} but for a string plan (e.g. camp yaml) */
@@ -104,18 +102,6 @@ public class EntityManagementUtils {
     @SuppressWarnings("unchecked")
     public static EntitySpec<? extends Application> createEntitySpecForApplication(ManagementContext mgmt, final String plan) {
         return mgmt.getTypeRegistry().createSpecFromPlan(null, plan, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
-    }
-
-    @Deprecated /** @deprecated since 0.9.0; use {@link BrooklynTypeRegistry#createSpec(RegisteredType, org.apache.brooklyn.api.typereg.RegisteredTypeConstraint, Class)} */
-    // not used in Brooklyn
-    public static <T,SpecT extends AbstractBrooklynObjectSpec<? extends T, SpecT>> SpecT createCatalogSpec(ManagementContext mgmt, CatalogItem<T, SpecT> item) {
-        return createCatalogSpec(mgmt, item, ImmutableSet.<String>of());
-    }
-
-    @Deprecated /** @deprecated since 0.9.0; use {@link BrooklynTypeRegistry#createSpec(RegisteredType, org.apache.brooklyn.api.typereg.RegisteredTypeConstraint, Class)} */
-    // not used in Brooklyn
-    public static <T,SpecT extends AbstractBrooklynObjectSpec<? extends T, SpecT>> SpecT createCatalogSpec(ManagementContext mgmt, final CatalogItem<T, SpecT> item, final Set<String> encounteredTypes) {
-        return BasicBrooklynCatalog.internalCreateSpecLegacy(mgmt, item, encounteredTypes, true);
     }
 
     /** container for operation which creates something and which wants to return both
@@ -304,10 +290,6 @@ public class EntityManagementUtils {
         EntitySpec<?> childSpec = Iterables.getOnlyElement(wrapperApplication.getChildren());
         return (childSpec.getType()!=null && Application.class.isAssignableFrom(childSpec.getType()));
     }
-    /** @deprecated since 0.9.0 use {@link #canUnwrapApplication(EntitySpec)} */ @Deprecated
-    public static boolean canPromoteWrappedApplication(EntitySpec<? extends Application> app) {
-        return canUnwrapApplication(app);
-    }
     
     /** Returns true if the spec is for a wrapper app with no important settings, wrapping a single child entity. 
      * for use when adding from a plan specifying multiple entities but there is nothing significant at the application level,
@@ -322,20 +304,14 @@ public class EntityManagementUtils {
         return isWrapperApp(spec) && hasSingleChild(spec) &&
             // these "brooklyn.*" items on the app rather than the child absolutely prevent unwrapping
             // as their semantics could well be different whether they are on the parent or the child
-            spec.getEnrichers().isEmpty() &&
             spec.getEnricherSpecs().isEmpty() &&
             spec.getInitializers().isEmpty() &&
-            spec.getPolicies().isEmpty() &&
             spec.getPolicySpecs().isEmpty() &&
             // prevent merge only if a location is defined at both levels
             ((spec.getLocations().isEmpty() && spec.getLocationSpecs().isEmpty()) || 
                 (Iterables.getOnlyElement(spec.getChildren()).getLocations().isEmpty()) && Iterables.getOnlyElement(spec.getChildren()).getLocationSpecs().isEmpty())
             // parameters are collapsed on merge so don't need to be considered here
             ;
-    }
-    /** @deprecated since 0.9.0 use {@link #canUnwrapEntity(EntitySpec)} */ @Deprecated
-    public static boolean canPromoteChildrenInWrappedApplication(EntitySpec<? extends Application> spec) {
-        return canUnwrapEntity(spec);
     }
 
     public static boolean isWrapperApp(EntitySpec<?> spec) {

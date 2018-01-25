@@ -38,7 +38,6 @@ import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
-import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;
@@ -64,6 +63,10 @@ public interface BrooklynMementoPersister {
         BrooklynObject lookup(@Nullable BrooklynObjectType type, String objectId);
         /** like {@link #lookup(BrooklynObjectType, String)} but doesn't record an exception if not found */
         BrooklynObject peek(@Nullable BrooklynObjectType type, String objectId);
+        
+        String getContextDescription();
+        String popContextDescription();
+        void pushContextDescription(String description);
     }
     
     /**

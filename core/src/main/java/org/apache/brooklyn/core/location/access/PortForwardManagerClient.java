@@ -20,7 +20,6 @@ package org.apache.brooklyn.core.location.access;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -163,93 +162,7 @@ public class PortForwardManagerClient implements PortForwardManager {
         return getClass().getName()+"[wrapping="+getDelegate().toVerboseString()+"]";
     }
 
-    ///////////////////////////////////////////////////////////////////////////////////
-    // Deprecated
-    ///////////////////////////////////////////////////////////////////////////////////
-
-    /**
-     * Reserves a unique public port for the purpose of forwarding to the given target,
-     * associated with a given location for subsequent lookup purpose.
-     * <p>
-     * If already allocated, returns the previously allocated.
-     * 
-     * @deprecated since 0.7.0; use {@link #acquirePublicPort(String)}, and then use {@link #associate(String, HostAndPort, int)} or {@link #associate(String, HostAndPort, Location, int)}
-     */
-    @Override
-    @Deprecated
-    public int acquirePublicPort(String publicIpId, Location l, int privatePort) {
-        return getDelegate().acquirePublicPort(publicIpId, l, privatePort);
-    }
-
-    /** 
-     * Returns old mapping if it existed, null if it is new.
-     * 
-     * @deprecated since 0.7.0; use {@link #associate(String, HostAndPort, int)} or {@link #associate(String, HostAndPort, Location, int)}
-     */
-    @Override
-    @Deprecated
-    public PortMapping acquirePublicPortExplicit(String publicIpId, int publicPort) {
-        return getDelegate().acquirePublicPortExplicit(publicIpId, publicPort);
-    }
-
-    /**
-     * Records a location and private port against a publicIp and public port,
-     * to support {@link #lookup(Location, int)}.
-     * <p>
-     * Superfluous if {@link #acquirePublicPort(String, Location, int)} was used,
-     * but strongly recommended if {@link #acquirePublicPortExplicit(String, int)} was used
-     * e.g. if the location is not known ahead of time.
-     * 
-     * @deprecated Use {@link #associate(String, HostAndPort, Location, int)}
-     */
-    @Override
-    @Deprecated
-    public void associate(String publicIpId, int publicPort, Location l, int privatePort) {
-        getDelegate().associate(publicIpId, publicPort, l, privatePort);
-    }
-
-    /**
-     * Records a public hostname or address to be associated with the given publicIpId for lookup purposes.
-     * <p>
-     * Conceivably this may have to be access-location specific.
-     * 
-     * @deprecated Use {@link #associate(String, HostAndPort, int)} or {@link #associate(String, HostAndPort, Location, int)}
-     */
-    @Override
-    @Deprecated
-    public void recordPublicIpHostname(String publicIpId, String hostnameOrPublicIpAddress) {
-        getDelegate().recordPublicIpHostname(publicIpId, hostnameOrPublicIpAddress);
-    }
-
-    /**
-     * Returns a recorded public hostname or address.
-     * 
-     * @deprecated Use {@link #lookup(String, int)} or {@link #lookup(Location, int)}
-     */
-    @Override
-    @Deprecated
-    public String getPublicIpHostname(String publicIpId) {
-        return getDelegate().getPublicIpHostname(publicIpId);
-    }
     
-    /**
-     * Clears a previous call to {@link #recordPublicIpHostname(String, String)}.
-     * 
-     * @deprecated Use {@link #forgetPortMapping(String, int)} or {@link #forgetPortMapping(Location, int)}
-     */
-    @Override
-    @Deprecated
-    public boolean forgetPublicIpHostname(String publicIpId) {
-        return getDelegate().forgetPublicIpHostname(publicIpId);
-    }
-
-    @Override
-    @Deprecated
-    public boolean isClient() {
-        return true;
-    }
-
-
     ///////////////////////////////////////////////////////////////////////////////////
     // Deprecated; just internal
     ///////////////////////////////////////////////////////////////////////////////////
@@ -353,23 +266,13 @@ public class PortForwardManagerClient implements PortForwardManager {
     }
 
     @Override
-    public <T> T getConfig(ConfigKey<T> key) {
-        return getDelegate().getConfig(key);
-    }
-
-    @Override
     public <T> T getConfig(HasConfigKey<T> key) {
         return getDelegate().getConfig(key);
     }
 
     @Override
-    public boolean hasConfig(ConfigKey<?> key, boolean includeInherited) {
-        return getDelegate().hasConfig(key, includeInherited);
-    }
-
-    @Override
-    public Map<String, Object> getAllConfig(boolean includeInherited) {
-        return getDelegate().getAllConfig(includeInherited);
+    public <T> T getConfig(ConfigKey<T> key) {
+        return getDelegate().getConfig(key);
     }
 
     @Override
@@ -402,11 +305,6 @@ public class PortForwardManagerClient implements PortForwardManager {
         return getDelegate().relations();
     }
     
-    @Override
-    public <T> T setConfig(ConfigKey<T> key, T val) {
-        return getDelegate().config().set(key, val);
-    }
-
     @Override
     public ConfigurationSupport config() {
         return getDelegate().config();

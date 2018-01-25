@@ -22,7 +22,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -38,6 +37,8 @@ import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.http.auth.Credentials;
+import org.apache.brooklyn.util.http.auth.UsernamePassword;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -93,11 +94,6 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
     }
     
     @Override
-    public <U> U setConfig(ConfigKey<U> key, U val) {
-        return config().set(key, val);
-    }
-    
-    @Override
     public String getId() {
         return getCatalogItemId();
     }
@@ -113,18 +109,6 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
         return type;
     }
 
-    @Override
-    @Deprecated
-    public String getName() {
-        return getDisplayName();
-    }
-
-    @Override
-    @Deprecated
-    public String getRegisteredTypeName() {
-        return getSymbolicName();
-    }
-    
     @Override
     public String getContainingBundle() {
         return containingBundle;
@@ -407,7 +391,12 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
                 String name = stringValOrNull(entry, "name");
                 String version = stringValOrNull(entry, "version");
                 String url = stringValOrNull(entry, "url");
-                dto.add(new CatalogBundleDto(name, version, url));
+                Credentials cred = null;
+                if (entry.containsKey("auth") && entry.get("auth") instanceof Map) {
+                    Map<?, ?> auth = (Map<?, ?>) entry.get("auth");
+                    cred = new UsernamePassword(stringValOrNull(auth, "username"), stringValOrNull(auth, "password"));
+                }
+                dto.add(new CatalogBundleDto(name, version, url, cred));
             } else if (object instanceof String) {
                 String inlineRef = (String) object;
 
@@ -447,9 +436,14 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
 
                 dto.add(new CatalogBundleDto(name, version, url));
             } else if (object instanceof OsgiBundleWithUrl) {
-                dto.add(new CatalogBundleDto( ((OsgiBundleWithUrl)object).getSymbolicName(), ((OsgiBundleWithUrl)object).getSuppliedVersionString(), ((OsgiBundleWithUrl)object).getUrl() ));
+                final OsgiBundleWithUrl bwu = (OsgiBundleWithUrl) object;
+                dto.add(new CatalogBundleDto(
+                        bwu.getSymbolicName(),
+                        bwu.getSuppliedVersionString(),
+                        bwu.getUrl(),
+                        bwu.getUrlCredential()));
             } else if (object instanceof VersionedName) {
-                dto.add(new CatalogBundleDto( ((VersionedName)object).getSymbolicName(), ((VersionedName)object).getVersionString(), null ));
+                dto.add(new CatalogBundleDto(((VersionedName) object).getSymbolicName(), ((VersionedName) object).getVersionString(), null));
             } else {
                 LOG.debug("Unexpected entry in libraries list neither string nor map: " + object);
             }

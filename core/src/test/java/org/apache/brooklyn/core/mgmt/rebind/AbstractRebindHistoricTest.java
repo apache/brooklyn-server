@@ -18,7 +18,9 @@
  */
 package org.apache.brooklyn.core.mgmt.rebind;
 
-import com.google.common.io.Files;
+import java.io.File;
+import java.io.FileInputStream;
+
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
@@ -26,7 +28,7 @@ import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.stream.Streams;
 
-import java.io.File;
+import com.google.common.io.Files;
 
 public abstract class AbstractRebindHistoricTest extends RebindTestFixtureWithApp {
 
@@ -48,6 +50,11 @@ public abstract class AbstractRebindHistoricTest extends RebindTestFixtureWithAp
 
         File persistedFile = getPersistanceFile(type, id);
         Files.write(memento.getBytes(), persistedFile);
+    }
+
+    protected String readMemento(BrooklynObjectType type, String id) throws Exception {
+        File persistedFile = getPersistanceFile(type, id);
+        return Streams.readFullyStringAndClose(new FileInputStream(persistedFile));
     }
 
     protected File getPersistanceFile(BrooklynObjectType type, String id) {

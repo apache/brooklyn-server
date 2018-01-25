@@ -72,11 +72,6 @@ public class TemplateProcessor {
         return new DefaultObjectWrapperBuilder(Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS).build().wrap(o);
     }
     
-    /** @deprecated since 0.7.0 use {@link #processTemplateFile(String, Map)} */ @Deprecated
-    public static String processTemplate(String templateFileName, Map<String, ? extends Object> substitutions) {
-        return processTemplateFile(templateFileName, substitutions);
-    }
-    
     /** As per {@link #processTemplateContents(String, Map)}, but taking a file. */
     public static String processTemplateFile(String templateFileName, Map<String, ? extends Object> substitutions) {
         String templateContents;
@@ -89,11 +84,6 @@ public class TemplateProcessor {
         return processTemplateContents(templateContents, substitutions);
     }
 
-    /** @deprecated since 0.7.0 use {@link #processTemplateFile(String, EntityDriver, Map)} */ @Deprecated
-    public static String processTemplate(String templateFileName, EntityDriver driver, Map<String, ? extends Object> extraSubstitutions) {
-        return processTemplateFile(templateFileName, driver, extraSubstitutions);
-    }
-    
     /** Processes template contents according to {@link EntityAndMapTemplateModel}. */
     public static String processTemplateFile(String templateFileName, EntityDriver driver, Map<String, ? extends Object> extraSubstitutions) {
         String templateContents;

@@ -82,10 +82,6 @@ public class MutableList<V> extends ArrayList<V> {
         }
     }
     
-    /** @deprecated since 0.7.0, use {@link #asImmutableCopy()}, or {@link #asUnmodifiable()} / {@link #asUnmodifiableCopy()} */ @Deprecated
-    public ImmutableList<V> toImmutable() {
-        return ImmutableList.copyOf(this);
-    }
     /** creates an {@link ImmutableList} which is a copy of this list.  note that the list should not contain nulls.  */
     public List<V> asImmutableCopy() {
         try {

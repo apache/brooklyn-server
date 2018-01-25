@@ -25,6 +25,7 @@ import java.util.concurrent.Future;
 
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;
@@ -44,7 +45,7 @@ import com.google.common.util.concurrent.ListenableFuture;
  * @author aled
  */
 @Beta
-public interface TaskInternal<T> extends Task<T> {
+public interface TaskInternal<T> extends Task<T>, TaskInternalCancellableWithMode {
     
     /** sets the internal future object used to record the association to a job submitted to an {@link ExecutorService} */
     void initInternalFuture(ListenableFuture<T> result);
@@ -96,8 +97,10 @@ public interface TaskInternal<T> extends Task<T> {
     
     Object getExtraStatusText();
 
-    /** On task completion (or cancellation) runs the listeners which have been registered using 
-     * {@link #addListener(Runnable, java.util.concurrent.Executor)}. */
+    /** On task completion runs the listeners which have been registered using 
+     * {@link #addListener(Runnable, java.util.concurrent.Executor)}.
+     * <p>
+     * Doeas not run immediately on cancellation, it waits for the task to recognize it is cancelled. */
     void runListeners();
 
     void setEndTimeUtc(long val);
@@ -113,6 +116,8 @@ public interface TaskInternal<T> extends Task<T> {
     void setSubmitTimeUtc(long currentTimeMillis);
 
     void setSubmittedByTask(Task<?> task);
+    /** Variant of {@link #setSubmittedByTask(Task)} which allows better support for GC'd tasks. */
+    void setSubmittedByTask(Maybe<Task<?>> task, String taskId);
     
     Set<Object> getMutableTags();
 
@@ -124,12 +129,9 @@ public interface TaskInternal<T> extends Task<T> {
      * this returns the "real" task represented by this one */
     Task<?> getProxyTarget();
 
-    /** clearer semantics around cancellation; may be promoted to {@link Task} if we  */
-    @Beta
-    public boolean cancel(TaskCancellationMode mode);
-    
     @Beta
     public static class TaskCancellationMode {
+        
         public static final TaskCancellationMode DO_NOT_INTERRUPT = new TaskCancellationMode(false, false, false);
         public static final TaskCancellationMode INTERRUPT_TASK_BUT_NOT_SUBMITTED_TASKS = new TaskCancellationMode(true, false, false);
         public static final TaskCancellationMode INTERRUPT_TASK_AND_DEPENDENT_SUBMITTED_TASKS = new TaskCancellationMode(true, true, false);

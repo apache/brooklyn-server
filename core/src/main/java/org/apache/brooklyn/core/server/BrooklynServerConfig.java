@@ -20,19 +20,23 @@ package org.apache.brooklyn.core.server;
 
 import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
 
-import java.io.File;
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
-import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.mgmt.usage.ManagementNodeStateListener;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.reflect.TypeToken;
 
 /** Config keys for the brooklyn server */
 public class BrooklynServerConfig {
@@ -97,15 +101,21 @@ public class BrooklynServerConfig {
             + "if null or not set, the legacy beahviour of creating backups where possible (e.g. file system) is currently used; "
             + "this key is DEPRECATED in favor of promotion and demotion specific flags now defaulting to true");
 
+    @SuppressWarnings("serial")
+    public static final ConfigKey<List<ManagementNodeStateListener>> MANAGEMENT_NODE_STATE_LISTENERS = ConfigKeys.newConfigKey(
+            new TypeToken<List<ManagementNodeStateListener>>() {},
+            "brooklyn.managementNodeState.listeners",
+            "Optional list of ManagementNodeStateListener instances",
+            ImmutableList.<ManagementNodeStateListener>of());
+
+    public static final ConfigKey<Duration> MANAGEMENT_NODE_STATE_LISTENER_TERMINATION_TIMEOUT = ConfigKeys.newConfigKey(
+            Duration.class,
+            "brooklyn.managementNodeState.listeners.timeout",
+            "Timeout on termination, to wait for queue of management-node-state listener events to be processed",
+            Duration.TEN_SECONDS);
+
     public static final ConfigKey<String> BROOKLYN_CATALOG_URL = ConfigKeys.newStringConfigKey("brooklyn.catalog.url",
         "The URL of a custom catalog.bom to load");
-
-    /** @deprecated since 0.7.0 replaced by {@link CatalogInitialization}; also note, default removed 
-     * (it was overridden anyway, and in almost all cases the new behaviour is still the default behaviour) */
-    @Deprecated
-    public static final ConfigKey<org.apache.brooklyn.core.catalog.CatalogLoadMode> CATALOG_LOAD_MODE = ConfigKeys.newConfigKey(org.apache.brooklyn.core.catalog.CatalogLoadMode.class,
-            "brooklyn.catalog.mode",
-            "The mode the management context should use to load the catalog when first starting");
 
     /** string used in places where the management node ID is needed to resolve a path */
     public static final String MANAGEMENT_NODE_ID_PROPERTY = "brooklyn.mgmt.node.id";
@@ -121,6 +131,19 @@ public class BrooklynServerConfig {
     public static final ConfigKey<Boolean> OSGI_CACHE_CLEAN = ConfigKeys.newBooleanConfigKey("brooklyn.osgi.cache.clean",
         "Whether to delete the OSGi directory before and after use; if unset, it will delete if the node ID forms part of the cache dir path (which by default it does) to avoid file leaks");
 
+    public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX = ConfigKeys.newStringConfigKey(
+            "brooklyn.persistence.bundle.whitelist",
+            "Regex for bundle symbolic names explicitly allowed to be persisted (taking precedence over blacklist); "
+                    + "managed bundles will by default be peristed if not blacklisted; "
+                    + "they do not need to be explicitly whitelisted.",
+            null);
+    
+    public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX = ConfigKeys.newStringConfigKey(
+            "brooklyn.persistence.bundle.blacklist",
+            "Regex for bundle symbolic names explicitly excluded from persistence (but whitelist takes precedence); "
+                    + "if not explicitly blacklisted, managed bundles will by default be peristed",
+            "org\\.apache\\.brooklyn\\..*");
+
     /** @see BrooklynServerPaths#getMgmtBaseDir(ManagementContext) */
     public static String getMgmtBaseDir(ManagementContext mgmt) {
         return BrooklynServerPaths.getMgmtBaseDir(mgmt);
@@ -134,43 +157,6 @@ public class BrooklynServerConfig {
         return BrooklynServerPaths.getMgmtBaseDir(brooklynProperties);
     }
     
-    /** @deprecated since 0.7.0 use {@link BrooklynServerPaths#newMainPersistencePathResolver(ManagementContext)} */
-    @Deprecated
-    public static String getPersistenceDir(ManagementContext mgmt) {
-        return getPersistenceDir(mgmt.getConfig());
-    }
-    /** @deprecated since 0.7.0 use {@link BrooklynServerPaths#newMainPersistencePathResolver(ManagementContext)} */ 
-    @Deprecated
-    public static String getPersistenceDir(StringConfigMap brooklynProperties) {
-        return resolvePersistencePath(null, brooklynProperties, null);
-    }
-    
-    /**
-     * @param optionalSuppliedValue
-     *     An optional value which has been supplied explicitly
-     * @param brooklynProperties
-     *     The properties map where the persistence path should be looked up if not supplied,
-     *     along with finding the brooklyn.base.dir if needed (using file system persistence
-     *     with a relative path)
-     * @param optionalObjectStoreLocationSpec
-     *     If a location spec is supplied, this will return a container name suitable for use
-     *     with the given object store based on brooklyn.persistence.dir; if null this method
-     *     will return a full file system path, relative to the brooklyn.base.dir if the
-     *     configured brooklyn.persistence.dir is not absolute
-     * @return The container name or full path for where persist state should be kept
-     * @deprecated since 0.7.0 use {@link BrooklynServerPaths#newMainPersistencePathResolver(ManagementContext)} */
-    @Deprecated
-    public static String resolvePersistencePath(String optionalSuppliedValue, StringConfigMap brooklynProperties, String optionalObjectStoreLocationSpec) {
-        return BrooklynServerPaths.newMainPersistencePathResolver(brooklynProperties).location(optionalObjectStoreLocationSpec).dir(optionalSuppliedValue).resolve();
-    }
-    
-    
-    /** @deprecated since 0.7.0 use {@link BrooklynServerPaths#getBrooklynWebTmpDir(ManagementContext)} */
-    @Deprecated
-    public static File getBrooklynWebTmpDir(ManagementContext mgmt) {
-        return BrooklynServerPaths.getBrooklynWebTmpDir(mgmt);
-    }
-
     /**
      * @return {@link ManagementContext#getManagementNodeUri()}, located in this utility class for convenience.
      */

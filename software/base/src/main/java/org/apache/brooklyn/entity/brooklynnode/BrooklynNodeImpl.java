@@ -50,32 +50,32 @@ import org.apache.brooklyn.entity.brooklynnode.EntityHttpClient.ResponseCodePred
 import org.apache.brooklyn.entity.brooklynnode.effector.BrooklynNodeUpgradeEffectorBody;
 import org.apache.brooklyn.entity.brooklynnode.effector.SetHighAvailabilityModeEffectorBody;
 import org.apache.brooklyn.entity.brooklynnode.effector.SetHighAvailabilityPriorityEffectorBody;
-import org.apache.brooklyn.entity.software.base.SoftwareProcessImpl;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters.StopMode;
+import org.apache.brooklyn.entity.software.base.SoftwareProcessImpl;
 import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks;
 import org.apache.brooklyn.feed.http.HttpFeed;
 import org.apache.brooklyn.feed.http.HttpPollConfig;
 import org.apache.brooklyn.feed.http.HttpValueFunctions;
 import org.apache.brooklyn.feed.http.JsonFunctions;
-import org.apache.http.HttpStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.guava.Functionals;
+import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.javalang.Enums;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.apache.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
@@ -222,7 +222,7 @@ public class BrooklynNodeImpl extends SoftwareProcessImpl implements BrooklynNod
             // we could wait for BrooklynTaskTags.getTasksInEntityContext(ExecutionManager, this).isEmpty();
             Task<?> stopEffectorTask = BrooklynTaskTags.getClosestEffectorTask(Tasks.current(), Startable.STOP);
             Task<?> topEntityTask = getTopEntityTask(stopEffectorTask);
-            getManagementContext().getExecutionManager().submit(new UnmanageTask(topEntityTask, this));
+            getManagementContext().getExecutionManager().submit("Unmanage Brooklyn entity after stop", new UnmanageTask(topEntityTask, this));
         }
     }
 
@@ -497,7 +497,7 @@ public class BrooklynNodeImpl extends SoftwareProcessImpl implements BrooklynNod
                 .computing(Functionals.ifNotEquals(true).value("URL where Brooklyn listens is not answering correctly") )
                 .build());
 
-            addEnricher(Enrichers.builder().transforming(WEB_CONSOLE_ACCESSIBLE)
+            enrichers().add(Enrichers.builder().transforming(WEB_CONSOLE_ACCESSIBLE)
                     .computing(Functions.identity())
                     .publishing(SERVICE_PROCESS_IS_RUNNING)
                     .build());

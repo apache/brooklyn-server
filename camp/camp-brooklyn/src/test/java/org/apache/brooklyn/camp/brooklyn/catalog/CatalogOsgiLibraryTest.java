@@ -34,7 +34,7 @@ import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.config.external.AbstractExternalConfigSupplier;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.mgmt.internal.ExternalConfigSupplierRegistry;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -45,11 +45,15 @@ import org.apache.brooklyn.test.http.TestHttpRequestHandler;
 import org.apache.brooklyn.test.http.TestHttpServer;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.core.http.AuthHandler;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.http.Header;
 import org.apache.http.HttpRequest;
+import org.apache.http.localserver.RequestBasicAuth;
+import org.apache.http.localserver.ResponseBasicUnauthorized;
+import org.apache.http.protocol.ResponseServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -72,6 +76,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
     private String malformedJarName = "thisIsNotAJar.jar";
     private String classpathUrl = "classpath:" + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
     private URL jarUrl;
+    private URL authJarUrl;
     private URL malformedJarUrl;
     
     @BeforeMethod(alwaysRun = true)
@@ -89,9 +94,14 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
         webServer = new TestHttpServer()
                 .handler("/" + jarName, new TestHttpRequestHandler().code(200).response(jarBytes))
                 .handler("/" + malformedJarName, new TestHttpRequestHandler().code(200).response("simulating-malformed-jar"))
+                .handler("/auth/" + jarName, new AuthHandler("admin", "password", jarBytes))
+                .interceptor(new ResponseServer())
+                .interceptor(new ResponseBasicUnauthorized())
+                .interceptor(new RequestBasicAuth())
                 .interceptor(requestInterceptor)
                 .start();
         jarUrl = new URL(Urls.mergePaths(webServer.getUrl(), jarName));
+        authJarUrl = new URL(Urls.mergePaths(webServer.getUrl(), "auth", jarName));
         malformedJarUrl = new URL(Urls.mergePaths(webServer.getUrl(), malformedJarName));
     }
 
@@ -159,6 +169,49 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
 
         RegisteredType item = mgmt().getTypeRegistry().get("simple-osgi-library", "1.0");
         assertCatalogLibraryUrl(item, jarUrl.toString());
+    }
+
+    @Test
+    public void testLibraryHttpUrlWithCredentials() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: simple-osgi-library",
+                "  version: \"1.0\"",
+                "  itemType: template",
+                "  libraries:",
+                "  - url: " + authJarUrl,
+                "    auth:",
+                "      username: admin",
+                "      password: password",
+                "  item:",
+                "    services:",
+                "    - type: org.apache.brooklyn.test.osgi.entities.SimpleApplication");
+
+        RegisteredType item = mgmt().getTypeRegistry().get("simple-osgi-library", "1.0");
+        assertCatalogLibraryUrl(item, authJarUrl.toString());
+    }
+
+    @Test
+    public void testLibraryHttpUrlWithInvalidCredentials() throws Exception {
+        try {
+            addCatalogItems(
+                    "brooklyn.catalog:",
+                    "  id: simple-osgi-library",
+                    "  version: \"1.0\"",
+                    "  itemType: template",
+                    "  libraries:",
+                    "  - url: " + authJarUrl,
+                    "    auth:",
+                    "      username: nimda",
+                    "      password: drowssap",
+                    "  item:",
+                    "    services:",
+                    "    - type: org.apache.brooklyn.test.osgi.entities.SimpleApplication");
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "user 'nimda' is not authorized");
+            Asserts.expectedFailureDoesNotContain(e, "drowssap");
+        }
     }
 
     @Test
@@ -263,7 +316,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
         ResourceUtils ru = ResourceUtils.create(entity);
         Iterable<URL> files = ru.getResources("org/apache/brooklyn/test/osgi/resources/message.txt");
         if (!files.iterator().hasNext()) {
-            Entities.dumpInfo(entity);
+            Dumper.dumpInfo(entity);
             Assert.fail("Expected to find 'messages.txt'");
         }
     }
@@ -272,7 +325,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
         ResourceUtils ru = ResourceUtils.create(entity);
         Iterable<URL> files = ru.getResources("org/apache/brooklyn/test/osgi/resources/message.txt");
         if (files.iterator().hasNext()) {
-            Entities.dumpInfo(entity);
+            Dumper.dumpInfo(entity);
             Assert.fail("Expected NOT to find 'messages.txt'");
         }
     }
@@ -305,7 +358,7 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
         Entity app = createAndStartApplication("services: [ { type: item-from-library } ]");
         Entity entity1 = app.getChildren().iterator().next();
         
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         
         Assert.assertEquals(entity1.getCatalogItemId(), "item-from-library:1.0");
         assertCanFindMessages( entity1 );
