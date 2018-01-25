@@ -42,7 +42,7 @@ public class HttpRequestSensorYamlTest extends AbstractYamlRebindTest {
     private static final Logger log = LoggerFactory.getLogger(HttpRequestSensorYamlTest.class);
 
     final static AttributeSensor<String> SENSOR_STRING = Sensors.newStringSensor("aString");
-    final static String TARGET_TYPE = "java.lang.String";
+    final static String TARGET_TYPE = String.class.getName();
 
     private TestHttpServer server;
     private String serverUrl;

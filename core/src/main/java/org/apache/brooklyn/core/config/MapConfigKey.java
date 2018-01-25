@@ -20,6 +20,8 @@ package org.apache.brooklyn.core.config;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -68,12 +70,13 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
     public static class Builder<V> extends BasicConfigKey.Builder<Map<String, V>,Builder<V>> {
         protected Class<V> subType;
         
+        @SuppressWarnings("unchecked")
         public Builder(TypeToken<V> subType, String name) {
-            super(new TypeToken<Map<String, V>>() {}, name);
+            super(typeTokenMapWithSubtype( (Class<V>) subType.getRawType() ), name);
             this.subType = (Class<V>) subType.getRawType();
         }
         public Builder(Class<V> subType, String name) {
-            super(new TypeToken<Map<String, V>>() {}, name);
+            super(typeTokenMapWithSubtype(subType), name);
             this.subType = checkNotNull(subType, "subType");
         }
         public Builder(MapConfigKey<V> key) {
@@ -112,6 +115,26 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
         super(builder, builder.subType);
     }
 
+    @SuppressWarnings("unchecked")
+    private static <V> TypeToken<Map<String,V>> typeTokenMapWithSubtype(final Class<V> subType) {
+        return (TypeToken<Map<String,V>>) TypeToken.of(new ParameterizedType() {
+            @Override
+            public Type getRawType() {
+                return Map.class;
+            }
+            
+            @Override
+            public Type getOwnerType() {
+                return null;
+            }
+            
+            @Override
+            public Type[] getActualTypeArguments() {
+                return new Type[] { String.class, subType };
+            }
+        });
+    }
+
     public MapConfigKey(Class<V> subType, String name) {
         this(subType, name, name, null);
     }
@@ -123,9 +146,8 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
     // TODO it isn't clear whether defaultValue is an initialValue, or a value to use when map is empty
     // probably the latter, currently ... but maybe better to say that map configs are never null, 
     // and defaultValue is really an initial value?
-    @SuppressWarnings({ "unchecked", "rawtypes" })
     public MapConfigKey(Class<V> subType, String name, String description, Map<String, V> defaultValue) {
-        super((Class)Map.class, subType, name, description, defaultValue);
+        super(typeTokenMapWithSubtype(subType), subType, name, description, defaultValue);
     }
 
     @Override

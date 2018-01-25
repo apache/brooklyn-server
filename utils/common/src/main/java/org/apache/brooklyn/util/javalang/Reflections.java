@@ -339,7 +339,9 @@ public class Reflections {
                 return Maybe.of((T) reflections.loadInstance(constructor, argsArray));
             }
         }
-        return Maybe.absent("Constructor not found");
+        if (argsArray==null || argsArray.length==0)
+            return Maybe.absent("No no-arg constructor availble for "+clazz);
+        return Maybe.absent("No matching constructor availble for "+clazz+", parameters "+Arrays.asList(argsArray));
     }
     
     
@@ -648,6 +650,42 @@ public class Reflections {
         throw toThrowIfFails;
     }
     
+    /** Combination of {@link Class#getConstructors()} and {@link Class#getDeclaredConstructors()} returning a list with correct generics */
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public static <T> List<Constructor<T>> getConstructors(Class<T> clazz) {
+        return (List) MutableList.copyOf(Arrays.asList(clazz.getConstructors())).appendAll(Arrays.asList(clazz.getDeclaredConstructors()));
+    }
+    /** Returns any constructor exactly matching the given signature, including privates and on parent classes. */
+    public static <T> Maybe<Constructor<T>> findConstructorExactMaybe(Class<T> clazz, Class<?>... parameterTypes) {
+        if (clazz == null) return Maybe.absentNoTrace("class is null");
+        Iterable<Constructor<T>> result = findConstructors(false, clazz, parameterTypes);
+        if (!result.iterator().hasNext()) return Maybe.absentNoTrace("no Constructors matching "+clazz.getName()+"("+Arrays.asList(parameterTypes)+")");
+        return Maybe.of(result.iterator().next());
+    }
+    /** Returns all constructors compatible with the given argument types, including privates and on parent classes and where the Constructor takes a supertype. */
+    public static <T> Iterable<Constructor<T>> findConstructorsCompatible(Class<T> clazz, Class<?>... parameterTypes) {
+        return findConstructors(true, clazz, parameterTypes);
+    }
+    private static <T> Iterable<Constructor<T>> findConstructors(boolean allowCovariantParameterClasses, Class<T> clazz, Class<?>... parameterTypes) {
+        if (clazz == null) {
+            return Collections.emptySet();
+        }
+        List<Constructor<T>> result = MutableList.of();
+        
+        constructors: for (Constructor<T> m: getConstructors(clazz)) {
+            if (m.getParameterTypes().length!=parameterTypes.length) continue constructors;
+            parameters: for (int i=0; i<parameterTypes.length; i++) {
+                if (m.getParameterTypes()[i].equals(parameterTypes[i])) continue parameters;
+                if (allowCovariantParameterClasses && m.getParameterTypes()[i].isAssignableFrom(parameterTypes[i])) continue parameters;
+                // does not match
+                continue constructors;
+            }
+            result.add(m);
+        }
+            
+        return result;
+    }
+    
     /** Finds the field with the given name declared on the given class or any superclass,
      * using {@link Class#getDeclaredField(String)}.
      * <p> 
@@ -739,7 +777,11 @@ public class Reflections {
             if (!visited.add(nextclazz)) {
                 continue; // already visited
             }
+            
             if (nextclazz.getSuperclass() != null) tovisit.add(nextclazz.getSuperclass());
+            
+            // interfaces are only necessary for statics ... but the caller might be interested in that
+            // (could have a new method which returns non-statics only to optimize this)
             tovisit.addAll(Arrays.asList(nextclazz.getInterfaces()));
             
             result.addAll(Iterables.filter(Arrays.asList(nextclazz.getDeclaredFields()), 

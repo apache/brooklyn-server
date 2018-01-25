@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
+import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
 
 public interface RegisteredTypeLoadingContext {
     
@@ -37,6 +38,7 @@ public interface RegisteredTypeLoadingContext {
      * for specs, this refers to the target type, not the spec 
      * (eg {@link Entity} not {@link EntitySpec}). 
      * If nothing is specified, this returns {@link Object}'s class. */
+    // TODO extend to offer expected registered super type
     @Nonnull public Class<?> getExpectedJavaSuperType();
     
     /** encountered types, so that during resolution, 
@@ -46,5 +48,10 @@ public interface RegisteredTypeLoadingContext {
     
     /** A loader to use, supplying preferred or additional bundles and search paths */
     @Nullable public BrooklynClassLoadingContext getLoader();
+    
+    /** Optional instructions on how to invoke the constructor,
+     * for use when a caller needs to specify a special constructor or factory method
+     * and/or specify parameters */
+    @Nullable public ConstructionInstruction getConstructorInstruction();
     
 }

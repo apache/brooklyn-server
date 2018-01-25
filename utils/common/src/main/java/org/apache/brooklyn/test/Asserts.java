@@ -757,6 +757,9 @@ public class Asserts {
     public static AssertionError fail(Throwable error) {
         throw new AssertionError(error);
     }
+    public static AssertionError fail(String message, Throwable throwable) {
+        throw new AssertionError(message, throwable);
+    }
     public static AssertionError fail() { throw new AssertionError(); }
 
     public static void assertEqualsIgnoringOrder(Iterable<?> actual, Iterable<?> expected) {

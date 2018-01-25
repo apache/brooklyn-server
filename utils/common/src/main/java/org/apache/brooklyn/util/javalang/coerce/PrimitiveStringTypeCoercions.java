@@ -31,7 +31,7 @@ public class PrimitiveStringTypeCoercions {
 
     public PrimitiveStringTypeCoercions() {}
     
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({ "unchecked" })
     public static <T> Maybe<T> tryCoerce(Object value, Class<? super T> targetType) {
         //deal with primitive->primitive casting
         if (isPrimitiveOrBoxer(targetType) && isPrimitiveOrBoxer(value.getClass())) {

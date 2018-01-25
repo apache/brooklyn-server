@@ -18,8 +18,7 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-import groovy.xml.Entity;
-
+import java.util.Arrays;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
@@ -34,10 +33,13 @@ import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableSet;
+
+import groovy.xml.Entity;
 
 public class RegisteredTypeLoadingContexts {
 
@@ -48,7 +50,8 @@ public class RegisteredTypeLoadingContexts {
         @Nullable private RegisteredTypeKind kind;
         @Nullable private Class<?> expectedSuperType;
         @Nonnull private Set<String> encounteredTypes = ImmutableSet.of();
-        @Nullable BrooklynClassLoadingContext loader;
+        @Nullable private BrooklynClassLoadingContext loader;
+        @Nullable private ConstructionInstruction constructorInstruction;
         
         private BasicRegisteredTypeLoadingContext() {}
         
@@ -57,8 +60,9 @@ public class RegisteredTypeLoadingContexts {
             
             this.kind = source.getExpectedKind();
             this.expectedSuperType = source.getExpectedJavaSuperType();
-            this.encounteredTypes = source.getAlreadyEncounteredTypes();
+            this.encounteredTypes = MutableSet.copyOf(source.getAlreadyEncounteredTypes());
             this.loader = source.getLoader();
+            this.constructorInstruction = source.getConstructorInstruction();
         }
 
         @Override
@@ -81,6 +85,11 @@ public class RegisteredTypeLoadingContexts {
         @Override
         public BrooklynClassLoadingContext getLoader() {
             return loader;
+        }
+        
+        @Override
+        public ConstructionInstruction getConstructorInstruction() {
+            return constructorInstruction;
         }
         
         @Override
@@ -225,15 +234,29 @@ public class RegisteredTypeLoadingContexts {
     }
 
     public static RegisteredTypeLoadingContext loader(BrooklynClassLoadingContext loader) {
-        BasicRegisteredTypeLoadingContext result = new BasicRegisteredTypeLoadingContext();
-        result.loader = loader;
-        return result;
+        return new Builder().loader(loader).build();
     }
     
     public static RegisteredTypeLoadingContext withLoader(RegisteredTypeLoadingContext constraint, BrooklynClassLoadingContext loader) {
-        BasicRegisteredTypeLoadingContext result = new BasicRegisteredTypeLoadingContext(constraint);
-        result.loader = loader;
-        return result;
+        return new Builder(constraint).loader(loader).build();
     }
 
+    public static Builder builder() { return new Builder(); }
+    public static Builder builder(RegisteredTypeLoadingContext context) { return new Builder(context); }
+    
+    public static class Builder {
+        private final BasicRegisteredTypeLoadingContext result;
+        
+        protected Builder() { result = new BasicRegisteredTypeLoadingContext(); } 
+        protected Builder(RegisteredTypeLoadingContext context) { result = new BasicRegisteredTypeLoadingContext(context); } 
+        
+        public Builder kind(RegisteredTypeKind kind) { result.kind = kind; return this; }
+        public Builder expectedSuperType(Class<?> expectedSuperType) { result.expectedSuperType = expectedSuperType; return this; }
+        public Builder addEncounteredTypes(String... encounteredTypes) { result.encounteredTypes.addAll(Arrays.asList(encounteredTypes)); return this; }
+        public Builder loader(BrooklynClassLoadingContext loader) { result.loader = loader; return this; }
+        public Builder constructorInstruction(ConstructionInstruction constructorInstruction) { result.constructorInstruction = constructorInstruction; return this; }
+        
+        public RegisteredTypeLoadingContext build() { return new BasicRegisteredTypeLoadingContext(result); }
+    }
+    
 }

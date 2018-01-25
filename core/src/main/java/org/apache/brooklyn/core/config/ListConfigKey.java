@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.config;
 
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
@@ -66,12 +68,13 @@ public class ListConfigKey<V> extends AbstractCollectionConfigKey<List<V>,List<O
     public static class Builder<V> extends BasicConfigKey.Builder<List<V>,Builder<V>> {
         protected Class<V> subType;
         
+        @SuppressWarnings("unchecked")
         public Builder(TypeToken<V> subType, String name) {
-            super(new TypeToken<List<V>>() {}, name);
+            super(typeTokenListWithSubtype((Class<V>)subType.getRawType()), name);
             this.subType = (Class<V>) subType.getRawType();
         }
         public Builder(Class<V> subType, String name) {
-            super(new TypeToken<List<V>>() {}, name);
+            super(typeTokenListWithSubtype(subType), name);
             this.subType = checkNotNull(subType, "subType");
         }
         public Builder(ListConfigKey<V> key) {
@@ -118,11 +121,31 @@ public class ListConfigKey<V> extends AbstractCollectionConfigKey<List<V>,List<O
         this(subType, name, description, null);
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings("unchecked")
     public ListConfigKey(Class<V> subType, String name, String description, List<? extends V> defaultValue) {
-        super((Class)List.class, subType, name, description, (List<V>)defaultValue);
+        super(typeTokenListWithSubtype(subType), subType, name, description, (List<V>) defaultValue);
     }
 
+    @SuppressWarnings("unchecked")
+    private static <X> TypeToken<List<X>> typeTokenListWithSubtype(final Class<X> subType) {
+        return (TypeToken<List<X>>) TypeToken.of(new ParameterizedType() {
+            @Override
+            public Type getRawType() {
+                return List.class;
+            }
+            
+            @Override
+            public Type getOwnerType() {
+                return null;
+            }
+            
+            @Override
+            public Type[] getActualTypeArguments() {
+                return new Type[] { subType };
+            }
+        });
+    }
+    
     @Override
     public String toString() {
         return String.format("%s[ListConfigKey:%s]", name, getTypeName());
@@ -143,7 +166,7 @@ public class ListConfigKey<V> extends AbstractCollectionConfigKey<List<V>,List<O
         /** when passed as a value to a ListConfigKey, causes each of these items to be added.
          * if you have just one, no need to wrap in a mod. */
         // to prevent confusion (e.g. if a list is passed) we require two objects here.
-        public static final <T> ListModification<T> add(final T o1, final T o2, final T ...oo) {
+        public static final <T> ListModification<T> add(final T o1, final T o2, @SuppressWarnings("unchecked") final T ...oo) {
             List<T> l = new ArrayList<T>();
             l.add(o1); l.add(o2);
             for (T o: oo) l.add(o);

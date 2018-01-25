@@ -126,14 +126,14 @@ public class BrooklynEntityMatcher implements PdpMatcher {
             brooklynFlags.putAll((Map<?,?>)origBrooklynFlags);
         }
 
-        addCustomMapAttributeIfNonNull(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_CONFIG);
-        addCustomListAttributeIfNonNull(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_POLICIES);
-        addCustomListAttributeIfNonNull(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_ENRICHERS);
-        addCustomListAttributeIfNonNull(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_INITIALIZERS);
-        addCustomListAttributeIfNonNull(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_CHILDREN);
-        addCustomListAttributeIfNonNull(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_PARAMETERS);
-        addCustomMapAttributeIfNonNull(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_CATALOG);
-        addCustomListAttributeIfNonNull(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_TAGS);
+        addCustomMapAttributeIfNonEmpty(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_CONFIG);
+        addCustomListAttributeIfNonEmpty(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_POLICIES);
+        addCustomListAttributeIfNonEmpty(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_ENRICHERS);
+        addCustomAttributeIfNonEmpty(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_INITIALIZERS, true, true);
+        addCustomListAttributeIfNonEmpty(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_CHILDREN);
+        addCustomListAttributeIfNonEmpty(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_PARAMETERS);
+        addCustomMapAttributeIfNonEmpty(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_CATALOG);
+        addCustomListAttributeIfNonEmpty(builder, attrs, BrooklynCampReservedKeys.BROOKLYN_TAGS);
 
         brooklynFlags.putAll(attrs);
         if (!brooklynFlags.isEmpty()) {
@@ -150,18 +150,8 @@ public class BrooklynEntityMatcher implements PdpMatcher {
      * as a custom attribute with type List.
      * @throws java.lang.IllegalArgumentException if map[key] is not an instance of List
      */
-    private void addCustomListAttributeIfNonNull(Builder<? extends PlatformComponentTemplate> builder, Map<?,?> attrs, String key) {
-        Object items = attrs.remove(key);
-        if (items != null) {
-            if (items instanceof List) {
-                List<?> itemList = (List<?>) items;
-                if (!itemList.isEmpty()) {
-                    builder.customAttribute(key, Lists.newArrayList(itemList));
-                }
-            } else {
-                throw new IllegalArgumentException(key + " must be a list, is: " + items.getClass().getName());
-            }
-        }
+    private void addCustomListAttributeIfNonEmpty(Builder<? extends PlatformComponentTemplate> builder, Map<?,?> attrs, String key) {
+        addCustomAttributeIfNonEmpty(builder, attrs, key, false, true);
     }
 
     /**
@@ -169,16 +159,28 @@ public class BrooklynEntityMatcher implements PdpMatcher {
      * as a custom attribute with type Map.
      * @throws java.lang.IllegalArgumentException if map[key] is not an instance of Map
      */
-    private void addCustomMapAttributeIfNonNull(Builder<? extends PlatformComponentTemplate> builder, Map<?,?> attrs, String key) {
+    private void addCustomMapAttributeIfNonEmpty(Builder<? extends PlatformComponentTemplate> builder, Map<?,?> attrs, String key) {
+        addCustomAttributeIfNonEmpty(builder, attrs, key, true, false);
+    }
+
+    private void addCustomAttributeIfNonEmpty(Builder<? extends PlatformComponentTemplate> builder, Map<?,?> attrs, String key,
+            boolean allowMap, boolean allowList) {
         Object items = attrs.remove(key);
         if (items != null) {
-            if (items instanceof Map) {
+            if (allowMap && items instanceof Map) {
                 Map<?, ?> itemMap = (Map<?, ?>) items;
                 if (!itemMap.isEmpty()) {
                     builder.customAttribute(key, Maps.newHashMap(itemMap));
                 }
+            } else if (allowList && items instanceof List) {
+                List<?> itemList = (List<?>) items;
+                if (!itemList.isEmpty()) {
+                    builder.customAttribute(key, Lists.newArrayList(itemList));
+                }
             } else {
-                throw new IllegalArgumentException(key + " must be a map, is: " + items.getClass().getName());
+                throw new IllegalArgumentException(key + " must be a "+
+                    (allowMap && allowList ? "map or list" : allowMap ? "map" : allowList ? "list" : "<no type allowed>")+
+                    ", is: " + items.getClass().getName());
             }
         }
     }

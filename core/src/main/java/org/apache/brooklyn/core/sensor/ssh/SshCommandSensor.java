@@ -43,6 +43,7 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,16 +61,18 @@ import com.google.common.collect.ImmutableMap;
  *
  * @see HttpRequestSensor
  */
-@Beta
+@Alias("ssh-sensor")
 public final class SshCommandSensor<T> extends AddSensor<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(SshCommandSensor.class);
 
+    @Alias({"script", "run"})
     public static final ConfigKey<String> SENSOR_COMMAND = ConfigKeys.newStringConfigKey("command", "SSH command to execute for sensor");
     public static final ConfigKey<String> SENSOR_EXECUTION_DIR = ConfigKeys.newStringConfigKey("executionDir", "Directory where the command should run; "
         + "if not supplied, executes in the entity's run dir (or home dir if no run dir is defined); "
         + "use '~' to always execute in the home dir, or 'custom-feed/' to execute in a custom-feed dir relative to the run dir");
-    public static final MapConfigKey<Object> SENSOR_SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT;
+    @Alias(preferred="env", value={"vars","variables","environment"})
+    public static final MapConfigKey<String> SENSOR_SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT_STRING_VALUES;
 
     public static final ConfigKey<Boolean> SUPPRESS_DUPLICATES = ConfigKeys.newBooleanConfigKey(
             "suppressDuplicates", 
@@ -78,7 +81,7 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
 
     protected final String command;
     protected final String executionDir;
-    protected final Map<String,Object> sensorEnv;
+    protected final Map<String,String> sensorEnv;
 
     public SshCommandSensor(final ConfigBag params) {
         super(params);
@@ -97,9 +100,10 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
             LOG.debug("Adding SSH sensor {} to {}", name, entity);
         }
 
-        final Boolean suppressDuplicates = EntityInitializers.resolve(params, SUPPRESS_DUPLICATES);
+        final Boolean suppressDuplicates = EntityInitializers.resolve(getRememberedParams(), SUPPRESS_DUPLICATES);
 
         Supplier<Map<String,String>> envSupplier = new Supplier<Map<String,String>>() {
+            @SuppressWarnings("unchecked")
             @Override
             public Map<String, String> get() {
                 if (entity == null) return ImmutableMap.of(); // See BROOKLYN-568

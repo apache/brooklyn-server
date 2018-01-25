@@ -59,6 +59,7 @@ public final class FunctionSensor<T> extends AddSensor<T> {
     
     public FunctionSensor(final ConfigBag params) {
         super(params);
+        rememberUnusedParams(params);
     }
 
     @Override
@@ -69,7 +70,7 @@ public final class FunctionSensor<T> extends AddSensor<T> {
             LOG.debug("Adding HTTP JSON sensor {} to {}", name, entity);
         }
 
-        final ConfigBag allConfig = ConfigBag.newInstanceCopying(this.params).putAll(params);
+        final ConfigBag allConfig = ConfigBag.newInstanceCopying(getRememberedParams());
         
         final Callable<?> function = EntityInitializers.resolve(allConfig, FUNCTION);
         final Boolean suppressDuplicates = EntityInitializers.resolve(allConfig, SUPPRESS_DUPLICATES);

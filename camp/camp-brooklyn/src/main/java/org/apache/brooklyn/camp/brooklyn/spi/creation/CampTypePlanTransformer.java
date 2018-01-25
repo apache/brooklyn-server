@@ -22,14 +22,16 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
-import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.core.typereg.AbstractFormatSpecificTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
+import org.apache.brooklyn.core.typereg.RegisteredTypeInfo;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.collect.ImmutableList;
@@ -84,28 +86,24 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
 
     @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
-        // TODO cache
+        // could cache and copy each time, if this bit is slow
+        // (but don't think it is now)
         return new CampResolver(mgmt, type, context).createSpec();
     }
 
     @Override
     protected Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
-        // beans not supported by this?
+        // beans not supported by this? - want YOML for this
         throw new IllegalStateException("beans not supported here");
     }
 
     @Override
-    public double scoreForTypeDefinition(String formatCode, Object catalogData) {
-        // TODO catalog parsing
-        return 0;
+    public RegisteredTypeInfo getTypeInfo(RegisteredType type) {
+        // TODO collect immediate supertypes, as RegisteredType and Class instances
+        // we really want YOML for this however
+        return RegisteredTypeInfo.create(type, this, null, MutableSet.of());
     }
-
-    @Override
-    public List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData) {
-        // TODO catalog parsing
-        return null;
-    }
-
+    
     public static class CampTypeImplementationPlan extends AbstractFormatSpecificTypeImplementationPlan<String> {
         public CampTypeImplementationPlan(TypeImplementationPlan otherPlan) {
             super(FORMATS.get(0), String.class, otherPlan);

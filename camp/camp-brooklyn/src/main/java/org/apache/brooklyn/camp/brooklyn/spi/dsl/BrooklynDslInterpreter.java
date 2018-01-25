@@ -36,6 +36,8 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.CaseFormat;
+
 /**
  * {@link PlanInterpreter} which understands the $brooklyn DSL
  */
@@ -156,6 +158,9 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
 
         String fn = f.getFunction();
         fn = Strings.removeFromStart(fn, BrooklynDslCommon.PREFIX);
+        if (fn.contains("-")) {
+            fn = CaseFormat.LOWER_HYPHEN.to(CaseFormat.LOWER_CAMEL, fn);
+        }
         if (fn.startsWith("function.")) {
             // If the function name starts with 'function.', then we look for the function in BrooklynDslCommon.Functions
             // As all functions in BrooklynDslCommon.Functions are static, we don't need to worry whether a class

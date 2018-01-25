@@ -20,6 +20,8 @@ package org.apache.brooklyn.core.config;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -57,12 +59,13 @@ public class SetConfigKey<V> extends AbstractCollectionConfigKey<Set<V>, Set<Obj
     public static class Builder<V> extends BasicConfigKey.Builder<Set<V>,Builder<V>> {
         protected Class<V> subType;
         
+        @SuppressWarnings("unchecked")
         public Builder(TypeToken<V> subType, String name) {
-            super(new TypeToken<Set<V>>() {}, name);
+            super(typeTokenSetWithSubtype((Class<V>)subType.getRawType()), name);
             this.subType = (Class<V>) subType.getRawType();
         }
         public Builder(Class<V> subType, String name) {
-            super(new TypeToken<Set<V>>() {}, name);
+            super(typeTokenSetWithSubtype(subType), name);
             this.subType = checkNotNull(subType, "subType");
         }
         public Builder(SetConfigKey<V> key) {
@@ -109,11 +112,31 @@ public class SetConfigKey<V> extends AbstractCollectionConfigKey<Set<V>, Set<Obj
         this(subType, name, description, null);
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings("unchecked")
     public SetConfigKey(Class<V> subType, String name, String description, Set<? extends V> defaultValue) {
-        super((Class)Set.class, subType, name, description, (Set) defaultValue);
+        super(typeTokenSetWithSubtype(subType), subType, name, description, (Set<V>)defaultValue);
     }
 
+    @SuppressWarnings("unchecked")
+    private static <X> TypeToken<Set<X>> typeTokenSetWithSubtype(final Class<X> subType) {
+        return (TypeToken<Set<X>>) TypeToken.of(new ParameterizedType() {
+            @Override
+            public Type getRawType() {
+                return Set.class;
+            }
+            
+            @Override
+            public Type getOwnerType() {
+                return null;
+            }
+            
+            @Override
+            public Type[] getActualTypeArguments() {
+                return new Type[] { subType };
+            }
+        });
+    }
+    
     @Override
     public String toString() {
         return String.format("%s[SetConfigKey:%s]", name, getTypeName());
@@ -134,7 +157,7 @@ public class SetConfigKey<V> extends AbstractCollectionConfigKey<Set<V>, Set<Obj
         /** when passed as a value to a SetConfigKey, causes each of these items to be added.
          * if you have just one, no need to wrap in a mod. */
         // to prevent confusion (e.g. if a set is passed) we require two objects here.
-        public static final <T> SetModification<T> add(final T o1, final T o2, final T ...oo) {
+        public static final <T> SetModification<T> add(final T o1, final T o2, @SuppressWarnings("unchecked") final T ...oo) {
             Set<T> l = new LinkedHashSet<T>();
             l.add(o1); l.add(o2);
             for (T o: oo) l.add(o);

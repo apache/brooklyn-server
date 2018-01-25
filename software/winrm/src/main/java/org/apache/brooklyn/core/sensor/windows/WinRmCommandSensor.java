@@ -96,7 +96,7 @@ public final class WinRmCommandSensor<T> extends AddSensor<T> {
             LOG.debug("Adding WinRM sensor {} to {}", name, entity);
         }
 
-        final Boolean suppressDuplicates = EntityInitializers.resolve(params, SUPPRESS_DUPLICATES);
+        final Boolean suppressDuplicates = EntityInitializers.resolve(getRememberedParams(), SUPPRESS_DUPLICATES);
 
         Supplier<Map<String,String>> envSupplier = new Supplier<Map<String,String>>() {
             @Override

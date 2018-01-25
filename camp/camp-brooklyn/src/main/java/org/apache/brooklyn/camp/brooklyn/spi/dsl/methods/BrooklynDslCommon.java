@@ -30,6 +30,7 @@ import java.util.concurrent.ExecutionException;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.sensor.Sensor;
@@ -40,6 +41,7 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslAccessible;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
@@ -51,6 +53,7 @@ import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
 import org.apache.brooklyn.core.objs.AbstractConfigurationSupportInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
+import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
@@ -66,6 +69,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.apache.brooklyn.util.net.Urls;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.beanutils.BeanUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -253,6 +257,7 @@ public class BrooklynDslCommon {
         try {
             // TODO Should use catalog's classloader, rather than ClassLoaderUtils; how to get that? Should we return a future?!
             //      Should have the catalog's loader at this point in a thread local
+            // eg CatalogUtils.getClassLoadingContext(entity)
             String mappedClazzName = DeserializingClassRenamesProvider.INSTANCE.findMappedName(clazzName);
             Class<?> clazz = new ClassLoaderUtils(BrooklynDslCommon.class).loadClass(mappedClazzName);
             
@@ -322,6 +327,10 @@ public class BrooklynDslCommon {
                 return new DslObject(type, factoryMethodName, factoryMethodArgs, objectFields, brooklynConfig);
             }
         }
+    }
+    
+    public static Object objectYoml(Object parseTree) {
+        return new DslYomlObject(parseTree);
     }
 
     // String manipulation
@@ -590,7 +599,6 @@ public class BrooklynDslCommon {
             this.config = MutableMap.copyOf(config);
         }
 
-
         @Override
         public Maybe<Object> getImmediately() {
             final Class<?> clazz = getOrLoadType();
@@ -662,13 +670,18 @@ public class BrooklynDslCommon {
 
         protected Class<?> getOrLoadType() {
             Class<?> type = this.type;
-            if (type == null) {
-                EntityInternal entity = entity();
-                try {
-                    type = new ClassLoaderUtils(BrooklynDslCommon.class, entity).loadClass(typeName);
-                } catch (ClassNotFoundException e) {
-                    throw Exceptions.propagate(e);
-                }
+            if (type != null) return type;
+            
+            EntityInternal entity = entity();
+            Maybe<Class<?>> typeM = CatalogUtils.getClassLoadingContext(entity).tryLoadClass(typeName);
+
+            if (typeM.isPresent()) return typeM.get();
+            
+            try {
+                type = new ClassLoaderUtils(BrooklynDslCommon.class, entity).loadClass(typeName);
+            } catch (ClassNotFoundException e) {
+                // prefer the exception from typeM
+                typeM.get();  // (will always throw)
             }
             return type;
         }
@@ -737,6 +750,68 @@ public class BrooklynDslCommon {
         }
     }
 
+    /** Deferred execution of Object creation from YOML input. Note no expected type can be set currently,
+     * and none is inferred. */
+    protected static class DslYomlObject extends BrooklynDslDeferredSupplier<Object> {
+
+        private static final long serialVersionUID = 8878388748085419L;
+
+        private final Object parseTree;
+
+        public DslYomlObject(Object parseTree) {
+            this.parseTree = parseTree;
+        }
+
+        @Override
+        public Maybe<Object> getImmediately() {
+            final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
+            Maybe<Object> parseTreeResolved = Tasks.resolving(parseTree, Object.class).context(executionContext).deep(true).immediately(true).getMaybe();
+            if (parseTreeResolved.isAbsent()) return parseTreeResolved;
+            return Maybe.of(create(entity().getManagementContext(), entity(), parseTreeResolved.get()));
+        }
+        
+        @Override
+        public Task<Object> newTask() {
+            return Tasks.builder().displayName("Instantiating yoml supplied in DSL")
+                    .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+                    .dynamic(false)
+                    .body(new Callable<Object>() {
+                        @Override
+                        public Object call() throws Exception {
+                            return create(entity().getManagementContext(), entity(), parseTree);
+                        }})
+                    .build();
+        }
+
+        public static Object create(ManagementContext mgmt, Entity entity, Object parseTree) {
+            return mgmt.getTypeRegistry().createBeanFromPlan("yoml", parseTree, 
+                RegisteredTypeLoadingContexts.loader(CatalogUtils.getClassLoadingContext(entity())), null);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(parseTree);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            DslYomlObject that = DslYomlObject.class.cast(obj);
+            return Objects.equal(this.parseTree, that.parseTree);
+        }
+
+        @Override
+        public String toString() {
+            // TODO this may not generate reparseable output for complex maps;
+            // ideally we'd have access to the original parse node and contents and could embed that here,
+            // but that requires refactoring the parser.
+            // (otoh that would also allow us to pass the string plan as is preferred in YomlTypePlanTransformer.)
+            return DslToStringHelpers.fn("object-yoml", Strings.toString(parseTree));
+        }
+
+    }
+    
     /**
      * Defers to management context's {@link ExternalConfigSupplierRegistry} to resolve values at runtime.
      * The name of the appropriate {@link ExternalConfigSupplier} is captured, along with the key of
@@ -827,7 +902,6 @@ public class BrooklynDslCommon {
         protected static class DslRegexReplacer extends BrooklynDslDeferredSupplier<Function<String, String>> {
 
             private static final long serialVersionUID = -2900037495440842269L;
-
             private Object pattern;
             private Object replacement;
 

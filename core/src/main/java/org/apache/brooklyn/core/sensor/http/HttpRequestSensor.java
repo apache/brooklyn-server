@@ -27,13 +27,11 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.effector.AddSensor;
 import org.apache.brooklyn.core.entity.EntityInitializers;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.ssh.SshCommandSensor;
 import org.apache.brooklyn.feed.http.HttpFeed;
 import org.apache.brooklyn.feed.http.HttpPollConfig;
 import org.apache.brooklyn.feed.http.HttpValueFunctions;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -74,6 +72,10 @@ public final class HttpRequestSensor<T> extends AddSensor<T> {
     
     public HttpRequestSensor(final ConfigBag params) {
         super(params);
+        // TODO yoml serialization of this needs some attention; probably better to use a pure
+        // config bag approach (as in this class) rather than an "extract-in-constructor" (as in parent)
+        // so that there are no serialized fields, just serialized config
+        rememberUnusedParams(params);
     }
 
     @Override
@@ -84,7 +86,7 @@ public final class HttpRequestSensor<T> extends AddSensor<T> {
             LOG.debug("Adding HTTP JSON sensor {} to {}", name, entity);
         }
 
-        final ConfigBag allConfig = ConfigBag.newInstanceCopying(this.params).putAll(params);
+        final ConfigBag allConfig = ConfigBag.newInstance().putAll(getRememberedParams());
         
         // TODO Keeping anonymous inner class for backwards compatibility with persisted state
         new Supplier<URI>() {

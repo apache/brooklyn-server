@@ -31,6 +31,9 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.yoml.annotations.Alias;
+import org.apache.brooklyn.util.yoml.annotations.YomlRenameKey.YomlRenameDefaultKey;
+import org.apache.brooklyn.util.yoml.annotations.YomlTypeFromOtherField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,14 +49,17 @@ import com.google.common.base.Supplier;
  * which can be useful if the supplied value is such a function.
  * However when the source is another sensor,
  * consider using {@link Propagator} which listens for changes instead. */
+@Alias("static-sensor")
 public class StaticSensor<T> extends AddSensor<T> {
 
     private static final Logger log = LoggerFactory.getLogger(StaticSensor.class);
     
+    @Alias("value") @YomlTypeFromOtherField("targetType")
     public static final ConfigKey<Object> STATIC_VALUE = ConfigKeys.newConfigKey(Object.class, "static.value");
     public static final ConfigKey<Duration> TIMEOUT = ConfigKeys.newConfigKey(
             Duration.class, "static.timeout", "Duration to wait for the value to resolve", Duration.PRACTICALLY_FOREVER);
 
+    @YomlTypeFromOtherField("targetType")
     private final Object value;
     private final Duration timeout;
 

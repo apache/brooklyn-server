@@ -193,8 +193,22 @@ public class MutableMap<K,V> extends LinkedHashMap<K,V> {
             return this;
         }
 
+        public Builder<K, V> putIfAbsent(Entry<? extends K, ? extends V> entry) {
+            if (!result.containsKey(entry.getKey())) result.put(entry.getKey(), entry.getValue());
+            return this;
+        }
+
         public Builder<K, V> putAll(Map<? extends K, ? extends V> map) {
             result.add(map);
+            return this;
+        }
+
+        public Builder<K, V> putAllAbsent(Map<? extends K, ? extends V> map) {
+            if (map!=null) {
+                for (Map.Entry<? extends K, ? extends V> entry: map.entrySet()) {
+                    putIfAbsent(entry);
+                }
+            }
             return this;
         }
 
