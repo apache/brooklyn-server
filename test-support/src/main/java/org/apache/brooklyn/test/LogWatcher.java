@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
+import java.util.regex.Pattern;
 
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
@@ -51,6 +52,7 @@ import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.StackTraceElementProxy;
+import ch.qos.logback.core.Appender;
 import ch.qos.logback.core.ConsoleAppender;
 import ch.qos.logback.core.OutputStreamAppender;
 
@@ -195,7 +197,13 @@ public class LogWatcher implements Closeable {
             }
         };
 
-        ple.setPattern(">>>> %d{ISO8601} %X{entity.ids} %-5.5p %3X{bundle.id} %c{1.} [%.16t] %m%n");
+        // The code below makes the assumption that the (test) logger configuration has a console appender
+        // for root, with a pattern layout encoder, and re-uses its encoder pattern.
+        // This is (at time of writing) as defined in logback-appender-stdout.xml.
+        final Appender<ILoggingEvent> appender = lc.getLogger("ROOT").getAppender("STDOUT");
+        final ConsoleAppender stdout = ConsoleAppender.class.cast(appender);
+        final PatternLayoutEncoder stdoutEncoder = PatternLayoutEncoder.class.cast(stdout.getEncoder());
+        ple.setPattern(stdoutEncoder.getPattern());
         ple.setContext(lc);
         ple.start();
 
