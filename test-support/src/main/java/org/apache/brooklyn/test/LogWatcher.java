@@ -216,7 +216,7 @@ public class LogWatcher implements Closeable {
             logger.addAppender(this.appender);
             logger.setLevel(this.loggerLevel);
             logger.setAdditive(false);
-            watchedLoggers.add((ch.qos.logback.classic.Logger) logger);
+            watchedLoggers.add(logger);
         }
     }
     
