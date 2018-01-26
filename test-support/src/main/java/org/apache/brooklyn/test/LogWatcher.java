@@ -51,6 +51,7 @@ import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.StackTraceElementProxy;
+import ch.qos.logback.core.ConsoleAppender;
 import ch.qos.logback.core.OutputStreamAppender;
 
 /**
@@ -155,7 +156,7 @@ public class LogWatcher implements Closeable {
     private final List<ILoggingEvent> events = Collections.synchronizedList(Lists.<ILoggingEvent>newLinkedList());
     private final AtomicBoolean closed = new AtomicBoolean();
     private final ch.qos.logback.classic.Level loggerLevel;
-    private final OutputStreamAppender<ILoggingEvent> appender;
+    private final ConsoleAppender<ILoggingEvent> appender;
     private final List<ch.qos.logback.classic.Logger> watchedLoggers = Lists.newArrayList();
     private volatile Map<ch.qos.logback.classic.Logger, Level> origLevels = Maps.newLinkedHashMap();
 
@@ -169,14 +170,7 @@ public class LogWatcher implements Closeable {
         this.loggerLevel = checkNotNull(loggerLevel, "loggerLevel");
         LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
 
-        this.appender = new OutputStreamAppender<ILoggingEvent>() {
-            @Override
-            protected void append(ILoggingEvent event) {
-                super.append(event);
-
-                LOG.trace("level="+event.getLevel()+"; event="+event+"; msg="+event.getFormattedMessage());
-            }
-        };
+        this.appender = new ConsoleAppender<>();
 
         PatternLayoutEncoder ple = new PatternLayoutEncoder() {
             @Override
@@ -195,6 +189,7 @@ public class LogWatcher implements Closeable {
                 if (event != null && filter.apply(formatted)) {
                     events.add(formatted);
                 }
+                LOG.trace("level="+event.getLevel()+"; event="+event+"; msg="+event.getFormattedMessage());
 
                 super.doEncode(event);
             }
@@ -206,7 +201,6 @@ public class LogWatcher implements Closeable {
 
         this.appender.setContext(lc);
         this.appender.setEncoder(ple);
-        this.appender.setOutputStream(System.out);
         this.appender.start();
 
         for (String loggerName : loggerNames) {
