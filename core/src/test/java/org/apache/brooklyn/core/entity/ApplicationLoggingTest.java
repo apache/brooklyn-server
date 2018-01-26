@@ -18,6 +18,10 @@
  */
 package org.apache.brooklyn.core.entity;
 
+import static com.google.common.base.Predicates.and;
+import static org.apache.brooklyn.test.LogWatcher.EventPredicates.containsMessage;
+import static org.apache.brooklyn.test.LogWatcher.EventPredicates.matchesPatterns;
+
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
@@ -34,14 +38,20 @@ import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestApplicationImpl;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
+import org.apache.brooklyn.test.LogWatcher;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
 
 @Test
 public class ApplicationLoggingTest extends BrooklynAppUnitTestSupport {
@@ -131,17 +141,48 @@ public class ApplicationLoggingTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testLogging() throws Exception {
+        String loggerName = ApplicationLoggingTest.class.getName();
+        ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.INFO;
 
         Deque<String> ids = new ArrayDeque<>();
         ids.push(app.getId());
         final TestEntityWithLogging entity = app.createAndManageChild(EntitySpec.create(TestEntityWithLogging.class));
         final TestEntityWithLogging child = entity.addChild(EntitySpec.create(EntitySpec.create(TestEntityWithLogging.class)));
-        app.start(ImmutableList.of(app.newSimulatedLocation()));
-        assertHealthEventually(app, Lifecycle.RUNNING, true);
-        app.stop();
-        assertHealthEventually(app, Lifecycle.STOPPED, false);
+        LogWatcher watcher = new LogWatcher(loggerName, logLevel, containsMessage(app.getId()));
+
+        watcher.start();
+        try {
+            app.start(ImmutableList.of(app.newSimulatedLocation()));
+            assertHealthEventually(app, Lifecycle.RUNNING, true);
+            app.stop();
+            assertHealthEventually(app, Lifecycle.STOPPED, false);
+            watcher.assertHasEvent(matchesPatterns(".*" + app.getApplicationId() + ".*Hello world.*"));
+            watcher.assertHasEvent(matchesPatterns(".*"
+                + ImmutableList.of(app.getId(), entity.getId()).toString()
+                + ".*from entity.*" + entity.getId() + ".*"));
+            watcher.assertHasEvent(matchesPatterns(".*" +
+                ImmutableList.of(app.getId(), entity.getId()).toString()
+                + ".*from entity.*" + entity.getId() + ".*"));
+            watcher.assertHasEvent(matchesPatterns(".*" +
+                ImmutableList.of(app.getId(), entity.getId(), child.getId()).toString()
+                + ".*from entity.*" + child.getId() + ".*"));
+        } finally {
+            watcher.close();
+        }
     }
 
+
+    @Test
+    public void testOne() {
+        LogWatcher watcher = new LogWatcher(LOG.getName(), Level.DEBUG, Predicates.alwaysTrue());
+
+        watcher.start();
+        try {
+            LOG.error("Test message");
+        } finally {
+            watcher.close();
+        }
+    }
 
     private void assertHealthEventually(Entity entity, Lifecycle expectedState, Boolean expectedUp) {
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, expectedState);
