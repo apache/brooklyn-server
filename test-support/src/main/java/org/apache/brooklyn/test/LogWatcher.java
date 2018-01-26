@@ -178,6 +178,11 @@ public class LogWatcher implements Closeable {
             @Override
             public void doEncode(ILoggingEvent event) throws IOException {
                 final String txt = layout.doLayout(event);
+
+                // Jump through hoops to turn the input event (without any layout)
+                // into one processed by the pattern layout, prior to applying the filter.
+                // Wrap the input event in a dynamic proxy to lay out the message/toString methods
+                // but delegate all other methods to the real input event
                 ILoggingEvent formatted = (ILoggingEvent) Proxy.newProxyInstance(
                     ILoggingEvent.class.getClassLoader(),
                     new Class<?>[]{ILoggingEvent.class},
@@ -188,6 +193,8 @@ public class LogWatcher implements Closeable {
                             return method.invoke(event, args);
                         }
                     });
+
+                // now we can do the filter on the text that will be written to the log output
                 if (event != null && filter.apply(formatted)) {
                     events.add(formatted);
                 }
