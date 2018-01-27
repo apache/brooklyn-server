@@ -18,9 +18,8 @@
  */
 package org.apache.brooklyn.core.entity;
 
-import static com.google.common.base.Predicates.and;
 import static org.apache.brooklyn.test.LogWatcher.EventPredicates.containsMessage;
-import static org.apache.brooklyn.test.LogWatcher.EventPredicates.matchesPatterns;
+import static org.apache.brooklyn.test.LogWatcher.EventPredicates.matchingRegexes;
 
 import java.util.ArrayDeque;
 import java.util.Collection;
@@ -41,17 +40,14 @@ import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.test.LogWatcher;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 
 import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.spi.ILoggingEvent;
 
 @Test
 public class ApplicationLoggingTest extends BrooklynAppUnitTestSupport {
@@ -156,29 +152,21 @@ public class ApplicationLoggingTest extends BrooklynAppUnitTestSupport {
             assertHealthEventually(app, Lifecycle.RUNNING, true);
             app.stop();
             assertHealthEventually(app, Lifecycle.STOPPED, false);
-            watcher.assertHasEvent(matchesPatterns(".*" + app.getApplicationId() + ".*Hello world.*"));
-            watcher.assertHasEvent(matchesPatterns(".*"
-                + ImmutableList.of(app.getId(), entity.getId()).toString()
-                + ".*from entity.*" + entity.getId() + ".*"));
-            watcher.assertHasEvent(matchesPatterns(".*" +
+
+            // Look for output like
+            // 2018-01-27 16:25:52,386 INFO  [dwym20xr82, b1babwc34d, se1d2nn62j]     Hello from entity se1d2nn62j
+            // 2018-01-27 16:25:52,388 INFO  [dwym20xr82, b1babwc34d]   Hello from entity b1babwc34d
+            // 2018-01-27 16:25:52,389 INFO  [dwym20xr82] Hello world
+            // 2018-01-27 16:25:52,399 INFO  [dwym20xr82] Goodbye cruel world
+            // 2018-01-27 16:25:52,400 INFO  [dwym20xr82, b1babwc34d]   Goodbye from entity b1babwc34d
+            // 2018-01-27 16:25:52,401 INFO  [dwym20xr82, b1babwc34d, se1d2nn62j]     Goodbye from entity se1d2nn62j
+            watcher.assertHasEvent(matchingRegexes(".*" + app.getApplicationId() + ".*Hello world.*"));;
+            watcher.assertHasEvent(matchingRegexes(".*" +
                 ImmutableList.of(app.getId(), entity.getId()).toString()
                 + ".*from entity.*" + entity.getId() + ".*"));
-            watcher.assertHasEvent(matchesPatterns(".*" +
+            watcher.assertHasEvent(matchingRegexes(".*" +
                 ImmutableList.of(app.getId(), entity.getId(), child.getId()).toString()
                 + ".*from entity.*" + child.getId() + ".*"));
-        } finally {
-            watcher.close();
-        }
-    }
-
-
-    @Test
-    public void testOne() {
-        LogWatcher watcher = new LogWatcher(LOG.getName(), Level.DEBUG, Predicates.alwaysTrue());
-
-        watcher.start();
-        try {
-            LOG.error("Test message");
         } finally {
             watcher.close();
         }

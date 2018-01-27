@@ -33,7 +33,6 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
-import java.util.regex.Pattern;
 
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
@@ -54,7 +53,6 @@ import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.StackTraceElementProxy;
 import ch.qos.logback.core.Appender;
 import ch.qos.logback.core.ConsoleAppender;
-import ch.qos.logback.core.OutputStreamAppender;
 
 /**
  * Testing utility that registers an appender to watch a given logback logger, and records events 
@@ -73,7 +71,7 @@ public class LogWatcher implements Closeable {
             return containsMessages(expected);
         }
 
-        public static Predicate<ILoggingEvent> matchPredicate(BiPredicate<String, String> pred,
+        protected static Predicate<ILoggingEvent> matchPredicate(BiPredicate<String, String> pred,
                                                               final String... expecteds) {
             return event -> {
                 if (event == null) return false;
@@ -86,7 +84,7 @@ public class LogWatcher implements Closeable {
             };
         }
 
-        public static Predicate<ILoggingEvent> matchesPatterns(final String... patterns) {
+        public static Predicate<ILoggingEvent> matchingRegexes(final String... patterns) {
             return matchPredicate(String::matches, patterns);
         }
 
