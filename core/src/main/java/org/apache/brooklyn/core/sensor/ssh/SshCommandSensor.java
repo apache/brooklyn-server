@@ -27,10 +27,10 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
-import org.apache.brooklyn.core.effector.AddSensor;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.sensor.AbstractAddSensorFeed;
 import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
 import org.apache.brooklyn.feed.CommandPollConfig;
 import org.apache.brooklyn.feed.ssh.SshFeed;
@@ -43,6 +43,7 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,7 +62,7 @@ import com.google.common.collect.ImmutableMap;
  * @see HttpRequestSensor
  */
 @Beta
-public final class SshCommandSensor<T> extends AddSensor<T> {
+public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(SshCommandSensor.class);
 
@@ -70,11 +71,6 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
         + "if not supplied, executes in the entity's run dir (or home dir if no run dir is defined); "
         + "use '~' to always execute in the home dir, or 'custom-feed/' to execute in a custom-feed dir relative to the run dir");
     public static final MapConfigKey<Object> SENSOR_SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT;
-
-    public static final ConfigKey<Boolean> SUPPRESS_DUPLICATES = ConfigKeys.newBooleanConfigKey(
-            "suppressDuplicates", 
-            "Whether to publish the sensor value again, if it is the same as the previous value",
-            Boolean.FALSE);
 
     protected final String command;
     protected final String executionDir;
@@ -98,6 +94,8 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
         }
 
         final Boolean suppressDuplicates = EntityInitializers.resolve(params, SUPPRESS_DUPLICATES);
+        final Duration logWarningGraceTimeOnStartup = EntityInitializers.resolve(params, LOG_WARNING_GRACE_TIME_ON_STARTUP);
+        final Duration logWarningGraceTime = EntityInitializers.resolve(params, LOG_WARNING_GRACE_TIME);
 
         Supplier<Map<String,String>> envSupplier = new Supplier<Map<String,String>>() {
             @Override
@@ -143,7 +141,9 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
                         @Override
                         public T apply(String input) {
                             return TypeCoercions.coerce(Strings.trimEnd(input), (Class<T>) sensor.getType());
-                        }}, SshValueFunctions.stdout()));
+                        }}, SshValueFunctions.stdout()))
+                .logWarningGraceTimeOnStartup(logWarningGraceTimeOnStartup)
+                .logWarningGraceTime(logWarningGraceTime);
 
         SshFeed feed = SshFeed.builder()
                 .entity(entity)

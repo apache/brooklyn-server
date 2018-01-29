@@ -25,17 +25,16 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
-import org.apache.brooklyn.core.effector.AddSensor;
 import org.apache.brooklyn.core.entity.EntityInitializers;
-import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.sensor.AbstractAddSensorFeed;
 import org.apache.brooklyn.core.sensor.ssh.SshCommandSensor;
 import org.apache.brooklyn.feed.http.HttpFeed;
 import org.apache.brooklyn.feed.http.HttpPollConfig;
 import org.apache.brooklyn.feed.http.HttpValueFunctions;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,7 +52,7 @@ import net.minidev.json.JSONObject;
  * @see SshCommandSensor
  */
 @Beta
-public final class HttpRequestSensor<T> extends AddSensor<T> {
+public final class HttpRequestSensor<T> extends AbstractAddSensorFeed<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(HttpRequestSensor.class);
 
@@ -62,16 +61,12 @@ public final class HttpRequestSensor<T> extends AddSensor<T> {
     public static final ConfigKey<String> USERNAME = ConfigKeys.newStringConfigKey("username", "Username for HTTP request, if required");
     public static final ConfigKey<String> PASSWORD = ConfigKeys.newStringConfigKey("password", "Password for HTTP request, if required");
     public static final ConfigKey<Map<String, String>> HEADERS = new MapConfigKey<>(String.class, "headers");
-    public static final ConfigKey<Boolean> SUPPRESS_DUPLICATES = ConfigKeys.newBooleanConfigKey(
-            "suppressDuplicates", 
-            "Whether to publish the sensor value again, if it is the same as the previous value",
-            Boolean.FALSE);
     
     public static final ConfigKey<Boolean> PREEMPTIVE_BASIC_AUTH = ConfigKeys.newBooleanConfigKey(
             "preemptiveBasicAuth",
             "Whether to pre-emptively including a basic-auth header of the username:password (rather than waiting for a challenge)",
             Boolean.FALSE);
-    
+
     public HttpRequestSensor(final ConfigBag params) {
         super(params);
     }
@@ -101,6 +96,8 @@ public final class HttpRequestSensor<T> extends AddSensor<T> {
         final Map<String, String> headers = EntityInitializers.resolve(allConfig, HEADERS);
         final Boolean preemptiveBasicAuth = EntityInitializers.resolve(allConfig, PREEMPTIVE_BASIC_AUTH);
         final Boolean suppressDuplicates = EntityInitializers.resolve(allConfig, SUPPRESS_DUPLICATES);
+        final Duration logWarningGraceTimeOnStartup = EntityInitializers.resolve(allConfig, LOG_WARNING_GRACE_TIME_ON_STARTUP);
+        final Duration logWarningGraceTime = EntityInitializers.resolve(allConfig, LOG_WARNING_GRACE_TIME);
         
         Function<? super HttpToolResponse, T> successFunction;
         if (Strings.isBlank(jsonPath)) {
@@ -115,6 +112,8 @@ public final class HttpRequestSensor<T> extends AddSensor<T> {
                 .onFailureOrException(Functions.constant((T) null))
                 .onSuccess(successFunction)
                 .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
+                .logWarningGraceTimeOnStartup(logWarningGraceTimeOnStartup)
+                .logWarningGraceTime(logWarningGraceTime)
                 .period(period);
 
         HttpFeed.Builder httpRequestBuilder = HttpFeed.builder().entity(entity)

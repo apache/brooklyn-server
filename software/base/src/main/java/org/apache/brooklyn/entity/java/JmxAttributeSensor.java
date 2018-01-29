@@ -27,8 +27,8 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.effector.AddSensor;
 import org.apache.brooklyn.core.entity.EntityInitializers;
+import org.apache.brooklyn.core.sensor.AbstractAddSensorFeed;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
 import org.apache.brooklyn.core.sensor.ssh.SshCommandSensor;
@@ -38,6 +38,7 @@ import org.apache.brooklyn.feed.jmx.JmxHelper;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,18 +54,13 @@ import com.google.common.base.Preconditions;
  * @see HttpRequestSensor
  */
 @Beta
-public final class JmxAttributeSensor<T> extends AddSensor<T> {
+public final class JmxAttributeSensor<T> extends AbstractAddSensorFeed<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(JmxAttributeSensor.class);
 
     public static final ConfigKey<String> OBJECT_NAME = ConfigKeys.newStringConfigKey("objectName", "JMX object name for sensor lookup");
     public static final ConfigKey<String> ATTRIBUTE = ConfigKeys.newStringConfigKey("attribute", "JMX attribute to poll in object");
     public static final ConfigKey<Object> DEFAULT_VALUE = ConfigKeys.newConfigKey(Object.class, "defaultValue", "Default value for sensor; normally null");
-
-    public static final ConfigKey<Boolean> SUPPRESS_DUPLICATES = ConfigKeys.newBooleanConfigKey(
-            "suppressDuplicates", 
-            "Whether to publish the sensor value again, if it is the same as the previous value",
-            Boolean.FALSE);
 
     protected final String objectName;
     protected final String attribute;
@@ -89,6 +85,8 @@ public final class JmxAttributeSensor<T> extends AddSensor<T> {
         super.apply(entity);
 
         final Boolean suppressDuplicates = EntityInitializers.resolve(params, SUPPRESS_DUPLICATES);
+        final Duration logWarningGraceTimeOnStartup = EntityInitializers.resolve(params, LOG_WARNING_GRACE_TIME_ON_STARTUP);
+        final Duration logWarningGraceTime = EntityInitializers.resolve(params, LOG_WARNING_GRACE_TIME);
 
         if (entity instanceof UsesJmx) {
             if (LOG.isDebugEnabled()) {
@@ -111,7 +109,9 @@ public final class JmxAttributeSensor<T> extends AddSensor<T> {
                                             .objectName(objectName)
                                             .attributeName(attribute)
                                             .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
-                                            .onFailureOrException(Functions.<T>constant((T) defaultValue)))
+                                            .onFailureOrException(Functions.<T>constant((T) defaultValue))
+                                            .logWarningGraceTimeOnStartup(logWarningGraceTimeOnStartup)
+                                            .logWarningGraceTime(logWarningGraceTime))
                                     .build();
                             entity.addFeed(feed);
                             return feed;
