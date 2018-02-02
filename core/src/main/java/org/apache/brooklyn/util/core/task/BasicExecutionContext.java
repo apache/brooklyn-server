@@ -237,7 +237,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             ((BasicExecutionManager)executionManager).afterSubmitRecordFuture(task, future);
             ((BasicExecutionManager)executionManager).beforeStartInSameThreadTask(null, task);
             if (target != null) {
-                entityMDC.set(MDC.putCloseable(ENTITY_IDS, idStack(target).toString()));
+                entityMDC.set(MDC.putCloseable(ENTITY_IDS, idStack(target)));
                 taskMDC.set(MDC.putCloseable(TASK_ID, task.getId()));
             }
             return future.set(job.call());
@@ -386,7 +386,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             public Void apply(Task<?> it) {
                 registerPerThreadExecutionContext();
                 if (target != null) {
-                    entityMDC.set(MDC.putCloseable(ENTITY_IDS, idStack(target).toString()));
+                    entityMDC.set(MDC.putCloseable(ENTITY_IDS, idStack(target)));
                     taskMDC.set(MDC.putCloseable(TASK_ID, it.getId()));
                 }
                 if (startCallback!=null) BasicExecutionManager.invokeCallback(startCallback, it);
@@ -418,7 +418,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         }
     }
 
-    private Deque<String> idStack(Entity target) {
+    private String idStack(Entity target) {
         Deque<String> ids = new ArrayDeque<>();
         Entity e = target;
         ids.push(e.getId());
@@ -426,7 +426,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             e = e.getParent();
             ids.push(e.getId());
         }
-        return ids;
+        return ids.toString().replace(" ", "");
     }
 
     private static class ContextSwitchingInfo<T> {

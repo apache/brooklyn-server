@@ -166,12 +166,13 @@ public class ApplicationLoggingTest extends BrooklynAppUnitTestSupport {
             assertHealthEventually(app, Lifecycle.STOPPED, false);
 
             // Look for output like
-//          2018-02-02 17:26:20,481 INFO  LxwcJM6p@[i13ysr26ou, bb0ptkb284, xl760xm9dc]     Hello from entity xl760xm9dc
-//          2018-02-02 17:26:20,484 INFO  Wv3r7mmH@[i13ysr26ou, bb0ptkb284]   Hello from entity bb0ptkb284
-//          2018-02-02 17:26:20,485 INFO  P3omDOqq@[i13ysr26ou] Hello world
-//          2018-02-02 17:26:20,497 INFO  KKKPujW4@[i13ysr26ou] Goodbye cruel world
-//          2018-02-02 17:26:20,498 INFO  NR5pk9h4@[i13ysr26ou, bb0ptkb284]   Goodbye from entity bb0ptkb284
-//          2018-02-02 17:26:20,499 INFO  KHMVOAp4@[i13ysr26ou, bb0ptkb284, xl760xm9dc]     Goodbye from entity xl760xm9dc
+//            2018-02-02 18:00:39,351 INFO  xJTIhVuy@[ixxmgfzjos,m5it71jfiw,kw18pflnqp]     Hello from entity kw18pflnqp
+//            2018-02-02 18:00:39,354 INFO  hqSMSJKm@[ixxmgfzjos,m5it71jfiw]   Hello from entity m5it71jfiw
+//            2018-02-02 18:00:39,354 INFO  fCW0mP92@[ixxmgfzjos] Hello world
+//            2018-02-02 18:00:39,365 INFO  @ Stop task id is nxLdBOiG
+//            2018-02-02 18:00:39,366 INFO  nxLdBOiG@[ixxmgfzjos] Goodbye cruel world
+//            2018-02-02 18:00:39,367 INFO  hniq2zjE@[ixxmgfzjos,m5it71jfiw]   Goodbye from entity m5it71jfiw
+//            2018-02-02 18:00:39,369 INFO  cFmqxDkJ@[ixxmgfzjos,m5it71jfiw,kw18pflnqp]     Goodbye from entity kw18pflnqp
             watcher.assertHasEvent(containsMessage(stopId + "@"));
             watcher.assertHasEvent(matchingRegexes(".*" + app.getApplicationId() + ".*Hello world.*"));;
             watcher.assertHasEvent(matchingRegexes(".*" +
