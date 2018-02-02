@@ -75,6 +75,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     
     static final ThreadLocal<BasicExecutionContext> perThreadExecutionContext = new ThreadLocal<BasicExecutionContext>();
     public static final String ENTITY_IDS = "entity.ids";
+    public static final String TASK_ID = "task.id";
 
     public static BasicExecutionContext getCurrentExecutionContext() { return perThreadExecutionContext.get(); }
 
@@ -229,13 +230,15 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         Throwable error = null;
         final Set<Object> taskTags = task.getTags();
         Entity target = BrooklynTaskTags.getWrappedEntityOfType(taskTags, BrooklynTaskTags.TARGET_ENTITY);
-        final AtomicReference<MDC.MDCCloseable> loggingContext = new AtomicReference<>();
+        final AtomicReference<MDC.MDCCloseable> entityMDC = new AtomicReference<>();
+        final AtomicReference<MDC.MDCCloseable> taskMDC = new AtomicReference<>();
 
         try {
             ((BasicExecutionManager)executionManager).afterSubmitRecordFuture(task, future);
             ((BasicExecutionManager)executionManager).beforeStartInSameThreadTask(null, task);
             if (target != null) {
-                loggingContext.set(MDC.putCloseable(ENTITY_IDS, idStack(target).toString()));
+                entityMDC.set(MDC.putCloseable(ENTITY_IDS, idStack(target).toString()));
+                taskMDC.set(MDC.putCloseable(TASK_ID, task.getId()));
             }
             return future.set(job.call());
             
@@ -250,10 +253,8 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             try {
                 ((BasicExecutionManager)executionManager).afterEndInSameThreadTask(null, task, error);
             } finally {
-                final MDC.MDCCloseable context = loggingContext.get();
-                if (context != null) {
-                    context.close();
-                }
+                if (entityMDC.get() != null) entityMDC.get().close();
+                if (taskMDC.get() != null) taskMDC.get().close();
                 BasicExecutionManager.getPerThreadCurrentTask().set(previousTask);
                 perThreadExecutionContext.set(oldExecutionContext);
             }
@@ -376,7 +377,8 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         }
 
         Entity target = BrooklynTaskTags.getWrappedEntityOfType(taskTags, BrooklynTaskTags.TARGET_ENTITY);
-        final AtomicReference<MDC.MDCCloseable> loggingContext = new AtomicReference<>();
+        final AtomicReference<MDC.MDCCloseable> entityMDC = new AtomicReference<>();
+        final AtomicReference<MDC.MDCCloseable> taskMDC = new AtomicReference<>();
 
         final Object startCallback = properties.get("newTaskStartCallback");
         properties.put("newTaskStartCallback", new Function<Task<?>,Void>() {
@@ -384,7 +386,8 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             public Void apply(Task<?> it) {
                 registerPerThreadExecutionContext();
                 if (target != null) {
-                    loggingContext.set(MDC.putCloseable(ENTITY_IDS, idStack(target).toString()));
+                    entityMDC.set(MDC.putCloseable(ENTITY_IDS, idStack(target).toString()));
+                    taskMDC.set(MDC.putCloseable(TASK_ID, it.getId()));
                 }
                 if (startCallback!=null) BasicExecutionManager.invokeCallback(startCallback, it);
                 return null;
@@ -398,10 +401,8 @@ public class BasicExecutionContext extends AbstractExecutionContext {
                     if (endCallback!=null) BasicExecutionManager.invokeCallback(endCallback, it);
                 } finally {
                     clearPerThreadExecutionContext();
-                    final MDC.MDCCloseable context = loggingContext.get();
-                    if (context != null) {
-                        context.close();
-                    }
+                    if (entityMDC.get() != null) entityMDC.get().close();
+                    if (taskMDC.get() != null) taskMDC.get().close();
                 }
                 return null;
             }});

@@ -24,13 +24,19 @@ import static org.apache.brooklyn.test.LogWatcher.EventPredicates.matchingRegexe
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.List;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
+import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.entity.trait.StartableMethods;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -39,6 +45,7 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.test.LogWatcher;
 import org.apache.brooklyn.util.collections.QuorumCheck;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,6 +53,7 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import ch.qos.logback.classic.Level;
 
@@ -150,16 +158,21 @@ public class ApplicationLoggingTest extends BrooklynAppUnitTestSupport {
         try {
             app.start(ImmutableList.of(app.newSimulatedLocation()));
             assertHealthEventually(app, Lifecycle.RUNNING, true);
-            app.stop();
+            final TaskAdaptable<Void> stopTask = Effectors.invocation(app, Startable.STOP, ImmutableMap.of());
+            final String stopId = stopTask.asTask().getId();
+            LOG.info("Stop task id is {}", stopId);
+            final ExecutionContext executionContext = mgmt.getExecutionContext(app);
+            executionContext.submit(stopTask);
             assertHealthEventually(app, Lifecycle.STOPPED, false);
 
             // Look for output like
-            // 2018-01-27 16:25:52,386 INFO  [dwym20xr82, b1babwc34d, se1d2nn62j]     Hello from entity se1d2nn62j
-            // 2018-01-27 16:25:52,388 INFO  [dwym20xr82, b1babwc34d]   Hello from entity b1babwc34d
-            // 2018-01-27 16:25:52,389 INFO  [dwym20xr82] Hello world
-            // 2018-01-27 16:25:52,399 INFO  [dwym20xr82] Goodbye cruel world
-            // 2018-01-27 16:25:52,400 INFO  [dwym20xr82, b1babwc34d]   Goodbye from entity b1babwc34d
-            // 2018-01-27 16:25:52,401 INFO  [dwym20xr82, b1babwc34d, se1d2nn62j]     Goodbye from entity se1d2nn62j
+//          2018-02-02 17:26:20,481 INFO  LxwcJM6p@[i13ysr26ou, bb0ptkb284, xl760xm9dc]     Hello from entity xl760xm9dc
+//          2018-02-02 17:26:20,484 INFO  Wv3r7mmH@[i13ysr26ou, bb0ptkb284]   Hello from entity bb0ptkb284
+//          2018-02-02 17:26:20,485 INFO  P3omDOqq@[i13ysr26ou] Hello world
+//          2018-02-02 17:26:20,497 INFO  KKKPujW4@[i13ysr26ou] Goodbye cruel world
+//          2018-02-02 17:26:20,498 INFO  NR5pk9h4@[i13ysr26ou, bb0ptkb284]   Goodbye from entity bb0ptkb284
+//          2018-02-02 17:26:20,499 INFO  KHMVOAp4@[i13ysr26ou, bb0ptkb284, xl760xm9dc]     Goodbye from entity xl760xm9dc
+            watcher.assertHasEvent(containsMessage(stopId + "@"));
             watcher.assertHasEvent(matchingRegexes(".*" + app.getApplicationId() + ".*Hello world.*"));;
             watcher.assertHasEvent(matchingRegexes(".*" +
                 ImmutableList.of(app.getId(), entity.getId()).toString()
