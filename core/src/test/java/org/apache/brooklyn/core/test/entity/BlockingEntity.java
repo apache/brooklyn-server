@@ -44,7 +44,7 @@ public interface BlockingEntity extends TestEntity {
     @SetFromFlag("executingShutdownNotificationLatch")
     public static final ConfigKey<CountDownLatch> EXECUTING_SHUTDOWN_NOTIFICATION_LATCH = new BasicConfigKey<CountDownLatch>(CountDownLatch.class, "test.executingShutdownNotificationLatch", "");
     
-    public static final ConfigKey<Duration> STARTUP_DELAY = new BasicConfigKey<Duration>(Duration.class, "startupLatch", "Delay before starting");
+    public static final ConfigKey<Duration> STARTUP_DELAY = new BasicConfigKey<Duration>(Duration.class, "startupDelay", "Delay before starting");
     
-    public static final ConfigKey<Duration> SHUTDOWN_DELAY = new BasicConfigKey<Duration>(Duration.class, "startupLatch", "Delay before stopping");
+    public static final ConfigKey<Duration> SHUTDOWN_DELAY = new BasicConfigKey<Duration>(Duration.class, "shutdownDelay", "Delay before stopping");
 }
