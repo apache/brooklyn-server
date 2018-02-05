@@ -28,6 +28,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -63,6 +64,26 @@ public class FeedConfig<V, T, F extends FeedConfig<V, T, F>> {
     private boolean suppressDuplicates;
     private boolean enabled = true;
     
+    // allow 30 seconds before logging at WARN, if there has been no success yet;
+    // after success WARN immediately
+    // TODO these should both be configurable
+    /**
+     * On startup, the length of time before which a failure can be logged at WARN.
+     * This grace period is useful to avoid flooding the logs if the feed is expected
+     * to sometimes be unavailable for a few seconds while the process-under-management
+     * initialises.
+     * 
+     * Defaults to 30 seconds.
+     */
+    private Duration logWarningGraceTimeOnStartup = Duration.THIRTY_SECONDS;
+
+    /**
+     * Length of time, after a successful poll, before a subsequent failure can be logged at WARN.
+     * 
+     * Defaults to 0.
+     */
+    private Duration logWarningGraceTime = Duration.millis(0);
+
     public FeedConfig(AttributeSensor<T> sensor) {
         this.sensor = checkNotNull(sensor, "sensor");
     }
@@ -74,6 +95,8 @@ public class FeedConfig<V, T, F extends FeedConfig<V, T, F>> {
         this.onexception = other.onexception;
         this.checkSuccess = other.checkSuccess;
         this.suppressDuplicates = other.suppressDuplicates;
+        this.logWarningGraceTimeOnStartup = other.logWarningGraceTimeOnStartup;
+        this.logWarningGraceTime = other.logWarningGraceTime;
         this.enabled = other.enabled;
     }
 
@@ -201,6 +224,24 @@ public class FeedConfig<V, T, F extends FeedConfig<V, T, F>> {
         return self();
     }
 
+    public F logWarningGraceTimeOnStartup(Duration val) {
+        this.logWarningGraceTimeOnStartup = checkNotNull(val);
+        return self();
+    }
+
+    public F logWarningGraceTime(Duration val) {
+        this.logWarningGraceTime = checkNotNull(val);
+        return self();
+    }
+    
+    public Duration getLogWarningGraceTimeOnStartup() {
+        return logWarningGraceTimeOnStartup;
+    }
+
+    public Duration getLogWarningGraceTime() {
+        return logWarningGraceTime;
+    }
+    
     /**
      * Whether this feed is enabled (defaulting to true).
      */
@@ -300,5 +341,4 @@ public class FeedConfig<V, T, F extends FeedConfig<V, T, F>> {
         if (!Objects.equal(equalsFields(), other.equalsFields())) return false;
         return true;
     }
-
 }

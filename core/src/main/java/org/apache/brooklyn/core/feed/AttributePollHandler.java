@@ -55,12 +55,6 @@ public class AttributePollHandler<V> implements PollHandler<V> {
     private final AbstractFeed feed;
     private final boolean suppressDuplicates;
     
-    // allow 30 seconds before logging at WARN, if there has been no success yet;
-    // after success WARN immediately
-    // TODO these should both be configurable
-    private Duration logWarningGraceTimeOnStartup = Duration.THIRTY_SECONDS;
-    private Duration logWarningGraceTime = Duration.millis(0);
-    
     // internal state to look after whether to log warnings
     private volatile Long lastSuccessTime = null;
     private volatile Long currentProblemStartTime = null;
@@ -84,6 +78,9 @@ public class AttributePollHandler<V> implements PollHandler<V> {
 
     @Override
     public void onSuccess(V val) {
+        if (log.isTraceEnabled()) log.trace("poll for "+getBriefDescription()+" got: "+val);
+        setSensor(transformValueOnSuccess(val));
+        
         if (lastWasProblem) {
             if (currentProblemLoggedAsWarning) { 
                 log.info("Success (following previous problem) reading "+getBriefDescription());
@@ -95,17 +92,6 @@ public class AttributePollHandler<V> implements PollHandler<V> {
             currentProblemLoggedAsWarning = false;
         }
         lastSuccessTime = System.currentTimeMillis();
-        if (log.isTraceEnabled()) log.trace("poll for {} got: {}", new Object[] {getBriefDescription(), val});
-        
-        try {
-            setSensor(transformValueOnSuccess(val));
-        } catch (Exception e) {
-            if (feed.isConnected()) {
-                log.warn("unable to compute "+getBriefDescription()+"; on val="+val, e);
-            } else {
-                if (log.isDebugEnabled()) log.debug("unable to compute "+getBriefDescription()+"; val="+val+" (when inactive)", e);
-            }
-        }
     }
 
     /** allows post-processing, such as applying a success handler; 
@@ -137,7 +123,7 @@ public class AttributePollHandler<V> implements PollHandler<V> {
     @Override
     public void onException(Exception exception) {
         if (!feed.isConnected()) {
-            if (log.isTraceEnabled()) log.trace("Read of {} in {} gave exception (while not connected or not yet connected): {}", new Object[] {this, getBriefDescription(), exception});
+            if (log.isTraceEnabled()) log.trace("Read of "+this+" in "+getBriefDescription()+" gave exception (while not connected or not yet connected): "+ exception);
         } else {
             logProblem("exception", exception);
         }
@@ -158,15 +144,17 @@ public class AttributePollHandler<V> implements PollHandler<V> {
     protected void logProblem(String type, Object val) {
         if (lastWasProblem && currentProblemLoggedAsWarning) {
             if (log.isTraceEnabled())
-                log.trace("Recurring {} reading {} in {}: {}", new Object[] {type, this, getBriefDescription(), val});
+                log.trace("Recurring "+type+" reading "+this+" in "+getBriefDescription()+": "+val);
         } else {
             long nowTime = System.currentTimeMillis();
             // get a non-volatile value
             Long currentProblemStartTimeCache = currentProblemStartTime;
             long expiryTime = 
-                    (lastSuccessTime!=null && !isTransitioningOrStopped()) ? lastSuccessTime+logWarningGraceTime.toMilliseconds() :
-                    currentProblemStartTimeCache!=null ? currentProblemStartTimeCache+logWarningGraceTimeOnStartup.toMilliseconds() :
-                    nowTime+logWarningGraceTimeOnStartup.toMilliseconds();
+                    (lastSuccessTime!=null && !isTransitioningOrStopped()) 
+                            ? lastSuccessTime+config.getLogWarningGraceTime().toMilliseconds() 
+                            : (currentProblemStartTimeCache != null) 
+                                    ? currentProblemStartTimeCache+config.getLogWarningGraceTimeOnStartup().toMilliseconds() 
+                                    : nowTime+config.getLogWarningGraceTimeOnStartup().toMilliseconds();
             if (!lastWasProblem) {
                 if (expiryTime <= nowTime) {
                     currentProblemLoggedAsWarning = true;

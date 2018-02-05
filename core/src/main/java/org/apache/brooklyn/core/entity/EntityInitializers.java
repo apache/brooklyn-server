@@ -70,7 +70,8 @@ public class EntityInitializers {
     public static <T> T resolve(ConfigBag configBag, ConfigKey<T> key, ExecutionContext executionContext) {
         if (key instanceof ConfigKeySelfExtracting && executionContext != null) {
             ConfigKeySelfExtracting<T> ckse = ((ConfigKeySelfExtracting<T>) key);
-            return ckse.extractValue(configBag.getAllConfigAsConfigKeyMap(), executionContext);
+            T result = ckse.extractValue(configBag.getAllConfigAsConfigKeyMap(), executionContext);
+            return (result != null || configBag.containsKey(key.getName())) ? result : key.getDefaultValue();
         }
         return configBag.get(key);
     }

@@ -23,12 +23,14 @@ import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertFalse;
 
 import java.io.Closeable;
+import java.io.PrintStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.brooklyn.util.time.Time;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -78,6 +80,7 @@ public class LogWatcher implements Closeable {
                 }
             };
         }
+        
         public static Predicate<ILoggingEvent> containsExceptionStackLine(final Class<?> clazz, final String methodName) {
             return new Predicate<ILoggingEvent>() {
                 @Override public boolean apply(ILoggingEvent input) {
@@ -91,6 +94,42 @@ public class LogWatcher implements Closeable {
                         }
                     }
                     return false;
+                }
+            };
+        }
+
+        public static Predicate<ILoggingEvent> containsException() {
+            return new Predicate<ILoggingEvent>() {
+                @Override public boolean apply(ILoggingEvent input) {
+                    return (input != null) && (input.getThrowableProxy() != null);
+                }
+            };
+        }
+
+        public static Predicate<ILoggingEvent> containsExceptionMessage(final String expected) {
+            return containsExceptionMessages(expected);
+        }
+
+        public static Predicate<ILoggingEvent> containsExceptionMessages(final String... expecteds) {
+            return new Predicate<ILoggingEvent>() {
+                @Override public boolean apply(ILoggingEvent input) {
+                    IThrowableProxy throwable = (input != null) ? input.getThrowableProxy() : null;
+                    String msg = (throwable != null) ? throwable.getMessage() : null;
+                    if (msg == null) return false;
+                    for (String expected : expecteds) {
+                        if (!msg.contains(expected)) return false;
+                    }
+                    return true;
+                }
+            };
+        }
+        
+        public static Predicate<ILoggingEvent> levelGeaterOrEqual(final Level expectedLevel) {
+            return new Predicate<ILoggingEvent>() {
+                @Override public boolean apply(ILoggingEvent input) {
+                    if (input == null) return false;
+                    Level level = input.getLevel();
+                    return level.isGreaterOrEqual(expectedLevel);
                 }
             };
         }
@@ -191,13 +230,33 @@ public class LogWatcher implements Closeable {
             return ImmutableList.copyOf(events);
         }
     }
-    
+
     public List<ILoggingEvent> getEvents(Predicate<? super ILoggingEvent> filter) {
         synchronized (events) {
             return ImmutableList.copyOf(Iterables.filter(events, filter));
         }
     }
+
+    public void printEvents() {
+        printEvents(System.out, getEvents());
+    }
     
+    public void printEvents(PrintStream stream, Iterable<? extends ILoggingEvent> events) {
+        for (ILoggingEvent event : events) {
+            stream.println(Time.makeDateString(event.getTimeStamp()) + ": " + event.getThreadName() 
+                    + ": " + event.getLevel() + ": " + event.getMessage());
+            IThrowableProxy throwable = event.getThrowableProxy();
+            if (throwable != null) {
+                stream.println("\t" + throwable.getMessage());
+                if (throwable.getStackTraceElementProxyArray() != null) {
+                    for (StackTraceElementProxy element : throwable.getStackTraceElementProxyArray()) {
+                        stream.println("\t\t" + "at " + element);
+                    }
+                }
+            }
+        }
+    }
+
     public void clearEvents() {
         synchronized (events) {
             events.clear();
