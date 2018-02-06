@@ -18,9 +18,9 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
-
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -189,10 +189,31 @@ public class FunctionSensorYamlTest extends AbstractYamlRebindTest {
             assertTrue(Iterables.tryFind(warnEvents, EventPredicates.containsMessages("Read of", "gave exception", "Cannot coerce ")).isPresent(), "warnEvents="+warnEvents);
             assertEquals(Iterables.size(warnEvents), 1, "warnEvents="+warnEvents);
 
-            // Ensure we log the stacktrace only once
+            // Ensure exception logging is acceptable
             Iterable<ILoggingEvent> exceptionEvents = Iterables.filter(watcher.getEvents(), EventPredicates.containsException());
-            assertTrue(Iterables.tryFind(exceptionEvents, EventPredicates.containsExceptionMessage("Cannot coerce ")).isPresent(), "exceptionEvents="+exceptionEvents);
-            assertEquals(Iterables.size(exceptionEvents), 1, "exceptionEvents="+exceptionEvents);
+
+            // Expect exactly one stacktrace in normal feed execution
+            // e.g. [DEBUG] Trace for exception reading TestEntityImpl{id=xfnctsdr8k}->Sensor: mysensor (java.lang.Integer): org.apache.brooklyn.util.javalang.coerce.ClassCoercionException: Cannot coerce "my-not-a-number" to java.lang.Integer (my-not-a-number): adapting failed,
+            Iterable<ILoggingEvent> activeExceptionEvents = Iterables.filter(exceptionEvents, EventPredicates.containsMessage("Trace for exception reading "));
+            assertTrue(Iterables.tryFind(activeExceptionEvents, EventPredicates.containsExceptionMessage("Cannot coerce ")).isPresent(), "exceptionEvents="+exceptionEvents);
+            assertEquals(Iterables.size(activeExceptionEvents), 1, "activeExceptionEvents="+activeExceptionEvents);
+            
+            // After stop, can have the stacktrace logged again (when entity is "inactive")
+            // e.g. [DEBUG] unable to compute TestEntityImpl{id=xfnctsdr8k}->Sensor: mysensor (java.lang.Integer); exception=org.apache.brooklyn.util.javalang.coerce.ClassCoercionException: Cannot coerce "my-not-a-number" to java.lang.Integer (my-not-a-number): adapting failed (when inactive)
+            // This could be for "interrupted", or potentially the "Cannot coerce" again.
+            Iterable<ILoggingEvent> inactiveExceptionEvents = Iterables.filter(watcher.getEvents(), EventPredicates.containsMessage("when inactive"));
+            Iterable<ILoggingEvent> inactiveCoercionExceptionEvents = Iterables.filter(inactiveExceptionEvents, EventPredicates.containsExceptionMessage("Cannot coerce "));
+            Iterable<ILoggingEvent> inactiveInterruptExceptionEvents = Iterables.filter(inactiveExceptionEvents, EventPredicates.containsExceptionClassname("InterruptedException"));
+            if (!Iterables.isEmpty(inactiveCoercionExceptionEvents)) {
+                assertTrue(Iterables.size(inactiveCoercionExceptionEvents) <= 1, "inactiveCoercionExceptionEvents="+inactiveCoercionExceptionEvents);
+            }
+
+            // But no other exceptions should be logged
+            int numAllowedExceptions = Iterables.size(Iterables.concat(activeExceptionEvents, inactiveCoercionExceptionEvents, inactiveInterruptExceptionEvents));
+            if (Iterables.size(exceptionEvents) != numAllowedExceptions) {
+                fail("exceptionEvents="+watcher.printEventsToString(exceptionEvents));
+            }
+
         } finally {
             watcher.close();
         }
