@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertFalse;
 
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.PrintStream;
 import java.util.Collections;
@@ -120,6 +121,17 @@ public class LogWatcher implements Closeable {
                         if (!msg.contains(expected)) return false;
                     }
                     return true;
+                }
+            };
+        }
+
+        public static Predicate<ILoggingEvent> containsExceptionClassname(final String expected) {
+            return new Predicate<ILoggingEvent>() {
+                @Override public boolean apply(ILoggingEvent input) {
+                    IThrowableProxy throwable = (input != null) ? input.getThrowableProxy() : null;
+                    String classname = (throwable != null) ? throwable.getClassName() : null;
+                    if (classname == null) return false;
+                    return classname.contains(expected);
                 }
             };
         }
@@ -239,6 +251,16 @@ public class LogWatcher implements Closeable {
 
     public void printEvents() {
         printEvents(System.out, getEvents());
+    }
+    
+    public String printEventsToString() {
+        return printEventsToString(getEvents());
+    }
+    
+    public String printEventsToString(Iterable<? extends ILoggingEvent> events) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        printEvents(new PrintStream(baos), events);
+        return new String(baos.toByteArray());
     }
     
     public void printEvents(PrintStream stream, Iterable<? extends ILoggingEvent> events) {

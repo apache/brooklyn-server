@@ -336,7 +336,7 @@ public class ServiceStateLogicTest extends BrooklynAppUnitTestSupport {
 
     private static <T> void assertAttributeEqualsEventually(Entity x, AttributeSensor<T> sensor, T value) {
         try {
-            EntityAsserts.assertAttributeEqualsEventually(ImmutableMap.of("timeout", Duration.seconds(3)), x, sensor, value);
+            EntityAsserts.assertAttributeEqualsEventually(x, sensor, value);
         } catch (Throwable e) {
             log.warn("Expected "+x+" eventually to have "+sensor+" = "+value+"; instead:");
             Dumper.dumpInfo(x);

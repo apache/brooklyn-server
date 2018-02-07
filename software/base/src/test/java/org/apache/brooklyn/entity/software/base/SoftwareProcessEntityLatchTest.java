@@ -51,6 +51,7 @@ import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest.MyServ
 import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest.MyServiceImpl;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest.SimulatedDriver;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
+import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -66,6 +67,8 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -161,9 +164,22 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
         task.get(Duration.THIRTY_SECONDS);
         assertDriverEventsEquals(entity, getLatchPostTasks(latch));
     }
-
-    @Test(dataProvider="latchAndTaskNamesProvider", timeOut=Asserts.THIRTY_SECONDS_TIMEOUT_MS)
-    public void testConcurrency(ConfigKey<Boolean> latch, List<String> _) throws Exception {
+    
+    /**
+     * Deploy a cluster of 4 SoftwareProcesses, which all share the same CountingLatch instance so
+     * that only two can obtain it at a time. The {@link CountingLatch} is uses the default
+     * of sleeping for 100ms after acquiring the lock, so it is very likely in a non-contended 
+     * machine that we'll hit max concurrency. We assert that the maximum number of things holding
+     * the lock at any one time was exactly 2.
+     * 
+     * This is marked as an "integration" test because it is time-sensitive. If executed on a
+     * low-performance machine (e.g. Apache Jenkins, where other docker containers are contending
+     * for resources) then it might not get to 2 things holding the lock at the same time.
+     */
+    @Test(groups="Integration", dataProvider="latchAndTaskNamesProvider", timeOut=Asserts.THIRTY_SECONDS_TIMEOUT_MS)
+    public void testConcurrency(ConfigKey<Boolean> latch, List<String> _ignored) throws Exception {
+        LocalhostMachineProvisioningLocation loc = app.newLocalhostProvisioningLocation(ImmutableMap.of("address", "127.0.0.1"));
+        
         final int maxConcurrency = 2;
         final ReleaseableLatch latchSemaphore = ReleaseableLatch.Factory.newMaxConcurrencyLatch(maxConcurrency);
         final AttributeSensor<Object> latchSensor = Sensors.newSensor(Object.class, "latch");
@@ -174,7 +190,7 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
                 .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(MyService.class)
                         .configure(ConfigKeys.newConfigKey(Object.class, latch.getName()), (Object)DependentConfiguration.attributeWhenReady(app, latchSensor))));
         app.sensors().set(latchSensor, countingLatch);
-        final Task<Void> startTask = Entities.invokeEffector(app, app, MyService.START, ImmutableMap.of("locations", ImmutableList.of(app.newLocalhostProvisioningLocation())));
+        final Task<Void> startTask = Entities.invokeEffector(app, app, MyService.START, ImmutableMap.of("locations", ImmutableList.of(loc)));
         startTask.get();
         final Task<Void> stopTask = Entities.invokeEffector(app, app, MyService.STOP, ImmutableMap.<String, Object>of());
         stopTask.get();
@@ -187,8 +203,56 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
         assertEquals(countingLatch.getMaxCounter(), maxConcurrency);
     }
 
+    /**
+     * Deploy a cluster of 4 SoftwareProcesses, which all share the same CountingLatch instance so
+     * that only two can obtain it at a time. The {@link CountingLatch} is configured with a really
+     * long sleep after it acquires the lock, so we should have just 2 entities having acquired it
+     * and the others blocked.
+     * 
+     * We assert that we got into this state, and then we tear it down by unmanaging the cluster 
+     * (we unmanage because the cluster would otherwise takes ages due to the sleep in 
+     * {@link CountingLatch}.
+     */
+    @Test(dataProvider="latchAndTaskNamesProvider", timeOut=Asserts.THIRTY_SECONDS_TIMEOUT_MS)
+    public void testConcurrencyAllowsExactlyMax(ConfigKey<Boolean> latch, List<String> _ignored) throws Exception {
+        boolean isLatchOnStop = latch.getName().contains("stop");
+        LocalhostMachineProvisioningLocation loc = app.newLocalhostProvisioningLocation(ImmutableMap.of("address", "127.0.0.1"));
+        
+        final int maxConcurrency = 2;
+        final ReleaseableLatch latchSemaphore = ReleaseableLatch.Factory.newMaxConcurrencyLatch(maxConcurrency);
+        final AttributeSensor<Object> latchSensor = Sensors.newSensor(Object.class, "latch");
+        final CountingLatch countingLatch = new CountingLatch(latchSemaphore, maxConcurrency, Asserts.DEFAULT_LONG_TIMEOUT.multiply(2));
+        
+        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.INITIAL_SIZE, maxConcurrency*2)
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(MyService.class)
+                        .configure(ConfigKeys.newConfigKey(Object.class, latch.getName()), (Object)DependentConfiguration.attributeWhenReady(app, latchSensor))));
+        app.sensors().set(latchSensor, countingLatch);
+        
+        try {
+            if (isLatchOnStop) {
+                // Start will complete; then invoke stop async (don't expect it to complete!)
+                app.start(ImmutableList.of(loc));
+                Entities.invokeEffector(app, app, MyService.STOP, ImmutableMap.<String, Object>of());
+            } else {
+                // Invoke start async (don't expect it to complete!)
+                Entities.invokeEffector(app, app, MyService.START, ImmutableMap.of("locations", ImmutableList.of(loc)));
+            }
+            
+            // Because CountingLatch waits for ages, we'll eventually have maxConcurrent having successfully 
+            // acquired, but the others blocked. Wait for that, and assert it stays that way.
+            countingLatch.assertMaxCounterEventually(Predicates.equalTo(maxConcurrency));
+            countingLatch.assertMaxCounterContinually(Predicates.equalTo(maxConcurrency), Duration.millis(100));
+        } finally {
+            // Don't wait for cluster to start/stop (because of big sleep in CountingLatch) - unmanage it.
+            Entities.unmanage(cluster);
+        }
+    }
+
     @Test(dataProvider="latchAndTaskNamesProvider"/*, timeOut=Asserts.THIRTY_SECONDS_TIMEOUT_MS*/)
-    public void testFailedReleaseableUnblocks(final ConfigKey<Boolean> latch, List<String> _) throws Exception {
+    public void testFailedReleaseableUnblocks(final ConfigKey<Boolean> latch, List<String> _ignored) throws Exception {
+        LocalhostMachineProvisioningLocation loc = app.newLocalhostProvisioningLocation(ImmutableMap.of("address", "127.0.0.1"));
+
         final int maxConcurrency = 1;
         final ReleaseableLatch latchSemaphore = ReleaseableLatch.Factory.newMaxConcurrencyLatch(maxConcurrency);
         final AttributeSensor<Object> latchSensor = Sensors.newSensor(Object.class, "latch");
@@ -204,7 +268,7 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
                 .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(MyService.class)
                         .configure(ConfigKeys.newConfigKey(Object.class, latch.getName()), (Object)DependentConfiguration.attributeWhenReady(app, latchSensor))));
         app.sensors().set(latchSensor, countingLatch);
-        final Task<Void> startTask = Entities.invokeEffector(app, app, MyService.START, ImmutableMap.of("locations", ImmutableList.of(app.newLocalhostProvisioningLocation())));
+        final Task<Void> startTask = Entities.invokeEffector(app, app, MyService.START, ImmutableMap.of("locations", ImmutableList.of(loc)));
         //expected to fail but should complete quickly
         assertTrue(startTask.blockUntilEnded(Asserts.DEFAULT_LONG_TIMEOUT), "timeout waiting for start effector to complete");
         assertTrue(latch == SoftwareProcess.STOP_LATCH || startTask.isError());
@@ -282,22 +346,33 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
     }
 
     private static class CountingLatch implements ReleaseableLatch {
-        ReleaseableLatch delegate;
-        AtomicInteger cnt = new AtomicInteger();
-        AtomicInteger maxCnt = new AtomicInteger();
-        private int maxConcurrency;
+        final ReleaseableLatch delegate;
+        final AtomicInteger cnt = new AtomicInteger();
+        final AtomicInteger maxCnt = new AtomicInteger();
+        final int maxConcurrency;
+        final Duration sleepBeforeMaxCnt;
 
         public CountingLatch(ReleaseableLatch delegate, int maxConcurrency) {
+            this(delegate, maxConcurrency, Duration.millis(100));
+        }
+        
+        public CountingLatch(ReleaseableLatch delegate, int maxConcurrency, Duration sleepBeforeMaxCnt) {
             this.delegate = delegate;
             this.maxConcurrency = maxConcurrency;
+            this.sleepBeforeMaxCnt = sleepBeforeMaxCnt;
         }
 
         public void acquire(Entity caller) {
             delegate.acquire(caller);
-            assertCount(cnt.incrementAndGet());
+            
+            int val = cnt.incrementAndGet();
+            LOG.info("acquired latch by "+caller+"; cnt="+val);
+            assertCount(val);
+            //assertCount(cnt.incrementAndGet());
         }
 
         public void release(Entity caller) {
+            LOG.info("releasing latch by "+caller+"; preCnt="+cnt.get());
             cnt.decrementAndGet();
             delegate.release(caller);
         }
@@ -314,13 +389,25 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
             }
             assertTrue(newCnt <= maxConcurrency, "maxConcurrency limit failed at " + newCnt + " (max " + maxConcurrency + ")");
             if (newCnt < maxConcurrency) {
-                Time.sleep(Duration.millis(100));
+                Time.sleep(sleepBeforeMaxCnt);
             } else {
                 Time.sleep(Duration.millis(20));
             }
         }
 
+        public void assertMaxCounterEventually(Predicate<? super Integer> condition) {
+            Asserts.succeedsEventually(new Runnable() {
+                public void run() {
+                    assertTrue(condition.apply(maxCnt.get()));
+                }});
+        }
 
+        public void assertMaxCounterContinually(Predicate<? super Integer> condition, Duration duration) {
+            Asserts.succeedsContinually(ImmutableMap.of("timeout", duration), new Runnable() {
+                public void run() {
+                    assertTrue(condition.apply(maxCnt.get()));
+                }});
+        }
     }
 
     @ImplementedBy(FailingMyServiceImpl.class)
