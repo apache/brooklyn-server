@@ -27,16 +27,11 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.stock.BasicApplication;
-import org.apache.brooklyn.rest.api.SensorApi;
-import org.apache.brooklyn.rest.test.config.render.TestRendererHints;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.time.Duration;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -55,11 +50,6 @@ public class EffectorResourceTest extends BrooklynRestResourceTest {
     BasicApplication app;
     TestEntity entity;
 
-    @AfterClass(alwaysRun = true)
-    public void tearDown() throws Exception {
-        TestRendererHints.clearRegistry();
-    }
-    
     @BeforeMethod(alwaysRun = true)
     public void setUpMethod() throws Exception {
         app = getManagementContext().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class)
