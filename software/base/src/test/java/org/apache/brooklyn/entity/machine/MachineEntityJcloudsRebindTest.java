@@ -20,6 +20,7 @@ package org.apache.brooklyn.entity.machine;
 
 import static org.testng.Assert.fail;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -78,7 +79,19 @@ public class MachineEntityJcloudsRebindTest extends JcloudsRebindStubUnitTest {
             }});
     }
     
-    // See https://issues.apache.org/jira/browse/BROOKLYN-425
+    /**
+     * See https://issues.apache.org/jira/browse/BROOKLYN-425
+     * and https://issues.apache.org/jira/browse/BROOKLYN-580
+     *
+     * Also manually checked that, with rebind fail-fast, the SoftwareProcessImpl#scheduleConnectSensorsOnRebind
+     * does not leave it running (e.g. repeatedly re-scheduling). Tested this by using the debugger, simulating a
+     * rebind exception, and using the rebind option:
+     * <pre>
+     * {@code
+     * rebind(RebindOptions.create().exceptionHandler(RebindExceptionHandlerImpl.builder().rebindFailureMode(RebindFailureMode.FAIL_FAST).build()));
+     * }
+     * </pre>
+     */
     @Test
     @Override
     public void testRebind() throws Exception {
@@ -100,12 +113,15 @@ public class MachineEntityJcloudsRebindTest extends JcloudsRebindStubUnitTest {
         
         // Expect SshMachineLocation.inferMachineDetails to have successfully retrieved os details,
         // which we've stubbed to return centos (in ssh call).
+        // This is called in `MachineEntityImpl.connectSensors` to determine if it's linux, and thus whether
+        // to create the machine-metrics feeds.
         assertRecordedSshCmdContainsEventually("/etc/os-release");
         
-        // TODO Would like to assert that we have the feed, but it's not actually added to the entity!
+        // TODO Would like to assert that we have the feed, but it's not actually recorded against the entity!
         // See AddMachineMetrics.createMachineMetricsFeed, which doesn't call `feeds().addFeed()` so
         // it's not persisted and is not accessible from entity.feeds().getFeeds(). Instead, it just
         // adds the entity to the feed (which is the old way, for if your feed is not persistable).
+        // The feed will be operational, it's just that the entity doesn't list it.
         //     assertHasFeedEventually(newMachine, "machineMetricsFeed");
 
         // TODO AddMachineMetrics.createMachineMetricsFeed poll period is not configurable; 
@@ -117,12 +133,14 @@ public class MachineEntityJcloudsRebindTest extends JcloudsRebindStubUnitTest {
         Asserts.succeedsEventually(new Runnable() {
             public void run() {
                 List<ExecCmd> cmds = RecordingSshTool.getExecCmds();
+                List<List<String>> cmdLists = new ArrayList<>(cmds.size());
                 for (ExecCmd cmd : cmds) {
                     if (cmd.commands.toString().contains(expected)) {
                         return;
                     }
+                    cmdLists.add(cmd.commands);
                 }
-                fail("Commands (" + expected + ") not contain in " + cmds);
+                fail("Commands (" + expected + ") not contain in " + cmdLists);
             }});
     }
     
