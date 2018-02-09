@@ -25,13 +25,18 @@ import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.OsDetails;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.mutex.MutexSupport;
 import org.apache.brooklyn.util.core.mutex.WithMutexes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Optional;
 
 public abstract class AbstractMachineLocation extends AbstractLocation implements MachineLocation {
+
+    private static final Logger LOG = LoggerFactory.getLogger(AbstractMachineLocation.class);
 
     public static final ConfigKey<MachineDetails> MACHINE_DETAILS = ConfigKeys.newConfigKey(
             MachineDetails.class,
@@ -74,6 +79,9 @@ public abstract class AbstractMachineLocation extends AbstractLocation implement
         synchronized (machineDetailsLock) {
             if (machineDetails == null) {
                 machineDetails = getConfig(MACHINE_DETAILS);
+                if (machineDetails != null) {
+                    LOG.debug("Location {} using machine-details from config: {}", this, machineDetails);
+                }
             }
             if (machineDetails == null) {
                 boolean detectionEnabled = getConfig(DETECT_MACHINE_DETAILS);
