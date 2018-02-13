@@ -225,6 +225,11 @@ public class RebindManagerImpl implements RebindManager {
     }
     
     @Override
+    public boolean isRebindActive() {
+        return rebindActive.availablePermits() == 0;
+    }
+    
+    @Override
     public void setPersister(BrooklynMementoPersister val) {
         PersistenceExceptionHandler exceptionHandler = PersistenceExceptionHandlerImpl.builder()
                 .build();

@@ -52,6 +52,11 @@ public interface RebindManager {
         CONTINUE;
     }
     
+    /**
+     * Whether rebind is currently executing.
+     */
+    public boolean isRebindActive();
+
     public void setPersister(BrooklynMementoPersister persister);
 
     public void setPersister(BrooklynMementoPersister persister, PersistenceExceptionHandler exceptionHandler);

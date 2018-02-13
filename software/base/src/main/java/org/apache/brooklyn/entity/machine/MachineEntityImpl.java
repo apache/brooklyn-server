@@ -18,23 +18,28 @@
  */
 package org.apache.brooklyn.entity.machine;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.concurrent.TimeoutException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
+import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.entity.software.base.AbstractSoftwareProcessSshDriver;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessDriver;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessImpl;
+import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MachineEntityImpl extends EmptySoftwareProcessImpl implements MachineEntity {
 
@@ -44,22 +49,25 @@ public class MachineEntityImpl extends EmptySoftwareProcessImpl implements Machi
 
     @Override
     protected void initEnrichers() {
-        LOG.info("Adding machine metrics enrichers");
+        LOG.info("Adding machine-metrics enrichers to {}", this);
         AddMachineMetrics.addMachineMetricsEnrichers(this);
 
         super.initEnrichers();
     }
-
+    
     @Override
     protected void connectSensors() {
         super.connectSensors();
-
-        Maybe<SshMachineLocation> location = Machines.findUniqueMachineLocation(getLocations(), SshMachineLocation.class);
-        if (location.isPresent() && location.get().getOsDetails().isLinux()) {
-            LOG.info("Adding machine metrics feed");
+        
+        Collection<? extends Location> locations = getAllLocations();
+        
+        Maybe<SshMachineLocation> machine = Machines.findUniqueMachineLocation(locations, SshMachineLocation.class);
+        if (machine.isPresent() && machine.get().getOsDetails().isLinux()) {
+            LOG.info("Adding machine-metrics feed to {}, machine {}", this, machine.get());
             machineMetrics = AddMachineMetrics.createMachineMetricsFeed(this);
         } else {
-            LOG.warn("Not adding machine metrics feed as no suitable location available on entity");
+            LOG.warn("Not adding machine-metrics feed as no suitable location available on entity {}: machine={}; locations={}", 
+                    new Object[] {this, machine, locations});
         }
     }
 
@@ -76,7 +84,7 @@ public class MachineEntityImpl extends EmptySoftwareProcessImpl implements Machi
     }
 
     public SshMachineLocation getMachine() {
-        return Machines.findUniqueMachineLocation(getLocations(), SshMachineLocation.class).get();
+        return Machines.findUniqueMachineLocation(getAllLocations(), SshMachineLocation.class).get();
     }
 
     @Override
@@ -113,4 +121,14 @@ public class MachineEntityImpl extends EmptySoftwareProcessImpl implements Machi
         }
     }
 
+    // TODO Logic duplicated from MachineLifecycleEffectorTasks.getLocation(Collection<Location>);
+    //      perhaps move it to a super-type?
+    protected Collection<? extends Location> getAllLocations() {
+        Collection<? extends Location> locations = getLocations();
+        if (locations.isEmpty()) {
+            MachineProvisioningLocation<?> provisioner = sensors().get(SoftwareProcess.PROVISIONING_LOCATION);
+            if (provisioner!=null) locations = Arrays.<Location>asList(provisioner);
+        }
+        return Locations.getLocationsCheckingAncestors(locations, this);
+    }
 }

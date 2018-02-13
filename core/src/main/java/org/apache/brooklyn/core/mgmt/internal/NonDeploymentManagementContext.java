@@ -623,9 +623,12 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
         public boolean isAwaitingInitialRebind() {
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }
-        
         @Override
         public Map<String, Object> getMetrics() {
+            throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
+        }
+        @Override
+        public boolean isRebindActive() {
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }
     }

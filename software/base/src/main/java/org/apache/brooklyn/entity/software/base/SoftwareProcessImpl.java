@@ -50,7 +50,6 @@ import org.apache.brooklyn.feed.function.FunctionPollConfig;
 import org.apache.brooklyn.location.jclouds.networking.NetworkingEffectors;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.BasicTask;
@@ -385,31 +384,74 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
             connectSensors();
         } else {
             long delay = (long) (Math.random() * configuredMaxDelay.toMilliseconds());
-            LOG.debug("Scheduled reconnection of sensors on {} in {}ms", this, delay);
+            LOG.debug("Scheduling reconnection of sensors on {} in {}ms", this, delay);
             
-            // This is functionally equivalent to new scheduledExecutor.schedule(job, delay, TimeUnit.MILLISECONDS).
-            // It uses the entity's execution context to schedule and thus execute the job.
-            Map<?,?> flags = MutableMap.of("delay", Duration.millis(delay), "maxIterations", 1, "cancelOnException", true);
-            Callable<Void> job = new Callable<Void>() {
-                public Void call() {
-                    try {
-                        if (getManagementSupport().isNoLongerManaged()) {
-                            LOG.debug("Entity {} no longer managed; ignoring scheduled connect sensors on rebind", SoftwareProcessImpl.this);
-                            return null;
-                        }
-                        connectSensors();
-                    } catch (Throwable e) {
-                        LOG.warn("Problem connecting sensors on rebind of "+SoftwareProcessImpl.this, e);
-                        Exceptions.propagateIfFatal(e);
-                    }
-                    return null;
-                }};
-            ScheduledTask scheduledTask = new ScheduledTask(flags, new BasicTask<Void>(job));
-            getExecutionContext().submit(scheduledTask);
+            scheduleConnectSensorsOnRebind(Duration.millis(delay));
         }
+        
         // don't wait here - it may be long-running, e.g. if remote entity has died, and we don't want to block rebind waiting or cause it to fail
         // the service will subsequently show service not up and thus failure
 //        waitForServiceUp();
+    }
+
+    protected void scheduleConnectSensorsOnRebind(Duration delay) {
+        Callable<Void> job = new Callable<Void>() {
+            public Void call() {
+                try {
+                    if (!getManagementContext().isRunning()) {
+                        LOG.debug("Management context not running; entity {} ignoring scheduled connect-sensors on rebind", SoftwareProcessImpl.this);
+                        return null;
+                    }
+                    if (getManagementSupport().isNoLongerManaged()) {
+                        LOG.debug("Entity {} no longer managed; ignoring scheduled connect-sensors on rebind", SoftwareProcessImpl.this);
+                        return null;
+                    }
+                    
+                    // Don't call connectSensors until the entity is actually managed.
+                    // See https://issues.apache.org/jira/browse/BROOKLYN-580
+                    boolean rebindActive = getManagementContext().getRebindManager().isRebindActive();
+                    if (!getManagementSupport().wasDeployed()) {
+                        if (rebindActive) {
+                            // We are still rebinding, and entity not yet managed - reschedule.
+                            Duration configuredMaxDelay = getConfig(MAXIMUM_REBIND_SENSOR_CONNECT_DELAY);
+                            if (configuredMaxDelay == null) configuredMaxDelay = Duration.millis(100);
+                            long delay = (long) (Math.random() * configuredMaxDelay.toMilliseconds());
+                            delay = Math.max(10, delay);
+                            LOG.debug("Entity {} not yet managed; re-scheduling connect-sensors on rebind in {}ms", SoftwareProcessImpl.this, delay);
+                            
+                            scheduleConnectSensorsOnRebind(Duration.millis(delay));
+                            return null;
+                        } else {
+                            // Not rebinding and yet not managed - presumably means that rebind aborted
+                            // (e.g. with a "fail-fast" configuration).
+                            LOG.debug("Rebind no longer executing, yet entity {} not managed; not re-scheduling connect-sensors", SoftwareProcessImpl.this);
+                            return null;
+                        }
+                    }
+                    
+                    connectSensors();
+                    
+                } catch (Throwable e) {
+                    LOG.warn("Problem connecting sensors on rebind of "+SoftwareProcessImpl.this, e);
+                    Exceptions.propagateIfFatal(e);
+                }
+                return null;
+            }};
+            
+        Callable<Task<?>> jobFactory = new Callable<Task<?>>() {
+            public Task<?> call() {
+                return new BasicTask<Void>(job);
+            }};
+
+        // This is functionally equivalent to new scheduledExecutor.schedule(job, delay, TimeUnit.MILLISECONDS).
+        // It uses the entity's execution context to schedule and thus execute the job.
+        ScheduledTask scheduledTask = ScheduledTask.builder(jobFactory)
+                .delay(delay)
+                .maxIterations(1)
+                .cancelOnException(true)
+                .build();
+
+        getExecutionContext().submit(scheduledTask);
     }
 
     @Override 
