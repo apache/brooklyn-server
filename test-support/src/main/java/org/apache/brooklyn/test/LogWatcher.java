@@ -24,17 +24,17 @@ import static org.testng.Assert.assertFalse;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
+import java.io.IOException;
+import java.lang.reflect.Proxy;
 import java.io.PrintStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiPredicate;
 
 import org.apache.brooklyn.util.time.Time;
-import org.mockito.Mockito;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,10 +46,13 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.StackTraceElementProxy;
 import ch.qos.logback.core.Appender;
+import ch.qos.logback.core.ConsoleAppender;
 
 /**
  * Testing utility that registers an appender to watch a given logback logger, and records events 
@@ -67,35 +70,40 @@ public class LogWatcher implements Closeable {
         public static Predicate<ILoggingEvent> containsMessage(final String expected) {
             return containsMessages(expected);
         }
-    
-        public static Predicate<ILoggingEvent> containsMessages(final String... expecteds) {
-            return new Predicate<ILoggingEvent>() {
-                @Override public boolean apply(ILoggingEvent input) {
-                    if (input == null) return false;
-                    String msg = input.getFormattedMessage();
-                    if (msg == null) return false;
-                    for (String expected : expecteds) {
-                        if (!msg.contains(expected)) return false;
-                    }
-                    return true;
+
+        protected static Predicate<ILoggingEvent> matchPredicate(BiPredicate<String, String> pred,
+                                                              final String... expecteds) {
+            return event -> {
+                if (event == null) return false;
+                String msg = event.getFormattedMessage();
+                if (msg == null) return false;
+                for (String expected : expecteds) {
+                    if (!pred.test(msg.trim(), expected)) return false;
                 }
+                return true;
             };
         }
-        
+
+        public static Predicate<ILoggingEvent> matchingRegexes(final String... patterns) {
+            return matchPredicate(String::matches, patterns);
+        }
+
+        public static Predicate<ILoggingEvent> containsMessages(final String... expecteds) {
+            return matchPredicate(String::contains, expecteds);
+        }
+
         public static Predicate<ILoggingEvent> containsExceptionStackLine(final Class<?> clazz, final String methodName) {
-            return new Predicate<ILoggingEvent>() {
-                @Override public boolean apply(ILoggingEvent input) {
-                    IThrowableProxy throwable = (input != null) ? input.getThrowableProxy() : null;
-                    if (throwable != null) {
-                        for (StackTraceElementProxy line : throwable.getStackTraceElementProxyArray()) {
-                            if (line.getStackTraceElement().getClassName().contains(clazz.getSimpleName())
-                                    && line.getStackTraceElement().getMethodName().contains(methodName)) {
-                                return true;
-                            }
+            return event -> {
+                IThrowableProxy throwable = (event != null) ? event.getThrowableProxy() : null;
+                if (throwable != null) {
+                    for (StackTraceElementProxy line : throwable.getStackTraceElementProxyArray()) {
+                        if (line.getStackTraceElement().getClassName().contains(clazz.getSimpleName())
+                                && line.getStackTraceElement().getMethodName().contains(methodName)) {
+                            return true;
                         }
                     }
-                    return false;
                 }
+                return false;
             };
         }
 
@@ -124,7 +132,6 @@ public class LogWatcher implements Closeable {
                 }
             };
         }
-
         public static Predicate<ILoggingEvent> containsExceptionClassname(final String expected) {
             return new Predicate<ILoggingEvent>() {
                 @Override public boolean apply(ILoggingEvent input) {
@@ -135,7 +142,6 @@ public class LogWatcher implements Closeable {
                 }
             };
         }
-        
         public static Predicate<ILoggingEvent> levelGeaterOrEqual(final Level expectedLevel) {
             return new Predicate<ILoggingEvent>() {
                 @Override public boolean apply(ILoggingEvent input) {
@@ -150,7 +156,7 @@ public class LogWatcher implements Closeable {
     private final List<ILoggingEvent> events = Collections.synchronizedList(Lists.<ILoggingEvent>newLinkedList());
     private final AtomicBoolean closed = new AtomicBoolean();
     private final ch.qos.logback.classic.Level loggerLevel;
-    private final Appender<ILoggingEvent> appender;
+    private final ConsoleAppender<ILoggingEvent> appender;
     private final List<ch.qos.logback.classic.Logger> watchedLoggers = Lists.newArrayList();
     private volatile Map<ch.qos.logback.classic.Logger, Level> origLevels = Maps.newLinkedHashMap();
 
@@ -160,29 +166,68 @@ public class LogWatcher implements Closeable {
     
     @SuppressWarnings("unchecked")
     public LogWatcher(Iterable<String> loggerNames, ch.qos.logback.classic.Level loggerLevel, final Predicate<? super ILoggingEvent> filter) {
-        for (String loggerName : loggerNames) {
-            Logger logger = LoggerFactory.getLogger(checkNotNull(loggerName, "loggerName"));
-            watchedLoggers.add((ch.qos.logback.classic.Logger) logger);
-        }
+
         this.loggerLevel = checkNotNull(loggerLevel, "loggerLevel");
-        this.appender = Mockito.mock(Appender.class);
-        
-        Mockito.when(appender.getName()).thenReturn("MOCK");
-        Answer<Void> answer = new Answer<Void>() {
+        LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
+
+        this.appender = new ConsoleAppender<>();
+
+        PatternLayoutEncoder ple = new PatternLayoutEncoder() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
-                ILoggingEvent event = invocation.getArgument(0);
-                if (event != null && filter.apply(event)) {
-                    events.add(event);
+            public void doEncode(ILoggingEvent event) throws IOException {
+                final String txt = layout.doLayout(event);
+
+                // Jump through hoops to turn the input event (without any layout)
+                // into one processed by the pattern layout, prior to applying the filter.
+                // Wrap the input event in a dynamic proxy to lay out the message/toString methods
+                // but delegate all other methods to the real input event
+                ILoggingEvent formatted = (ILoggingEvent) Proxy.newProxyInstance(
+                    ILoggingEvent.class.getClassLoader(),
+                    new Class<?>[]{ILoggingEvent.class},
+                    (proxy, method, args) -> {
+                        if (method.getName().endsWith("Message") || method.getName().equals("toString")) {
+                            return txt;
+                        } else {
+                            return method.invoke(event, args);
+                        }
+                    });
+
+                // now we can do the filter on the text that will be written to the log output
+                if (event != null && filter.apply(formatted)) {
+                    events.add(formatted);
                 }
                 LOG.trace("level="+event.getLevel()+"; event="+event+"; msg="+event.getFormattedMessage());
-                return null;
+
+                super.doEncode(event);
             }
         };
-        Mockito.doAnswer(answer).when(appender).doAppend(Mockito.<ILoggingEvent>any());
+
+        // The code below makes the assumption that the (test) logger configuration has a console appender
+        // for root, with a pattern layout encoder, and re-uses its encoder pattern.
+        // This is (at time of writing) as defined in logback-appender-stdout.xml.
+        final Appender<ILoggingEvent> appender = lc.getLogger("ROOT").getAppender("STDOUT");
+        final ConsoleAppender stdout = ConsoleAppender.class.cast(appender);
+        final PatternLayoutEncoder stdoutEncoder = PatternLayoutEncoder.class.cast(stdout.getEncoder());
+        ple.setPattern(stdoutEncoder.getPattern());
+        ple.setContext(lc);
+        ple.start();
+
+        this.appender.setContext(lc);
+        this.appender.setEncoder(ple);
+        this.appender.start();
+
+        for (String loggerName : loggerNames) {
+            final ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger)LoggerFactory.getLogger(checkNotNull(loggerName, "loggerName"));
+            logger.addAppender(this.appender);
+            logger.setLevel(this.loggerLevel);
+            logger.setAdditive(false);
+            watchedLoggers.add(logger);
+        }
     }
     
     public void start() {
+
         checkState(!closed.get(), "Cannot start LogWatcher after closed");
         for (ch.qos.logback.classic.Logger watchedLogger : watchedLoggers) {
             origLevels.put(watchedLogger, watchedLogger.getLevel());
@@ -252,20 +297,18 @@ public class LogWatcher implements Closeable {
     public void printEvents() {
         printEvents(System.out, getEvents());
     }
-    
     public String printEventsToString() {
         return printEventsToString(getEvents());
     }
-    
+
     public String printEventsToString(Iterable<? extends ILoggingEvent> events) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         printEvents(new PrintStream(baos), events);
         return new String(baos.toByteArray());
     }
-    
     public void printEvents(PrintStream stream, Iterable<? extends ILoggingEvent> events) {
         for (ILoggingEvent event : events) {
-            stream.println(Time.makeDateString(event.getTimeStamp()) + ": " + event.getThreadName() 
+            stream.println(Time.makeDateString(event.getTimeStamp()) + ": " + event.getThreadName()
                     + ": " + event.getLevel() + ": " + event.getMessage());
             IThrowableProxy throwable = event.getThrowableProxy();
             if (throwable != null) {

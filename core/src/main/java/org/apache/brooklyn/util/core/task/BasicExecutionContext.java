@@ -19,9 +19,11 @@
 package org.apache.brooklyn.util.core.task;
 
 import java.lang.reflect.Proxy;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -33,6 +35,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -55,6 +58,7 @@ import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
@@ -66,10 +70,13 @@ import com.google.common.collect.Iterables;
  * (so that it can look like an {@link Executor} and also supply {@link ExecutorService#submit(Callable)}
  */
 public class BasicExecutionContext extends AbstractExecutionContext {
-    
+
     private static final Logger log = LoggerFactory.getLogger(BasicExecutionContext.class);
     
     static final ThreadLocal<BasicExecutionContext> perThreadExecutionContext = new ThreadLocal<BasicExecutionContext>();
+    public static final String ENTITY_IDS = "entity.ids";
+    public static final String TASK_ID = "task.id";
+
     public static BasicExecutionContext getCurrentExecutionContext() { return perThreadExecutionContext.get(); }
 
     final ExecutionManager executionManager;
@@ -221,9 +228,18 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         
         SimpleFuture<T> future = new SimpleFuture<>();
         Throwable error = null;
+        final Set<Object> taskTags = task.getTags();
+        Entity target = BrooklynTaskTags.getWrappedEntityOfType(taskTags, BrooklynTaskTags.TARGET_ENTITY);
+        final AtomicReference<MDC.MDCCloseable> entityMDC = new AtomicReference<>();
+        final AtomicReference<MDC.MDCCloseable> taskMDC = new AtomicReference<>();
+
         try {
             ((BasicExecutionManager)executionManager).afterSubmitRecordFuture(task, future);
             ((BasicExecutionManager)executionManager).beforeStartInSameThreadTask(null, task);
+            if (target != null) {
+                entityMDC.set(MDC.putCloseable(ENTITY_IDS, idStack(target)));
+                taskMDC.set(MDC.putCloseable(TASK_ID, task.getId()));
+            }
             return future.set(job.call());
             
         } catch (Exception e) {
@@ -237,6 +253,8 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             try {
                 ((BasicExecutionManager)executionManager).afterEndInSameThreadTask(null, task, error);
             } finally {
+                if (entityMDC.get() != null) entityMDC.get().close();
+                if (taskMDC.get() != null) taskMDC.get().close();
                 BasicExecutionManager.getPerThreadCurrentTask().set(previousTask);
                 perThreadExecutionContext.set(oldExecutionContext);
             }
@@ -357,12 +375,20 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             // tag as transient if submitter is transient, unless explicitly tagged as non-transient
             taskTags.add(BrooklynTaskTags.TRANSIENT_TASK_TAG);
         }
-        
+
+        Entity target = BrooklynTaskTags.getWrappedEntityOfType(taskTags, BrooklynTaskTags.TARGET_ENTITY);
+        final AtomicReference<MDC.MDCCloseable> entityMDC = new AtomicReference<>();
+        final AtomicReference<MDC.MDCCloseable> taskMDC = new AtomicReference<>();
+
         final Object startCallback = properties.get("newTaskStartCallback");
         properties.put("newTaskStartCallback", new Function<Task<?>,Void>() {
             @Override
             public Void apply(Task<?> it) {
                 registerPerThreadExecutionContext();
+                if (target != null) {
+                    entityMDC.set(MDC.putCloseable(ENTITY_IDS, idStack(target)));
+                    taskMDC.set(MDC.putCloseable(TASK_ID, it.getId()));
+                }
                 if (startCallback!=null) BasicExecutionManager.invokeCallback(startCallback, it);
                 return null;
             }});
@@ -375,6 +401,8 @@ public class BasicExecutionContext extends AbstractExecutionContext {
                     if (endCallback!=null) BasicExecutionManager.invokeCallback(endCallback, it);
                 } finally {
                     clearPerThreadExecutionContext();
+                    if (entityMDC.get() != null) entityMDC.get().close();
+                    if (taskMDC.get() != null) taskMDC.get().close();
                 }
                 return null;
             }});
@@ -388,6 +416,17 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         } else {
             throw new IllegalArgumentException("Unhandled task type: task="+task+"; type="+(task!=null ? task.getClass() : "null"));
         }
+    }
+
+    private String idStack(Entity target) {
+        Deque<String> ids = new ArrayDeque<>();
+        Entity e = target;
+        ids.push(e.getId());
+        while (e.getParent() != null) {
+            e = e.getParent();
+            ids.push(e.getId());
+        }
+        return ids.toString().replace(" ", "");
     }
 
     private static class ContextSwitchingInfo<T> {
