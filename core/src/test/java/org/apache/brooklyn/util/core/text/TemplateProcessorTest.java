@@ -20,7 +20,9 @@ package org.apache.brooklyn.util.core.text;
 
 import static org.testng.Assert.assertEquals;
 
-import com.google.common.collect.Iterables;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -41,7 +43,9 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 
 public class TemplateProcessorTest extends BrooklynAppUnitTestSupport {
     private FixedLocaleTest localeFix = new FixedLocaleTest();
@@ -245,6 +249,42 @@ public class TemplateProcessorTest extends BrooklynAppUnitTestSupport {
         } catch (Exception e) {
             Assert.assertTrue(e.toString().contains("aaa"), "Should have mentioned missing key 'aaa' in error");
         }
+    }
+
+    @Test
+    public void testBuiltInsForLists() {
+        AttributeSensor<List> sensor1 = Sensors.newSensor(List.class, "list");
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        entity.sensors().set(sensor1, ImmutableList.of("first", "second"));
+        String templateContents = Joiner.on("\n").join(
+                "<#list attribute['list'] as l>", 
+                "${l}", 
+                "</#list>");
+        String result = TemplateProcessor.processTemplateContents(templateContents, entity, ImmutableMap.<String,Object>of());
+        assertEquals(result.trim(), "first\nsecond");
+    }
+
+    /** 
+     * Based on http://freemarker.org/docs/ref_builtins_hash.html
+     */
+    @Test
+    public void testBuiltInsForHashes() {
+        AttributeSensor<Map> sensor1 = Sensors.newSensor(Map.class, "map");
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        entity.sensors().set(sensor1, ImmutableMap.of("name", "mouse", "price", 50));
+        String keys = Joiner.on("\n").join(
+                "<#list attribute['map']?keys as k>",
+                "${k}",
+                "</#list>");
+        String resultForKeys = TemplateProcessor.processTemplateContents(keys, entity, ImmutableMap.of());
+        assertEquals(resultForKeys.trim(), "name\nprice");
+
+        String values = Joiner.on("\n").join(
+                "<#list attribute['map']?keys as k>",
+                "${k}",
+                "</#list>");
+        String resultForValues = TemplateProcessor.processTemplateContents(values, entity, ImmutableMap.of());
+        assertEquals(resultForValues.trim(), "mouse\n50");
     }
 
 }
