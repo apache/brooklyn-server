@@ -19,11 +19,14 @@
 
 package org.apache.brooklyn.location.jclouds;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import com.google.common.base.Predicates;
+import com.google.common.collect.Lists;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -181,24 +184,27 @@ public class DefaultConnectivityResolver extends BasicConfigurableObject impleme
         LoginCredentials credChoice = null;
 
         final Iterable<HostAndPort> managementCandidates = getManagementCandidates(location, node, config, options);
-        final Iterable<LoginCredentials> credentialCandidates = getCredentialCandidates(location, node, options, config);
+        Iterable<LoginCredentials> credentialCandidates = Collections.emptyList();
+        if (!Iterables.isEmpty(managementCandidates)) {
+            credentialCandidates = getCredentialCandidates(location, node, options, config);
 
-        // Try each pair of address and credential until one succeeds.
-        if (shouldCheckCredentials() && options.pollForReachableAddresses()) {
-            for (HostAndPort hap : managementCandidates) {
-                for (LoginCredentials cred : credentialCandidates) {
-                    LOG.trace("Testing host={} with credential={}", hap, cred);
-                    if (checkCredential(location, hap, cred, config, options.isWindows())) {
-                        hapChoice = hap;
-                        credChoice = cred;
-                        break;
+            // Try each pair of address and credential until one succeeds.
+            if (shouldCheckCredentials() && options.pollForReachableAddresses()) {
+                for (HostAndPort hap : managementCandidates) {
+                    for (LoginCredentials cred : credentialCandidates) {
+                        LOG.trace("Testing host={} with credential={}", hap, cred);
+                        if (checkCredential(location, hap, cred, config, options.isWindows())) {
+                            hapChoice = hap;
+                            credChoice = cred;
+                            break;
+                        }
                     }
+                    if (hapChoice != null) break;
                 }
-                if (hapChoice != null) break;
+            } else if (shouldCheckCredentials()) {
+                LOG.debug("{} set on {} but pollForFirstReachableAddress={}",
+                        new Object[]{CHECK_CREDENTIALS.getName(), this, options.pollForReachableAddresses()});
             }
-        } else if (shouldCheckCredentials()) {
-            LOG.debug("{} set on {} but pollForFirstReachableAddress={}",
-                    new Object[]{CHECK_CREDENTIALS.getName(), this, options.pollForReachableAddresses()});
         }
 
         if (hapChoice == null) {
@@ -212,8 +218,10 @@ public class DefaultConnectivityResolver extends BasicConfigurableObject impleme
         }
 
         if (hapChoice == null) {
-            throw new IllegalStateException("jclouds did not return any IP addresses matching " + getNetworkMode() + " in " + location);
+            LOG.error("None of the addresses of node {} are reachable in mode {}", new Object[]{node, getNetworkMode()});
+            throw new IllegalStateException("Could not determine management address for node: " + node + " in mode: " + getNetworkMode());
         }
+        
         if (credChoice == null) {
             credChoice = Iterables.getFirst(credentialCandidates, null);
             if (credChoice == null) {

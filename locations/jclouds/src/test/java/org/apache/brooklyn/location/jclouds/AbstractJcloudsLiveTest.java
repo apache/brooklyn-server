@@ -66,7 +66,10 @@ public class AbstractJcloudsLiveTest {
     
     public static final String GCE_PROVIDER = "google-compute-engine";
     public static final String GCE_USCENTRAL_REGION_NAME = "us-central1-a";
-    
+
+    public static final String AZURE_ARM_PROVIDER = "azurecompute-arm";
+    public static final String AZURE_ARM_REGION_NAME = "westeurope";
+
     protected BrooklynProperties brooklynProperties;
     protected LocalManagementContext managementContext;
     

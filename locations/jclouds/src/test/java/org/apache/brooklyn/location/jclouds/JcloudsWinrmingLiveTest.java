@@ -21,12 +21,17 @@ package org.apache.brooklyn.location.jclouds;
 import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.jclouds.Constants;
+import org.jclouds.azurecompute.arm.compute.options.AzureTemplateOptions;
+import org.jclouds.azurecompute.compute.options.AzureComputeTemplateOptions;
 import org.jclouds.compute.domain.OsFamily;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+
+import static org.apache.brooklyn.core.location.LocationConfigKeys.OAUTH_ENDPOINT;
 
 /**
  * Tests the initial WinRM command execution, for a VM provisioned through jclouds.
@@ -49,12 +54,26 @@ public class JcloudsWinrmingLiveTest extends AbstractJcloudsLiveTest {
     public static final String GCE_LOCATION_SPEC = "jclouds:" + GCE_PROVIDER + ":" + GCE_USCENTRAL_REGION_NAME;
     public static final String GCE_IMAGE_NAME_REGEX = "windows-server-2012-r2-.*";
 
+    public static final String AZURE_ARM_LOCATION_SPEC = "jclouds:" + AZURE_ARM_PROVIDER + ":" + AZURE_ARM_REGION_NAME;
+    public static final String AZURE_ARM_NAME_REGEX = "WindowsServer";
+
     public static final String SOFTLAYER_LOCATION_SPEC = "jclouds:" + SOFTLAYER_PROVIDER;
     public static final String SOFTLAYER_IMAGE_ID = "WIN_2012-STD-R2_64";
 
     @DataProvider(name = "cloudAndImageNames")
     public Object[][] cloudAndImageNames() {
         return new Object[][] {
+                new Object[] { AZURE_ARM_LOCATION_SPEC, AZURE_ARM_NAME_REGEX, ImmutableMap.builder()
+                        .put(Constants.PROPERTY_ENDPOINT, "https://management.azure.com/subscriptions/012e832d-7b27-4c30-9f21-22cdd9159d12")
+                        .put(OAUTH_ENDPOINT.getName(), "https://login.microsoftonline.com/ba85e8cd-8c83-486e-a7e3-0d7666169d34/oauth2/token")
+                        .put(JcloudsLocation.IMAGE_ID.getName(), "westeurope/MicrosoftWindowsServer/WindowsServer/2016-Datacenter")
+                        .put("jclouds.azurecompute.arm.publishers", "MicrosoftWindowsServer")
+                        .put("azure.arm.default.network.enabled", false)
+                        .put("vmNameMaxLength", 15)
+                        .put("destroyOnFailure", false)
+                        .put("useJcloudsSshInit", false)
+                        .build()
+                },
                 new Object[] { AWS_EC2_LOCATION_SPEC, AWS_EC2_IMAGE_NAME_REGEX, ImmutableMap.of() },
                 new Object[] { GCE_LOCATION_SPEC, GCE_IMAGE_NAME_REGEX, ImmutableMap.of(JcloudsLocation.LOGIN_USER.getName(), "myname") },
             };
