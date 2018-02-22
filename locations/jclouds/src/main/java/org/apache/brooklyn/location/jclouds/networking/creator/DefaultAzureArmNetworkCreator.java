@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.google.common.collect.Maps;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -124,7 +125,7 @@ public class DefaultAzureArmNetworkCreator {
             VirtualNetwork.VirtualNetworkProperties virtualNetworkProperties = VirtualNetwork.VirtualNetworkProperties
                     .builder().addressSpace(VirtualNetwork.AddressSpace.create(Arrays.asList(DEFAULT_VNET_ADDRESS_PREFIX)))
                     .subnets(Arrays.asList(subnet)).build();
-            virtualNetworkApi.createOrUpdate(vnetName, location, virtualNetworkProperties);
+            virtualNetworkApi.createOrUpdate(vnetName, location, Maps.newHashMap(), virtualNetworkProperties);
         } else {
             LOG.info("Network config not specified when provisioning Azure machine, and default subnet does not exists. "
                     + "Creating subnet [{}] on network [{}], and updating template options", subnetName, vnetName);

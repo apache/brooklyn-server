@@ -101,7 +101,7 @@
         <surefire.failIfNoSpecifiedTests>false</surefire.failIfNoSpecifiedTests>
 
         <!-- Dependency Versions -->
-        <jclouds.version>2.0.2</jclouds.version> <!-- JCLOUDS_VERSION -->
+        <jclouds.version>2.1.0</jclouds.version> <!-- JCLOUDS_VERSION -->
         <logback.version>1.0.7</logback.version>
         <slf4j.version>1.7.25</slf4j.version>  <!-- used for java.util.logging jul-to-slf4j interception -->
         <!-- Must match jclouds' version. From jclouds 1.9.3+ can be any version in the range [16-20) -->
@@ -133,7 +133,7 @@
         <ivy.version>2.2.0</ivy.version>
         <mx4j.version>3.0.1</mx4j.version>
         <bouncycastle.version>1.51</bouncycastle.version>
-        <sshj.version>0.12.0</sshj.version>
+        <sshj.version>0.20.0</sshj.version>
         <felix.framework.version>5.6.1</felix.framework.version>
         <reflections.version>0.9.10</reflections.version>
         <jetty.version>9.3.14.v20161028</jetty.version>
