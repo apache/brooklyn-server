@@ -51,6 +51,8 @@ import com.google.common.io.Files;
 
 import freemarker.cache.StringTemplateLoader;
 import freemarker.template.Configuration;
+import freemarker.template.DefaultObjectWrapperBuilder;
+import freemarker.template.MapKeyValuePairIterator;
 import freemarker.template.ObjectWrapper;
 import freemarker.template.Template;
 import freemarker.template.TemplateHashModel;
@@ -68,10 +70,12 @@ import freemarker.template.TemplateModelException;
 public class TemplateProcessor {
 
     private static final Logger log = LoggerFactory.getLogger(TemplateProcessor.class);
+    private static final ObjectWrapper WRAPPER =
+            new DefaultObjectWrapperBuilder(Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS).build();
 
     protected static TemplateModel wrapAsTemplateModel(Object o) throws TemplateModelException {
         if (o instanceof Map) return new DotSplittingTemplateModel((Map<?,?>)o);
-        return ObjectWrapper.DEFAULT_WRAPPER.wrap(o);
+        return WRAPPER.wrap(o);
     }
     
     /** As per {@link #processTemplateContents(String, Map)}, but taking a file. */
