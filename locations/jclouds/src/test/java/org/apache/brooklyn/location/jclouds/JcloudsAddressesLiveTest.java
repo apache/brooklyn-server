@@ -30,6 +30,7 @@ import java.util.Set;
 
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.location.Locations;
+import org.apache.brooklyn.location.jclouds.domain.JcloudsContext;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.stream.Streams;
@@ -206,6 +207,7 @@ public class JcloudsAddressesLiveTest extends AbstractJcloudsLiveTest {
                 .putIfAbsent("imageId", AWS_EC2_CENTOS_IMAGE_ID)
                 .putIfAbsent("hardwareId", AWS_EC2_SMALL_HARDWARE_ID)
                 .putIfAbsent("inboundPorts", ImmutableList.of(22))
+                .putIfAbsent(JcloudsLocationConfig.LINK_CONTEXT.getName(), new JcloudsContext("openstack-neutron"))
                 .build());
     }
     

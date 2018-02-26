@@ -18,29 +18,39 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.ConcurrentHashMap;
-
+import com.google.common.base.Predicates;
+import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.inject.Module;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingJcloudsRenamesProvider;
+import org.apache.brooklyn.location.jclouds.domain.JcloudsContext;
+import org.apache.brooklyn.location.jclouds.suppliers.LinkContextSupplier;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.jclouds.Constants;
+import org.jclouds.Context;
 import org.jclouds.ContextBuilder;
-import org.jclouds.azurecompute.arm.config.AzureComputeRateLimitModule;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.ComputeServiceContext;
+import org.jclouds.config.ContextLinking;
 import org.jclouds.domain.Credentials;
 import org.jclouds.encryption.bouncycastle.config.BouncyCastleCryptoModule;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.sshj.config.SshjSshClientModule;
 
-import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableSet;
-import com.google.inject.Module;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public abstract class AbstractComputeServiceRegistry implements ComputeServiceRegistry, JcloudsLocationConfig {
 
@@ -51,8 +61,6 @@ public abstract class AbstractComputeServiceRegistry implements ComputeServiceRe
         JCloudsPropertiesBuilder propertiesBuilder = new JCloudsPropertiesBuilder(conf)
                 .setCommonJcloudsProperties();
 
-        Iterable<Module> modules = getCommonModules();
-
         // Enable aws-ec2 lazy image fetching, if given a specific imageId; otherwise customize for specific owners; or all as a last resort
         // See https://issues.apache.org/jira/browse/WHIRR-416
         String provider = getProviderFromConfig(conf);
@@ -60,13 +68,6 @@ public abstract class AbstractComputeServiceRegistry implements ComputeServiceRe
             propertiesBuilder.setAWSEC2Properties();
         } else if ("azurecompute-arm".equals(provider)) {
             propertiesBuilder.setAzureComputeArmProperties();
-            // jclouds 2.0.0 does not include the rate limit module for Azure ARM. This quick fix enables this which will
-            // avoid provisioning to fail due to rate limit exceeded
-            // See https://issues.apache.org/jira/browse/JCLOUDS-1229
-            modules = ImmutableSet.<Module>builder()
-                    .addAll(modules)
-                    .add(new AzureComputeRateLimitModule())
-                    .build();
         }
 
         Properties properties = propertiesBuilder
@@ -74,7 +75,14 @@ public abstract class AbstractComputeServiceRegistry implements ComputeServiceRe
                 .setEndpointProperty()
                 .build();
 
-        Supplier<ComputeService> computeServiceSupplier =  new ComputeServiceSupplier(conf, modules, properties);
+        ImmutableSet.Builder<? extends Module> modulesBuilder = ImmutableSet.<Module>builder()
+                .addAll(commonModules())
+                .addAll(userDefinedModules(conf))
+                .addAll(linkingContext(conf));
+
+        Iterable<? extends Module> modules = modulesBuilder.build();
+
+        Supplier<ComputeService> computeServiceSupplier = new ComputeServiceSupplier(conf, modules, properties);
         if (allowReuse) {
             return cachedComputeServices.computeIfAbsent(makeCacheKey(conf, properties), key -> computeServiceSupplier.get());
         }
@@ -136,11 +144,28 @@ public abstract class AbstractComputeServiceRegistry implements ComputeServiceRe
     /**
      * returns the jclouds modules we typically install
      */
-    protected ImmutableSet<Module> getCommonModules() {
+    protected Iterable<? extends Module> commonModules() {
         return ImmutableSet.<Module>of(
                 new SshjSshClientModule(),
                 new SLF4JLoggingModule(),
                 new BouncyCastleCryptoModule());
+    }
+
+    /**
+     * returns the jclouds modules user has specified using {@link JcloudsLocationConfig#COMPUTE_SERVICE_MODULES}
+     */
+    protected Iterable<? extends Module> userDefinedModules(ConfigBag conf) {
+        Iterable<Module> optionalModules = Collections.EMPTY_SET;
+        if (conf.containsKey(JcloudsLocationConfig.COMPUTE_SERVICE_MODULES)) {
+            optionalModules = Iterables.concat(optionalModules, conf.get(JcloudsLocationConfig.COMPUTE_SERVICE_MODULES));
+        }
+        return optionalModules;
+    }
+
+    protected Iterable<? extends Module> linkingContext(ConfigBag conf) {
+        if (!conf.containsKey(JcloudsLocationConfig.LINK_CONTEXT)) return Collections.EMPTY_SET;
+        Context context = new LinkContextSupplier(conf).get();
+        return Iterables.filter(ImmutableSet.of(ContextLinking.linkContext(context)), Predicates.notNull());
     }
 
     @Override
