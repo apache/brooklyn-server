@@ -149,12 +149,13 @@ public class TemplateProcessorTest extends BrooklynAppUnitTestSupport {
         String result = TemplateProcessor.processTemplateContents(templateContents, location, ImmutableMap.<String,Object>of());
         assertEquals(result, location.getId());
     }
-    
-    @Test
+
+    // Test takes 2.5s.
+    @Test(groups = "Integration")
     public void testLocationConfig() {
         LocalhostMachineProvisioningLocation location = app.newLocalhostProvisioningLocation(ImmutableMap.of("mykey", "myval"));
         String templateContents = "${config['mykey']}";//"+TestEntity.CONF_NAME.getName()+"']}";
-        String result = TemplateProcessor.processTemplateContents(templateContents, location, ImmutableMap.<String,Object>of());
+        String result = TemplateProcessor.processTemplateContents(templateContents, location, ImmutableMap.<String, Object>of());
         assertEquals(result, "myval");
     }
     
@@ -245,6 +246,14 @@ public class TemplateProcessorTest extends BrooklynAppUnitTestSupport {
         } catch (Exception e) {
             Assert.assertTrue(e.toString().contains("aaa"), "Should have mentioned missing key 'aaa' in error");
         }
+    }
+
+    @Test
+    public void testIterateHash() {
+        String templateContents = "<#list h as k,v>${k} = ${v}</#list>";
+        String result = TemplateProcessor.processTemplateContents(templateContents, (ManagementContextInternal) null,
+                ImmutableMap.of("h", ImmutableMap.of("war", "peace")));
+        assertEquals(result, "war = peace");
     }
 
 }

@@ -36,7 +36,6 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -51,9 +50,14 @@ import com.google.common.io.Files;
 
 import freemarker.cache.StringTemplateLoader;
 import freemarker.template.Configuration;
+import freemarker.template.DefaultObjectWrapperBuilder;
+import freemarker.template.MapKeyValuePairIterator;
 import freemarker.template.ObjectWrapper;
+import freemarker.template.SimpleCollection;
 import freemarker.template.Template;
+import freemarker.template.TemplateCollectionModel;
 import freemarker.template.TemplateHashModel;
+import freemarker.template.TemplateHashModelEx2;
 import freemarker.template.TemplateModel;
 import freemarker.template.TemplateModelException;
 
@@ -62,16 +66,18 @@ import freemarker.template.TemplateModelException;
  * and accessing {@link ManagementContext} brooklyn.properties 
  * and {@link Entity}, {@link EntityDriver}, and {@link Location} methods and config.
  * <p>
- * See {@link #processTemplateContents(String, ManagementContextInternal, Map)} for
+ * See {@link #processTemplateContents(String, ManagementContext, Map)} for
  * a description of how management access is done.
  */
 public class TemplateProcessor {
 
     private static final Logger log = LoggerFactory.getLogger(TemplateProcessor.class);
+    private static final ObjectWrapper WRAPPER =
+            new DefaultObjectWrapperBuilder(Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS).build();
 
     protected static TemplateModel wrapAsTemplateModel(Object o) throws TemplateModelException {
         if (o instanceof Map) return new DotSplittingTemplateModel((Map<?,?>)o);
-        return ObjectWrapper.DEFAULT_WRAPPER.wrap(o);
+        return WRAPPER.wrap(o);
     }
     
     /** As per {@link #processTemplateContents(String, Map)}, but taking a file. */
@@ -122,7 +128,7 @@ public class TemplateProcessor {
      * <p>
      * However if "a" <b>and</b> "a.b" are in the map, this will <b>not</b> currently do the deep mapping.
      * (It does not have enough contextual information from Freemarker to handle this case.) */
-    public static final class DotSplittingTemplateModel implements TemplateHashModel {
+    public static final class DotSplittingTemplateModel implements TemplateHashModelEx2 {
         protected final Map<?,?> map;
 
         protected DotSplittingTemplateModel(Map<?,?> map) {
@@ -146,7 +152,7 @@ public class TemplateProcessor {
         }
         
         @Override
-        public TemplateModel get(String key) throws TemplateModelException {
+        public TemplateModel get(String key) {
             if (map==null) return null;
             try {
                 if (map.containsKey(key)) 
@@ -174,6 +180,22 @@ public class TemplateProcessor {
         @Override
         public String toString() {
             return getClass().getName()+"["+map+"]";
+        }
+
+        public int size() {
+            return map.size();
+        }
+
+        public TemplateCollectionModel keys() {
+            return new SimpleCollection(map.keySet(), WRAPPER);
+        }
+
+        public TemplateCollectionModel values() {
+            return new SimpleCollection(map.values(), WRAPPER);
+        }
+
+        public KeyValuePairIterator keyValuePairIterator() {
+            return new MapKeyValuePairIterator(map, WRAPPER);
         }
     }
     
