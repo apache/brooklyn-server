@@ -55,13 +55,6 @@
                 </exclusion>
             </exclusions>
         </dependency>
-
-
-        <dependency>
-            <groupId>com.google.errorprone</groupId>
-            <artifactId>error_prone_annotations</artifactId>
-            <version>2.0.19</version>
-        </dependency>
         <dependency>
             <groupId>io.grpc</groupId>
             <artifactId>grpc-context</artifactId>
@@ -86,28 +79,6 @@
             <version>${kubernetes-client.version}</version>
             <classifier>bundle</classifier>
         </dependency>
-
-        <!--
-            Expect Brooklyn to exclude this, and to choose its own jclouds-docker version.
-            So if this version is not kept up-to-date then it won't impact Brooklyn.
-        -->
-        <dependency>
-            <groupId>${jclouds.groupId}.api</groupId>
-            <artifactId>docker</artifactId>
-            <version>${jclouds.version}</version>
-            <exclusions>
-                <exclusion>
-                    <!-- Conflicts with javax.ws.rs-api -->
-                    <groupId>javax.ws.rs</groupId>
-                    <artifactId>jsr311-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.squareup.okio</groupId>
-                    <artifactId>okio</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
         <dependency>
             <groupId>org.apache.brooklyn</groupId>
             <artifactId>brooklyn-core</artifactId>
@@ -124,18 +95,6 @@
             <groupId>org.apache.brooklyn</groupId>
             <artifactId>brooklyn-locations-jclouds</artifactId>
             <version>${brooklyn.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.squareup.okio</groupId>
-                    <artifactId>okio</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>com.squareup.okio</groupId>
-            <artifactId>okio</artifactId>
-            <version>1.13.0</version>
         </dependency>
 
         <dependency>
