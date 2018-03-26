@@ -139,6 +139,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
@@ -312,13 +313,18 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         final String releaseName = entity.sensors().get(KubernetesResource.RESOURCE_NAME);
         ReleaseManager chartManager = new ReleaseManager(tiller);
         try {
-            Future<UninstallReleaseResponse> response = chartManager.uninstall(UninstallReleaseRequest.newBuilder()
+            Future<UninstallReleaseResponse> uninstallReleaseResponseFuture = chartManager.uninstall(UninstallReleaseRequest.newBuilder()
                     .setTimeout(300L)
                     .setName(releaseName)
                     .setPurge(true)
                     .build());
+             UninstallReleaseResponse response = uninstallReleaseResponseFuture.get();
             LOG.debug("Release {} uninstalled", response);
         } catch (IOException e) {
+            throw Throwables.propagate(e);
+        } catch (InterruptedException e) {
+            throw Throwables.propagate(e);
+        } catch (ExecutionException e) {
             throw Throwables.propagate(e);
         }
     }
@@ -561,6 +567,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             }
 
             Chart.Builder chartBuilder = chartRepository.resolve(chartName, chartVersion);
+
             Future<InstallReleaseResponse> releaseFuture = chartManager.install(requestBuilder, chartBuilder);
             Release release = releaseFuture.get().getRelease();
 
