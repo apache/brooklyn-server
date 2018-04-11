@@ -173,7 +173,7 @@
         <karaf.version>4.1.2</karaf.version>
         <karaf.plugin.version>4.1.1</karaf.plugin.version>
         <felix-osgi-compendium.version>1.4.0</felix-osgi-compendium.version>
-        <kubernetes-client.version>1.4.27</kubernetes-client.version>
+        <kubernetes-client.version>3.1.8</kubernetes-client.version>
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
         <clojure.version>1.4.0</clojure.version>
         <zookeeper.version>3.3.4</zookeeper.version>
