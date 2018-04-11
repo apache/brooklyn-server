@@ -133,6 +133,8 @@ import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.URI;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -549,6 +551,13 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Map<String, String> podLabels = ImmutableMap.of("name", "tiller", "app", "helm");
         if (!isTillerInstalled("kube-system", podLabels)) {
             installTillerPodAndService("kube-system", "tiller-deploy", podLabels);
+        }
+        // Create ${HOME}/.helm/{cache/archive,repository/cache}
+        try {
+            Files.createDirectories(Paths.get(System.getProperty("user.home"),".helm", "cache", "archive"));
+            Files.createDirectories(Paths.get(System.getProperty("user.home"),".helm", "repository", "cache"));
+        } catch (IOException e) {
+            throw Throwables.propagate(e);
         }
         tiller = Suppliers.memoize(new TillerSupplier((DefaultKubernetesClient) client)).get();
         String chartName = entity.config().get(KubernetesHelmChart.CHART_NAME);
