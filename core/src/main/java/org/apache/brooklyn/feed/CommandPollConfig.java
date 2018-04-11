@@ -167,13 +167,15 @@ public class CommandPollConfig<T> extends PollConfig<SshPollValue, T, CommandPol
     @Override protected String toStringBaseName() { return "ssh"; }
     @Override protected Object toStringPollSource() {
         if (getCommandSupplier()==null) return null;
-        String command = getCommandSupplier().get();
+        // Cannot call .get() as we may not yet have an execution context for resolving DSL
+        String command = getCommandSupplier().toString();
         return command;
     }
     @Override protected MutableList<Object> equalsFields() { 
         return super.equalsFields()
-            .appendIfNotNull(getCommandSupplier()!=null ? getCommandSupplier().get() : null)
-            .appendIfNotNull(getEnvSupplier()!=null ? getEnvSupplier().get() : null); 
+            // Cannot call .get() as we may not yet have an execution context for resolving DSL
+            .appendIfNotNull(getCommandSupplier()!=null ? getCommandSupplier() : null)
+            .appendIfNotNull(getEnvSupplier()!=null ? getEnvSupplier() : null);
     }
     
 }
