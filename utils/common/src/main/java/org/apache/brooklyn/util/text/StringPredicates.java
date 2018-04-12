@@ -40,7 +40,7 @@ public class StringPredicates {
         return new IsBlank<T>();
     }
 
-    private static final class IsBlank<T extends CharSequence> implements Predicate<T> {
+    public static final class IsBlank<T extends CharSequence> implements Predicate<T> {
         @Override
         public boolean apply(@Nullable CharSequence input) {
             return Strings.isBlank(input);
@@ -75,7 +75,7 @@ public class StringPredicates {
         return new IsNonBlank<T>();
     }
 
-    private static final class IsNonBlank<T> implements Predicate<T> {
+    public static final class IsNonBlank<T> implements Predicate<T> {
         @Override
         public boolean apply(@Nullable Object input) {
             if (input==null) return false;
@@ -95,10 +95,10 @@ public class StringPredicates {
         return new ContainsLiteralIgnoreCase<T>(fragment);
     }
 
-    private static final class ContainsLiteralIgnoreCase<T extends CharSequence> implements Predicate<T> {
+    public static final class ContainsLiteralIgnoreCase<T extends CharSequence> implements Predicate<T> {
         private final String fragment;
 
-        private ContainsLiteralIgnoreCase(String fragment) {
+        public ContainsLiteralIgnoreCase(String fragment) {
             this.fragment = fragment;
         }
 
@@ -117,10 +117,10 @@ public class StringPredicates {
         return new ContainsLiteral<T>(fragment);
     }
     
-    private static final class ContainsLiteral<T extends CharSequence> implements Predicate<T> {
+    public static final class ContainsLiteral<T extends CharSequence> implements Predicate<T> {
         private final String fragment;
 
-        private ContainsLiteral(String fragment) {
+        public ContainsLiteral(String fragment) {
             this.fragment = fragment;
         }
 
@@ -199,9 +199,9 @@ public class StringPredicates {
         return new StartsWith<T>(prefix);
     }
 
-    private static final class StartsWith<T extends CharSequence> implements Predicate<T> {
+    public static final class StartsWith<T extends CharSequence> implements Predicate<T> {
         private final String prefix;
-        private StartsWith(String prefix) {
+        public StartsWith(String prefix) {
             this.prefix = prefix;
         }
         @Override
@@ -250,7 +250,7 @@ public class StringPredicates {
         return new EqualToAny<T>(vals);
     }
 
-    private static class EqualToAny<T> implements Predicate<T>, Serializable {
+    public static class EqualToAny<T> implements Predicate<T>, Serializable {
         private static final long serialVersionUID = 6209304291945204422L;
         private final Set<T> vals;
         
@@ -273,9 +273,9 @@ public class StringPredicates {
         return new MatchesRegex<T>(regex);
     }
 
-    protected static class MatchesRegex<T extends CharSequence> implements Predicate<T> {
+    public static class MatchesRegex<T extends CharSequence> implements Predicate<T> {
         protected final String regex;
-        protected MatchesRegex(String regex) {
+        public MatchesRegex(String regex) {
             this.regex = regex;
         }
         @Override
@@ -292,9 +292,9 @@ public class StringPredicates {
         return new MatchesGlob<T>(glob);
     }
 
-    protected static class MatchesGlob<T extends CharSequence> implements Predicate<T> {
+    public static class MatchesGlob<T extends CharSequence> implements Predicate<T> {
         protected final String glob;
-        protected MatchesGlob(String glob) {
+        public MatchesGlob(String glob) {
             this.glob = glob;
         }
         @Override
