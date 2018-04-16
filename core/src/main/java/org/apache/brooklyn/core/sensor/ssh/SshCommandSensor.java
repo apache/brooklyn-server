@@ -70,6 +70,8 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
     public static final ConfigKey<String> SENSOR_EXECUTION_DIR = ConfigKeys.newStringConfigKey("executionDir", "Directory where the command should run; "
         + "if not supplied, executes in the entity's run dir (or home dir if no run dir is defined); "
         + "use '~' to always execute in the home dir, or 'custom-feed/' to execute in a custom-feed dir relative to the run dir");
+    public static final ConfigKey<Object> VALUE_ON_ERROR = ConfigKeys.newConfigKey(Object.class, "value.on.error",
+            "Value to be used if an error occurs whilst executing the ssh command", null);
     public static final MapConfigKey<Object> SENSOR_SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT;
 
     protected final String command;
@@ -136,7 +138,7 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
                 .command(commandSupplier)
                 .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
                 .checkSuccess(SshValueFunctions.exitStatusEquals(0))
-                .onFailureOrException(Functions.constant((T) null))
+                .onFailureOrException(Functions.constant((T)params.get(VALUE_ON_ERROR)))
                 .onSuccess(Functions.compose(new Function<String, T>() {
                         @Override
                         public T apply(String input) {
