@@ -24,7 +24,6 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Predicates.notNull;
 import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationLiveTest.CREDENTIAL;
 import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationLiveTest.IDENTITY;
-import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationLiveTest.KUBECONFIG;
 import static org.apache.brooklyn.container.location.kubernetes.KubernetesLocationLiveTest.KUBERNETES_ENDPOINT;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEquals;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEqualsEventually;
@@ -44,7 +43,6 @@ import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.container.entity.docker.DockerContainer;
-import org.apache.brooklyn.container.entity.kubernetes.KubernetesHelmChart;
 import org.apache.brooklyn.container.entity.kubernetes.KubernetesPod;
 import org.apache.brooklyn.container.entity.kubernetes.KubernetesResource;
 import org.apache.brooklyn.core.entity.Attributes;
@@ -95,7 +93,6 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "location:",
                 "  kubernetes:",
                 "    " + KubernetesLocationConfig.MASTER_URL.getName() + ": \"" + KUBERNETES_ENDPOINT + "\"",
-                "    " + (StringUtils.isBlank(KUBECONFIG) ? "" : "kubeconfig: " + KUBECONFIG),
                 "    " + (StringUtils.isBlank(IDENTITY) ? "" : "identity: " + IDENTITY),
                 "    " + (StringUtils.isBlank(CREDENTIAL) ? "" : "credential: " + CREDENTIAL));
     }
@@ -511,27 +508,6 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         assertEquals(httpPort, Integer.valueOf(80));
         String httpPublicPort = assertAttributeEventuallyNonNull(nginxService, Sensors.newStringSensor("kubernetes.http.endpoint.mapped.public"));
         assertReachableEventually(HostAndPort.fromString(httpPublicPort));
-    }
-
-    @Test(groups={"Live"})
-    public void testJenkinsHelmChart() throws Exception {
-        String yaml = Joiner.on("\n").join(
-                locationYaml,
-                "services:",
-                "  - type: " + KubernetesHelmChart.class.getName(),
-                "    name: \"jenkins-helm\"",
-                "    chartName: jenkins");
-        Entity app = createStartWaitAndLogApplication(yaml);
-
-        Iterable<KubernetesHelmChart> resources = Entities.descendantsAndSelf(app, KubernetesHelmChart.class);
-        KubernetesHelmChart jenkisHelm = Iterables.find(resources, EntityPredicates.displayNameEqualTo("jenkins-helm"));
-
-        assertEntityHealthy(jenkisHelm);
-
-        Entities.dumpInfo(app);
-
-        Integer httpPort = assertAttributeEventuallyNonNull(jenkisHelm, Sensors.newIntegerSensor("kubernetes.http.port"));
-        assertEquals(httpPort, Integer.valueOf(8080));
     }
 
     protected void assertReachableEventually(final HostAndPort hostAndPort) {

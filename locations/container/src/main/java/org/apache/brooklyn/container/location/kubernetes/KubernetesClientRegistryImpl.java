@@ -106,8 +106,7 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
                 configBuilder.withMasterUrl(cluster.getServer());
                 configBuilder.withCaCertFile(getRelativeFile(cluster.getCertificateAuthority(), configFolder));
                 configBuilder.withCaCertData(cluster.getCertificateAuthorityData());
-                // FIXME
-                // configBuilder.withApiVersion(Optional.fromNullable(cluster.getApiVersion()).or("v1"));
+                configBuilder.withApiVersion(Optional.fromNullable(cluster.getApiVersion()).or("v1"));
                 configBuilder.withTrustCerts(Boolean.TRUE.equals(cluster.getInsecureSkipTlsVerify()));
                 LOG.debug("Cluster {} server: {}", clusterName, cluster.getServer());
                 LOG.debug("Cluster {} additional properties: {}", clusterName, cluster.getAdditionalProperties());
