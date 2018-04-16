@@ -104,7 +104,6 @@
         <jclouds.version>2.1.0</jclouds.version> <!-- JCLOUDS_VERSION -->
         <logback.version>1.0.7</logback.version>
         <slf4j.version>1.7.25</slf4j.version>  <!-- used for java.util.logging jul-to-slf4j interception -->
-        <microbean-helm.version>2.8.2.1.0.3</microbean-helm.version>
         <!-- Must match jclouds' version. From jclouds 1.9.3+ can be any version in the range [16-20) -->
         <guava.version>18.0</guava.version>
         <!--

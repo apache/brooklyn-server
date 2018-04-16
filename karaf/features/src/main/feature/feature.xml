@@ -272,7 +272,6 @@
     </feature>
 
     <feature name="brooklyn-container-service" version="${project.version}" description="Brooklyn Container Service and Location Targets">
-        <bundle start-level="85">wrap:mvn:org.microbean/microbean-helm/${microbean-helm.version}</bundle>
         <bundle start-level="85">mvn:org.apache.brooklyn/brooklyn-locations-container/${project.version}</bundle>
 
         <feature>kubernetes-client</feature>
