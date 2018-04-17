@@ -110,7 +110,46 @@ public class SshCommandSensorYamlTest extends AbstractYamlTest {
                 listener.assertEventCount(1);
             }});
     }
-    
+
+    // "Integration" because takes a couple of seconds
+    @Test(groups="Integration")
+    public void testDslWithSshSensor() throws Exception {
+        AttributeSensor<String> mySensor = Sensors.newStringSensor("mySensor");
+        AttributeSensor<String> sourceSensor = Sensors.newStringSensor("sourceSensor");
+
+        Entity app = createAndStartApplication(
+                "location:",
+                "  localhost",
+                "services:",
+                "- type: " + VanillaSoftwareProcess.class.getName(),
+                "  brooklyn.config:",
+                "    onbox.base.dir.skipResolution: true",
+                "    checkRunning.command: true",
+                "  brooklyn.initializers:",
+                "  - type: org.apache.brooklyn.core.sensor.StaticSensor",
+                "    brooklyn.config:",
+                "      name: " + sourceSensor.getName(),
+                "      sensorType: string",
+                "      static.value: someValue",
+                "  - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor",
+                "    brooklyn.config:",
+                "      name: " + mySensor.getName(),
+                "      command: ",
+                "        $brooklyn:formatString:",
+                "        - echo %s",
+                "        - $brooklyn:attributeWhenReady(\"sourceSensor\")",
+                "      suppressDuplicates: true",
+                "      period: 10ms",
+                "      onlyIfServiceUp: false");
+        waitForApplicationTasks(app);
+
+        VanillaSoftwareProcess entity = (VanillaSoftwareProcess) Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertAttributeEqualsEventually(entity, mySensor, "someValue");
+
+        entity.sensors().set(sourceSensor, "newValue");
+        EntityAsserts.assertAttributeEqualsEventually(entity, mySensor, "someValue");
+    }
+
     @Override
     protected Logger getLogger() {
         return log;
