@@ -74,17 +74,9 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
             "Value to be used if an error occurs whilst executing the ssh command", null);
     public static final MapConfigKey<Object> SENSOR_SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT;
 
-    protected final String command;
-    protected final String executionDir;
-    protected final Map<String,Object> sensorEnv;
 
     public SshCommandSensor(final ConfigBag params) {
         super(params);
-
-        // TODO create a supplier for the command string to support attribute embedding
-        command = Preconditions.checkNotNull(params.get(SENSOR_COMMAND), "SSH command must be supplied when defining this sensor");
-        executionDir = params.get(SENSOR_EXECUTION_DIR);
-        sensorEnv = params.get(SENSOR_SHELL_ENVIRONMENT);
     }
 
     @Override
@@ -107,6 +99,7 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
                 Map<String, Object> env = MutableMap.copyOf(entity.getConfig(BrooklynConfigKeys.SHELL_ENVIRONMENT));
 
                 // Add the shell environment entries from our configuration
+                Map<String,Object> sensorEnv = params.get(SENSOR_SHELL_ENVIRONMENT);
                 if (sensorEnv != null) env.putAll(sensorEnv);
 
                 // Try to resolve the configuration in the env Map
@@ -128,7 +121,9 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
                 // Note that entity may be null during rebind (e.g. if this SshFeed is orphaned, with no associated entity):
                 // See https://issues.apache.org/jira/browse/BROOKLYN-568.
                 // We therefore guard against null in makeCommandExecutingInDirectory.
-                return makeCommandExecutingInDirectory(command, executionDir, entity);
+                String command = Preconditions.checkNotNull(EntityInitializers.resolve(params, SENSOR_COMMAND));
+                String dir = EntityInitializers.resolve(params, SENSOR_EXECUTION_DIR);
+                return makeCommandExecutingInDirectory(command, dir, entity);
             }
         };
 
