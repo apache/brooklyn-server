@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import java.util.List;
+import java.util.Map;
+
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -29,11 +32,15 @@ import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponse;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecParams;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 
@@ -111,18 +118,54 @@ public class SshCommandSensorYamlTest extends AbstractYamlTest {
             }});
     }
 
-    // "Integration" because takes a couple of seconds
-    @Test(groups="Integration")
+    @Test
     public void testDslWithSshSensor() throws Exception {
+        // Set up a custom response for the echo command.
+        // Simulate the execution of the echo, substituting the environment variables as well.
+        RecordingSshTool.setCustomResponse(".*echo \"mytest .*", new RecordingSshTool.CustomResponseGenerator() {
+            @Override public CustomResponse generate(ExecParams execParams) throws Exception {
+                Optional<String> echoBody = extractEchoBody(execParams.commands);
+                if (echoBody.isPresent()) {
+                    String stdout = evaluateEchoBody(execParams, echoBody.get());
+                    String stderr = "";
+                    return new CustomResponse(0, stdout, stderr);
+                } else {
+                    return new CustomResponse(0, "", "");
+                }
+            }
+            private Optional<String> extractEchoBody(List<String> cmds) {
+                for (String cmd : cmds) {
+                    if (cmd.contains("echo \"mytest ")) {
+                        String echoBody = cmd.substring(cmd.indexOf("echo \"mytest ") + 6);
+                        echoBody = Strings.removeFromEnd(echoBody.trim(), "\"");
+                        return Optional.of(echoBody);
+                    }
+                }
+                return Optional.absent();
+            }
+            private String evaluateEchoBody(ExecParams execParams, String echoBody) {
+                String result = echoBody;
+                for (Map.Entry<String, ?> entry : execParams.env.entrySet()) {
+                    String envName = entry.getKey();
+                    String envVal = entry.getValue() != null ? entry.getValue().toString() : "";
+                    result = result.replaceAll("\\$"+envName, envVal);
+                    result = result.replaceAll("\\$\\{"+envName+"\\}", envVal);
+                }
+                return result;
+            }
+        });
+
         AttributeSensor<String> mySensor = Sensors.newStringSensor("mySensor");
         AttributeSensor<String> sourceSensor = Sensors.newStringSensor("sourceSensor");
 
         Entity app = createAndStartApplication(
                 "location:",
-                "  localhost",
+                "  localhost:",
+                "    sshToolClass: "+RecordingSshTool.class.getName(),
                 "services:",
                 "- type: " + VanillaSoftwareProcess.class.getName(),
                 "  brooklyn.config:",
+                "    myconf: myconfval",
                 "    onbox.base.dir.skipResolution: true",
                 "    checkRunning.command: true",
                 "  brooklyn.initializers:",
@@ -134,9 +177,11 @@ public class SshCommandSensorYamlTest extends AbstractYamlTest {
                 "  - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor",
                 "    brooklyn.config:",
                 "      name: " + mySensor.getName(),
-                "      command: ",
+                "      shell.env:",
+                "        MY_ENV: $brooklyn:config(\"myconf\")",
+                "      command:",
                 "        $brooklyn:formatString:",
-                "        - echo %s",
+                "        - echo \"mytest %s ${MY_ENV}\"",
                 "        - $brooklyn:attributeWhenReady(\"sourceSensor\")",
                 "      suppressDuplicates: true",
                 "      period: 10ms",
@@ -144,10 +189,10 @@ public class SshCommandSensorYamlTest extends AbstractYamlTest {
         waitForApplicationTasks(app);
 
         VanillaSoftwareProcess entity = (VanillaSoftwareProcess) Iterables.getOnlyElement(app.getChildren());
-        EntityAsserts.assertAttributeEqualsEventually(entity, mySensor, "someValue");
+        EntityAsserts.assertAttributeEqualsEventually(entity, mySensor, "mytest someValue myconfval");
 
         entity.sensors().set(sourceSensor, "newValue");
-        EntityAsserts.assertAttributeEqualsEventually(entity, mySensor, "someValue");
+        EntityAsserts.assertAttributeEqualsEventually(entity, mySensor, "mytest newValue myconfval");
     }
 
     @Override
