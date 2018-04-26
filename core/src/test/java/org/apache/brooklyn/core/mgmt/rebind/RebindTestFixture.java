@@ -19,9 +19,11 @@
 package org.apache.brooklyn.core.mgmt.rebind;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.function.Function;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -30,6 +32,7 @@ import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoManifest;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.StartableApplication;
@@ -41,6 +44,7 @@ import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.repeat.Repeater;
@@ -299,6 +303,24 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
     }
     
     protected BrooklynMementoManifest loadMementoManifest() throws Exception {
+        return loadFromPersistedState((persister) -> {
+            RebindExceptionHandler exceptionHandler = new RecordingRebindExceptionHandler(RebindManager.RebindFailureMode.FAIL_AT_END, RebindManager.RebindFailureMode.FAIL_AT_END);
+            try {
+                return persister.loadMementoManifest(null, exceptionHandler);
+            } catch (IOException e) {
+                throw Exceptions.propagate(e);
+            }
+        });
+    }
+    
+    protected BrooklynMementoRawData loadMementoRawData() throws Exception {
+        return loadFromPersistedState((persister) -> {
+            RebindExceptionHandler exceptionHandler = new RecordingRebindExceptionHandler(RebindManager.RebindFailureMode.FAIL_AT_END, RebindManager.RebindFailureMode.FAIL_AT_END);
+            return persister.loadMementoRawData(exceptionHandler);
+        });
+    }
+    
+    protected <U> U loadFromPersistedState(Function<BrooklynMementoPersisterToObjectStore, U> loader) throws Exception {
         newManagementContext = createNewManagementContext();
         FileBasedObjectStore objectStore = new FileBasedObjectStore(mementoDir);
         objectStore.injectManagementContext(newManagementContext);
@@ -307,10 +329,13 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
                 objectStore,
                 newManagementContext,
                 classLoader);
-        RebindExceptionHandler exceptionHandler = new RecordingRebindExceptionHandler(RebindManager.RebindFailureMode.FAIL_AT_END, RebindManager.RebindFailureMode.FAIL_AT_END);
-        BrooklynMementoManifest mementoManifest = persister.loadMementoManifest(null, exceptionHandler);
-        persister.stop(false);
-        return mementoManifest;
+        U result;
+        try {
+            result = loader.apply(persister);
+        } finally {
+            persister.stop(false);
+        }
+        return result;
     }
     
 //    protected void assertCatalogContains(BrooklynCatalog catalog, CatalogItem<?, ?> item) {

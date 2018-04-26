@@ -366,6 +366,18 @@ public class StringFunctions {
         }
     }
 
+    public static Function<String, String> trimEnd() {
+        return new TrimEndFunction();
+    }
+    
+    protected static class TrimEndFunction implements Function<String, String> {
+        @Override
+        public String apply(@Nullable String input) {
+            if (input == null) return null;
+            return Strings.trimEnd(input);
+        }
+    }
+
     public static Function<String, String> toLowerCase() {
         return new LowerCaseFunction();
     }

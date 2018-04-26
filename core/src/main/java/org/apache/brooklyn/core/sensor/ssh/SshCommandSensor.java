@@ -41,7 +41,9 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.text.StringFunctions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -53,6 +55,7 @@ import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.TypeToken;
 
 /** 
  * Configurable {@link EntityInitializer} which adds an SSH sensor feed running the <code>command</code> supplied
@@ -99,7 +102,34 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
         final Duration logWarningGraceTimeOnStartup = EntityInitializers.resolve(params, LOG_WARNING_GRACE_TIME_ON_STARTUP);
         final Duration logWarningGraceTime = EntityInitializers.resolve(params, LOG_WARNING_GRACE_TIME);
 
-        Supplier<Map<String,String>> envSupplier = new Supplier<Map<String,String>>() {
+        Supplier<Map<String,String>> envSupplier = new EnvSupplier(entity, params);
+        
+        Supplier<String> commandSupplier = new CommandSupplier(entity, params);
+
+        CommandPollConfig<T> pollConfig = new CommandPollConfig<T>(sensor)
+                .period(period)
+                .env(envSupplier)
+                .command(commandSupplier)
+                .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
+                .checkSuccess(SshValueFunctions.exitStatusEquals(0))
+                .onFailureOrException(Functions.constant((T)params.get(VALUE_ON_ERROR)))
+                .onSuccess(Functionals.chain(
+                        SshValueFunctions.stdout(),
+                        StringFunctions.trimEnd(),
+                        TypeCoercions.function((Class<T>) sensor.getType())))
+                .logWarningGraceTimeOnStartup(logWarningGraceTimeOnStartup)
+                .logWarningGraceTime(logWarningGraceTime);
+
+        SshFeed feed = SshFeed.builder()
+                .entity(entity)
+                .onlyIfServiceUp()
+                .poll(pollConfig)
+                .build();
+
+        entity.addFeed(feed);
+        
+        // Deprecated; kept for backwards compatibility with historic persisted state
+        new Supplier<Map<String,String>>() {
             @Override
             public Map<String, String> get() {
                 if (entity == null) return ImmutableMap.of(); // See BROOKLYN-568
@@ -123,7 +153,8 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
             }
         };
 
-        Supplier<String> commandSupplier = new Supplier<String>() {
+        // Deprecated; kept for backwards compatibility with historic persisted state
+        new Supplier<String>() {
             @Override
             public String get() {
                 // Note that entity may be null during rebind (e.g. if this SshFeed is orphaned, with no associated entity):
@@ -135,28 +166,12 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
             }
         };
 
-        CommandPollConfig<T> pollConfig = new CommandPollConfig<T>(sensor)
-                .period(period)
-                .env(envSupplier)
-                .command(commandSupplier)
-                .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
-                .checkSuccess(SshValueFunctions.exitStatusEquals(0))
-                .onFailureOrException(Functions.constant((T)params.get(VALUE_ON_ERROR)))
-                .onSuccess(Functions.compose(new Function<String, T>() {
-                        @Override
-                        public T apply(String input) {
-                            return TypeCoercions.coerce(Strings.trimEnd(input), (Class<T>) sensor.getType());
-                        }}, SshValueFunctions.stdout()))
-                .logWarningGraceTimeOnStartup(logWarningGraceTimeOnStartup)
-                .logWarningGraceTime(logWarningGraceTime);
-
-        SshFeed feed = SshFeed.builder()
-                .entity(entity)
-                .onlyIfServiceUp()
-                .poll(pollConfig)
-                .build();
-
-        entity.addFeed(feed);
+        // Deprecated; kept for backwards compatibility with historic persisted state
+        new Function<String, T>() {
+            @Override public T apply(String input) {
+                return TypeCoercions.coerce(Strings.trimEnd(input), (Class<T>) sensor.getType());
+            }
+        };
     }
 
     @Beta
@@ -183,4 +198,65 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
         return finalCommand;
     }
 
+    private static class EnvSupplier implements Supplier<Map<String,String>> {
+        private final Entity entity;
+        private final Object rawSensorShellEnv;
+        
+        EnvSupplier(Entity entity, ConfigBag params) {
+            this.entity = entity;
+            this.rawSensorShellEnv = params.getAllConfigRaw().getOrDefault(SENSOR_SHELL_ENVIRONMENT.getName(), SENSOR_SHELL_ENVIRONMENT.getDefaultValue());
+        }
+        
+        @Override
+        public Map<String, String> get() {
+            if (entity == null) return ImmutableMap.of(); // See BROOKLYN-568
+            
+            Map<String, Object> env = MutableMap.copyOf(entity.getConfig(BrooklynConfigKeys.SHELL_ENVIRONMENT));
+
+            // Add the shell environment entries from our configuration
+            if (rawSensorShellEnv != null) {
+                env.putAll(TypeCoercions.coerce(rawSensorShellEnv, new TypeToken<Map<String,Object>>() {}));
+            }
+
+            // Try to resolve the configuration in the env Map
+            try {
+                env = (Map<String, Object>) Tasks.resolveDeepValue(env, Object.class, ((EntityInternal) entity).getExecutionContext());
+            } catch (InterruptedException | ExecutionException e) {
+                Exceptions.propagateIfFatal(e);
+            }
+
+            // Convert the environment into strings with the serializer
+            ShellEnvironmentSerializer serializer = new ShellEnvironmentSerializer(((EntityInternal) entity).getManagementContext());
+            return serializer.serialize(env);
+        }
+    }
+
+    private static class CommandSupplier implements Supplier<String> {
+        private final Entity entity;
+        private final Object rawSensorCommand;
+        private final Object rawSensorExecDir;
+        
+        CommandSupplier(Entity entity, ConfigBag params) {
+            this.entity = entity;
+            this.rawSensorCommand = params.getAllConfigRaw().get(SENSOR_COMMAND.getName());
+            this.rawSensorExecDir = params.getAllConfigRaw().get(SENSOR_EXECUTION_DIR.getName());
+        }
+        
+        @Override
+        public String get() {
+            // Note that entity may be null during rebind (e.g. if this SshFeed is orphaned, with no associated entity):
+            // See https://issues.apache.org/jira/browse/BROOKLYN-568.
+            // We therefore guard against null in makeCommandExecutingInDirectory.
+            ConfigBag params = ConfigBag.newInstance();
+            if (rawSensorCommand != null) {
+                params.putStringKey(SENSOR_COMMAND.getName(), rawSensorCommand);
+            }
+            if (rawSensorExecDir != null) {
+                params.putStringKey(SENSOR_EXECUTION_DIR.getName(), rawSensorExecDir);
+            }
+            String command = Preconditions.checkNotNull(EntityInitializers.resolve(params, SENSOR_COMMAND));
+            String dir = EntityInitializers.resolve(params, SENSOR_EXECUTION_DIR);
+            return makeCommandExecutingInDirectory(command, dir, entity);
+        }
+    }
 }

@@ -28,7 +28,6 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.core.mgmt.usage.UsageListener;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
@@ -93,7 +92,19 @@ public class TypeCoercions {
     }
     
     public static <T> Function<Object, T> function(final Class<T> type) {
-        return coercer.function(type);
+        return new CoerceFunction<T>(type);
+    }
+
+    private static class CoerceFunction<T> implements Function<Object, T> { 
+        private final Class<T> type;
+
+        public CoerceFunction(Class<T> type) {
+            this.type = type;
+        }
+        @Override
+        public T apply(Object input) {
+            return coerce(input, type);
+        }
     }
 
     public static void registerDeprecatedBrooklynAdapters() {
