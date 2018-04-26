@@ -74,7 +74,15 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
             "Value to be used if an error occurs whilst executing the ssh command", null);
     public static final MapConfigKey<Object> SENSOR_SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT;
 
-
+    // Fields are kept for deserialization purposes; however will rely on the values being
+    // re-computed from the config map, rather than being restored from persistence.
+    @SuppressWarnings("unused")
+    private String command;
+    @SuppressWarnings("unused")
+    private String executionDir;
+    @SuppressWarnings("unused")
+    private Map<String,Object> sensorEnv;
+    
     public SshCommandSensor(final ConfigBag params) {
         super(params);
     }
