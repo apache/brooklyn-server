@@ -135,6 +135,9 @@ public class Functionals {
     }
 
     public static <T> Predicate<T> predicate(final Function<T,Boolean> f) {
+        // Deprecated use of anonymous class (even though it's got a name, it's in a method).
+        // Kept for rebinding to historic persisted state only.
+        @SuppressWarnings({ "unused", "hiding" })
         class FunctionAsPredicate implements Predicate<T> {
             @Override
             public boolean apply(T input) {
@@ -145,7 +148,23 @@ public class Functionals {
                 return "predicate("+f+")";
             }
         }
-        return new FunctionAsPredicate();
+        return new Functionals.FunctionAsPredicate<T>(f);
+    }
+
+    static class FunctionAsPredicate<T> implements Predicate<T> {
+        private final Function<T, Boolean> f;
+        
+        FunctionAsPredicate(final Function<T,Boolean> f) {
+            this.f = f;
+        }
+        @Override
+        public boolean apply(T input) {
+            return f.apply(input);
+        }
+        @Override
+        public String toString() {
+            return "predicate("+f+")";
+        }
     }
 
     /**

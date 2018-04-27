@@ -1,0 +1,150 @@
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+<entity>
+  <brooklynVersion>1.0.0-20180227.1009</brooklynVersion>
+  <type>org.apache.brooklyn.core:org.apache.brooklyn.entity.stock.BasicApplicationImpl</type>
+  <id>dnlz7hpbdg</id>
+  <displayName>Basic Application</displayName>
+  <searchPath class="ImmutableList"/>
+  <tags>
+    <org.apache.brooklyn.core:org.apache.brooklyn.core.mgmt.BrooklynTags_-NamedStringTag>
+      <kind>yaml_spec</kind>
+      <contents>services:
+  - type: org.apache.brooklyn.entity.stock.BasicApplication
+    brooklyn.initializers:
+      - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+        brooklyn.config:
+          name: myconf
+          targetType: String
+          period: 5s
+          command: echo &apos;myval&apos;
+          shell.env:
+            MY_ENV: myEnvVal
+          executionDir: /path/to/myexecutiondir
+</contents>
+    </org.apache.brooklyn.core:org.apache.brooklyn.core.mgmt.BrooklynTags_-NamedStringTag>
+    <org.apache.brooklyn.core:org.apache.brooklyn.core.mgmt.BrooklynTags_-NamedStringTag>
+      <kind>yaml_spec</kind>
+      <contents>services:
+- type: org.apache.brooklyn.entity.stock.BasicApplication
+  name: Basic Application
+  description: The simplest application.</contents>
+    </org.apache.brooklyn.core:org.apache.brooklyn.core.mgmt.BrooklynTags_-NamedStringTag>
+  </tags>
+  <config>
+    <camp.template.id>kyb9EoI6</camp.template.id>
+  </config>
+  <attributes>
+    <service.notUp.indicators>
+      <MutableMap/>
+    </service.notUp.indicators>
+    <entity.id>dnlz7hpbdg</entity.id>
+    <application.id>dnlz7hpbdg</application.id>
+    <service.isUp type="boolean">true</service.isUp>
+    <service.problems>
+      <MutableMap/>
+    </service.problems>
+    <service.state type="org.apache.brooklyn.core:org.apache.brooklyn.core.entity.lifecycle.Lifecycle">RUNNING</service.state>
+    <service.state.expected>
+      <org.apache.brooklyn.core:org.apache.brooklyn.core.entity.lifecycle.Lifecycle_-Transition>
+        <state>RUNNING</state>
+        <timestampUtc>1524765391349</timestampUtc>
+      </org.apache.brooklyn.core:org.apache.brooklyn.core.entity.lifecycle.Lifecycle_-Transition>
+    </service.state.expected>
+    <myconf>
+      <null/>
+    </myconf>
+  </attributes>
+  <enrichers/>
+  <feeds>
+    <string>a9ekg3cnu0</string>
+  </feeds>
+  <configKeys>
+    <camp.template.id>
+      <configKey>
+        <name>camp.template.id</name>
+        <deprecatedNames class="ImmutableList" reference="../../../../searchPath"/>
+        <type>java.lang.String</type>
+        <description>UID of the component in the CAMP template from which this entity was created</description>
+        <reconfigurable>false</reconfigurable>
+        <runtimeInheritance class="org.apache.brooklyn.core:org.apache.brooklyn.core.config.BasicConfigInheritance$NeverInherited"/>
+        <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+      </configKey>
+    </camp.template.id>
+  </configKeys>
+  <attributeKeys>
+    <service.notUp.indicators>
+      <attributeSensor>
+        <typeToken class="org.apache.brooklyn.core:org.apache.brooklyn.core.entity.Attributes$1" resolves-to="com.google.guava:com.google.common.reflect.TypeToken$SimpleTypeToken">
+          <runtimeType class="com.google.guava:com.google.common.reflect.Types$ParameterizedTypeImpl">
+            <argumentsList>
+              <java-class>java.lang.String</java-class>
+              <java-class>java.lang.Object</java-class>
+            </argumentsList>
+            <rawType>java.util.Map</rawType>
+          </runtimeType>
+        </typeToken>
+        <name>service.notUp.indicators</name>
+        <description>A map of namespaced indicators that the service is not up</description>
+        <persistence>REQUIRED</persistence>
+      </attributeSensor>
+    </service.notUp.indicators>
+    <service.problems>
+      <attributeSensor>
+        <typeToken class="org.apache.brooklyn.core:org.apache.brooklyn.core.entity.Attributes$2" resolves-to="com.google.guava:com.google.common.reflect.TypeToken$SimpleTypeToken">
+          <runtimeType class="com.google.guava:com.google.common.reflect.Types$ParameterizedTypeImpl">
+            <argumentsList>
+              <java-class>java.lang.String</java-class>
+              <java-class>java.lang.Object</java-class>
+            </argumentsList>
+            <rawType>java.util.Map</rawType>
+          </runtimeType>
+        </typeToken>
+        <name>service.problems</name>
+        <description>A map of namespaced indicators of problems with a service</description>
+        <persistence>REQUIRED</persistence>
+      </attributeSensor>
+    </service.problems>
+    <service.state>
+      <attributeSensor>
+        <type>org.apache.brooklyn.core:org.apache.brooklyn.core.entity.lifecycle.Lifecycle</type>
+        <name>service.state</name>
+        <description>Actual lifecycle state of the service</description>
+        <persistence>REQUIRED</persistence>
+      </attributeSensor>
+    </service.state>
+    <service.state.expected>
+      <attributeSensor>
+        <type>org.apache.brooklyn.core:org.apache.brooklyn.core.entity.lifecycle.Lifecycle$Transition</type>
+        <name>service.state.expected</name>
+        <description>Last controlled change to service state, indicating what the expected state should be</description>
+        <persistence>REQUIRED</persistence>
+      </attributeSensor>
+    </service.state.expected>
+    <myconf>
+      <attributeSensor>
+        <type>java.lang.String</type>
+        <name>myconf</name>
+        <description>myconf</description>
+        <persistence>REQUIRED</persistence>
+      </attributeSensor>
+    </myconf>
+  </attributeKeys>
+</entity>
