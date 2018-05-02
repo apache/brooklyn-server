@@ -1104,6 +1104,8 @@
                       https://brooklyn.incubator.apache.org
                   -->
                   <exclude>docs/**</exclude>
+                  <!-- maven cache -->
+                  <exclude>**/.m2/**</exclude>
 
                 </excludes>
               </configuration>
