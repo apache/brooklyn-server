@@ -56,6 +56,7 @@ public class SshCommandMembershipTrackingPolicyTest extends BrooklynAppUnitTestS
     @Override
     public void setUp() throws Exception {
         super.setUp();
+        RecordingSshTool.clear();
 
         machine = LocationSpec.create(SshMachineLocation.class)
                 .configure("address", "1.2.3.4")
