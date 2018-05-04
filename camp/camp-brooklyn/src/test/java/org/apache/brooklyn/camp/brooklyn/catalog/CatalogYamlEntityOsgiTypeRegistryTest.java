@@ -24,9 +24,11 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 
 /** Variant of parent tests using OSGi, bundles, and type registry, instead of lightweight non-osgi catalog */
@@ -124,6 +126,48 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
             "    itemType: entity",
             "    item:",
             "      type: " + TestEntity.class.getName());
+    }
+    
+    // tags supported only with osgi catalog
+    
+    @Test
+    public void testAddCatalogItemWithTags() throws Exception {
+        String symbolicName = "my.catalog.app.id.load";
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  id: " + symbolicName,
+            "  version: " + TEST_VERSION,
+            "  tags: [ foo, bar ]",
+            "  itemType: entity",
+            "  item: " + BasicEntity.class.getName());
+
+        RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
+        Asserts.assertThat(item.getTags(), CollectionFunctionals.contains("foo"));
+        Asserts.assertThat(item.getTags(), CollectionFunctionals.contains("bar"));
+        Asserts.assertThat(item.getTags(), Predicates.not(CollectionFunctionals.contains("baz")));
+
+        deleteCatalogEntity(symbolicName);
+    }
+    @Test
+    public void testAddCatalogItemWithInheritedTags() throws Exception {
+        String symbolicName = "my.catalog.app.id.load";
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  version: " + TEST_VERSION,
+            "  tags: [ foo ]",
+            "  items:",
+            "  - ",
+            "    id: " + symbolicName,
+            "    tags: [ bar ]",
+            "    itemType: entity",
+            "    item: " + BasicEntity.class.getName());
+
+        RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
+        Asserts.assertThat(item.getTags(), CollectionFunctionals.contains("foo"));
+        Asserts.assertThat(item.getTags(), CollectionFunctionals.contains("bar"));
+        Asserts.assertThat(item.getTags(), Predicates.not(CollectionFunctionals.contains("baz")));
+
+        deleteCatalogEntity(symbolicName);
     }
     
     // also runs many other tests from super, here using the osgi/type-registry appraoch
