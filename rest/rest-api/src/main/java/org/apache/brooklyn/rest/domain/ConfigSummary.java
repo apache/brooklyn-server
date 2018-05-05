@@ -29,6 +29,8 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.collections.Jsonya;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.apache.brooklyn.util.text.StringPredicates;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -114,7 +116,8 @@ public class ConfigSummary implements HasName, Serializable {
                 : ImmutableList.<String>of();
         if (config.getType().isEnum()) {
             this.type = Enum.class.getName();
-            this.defaultValue = (config.getDefaultValue() == null) ? null : ((Enum<?>) config.getDefaultValue()).name();
+            this.defaultValue = config.getDefaultValue() instanceof Enum? ((Enum<?>) config.getDefaultValue()).name() : 
+                Jsonya.convertToJsonPrimitive(config.getDefaultValue());
             this.possibleValues = FluentIterable
                     .from(Arrays.asList((Enum<?>[])(config.getType().getEnumConstants())))
                     .transform(new Function<Enum<?>, Map<String, String>>() {
