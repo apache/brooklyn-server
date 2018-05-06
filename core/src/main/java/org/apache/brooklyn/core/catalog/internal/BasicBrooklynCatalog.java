@@ -658,6 +658,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 .putIfNotNull("item", itemMetadata.get("item"))
                 .putIfNotNull("items", itemMetadata.get("items"))
                 .build();
+        // tags we treat specially to concatenate as a set (treating as config with merge might be cleaner)
+        catalogMetadata.put("tags", MutableSet.copyOf(getFirstAs(parentMetadata, Collection.class, "tags").orNull())
+            .putAll(getFirstAs(itemMetadataWithoutItemDef, Collection.class, "tags").orNull()) );
 
         // brooklyn.libraries we treat specially, to append the list, with the child's list preferred in classloading order
         // `libraries` is supported in some places as a legacy syntax; it should always be `brooklyn.libraries` for new apps
@@ -934,15 +937,17 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         String sourcePlanYaml = planInterpreter.getPlanYaml();
 
         if (resultLegacyFormat==null) {
-            // horrible API but basically if `result` is null then add to local unpersisted registry instead,
-            // without forcing resolution and ignoring errors; this lets us deal with forward references, but
-            // we'll have to do a validation step subsequently.  (already we let bundles deal with persistence,
-            // just need TODO to make sure we delete previously-persisted things which now come through this path.)  
-            // NB: when everything is a bundle and we've removed all scanning then this can be the _only_ path
-            // and code can be massively simpler
-            // TODO allow these to be set in catalog.bom ?
+            // horrible API but basically `resultLegacyFormat==null` means use the new-style,
+            // adding from persisted bundles to type registry (which is not persisted)
+            // instead of old way which persisted catalog items (and not their bundles).
+            // this lets us deal with forward references, with a subsequent step to validate.
+
+            Set<Object> tags = MutableSet.of().putAll(getFirstAs(catalogMetadata, Collection.class, "tags").orNull());
+            
             List<String> aliases = MutableList.of();
-            List<Object> tags = MutableList.of();
+            // could easily allow aliases to be set in catalog.bom, as done for tags above,
+            // but currently we don't, we only allow the official type name
+            
             Boolean catalogDisabled = null;
             
             MutableList<Object> superTypes = MutableList.of();
