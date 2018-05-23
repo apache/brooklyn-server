@@ -42,7 +42,8 @@ public class RebindManagerExceptionHandlerTest extends RebindTestFixtureWithApp 
     @Test
     public void testAddConfigFailure() throws Throwable {
         try {
-            rebind();
+            RebindOptions rebindOptions = RebindOptions.create().defaultExceptionHandler();
+            rebind(rebindOptions);
             Asserts.shouldHaveFailedPreviously();
         } catch (Throwable e) {
             Asserts.expectedFailureContainsIgnoreCase(e, "minRam=4", "keyWithMapValue");
@@ -51,7 +52,9 @@ public class RebindManagerExceptionHandlerTest extends RebindTestFixtureWithApp 
 
     @Test
     public void testAddConfigContinue() throws Throwable {
-        RebindOptions rebindOptions = RebindOptions.create().additionalProperties(ImmutableMap.of("rebind.failureMode.addConfig", "continue"));
+        RebindOptions rebindOptions = RebindOptions.create()
+                .defaultExceptionHandler()
+                .additionalProperties(ImmutableMap.of("rebind.failureMode.addConfig", "continue"));
         TestApplication rebindedApp = rebind(rebindOptions);
         EntityAsserts.assertConfigEquals(rebindedApp, TestEntity.CONF_MAP_THING, null);
     }

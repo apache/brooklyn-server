@@ -40,7 +40,7 @@ public class RebindOptions {
 
     public boolean checkSerializable;
     public boolean terminateOrigManagementContext;
-    public RebindExceptionHandler exceptionHandler;
+    public RebindExceptionHandler exceptionHandler = RebindExceptionHandlerImpl.builder().strict().build();
     public ManagementContext origManagementContext;
     public ManagementContext newManagementContext;
     public File mementoDir;
@@ -78,6 +78,10 @@ public class RebindOptions {
     }
     public RebindOptions terminateOrigManagementContext(boolean val) {
         this.terminateOrigManagementContext = val;
+        return this;
+    }
+    public RebindOptions defaultExceptionHandler() {
+        this.exceptionHandler = null;
         return this;
     }
     public RebindOptions exceptionHandler(RebindExceptionHandler val) {

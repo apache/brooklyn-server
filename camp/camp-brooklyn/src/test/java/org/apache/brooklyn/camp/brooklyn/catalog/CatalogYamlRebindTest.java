@@ -31,6 +31,7 @@ import java.util.List;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.rebind.RebindManager.RebindFailureMode;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
@@ -46,6 +47,7 @@ import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectSto
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore.StoreObjectAccessor;
 import org.apache.brooklyn.core.mgmt.rebind.RebindExceptionHandlerImpl;
+import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
 import org.apache.brooklyn.core.test.policy.TestEnricher;
@@ -53,6 +55,7 @@ import org.apache.brooklyn.core.test.policy.TestPolicy;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
+import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.testng.annotations.AfterMethod;
@@ -140,14 +143,50 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
 
     @Test(dataProvider = "dataProvider")
     public void testRebindWithCatalogAndApp(RebindWithCatalogTestMode mode, OsgiMode osgiMode) throws Exception {
-        testRebindWithCatalogAndAppUsingOptions(mode, osgiMode, RebindOptions.create());
+        RebindOptions rebindOptions;
+        if (mode == RebindWithCatalogTestMode.DELETE_CATALOG || mode == RebindWithCatalogTestMode.REPLACE_CATALOG_WITH_NEWER_VERSION) {
+            // Don't be strict:
+            //  - After deleting catalog item, expect dangling reference that pointed at it.
+            //  - TODO For 'replace catalog', the dangling-ref check is done very early so those appear as 'dangling'.
+            //         We subsequently switch the catalog id. Ideally we wouldn't count those as 'dangling' in the rebind check,
+            //         if there is a newer version available.
+            rebindOptions = RebindOptions.create()
+                    .exceptionHandler(RebindExceptionHandlerImpl.builder()
+                            .strict()
+                            .danglingRefFailureMode(RebindFailureMode.CONTINUE)
+                            .danglingRefQuorumRequiredHealthy(RebindManagerImpl.DANGLING_REFERENCES_MIN_REQUIRED_HEALTHY.getDefaultValue())
+                            .build());
+        } else {
+            rebindOptions = RebindOptions.create();
+        }
+        testRebindWithCatalogAndAppUsingOptions(mode, osgiMode, rebindOptions);
+    }
+
+    @Test
+    public void testRebindWithCatalogAndAppRebindCatalogItemIdsTemp() throws Exception {
+        testRebindWithCatalogAndAppRebindCatalogItemIds(RebindWithCatalogTestMode.REPLACE_CATALOG_WITH_NEWER_VERSION, OsgiMode.NONE);
     }
 
     // Re-run all the same tests as testRebindWithCatalogAndApp, but with the XML updated to mimic state
     // persisted before <catalogItemIdSearchPath> was introduced.
     @Test(dataProvider = "dataProvider")
     public void testRebindWithCatalogAndAppRebindCatalogItemIds(RebindWithCatalogTestMode mode, OsgiMode osgiMode) throws Exception {
-        final RebindOptions rebindOptions = RebindOptions.create();
+        RebindOptions rebindOptions;
+        if (mode == RebindWithCatalogTestMode.DELETE_CATALOG || mode == RebindWithCatalogTestMode.REPLACE_CATALOG_WITH_NEWER_VERSION) {
+            // Don't be strict:
+            //  - After deleting catalog item, expect dangling reference that pointed at it.
+            //  - TODO For 'replace catalog', the dangling-ref check is done very early so those appear as 'dangling'.
+            //         We subsequently switch the catalog id. Ideally we wouldn't count those as 'dangling' in the rebind check,
+            //         if there is a newer version available.
+            rebindOptions = RebindOptions.create()
+                    .exceptionHandler(RebindExceptionHandlerImpl.builder()
+                            .strict()
+                            .danglingRefFailureMode(RebindFailureMode.CONTINUE)
+                            .danglingRefQuorumRequiredHealthy(RebindManagerImpl.DANGLING_REFERENCES_MIN_REQUIRED_HEALTHY.getDefaultValue())
+                            .build());
+        } else {
+            rebindOptions = RebindOptions.create();
+        }
         applyCompoundStateTransformer(rebindOptions, CompoundTransformer.builder()
             .xmlDeleteItem("//searchPath") // delete searchPath element
             .xmlDeleteItem("//@*[contains(., 'searchPath')]") // delete any attributes that reference searchPath
