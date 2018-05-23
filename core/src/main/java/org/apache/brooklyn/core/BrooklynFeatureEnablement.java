@@ -59,6 +59,17 @@ public class BrooklynFeatureEnablement {
 
     public static final String FEATURE_FEED_PERSISTENCE_PROPERTY = FEATURE_PROPERTY_PREFIX+".feedPersistence";
     
+    /**
+     * When persisting an entity that changes, whether to persist its adjuncts and locations 
+     * (i.e. its enrichers, policies, feeds and locations).
+     * 
+     * This was previously the default behaviour, which meant that (legacy) java-based Brooklyn objects
+     * (e.g. entities, locations, policies, enrichers or feeds) could get away with bad practices and 
+     * still be persisted. For example, they could change 'state' without telling the listener, and hope
+     * that the entity they were attached to would soon persist (thus piggy-backing off it).
+     */
+    public static final String FEATURE_REFERENCED_OBJECTS_PERSISTENCE_PROPERTY = FEATURE_PROPERTY_PREFIX+".referencedObjectsPersistence";
+    
     /** whether feeds are automatically registered when set on entities, so that they are persisted */
     public static final String FEATURE_FEED_REGISTRATION_PROPERTY = FEATURE_PROPERTY_PREFIX+".feedRegistration";
 
@@ -150,6 +161,7 @@ public class BrooklynFeatureEnablement {
         setDefault(FEATURE_FEED_REGISTRATION_PROPERTY, false);
         setDefault(FEATURE_BUNDLE_PERSISTENCE_PROPERTY, true);
         setDefault(FEATURE_CATALOG_PERSISTENCE_PROPERTY, true);
+        setDefault(FEATURE_REFERENCED_OBJECTS_PERSISTENCE_PROPERTY, false);
         setDefault(FEATURE_DEFAULT_STANDBY_IS_HOT_PROPERTY, false);
         setDefault(FEATURE_PERSIST_ENTITY_SPEC_AS_SUPPLIER, true);
         setDefault(FEATURE_RENAME_THREADS, false);
