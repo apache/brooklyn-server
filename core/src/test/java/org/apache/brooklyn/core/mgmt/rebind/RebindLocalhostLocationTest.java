@@ -29,7 +29,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoManifest;
-import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 
@@ -87,19 +86,18 @@ public class RebindLocalhostLocationTest extends RebindTestFixtureWithApp {
         testMachineUsableAfterRebind();
         newApp.stop();
 
-        switchOriginalToNewManagementContext();
-        
         // TODO how should we automatically unmanage these?
         // (in this test, locations are created manually, so probably should be destroyed manually, 
         // but in most cases we should probably unmanage the location as part of the entity;
         // could keep the entity ID only in the location, then safely reverse-check usages?)
         // see related non-integration test in RebindEntityTest
-        origManagementContext.getLocationManager().unmanage(origLoc);
+        newManagementContext.getLocationManager().unmanage(origLoc);
         
-        RebindTestUtils.waitForPersisted(origManagementContext);
+        RebindTestUtils.waitForPersisted(newManagementContext);
+        
+        switchOriginalToNewManagementContext();
         
         BrooklynMementoManifest mf = loadMementoManifest();
         Assert.assertTrue(mf.getLocationIdToType().isEmpty(), "Expected no locations; had "+mf.getLocationIdToType());
     }
-    
 }
