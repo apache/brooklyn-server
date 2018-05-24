@@ -18,8 +18,18 @@
  */
 package org.apache.brooklyn.location.jclouds.provider;
 
+import java.util.Map;
+
+import org.apache.brooklyn.location.jclouds.JcloudsLocation;
+import org.apache.brooklyn.location.jclouds.JcloudsLocationConfig;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.jclouds.ec2.EC2Api;
+import org.jclouds.ec2.domain.KeyPair;
+import org.jclouds.ssh.SshKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -73,28 +83,28 @@ public class AwsEc2LocationLiveTest extends AbstractJcloudsLocationTest {
     @Test(enabled = false)
     public void noop() { } /* just exists to let testNG IDE run the test */
     
-    // outline of test which can be used to assert combos of keys etc
-    // currently uses my (alex's) hardcoded keys and preexisting pair;
-    // should refactor to generate keys and the keypair and make a real test,
-    // but for now keeping it commented out as a template for people to do manual testing
-//    @Test(groups = "Live")
-//    public void testProvisionVmAndAuthPublicKey() {
-//        String regionName = USEAST_REGION_NAME;
-//        loc = (JcloudsLocation) mgmt().getLocationRegistry().getLocationManaged(provider + (regionName == null ? "" : ":" + regionName));
-//        SshMachineLocation machine = obtainMachine(MutableMap.of(
-//            JcloudsLocationConfig.KEY_PAIR, "alex-aws-2",
-//            JcloudsLocationConfig.LOGIN_USER_PRIVATE_KEY_FILE, "~/.ssh/alex-aws-2-id_rsa",
-//            
-//            JcloudsLocationConfig.PRIVATE_KEY_FILE, "~/.ssh/aws-cloudera_rsa",
-//            JcloudsLocationConfig.PUBLIC_KEY_FILE, "~/.ssh/aws-cloudera_rsa.pub",
-//            JcloudsLocationConfig.EXTRA_PUBLIC_KEY_DATA_TO_AUTH,
-//                aws-whirr
-//                "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAw9R7FG0pOpZ7MR+KYty+UzHerEtW9NVBJj+NmznT4zg57klqDAxitahe6cJpj8Nbt0Rmp9G4TZQzAWuoSH5ZUJpFpcVP75tMYWOP6ZymH7MZ5hXLjLHTicNyQ/EB9H2eXSK2xLnq/8oDnzKgnhIXL7tbcC7hOY9Yzu25UrO+xQDbzM3nuwlr38JJwo1fLsIiEVI3uutZW9ANZgcZg0USlFFvxGcAA2KZ322tqtQtP3YYE0IogYUjTSFj5xexFDzIcN5V2Z2tHYKW+Jl/jR98EAsq4By1L+whoX142NJGZsB1GKm4zZTh3vjfzpeGNmxrrHDGp2TOCGFJjk2seHqyyw== alex@almac.rocklynn.cognetics.org",
-//            JcloudsLocationConfig.IMAGE_ID, "us-east-1/ami-5492ba3c"
-//        ));
-//        
-//        log.info("Provisioned {} vm {}; checking if ssh'able", provider, machine);
-//        assertTrue(machine.isSshable());
-//    }
+    @Test(groups = "Live")
+    public void testProvisionVmAndAuthPublicKey() {
+        String regionName = USEAST_REGION_NAME;
+        loc = (JcloudsLocation) mgmt().getLocationRegistry().getLocationManaged(provider + (regionName == null ? "" : ":" + regionName));
 
+        EC2Api api = loc.getComputeService().getContext().unwrapApi(EC2Api.class);
+        String primaryKeyName = "brooklyn-keypair-" + System.currentTimeMillis();
+        try {
+            Map<String, String> extra = SshKeys.generate();
+            KeyPair primary = api.getKeyPairApiForRegion(regionName).get().createKeyPairInRegion(regionName, primaryKeyName);
+            SshMachineLocation machine = obtainMachine(MutableMap.of(
+                    JcloudsLocationConfig.KEY_PAIR, primary.getKeyName(),
+                    JcloudsLocationConfig.LOGIN_USER_PRIVATE_KEY_DATA, primary.getKeyMaterial(),
+                    JcloudsLocationConfig.EXTRA_PUBLIC_KEY_DATA_TO_AUTH, extra.get("public"),
+                    JcloudsLocationConfig.IMAGE_ID, "us-east-1/ami-5492ba3c"
+            ));
+
+            log.info("Provisioned {} vm {}; checking if ssh'able; extra private key below\n{}", provider, machine, extra.get("private"));
+            Assert.assertTrue(machine.isSshable());
+        } finally {
+            api.getKeyPairApiForRegion(USEAST_REGION_NAME).get().deleteKeyPairInRegion(USEAST_REGION_NAME, primaryKeyName);
+        }
+    }
+    
 }
