@@ -48,7 +48,7 @@ import com.google.common.collect.Maps;
 public abstract class AbstractJcloudsLocationTest {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractJcloudsLocationTest.class);
 
-    private final String provider;
+    protected final String provider;
 
     protected JcloudsLocation loc;
     protected List<SshMachineLocation> machines = MutableList.of();
