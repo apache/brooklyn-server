@@ -18,6 +18,18 @@
  */
 package org.apache.brooklyn.location.jclouds.provider;
 
+import java.util.Map;
+
+import org.apache.brooklyn.location.jclouds.JcloudsLocation;
+import org.apache.brooklyn.location.jclouds.JcloudsLocationConfig;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.jclouds.ec2.EC2Api;
+import org.jclouds.ec2.domain.KeyPair;
+import org.jclouds.ssh.SshKeys;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -28,6 +40,8 @@ import org.testng.annotations.Test;
  */
 public class AwsEc2LocationLiveTest extends AbstractJcloudsLocationTest {
 
+    private static final Logger log = LoggerFactory.getLogger(AwsEc2LocationLiveTest.class);
+    
     private static final String PROVIDER = "aws-ec2";
     private static final String EUWEST_REGION_NAME = "eu-west-1";
     private static final String USEAST_REGION_NAME = "us-east-1";
@@ -68,4 +82,29 @@ public class AwsEc2LocationLiveTest extends AbstractJcloudsLocationTest {
 
     @Test(enabled = false)
     public void noop() { } /* just exists to let testNG IDE run the test */
+    
+    @Test(groups = "Live")
+    public void testProvisionVmAndAuthPublicKey() {
+        String regionName = USEAST_REGION_NAME;
+        loc = (JcloudsLocation) mgmt().getLocationRegistry().getLocationManaged(provider + (regionName == null ? "" : ":" + regionName));
+
+        EC2Api api = loc.getComputeService().getContext().unwrapApi(EC2Api.class);
+        String primaryKeyName = "brooklyn-keypair-" + System.currentTimeMillis();
+        try {
+            Map<String, String> extra = SshKeys.generate();
+            KeyPair primary = api.getKeyPairApiForRegion(regionName).get().createKeyPairInRegion(regionName, primaryKeyName);
+            SshMachineLocation machine = obtainMachine(MutableMap.of(
+                    JcloudsLocationConfig.KEY_PAIR, primary.getKeyName(),
+                    JcloudsLocationConfig.LOGIN_USER_PRIVATE_KEY_DATA, primary.getKeyMaterial(),
+                    JcloudsLocationConfig.EXTRA_PUBLIC_KEY_DATA_TO_AUTH, extra.get("public"),
+                    JcloudsLocationConfig.IMAGE_ID, "us-east-1/ami-5492ba3c"
+            ));
+
+            log.info("Provisioned {} vm {}; checking if ssh'able; extra private key below\n{}", provider, machine, extra.get("private"));
+            Assert.assertTrue(machine.isSshable());
+        } finally {
+            api.getKeyPairApiForRegion(USEAST_REGION_NAME).get().deleteKeyPairInRegion(USEAST_REGION_NAME, primaryKeyName);
+        }
+    }
+    
 }

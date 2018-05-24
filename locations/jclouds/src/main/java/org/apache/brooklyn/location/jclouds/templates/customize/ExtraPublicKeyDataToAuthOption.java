@@ -21,6 +21,7 @@ package org.apache.brooklyn.location.jclouds.templates.customize;
 
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.internal.BrooklynSystemProperties;
 import org.jclouds.compute.options.TemplateOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +29,7 @@ import org.slf4j.LoggerFactory;
 class ExtraPublicKeyDataToAuthOption implements TemplateOptionCustomizer {
     private static final Logger LOG = LoggerFactory.getLogger(ExtraPublicKeyDataToAuthOption.class);
 
+    @SuppressWarnings("deprecation")
     @Override
     public void apply(TemplateOptions t, ConfigBag props, Object v) {
         // this is unreliable:
@@ -43,8 +45,13 @@ class ExtraPublicKeyDataToAuthOption implements TemplateOptionCustomizer {
         // we also do it here for legacy reasons though i (alex) can't think of any situations it's needed
         // --
         // also we warn on exceptions in case someone is dumping comments or something else
+        //
+        // TODO remove in 1.1 or later, if we confirm there is no need for this
         try {
-            t.authorizePublicKey(v.toString());
+            if (BrooklynSystemProperties.JCLOUDS_AUTHORIZE_EXTRA_SSH_PUBLIC_KEY_DATA.isEnabled()) {
+                // May 2018 - disabled this unless explicitly enabled as it breaks the use of key pairs
+                t.authorizePublicKey(v.toString());
+            }
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             LOG.warn("Error trying jclouds authorizePublicKey; will run later: " + e, e);

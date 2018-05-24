@@ -23,11 +23,12 @@ package org.apache.brooklyn.util.internal;
  */
 public class BrooklynSystemProperties {
 
-    // TODO should these become ConfigKeys ?
-    
+    // FIXME not used
     public static BooleanSystemProperty DEBUG = new BooleanSystemProperty("brooklyn.debug");
+    // FIXME not used
     public static BooleanSystemProperty EXPERIMENTAL = new BooleanSystemProperty("brooklyn.experimental");
     
+    // FIXME not used
     /** controls how long jsch delays between commands it issues */
     // -Dbrooklyn.jsch.exec.delay=100
     public static IntegerSystemProperty JSCH_EXEC_DELAY = new IntegerSystemProperty("brooklyn.jsch.exec.delay");
@@ -39,4 +40,15 @@ public class BrooklynSystemProperties {
 
     /** Allows the use of YAML tags to create arbitrary types known to Java. */
     public static BooleanSystemProperty YAML_TYPE_INSTANTIATION = new BooleanSystemProperty("org.apache.brooklyn.unsafe.YamlTypeInstantiation");
+    
+    /** Since 1.0.0 we no longer ask jclouds to authorizePublicKey for data in extraSshPublicKeyData; we do this ourselves, and the jclouds behaviour
+     * interferes with the use of key pairs.
+     * <p> 
+     * Set -Dbrooklyn.jclouds.authorizePublicKey.extraSshPublicKeyData=true to enable the jclouds call and revert to previous behaviour.
+     * 
+     * @deprecated since introduction in 1.0.0, to be removed in 1.1 or later unless there is a need for this
+     */
+    @Deprecated
+    public static BooleanSystemProperty JCLOUDS_AUTHORIZE_EXTRA_SSH_PUBLIC_KEY_DATA = new BooleanSystemProperty("brooklyn.jclouds.authorizePublicKey.extraSshPublicKeyData");
+    
 }
