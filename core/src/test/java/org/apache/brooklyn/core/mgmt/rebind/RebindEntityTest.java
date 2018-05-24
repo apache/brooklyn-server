@@ -757,6 +757,19 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         assertFalse(newE.isRebinding());
     }
     
+    @Test
+    public void testDoNotRepersistOnTransientAttributeChanged() throws Exception {
+        final AttributeSensor<String> MY_TRANSIENT_ATTRIBUTE = Sensors.builder(String.class, "myTransientAttribute")
+                .persistence(SensorPersistenceMode.NONE)
+                .build();
+        
+        RebindTestUtils.waitForPersisted(mgmt());
+        assertFalse(RebindTestUtils.hasPendingPersists(mgmt()));
+
+        origApp.sensors().set(MY_TRANSIENT_ATTRIBUTE, "myval");
+        assertFalse(RebindTestUtils.hasPendingPersists(mgmt()));
+    }
+    
     @ImplementedBy(EntityChecksIsRebindingImpl.class)
     public static interface EntityChecksIsRebinding extends TestEntity {
         boolean isRebindingValWhenRebinding();
