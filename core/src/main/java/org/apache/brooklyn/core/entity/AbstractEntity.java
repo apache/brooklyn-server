@@ -974,7 +974,10 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                 entityType.addSensorIfAbsent(attribute);
             }
             
-            getManagementSupport().getEntityChangeListener().onAttributeChanged(attribute);
+            if (!Objects.equal(result, val)) {
+                getManagementSupport().getEntityChangeListener().onAttributeChanged(attribute);
+            }
+            
             return result;
         }
 

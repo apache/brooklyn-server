@@ -770,6 +770,17 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         assertFalse(RebindTestUtils.hasPendingPersists(mgmt()));
     }
     
+    @Test
+    public void testDoNotRepersistOnSetAttributeWithSameValue() throws Exception {
+        final AttributeSensor<String> MY_ATTRIBUTE = Sensors.builder(String.class, "myAttribute").build();
+        
+        origApp.sensors().set(MY_ATTRIBUTE, "myval");
+        RebindTestUtils.waitForPersisted(mgmt());
+        
+        origApp.sensors().set(MY_ATTRIBUTE, "myval");
+        assertFalse(RebindTestUtils.hasPendingPersists(mgmt()));
+    }
+    
     @ImplementedBy(EntityChecksIsRebindingImpl.class)
     public static interface EntityChecksIsRebinding extends TestEntity {
         boolean isRebindingValWhenRebinding();
