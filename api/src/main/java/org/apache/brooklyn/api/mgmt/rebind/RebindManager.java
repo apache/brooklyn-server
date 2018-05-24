@@ -113,6 +113,12 @@ public interface RebindManager {
     /** waits for any needed or pending writes to complete */
     public void waitForPendingComplete(Duration duration, boolean canTrigger) throws InterruptedException, TimeoutException;
 
+    @VisibleForTesting
+    /**
+     * whether there are any needed or pending writes.
+     */
+    public boolean hasPending();
+
     /** Forcibly performs persistence, in the foreground, either full (all entities) or incremental;
      * if no exception handler specified, the default one from the persister is used.
      * <p>

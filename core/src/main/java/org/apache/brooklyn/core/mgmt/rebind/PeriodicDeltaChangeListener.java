@@ -338,6 +338,28 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
         }
     }
 
+    /** Check if there are any pending changes. May block to get mutex when checking. */
+    @VisibleForTesting
+    public boolean hasPending() {
+        if (!isActive() && state != ListenerState.STOPPING) return false;
+        
+        // if can't get mutex, then some changes are being applied.
+        try {
+            if (persistingMutex.tryAcquire(0, TimeUnit.MILLISECONDS)) {
+                try {
+                    // now no one else is writing
+                    return !deltaCollector.isEmpty();
+                } finally {
+                    persistingMutex.release();
+                }
+            } else {
+                return false;
+            }
+        } catch (InterruptedException e) {
+            throw Exceptions.propagate(e);
+        }
+    }
+
     /**
      * Indicates whether persistence is active. 
      * Even when not active, changes will still be tracked unless {@link #isStopped()}.

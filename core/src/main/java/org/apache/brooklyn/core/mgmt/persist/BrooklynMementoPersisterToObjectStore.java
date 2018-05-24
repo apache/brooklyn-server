@@ -758,6 +758,33 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         }
     }
 
+    @Override
+    public boolean isWriting() {
+        boolean locked;
+        try {
+            locked = lock.readLock().tryLock(0, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            throw Exceptions.propagate(e);
+        }
+        if (locked) {
+            ImmutableSet<StoreObjectAccessorWithLock> wc;
+            synchronized (writers) {
+                wc = ImmutableSet.copyOf(writers.values());
+            }
+            lock.readLock().unlock();
+            
+            for (StoreObjectAccessorWithLock writer : wc) {
+                if (writer.isWriting()) {
+                    return true;
+                }
+            }
+            
+            return false;
+        } else {
+            return true;
+        }
+    }
+
     private String read(String subPath) {
         StoreObjectAccessor objectAccessor = objectStore.newAccessor(subPath);
         return objectAccessor.get();

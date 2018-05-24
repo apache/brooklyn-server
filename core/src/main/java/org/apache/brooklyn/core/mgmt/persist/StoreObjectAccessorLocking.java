@@ -226,6 +226,21 @@ public class StoreObjectAccessorLocking implements PersistenceObjectStore.StoreO
     }
     
     @Override
+    public boolean isWriting() {
+        try {
+            boolean locked = lock.readLock().tryLock(0, TimeUnit.MILLISECONDS);
+            if (locked) {
+                lock.readLock().unlock();
+                return false;
+            } else {
+                return true;
+            }
+        } catch (InterruptedException e) {
+            throw Exceptions.propagate(e);
+        }
+    }
+    
+    @Override
     public Date getLastModifiedDate() {
         return delegate.getLastModifiedDate();
     }
