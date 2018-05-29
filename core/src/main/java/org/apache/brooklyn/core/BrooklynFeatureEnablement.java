@@ -68,7 +68,7 @@ public class BrooklynFeatureEnablement {
      * still be persisted. For example, they could change 'state' without telling the listener, and hope
      * that the entity they were attached to would soon persist (thus piggy-backing off it).
      */
-    public static final String FEATURE_REFERENCED_OBJECTS_PERSISTENCE_PROPERTY = FEATURE_PROPERTY_PREFIX+".referencedObjectsPersistence";
+    public static final String FEATURE_REFERENCED_OBJECTS_REPERSISTENCE_PROPERTY = FEATURE_PROPERTY_PREFIX+".referencedObjectsRepersistence";
     
     /** whether feeds are automatically registered when set on entities, so that they are persisted */
     public static final String FEATURE_FEED_REGISTRATION_PROPERTY = FEATURE_PROPERTY_PREFIX+".feedRegistration";
@@ -161,7 +161,7 @@ public class BrooklynFeatureEnablement {
         setDefault(FEATURE_FEED_REGISTRATION_PROPERTY, false);
         setDefault(FEATURE_BUNDLE_PERSISTENCE_PROPERTY, true);
         setDefault(FEATURE_CATALOG_PERSISTENCE_PROPERTY, true);
-        setDefault(FEATURE_REFERENCED_OBJECTS_PERSISTENCE_PROPERTY, false);
+        setDefault(FEATURE_REFERENCED_OBJECTS_REPERSISTENCE_PROPERTY, false);
         setDefault(FEATURE_DEFAULT_STANDBY_IS_HOT_PROPERTY, false);
         setDefault(FEATURE_PERSIST_ENTITY_SPEC_AS_SUPPLIER, true);
         setDefault(FEATURE_RENAME_THREADS, false);

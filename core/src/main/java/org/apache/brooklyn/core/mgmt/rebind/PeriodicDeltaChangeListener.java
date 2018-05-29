@@ -195,7 +195,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
     private final boolean persistPoliciesEnabled;
     private final boolean persistEnrichersEnabled;
     private final boolean persistFeedsEnabled;
-    private final boolean persistReferencedObjectsEnabled;
+    private final boolean rePersistReferencedObjectsEnabled;
     
     private final Semaphore persistingMutex = new Semaphore(1);
     private final Object startStopMutex = new Object();
@@ -223,7 +223,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
         this.persistPoliciesEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_POLICY_PERSISTENCE_PROPERTY);
         this.persistEnrichersEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_ENRICHER_PERSISTENCE_PROPERTY);
         this.persistFeedsEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_FEED_PERSISTENCE_PROPERTY);
-        this.persistReferencedObjectsEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_REFERENCED_OBJECTS_PERSISTENCE_PROPERTY);
+        this.rePersistReferencedObjectsEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_REFERENCED_OBJECTS_REPERSISTENCE_PROPERTY);
     }
     
     public void start() {
@@ -450,16 +450,16 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
                         limitedCountString(prevDeltaCollector.entities), limitedCountString(prevDeltaCollector.locations), limitedCountString(prevDeltaCollector.policies), limitedCountString(prevDeltaCollector.enrichers), limitedCountString(prevDeltaCollector.catalogItems), limitedCountString(prevDeltaCollector.bundles), 
                         limitedCountString(prevDeltaCollector.removedEntityIds), limitedCountString(prevDeltaCollector.removedLocationIds), limitedCountString(prevDeltaCollector.removedPolicyIds), limitedCountString(prevDeltaCollector.removedEnricherIds), limitedCountString(prevDeltaCollector.removedCatalogItemIds), limitedCountString(prevDeltaCollector.removedBundleIds)});
 
-            if (persistReferencedObjectsEnabled) {
+            if (rePersistReferencedObjectsEnabled) {
                 addReferencedObjects(prevDeltaCollector);
-            }
 
-            if (LOG.isTraceEnabled()) LOG.trace("Checkpointing delta of memento with references: "
-                    + "updating {} entities, {} locations, {} policies, {} enrichers, {} catalog items, {} bundles; "
-                    + "removing {} entities, {} locations, {} policies, {} enrichers, {} catalog items, {} bundles",
-                    new Object[] {
-                        prevDeltaCollector.entities.size(), prevDeltaCollector.locations.size(), prevDeltaCollector.policies.size(), prevDeltaCollector.enrichers.size(), prevDeltaCollector.catalogItems.size(), prevDeltaCollector.bundles.size(),
-                        prevDeltaCollector.removedEntityIds.size(), prevDeltaCollector.removedLocationIds.size(), prevDeltaCollector.removedPolicyIds.size(), prevDeltaCollector.removedEnricherIds.size(), prevDeltaCollector.removedCatalogItemIds.size(), prevDeltaCollector.removedBundleIds.size()});
+                if (LOG.isTraceEnabled()) LOG.trace("Checkpointing delta of memento with references: "
+                        + "updating {} entities, {} locations, {} policies, {} enrichers, {} catalog items, {} bundles; "
+                        + "removing {} entities, {} locations, {} policies, {} enrichers, {} catalog items, {} bundles",
+                        new Object[] {
+                            prevDeltaCollector.entities.size(), prevDeltaCollector.locations.size(), prevDeltaCollector.policies.size(), prevDeltaCollector.enrichers.size(), prevDeltaCollector.catalogItems.size(), prevDeltaCollector.bundles.size(),
+                            prevDeltaCollector.removedEntityIds.size(), prevDeltaCollector.removedLocationIds.size(), prevDeltaCollector.removedPolicyIds.size(), prevDeltaCollector.removedEnricherIds.size(), prevDeltaCollector.removedCatalogItemIds.size(), prevDeltaCollector.removedBundleIds.size()});
+            }
 
             // Generate mementos for everything that has changed in this time period
             if (prevDeltaCollector.isEmpty()) {
@@ -536,10 +536,10 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
     public synchronized void onManaged(BrooklynObject instance) {
         if (LOG.isTraceEnabled()) LOG.trace("onManaged: {}", instance);
         onChanged(instance);
-        addReferencedObjects(instance);
+        addReferencedObjectsForInitialPersist(instance);
     }
 
-    private void addReferencedObjects(BrooklynObject instance) {
+    private void addReferencedObjectsForInitialPersist(BrooklynObject instance) {
         if (!(instance instanceof Entity)) return;
         Entity entity = (Entity) instance;
         
