@@ -247,6 +247,12 @@ public interface Entity extends BrooklynObject {
          * as this method will not update local values.
          */
         <T> void emit(Sensor<T> sensor, T value);
+        
+        /**
+         * @return A map of all sensors known on the entity with their values.
+         */
+        @Beta
+        Map<AttributeSensor<?>, Object> getAll();
     }
     
     public interface AdjunctSupport<T extends EntityAdjunct> extends Iterable<T> {
