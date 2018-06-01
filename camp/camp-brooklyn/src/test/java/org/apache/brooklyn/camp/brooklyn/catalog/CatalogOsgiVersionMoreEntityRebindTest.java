@@ -40,6 +40,7 @@ import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiVersionMoreEntityTest;
+import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.entity.stock.BasicApplication;
@@ -270,7 +271,9 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
         }
         
         try {
-            StartableApplication app2 = rebind();
+            // Expect dangling reference(s) to catalog item from uninstalled bundle
+            RebindOptions rebindOptionsWithDefaultExceptionHandler = RebindOptions.create().exceptionHandler(null);
+            StartableApplication app2 = rebind(rebindOptionsWithDefaultExceptionHandler);
             Asserts.shouldHaveFailedPreviously("Expected deployment to fail rebind; instead got "+app2);
         } catch (Exception e) {
             // should fail to rebind this entity

@@ -195,6 +195,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
     private final boolean persistPoliciesEnabled;
     private final boolean persistEnrichersEnabled;
     private final boolean persistFeedsEnabled;
+    private final boolean rePersistReferencedObjectsEnabled;
     
     private final Semaphore persistingMutex = new Semaphore(1);
     private final Object startStopMutex = new Object();
@@ -222,6 +223,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
         this.persistPoliciesEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_POLICY_PERSISTENCE_PROPERTY);
         this.persistEnrichersEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_ENRICHER_PERSISTENCE_PROPERTY);
         this.persistFeedsEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_FEED_PERSISTENCE_PROPERTY);
+        this.rePersistReferencedObjectsEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_REFERENCED_OBJECTS_REPERSISTENCE_PROPERTY);
     }
     
     public void start() {
@@ -355,6 +357,11 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
         return state == ListenerState.STOPPING || state == ListenerState.STOPPED || executionContext.isShutdown();
     }
     
+    /**
+     * @deprecated since 1.0.0; its use is enabled via BrooklynFeatureEnablement.FEATURE_REFERENCED_OBJECTS_PERSISTENCE_PROPERTY,
+     *             to preserve backwards compatibility for legacy implementations of entities, policies, etc.
+     */
+    @Deprecated
     private void addReferencedObjects(DeltaCollector deltaCollector) {
         MutableSet<BrooklynObject> referencedObjects = MutableSet.of();
         
@@ -443,14 +450,16 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
                         limitedCountString(prevDeltaCollector.entities), limitedCountString(prevDeltaCollector.locations), limitedCountString(prevDeltaCollector.policies), limitedCountString(prevDeltaCollector.enrichers), limitedCountString(prevDeltaCollector.catalogItems), limitedCountString(prevDeltaCollector.bundles), 
                         limitedCountString(prevDeltaCollector.removedEntityIds), limitedCountString(prevDeltaCollector.removedLocationIds), limitedCountString(prevDeltaCollector.removedPolicyIds), limitedCountString(prevDeltaCollector.removedEnricherIds), limitedCountString(prevDeltaCollector.removedCatalogItemIds), limitedCountString(prevDeltaCollector.removedBundleIds)});
 
-            addReferencedObjects(prevDeltaCollector);
+            if (rePersistReferencedObjectsEnabled) {
+                addReferencedObjects(prevDeltaCollector);
 
-            if (LOG.isTraceEnabled()) LOG.trace("Checkpointing delta of memento with references: "
-                    + "updating {} entities, {} locations, {} policies, {} enrichers, {} catalog items, {} bundles; "
-                    + "removing {} entities, {} locations, {} policies, {} enrichers, {} catalog items, {} bundles",
-                    new Object[] {
-                        prevDeltaCollector.entities.size(), prevDeltaCollector.locations.size(), prevDeltaCollector.policies.size(), prevDeltaCollector.enrichers.size(), prevDeltaCollector.catalogItems.size(), prevDeltaCollector.bundles.size(),
-                        prevDeltaCollector.removedEntityIds.size(), prevDeltaCollector.removedLocationIds.size(), prevDeltaCollector.removedPolicyIds.size(), prevDeltaCollector.removedEnricherIds.size(), prevDeltaCollector.removedCatalogItemIds.size(), prevDeltaCollector.removedBundleIds.size()});
+                if (LOG.isTraceEnabled()) LOG.trace("Checkpointing delta of memento with references: "
+                        + "updating {} entities, {} locations, {} policies, {} enrichers, {} catalog items, {} bundles; "
+                        + "removing {} entities, {} locations, {} policies, {} enrichers, {} catalog items, {} bundles",
+                        new Object[] {
+                            prevDeltaCollector.entities.size(), prevDeltaCollector.locations.size(), prevDeltaCollector.policies.size(), prevDeltaCollector.enrichers.size(), prevDeltaCollector.catalogItems.size(), prevDeltaCollector.bundles.size(),
+                            prevDeltaCollector.removedEntityIds.size(), prevDeltaCollector.removedLocationIds.size(), prevDeltaCollector.removedPolicyIds.size(), prevDeltaCollector.removedEnricherIds.size(), prevDeltaCollector.removedCatalogItemIds.size(), prevDeltaCollector.removedBundleIds.size()});
+            }
 
             // Generate mementos for everything that has changed in this time period
             if (prevDeltaCollector.isEmpty()) {
@@ -527,7 +536,35 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
     public synchronized void onManaged(BrooklynObject instance) {
         if (LOG.isTraceEnabled()) LOG.trace("onManaged: {}", instance);
         onChanged(instance);
+        addReferencedObjectsForInitialPersist(instance);
     }
+
+    private void addReferencedObjectsForInitialPersist(BrooklynObject instance) {
+        if (!(instance instanceof Entity)) return;
+        Entity entity = (Entity) instance;
+        
+        MutableSet<BrooklynObject> referencedObjects = MutableSet.of();
+        
+        // collect references
+        for (Location location : entity.getLocations()) {
+            Collection<Location> findLocationsInHierarchy = TreeUtils.findLocationsInHierarchy(location);
+            referencedObjects.addAll(findLocationsInHierarchy);
+        }
+        if (persistPoliciesEnabled) {
+            referencedObjects.addAll(entity.policies());
+        }
+        if (persistEnrichersEnabled) {
+            referencedObjects.addAll(entity.enrichers());
+        }
+        if (persistFeedsEnabled) {
+            referencedObjects.addAll(((EntityInternal)entity).feeds().getFeeds());
+        }
+        
+        for (BrooklynObject ref : referencedObjects) {
+            deltaCollector.addIfNotRemoved(ref);
+        }
+    }
+    
 
     @Override
     public synchronized void onUnmanaged(BrooklynObject instance) {

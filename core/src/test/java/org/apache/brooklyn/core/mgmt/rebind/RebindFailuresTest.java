@@ -71,7 +71,7 @@ public class RebindFailuresTest extends RebindTestFixtureWithApp {
                 .impl(MyEntityFailingImpl.class)
                 .configure(MyEntityFailingImpl.FAIL_ON_GENERATE_MEMENTO, true));
         
-        newApp = rebind();
+        newApp = rebind(RebindOptions.create().defaultExceptionHandler());
         MyEntity newE = (MyEntity) Iterables.find(newApp.getChildren(), EntityPredicates.idEqualTo(origE.getId()));
         Optional<Entity> newFailingE = Iterables.tryFind(newApp.getChildren(), EntityPredicates.idEqualTo(origFailingE.getId()));
         
@@ -196,7 +196,7 @@ public class RebindFailuresTest extends RebindTestFixtureWithApp {
         origApp.policies().add(PolicySpec.create(MyPolicyFailingImpl.class)
                 .configure(MyPolicyFailingImpl.FAIL_ON_REBIND, true));
         
-        newApp = rebind();
+        newApp = rebind(RebindOptions.create().defaultExceptionHandler());
         
         Optional<Policy> newPolicy = Iterables.tryFind(newApp.policies(), Predicates.instanceOf(MyPolicyFailingImpl.class));
         assertFalse(newPolicy.isPresent(), "policy="+newPolicy);
@@ -207,7 +207,7 @@ public class RebindFailuresTest extends RebindTestFixtureWithApp {
         origApp.enrichers().add(EnricherSpec.create(MyEnricherFailingImpl.class)
                 .configure(MyEnricherFailingImpl.FAIL_ON_REBIND, true));
         
-        newApp = rebind();
+        newApp = rebind(RebindOptions.create().defaultExceptionHandler());
         
         Optional<Enricher> newEnricher = Iterables.tryFind(newApp.enrichers(), Predicates.instanceOf(MyEnricherFailingImpl.class));
         assertFalse(newEnricher.isPresent(), "enricher="+newEnricher);
