@@ -443,6 +443,10 @@ public class RebindTestUtils {
         managementContext.getRebindManager().waitForPendingComplete(TIMEOUT, true);
     }
 
+    public static boolean hasPendingPersists(ManagementContext managementContext) {
+        return managementContext.getRebindManager().hasPending();
+    }
+
     public static void stopPersistence(Application origApp) throws InterruptedException, TimeoutException {
         stopPersistence(origApp.getManagementContext());
     }

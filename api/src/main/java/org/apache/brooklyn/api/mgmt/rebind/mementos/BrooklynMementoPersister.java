@@ -111,6 +111,9 @@ public interface BrooklynMementoPersister {
     @VisibleForTesting
     void waitForWritesCompleted(Duration timeout) throws InterruptedException, TimeoutException;
 
+    @VisibleForTesting
+    public boolean isWriting();
+
     String getBackingStoreDescription();
     
     /** All methods on this interface are unmodifiable by the caller. Sub-interfaces may introduce modifiers. */

@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.AttributeSensor.SensorPersistenceMode;
 import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.guava.Functionals;
@@ -43,21 +44,60 @@ public class MachineAttributes {
      * Sensor attributes for machines.
      */
 
-    public static final AttributeSensor<Duration> UPTIME = Sensors.newSensor(Duration.class, "machine.uptime", "Current uptime");
-    public static final AttributeSensor<Double> LOAD_AVERAGE = Sensors.newDoubleSensor("machine.loadAverage", "Current load average");
+    public static final AttributeSensor<Duration> UPTIME = Sensors.builder(Duration.class, "machine.uptime")
+            .description("Current uptime")
+            .persistence(SensorPersistenceMode.NONE)
+            .build();
 
-    public static final AttributeSensor<Double> CPU_USAGE = Sensors.newDoubleSensor("machine.cpu", "Current CPU usage");
-    public static final AttributeSensor<Double> AVERAGE_CPU_USAGE = Sensors.newDoubleSensor("cpu.average", "Average CPU usage across the cluster");
+    public static final AttributeSensor<Double> LOAD_AVERAGE = Sensors.builder(Double.class, "machine.loadAverage")
+            .description("Current load average")
+            .persistence(SensorPersistenceMode.NONE)
+            .build();
 
-    public static final AttributeSensor<Long> FREE_MEMORY = Sensors.newLongSensor("machine.memory.free", "Current free memory");
-    public static final AttributeSensor<Long> TOTAL_MEMORY = Sensors.newLongSensor("machine.memory.total", "Total memory");
-    public static final AttributeSensor<Long> USED_MEMORY = Sensors.newLongSensor("machine.memory.used", "Current memory usage");
+    public static final AttributeSensor<Double> CPU_USAGE = Sensors.builder(Double.class, "machine.cpu")
+            .description("Current CPU usage")
+            .persistence(SensorPersistenceMode.NONE)
+            .build();
 
-    public static final AttributeSensor<Double> USED_MEMORY_DELTA_PER_SECOND_LAST = Sensors.newDoubleSensor("memory.used.delta", "Change in memory usage per second");
-    public static final AttributeSensor<Double> USED_MEMORY_DELTA_PER_SECOND_IN_WINDOW = Sensors.newDoubleSensor("memory.used.windowed", "Average change in memory usage over 30s");
+    public static final AttributeSensor<Double> AVERAGE_CPU_USAGE = Sensors.builder(Double.class, "cpu.average")
+            .description("Average CPU usage across the cluster")
+            .persistence(SensorPersistenceMode.NONE)
+            .build();
 
-    public static final AttributeSensor<Double> USED_MEMORY_PERCENT = Sensors.newDoubleSensor("memory.used.percent", "The percentage of memory used");
-    public static final AttributeSensor<Double> AVERAGE_USED_MEMORY_PERCENT = Sensors.newDoubleSensor("memory.used.percent.average", "Average percentage of memory used across the cluster");
+    public static final AttributeSensor<Long> FREE_MEMORY = Sensors.builder(Long.class, "machine.memory.free")
+            .description("Current free memory")
+            .persistence(SensorPersistenceMode.NONE)
+            .build();
+
+    public static final AttributeSensor<Long> TOTAL_MEMORY = Sensors.builder(Long.class, "machine.memory.total")
+            .description("Total memory")
+            .persistence(SensorPersistenceMode.NONE)
+            .build();
+
+    public static final AttributeSensor<Long> USED_MEMORY = Sensors.builder(Long.class, "machine.memory.used")
+            .description("Current memory usage")
+            .persistence(SensorPersistenceMode.NONE)
+            .build();
+
+    public static final AttributeSensor<Double> USED_MEMORY_DELTA_PER_SECOND_LAST = Sensors.builder(Double.class, "memory.used.delta")
+            .description("Change in memory usage per second")
+            .persistence(SensorPersistenceMode.NONE)
+            .build();
+    
+    public static final AttributeSensor<Double> USED_MEMORY_DELTA_PER_SECOND_IN_WINDOW = Sensors.builder(Double.class, "memory.used.windowed")
+            .description("Average change in memory usage over 30s")
+            .persistence(SensorPersistenceMode.NONE)
+            .build();
+
+    public static final AttributeSensor<Double> USED_MEMORY_PERCENT = Sensors.builder(Double.class, "memory.used.percent")
+            .description("The percentage of memory used")
+            .persistence(SensorPersistenceMode.NONE)
+            .build();
+
+    public static final AttributeSensor<Double> AVERAGE_USED_MEMORY_PERCENT = Sensors.builder(Double.class, "memory.used.percent.average")
+            .description("Average percentage of memory used across the cluster")
+            .persistence(SensorPersistenceMode.NONE)
+            .build();
 
     private static AtomicBoolean initialized = new AtomicBoolean(false);
 

@@ -34,6 +34,7 @@ import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.api.sensor.AttributeSensor.SensorPersistenceMode;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
@@ -467,10 +468,9 @@ public class EntityManagementSupport {
         }
         @Override
         public void onAttributeChanged(AttributeSensor<?> attribute) {
-            // TODO Could make this more efficient by inspecting the attribute to decide if needs persisted
-            // immediately, or not important, or transient (e.g. do we really need to persist 
-            // request-per-second count for rebind purposes?!)
-            getManagementContext().getRebindManager().getChangeListener().onChanged(entity);
+            if (attribute.getPersistenceMode() != SensorPersistenceMode.NONE) {
+                getManagementContext().getRebindManager().getChangeListener().onChanged(entity);
+            }
         }
         @Override
         public void onConfigChanged(ConfigKey<?> key) {

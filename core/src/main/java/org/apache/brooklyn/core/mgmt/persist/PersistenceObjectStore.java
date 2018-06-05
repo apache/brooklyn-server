@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.ByteSource;
 
 /**
@@ -59,6 +60,12 @@ public interface PersistenceObjectStore {
          * for more complex uses, readers should <code>getLockObject().readLock().lockInterruptibly()</code> 
          * and ensure they subsequently <code>unlock()</code> it of course. see {@link #getLockObject()}. */
         void waitForCurrentWrites(Duration timeout) throws InterruptedException, TimeoutException;
+        
+        /**
+         * Whether there are any scheduled write lock operations, either queued or executing.
+         */
+        @VisibleForTesting
+        boolean isWriting();
         
         /** returns the underlying lock in case callers need more complex synchronization control */ 
         ReadWriteLock getLockObject();
