@@ -49,7 +49,7 @@ public class MultiLocationResolver implements LocationResolver {
 
     private static final String MULTI = "multi";
     
-    private static final Pattern PATTERN = Pattern.compile("(" + MULTI + "|" + MULTI.toUpperCase() + ")" + ":" + "\\((.*)\\)$");
+    private static final Pattern PATTERN = Pattern.compile("(" + MULTI + "|" + MULTI.toUpperCase() + ")" + ":?" + "\\((.*)\\)$");
     
     private volatile ManagementContext managementContext;
 

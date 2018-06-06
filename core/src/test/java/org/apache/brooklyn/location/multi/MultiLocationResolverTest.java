@@ -129,6 +129,12 @@ public class MultiLocationResolverTest {
     }
 
     @Test
+    public void testResolvesWithoutColon() {
+        assertMultiLocation(resolve("multi(targets=localhost)"), 1, ImmutableList.of(Predicates.instanceOf(LocalhostMachineProvisioningLocation.class)));
+        assertMultiLocation(resolve("multi(targets=\"byon(hosts=1.1.1.1)\")"), 1, ImmutableList.of(Predicates.instanceOf(FixedListMachineProvisioningLocation.class)));
+    }
+    
+    @Test
     public void testResolvesName() {
         MultiLocation<SshMachineLocation> multiLoc = resolve("multi:(name=myname,targets=localhost)");
         assertEquals(multiLoc.getDisplayName(), "myname");

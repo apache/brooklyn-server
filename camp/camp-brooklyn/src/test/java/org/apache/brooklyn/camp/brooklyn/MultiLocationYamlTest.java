@@ -54,7 +54,7 @@ public class MultiLocationYamlTest extends AbstractYamlTest {
     @Test
     public void testSimpleInSingleLine() throws Exception {
         String yaml = Joiner.on("\n").join(
-                "location: multi:(targets=\"localhost,localhost\")",
+                "location: multi(targets=\"localhost,localhost\")",
                 "services:",
                 "- type: org.apache.brooklyn.entity.stock.BasicApplication");
         runSimple(yaml);
