@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslToStringHelpers;
 import org.apache.brooklyn.camp.spi.Assembly;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode;
@@ -32,9 +33,9 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
+import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
@@ -129,5 +130,20 @@ public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier
 
     @Override
     public abstract Task<T> newTask();
-
+    
+    protected void checkAndTagForRecursiveReference(Entity targetEntity) {
+        String tag = toString();
+        Task<?> ancestor = Tasks.current();
+        if (ancestor!=null) {
+            ancestor = ancestor.getSubmittedByTask();
+        }
+        while (ancestor!=null) {
+            if (TaskTags.hasTag(ancestor, tag)) {
+                throw new IllegalStateException("Recursive reference "+tag); 
+            }
+            ancestor = ancestor.getSubmittedByTask();
+        }
+        
+        Tasks.addTagDynamically(tag);
+    }
 }

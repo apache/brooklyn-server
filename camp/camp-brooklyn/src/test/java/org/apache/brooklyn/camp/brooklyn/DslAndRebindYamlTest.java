@@ -34,6 +34,7 @@ import java.util.regex.Pattern;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ha.MementoCopyMode;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -53,6 +54,7 @@ import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.group.DynamicCluster;
+import org.apache.brooklyn.entity.software.base.DoNothingSoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.policy.ha.ServiceReplacer;
 import org.apache.brooklyn.test.Asserts;
@@ -66,6 +68,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -425,6 +428,60 @@ public class DslAndRebindYamlTest extends AbstractYamlRebindTest {
         Entity e2 = rebind(testEntity);
         Assert.assertEquals(getConfigInTask(e2, TestEntity.CONF_NAME), "myDefaultVal");
         Assert.assertEquals(e2.config().get(TestEntity.CONF_NAME), "myDefaultVal");
+    }
+
+    @Test
+    public void testDslLocation() throws Exception {
+        // TODO Doesn't work with `$brooklyn:location(0)`, only works if 0 is in quotes!
+        
+        String yaml = Joiner.on("\n").join(
+                "location: localhost",
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    config1: $brooklyn:location()",
+                "    config2: $brooklyn:location(\"0\")",
+                "  brooklyn.children:",
+                "  - type: " + DoNothingSoftwareProcess.class.getName(),
+                "    brooklyn.config:",
+                "      config1: $brooklyn:location()",
+                "      config2: $brooklyn:location(\"0\")",
+                "  - type: " + TestEntity.class.getName(),
+                "    brooklyn.config:",
+                "      config1: $brooklyn:location()",
+                "      config2: $brooklyn:location(\"0\")");
+
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
+        DoNothingSoftwareProcess softwareProcess = Iterables.getOnlyElement(Iterables.filter(app.getChildren(), DoNothingSoftwareProcess.class));
+        TestEntity testEntity = Iterables.getOnlyElement(Iterables.filter(app.getChildren(), TestEntity.class));
+
+        Location appLoc = Iterables.getOnlyElement(app.getLocations());
+        assertEquals(getConfigInTask(app, ConfigKeys.newConfigKey(Object.class, "config1")), appLoc);
+        assertEquals(getConfigInTask(app, ConfigKeys.newConfigKey(Object.class, "config2")), appLoc);
+
+        Location softwareProcessLoc = Iterables.getOnlyElement(softwareProcess.getLocations());
+        assertEquals(getConfigInTask(softwareProcess, ConfigKeys.newConfigKey(Object.class, "config1")), softwareProcessLoc);
+        assertEquals(getConfigInTask(softwareProcess, ConfigKeys.newConfigKey(Object.class, "config2")), softwareProcessLoc);
+        
+        assertEquals(getConfigInTask(testEntity, ConfigKeys.newConfigKey(Object.class, "config1")), appLoc);
+        assertEquals(getConfigInTask(testEntity, ConfigKeys.newConfigKey(Object.class, "config2")), appLoc);
+    }
+
+    @Test
+    public void testDslLocationInEntity() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    config1: $brooklyn:location()",
+                "    config2: $brooklyn:location(\"0\")",
+                "  location: localhost");
+        
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
+        Location loc = Iterables.getOnlyElement(app.getLocations());
+        
+        assertEquals(getConfigInTask(app, ConfigKeys.newConfigKey(Object.class, "config1")), loc);
+        assertEquals(getConfigInTask(app, ConfigKeys.newConfigKey(Object.class, "config2")), loc);
     }
 
     @Test

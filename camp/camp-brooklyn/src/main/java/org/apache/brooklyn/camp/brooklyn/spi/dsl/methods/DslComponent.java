@@ -20,12 +20,14 @@ package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -40,6 +42,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
+import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
@@ -49,7 +52,6 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
-import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.core.xstream.ObjectWithDefaultStringImplConverter;
@@ -64,6 +66,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Callables;
@@ -596,26 +599,6 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             };
         }
         
-        private void checkAndTagForRecursiveReference(Entity targetEntity) {
-            String tag = "DSL:entity('"+targetEntity.getId()+"').config('"+keyName+"')";
-            Task<?> ancestor = Tasks.current();
-            if (ancestor!=null) {
-                // don't check on ourself; only look higher in hierarchy;
-                // this assumes impls always spawn new tasks (which they do, just maybe not always in new threads)
-                // but it means it does not rely on tag removal to prevent weird errors, 
-                // and more importantly it makes the strategy idempotent
-                ancestor = ancestor.getSubmittedByTask();
-            }
-            while (ancestor!=null) {
-                if (TaskTags.hasTag(ancestor, tag)) {
-                    throw new IllegalStateException("Recursive config reference "+tag); 
-                }
-                ancestor = ancestor.getSubmittedByTask();
-            }
-            
-            Tasks.addTagDynamically(tag);
-        }
-
         @Override
         public int hashCode() {
             return Objects.hashCode(component, keyName);
@@ -734,6 +717,130 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         public String toString() {
             return DslToStringHelpers.component(component, DslToStringHelpers.fn("sensorName", 
                 sensorName instanceof Sensor ? ((Sensor<?>)sensorName).getName() : sensorName));
+        }
+    }
+
+    @DslAccessible
+    public BrooklynDslDeferredSupplier<Object> location() {
+        return new DslLocationSupplier(this, 0);
+    }
+    
+    @DslAccessible
+    public BrooklynDslDeferredSupplier<Object> location(Object index) {
+        return new DslLocationSupplier(this, index);
+    }
+
+    protected final static class DslLocationSupplier extends BrooklynDslDeferredSupplier<Object> {
+        private static final long serialVersionUID = 5597335296158584040L;
+        private final DslComponent component;
+        private final Object index;
+        
+        public DslLocationSupplier(DslComponent component, Object index) {
+            this.component = Preconditions.checkNotNull(component);
+            this.index = index;
+        }
+
+        @Override
+        public final Maybe<Object> getImmediately() {
+            Callable<Object> job = new Callable<Object>() {
+                @Override public Object call() {
+                    Maybe<Entity> targetEntityMaybe = component.getImmediately();
+                    if (targetEntityMaybe.isAbsent()) return ImmediateValueNotAvailableException.newAbsentWrapping("Target entity not available: "+component, targetEntityMaybe);
+                    Entity targetEntity = targetEntityMaybe.get();
+        
+                    int indexI = resolveIndex(true);
+                    
+                    Collection<Location> locations = getLocations(targetEntity);
+                    if (locations.isEmpty()) {
+                        throw new ImmediateValueNotAvailableException("Target entity has no locations: "+component);
+                    } else if (locations.size() < (indexI + 1)) {
+                        throw new IndexOutOfBoundsException("Target entity ("+component+") has "+locations.size()+" location(s), but requested index "+index);
+                    }
+                    Location result = Iterables.get(locations, indexI);
+                    if (result == null) {
+                        throw new NullPointerException("Target entity ("+component+") has null location at index "+index);
+                    }
+                    return result;
+                }
+            };
+            
+            return findExecutionContext(this).getImmediately(job);
+        }
+
+        // Pattern copied from DslConfigSupplier; see that for explanation
+        @Override
+        public Task<Object> newTask() {
+            boolean immediate = false;
+            
+            Callable<Object> job = new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                    Entity targetEntity = component.get();
+                    
+                    // this is always run in a new dedicated task (possibly a fake task if immediate), so no need to clear
+                    checkAndTagForRecursiveReference(targetEntity);
+
+                    int indexI = resolveIndex(immediate);
+                    
+                    // TODO Try repeatedly if no location(s)?
+                    Collection<Location> locations = getLocations(targetEntity);
+                    if (locations.size() < (indexI + 1)) {
+                        throw new IndexOutOfBoundsException("Target entity ("+component+") has "+locations.size()+" location(s), but requested index "+index);
+                    }
+                    Location result = Iterables.get(locations, indexI);
+                    if (result == null) {
+                        throw new NullPointerException("Target entity ("+component+") has null location at index "+index);
+                    }
+                    return result;
+                }
+            };
+            
+            return Tasks.builder()
+                    .displayName("retrieving locations["+index+"] for "+component)
+                    .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+                    .dynamic(false)
+                    .body(job).build();
+        }
+
+        private int resolveIndex(boolean immediately) {
+            if (index instanceof String || index instanceof Number) {
+                return TypeCoercions.coerce(index, Integer.class);
+            }
+            
+            Integer result = Tasks.resolving(index)
+                .as(Integer.class)
+                .context(findExecutionContext(this))
+                .immediately(immediately)
+                .description("Resolving indx from " + index)
+                .get();
+            return result;
+        }
+        
+        private Collection<Location> getLocations(Entity entity) {
+            // TODO Arguably this should not look at ancestors. For example, in a `SoftwareProcess`
+            // then after start() its location with be a `MachineLocation`. But before start has 
+            // completed, we'll retrieve the `MachineProvisioningLocation` from its parent.
+            
+            Collection<? extends Location> locations = entity.getLocations();
+            locations = Locations.getLocationsCheckingAncestors(locations, entity);
+            return ImmutableList.copyOf(locations);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(component);
+        }
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            DslLocationSupplier that = DslLocationSupplier.class.cast(obj);
+            return Objects.equal(this.component, that.component) &&
+                    Objects.equal(this.index, that.index);
+        }
+        @Override
+        public String toString() {
+            return DslToStringHelpers.component(component, DslToStringHelpers.fn("location", index));
         }
     }
 
