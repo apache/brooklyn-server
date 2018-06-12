@@ -33,7 +33,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Entity;
@@ -77,12 +79,12 @@ import org.apache.brooklyn.rest.testing.mocks.RestMockApp;
 import org.apache.brooklyn.rest.testing.mocks.RestMockSimpleEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.StringPredicates;
-import org.apache.brooklyn.util.text.Strings;
 import org.apache.cxf.jaxrs.client.WebClient;
 import org.apache.http.HttpHeaders;
 import org.apache.http.entity.ContentType;
@@ -340,32 +342,26 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
     public void testFetchApplicationsAndEntity() {
         Collection apps = client().path("/applications/fetch").get(Collection.class);
         log.info("Applications fetched are: " + apps);
-
-        Map app = null;
-        for (Object appI : apps) {
-            Object name = ((Map) appI).get("name");
-            if ("simple-app".equals(name)) {
-                app = (Map) appI;
-            }
-            if (ImmutableSet.of("simple-ent", "simple-group").contains(name))
-                Assert.fail(name + " should not be listed at high level: " + apps);
-        }
-
-        Assert.assertNotNull(app);
-        Assert.assertFalse(Strings.isBlank((String) app.get("applicationId")),
-                "expected value for applicationId, was: " + app.get("applicationId"));
-        Assert.assertFalse(Strings.isBlank((String) app.get("serviceState")),
-                "expected value for serviceState, was: " + app.get("serviceState"));
-        Assert.assertNotNull(app.get("serviceUp"), "expected non-null value for serviceUp");
+        
+        Map app = ((Collection<Map>)apps).stream().filter(m -> "simple-app".equals(m.get("name"))).findFirst().orElse(null);
+        Assert.assertNotNull(app, "did not find 'simple-app'");
+        Asserts.assertThat((String) app.get("applicationId"), StringPredicates.isNonBlank(), "expected value for applicationId");
+        Asserts.assertThat((String) app.get("serviceState"), StringPredicates.isNonBlank(), "expected value for serviceState");
+        Asserts.assertThat(app.get("serviceUp"), Predicates.not(Predicates.isNull()), "expected non-null for serviceUp");
 
         Collection children = (Collection) app.get("children");
-        Assert.assertEquals(children.size(), 2);
+        Asserts.assertSize(children, 2);
 
         Map entitySummary = (Map) Iterables.find(children, withValueForKey("name", "simple-ent"), null);
         Map groupSummary = (Map) Iterables.find(children, withValueForKey("name", "simple-group"), null);
         Assert.assertNotNull(entitySummary);
         Assert.assertNotNull(groupSummary);
 
+        Asserts.assertThat(
+            ((Collection<Map>)apps).stream().filter(m -> ImmutableSet.of("simple-ent", "simple-group").contains(m.get("name"))).collect(Collectors.toList()),
+            CollectionFunctionals.empty(),
+            "Some entities should not be listed at high level");
+        
         String itemIds = app.get("id") + "," + entitySummary.get("id") + "," + groupSummary.get("id");
         Collection entities = client().path("/applications/fetch")
                 .query("items", itemIds)
@@ -373,10 +369,6 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
                 .get(Collection.class);
         log.info("Applications+Entities fetched are: " + entities);
 
-        // on jenkins/windows a while ago (early 2016) this would sometimes fail with expected 4 but found 3,
-        // as per BROOKLYN-272 and PR 156; re-enabling now (2017-11) to test sensor query param; 
-        // and using assertSize to see which entity/app is missing if it does still fail
-        // (it should definitely be 4, as we got 2 before, and we've asked for 2 more entities)
         Asserts.assertSize(entities, apps.size() + 2);
         Map entityDetails = (Map) Iterables.find(entities, withValueForKey("name", "simple-ent"), null);
         Map groupDetails = (Map) Iterables.find(entities, withValueForKey("name", "simple-group"), null);
@@ -415,7 +407,102 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
             MutableMap.of("state", expected.getState().name(),
                 "timestampUtc", expected.getTimestamp().getTime()));
     }
+    
+    // [{applicationId=zqxybvny1p, id=zqxybvny1p, parentId=null, name=simple-app, type=org.apache.brooklyn.entity.stock.BasicApplication, 
+    // serviceUp=true, serviceState=RUNNING, iconUrl=null, 
+    // children=[{id=pttwaekjhu, name=simple-ent, type=org.apache.brooklyn.rest.testing.mocks.RestMockSimpleEntity, links={self=/applications/zqxybvny1p/entities/pttwaekjhu}}, {id=dtqviudvsg, name=simple-group, type=org.apache.brooklyn.rest.testing.mocks.NameMatcherGroup, links={self=/applications/zqxybvny1p/entities/dtqviudvsg}}], groupIds=[], members=[], links={self=/applications/zqxybvny1p/entities/zqxybvny1p}, tags=[]}]
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    @Test(dependsOnMethods = "testDeployApplication")
+    public void testApplicationDetailsAndEntity() {
+        Collection apps = client().path("/applications/details").get(Collection.class);
+        log.info("Application details are: " + apps);
+        
+        Map app = ((Collection<Map>)apps).stream().filter(m -> "simple-app".equals(m.get("name"))).findFirst().orElse(null);
+        Assert.assertNotNull(app, "did not find 'simple-app'");
+        Asserts.assertThat((String) app.get("applicationId"), StringPredicates.isNonBlank(), "expected value for applicationId");
+        Asserts.assertThat((String) app.get("serviceState"), StringPredicates.isNonBlank(), "expected value for serviceState");
+        Asserts.assertThat(app.get("serviceUp"), Predicates.not(Predicates.isNull()), "expected non-null for serviceUp");
 
+        Collection children = (Collection) app.get("children");
+        Asserts.assertSize(children, 2);
+
+        Map entitySummary = (Map) Iterables.find(children, withValueForKey("name", "simple-ent"), null);
+        Map groupSummary = (Map) Iterables.find(children, withValueForKey("name", "simple-group"), null);
+        Assert.assertNotNull(entitySummary);
+        Assert.assertNotNull(groupSummary);
+
+        Asserts.assertThat(
+            ((Collection<Map>)apps).stream().filter(m -> ImmutableSet.of("simple-ent", "simple-group").contains(m.get("name"))).collect(Collectors.toList()),
+            CollectionFunctionals.empty(),
+            "Some entities should not be listed at high level");
+        
+        String itemIds = entitySummary.get("id") + "," + groupSummary.get("id");
+        Collection entities1 = client().path("/applications/details")
+                .query("items", itemIds)
+                .query("includeAllApps", false)
+                .query("sensors", "[ service.state.expected, \"host.address\" ]")
+                .query("config", "*")
+                .get(Collection.class);
+        log.info("Applications+Entities details are: " + entities1);
+
+        Predicate<Collection> check = (entities) -> {
+            Asserts.assertSize(entities, 3);
+            Map entityDetails = (Map) Iterables.find(entities, withValueForKey("name", "simple-ent"), null);
+            Map groupDetails = (Map) Iterables.find(entities, withValueForKey("name", "simple-group"), null);
+            Assert.assertNotNull(entityDetails);
+            Assert.assertNotNull(groupDetails);
+    
+            Assert.assertEquals(entityDetails.get("parentId"), app.get("id"));
+            Assert.assertNull(entityDetails.get("children"));
+            Assert.assertEquals(groupDetails.get("parentId"), app.get("id"));
+            Assert.assertNull(groupDetails.get("children"));
+    
+            Collection entityGroupIds = (Collection) entityDetails.get("groupIds");
+            Assert.assertNotNull(entityGroupIds);
+            Assert.assertEquals(entityGroupIds.size(), 1);
+            Assert.assertEquals(entityGroupIds.iterator().next(), groupDetails.get("id"));
+    
+            Collection groupMembers = (Collection) groupDetails.get("members");
+            Assert.assertNotNull(groupMembers);
+            log.info("MEMBERS: " + groupMembers);
+    
+            Assert.assertEquals(groupMembers.size(), 1);
+            Map entityMemberDetails = (Map) Iterables.find(groupMembers, withValueForKey("name", "simple-ent"), null);
+            Assert.assertNotNull(entityMemberDetails);
+            Assert.assertEquals(entityMemberDetails.get("id"), entityDetails.get("id"));
+            
+            Map<String,Object> simpleEntSensors = Preconditions.checkNotNull(Map.class.cast(entityDetails.get("sensors")), "sensors");
+            org.apache.brooklyn.api.entity.Entity simpleEnt = Preconditions.checkNotNull(getManagementContext().<org.apache.brooklyn.api.entity.Entity>lookup(
+                EntityPredicates.displayNameEqualTo("simple-ent")));
+            Assert.assertEquals(simpleEntSensors.get("host.address"), simpleEnt.sensors().get(Attributes.ADDRESS));
+            Transition expected = simpleEnt.sensors().get(Attributes.SERVICE_STATE_EXPECTED);
+            Assert.assertEquals(simpleEntSensors.get("service.state.expected"), 
+                MutableMap.of("state", expected.getState().name(),
+                    "timestampUtc", expected.getTimestamp().getTime()));
+    
+            // and config also present
+            Assert.assertEquals( ((Map)groupDetails.get("config")).get("namematchergroup.regex"), "simple-ent" );
+            Assert.assertEquals( ((Map)entityDetails.get("config")).get("namematchergroup.regex"), null );
+            
+            return true;
+        };
+        
+        check.apply(entities1);
+        
+        Collection entities2 = client().path("/applications/details")
+            .query("items", app.get("id"))
+            .query("includeAllApps", false)
+            .query("sensors", "[ service.state.expected, \"host.address\" ]")
+            .query("config", "n*")
+            .query("depth", 2)
+            .get(Collection.class);
+        log.info("Applications+Entities details 2 are: " + entities2);
+        // in order to reuse the check, copy the children from the single app to the list
+        MutableList entities2b = MutableList.copyOf(entities2);
+        entities2b.addAll((Iterable) ((Map)Iterables.getOnlyElement(entities2)).get("children"));
+        check.apply(entities2b);
+    }
+    
     @Test(dependsOnMethods = "testDeployApplication")
     public void testListSensors() {
         Set<SensorSummary> sensors = client().path("/applications/simple-app/entities/simple-ent/sensors")
@@ -585,7 +672,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
     }
 
     
-    @Test(dependsOnMethods = {"testListEffectors", "testFetchApplicationsAndEntity", "testTriggerSampleEffector", "testListApplications","testReadEachSensor","testPolicyWhichCapitalizes","testLocatedLocation"})
+    @Test(dependsOnMethods = {"testListEffectors", "testFetchApplicationsAndEntity", "testApplicationDetailsAndEntity", "testTriggerSampleEffector", "testListApplications","testReadEachSensor","testPolicyWhichCapitalizes","testLocatedLocation"})
     public void testDeleteApplication() throws TimeoutException, InterruptedException {
         waitForPageFoundResponse("/applications/simple-app", ApplicationSummary.class);
         Collection<Application> apps = getManagementContext().getApplications();

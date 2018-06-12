@@ -79,7 +79,7 @@ public interface ApplicationApi {
             @QueryParam("config") String config,
             @ApiParam(value="Tree depth to traverse in children for returning detail; "
                 + "default 1 means to have detail for just applications and additional entity IDs explicitly requested, "
-                + "with references to children but not their details", required=false)
+                + "with references to children but not their details; 0 is no detail even for applications; negative is full depth", required=false)
             @DefaultValue("1")
             @QueryParam("depth") int depth);
 
@@ -92,7 +92,7 @@ public interface ApplicationApi {
                 + "(This returns the complete tree which is wasteful and not usually wanted.)"
     )
     @Deprecated
-    /** @deprecated since 1.0.0 use {@link #details(String, String, int)} */
+    /** @deprecated since 1.0.0 use {@link #details(String, boolean, String, String, int)} */
     public List<EntityDetail> fetch(
             @ApiParam(value="Any additional entity ID's to include, as JSON or comma-separated list", required=false)
             @DefaultValue("")

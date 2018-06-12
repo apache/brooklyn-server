@@ -44,6 +44,8 @@ public class EntityDetail extends EntitySummary {
     private final Lifecycle serviceState;
     private final String iconUrl;
 
+    /** @deprecated since 1.0.0, supply links */
+    @Deprecated
     public EntityDetail(
             @JsonProperty("applicationId") String applicationId,
             @JsonProperty("id") String id,
@@ -57,16 +59,34 @@ public class EntityDetail extends EntitySummary {
             @JsonProperty("children") List<EntitySummary> children,
             @JsonProperty("groupIds") List<String> groupIds,
             @JsonProperty("members") List<Map<String, String>> members) {
-        super(id, name, type, catalogItemId, Collections.<String, URI>emptyMap());
-        this.applicationId = applicationId;
-        this.iconUrl = iconUrl;
-        this.parentId = parentId;
-        this.children = (children == null) ? ImmutableList.<EntitySummary>of() : ImmutableList.copyOf(children);
-        this.groupIds = (groupIds == null) ? ImmutableList.<String>of() : ImmutableList.copyOf(groupIds);
-        this.members = (members == null) ? ImmutableList.<Map<String, String>>of() : ImmutableList.copyOf(members);
-        this.serviceState = serviceState;
-        this.serviceUp = serviceUp;
+        this(applicationId, id, parentId, name, type, serviceUp, serviceState, iconUrl, catalogItemId, children, groupIds, members, 
+            Collections.<String, URI>emptyMap());
     }
+    
+    public EntityDetail(
+        @JsonProperty("applicationId") String applicationId,
+        @JsonProperty("id") String id,
+        @JsonProperty("parentId") String parentId,
+        @JsonProperty("name") String name,
+        @JsonProperty("type") String type,
+        @JsonProperty("serviceUp") Boolean serviceUp,
+        @JsonProperty("serviceState") Lifecycle serviceState,
+        @JsonProperty("iconUrl") String iconUrl,
+        @JsonProperty("catalogItemId") String catalogItemId,
+        @JsonProperty("children") List<EntitySummary> children,
+        @JsonProperty("groupIds") List<String> groupIds,
+        @JsonProperty("members") List<Map<String, String>> members,
+        @JsonProperty("links") Map<String, URI> links) {
+    super(id, name, type, catalogItemId, links);
+    this.applicationId = applicationId;
+    this.iconUrl = iconUrl;
+    this.parentId = parentId;
+    this.children = (children == null) ? ImmutableList.<EntitySummary>of() : ImmutableList.copyOf(children);
+    this.groupIds = (groupIds == null) ? ImmutableList.<String>of() : ImmutableList.copyOf(groupIds);
+    this.members = (members == null) ? ImmutableList.<Map<String, String>>of() : ImmutableList.copyOf(members);
+    this.serviceState = serviceState;
+    this.serviceUp = serviceUp;
+}
 
     public static long getSerialVersionUID() {
         return serialVersionUID;
