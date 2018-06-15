@@ -25,10 +25,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.StreamSupport;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.google.common.collect.Iterators;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
@@ -50,6 +52,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer.JavaClassNameTypeImplementationPlan;
+import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.Maybe.Absent;
@@ -682,27 +685,65 @@ public class RegisteredTypes {
         // it does mean a format change will be ignored
         return "equivalent-plan("+Streams.getMd5Checksum(Streams.newInputStreamWithContents(input.trim()))+")";
     }
-    
+
+    /** parse the plan as yaml/json, re-serialize it, and take that checksum.
+     * this allows plans that are equivalent post-parse to be treated as equivalent.
+     * returns {@link Absent} if the input is not valid yaml.
+     */
+    private static Maybe<String> tagForEquivalentYamlPlan(String input) {
+        // plans may be trimmed by yaml parser so do that before checking equivalence
+        // it does mean a format change will be ignored
+        try {
+            Iterator<Object> plansI = Yamls.parseAll(input).iterator();
+            if (!plansI.hasNext()) {
+                return Maybe.absent("No data found");
+            }
+            String planOut = "";
+            while (plansI.hasNext()) {
+                Object plan = plansI.next();
+                if (!planOut.isEmpty()) planOut += "\n";
+                planOut += Jsonya.render(plan);
+            }
+            return Maybe.of(tagForEquivalentPlan(planOut));
+        } catch (Exception e) {
+            return Maybe.absent(e);
+        }
+    }
+
     @Beta
     public static void notePlanEquivalentToThis(RegisteredType type, TypeImplementationPlan plan) {
         Object data = plan.getPlanData();
         if (data==null) throw new IllegalStateException("No plan data for "+plan+" noted equivalent to "+type);
         if (!(data instanceof String)) throw new IllegalStateException("Expected plan for equivalent to "+type+" to be a string; was "+data);
         ((BasicRegisteredType)type).tags.add(tagForEquivalentPlan((String)data));
+        Maybe<String> reserializeEquivalenceTag = tagForEquivalentYamlPlan((String)data);
+        if (reserializeEquivalenceTag.isPresent()) ((BasicRegisteredType)type).tags.add(reserializeEquivalenceTag.get());
     }
 
+    /** Checks whether two types have plans which are identical, or identical after a YAML parse,
+     * or if either has an "equivalent-plan" tag indicating its equivalence to the other plan
+     * (as set by {@link #notePlanEquivalentToThis(RegisteredType, TypeImplementationPlan)}). 
+     */
     @Beta
     public static boolean arePlansEquivalent(RegisteredType type1, RegisteredType type2) {
         String plan1 = getImplementationDataStringForSpec(type1);
         String plan2 = getImplementationDataStringForSpec(type2);
         if (Strings.isNonBlank(plan1) && Strings.isNonBlank(plan2)) {
-            String p2tag = tagForEquivalentPlan(plan2);
             String p1tag = tagForEquivalentPlan(plan1);
-            // allow same plan under trimming,
-            // or any recorded tag in either direction
+            String p2tag = tagForEquivalentPlan(plan2);
+            
             if (Objects.equal(p1tag, p2tag)) return true;
+            
             if (type1.getTags().contains(p2tag)) return true;
             if (type2.getTags().contains(p1tag)) return true;
+            
+            Maybe<String> rp2tag = tagForEquivalentYamlPlan(plan2);
+            if (rp2tag.isPresent() && type1.getTags().contains(rp2tag.get())) return true;
+            
+            Maybe<String> rp1tag = tagForEquivalentYamlPlan(plan1);
+            if (rp1tag.isPresent() && type2.getTags().contains(rp1tag.get())) return true;
+            
+            if (rp1tag.isPresent() && rp2tag.isPresent() && rp1tag.get().equals(rp2tag.get())) return true; 
         }
         return Objects.equal(type1.getPlan(), type2.getPlan());
     }
