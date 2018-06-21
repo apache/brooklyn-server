@@ -43,7 +43,7 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.ha.ManagementPlaneSyncRecordPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformerLoader;
@@ -192,7 +192,7 @@ public class BrooklynPersistenceUtils {
         for (CatalogItem<?,?> instance: mgmt.getCatalog().getCatalogItemsLegacy()) {
             result.catalogItem(instance.getId(), serializer.toString(newObjectMemento(instance)));
         }
-        OsgiManager osgi = ((LocalManagementContext)mgmt).getOsgiManager().orNull();
+        OsgiManager osgi = ((ManagementContextInternal)mgmt).getOsgiManager().orNull();
         if (osgi!=null) {
             for (ManagedBundle instance: osgi.getManagedBundles().values()) {
                 result.bundle(instance.getId(), serializer.toString(newObjectMemento(instance)));

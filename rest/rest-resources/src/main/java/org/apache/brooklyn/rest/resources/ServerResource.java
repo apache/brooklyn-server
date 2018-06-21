@@ -483,7 +483,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             dir = ((FileBasedObjectStore)targetStore).getBaseDir();
             // only register the parent dir because that will prevent leaks for the random ID
             Os.deleteOnExitEmptyParentsUpTo(dir.getParentFile(), dir.getParentFile());
-            BrooklynPersistenceUtils.writeMemento(mgmt(), targetStore, preferredOrigin);            
+            BrooklynPersistenceUtils.writeMemento(mgmt(), targetStore, preferredOrigin);
             
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             ArchiveBuilder.zip().addDirContentsAt( ((FileBasedObjectStore)targetStore).getBaseDir(), ((FileBasedObjectStore)targetStore).getBaseDir().getName() ).stream(baos);
