@@ -155,9 +155,6 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
          * Used for rebinding.
          */
         <T> T setWithoutPublishing(AttributeSensor<T> sensor, T val);
-        
-        @Beta
-        Map<AttributeSensor<?>, Object> getAll();
 
         @Beta
         void remove(AttributeSensor<?> attribute);

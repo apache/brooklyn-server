@@ -54,11 +54,45 @@ import io.swagger.annotations.ApiResponses;
 public interface ApplicationApi {
 
     @GET
+    @Path("/details")
+    @ApiOperation(
+            value = "Get details for all applications and optionally selected additional entity items, "
+                + "including tags, values for selected sensor and config glob patterns, "
+                + "and recursively this info for children, up to a given depth."
+    )
+    public List<EntitySummary> details(
+            @ApiParam(value="Any additional entity ID's to include, as JSON or comma-separated list; ancestors will also be included", required=false)
+            @DefaultValue("")
+            @QueryParam("items") String items,
+            @ApiParam(value="Whether to include all applications in addition to any explicitly requested IDs; "
+                + "default is true so no items need to be listed; "
+                + "set false to return only info for entities whose IDs are listed in `items` and their ancestors", required=false)
+            @DefaultValue("true")
+            @QueryParam("includeAllApps") boolean includeAllApps,
+            @ApiParam(value="Any additional sensors to include, as JSON or comma-separated list, accepting globs (* and ?); "
+                + "current sensor values if present are returned for each entity in a name-value map under the 'sensors' key", required=false)
+            @DefaultValue("")
+            @QueryParam("sensors") String sensors,
+            @ApiParam(value="Any config to include, as JSON or comma-separated list, accepting globs (* and ?); "
+                + "current config values if present are returned for each entity in a name-value map under the 'config' key", required=false)
+            @DefaultValue("")
+            @QueryParam("config") String config,
+            @ApiParam(value="Tree depth to traverse in children for returning detail; "
+                + "default 1 means to have detail for just applications and additional entity IDs explicitly requested, "
+                + "with references to children but not their details; 0 is no detail even for applications; negative is full depth", required=false)
+            @DefaultValue("1")
+            @QueryParam("depth") int depth);
+
+    @GET
     @Path("/fetch")
     @ApiOperation(
             value = "Fetch details for all applications and optionally selected additional entity items, "
-                + "optionally also with the values for selected sensors"
+                + "optionally also with the values for selected sensors. "
+                + "Deprecated since 1.0.0. Use the '/details' endpoint with better semantics. "
+                + "(This returns the complete tree which is wasteful and not usually wanted.)"
     )
+    @Deprecated
+    /** @deprecated since 1.0.0 use {@link #details(String, boolean, String, String, int)} */
     public List<EntityDetail> fetch(
             @ApiParam(value="Any additional entity ID's to include, as JSON or comma-separated list", required=false)
             @DefaultValue("")
@@ -67,10 +101,11 @@ public interface ApplicationApi {
                 + "current sensor values if present are returned for each entity in a name-value map under the 'sensors' key", required=false)
             @DefaultValue("")
             @QueryParam("sensors") String sensors);
-
+    
     @GET
     @ApiOperation(
-            value = "Fetch the list of applications managed here",
+            value = "List a summary object for applications managed here, optionally filtered by a type regex. "
+                + "The `details` endpoint returns a more informative record of applications.",
             response = org.apache.brooklyn.rest.domain.ApplicationSummary.class
     )
     public List<ApplicationSummary> list(

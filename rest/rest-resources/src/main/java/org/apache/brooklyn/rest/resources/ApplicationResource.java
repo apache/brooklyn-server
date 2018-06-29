@@ -49,6 +49,8 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConstraintViolationException;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.EntityPredicates;
@@ -77,6 +79,7 @@ import org.apache.brooklyn.rest.transform.EntityTransformer;
 import org.apache.brooklyn.rest.transform.TaskTransformer;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -87,12 +90,15 @@ import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.text.WildcardGlobs;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -106,7 +112,18 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     @Context
     private UriInfo uriInfo;
 
-    private EntityDetail fromEntity(Entity entity) {
+    /** depth 0 means no detail even at root; negative means infinite; positive means include details for that many levels 
+     * (ie 1 means this entity but no details of descendants) */
+    private EntitySummary fromEntity(Entity entity, boolean includeTags, int detailDepth, List<String> extraSensorGlobs, List<String> extraConfigGlobs) {
+        if (detailDepth==0) {
+            return new EntitySummary(
+                entity.getId(), 
+                entity.getDisplayName(),
+                entity.getEntityType().getName(),
+                entity.getCatalogItemId(),
+                MutableMap.of("self", EntityTransformer.entityUri(entity, ui.getBaseUriBuilder())) );
+        }
+
         Boolean serviceUp = entity.getAttribute(Attributes.SERVICE_UP);
 
         Lifecycle serviceState = entity.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
@@ -121,7 +138,9 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         List<EntitySummary> children = Lists.newArrayList();
         if (!entity.getChildren().isEmpty()) {
             for (Entity child : entity.getChildren()) {
-                children.add(fromEntity(child));
+                if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, child)) {
+                    children.add(fromEntity(child, includeTags, detailDepth-1, extraSensorGlobs, extraConfigGlobs));
+                }
             }
         }
 
@@ -143,7 +162,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                 members.addAll(entitiesIdAndNameAsList(memberEntities));
         }
 
-        return new EntityDetail(
+        EntityDetail result = new EntityDetail(
                 entity.getApplicationId(),
                 entity.getId(),
                 parentId,
@@ -155,7 +174,17 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                 entity.getCatalogItemId(),
                 children,
                 groupIds,
-                members);
+                members,
+                MutableMap.of("self", EntityTransformer.entityUri(entity, ui.getBaseUriBuilder())) );
+        
+        if (includeTags) {
+            result.setExtraField("tags", resolving(MutableList.copyOf(entity.tags().getTags())).preferJson(true).resolve() );
+        }
+        
+        addSensorsByGlobs(result, entity, extraSensorGlobs);
+        addConfigByGlobs(result, entity, extraConfigGlobs);
+        
+        return result;
     }
 
     private List<Map<String, String>> entitiesIdAndNameAsList(Collection<? extends Entity> entities) {
@@ -182,10 +211,10 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     public List<EntityDetail> fetch(String entityIds, String extraSensorsS) {
         List<String> extraSensorNames = JavaStringEscapes.unwrapOptionallyQuotedJavaStringList(extraSensorsS);
         List<AttributeSensor<?>> extraSensors = extraSensorNames.stream().map((s) -> Sensors.newSensor(Object.class, s)).collect(Collectors.toList());
-
+        
         List<EntityDetail> entitySummaries = Lists.newArrayList();
         for (Entity application : mgmt().getApplications()) {
-            entitySummaries.add(addSensors(fromEntity(application), application, extraSensors));
+            entitySummaries.add(addSensorsByName((EntityDetail)fromEntity(application, false, -1, null, null), application, extraSensors));
         }
 
         if (Strings.isNonBlank(entityIds)) {
@@ -194,7 +223,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                 Entity entity = mgmt().getEntityManager().getEntity(entityId.trim());
                 while (entity != null && entity.getParent() != null) {
                     if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
-                        entitySummaries.add(addSensors(fromEntity(entity), entity, extraSensors));
+                        entitySummaries.add(addSensorsByName((EntityDetail)fromEntity(entity, false, -1, null, null), entity, extraSensors));
                     }
                     entity = entity.getParent();
                 }
@@ -202,8 +231,38 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         }
         return entitySummaries;
     }
+    
+    @Override
+    public List<EntitySummary> details(String entityIds, boolean includeAllApps, String extraSensorsGlobsS, String extraConfigGlobsS, int depth) {
+        List<String> extraSensorGlobs = JavaStringEscapes.unwrapOptionallyQuotedJavaStringList(extraSensorsGlobsS);
+        List<String> extraConfigGlobs = JavaStringEscapes.unwrapOptionallyQuotedJavaStringList(extraConfigGlobsS);
 
-    private EntityDetail addSensors(EntityDetail result, Entity entity, List<AttributeSensor<?>> extraSensors) {
+        Map<String, EntitySummary> entitySummaries = MutableMap.of();
+
+        if (includeAllApps) {
+            for (Entity application : mgmt().getApplications()) {
+                if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, application)) {
+                    entitySummaries.put(application.getId(), fromEntity(application, true, depth, extraSensorGlobs, extraConfigGlobs));
+                }
+            }
+        }
+
+        if (Strings.isNonBlank(entityIds)) {
+            List<String> extraEntities = JavaStringEscapes.unwrapOptionallyQuotedJavaStringList(entityIds);
+            for (String entityId: extraEntities) {
+                Entity entity = mgmt().getEntityManager().getEntity(entityId.trim());
+                while (entity != null && !entitySummaries.containsKey(entity.getId())) {
+                    if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
+                        entitySummaries.put(entity.getId(), fromEntity(entity, true, depth, extraSensorGlobs, extraConfigGlobs));
+                    }
+                    entity = entity.getParent();
+                }
+            }
+        }
+        return MutableList.copyOf(entitySummaries.values());
+    }
+
+    private EntityDetail addSensorsByName(EntityDetail result, Entity entity, List<AttributeSensor<?>> extraSensors) {
         if (extraSensors!=null && !extraSensors.isEmpty()) {
             Object sensorsO = result.getExtraFields().get("sensors");
             if (sensorsO==null) {
@@ -217,12 +276,72 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
             Map<String,Object> sensors = (Map<String, Object>) sensorsO;
             
             for (AttributeSensor<?> s: extraSensors) {
-                Object sv = entity.sensors().get(s);
-                if (sv!=null) {
-                    sv = resolving(sv).preferJson(true).asJerseyOutermostReturnValue(false).raw(true).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
-                    sensors.put(s.getName(), sv);
+                if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_SENSOR, new EntityAndItem<String>(entity, s.getName()))) {
+                    Object sv = entity.sensors().get(s);
+                    if (sv!=null) {
+                        sv = resolving(sv).preferJson(true).asJerseyOutermostReturnValue(false).raw(true).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
+                        sensors.put(s.getName(), sv);
+                    }
                 }
             }
+        }
+        return result;
+    }
+    
+    private EntitySummary addSensorsByGlobs(EntitySummary result, Entity entity, List<String> extraSensorGlobs) {
+        if (extraSensorGlobs!=null && !extraSensorGlobs.isEmpty()) {
+            Object sensorsO = result.getExtraFields().get("sensors");
+            if (sensorsO==null) {
+                sensorsO = MutableMap.of();
+                result.setExtraField("sensors", sensorsO);
+            }
+            if (!(sensorsO instanceof Map)) {
+                throw new IllegalStateException("sensors field in result for "+entity+" should be a Map; found: "+sensorsO);
+            }
+            @SuppressWarnings("unchecked")
+            Map<String,Object> sensors = (Map<String, Object>) sensorsO;
+            
+            Map<AttributeSensor<?>, Object> svs = entity.sensors().getAll();
+            svs.entrySet().stream().forEach(kv -> {
+                Object sv = kv.getValue();
+                if (sv!=null) {
+                    String name = kv.getKey().getName();
+                    if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_SENSOR, new EntityAndItem<String>(entity, name))) {
+                        if (extraSensorGlobs.stream().anyMatch(sn -> WildcardGlobs.isGlobMatched(sn, name))) {
+                            sv = resolving(sv).preferJson(true).asJerseyOutermostReturnValue(false).raw(true).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
+                            sensors.put(name, sv);
+                        }
+                    }
+                }
+            });
+        }
+        return result;
+    }
+
+    private EntitySummary addConfigByGlobs(EntitySummary result, Entity entity, List<String> extraConfigGlobs) {
+        if (extraConfigGlobs!=null && !extraConfigGlobs.isEmpty()) {
+            Object configO = result.getExtraFields().get("config");
+            if (configO==null) {
+                configO = MutableMap.of();
+                result.setExtraField("config", configO);
+            }
+            if (!(configO instanceof Map)) {
+                throw new IllegalStateException("config field in result for "+entity+" should be a Map; found: "+configO);
+            }
+            @SuppressWarnings("unchecked")
+            Map<String,Object> configs = (Map<String, Object>) configO;
+            
+            List<Predicate<ConfigKey<?>>> extraConfigPreds = MutableList.of();
+            extraConfigGlobs.stream().forEach(g -> { extraConfigPreds.add( ConfigPredicates.nameMatchesGlob(g) ); });
+            entity.config().findKeysDeclared(Predicates.or(extraConfigPreds)).forEach(key -> {
+                if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CONFIG, new EntityAndItem<String>(entity, key.getName()))) {
+                    Object v = entity.config().get(key);
+                    if (v!=null) {
+                        v = resolving(v).preferJson(true).asJerseyOutermostReturnValue(false).raw(true).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
+                        configs.put(key.getName(), v);
+                    }
+                }
+            });
         }
         return result;
     }
