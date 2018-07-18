@@ -74,15 +74,21 @@ Runtime dependencies:
     Version:      2.7.5
     Available at: 
       - http://github.com/FasterXML/jackson
+      - http://wiki.fasterxml.com/JacksonExtensionXmlDataBinding
       - http://wiki.fasterxml.com/JacksonHome
-      - https://github.com/FasterXML/jackson-core
+      - http://wiki.fasterxml.com/JacksonModuleJoda
+      - https://github.com/FasterXML/jackson
     Developed by: FasterXML (http://fasterxml.com/)
     License name: Apache License, version 2.0
   
-  com.google.code.findbugs:2.0.1: 
-    Project: 
-      - FindBugs-Annotations
-      - FindBugs-jsr305
+  com.google.code.findbugs.annotations:2.0.3: 
+    Project:      FindBugs-Annotations
+    Version:      2.0.3
+    Available at: http://findbugs.sourceforge.net/
+    License name: GNU Lesser General Public License, version 3.0
+  
+  com.google.code.findbugs.jsr305:2.0.1: 
+    Project:      FindBugs-jsr305
     Version:      2.0.1
     Available at: http://findbugs.sourceforge.net/
     License name: Apache License, version 2.0
@@ -226,11 +232,24 @@ Runtime dependencies:
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
+  commons-lang:2.4: 
+    Project:      Commons Lang
+    Version:      2.4
+    Available at: http://commons.apache.org/lang/
+    Developed by: The Apache Software Foundation (http://www.apache.org/)
+    License name: Apache License, version 2.0
+  
   commons-logging:1.2: 
     Project:      Apache Commons Logging
     Version:      1.2
     Available at: http://commons.apache.org/proper/commons-logging/
     Developed by: The Apache Software Foundation (http://www.apache.org/)
+    License name: Apache License, version 2.0
+  
+  io.airlift.airline:0.7: 
+    Project:      airline
+    Version:      0.7
+    Available at: https://github.com/airlift/airline
     License name: Apache License, version 2.0
   
   io.cloudsoft.windows:0.5.0: 
@@ -240,6 +259,23 @@ Runtime dependencies:
     Version:      0.5.0
     Available at: http://github.com/cloudsoft/winrm4j
     License name: Apache License, version 2.0
+  
+  io.swagger:1.5.6: 
+    Project: 
+      - swagger-annotations
+      - swagger-core
+      - swagger-jaxrs
+      - swagger-models
+    Version:      1.5.6
+    Available at: https://github.com/swagger-api/swagger-core
+    License name: Apache License, version 2.0
+  
+  javax.annotation.javax.annotation-api:1.2: 
+    Project:      javax.annotation API
+    Version:      1.2
+    Available at: http://jcp.org/en/jsr/detail?id=250
+    Developed by: GlassFish Community (https://glassfish.java.net)
+    License name: Common Development and Distribution License, version 1.1
   
   javax.annotation.jsr250-api:1.0: 
     Project:      JSR-250 Common Annotations for the JavaTM Platform
@@ -253,12 +289,32 @@ Runtime dependencies:
     Available at: http://code.google.com/p/atinject/
     License name: Apache License, version 2.0
   
+  javax.servlet.javax.servlet-api:3.1.0: 
+    Project:      Java Servlet API
+    Version:      3.1.0
+    Available at: http://servlet-spec.java.net
+    Developed by: GlassFish Community (https://glassfish.dev.java.net)
+    License name: Common Development and Distribution License, version 1.1
+  
+  javax.validation.validation-api:1.1.0.Final: 
+    Project:      Bean Validation API
+    Version:      1.1.0.Final
+    Available at: http://beanvalidation.org/
+    License name: Apache License, version 2.0
+  
   javax.ws.rs.javax.ws.rs-api:2.0.1: 
     Project:      javax.ws.rs-api
     Version:      2.0.1
     Available at: http://jax-rs-spec.java.net
     Developed by: Oracle Corporation (http://www.oracle.com/)
     License name: Common Development and Distribution License, version 1.1
+  
+  joda-time:2.4: 
+    Project:      Joda-Time
+    Version:      2.4
+    Available at: http://www.joda.org/joda-time/
+    Developed by: Joda.org (http://www.joda.org)
+    License name: Apache License, version 2.0
   
   net.i2p.crypto.eddsa:0.1.0: 
     Project:      ed25519-java
@@ -352,31 +408,10 @@ Runtime dependencies:
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.apache.karaf.jaas.org.apache.karaf.jaas.boot:4.1.2: 
-    Project:      Apache Karaf :: JAAS :: Boot
-    Version:      4.1.2
-    Available at: http://www.apache.org/
-    Developed by: The Apache Software Foundation (http://www.apache.org/)
-    License name: Apache License, version 2.0
-  
-  org.apache.karaf.shell.org.apache.karaf.shell.core:4.1.2: 
-    Project:      Apache Karaf :: Shell :: Core
-    Version:      4.1.2
-    Available at: http://www.apache.org/
-    Developed by: The Apache Software Foundation (http://www.apache.org/)
-    License name: Apache License, version 2.0
-  
   org.apache.neethi:3.0.3: 
     Project:      Apache Neethi
     Version:      3.0.3
     Available at: http://ws.apache.org/neethi/
-    Developed by: The Apache Software Foundation (http://www.apache.org/)
-    License name: Apache License, version 2.0
-  
-  org.apache.sshd.sshd-core:1.6.0: 
-    Project:      Apache Mina SSHD :: Core
-    Version:      1.6.0
-    Available at: http://www.apache.org/
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
@@ -417,6 +452,20 @@ Runtime dependencies:
     Developed by: Codehaus (http://www.codehaus.org/)
     License name: Apache License, version 2.0
   
+  org.eclipse.jetty.toolchain.jetty-schemas:3.1.M0: 
+    Project:      Jetty :: Schemas
+    Version:      3.1.M0
+    Available at: http://www.eclipse.org/jetty
+    Developed by: Mort Bay Consulting (http://www.mortbay.com)
+    License name: Apache License, version 2.0
+  
+  org.eclipse.jetty:9.3.14.v20161028: 
+    Project:      Jetty Server
+    Version:      9.3.14.v20161028
+    Available at: http://www.eclipse.org/jetty
+    Developed by: Webtide (http://webtide.com)
+    License name: Apache License, version 2.0
+  
   org.freemarker:2.3.25-incubating: 
     Project:      Apache FreeMarker
     Version:      2.3.25-incubating
@@ -442,15 +491,6 @@ Runtime dependencies:
     Available at: http://www.javassist.org/
     License name: Apache License, version 2.0
     Notice:       Copyright (c) Shigeru Chiba
-  
-  org.jline:3.4.0: 
-    Project:      JLine Bundle
-    Version:      3.4.0
-    Available at: http://nexus.sonatype.org/oss-repository-hosting.html
-    License name: BSD 3-Clause (New BSD) License
-    Notice: 
-      - Copyright (c) 2002-2018, the original author or authors.
-      - Neither the name of JLine nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
   
   org.osgi.org.osgi.core:6.0.0: 
     Project:      org.osgi.core
