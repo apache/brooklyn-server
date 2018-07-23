@@ -53,6 +53,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.reflect.TypeToken;
 
+import groovy.lang.GString;
+
 public class TypeCoercionsTest {
 
     private static final Logger log = LoggerFactory.getLogger(TypeCoercionsTest.class);
@@ -60,7 +62,7 @@ public class TypeCoercionsTest {
     @Test
     public void testCoerceCharSequenceToString() {
         assertEquals(TypeCoercions.coerce(new StringBuilder("abc"), String.class), "abc");
-        assertEquals(TypeCoercions.coerce(new GStringImpl(new Object[0], new String[0]), String.class), "");
+        assertEquals(TypeCoercions.coerce(GString.EMPTY, String.class), "");
     }
     
     @Test

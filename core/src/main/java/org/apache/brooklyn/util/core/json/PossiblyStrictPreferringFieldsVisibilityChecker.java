@@ -23,6 +23,7 @@ import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonAutoDetect.Value;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.introspect.AnnotatedField;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
@@ -52,7 +53,8 @@ public class PossiblyStrictPreferringFieldsVisibilityChecker implements Visibili
     @Override public PossiblyStrictPreferringFieldsVisibilityChecker withSetterVisibility(Visibility v) { throw new UnsupportedOperationException(); }
     @Override public PossiblyStrictPreferringFieldsVisibilityChecker withCreatorVisibility(Visibility v) { throw new UnsupportedOperationException(); }
     @Override public PossiblyStrictPreferringFieldsVisibilityChecker withFieldVisibility(Visibility v) { throw new UnsupportedOperationException(); }
-    
+    @Override public PossiblyStrictPreferringFieldsVisibilityChecker withOverrides(Value vis) { throw new UnsupportedOperationException(); }
+
     protected VisibilityChecker<?> viz() {
         return BidiSerialization.isStrictSerialization() ? vizStrict : vizDefault;
     }

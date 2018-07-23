@@ -39,7 +39,6 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.codehaus.groovy.runtime.GStringImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -51,6 +50,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.reflect.TypeToken;
+
+import groovy.lang.GString;
 
 public class TypeCoercionsTest {
 
@@ -68,7 +69,7 @@ public class TypeCoercionsTest {
     @Test
     public void testCoerceCharSequenceToString() {
         assertEquals(coerce(new StringBuilder("abc"), String.class), "abc");
-        assertEquals(coerce(new GStringImpl(new Object[0], new String[0]), String.class), "");
+        assertEquals(coerce(GString.EMPTY, String.class), "");
     }
     
     @Test
