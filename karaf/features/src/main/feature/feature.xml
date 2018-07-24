@@ -252,6 +252,7 @@
 
     <feature name="brooklyn-locations-jclouds" version="${project.version}" description="Brooklyn Jclouds Location Targets">
         <bundle>mvn:org.apache.jclouds/jclouds-loadbalancer/${jclouds.version}</bundle>
+        <feature>brooklyn-core</feature>
         <feature>jclouds-services</feature>
         <feature>jclouds-driver-sshj</feature>
         <feature>jclouds-driver-slf4j</feature>
@@ -274,8 +275,40 @@
     <feature name="brooklyn-container-service" version="${project.version}" description="Brooklyn Container Service and Location Targets">
         <bundle start-level="85">mvn:org.apache.brooklyn/brooklyn-locations-container/${project.version}</bundle>
 
+        <feature>brooklyn-core</feature>
+<!-- previously we used these, but they pull in wrong versions - jackson 2.7.5 and snakeyaml 1.17 
         <feature>kubernetes-client</feature>
         <feature>openshift-client</feature>
+-->
+<!-- these are pulled in elsewhere
+        <bundle dependency='true'>mvn:javax.validation/validation-api/1.1.0.Final</bundle>
+        <bundle dependency='true'>mvn:javax.servlet/javax.servlet-api/3.1.0</bundle>
+-->
+<!-- these are wrong version, right version pulled in elsewhere
+        <bundle dependency='true'>mvn:com.fasterxml.jackson.core/jackson-core/2.7.5</bundle>
+        <bundle dependency='true'>mvn:com.fasterxml.jackson.core/jackson-annotations/2.7.5</bundle>
+        <bundle dependency='true'>mvn:com.fasterxml.jackson.core/jackson-databind/2.7.5</bundle>
+        <bundle dependency='true'>mvn:com.fasterxml.jackson.module/jackson-module-jaxb-annotations/2.7.5</bundle>
+        <bundle dependency='true'>mvn:com.fasterxml.jackson.jaxrs/jackson-jaxrs-base/2.7.5</bundle>
+        <bundle dependency='true'>mvn:com.fasterxml.jackson.jaxrs/jackson-jaxrs-json-provider/2.7.5</bundle>
+        <bundle dependency='true'>mvn:com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/2.7.5</bundle>
+        <bundle dependency='true'>mvn:org.yaml/snakeyaml/1.17</bundle>
+-->
+<!-- these are needed -->
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.generex/1.0.1_1</bundle>
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.automaton/1.11-8_1</bundle>
+<!-- these are pulled at very different versions elsewhere but let's use these versions too -->
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.okio/1.9.0_1</bundle>
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.okhttp/3.4.1_1</bundle>
+<!-- main required bundles -->
+        <bundle>mvn:io.fabric8/kubernetes-model/1.0.64</bundle>
+        <bundle>mvn:io.fabric8/zjsonpatch/0.2.3</bundle>
+        <bundle>mvn:io.fabric8/kubernetes-client/1.4.27/jar/bundle</bundle>
+        <bundle>mvn:io.fabric8/openshift-client/1.4.27/jar/bundle</bundle>
+<!-- previously we used these, but they pull in wrong versions - jackson 2.7.5 and snakeyaml 1.17 
+        <feature>kubernetes-client</feature>
+        <feature>openshift-client</feature>
+-->
     </feature>
 
     <feature name="brooklyn-test-framework" version="${project.version}" description="Brooklyn Test Framework" >

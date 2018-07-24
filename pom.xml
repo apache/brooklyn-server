@@ -125,7 +125,7 @@
         <commons-lang3.version>3.3.2</commons-lang3.version>
         <groovy.version>2.4.15</groovy.version> <!-- Version 2.4.7 supported by https://github.com/groovy/groovy-eclipse/wiki/Groovy-Eclipse-2.9.1-Release-Notes; not sure what more recent will be -->
         <jsr305.version>2.0.1</jsr305.version>
-        <snakeyaml.version>1.17</snakeyaml.version>
+        <snakeyaml.version>1.21</snakeyaml.version>
         <!-- Next version of swagger requires changes to how path mapping and scanner injection are done. -->
         <swagger.version>1.5.6</swagger.version>
         <jansi.version>1.2.1</jansi.version>
