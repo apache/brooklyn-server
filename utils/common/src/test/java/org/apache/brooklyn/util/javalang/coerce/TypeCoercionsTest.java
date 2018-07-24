@@ -369,11 +369,11 @@ public class TypeCoercionsTest {
         Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", "2"));
     }
 
-    @Test(expectedExceptions=ClassCoercionException.class)
+    @Test
     public void testJsonStringWithoutBracesOrSpaceDisallowedAsMapCoercion() {
-        // yaml requires spaces after the colon
-        coerce("a:1,b:2", Map.class);
-        Asserts.shouldHaveFailedPreviously();
+        Map<?,?> s = coerce("a:1,b:2", Map.class);
+        Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", "2"));
+        // NB: snakeyaml 1.17 required spaces after the colon, but 1.21 accepts the above
     }
     
     @Test
@@ -456,6 +456,7 @@ public class TypeCoercionsTest {
     // Expect to get a log.warn about that now. Could assert that using LogWatcher.
     @Test
     public void testListOfFromThrowingException() {
+        @SuppressWarnings("serial")
         TypeToken<List<WithFromThrowingException>> typeToken = new TypeToken<List<WithFromThrowingException>>() {};
         List<String> rawVal = ImmutableList.of("myval");
         
@@ -463,13 +464,14 @@ public class TypeCoercionsTest {
         assertEquals(val, rawVal);
 
         List<WithFromThrowingException> val2 = coercer.tryCoerce(rawVal, typeToken).get();
-        assertEquals(val, rawVal);
+        assertEquals(val2, rawVal);
     }
 
     // See comment on testListOfFromThrowingException for why we're asserting this undesirable
     // behaviour.
     @Test
     public void testMapOfFromThrowingException() {
+        @SuppressWarnings("serial")
         TypeToken<Map<String, WithFromThrowingException>> typeToken = new TypeToken<Map<String, WithFromThrowingException>>() {};
         ImmutableMap<String, String> rawVal = ImmutableMap.of("mykey", "myval");
         
