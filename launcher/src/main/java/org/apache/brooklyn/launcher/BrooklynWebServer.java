@@ -19,6 +19,7 @@
 package org.apache.brooklyn.launcher;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.BindException;
 import java.net.InetAddress;
@@ -42,14 +43,12 @@ import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
-import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
-import org.apache.brooklyn.launcher.config.CustomResourceLocator;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.NopSecurityHandler;
@@ -72,6 +71,7 @@ import org.apache.brooklyn.util.core.BrooklynNetworkUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.crypto.FluentKeySigner;
 import org.apache.brooklyn.util.core.crypto.SecureKeys;
+import org.apache.brooklyn.util.core.file.ArchiveBuilder;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
@@ -102,24 +102,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
+import com.google.common.io.Files;
 
 /**
- * Starts the web-app running, connected to the given management context
+ * Starts the brooklyn REST server running, connected to the given management context
  */
 public class BrooklynWebServer {
     private static final Logger log = LoggerFactory.getLogger(BrooklynWebServer.class);
-
-    public static final String BROOKLYN_WAR_URL = "classpath://brooklyn.war";
-    static {
-        // support loading the WAR in dev mode from an alternate location 
-        CustomResourceLocator.registerAlternateLocator(new CustomResourceLocator.SearchingClassPathInDevMode(
-                BROOKLYN_WAR_URL, "/brooklyn-server/launcher/target",
-                "/brooklyn-server/rest/rest-server/target/brooklyn-rest-server-"+BrooklynVersion.get()+".jar"));
-    }
     
     static {
         LoggingSetup.installJavaUtilLoggingBridge();
@@ -146,7 +140,7 @@ public class BrooklynWebServer {
     protected InetAddress actualAddress = null;
 
     @SetFromFlag
-    protected String war = BROOKLYN_WAR_URL;
+    protected String war = null;
 
     /** IP of NIC where this server should bind, or null to autodetect 
      * (e.g. 0.0.0.0 if security is configured, or loopback if no security) */
@@ -240,7 +234,7 @@ public class BrooklynWebServer {
     }
 
     public BrooklynWebServer(ManagementContext managementContext, int port) {
-        this(managementContext, port, "brooklyn.war");
+        this(managementContext, port, null);
     }
 
     public BrooklynWebServer(ManagementContext managementContext, int port, String warUrl) {
@@ -435,6 +429,9 @@ public class BrooklynWebServer {
             actualAddress = bindAddress;
         }
 
+        if (war==null) {
+            war = createTempWarWithIndexHtml("This server is running the Brooklyn REST API only. No UI.");
+        }
         if (log.isDebugEnabled())
             log.debug("Starting Brooklyn rest server at "+getRootUrl()+", running " + war + (wars != null ? " and " + wars.values() : ""));
         
@@ -716,4 +713,24 @@ public class BrooklynWebServer {
         return rootContext;
     }
 
+    // duplicated in BrooklynRestApiLauncher (in test project so not visible here)
+    /** create a directory with a simple index.html so we have some content being served up */
+    private static String createTempWebDirWithIndexHtml(String indexHtmlContent) {
+        File dir = Files.createTempDir();
+        dir.deleteOnExit();
+        try {
+            Files.write(indexHtmlContent, new File(dir, "index.html"), Charsets.UTF_8);
+        } catch (IOException e) {
+            Exceptions.propagate(e);
+        }
+        return dir.getAbsolutePath();
+    }
+    /** create WAR/ZIP as per {@link #createTempWebDirWithIndexHtml(String)} */
+    private static String createTempWarWithIndexHtml(String indexHtmlContent) {
+        File archive = ArchiveBuilder.zip().addDirContentsAt(
+            new File(createTempWebDirWithIndexHtml(indexHtmlContent)), ".").create();
+        archive.deleteOnExit();
+        return archive.getAbsolutePath();
+    }
+    
 }

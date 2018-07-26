@@ -53,11 +53,10 @@ import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
 import org.apache.brooklyn.rest.util.ServerStoppingShutdownHandler;
 import org.apache.brooklyn.rest.util.ShutdownHandlerProvider;
-import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.core.file.ArchiveBuilder;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Networking;
-import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.WildcardGlobs;
 import org.eclipse.jetty.jaas.JAASLoginService;
 import org.eclipse.jetty.server.NetworkConnector;
@@ -74,18 +73,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 
-/** Convenience and demo for launching programmatically. Also used for automated tests.
- * <p>
- * BrooklynLauncher has a more full-featured CLI way to start, 
- * but if you want more control you can:
- * <li> take the WAR this project builds (REST API) -- NB probably want the unshaded one (containing all deps)
- * <li> take the WAR from the brooklyn-jsgui project (brooklyn-ui repo) _and_ this WAR and combine them
- *      (this one should run as a filter on the others, _not_ as a ResourceCollection where they fight over who's got root)
- * <li> programmatically install things, following the examples herein; 
- *      in particular {@link RestApiSetup} is quite handy!
- * <p>
- * You can also just run this class. In most installs it just works, assuming your IDE or maven-fu gives you the classpath.
- * Add more apps and entities on the classpath and they'll show up in the catalog.
+/** Convenience and demo for launching programmatically in a legacy non-OSGi mode. Also used for automated tests.
  **/
 public class BrooklynRestApiLauncher {
 
@@ -107,7 +95,6 @@ public class BrooklynRestApiLauncher {
     private StartMode mode = StartMode.SERVLET;
     private ManagementContext mgmt;
     private ContextHandler customContext;
-    private boolean deployJsgui = true;
     private boolean disableHighAvailability = true;
     private ServerStoppingShutdownHandler shutdownListener;
 
@@ -148,16 +135,6 @@ public class BrooklynRestApiLauncher {
     /** Overrides start mode to use an explicit context */
     public BrooklynRestApiLauncher customContext(ContextHandler customContext) {
         this.customContext = checkNotNull(customContext, "customContext");
-        return this;
-    }
-
-    public BrooklynRestApiLauncher withJsgui() {
-        this.deployJsgui = true;
-        return this;
-    }
-
-    public BrooklynRestApiLauncher withoutJsgui() {
-        this.deployJsgui = false;
         return this;
     }
 
@@ -257,20 +234,8 @@ public class BrooklynRestApiLauncher {
     }
 
     private void installWar(WebAppContext context) {
-        // here we run with the JS GUI, for convenience, if we can find it, else set up an empty dir
-        // TODO pretty sure there is an option to monitor this dir and load changes to static content
-        // NOTE: When running Brooklyn from an IDE (i.e. by launching BrooklynJavascriptGuiLauncher.main())
-        // you will need to ensure that the working directory is set to the brooklyn-ui repo folder. For IntelliJ,
-        // set the 'Working directory' of the Run/Debug Configuration to $MODULE_DIR$/brooklyn-server/launcher.
-        // For Eclipse, use the default option of ${workspace_loc:brooklyn-launcher}.
-        // If the working directory is not set correctly, Brooklyn will be unable to find the jsgui .war
-        // file and the 'gui not available' message will be shown.
-        context.setWar(this.deployJsgui && 
-                findJsguiWebappInSource().isPresent() 
-                    ? findJsguiWebappInSource().get()
-                : ResourceUtils.create(this).doesUrlExist("classpath://brooklyn.war") 
-                    ? Os.writeToTempFile(ResourceUtils.create(this).getResourceFromUrl("classpath://brooklyn.war"), "brooklyn", "war").getAbsolutePath()
-                : createTempWebDirWithIndexHtml("Brooklyn REST API <p> (gui not available)"));
+        context.setWar(
+            createTempWarWithIndexHtml("Brooklyn REST API only <p> (gui not available in legacy non-OSGi mode)"));
     }
 
     /** NB: not fully supported; use one of the other {@link StartMode}s */
@@ -369,25 +334,6 @@ public class BrooklynRestApiLauncher {
         return launcherWebXml().start();
     }
 
-    /** look for the JS GUI webapp in common source places, returning path to it if found, or null.
-     * assumes `brooklyn-ui` is checked out as a sibling to `brooklyn-server`, and both are 2, 3, 1, or 0
-     * levels above the CWD. */
-    @Beta
-    public static Maybe<String> findJsguiWebappInSource() {
-    	// normally up 2 levels to where brooklyn-* folders are, then into ui
-    	// (but in rest projects it might be 3 up, and in some IDEs we might run from parent dirs.)
-        // TODO could also look in maven repo ?
-    	return findFirstMatchingFile(
-    			"../../brooklyn-ui/src/main/webapp",
-    			"../../../brooklyn-ui/src/main/webapp",
-    			"../brooklyn-ui/src/main/webapp",
-    			"./brooklyn-ui/src/main/webapp",
-    			"../../brooklyn-ui/target/*.war",
-    			"../../..brooklyn-ui/target/*.war",
-    			"../brooklyn-ui/target/*.war",
-    			"./brooklyn-ui/target/*.war");
-    }
-
     /** look for the REST WAR file in common places, returning path to it if found, or null */
     private static String findRestApiWar() {
         // don't look at src/main/webapp here -- because classes won't be there!
@@ -432,6 +378,7 @@ public class BrooklynRestApiLauncher {
         return Maybe.of(result.getAbsolutePath());
     }
 
+    // duplicated in BrooklynWebServer (downstream, but no obvious util class to put it in and not worth creating)
     /** create a directory with a simple index.html so we have some content being served up */
     private static String createTempWebDirWithIndexHtml(String indexHtmlContent) {
         File dir = Files.createTempDir();
@@ -442,6 +389,19 @@ public class BrooklynRestApiLauncher {
             Exceptions.propagate(e);
         }
         return dir.getAbsolutePath();
+    }
+    /** create WAR/ZIP as per {@link #createTempWebDirWithIndexHtml(String)} */
+    private static String createTempWarWithIndexHtml(String indexHtmlContent) {
+        File archive = ArchiveBuilder.zip().addDirContentsAt(
+            new File(createTempWebDirWithIndexHtml(indexHtmlContent)), ".").create();
+        archive.deleteOnExit();
+        return archive.getAbsolutePath();
+    }
+    
+    public BrooklynRestApiLauncher withoutJsgui() {
+        // no-op method now, this is now only supported without the JS GUI as that is angular and OSGi
+        // method kept for compatibility
+        return this;
     }
     
 }

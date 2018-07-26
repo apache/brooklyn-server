@@ -39,7 +39,8 @@ import com.google.common.collect.Lists;
 
 
 /**
- * These tests require the brooklyn.war to work. (Should be placed by maven build.)
+ * Tests that web app starts with given WAR(s) - legacy startup, originally written for the single non-angular brooklyn.war,
+ * but tested here that it works with other WARs in case that is used anywhere.
  */
 public class WebAppRunnerTest {
 
@@ -81,14 +82,14 @@ public class WebAppRunnerTest {
         
         try {
             server.start();
-            assertBrooklynEventuallyAt("http://localhost:"+server.getActualPort()+"/");
+            assertRootPageAvailableAt("http://localhost:"+server.getActualPort()+"/");
         } finally {
             server.stop();
         }
     }
 
-    public static void assertBrooklynEventuallyAt(String url) {
-        HttpAsserts.assertContentEventuallyContainsText(url, "Brooklyn Web Console");
+    public static void assertRootPageAvailableAt(String url) {
+        HttpAsserts.assertContentEventuallyContainsText(url, "Brooklyn REST API only");
     }
 
     @Test
@@ -96,13 +97,13 @@ public class WebAppRunnerTest {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), "/hello-world.war");
 
         BrooklynWebServer server = createWebServer(
-            MutableMap.of("port", "8091+", "war", "brooklyn.war", "wars", MutableMap.of("hello", "hello-world.war")) );
+            MutableMap.of("port", "8091+", "war", null, "wars", MutableMap.of("hello", "hello-world.war")) );
         assertNotNull(server);
         
         try {
             server.start();
 
-            assertBrooklynEventuallyAt("http://localhost:"+server.getActualPort()+"/");
+            assertRootPageAvailableAt("http://localhost:"+server.getActualPort()+"/");
             HttpAsserts.assertContentEventuallyContainsText("http://localhost:"+server.getActualPort()+"/hello",
                 "This is the home page for a sample application");
 
@@ -115,14 +116,14 @@ public class WebAppRunnerTest {
     public void testStartSecondaryWarAfter() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), "/hello-world.war");
 
-        BrooklynWebServer server = createWebServer(MutableMap.of("port", "8091+", "war", "brooklyn.war"));
+        BrooklynWebServer server = createWebServer(MutableMap.of("port", "8091+", "war", null));
         assertNotNull(server);
         
         try {
             server.start();
             server.deploy("/hello", "hello-world.war");
 
-            assertBrooklynEventuallyAt("http://localhost:"+server.getActualPort()+"/");
+            assertRootPageAvailableAt("http://localhost:"+server.getActualPort()+"/");
             HttpAsserts.assertContentEventuallyContainsText("http://localhost:"+server.getActualPort()+"/hello",
                 "This is the home page for a sample application");
 
@@ -145,7 +146,7 @@ public class WebAppRunnerTest {
         try {
             details.getWebServer().deploy("/hello2", "hello-world.war");
 
-            assertBrooklynEventuallyAt(details.getWebServerUrl());
+            assertRootPageAvailableAt(details.getWebServerUrl());
             HttpAsserts.assertContentEventuallyContainsText(details.getWebServerUrl()+"hello", "This is the home page for a sample application");
             HttpAsserts.assertContentEventuallyContainsText(details.getWebServerUrl()+"hello2", "This is the home page for a sample application");
             HttpAsserts.assertHttpStatusCodeEventuallyEquals(details.getWebServerUrl()+"hello0", 404);
