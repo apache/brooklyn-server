@@ -250,6 +250,13 @@
         <bundle>mvn:org.apache.brooklyn/brooklyn-jmxrmi-agent/${project.version}</bundle>
     </feature>
 
+    <!-- redeclare, overridden to use our version of snakeyaml  -->
+    <feature name='jclouds-api-byon' description='jclouds - API - Byon' version='${jclouds.version}'>
+        <feature version='${jclouds.version}'>jclouds-compute</feature>
+        <bundle dependency='true'>mvn:org.yaml/snakeyaml/${snakeyaml.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/byon/${jclouds.version}</bundle>
+    </feature>
+
     <feature name="brooklyn-locations-jclouds" version="${project.version}" description="Brooklyn Jclouds Location Targets">
         <bundle>mvn:org.apache.jclouds/jclouds-loadbalancer/${jclouds.version}</bundle>
         <feature>brooklyn-core</feature>
