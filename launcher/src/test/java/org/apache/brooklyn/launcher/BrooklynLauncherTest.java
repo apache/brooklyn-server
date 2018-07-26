@@ -58,7 +58,6 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Charsets;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -79,7 +78,7 @@ public class BrooklynLauncherTest {
     @Test(groups="Integration")
     public void testStartsWebServerOnExpectectedPort() throws Exception {
         launcher = newLauncherForTests(true)
-                .webconsolePort("10000+")
+                .restServerPort("10000+")
                 .installSecurityFilter(false)
                 .start();
         
@@ -123,7 +122,7 @@ public class BrooklynLauncherTest {
     @Test(groups="Integration")
     public void testStartsWebServerWithCredentials() throws Exception {
         launcher = newLauncherForTests(true)
-                .webconsolePort("10000+")
+                .restServerPort("10000+")
                 .brooklynProperties(BrooklynWebConfig.USERS, "myname")
                 .brooklynProperties(BrooklynWebConfig.PASSWORD_FOR_USER("myname"), "mypassword")
                 .start();
@@ -144,7 +143,7 @@ public class BrooklynLauncherTest {
     @Test
     public void testCanDisableWebServerStartup() throws Exception {
         launcher = newLauncherForTests(true)
-                .webconsole(false)
+                .restServer(false)
                 .start();
         
         assertNull(launcher.getServerDetails().getWebServer());
@@ -155,7 +154,7 @@ public class BrooklynLauncherTest {
     @Test
     public void testStartsAppInstance() throws Exception {
         launcher = newLauncherForTests(true)
-                .webconsole(false)
+                .restServer(false)
                 .application(EntitySpec.create(TestApplicationImpl.class))
                 .start();
         
@@ -165,7 +164,7 @@ public class BrooklynLauncherTest {
     @Test
     public void testStartsAppFromSpec() throws Exception {
         launcher = newLauncherForTests(true)
-                .webconsole(false)
+                .restServer(false)
                 .application(EntitySpec.create(TestApplication.class))
                 .start();
         
@@ -179,7 +178,7 @@ public class BrooklynLauncherTest {
                 "- serviceType: org.apache.brooklyn.core.test.entity.TestEntity\n" +
                 "  name: test-app";
         launcher = newLauncherForTests(true)
-                .webconsole(false)
+                .restServer(false)
                 .application(yaml)
                 .start();
 
@@ -192,7 +191,7 @@ public class BrooklynLauncherTest {
     @Test  // may take 2s initializing location if running this test case alone, but noise if running suite 
     public void testStartsAppInSuppliedLocations() throws Exception {
         launcher = newLauncherForTests(true)
-                .webconsole(false)
+                .restServer(false)
                 .location("localhost")
                 .application(EntitySpec.create(TestApplication.class))
                 .start();
@@ -205,7 +204,7 @@ public class BrooklynLauncherTest {
     public void testUsesSuppliedManagementContext() throws Exception {
         LocalManagementContext myManagementContext = LocalManagementContextForTests.newInstance();
         launcher = newLauncherForTests(false)
-                .webconsole(false)
+                .restServer(false)
                 .managementContext(myManagementContext)
                 .start();
         
@@ -217,7 +216,7 @@ public class BrooklynLauncherTest {
         BrooklynProperties props = LocalManagementContextForTests.builder(true).buildProperties();
         props.put("mykey", "myval");
         launcher = newLauncherForTests(false)
-                .webconsole(false)
+                .restServer(false)
                 .brooklynProperties(props)
                 .start();
         
@@ -227,7 +226,7 @@ public class BrooklynLauncherTest {
     @Test
     public void testUsesSupplementaryBrooklynProperties() throws Exception {
         launcher = newLauncherForTests(true)
-                .webconsole(false)
+                .restServer(false)
                 .brooklynProperties("mykey", "myval")
                 .start();
         
@@ -237,7 +236,7 @@ public class BrooklynLauncherTest {
     @Test
     public void testReloadBrooklynPropertiesRestoresProgrammaticProperties() throws Exception {
         launcher = newLauncherForTests(true)
-                .webconsole(false)
+                .restServer(false)
                 .brooklynProperties("mykey", "myval")
                 .start();
         LocalManagementContext managementContext = (LocalManagementContext)launcher.getServerDetails().getManagementContext();
@@ -256,7 +255,7 @@ public class BrooklynLauncherTest {
             String property = "mykey=myval";
             Files.append(BrooklynPropertiesFactoryHelperTest.getMinimalLauncherPropertiesString()+property, globalPropertiesFile, Charsets.UTF_8);
             launcher = newLauncherForTests(false)
-                    .webconsole(false)
+                    .restServer(false)
                     .globalBrooklynPropertiesFile(globalPropertiesFile.getAbsolutePath())
                     .start();
             LocalManagementContext managementContext = (LocalManagementContext)launcher.getServerDetails().getManagementContext();

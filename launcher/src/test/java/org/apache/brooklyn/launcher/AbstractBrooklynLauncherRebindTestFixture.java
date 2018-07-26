@@ -77,7 +77,7 @@ public abstract class AbstractBrooklynLauncherRebindTestFixture {
 
     protected BrooklynLauncher newLauncherBase() {
         BrooklynLauncher l = BrooklynLauncher.newInstance()
-            .webconsole(false);
+            .restServer(false);
         launchers.add(l);
         return l;
     }

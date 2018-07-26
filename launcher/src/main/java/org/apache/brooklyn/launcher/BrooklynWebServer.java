@@ -117,8 +117,8 @@ public class BrooklynWebServer {
     static {
         // support loading the WAR in dev mode from an alternate location 
         CustomResourceLocator.registerAlternateLocator(new CustomResourceLocator.SearchingClassPathInDevMode(
-                BROOKLYN_WAR_URL, "/brooklyn-server/launcher/target", 
-                "/brooklyn-ui/target/brooklyn-jsgui-"+BrooklynVersion.get()+".war"));
+                BROOKLYN_WAR_URL, "/brooklyn-server/launcher/target",
+                "/brooklyn-server/rest/rest-server/target/brooklyn-rest-server-"+BrooklynVersion.get()+".jar"));
     }
     
     static {
@@ -393,7 +393,7 @@ public class BrooklynWebServer {
                 // also allows if specific NIC specified, we can bind to it even if something else is using 0.0.0.0
                 true);
             if (actualPort == -1) 
-                throw new IllegalStateException("Unable to provision port for web console (wanted "+portRange+")");
+                throw new IllegalStateException("Unable to provision port for rest server (wanted "+portRange+")");
         }
 
 
@@ -436,7 +436,7 @@ public class BrooklynWebServer {
         }
 
         if (log.isDebugEnabled())
-            log.debug("Starting Brooklyn console at "+getRootUrl()+", running " + war + (wars != null ? " and " + wars.values() : ""));
+            log.debug("Starting Brooklyn rest server at "+getRootUrl()+", running " + war + (wars != null ? " and " + wars.values() : ""));
         
         addShutdownHook();
 
@@ -473,7 +473,7 @@ public class BrooklynWebServer {
             ((ManagementContextInternal) managementContext).setManagementNodeUri(new URI(getRootUrl()));
         }
 
-        log.info("Started Brooklyn console at "+getRootUrl()+", running " + rootWar + (allWars!=null && !allWars.isEmpty() ? " and " + wars.values() : ""));
+        log.info("Started Brooklyn rest server at "+getRootUrl()+", running " + rootWar + (allWars!=null && !allWars.isEmpty() ? " and " + wars.values() : ""));
     }
 
     private boolean shouldBindToAll() {
@@ -634,7 +634,7 @@ public class BrooklynWebServer {
         String root = getRootUrl();
         if (shutdownHook != null) Threads.removeShutdownHook(shutdownHook);
         if (log.isDebugEnabled())
-            log.debug("Stopping Brooklyn web console at "+root+ " (" + war + (wars != null ? " and " + wars.values() : "") + ")");
+            log.debug("Stopping Brooklyn rest server at "+root+ " (" + war + (wars != null ? " and " + wars.values() : "") + ")");
 
         server.stop();
         try {
@@ -646,7 +646,7 @@ public class BrooklynWebServer {
         LocalhostMachineProvisioningLocation.releasePort(getAddress(), actualPort);
         actualPort = -1;
         if (log.isDebugEnabled())
-            log.debug("Stopped Brooklyn web console at "+root);
+            log.debug("Stopped Brooklyn rest server at "+root);
     }
 
     private Thread shutdownHook = null;

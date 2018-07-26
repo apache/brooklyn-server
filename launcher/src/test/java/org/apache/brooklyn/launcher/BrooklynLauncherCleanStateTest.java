@@ -81,7 +81,7 @@ public class BrooklynLauncherCleanStateTest extends AbstractBrooklynLauncherRebi
             // Clean the state
             BrooklynLauncher launcher = newLauncherDefault(PersistMode.AUTO)
                     .highAvailabilityMode(HighAvailabilityMode.MASTER)
-                    .webconsole(false);
+                    .restServer(false);
             launcher.cleanOrphanedState(destination, destinationLocation);
             launcher.terminate();
 
@@ -97,7 +97,7 @@ public class BrooklynLauncherCleanStateTest extends AbstractBrooklynLauncherRebi
 
             // Should now have a usable copy in the destinationDir
             newLauncherDefault(PersistMode.AUTO)
-                    .webconsole(false)
+                    .restServer(false)
                     .persistenceDir(destinationDir)
                     .start();
             

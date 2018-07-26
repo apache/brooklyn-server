@@ -554,13 +554,13 @@ public class Main extends AbstractMain {
                     .ignoreAppErrors(!startupFailOnManagedAppsErrors)
                     .locations(Strings.isBlank(locations) ? ImmutableList.<String>of() : JavaStringEscapes.unwrapJsonishListIfPossible(locations));
             
-            launcher.webconsole(!noConsole);
+            launcher.restServer(!noConsole);
             if (useHttps) {
                 // true sets it; false (not set) leaves it blank and falls back to config key
                 // (no way currently to override config key, but that could be added)
-                launcher.webconsoleHttps(useHttps);
+                launcher.restServerHttps(useHttps);
             }
-            launcher.webconsolePort(port);
+            launcher.restServerPort(port);
             
             if (noGlobalBrooklynProperties) {
                 log.debug("Configuring to disable global brooklyn.properties");
