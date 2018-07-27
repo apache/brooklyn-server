@@ -117,7 +117,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
      * Specifies whether the launcher will start the Brooklyn web console 
      * (and any additional webapps specified); default true.
      */
-    public BrooklynLauncher webconsole(boolean startWebApps) {
+    public BrooklynLauncher restServer(boolean startWebApps) {
         this.startWebApps = startWebApps;
         return this;
     }
@@ -128,25 +128,25 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
     }
 
     /** 
-     * As {@link #webconsolePort(PortRange)} taking a single port
+     * As {@link #restServerPort(PortRange)} taking a single port
      */ 
-    public BrooklynLauncher webconsolePort(int port) {
-        return webconsolePort(PortRanges.fromInteger(port));
+    public BrooklynLauncher restServerPort(int port) {
+        return restServerPort(PortRanges.fromInteger(port));
     }
 
     /**
-     * As {@link #webconsolePort(PortRange)} taking a string range
+     * As {@link #restServerPort(PortRange)} taking a string range
      */
-    public BrooklynLauncher webconsolePort(String port) {
-        if (port==null) return webconsolePort((PortRange)null);
-        return webconsolePort(PortRanges.fromString(port));
+    public BrooklynLauncher restServerPort(String port) {
+        if (port==null) return restServerPort((PortRange)null);
+        return restServerPort(PortRanges.fromString(port));
     }
 
     /**
      * Specifies the port where the web console (and any additional webapps specified) will listen;
      * default (null) means "8081+" being the first available >= 8081 (or "8443+" for https).
      */ 
-    public BrooklynLauncher webconsolePort(PortRange port) {
+    public BrooklynLauncher restServerPort(PortRange port) {
         this.port = port;
         return this;
     }
@@ -154,7 +154,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
     /**
      * Specifies whether the webconsole should use https.
      */ 
-    public BrooklynLauncher webconsoleHttps(Boolean useHttps) {
+    public BrooklynLauncher restServerHttps(Boolean useHttps) {
         this.useHttps = useHttps;
         return this;
     }

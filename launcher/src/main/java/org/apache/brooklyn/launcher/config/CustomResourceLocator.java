@@ -65,7 +65,9 @@ public class CustomResourceLocator {
     
     /** finds the file indicated at the URL, using some rewrites if necessary to work around some known issues.
      * <p>
-     * in particular, eclipse often does not copy WAR files as instructed by maven, so brooklyn.war might not be found */
+     * in particular, eclipse often does not copy WAR files as instructed by maven, so brooklyn.war might not be found;
+     * less important now that WARs are run separately, via OSGi (in prod) or node (in dev),
+     * but kept in case custom WARs are ever added to legacy webserver code */
     public InputStream getResourceFromUrl(String url) {
         // TODO we could allow the source to be overridden from config,
         // by allowing configuration e.g.

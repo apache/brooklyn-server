@@ -156,7 +156,7 @@ public class BrooklynLauncherRebindToCloudObjectStoreTest extends BrooklynLaunch
         try {
             // Auto will rebind if the dir exists
             BrooklynLauncher launcher = newLauncherDefault(PersistMode.AUTO)
-                    .webconsole(false)
+                    .restServer(false)
                     .persistenceLocation(persistenceLocationSpec);
             BrooklynMementoRawData memento = launcher.retrieveState();
             launcher.persistState(memento, destinationDir, destinationLocation);
@@ -167,7 +167,7 @@ public class BrooklynLauncherRebindToCloudObjectStoreTest extends BrooklynLaunch
             // Should now have a usable copy in the destionationDir
             // Auto will rebind if the dir exists
             newLauncherDefault(PersistMode.AUTO)
-                    .webconsole(false)
+                    .restServer(false)
                     .persistenceDir(destinationDir)
                     .persistenceLocation(destinationLocation)
                     .start();

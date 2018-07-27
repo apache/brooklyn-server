@@ -30,7 +30,6 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
@@ -166,7 +165,7 @@ public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphaned
     public void testCleanedCopiedPersistedState() throws Exception {
         LOG.info(JavaClassNames.niceClassAndMethod()+" taking persistence from "+persistenceDirWithOrphanedLocations);
         BrooklynLauncher launcher = BrooklynLauncher.newInstance()
-                .webconsole(false)
+                .restServer(false)
                 .brooklynProperties(OsgiManager.USE_OSGI, false)
                 .persistMode(PersistMode.AUTO)
                 .persistenceDir(persistenceDirWithOrphanedLocations)

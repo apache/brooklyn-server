@@ -201,8 +201,7 @@ public class CorsFilterLauncherTest extends BrooklynRestApiLauncherTestFixture {
         } else {
             BrooklynFeatureEnablement.disable(BrooklynFeatureEnablement.FEATURE_CORS_CXF_PROPERTY);
         }
-        BrooklynRestApiLauncher apiLauncher = baseLauncher()
-                .withoutJsgui();
+        BrooklynRestApiLauncher apiLauncher = baseLauncher();
         ManagementContext mgmt = LocalManagementContextForTests.builder(true)
                 .useAdditionalProperties(MutableMap.<String, Object>of(
                         BrooklynFeatureEnablement.FEATURE_CORS_CXF_PROPERTY, enable,

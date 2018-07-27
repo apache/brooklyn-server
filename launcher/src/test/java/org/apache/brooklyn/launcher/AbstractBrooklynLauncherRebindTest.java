@@ -137,7 +137,7 @@ public abstract class AbstractBrooklynLauncherRebindTest {
                 .persistPeriod(Duration.millis(10))
                 .haHeartbeatPeriod(Duration.millis(10))
                 .persistenceDir(persistenceDir)
-                .webconsole(false);
+                .restServer(false);
         launchers.add(launcher);
         return launcher;
     }

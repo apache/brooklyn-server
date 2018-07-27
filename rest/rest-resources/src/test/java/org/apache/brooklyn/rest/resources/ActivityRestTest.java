@@ -334,14 +334,14 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
                     // child completed; now check we complete soon, and assert we have siblings
                     if (ci.hasNext()) continue;
                     if (!t.blockUntilEnded(timer.getDurationRemaining())) {
-                        Entities.dumpInfo(tRoot);
+                        Dumper.dumpInfo(tRoot);
                         // log.info("Incomplete after "+t+": "+t.getStatusDetail(false));
                         throw Exceptions.propagate( new TimeoutException("parent didn't complete after child depth "+finishedDescendantDepth) );
                     }
                 }
                 if (finishedDescendantDepth == depthSoFar+2) {
                     if (Iterables.size(children)<2) {
-                        Entities.dumpInfo(tRoot);
+                        Dumper.dumpInfo(tRoot);
                         throw new IllegalStateException("finished child's parent has no sibling");
                     }
                 }

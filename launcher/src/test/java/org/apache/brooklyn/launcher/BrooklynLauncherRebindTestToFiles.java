@@ -130,7 +130,7 @@ public class BrooklynLauncherRebindTestToFiles extends BrooklynLauncherRebindTes
             // Auto will rebind if the dir exists
             BrooklynLauncher launcher = newLauncherDefault(PersistMode.AUTO)
                     .highAvailabilityMode(HighAvailabilityMode.MASTER)
-                    .webconsole(false);
+                    .restServer(false);
             launcher.copyPersistedState(destination, destinationLocation);
             launcher.terminate();
             
@@ -146,7 +146,7 @@ public class BrooklynLauncherRebindTestToFiles extends BrooklynLauncherRebindTes
             // Should now have a usable copy in the destinationDir
             // Auto will rebind if the dir exists
             newLauncherDefault(PersistMode.AUTO)
-                    .webconsole(false)
+                    .restServer(false)
                     .persistenceDir(destinationDir)
                     .start();
             assertOnlyApp(lastMgmt(), TestApplication.class);
