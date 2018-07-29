@@ -147,7 +147,7 @@ public class BrooklynWebServer {
     @SetFromFlag
     protected InetAddress bindAddress = null;
 
-    /** The address that this server's management context will be publically available on. */
+    /** The address that this server's management context will be publicly available on. */
     @SetFromFlag
     protected InetAddress publicAddress = null;
 
