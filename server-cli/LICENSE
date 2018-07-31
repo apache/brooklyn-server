@@ -205,10 +205,10 @@ Apache License: |
    
 Dependency licenses:
 
-   # This software includes dependencies released under other licenses.
-   # These other licenses are compatible with the Apache License above.
+   # This software includes dependencies released under their licenses.
+   # These licenses are compatible with the Apache License above.
    # Details of these dependencies can be found in the accompanying NOTICE file.
-   # These other licenses are included below with their full text.
+   # These licenses are included below with their full text.
 
   Apache License, version 2.0: |
     # from https://www.apache.org/licenses/LICENSE-2.0

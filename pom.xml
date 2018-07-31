@@ -116,16 +116,16 @@
         <xpp3.servicemix.version>1.1.4c_7</xpp3.servicemix.version>
         <kxml2.servicemix.version>2.3.0_3</kxml2.servicemix.version>
         <!-- double-check downstream projects before changing jackson version -->
-        <fasterxml.jackson.version>2.7.5</fasterxml.jackson.version>
+        <fasterxml.jackson.version>2.9.6</fasterxml.jackson.version>
         <cxf.version>3.1.10</cxf.version>
         <httpcomponents.httpclient.version>4.5.2</httpcomponents.httpclient.version>
         <httpcomponents.httpcore.version>4.4.4</httpcomponents.httpcore.version>
         <!-- @deprecated since 0.11 -->
         <httpclient.version>4.5.2</httpclient.version> <!-- kept for compatibility in 0.11.0-SNAPSHOT, remove after -->
         <commons-lang3.version>3.3.2</commons-lang3.version>
-        <groovy.version>2.3.7</groovy.version> <!-- Version supported by https://github.com/groovy/groovy-eclipse/wiki/Groovy-Eclipse-2.9.1-Release-Notes -->
+        <groovy.version>2.4.15</groovy.version> <!-- Version 2.4.7 supported by https://github.com/groovy/groovy-eclipse/wiki/Groovy-Eclipse-2.9.1-Release-Notes; not sure what more recent will be -->
         <jsr305.version>2.0.1</jsr305.version>
-        <snakeyaml.version>1.17</snakeyaml.version>
+        <snakeyaml.version>1.21</snakeyaml.version>
         <!-- Next version of swagger requires changes to how path mapping and scanner injection are done. -->
         <swagger.version>1.5.6</swagger.version>
         <jansi.version>1.2.1</jansi.version>
@@ -186,8 +186,8 @@
         <jsonSmart.version>2.3</jsonSmart.version>
         <minidev.accessors-smart.version>1.2</minidev.accessors-smart.version>
         <ow2.asm.version>5.0.4</ow2.asm.version>
-        <commons-beanutils.version>1.9.1</commons-beanutils.version>
-        <commons-collections.version>3.2.1</commons-collections.version>
+        <commons-beanutils.version>1.9.3</commons-beanutils.version>
+        <commons-collections.version>3.2.2</commons-collections.version>
         <javax.mail.version>1.4.4</javax.mail.version>
         <cxf.javax.annotation-api.version>1.2</cxf.javax.annotation-api.version>
         <testng.version>6.10</testng.version>

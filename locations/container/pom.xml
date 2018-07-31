@@ -42,9 +42,14 @@
             <version>${kubernetes-client.version}</version>
             <classifier>bundle</classifier>
             <exclusions>
+                <!-- we use newer versions -->
                 <exclusion>
                     <groupId>com.squareup.okio</groupId>
                     <artifactId>okio</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.yaml</groupId>
+                    <artifactId>snakeyaml</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

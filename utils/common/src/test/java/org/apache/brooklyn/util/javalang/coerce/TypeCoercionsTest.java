@@ -39,7 +39,6 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.codehaus.groovy.runtime.GStringImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -51,6 +50,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.reflect.TypeToken;
+
+import groovy.lang.GString;
 
 public class TypeCoercionsTest {
 
@@ -68,7 +69,7 @@ public class TypeCoercionsTest {
     @Test
     public void testCoerceCharSequenceToString() {
         assertEquals(coerce(new StringBuilder("abc"), String.class), "abc");
-        assertEquals(coerce(new GStringImpl(new Object[0], new String[0]), String.class), "");
+        assertEquals(coerce(GString.EMPTY, String.class), "");
     }
     
     @Test
@@ -368,11 +369,11 @@ public class TypeCoercionsTest {
         Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", "2"));
     }
 
-    @Test(expectedExceptions=ClassCoercionException.class)
+    @Test
     public void testJsonStringWithoutBracesOrSpaceDisallowedAsMapCoercion() {
-        // yaml requires spaces after the colon
-        coerce("a:1,b:2", Map.class);
-        Asserts.shouldHaveFailedPreviously();
+        Map<?,?> s = coerce("a:1,b:2", Map.class);
+        Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", "2"));
+        // NB: snakeyaml 1.17 required spaces after the colon, but 1.21 accepts the above
     }
     
     @Test
@@ -455,6 +456,7 @@ public class TypeCoercionsTest {
     // Expect to get a log.warn about that now. Could assert that using LogWatcher.
     @Test
     public void testListOfFromThrowingException() {
+        @SuppressWarnings("serial")
         TypeToken<List<WithFromThrowingException>> typeToken = new TypeToken<List<WithFromThrowingException>>() {};
         List<String> rawVal = ImmutableList.of("myval");
         
@@ -462,13 +464,14 @@ public class TypeCoercionsTest {
         assertEquals(val, rawVal);
 
         List<WithFromThrowingException> val2 = coercer.tryCoerce(rawVal, typeToken).get();
-        assertEquals(val, rawVal);
+        assertEquals(val2, rawVal);
     }
 
     // See comment on testListOfFromThrowingException for why we're asserting this undesirable
     // behaviour.
     @Test
     public void testMapOfFromThrowingException() {
+        @SuppressWarnings("serial")
         TypeToken<Map<String, WithFromThrowingException>> typeToken = new TypeToken<Map<String, WithFromThrowingException>>() {};
         ImmutableMap<String, String> rawVal = ImmutableMap.of("mykey", "myval");
         

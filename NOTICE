@@ -69,13 +69,13 @@ Runtime dependencies:
     Developed by: QOS.ch (http://www.qos.ch)
     License name: Eclipse Public License, version 1.0
   
-  com.fasterxml.jackson:2.7.5: 
+  com.fasterxml.jackson:2.9.6: 
     Project:      Jackson FasterXML
-    Version:      2.7.5
+    Version:      2.9.6
     Available at: 
       - http://github.com/FasterXML/jackson
-      - http://wiki.fasterxml.com/JacksonHome
       - https://github.com/FasterXML/jackson-core
+      - https://github.com/FasterXML/jackson-modules-base
     Developed by: FasterXML (http://fasterxml.com/)
     License name: Apache License, version 2.0
   
@@ -144,7 +144,7 @@ Runtime dependencies:
     Available at: http://www.jcraft.com/jzlib/
     Developed by: jcraft (http://www.jcraft.com/)
     License name: BSD 3-Clause (New BSD) License
-    Notice:       Copyright (c) Copyright (c) 2000-2011 ymnk, JCraft,Inc. All rights reserved.
+    Notice:       Copyright (c) 2000-2011 ymnk, JCraft,Inc. All rights reserved.
   
   com.jcraft:0.0.9: 
     Project:      JCraft jsch ssh library
@@ -152,7 +152,7 @@ Runtime dependencies:
     Available at: http://www.jcraft.com/jsch-agent-proxy/
     Developed by: JCraft,Inc. (http://www.jcraft.com/)
     License name: BSD 3-Clause (New BSD) License
-    Notice:       Copyright (c) Copyright (c) 2011-2012 Atsuhiko Yamanaka, JCraft,Inc.
+    Notice:       Copyright (c) 2011-2012 Atsuhiko Yamanaka, JCraft,Inc.
   
   com.maxmind.db.maxmind-db:1.2.1: 
     Project:      MaxMind DB Reader
@@ -396,11 +396,11 @@ Runtime dependencies:
     License name: MIT License
     Notice:       Copyright (c) The Legion of the Bouncy Castle Inc. (http://www.bouncycastle.org)
   
-  org.codehaus.groovy.groovy-all:2.3.7: 
-    Project:      Groovy
-    Version:      2.3.7
-    Available at: http://groovy.codehaus.org/
-    Developed by: The Codehaus (http://codehaus.org)
+  org.codehaus.groovy.groovy-all:2.4.15: 
+    Project:      Apache Groovy
+    Version:      2.4.15
+    Available at: http://groovy-lang.org
+    Developed by: Apache Software Foundation (http://groovy-lang.org)
     License name: Apache License, version 2.0
   
   org.codehaus.woodstox.stax2-api:3.1.4: 
@@ -495,9 +495,9 @@ Runtime dependencies:
     Developed by: XMLUnit (http://www.xmlunit.org/)
     License name: Apache License, version 2.0
   
-  org.yaml.snakeyaml:1.17: 
+  org.yaml.snakeyaml:1.21: 
     Project:      SnakeYAML
-    Version:      1.17
+    Version:      1.21
     Available at: http://www.snakeyaml.org
     License name: Apache License, version 2.0
   

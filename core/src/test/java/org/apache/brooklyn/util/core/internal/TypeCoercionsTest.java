@@ -35,13 +35,11 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.javalang.coerce.ClassCoercionException;
 import org.apache.brooklyn.util.text.StringPredicates;
-import org.codehaus.groovy.runtime.GStringImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -53,6 +51,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.reflect.TypeToken;
 
+import groovy.lang.GString;
+
 public class TypeCoercionsTest {
 
     private static final Logger log = LoggerFactory.getLogger(TypeCoercionsTest.class);
@@ -60,7 +60,7 @@ public class TypeCoercionsTest {
     @Test
     public void testCoerceCharSequenceToString() {
         assertEquals(TypeCoercions.coerce(new StringBuilder("abc"), String.class), "abc");
-        assertEquals(TypeCoercions.coerce(new GStringImpl(new Object[0], new String[0]), String.class), "");
+        assertEquals(TypeCoercions.coerce(GString.EMPTY, String.class), "");
     }
     
     @Test
@@ -300,11 +300,11 @@ public class TypeCoercionsTest {
         Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", "2"));
     }
 
-    @Test(expectedExceptions=ClassCoercionException.class)
+    @Test
     public void testJsonStringWithoutBracesOrSpaceDisallowedAsMapCoercion() {
-        // yaml requires spaces after the colon
-        TypeCoercions.coerce("a:1,b:2", Map.class);
-        Asserts.shouldHaveFailedPreviously();
+        Map<?,?> s = TypeCoercions.coerce("a:1,b:2", Map.class);
+        Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", "2"));
+        // NB: snakeyaml 1.17 required spaces after the colon, but 1.21 accepts the above
     }
     
     @Test
