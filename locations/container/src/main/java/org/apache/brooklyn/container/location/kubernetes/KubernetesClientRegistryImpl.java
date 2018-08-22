@@ -115,6 +115,7 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
             }
         } else {
             String masterUrl = checkNotNull(conf.get(KubernetesLocationConfig.MASTER_URL), "master url must not be null");
+            Boolean trustCerts = conf.get(KubernetesLocationConfig.TRUST_CERTS);
 
             URL url;
             try {
@@ -124,7 +125,7 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
             }
 
             configBuilder.withMasterUrl(masterUrl)
-                         .withTrustCerts(false);
+                    .withTrustCerts(trustCerts != null ? trustCerts : Boolean.FALSE);
 
             if (url.getProtocol().equals("https")) {
                 KubernetesCerts certs = new KubernetesCerts(conf);

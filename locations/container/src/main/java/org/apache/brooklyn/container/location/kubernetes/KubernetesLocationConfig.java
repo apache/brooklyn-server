@@ -191,5 +191,9 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .description("Whether to inject login credentials (if null, will infer from image choice); ignored if explicit 'loginUser.password' supplied")
             .build();
 
+    ConfigKey<Boolean> TRUST_CERTS = ConfigKeys.builder(Boolean.class)
+            .name("trustCerts")
+            .description("Whether to trust self-signed certs")
+            .defaultValue(false)
+            .build();
 }
-
