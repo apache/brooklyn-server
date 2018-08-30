@@ -93,7 +93,7 @@ public class MethodCoercions {
                 throw Exceptions.propagate(e);
             }
         } else {
-            return Maybe.absent();
+            return Maybe.absent("No method matching '"+methodName+"("+(argument==null ? argument : argument.getClass().getName())+")'");
         }
     }
     
