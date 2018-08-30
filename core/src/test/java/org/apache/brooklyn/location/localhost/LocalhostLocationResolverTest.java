@@ -159,14 +159,14 @@ public class LocalhostLocationResolverTest {
     @Test
     public void testRegistryCommaResolution() throws NoMachinesAvailableException {
         List<Location> l;
-        l = getLocationResolver().getListOfLocationsManaged(JavaStringEscapes.unwrapJsonishListIfPossible("localhost,localhost,localhost"));
+        l = getLocationResolver().getListOfLocationsManaged(JavaStringEscapes.unwrapJsonishListStringIfPossible("localhost,localhost,localhost"));
         assertEquals(l.size(), 3, "l="+l);
         assertTrue(l.get(0) instanceof LocalhostMachineProvisioningLocation, "l="+l);
         assertTrue(l.get(1) instanceof LocalhostMachineProvisioningLocation, "l="+l);
         assertTrue(l.get(2) instanceof LocalhostMachineProvisioningLocation, "l="+l);
 
         // And check works if comma in brackets
-        l = getLocationResolver().getListOfLocationsManaged(JavaStringEscapes.unwrapJsonishListIfPossible(
+        l = getLocationResolver().getListOfLocationsManaged(JavaStringEscapes.unwrapJsonishListStringIfPossible(
             "[ \"byon:(hosts=\\\"192.168.0.1\\\",user=bob)\", \"byon:(hosts=\\\"192.168.0.2\\\",user=bob2)\" ]"));
         assertEquals(l.size(), 2, "l="+l);
         assertTrue(l.get(0) instanceof FixedListMachineProvisioningLocation, "l="+l);

@@ -99,7 +99,7 @@ public class MultiLocationResolver implements LocationResolver {
         Object targetSpecs = locationArgs.remove("targets");
 
         if (targetSpecs instanceof String) {
-            for (String targetSpec : JavaStringEscapes.unwrapJsonishListIfPossible((String)targetSpecs)) {
+            for (String targetSpec : JavaStringEscapes.unwrapJsonishListStringIfPossible((String)targetSpecs)) {
                 targets.add(managementContext.getLocationRegistry().getLocationSpec(targetSpec, ImmutableMap.of()).get());
             }
         } else if (targetSpecs instanceof Iterable) {

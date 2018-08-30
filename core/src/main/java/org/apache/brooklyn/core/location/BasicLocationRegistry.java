@@ -513,7 +513,7 @@ public class BasicLocationRegistry implements LocationRegistry {
     @Override 
     public List<Location> getListOfLocationsManaged(Object l) {
         if (l==null) l = Collections.emptyList();
-        if (l instanceof String) l = JavaStringEscapes.unwrapJsonishListIfPossible((String)l);
+        if (l instanceof String) l = JavaStringEscapes.unwrapJsonishListStringIfPossible((String)l);
         if (l instanceof Iterable) return getFromIterableListOfLocationsManaged((Iterable<?>)l);
         throw new IllegalArgumentException("Location list must be supplied as a collection or a string, not "+
             JavaClassNames.simpleClassName(l)+"/"+l);

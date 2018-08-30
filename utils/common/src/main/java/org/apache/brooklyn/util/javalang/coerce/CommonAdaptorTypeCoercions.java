@@ -367,14 +367,16 @@ public class CommonAdaptorTypeCoercions {
     public void registerCollectionJsonAdapters() {
         registerAdapter(String.class, List.class, new Function<String,List>() {
             @Override
-            public List<String> apply(final String input) {
-                return JavaStringEscapes.unwrapJsonishListIfPossible(input);
+            public List<Object> apply(final String input) {
+                return JavaStringEscapes.tryUnwrapJsonishList(input).orNull();
             }
         });
         registerAdapter(String.class, Set.class, new Function<String,Set>() {
             @Override
-            public Set<String> apply(final String input) {
-                return MutableSet.copyOf(JavaStringEscapes.unwrapJsonishListIfPossible(input)).asUnmodifiable();
+            public Set<Object> apply(final String input) {
+                List<Object> l = JavaStringEscapes.tryUnwrapJsonishList(input).orNull();
+                if (l==null) return null;
+                return MutableSet.copyOf(l).asUnmodifiable();
             }
         });
         registerAdapter(String.class, Map.class, new Function<String,Map>() {

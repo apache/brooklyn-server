@@ -196,7 +196,7 @@ public class PortRanges {
         for (Object o: c) {
             if (o instanceof Integer) l.add(fromInteger((Integer)o));
             else if (o instanceof String)
-                for (String string : JavaStringEscapes.unwrapJsonishListIfPossible((String)o))
+                for (String string : JavaStringEscapes.unwrapJsonishListStringIfPossible((String)o))
                     l.add(fromString(string));
             else if (o instanceof Iterable) l.add(fromIterable((Iterable<?>)o));
             else if (o instanceof int[]) l.add(fromIterable(Ints.asList((int[])o)));
