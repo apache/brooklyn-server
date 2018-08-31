@@ -56,6 +56,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
+import com.google.common.reflect.TypeToken;
 
 public class Tasks {
     
@@ -133,35 +134,48 @@ public class Tasks {
     
     /** creates a {@link ValueResolver} instance which allows significantly more customization than
      * the various {@link #resolveValue(Object, Class, ExecutionContext)} methods here */
-    public static <T> ValueResolver<T> resolving(Object v, Class<T> type) {
+    public static <T> ValueResolver<T> resolving(Object v, TypeToken<T> type) {
         return new ValueResolver<T>(v, type);
+    }
+    /** @see #resolving(Object, TypeToken) */
+    public static <T> ValueResolver<T> resolving(Object v, Class<T> type) {
+        return new ValueResolver<T>(v, TypeToken.of(type));
     }
 
     public static ValueResolver.ResolverBuilderPretype resolving(Object v) {
         return new ValueResolver.ResolverBuilderPretype(v);
     }
     
-    @SuppressWarnings("unchecked")
     public static <T> ValueResolver<T> resolving(ConfigBag config, ConfigKey<T> key) {
-        return new ValueResolver.ResolverBuilderPretype(config.getStringKey(key.getName())).as((Class<T>)key.getType());
+        return new ValueResolver.ResolverBuilderPretype(config.getStringKey(key.getName())).as(key.getTypeToken());
     }
 
-    /** @see #resolveValue(Object, Class, ExecutionContext, String) */
-    public static <T> T resolveValue(Object v, Class<T> type, @Nullable ExecutionContext exec) throws ExecutionException, InterruptedException {
+    /** @see #resolveValue(Object, TypeToken, ExecutionContext, String) */
+    public static <T> T resolveValue(Object v, TypeToken<T> type, @Nullable ExecutionContext exec) throws ExecutionException, InterruptedException {
         return new ValueResolver<T>(v, type).context(exec).get();
+    }
+    /** @see #resolveValue(Object, TypeToken) */
+    public static <T> T resolveValue(Object v, Class<T> type, @Nullable ExecutionContext exec) throws ExecutionException, InterruptedException {
+        return resolveValue(v, TypeToken.of(type), exec);
     }
     
     /** attempt to resolve the given value as the given type, waiting on futures, submitting if necessary,
      * and coercing as allowed by TypeCoercions;
      * contextMessage (optional) will be displayed in status reports while it waits (e.g. the name of the config key being looked up).
      * if no execution context supplied (null) this method will throw an exception if the object is an unsubmitted task */
-    public static <T> T resolveValue(Object v, Class<T> type, @Nullable ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
+    public static <T> T resolveValue(Object v, TypeToken<T> type, @Nullable ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
         return new ValueResolver<T>(v, type).context(exec).description(contextMessage).get();
     }
+    /** @see #resolveValue(Object, TypeToken, ExecutionContext, String) */
+    public static <T> T resolveValue(Object v, Class<T> type, @Nullable ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
+        return resolveValue(v, TypeToken.of(type), exec, contextMessage);
+    }
     
-    /**
-     * @see #resolveDeepValue(Object, Class, ExecutionContext, String)
-     */
+    /** @see #resolveDeepValue(Object, TypeToken, ExecutionContext, String) */
+    public static Object resolveDeepValue(Object v, TypeToken<?> type, ExecutionContext exec) throws ExecutionException, InterruptedException {
+        return resolveDeepValue(v, type, exec, null);
+    }
+    /** @see #resolveDeepValue(Object, Class, ExecutionContext, String) */
     public static Object resolveDeepValue(Object v, Class<?> type, ExecutionContext exec) throws ExecutionException, InterruptedException {
         return resolveDeepValue(v, type, exec, null);
     }
@@ -178,8 +192,12 @@ public class Tasks {
      * {@link #resolveValue(Object, Class, ExecutionContext, String)} which will accept {@link Map} and {@link Collection}
      * as the required type.
      */
-    public static <T> T resolveDeepValue(Object v, Class<T> type, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
+    public static <T> T resolveDeepValue(Object v, TypeToken<T> type, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
         return new ValueResolver<T>(v, type).context(exec).deep(true).description(contextMessage).get();
+    }
+    /** @see #resolveDeepValue(Object, TypeToken, ExecutionContext, String) */
+    public static <T> T resolveDeepValue(Object v, Class<T> type, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
+        return resolveDeepValue(v, TypeToken.of(type), exec, contextMessage);
     }
 
     /** sets extra status details on the current task, if possible (otherwise does nothing).

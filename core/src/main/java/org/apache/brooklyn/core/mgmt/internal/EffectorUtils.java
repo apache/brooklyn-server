@@ -164,7 +164,7 @@ public class EffectorUtils {
                 throw new IllegalArgumentException("Invalid arguments (missing argument "+it+") for effector "+eff+": "+Sanitizer.sanitize(m));
             }
 
-            newArgs.add(TypeCoercions.coerce(v, it.getParameterClass()));
+            newArgs.add(TypeCoercions.coerce(v, it.getParameterType()));
             newArgsNeeded--;
         }
         if (newArgsNeeded>0)

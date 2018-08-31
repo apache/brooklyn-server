@@ -131,7 +131,7 @@ public class Transformer<T,U> extends AbstractTransformer<T,U> {
         // (or Maybe.absent) without blocking.
         // Otherwise, the Tasks.resolving will give it its best shot at resolving without
         // blocking on external events (such as waiting for another entity's sensor).
-        return (U) Tasks.resolving(rawVal).as(targetSensor.getType())
+        return (U) Tasks.resolving(rawVal).as(targetSensor.getTypeToken())
                 .context(entity)
                 .description("Computing sensor "+targetSensor+" from "+rawVal)
                 .deep(true)

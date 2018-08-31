@@ -22,6 +22,8 @@ import java.io.Serializable;
 
 import javax.management.MBeanParameterInfo;
 
+import com.google.common.reflect.TypeToken;
+
 /**
  * Similar to the concepts in the JMX {@link MBeanParameterInfo} class.
  *
@@ -34,6 +36,7 @@ public interface ParameterType<T> extends Serializable {
     public String getName();
 
     public Class<T> getParameterClass();
+    public TypeToken<T> getParameterType();
 
     /**
      * The canonical name of the parameter class; especially useful if the class 

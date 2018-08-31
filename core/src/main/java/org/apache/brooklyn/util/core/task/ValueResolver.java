@@ -105,7 +105,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     private static final Logger log = LoggerFactory.getLogger(ValueResolver.class);
     
     final Object value;
-    final Class<T> type;
+    final TypeToken<T> typeT;
     ExecutionContext exec;
     String description;
     boolean forceDeep;
@@ -127,17 +127,17 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     AtomicBoolean started = new AtomicBoolean(false);
     boolean expired;
     
-    ValueResolver(Object v, Class<T> type) {
+    ValueResolver(Object v, TypeToken<T> type) {
         this.value = v;
-        this.type = type;
+        this.typeT = type;
         checkTypeNotNull();
         parentOriginalValue = null;
         parentTimer = null;
     }
     
-    ValueResolver(Object v, Class<T> type, ValueResolver<?> parent) {
+    ValueResolver(Object v, TypeToken<T> type, ValueResolver<?> parent) {
         this.value = v;
-        this.type = type;
+        this.typeT = type;
         checkTypeNotNull();
         
         exec = parent.exec;
@@ -163,6 +163,9 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
             this.v = v;
         }
         public <T> ValueResolver<T> as(Class<T> type) {
+            return as(TypeToken.of(type));
+        }
+        public <T> ValueResolver<T> as(TypeToken<T> type) {
             return new ValueResolver<T>(v, type);
         }
     }
@@ -170,13 +173,13 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     /** returns a copy of this resolver which can be queried, even if the original (single-use instance) has already been copied */
     @Override
     public ValueResolver<T> clone() {
-        return cloneReplacingValueAndType(value, type);
+        return cloneReplacingValueAndType(value, typeT);
     }
     
-    <S> ValueResolver<S> cloneReplacingValueAndType(Object newValue, Class<S> superType) {
+    <S> ValueResolver<S> cloneReplacingValueAndType(Object newValue, TypeToken<S> superType) {
         // superType expected to be either type or Object.class
-        if (!superType.isAssignableFrom(type)) {
-            throw new IllegalStateException("superType must be assignable from " + type);
+        if (!superType.isAssignableFrom(typeT)) {
+            throw new IllegalStateException("superType must be assignable from " + typeT);
         }
         ValueResolver<S> result = new ValueResolver<S>(newValue, superType)
             .context(exec).description(description)
@@ -186,7 +189,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
             .immediately(immediately)
             .recursive(recursive);
         if (returnDefaultOnGet) {
-            if (!superType.isInstance(defaultValue)) {
+            if (!superType.getRawType().isInstance(defaultValue)) {
                 throw new IllegalStateException("Existing default value " + defaultValue + " not compatible with new type " + superType);
             }
             @SuppressWarnings("unchecked")
@@ -303,7 +306,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     }
 
     protected void checkTypeNotNull() {
-        if (type==null) 
+        if (typeT==null) 
             throw new NullPointerException("type must be set to resolve, for '"+value+"'"+(description!=null ? ", "+description : ""));
     }
 
@@ -345,7 +348,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
             exec = BasicExecutionContext.getCurrentExecutionContext();
         }
         
-        if (!recursive && type != Object.class) {
+        if (!recursive && typeT.getRawType() != Object.class) {
             throw new IllegalStateException("When non-recursive resolver requested the return type must be Object " +
                     "as the immediately resolved value could be a number of (deferred) types.");
         }
@@ -362,7 +365,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         
         //if the expected type is a closure or map and that's what we have, we're done (or if it's null);
         //but not allowed to return a future or DeferredSupplier as the resolved value
-        if (v==null || (!forceDeep && type.isInstance(v) && !Future.class.isInstance(v) && !DeferredSupplier.class.isInstance(v) && !TaskFactory.class.isInstance(v)))
+        if (v==null || (!forceDeep && typeT.getRawType().isInstance(v) && !Future.class.isInstance(v) && !DeferredSupplier.class.isInstance(v) && !TaskFactory.class.isInstance(v)))
             return Maybe.of((T) v);
         
         try {
@@ -406,7 +409,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                     
                     return (result.isPresent())
                         ? recursive
-                            ? new ValueResolver<T>(result.get(), type, this).getMaybe()
+                            ? new ValueResolver<T>(result.get(), typeT, this).getMaybe()
                                 : result
                                 : result;
                 } catch (ImmediateSupplier.ImmediateUnsupportedException e) {
@@ -512,6 +515,10 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
 
             } else {
                 if (supportsDeepResolution(v)) {
+
+                    // FIXME-TT why is this done
+                    if (2>1) throw new IllegalStateException("Deep resolution with type "+typeT);
+                        
                     // restrict deep resolution to the same set of types as calling code;
                     // in particular need to avoid for "interesting iterables" such as PortRange
                     
@@ -519,11 +526,11 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                         //and if a map or list we look inside
                         Map result = Maps.newLinkedHashMap();
                         for (Map.Entry<?,?> entry : ((Map<?,?>)v).entrySet()) {
-                            Maybe<?> kk = new ValueResolver(entry.getKey(), type, this)
+                            Maybe<?> kk = new ValueResolver(entry.getKey(), typeT, this)
                                 .description( (description!=null ? description+", " : "") + "map key "+entry.getKey() )
                                 .getMaybe();
                             if (kk.isAbsent()) return (Maybe<T>)kk;
-                            Maybe<?> vv = new ValueResolver(entry.getValue(), type, this)
+                            Maybe<?> vv = new ValueResolver(entry.getValue(), typeT, this)
                                 .description( (description!=null ? description+", " : "") + "map value for key "+kk.get() )
                                 .getMaybe();
                             if (vv.isAbsent()) return (Maybe<T>)vv;
@@ -535,7 +542,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                         Set result = Sets.newLinkedHashSet();
                         int count = 0;
                         for (Object it : (Set)v) {
-                            Maybe<?> vv = new ValueResolver(it, type, this)
+                            Maybe<?> vv = new ValueResolver(it, typeT, this)
                                 .description( (description!=null ? description+", " : "") + "entry "+count )
                                 .getMaybe();
                             if (vv.isAbsent()) return (Maybe<T>)vv;
@@ -548,7 +555,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                         List result = Lists.newArrayList();
                         int count = 0;
                         for (Object it : (Iterable)v) {
-                            Maybe<?> vv = new ValueResolver(it, type, this)
+                            Maybe<?> vv = new ValueResolver(it, typeT, this)
                                 .description( (description!=null ? description+", " : "") + "entry "+count )
                                 .getMaybe();
                             if (vv.isAbsent()) return (Maybe<T>)vv;
@@ -559,7 +566,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                     }
                 }
                 
-                return TypeCoercions.tryCoerce(v, TypeToken.of(type));
+                return TypeCoercions.tryCoerce(v, typeT);
             }
 
         } catch (Exception e) {
@@ -579,7 +586,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         }
         
         if (recursive) {
-            return new ValueResolver(v, type, this).getMaybe();
+            return new ValueResolver(v, typeT, this).getMaybe();
         } else {
             return (Maybe<T>) Maybe.of(v);
         }
@@ -598,12 +605,12 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         if (parentOriginalValue!=null) return parentOriginalValue;
         return value;
     }
-    protected Class<T> getType() {
-        return type;
+    protected TypeToken<T> getTypeToken() {
+        return typeT;
     }
 
     @Override
     public String toString() {
-        return JavaClassNames.cleanSimpleClassName(this)+"["+JavaClassNames.cleanSimpleClassName(type)+" "+value+"]";
+        return JavaClassNames.cleanSimpleClassName(this)+"["+typeT+" "+value+"]";
     }
 }

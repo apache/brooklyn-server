@@ -91,7 +91,7 @@ public class DeferredBrooklynProperties implements BrooklynProperties {
         if (transformed instanceof DeferredSupplier) {
             ExecutionContext exec = mgmt.getServerExecutionContext();
             try {
-                result = Tasks.resolveValue(transformed, key.getType(), exec);
+                result = Tasks.resolveValue(transformed, key.getTypeToken(), exec);
             } catch (ExecutionException | InterruptedException e) {
                 throw Exceptions.propagate(e);
             }

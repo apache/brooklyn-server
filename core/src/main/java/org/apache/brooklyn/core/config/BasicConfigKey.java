@@ -444,7 +444,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         if (ValueResolver.supportsDeepResolution(v)) {
             return Tasks.resolveDeepValue(v, Object.class, exec, "Resolving deep config "+name);
         } else {
-            return Tasks.resolveValue(v, getType(), exec, "Resolving config "+name);
+            return Tasks.resolveValue(v, getTypeToken(), exec, "Resolving config "+name);
         }
     }
 

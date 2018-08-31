@@ -49,6 +49,7 @@ import org.testng.annotations.Test;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.Callables;
 
 
@@ -113,7 +114,7 @@ public class TasksTest extends BrooklynAppUnitTestSupport {
     }
     
     private void assertResolvesValue(Object actual, Class<?> type, Object expected) throws Exception {
-        Object result = Tasks.resolveValue(actual, type, executionContext);
+        Object result = Tasks.resolveValue(actual, TypeToken.of(type), executionContext);
         assertEquals(result, expected);
     }
     

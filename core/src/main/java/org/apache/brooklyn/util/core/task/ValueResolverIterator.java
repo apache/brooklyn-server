@@ -27,6 +27,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.reflect.TypeToken;
 
 /**
  * Resolve one step at a time, returning intermediate results or absent if there's a resolve error.
@@ -118,7 +119,7 @@ public class ValueResolverIterator<T> implements Iterator<Maybe<Object>> {
     }
 
     private ValueResolver<Object> createIterativeResolver(Object value) {
-        return resolver.cloneReplacingValueAndType(value, Object.class)
+        return resolver.cloneReplacingValueAndType(value, TypeToken.of(Object.class))
             .recursive(false);
     }
 
@@ -179,10 +180,10 @@ public class ValueResolverIterator<T> implements Iterator<Maybe<Object>> {
                 return (Maybe<T>) last;
             }
         }
-        return coerceValue(last, resolver.getType());
+        return coerceValue(last, resolver.getTypeToken());
     }
 
-    private Maybe<T> coerceValue(Maybe<Object> valueMaybe, Class<T> type) {
+    private Maybe<T> coerceValue(Maybe<Object> valueMaybe, TypeToken<T> type) {
         if (valueMaybe.isPresent()) {
             T coercedValue = TypeCoercions.coerce(valueMaybe.get(), type);
             return Maybe.of(coercedValue);
