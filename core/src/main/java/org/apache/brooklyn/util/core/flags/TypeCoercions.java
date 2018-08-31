@@ -290,7 +290,9 @@ public class TypeCoercions {
                     }
                     Maybe<Object> result = Reflections.invokeConstructorFromArgs(clazz);
                     if (result.isPresentAndNonNull() && supertype.isInstance(result.get())) {
-                        return (T) result.get();
+                        @SuppressWarnings("unchecked")
+                        T rT = (T) result.get();
+                        return rT;
                     } else if (result.isPresent()) {
                         throw new IllegalStateException("Object is not a " + supertype.getSimpleName()+": " + result.get());
                     } else {

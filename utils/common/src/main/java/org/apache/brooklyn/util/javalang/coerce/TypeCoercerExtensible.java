@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.guava.AnyExceptionSupplier;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.TypeTokens;
@@ -149,7 +148,24 @@ public class TypeCoercerExtensible implements TypeCoercer {
         targetTypeToken = TypeTokens.getTypeToken(targetTypeToken, targetType);
         for (TryCoercer coercer : genericCoercers) {
             result = coercer.tryCoerce(value, targetTypeToken);
-            if (result!=null && result.isPresent()) return result;
+            
+            if (result!=null && result.isPresent()) {
+                // Check if need to unwrap again (e.g. if want List<Integer> and are given a String "1,2,3"
+                // then we'll have so far converted to List.of("1", "2", "3"). Call recursively.
+                // First check that value has changed, to avoid stack overflow!
+                if (!Objects.equal(value, result.get()) && !Objects.equal(value.getClass(), result.get().getClass()) && targetTypeToken.getType() instanceof ParameterizedType) {
+                    Maybe<T> resultM = tryCoerce(result.get(), targetTypeToken);
+                    if (resultM!=null) {
+                        if (resultM.isPresent()) return resultM;
+                        // if couldn't coerce parameterized types then back out of this coercer
+                        result = resultM;
+                    }
+                } else {
+                    return result;
+                }
+            }
+            
+            // remember any error if we were first
             if (result!=null && firstError==null) firstError = result;
         }
         
@@ -183,9 +199,16 @@ public class TypeCoercerExtensible implements TypeCoercer {
                             // Could duplicate check for `result instanceof Collection` etc; but recursive call
                             // will be fine as if that doesn't match we'll safely reach `targetType.isInstance(value)`
                             // and just return the result.
-                            return tryCoerce(resultT, targetTypeToken);
+                            Maybe<T> resultM = tryCoerce(resultT, targetTypeToken);
+                            if (resultM!=null) {
+                                if (resultM.isPresent()) return resultM;
+                                // if couldn't coerce parameterized types then back out of this coercer
+                                // but remember the error if we were first
+                                if (firstError==null) firstError = resultM;
+                            }
+                        } else {
+                            return Maybe.of(resultT);
                         }
-                        return Maybe.of(resultT);
                     } catch (Exception e) {
                         Exceptions.propagateIfFatal(e);
                         if (log.isDebugEnabled()) {
@@ -206,8 +229,11 @@ public class TypeCoercerExtensible implements TypeCoercer {
             }
         }
 
-        //not found
-        if (firstError!=null) return firstError;
+        // not found
+        if (firstError!=null) {
+            // it might be nice to have more than just the first error but for now that's all we remember
+            return firstError;
+        }
         return Maybe.absent(new ClassCoercionException("Cannot coerce type "+value.getClass().getCanonicalName()+" to "+targetTypeToken+" ("+value+"): no adapter known"));
     }
 

@@ -161,7 +161,7 @@ public class StringEscapesTest {
             JavaStringEscapes.tryUnwrapJsonishList("\"hello\", world").get());
         Assert.assertEquals(MutableList.of("hello", "world"),
             JavaStringEscapes.tryUnwrapJsonishList("[ \"hello\", world ]").get());
-        Assert.assertEquals(MutableList.of(""),
+        Assert.assertEquals(MutableList.of(),
             JavaStringEscapes.tryUnwrapJsonishList(" ").get());
         Assert.assertEquals(MutableList.of(""),
             JavaStringEscapes.tryUnwrapJsonishList("\"\"").get());
@@ -169,6 +169,8 @@ public class StringEscapesTest {
             JavaStringEscapes.tryUnwrapJsonishList(",,x,").get());
         Assert.assertEquals(MutableList.of("","","x",""),
             JavaStringEscapes.tryUnwrapJsonishList("\"\",,x,\"\"").get());
+        Assert.assertEquals(MutableList.<Object>of(MutableMap.of("a", 1),MutableMap.of("b", 2)),
+            JavaStringEscapes.tryUnwrapJsonishList("[ a : 1, b : 2 ]").get());
 
         Assert.assertEquals(MutableList.<Object>of(1, 2, "buckle my shoe", true, "true", null, "null", ","),
             JavaStringEscapes.tryUnwrapJsonishList("1, 2, buckle my shoe, true, \"true\", null, \"null\", \",\"").get());
