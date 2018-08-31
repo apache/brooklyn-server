@@ -32,6 +32,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.reflect.TypeParameter;
 import com.google.common.reflect.TypeToken;
 
 /** A config key representing a list of values. 
@@ -63,16 +64,21 @@ public class ListConfigKey<V> extends AbstractCollectionConfigKey<List<V>,List<O
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ListConfigKey.class);
     
+    @SuppressWarnings("serial")
+    private static <V> TypeToken<List<V>> typeTokenFor(TypeToken<V> subType) {
+        return new TypeToken<List<V>>() {}
+                 .where(new TypeParameter<V>() {}, subType);
+    }
+    
     public static class Builder<V> extends BasicConfigKey.Builder<List<V>,Builder<V>> {
-        protected Class<V> subType;
+        protected TypeToken<V> subType;
         
         public Builder(TypeToken<V> subType, String name) {
-            super(new TypeToken<List<V>>() {}, name);
-            this.subType = (Class<V>) subType.getRawType();
+            super(typeTokenFor(subType), name);
+            this.subType = checkNotNull(subType);
         }
         public Builder(Class<V> subType, String name) {
-            super(new TypeToken<List<V>>() {}, name);
-            this.subType = checkNotNull(subType, "subType");
+            this(TypeToken.of(subType), name);
         }
         public Builder(ListConfigKey<V> key) {
             this(key.getName(), key);
@@ -110,17 +116,29 @@ public class ListConfigKey<V> extends AbstractCollectionConfigKey<List<V>,List<O
         super(builder, builder.subType);
     }
 
-    public ListConfigKey(Class<V> subType, String name) {
+    public ListConfigKey(TypeToken<V> subType, String name) {
         this(subType, name, name, null);
     }
 
-    public ListConfigKey(Class<V> subType, String name, String description) {
+    public ListConfigKey(TypeToken<V> subType, String name, String description) {
         this(subType, name, description, null);
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({ "unchecked" })
+    public ListConfigKey(TypeToken<V> subType, String name, String description, List<? extends V> defaultValue) {
+        super(typeTokenFor(subType), subType, name, description, (List<V>)defaultValue);
+    }
+
+    public ListConfigKey(Class<V> subType, String name) {
+        this(TypeToken.of(subType), name);
+    }
+
+    public ListConfigKey(Class<V> subType, String name, String description) {
+        this(TypeToken.of(subType), name, description);
+    }
+
     public ListConfigKey(Class<V> subType, String name, String description, List<? extends V> defaultValue) {
-        super((Class)List.class, subType, name, description, (List<V>)defaultValue);
+        this(TypeToken.of(subType), name, description, defaultValue);
     }
 
     @Override
@@ -143,7 +161,7 @@ public class ListConfigKey<V> extends AbstractCollectionConfigKey<List<V>,List<O
         /** when passed as a value to a ListConfigKey, causes each of these items to be added.
          * if you have just one, no need to wrap in a mod. */
         // to prevent confusion (e.g. if a list is passed) we require two objects here.
-        public static final <T> ListModification<T> add(final T o1, final T o2, final T ...oo) {
+        public static final <T> ListModification<T> add(final T o1, final T o2, @SuppressWarnings("unchecked") final T ...oo) {
             List<T> l = new ArrayList<T>();
             l.add(o1); l.add(o2);
             for (T o: oo) l.add(o);

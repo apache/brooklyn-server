@@ -185,7 +185,7 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
     protected Maybe<?> resolve(Object object, boolean immediate) {
         return Tasks.resolving(object, Object.class)
             .context(entity().getExecutionContext())
-            .deep(true)
+            .deep(true, true)
             .immediately(immediate)
             .iterator()
             .nextOrLast(DslFunctionSource.class);

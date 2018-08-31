@@ -129,7 +129,7 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
         Maybe<Object> resolved = Tasks.resolving(unresolved)
                 .as(Object.class)
                 .immediately(true)
-                .deep(true)
+                .deep(true, true)
                 .context(getContext())
                 .description("Resolving raw value of simple config "+key)
                 .getMaybe();

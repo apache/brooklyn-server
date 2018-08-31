@@ -171,9 +171,9 @@ public class Tasks {
         return resolveValue(v, TypeToken.of(type), exec, contextMessage);
     }
     
-    /** @see #resolveDeepValue(Object, TypeToken, ExecutionContext, String) */
-    public static Object resolveDeepValue(Object v, TypeToken<?> type, ExecutionContext exec) throws ExecutionException, InterruptedException {
-        return resolveDeepValue(v, type, exec, null);
+    /** @see #resolveDeepValueExactly(Object, TypeToken, ExecutionContext, String) */
+    public static <T> T resolveDeepValueExactly(Object v, TypeToken<T> type, ExecutionContext exec) throws ExecutionException, InterruptedException {
+        return resolveDeepValueExactly(v, type, exec, null);
     }
     /** @see #resolveDeepValue(Object, Class, ExecutionContext, String) */
     public static Object resolveDeepValue(Object v, Class<?> type, ExecutionContext exec) throws ExecutionException, InterruptedException {
@@ -183,7 +183,24 @@ public class Tasks {
     /**
      * Resolves the given object, blocking on futures and coercing it to the given type. If the object is a 
      * map or iterable (or a list of map of maps, etc, etc) then walks these maps/iterables to convert all of 
-     * their values to the given type. For example, the following will return a list containing a map with "1"="true":
+     * their values. This expects a type token parameterized with generics, and those generics
+     * will be used to coerce the keys and entries.
+     * 
+     * 
+     * For example, the following will return a list containing a map with "1": Boolean.TRUE:
+     * 
+     *   {@code Object result = resolveDeepValue(ImmutableList.of(ImmutableMap.of(1, "true")), 
+     *      new TypeToken<List<Map<String,Boolean>>>() {}, exec)} 
+     *
+     * For a simpler mechanism, see {@link #resolveDeepValue(Object, Class, ExecutionContext, String)}.
+     */
+    public static <T> T resolveDeepValueExactly(Object v, TypeToken<T> type, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
+        return new ValueResolver<T>(v, type).context(exec).deep(true, false).description(contextMessage).get();
+    }
+    /** As @see #resolveDeepValueExactly(Object, TypeToken, ExecutionContext, String) except the type supplied here is
+     * used to coerce non-map/iterable entries inside any encountered map/iterable:.
+     * 
+     * For example, the following will return a list containing a map with "1": "true":
      * 
      *   {@code Object result = resolveDeepValue(ImmutableList.of(ImmutableMap.of(1, true)), String.class, exec)} 
      *
@@ -191,13 +208,9 @@ public class Tasks {
      * the type should normally be Object, not the type of the collection. This differs from
      * {@link #resolveValue(Object, Class, ExecutionContext, String)} which will accept {@link Map} and {@link Collection}
      * as the required type.
-     */
-    public static <T> T resolveDeepValue(Object v, TypeToken<T> type, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
-        return new ValueResolver<T>(v, type).context(exec).deep(true).description(contextMessage).get();
-    }
-    /** @see #resolveDeepValue(Object, TypeToken, ExecutionContext, String) */
-    public static <T> T resolveDeepValue(Object v, Class<T> type, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
-        return resolveDeepValue(v, TypeToken.of(type), exec, contextMessage);
+     * */
+    public static Object resolveDeepValue(Object v, Class<?> type, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
+        return new ValueResolver<>(v, TypeToken.of(type)).context(exec).deep(true, true).description(contextMessage).get();
     }
 
     /** sets extra status details on the current task, if possible (otherwise does nothing).

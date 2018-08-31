@@ -52,7 +52,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.Callables;
 
-
+@SuppressWarnings("serial")
 public class TasksTest extends BrooklynAppUnitTestSupport {
 
     private ExecutionContext executionContext;
@@ -84,24 +84,24 @@ public class TasksTest extends BrooklynAppUnitTestSupport {
     public void testResolvesMapWithAttributeWhenReady() throws Exception {
         app.sensors().set(TestApplication.MY_ATTRIBUTE, "myval");
         Map<?,?> orig = ImmutableMap.of("mykey", attributeWhenReady(app, TestApplication.MY_ATTRIBUTE));
-        Map<?,?> expected = ImmutableMap.of("mykey", "myval");
-        assertResolvesValue(orig, String.class, expected);
+        Map<String,String> expected = ImmutableMap.of("mykey", "myval");
+        assertResolvesValue(orig, new TypeToken<Map<String,String>>() {}, expected);
     }
     
     @Test
     public void testResolvesSetWithAttributeWhenReady() throws Exception {
         app.sensors().set(TestApplication.MY_ATTRIBUTE, "myval");
         Set<?> orig = ImmutableSet.of(attributeWhenReady(app, TestApplication.MY_ATTRIBUTE));
-        Set<?> expected = ImmutableSet.of("myval");
-        assertResolvesValue(orig, String.class, expected);
+        Set<String> expected = ImmutableSet.of("myval");
+        assertResolvesValue(orig, new TypeToken<Set<String>>() {}, expected);
     }
     
     @Test
     public void testResolvesMapOfMapsWithAttributeWhenReady() throws Exception {
         app.sensors().set(TestApplication.MY_ATTRIBUTE, "myval");
         Map<?,?> orig = ImmutableMap.of("mykey", ImmutableMap.of("mysubkey", attributeWhenReady(app, TestApplication.MY_ATTRIBUTE)));
-        Map<?,?> expected = ImmutableMap.of("mykey", ImmutableMap.of("mysubkey", "myval"));
-        assertResolvesValue(orig, String.class, expected);
+        Map<String,Map<String,String>> expected = ImmutableMap.of("mykey", ImmutableMap.of("mysubkey", "myval"));
+        assertResolvesValue(orig, new TypeToken<Map<String,Map<String,String>>>() {}, expected);
     }
     
     @Test
@@ -109,12 +109,15 @@ public class TasksTest extends BrooklynAppUnitTestSupport {
         app.sensors().set(TestApplication.MY_ATTRIBUTE, "myval");
         // using Iterables.concat so that orig is of type FluentIterable rather than List etc
         List<?> orig = ImmutableList.copyOf(ImmutableList.of(ImmutableMap.of("mykey", attributeWhenReady(app, TestApplication.MY_ATTRIBUTE))));
-        Iterable<Map<?,?>> expected = ImmutableList.<Map<?,?>>of(ImmutableMap.of("mykey", "myval"));
-        assertResolvesValue(orig, String.class, expected);
+        Iterable<Map<String,String>> expected = ImmutableList.of(ImmutableMap.of("mykey", "myval"));
+        assertResolvesValue(orig, new TypeToken<Iterable<Map<String,String>>>() {}, expected);
     }
     
-    private void assertResolvesValue(Object actual, Class<?> type, Object expected) throws Exception {
-        Object result = Tasks.resolveValue(actual, TypeToken.of(type), executionContext);
+    private <T> void assertResolvesValue(Object actual, Class<T> type, T expected) throws Exception {
+        assertResolvesValue(actual, TypeToken.of(type), expected);
+    }
+    private <T> void assertResolvesValue(Object actual, TypeToken<T> type, T expected) throws Exception {
+        Object result = Tasks.resolveValue(actual, type, executionContext);
         assertEquals(result, expected);
     }
     

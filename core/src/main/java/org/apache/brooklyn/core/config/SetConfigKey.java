@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.core.config;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -31,6 +29,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.reflect.TypeParameter;
 import com.google.common.reflect.TypeToken;
 
 /** A config key representing a set of values. 
@@ -54,16 +53,21 @@ public class SetConfigKey<V> extends AbstractCollectionConfigKey<Set<V>, Set<Obj
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(SetConfigKey.class);
 
+    @SuppressWarnings("serial")
+    private static <V> TypeToken<Set<V>> typeTokenFor(TypeToken<V> subType) {
+        return new TypeToken<Set<V>>() {}
+                 .where(new TypeParameter<V>() {}, subType);
+    }
+
     public static class Builder<V> extends BasicConfigKey.Builder<Set<V>,Builder<V>> {
-        protected Class<V> subType;
+        protected TypeToken<V> subType;
         
         public Builder(TypeToken<V> subType, String name) {
-            super(new TypeToken<Set<V>>() {}, name);
-            this.subType = (Class<V>) subType.getRawType();
+            super(typeTokenFor(subType), name);
+            this.subType = subType;
         }
         public Builder(Class<V> subType, String name) {
-            super(new TypeToken<Set<V>>() {}, name);
-            this.subType = checkNotNull(subType, "subType");
+            this(TypeToken.of(subType), name);
         }
         public Builder(SetConfigKey<V> key) {
             this(key.getName(), key);
@@ -101,17 +105,29 @@ public class SetConfigKey<V> extends AbstractCollectionConfigKey<Set<V>, Set<Obj
         super(builder, builder.subType);
     }
 
-    public SetConfigKey(Class<V> subType, String name) {
+    public SetConfigKey(TypeToken<V> subType, String name) {
         this(subType, name, name, null);
     }
 
-    public SetConfigKey(Class<V> subType, String name, String description) {
+    public SetConfigKey(TypeToken<V> subType, String name, String description) {
         this(subType, name, description, null);
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({ "unchecked" })
+    public SetConfigKey(TypeToken<V> subType, String name, String description, Set<? extends V> defaultValue) {
+        super(typeTokenFor(subType), subType, name, description, (Set<V>) defaultValue);
+    }
+    
+    public SetConfigKey(Class<V> subType, String name) {
+        this(TypeToken.of(subType), name, name, null);
+    }
+
+    public SetConfigKey(Class<V> subType, String name, String description) {
+        this(TypeToken.of(subType), name, description, null);
+    }
+
     public SetConfigKey(Class<V> subType, String name, String description, Set<? extends V> defaultValue) {
-        super((Class)Set.class, subType, name, description, (Set) defaultValue);
+        this(TypeToken.of(subType), name, description, defaultValue);
     }
 
     @Override
@@ -134,7 +150,7 @@ public class SetConfigKey<V> extends AbstractCollectionConfigKey<Set<V>, Set<Obj
         /** when passed as a value to a SetConfigKey, causes each of these items to be added.
          * if you have just one, no need to wrap in a mod. */
         // to prevent confusion (e.g. if a set is passed) we require two objects here.
-        public static final <T> SetModification<T> add(final T o1, final T o2, final T ...oo) {
+        public static final <T> SetModification<T> add(final T o1, final T o2, @SuppressWarnings("unchecked") final T ...oo) {
             Set<T> l = new LinkedHashSet<T>();
             l.add(o1); l.add(o2);
             for (T o: oo) l.add(o);

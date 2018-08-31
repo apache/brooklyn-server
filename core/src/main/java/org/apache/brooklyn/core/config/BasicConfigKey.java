@@ -296,7 +296,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
     }
 
     /** @see ConfigKey#getTypeName() */
-    @Override public String getTypeName() { return getType().getName(); }
+    @Override public String getTypeName() { return getTypeToken().toString(); }
 
     /** @see ConfigKey#getType() */
     @Override public Class<? super T> getType() { return TypeTokens.getRawType(typeToken, type); }

@@ -677,7 +677,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             if (!resolved) {
                 // attempt to resolve, and recurse
                 final ExecutionContext executionContext = entity().getExecutionContext();
-                Maybe<Object> resolvedSi = Tasks.resolving(si, Object.class).deep(true).immediately(true).context(executionContext).getMaybe();
+                Maybe<Object> resolvedSi = Tasks.resolving(si, Object.class).deep(true, true).immediately(true).context(executionContext).getMaybe();
                 if (resolvedSi.isAbsent()) return Maybe.absent();
                 return getImmediately(resolvedSi.get(), true);
             }
@@ -780,7 +780,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     .as(Object.class)
                     .context(findExecutionContext(this))
                     .immediately(immediately)
-                    .deep(true)
+                    .deep(true, true)
                     .description("Resolving substitutions " + substitutions + " for template " + template)
                     .get();
         }

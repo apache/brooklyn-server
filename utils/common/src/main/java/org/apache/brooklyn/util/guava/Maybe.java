@@ -501,6 +501,6 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
 
     /** Finds the {@link Absent#getException()} if {@link #isAbsent()}, or null */
     public static RuntimeException getException(Maybe<?> t) {
-        return ((Maybe.Absent<?>)t).getException();
+        return t instanceof Maybe.Absent ? ((Maybe.Absent<?>)t).getException() : null;
     }
 }

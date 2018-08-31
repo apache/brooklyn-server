@@ -37,7 +37,6 @@ import org.apache.brooklyn.location.jclouds.domain.JcloudsContext;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
-import org.jclouds.Context;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.domain.Image;
 import org.slf4j.Logger;
@@ -49,6 +48,7 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
+import com.google.common.reflect.TypeToken;
 
 public class JcloudsLocationResolverTest {
 
@@ -369,15 +369,18 @@ public class JcloudsLocationResolverTest {
     @Test
     public void testResolvesListAndMapProperties() throws Exception {
         brooklynProperties.put("brooklyn.location.jclouds.softlayer.prop1", "[ a, b ]");
-        brooklynProperties.put("brooklyn.location.jclouds.softlayer.prop2", "{ a: 1, b: 2 }");
+        brooklynProperties.put("brooklyn.location.jclouds.softlayer.prop2", "{ a: 1, b: \"2\" }");
         brooklynProperties.put("brooklyn.location.named.foo", "jclouds:softlayer:ams01");
         
         JcloudsLocation l = resolve("named:foo");
         assertJcloudsEquals(l, "softlayer", "ams01");
-        assertEquals(l.config().get(new SetConfigKey<String>(String.class, "prop1")), MutableSet.of("a", "b"));
-        assertEquals(l.config().get(new MapConfigKey<String>(String.class, "prop2")), MutableMap.of("a", 1, "b", 2));
+        assertEquals(l.config().get(new SetConfigKey<>(String.class, "prop1")), MutableSet.of("a", "b"));
+        assertEquals(l.config().get(new MapConfigKey<>(String.class, "prop2")), MutableMap.of("a", "1", "b", "2"));
+        assertEquals(l.config().get(new MapConfigKey<>(Integer.class, "prop2")), MutableMap.of("a", 1, "b", 2));
+        assertEquals(l.config().get(new MapConfigKey<>(Object.class, "prop2")), MutableMap.of("a", 1, "b", "2"));
     }
     
+    @SuppressWarnings("serial")
     @Test
     public void testResolvesListAndMapPropertiesWithoutMergeOnInheritance() throws Exception {
         // since prop2 does not specify DEEP_MERGE config inheritance, we overwrite
@@ -385,21 +388,29 @@ public class JcloudsLocationResolverTest {
         brooklynProperties.put("brooklyn.location.jclouds.softlayer.prop2", "{ a: 1, b: 2 }");
         brooklynProperties.put("brooklyn.location.named.foo", "jclouds:softlayer:ams01");
         
-        brooklynProperties.put("brooklyn.location.named.foo.prop1", "[ a: 1, c: 3 ]");
+        brooklynProperties.put("brooklyn.location.named.foo.prop1", "[ a: 1, c: \"3\" ]");
         brooklynProperties.put("brooklyn.location.named.foo.prop2", "{ b: 3, c: 3 }");
         brooklynProperties.put("brooklyn.location.named.bar", "named:foo");
-        brooklynProperties.put("brooklyn.location.named.bar.prop2", "{ c: 4, d: 4 }");
+        brooklynProperties.put("brooklyn.location.named.bar.prop2", "{ c: 4, d: \"4\" }");
         
         JcloudsLocation l = resolve("named:bar");
         assertJcloudsEquals(l, "softlayer", "ams01");
         
-        Set<? extends String> prop1 = l.config().get(new SetConfigKey<String>(String.class, "prop1"));
+        Set<?> prop1 = l.config().get(new SetConfigKey<String>(String.class, "prop1"));
         log.info("prop1: "+prop1);
-        assertEquals(prop1, MutableSet.of("a: 1", "c: 3"));
+        assertEquals(prop1, MutableSet.of("a: 1", "c: \"3\""));
+        prop1 = l.config().get(new SetConfigKey<>(new TypeToken<Map<String,Integer>>() {}, "prop1"));
+        assertEquals(prop1, MutableSet.of(MutableMap.of("a", 1), MutableMap.of("c", 3)));
+        prop1 = l.config().get(new SetConfigKey<>(new TypeToken<Map<Object,Object>>() {}, "prop1"));
+        assertEquals(prop1, MutableSet.of(MutableMap.of("a", 1), MutableMap.of("c", "3")));
         
-        Map<String, String> prop2 = l.config().get(new MapConfigKey<String>(String.class, "prop2"));
+        Map<String, ?> prop2 = l.config().get(new MapConfigKey<String>(String.class, "prop2"));
         log.info("prop2: "+prop2);
+        assertEquals(prop2, MutableMap.of("c", "4", "d", "4"));
+        prop2 = l.config().get(new MapConfigKey<>(Integer.class, "prop2"));
         assertEquals(prop2, MutableMap.of("c", 4, "d", 4));
+        prop2 = l.config().get(new MapConfigKey<>(Object.class, "prop2"));
+        assertEquals(prop2, MutableMap.of("c", 4, "d", "4"));
         
         Map<String, String> prop3 = l.config().get(new MapConfigKey<String>(String.class, "prop3"));
         log.info("prop3: "+prop3);
@@ -415,18 +426,18 @@ public class JcloudsLocationResolverTest {
         brooklynProperties.put("brooklyn.location.named.foo.prop1", "[ a: 1, c: 3 ]");
         brooklynProperties.put("brooklyn.location.named.foo.prop2", "{ b: 3, c: 3 }");
         brooklynProperties.put("brooklyn.location.named.bar", "named:foo");
-        brooklynProperties.put("brooklyn.location.named.bar.prop2", "{ c: 4, d: 4 }");
+        brooklynProperties.put("brooklyn.location.named.bar.prop2", "{ c: 4, d: \"4\" }");
         
         // dot-qualified keys now DO get interpreted (sept 2016)
-        brooklynProperties.put("brooklyn.location.named.foo.prop2.z", 9);
+        brooklynProperties.put("brooklyn.location.named.foo.prop2.z", "9");
         brooklynProperties.put("brooklyn.location.named.foo.prop3.z", 10);
         
         JcloudsLocation l = resolve("named:bar");
         assertJcloudsEquals(l, "softlayer", "ams01");
         
-        Map<String, String> prop2 = l.config().get(new MapConfigKey<String>(String.class, "prop2"));
+        Map<String, Integer> prop2 = l.config().get(new MapConfigKey<>(Integer.class, "prop2"));
         log.info("prop2: "+prop2);
-        assertEquals(prop2, MutableMap.of("c", 4, "d", 4, "z", "9"));
+        assertEquals(prop2, MutableMap.of("c", 4, "d", 4, "z", 9));
         
         Map<String, String> prop3 = l.config().get(new MapConfigKey<String>(String.class, "prop3"));
         log.info("prop3: "+prop3);
