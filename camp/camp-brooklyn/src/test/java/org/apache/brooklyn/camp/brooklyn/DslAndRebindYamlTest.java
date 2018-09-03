@@ -468,6 +468,28 @@ public class DslAndRebindYamlTest extends AbstractYamlRebindTest {
     }
 
     @Test
+    public void testDslLocationIndexOutOfBounds() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "location: localhost",
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    config1: $brooklyn:location(\"1\")");
+
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
+
+        try {
+            getConfigInTask(app, ConfigKeys.newConfigKey(Object.class, "config1"));
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "has 1 location", "but requested index 1");
+            if (Exceptions.getFirstThrowableOfType(e, IndexOutOfBoundsException.class) == null) {
+                throw e;
+            }
+        }
+    }
+
+    @Test
     public void testDslLocationInEntity() throws Exception {
         String yaml = Joiner.on("\n").join(
                 "services:",
