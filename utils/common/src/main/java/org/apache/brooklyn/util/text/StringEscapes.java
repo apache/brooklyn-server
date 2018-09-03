@@ -321,7 +321,7 @@ public class StringEscapes {
         }
         
         /** @deprecated since 1.0.0, use {@link #unwrapJsonishListStringIfPossible(String)} (old semantics)
-         * or {@link #unwrapJsonishListStringIfPossible(String)} (improved) */
+         * or {@link #tryUnwrapJsonishList(String)} (improved) */
         public static List<String> unwrapJsonishListIfPossible(String input) {
             return unwrapJsonishListStringIfPossible(input);
         }
@@ -335,10 +335,10 @@ public class StringEscapes {
          * <ll> 2) if not of form <code>[ X ]</code>, wrap in brackets and parse as YAML, 
          *         and if that succeeds and is a list, return the result.
          * <li> 3) otherwise, expect comma-separated tokens which after trimming are of the form "A" or B,
-         *         where "A" is a valid Java string or C is any string not starting with ' 
-         *         and not containing " or ,.  return the list of those tokens, where A and B
-         *         are their string value, and C as a primitive if it is a number or boolean or null, 
-         *         or else a string, including the empty string if empty.
+         *         where "A" is a valid Java string or B is any string not containing any of the chars <code>",.</code>
+         *         and not starting with <code>'</code>, and returns the list of those tokens, where A is
+         *         returned as its string value, and B as a primitive if it is a number or boolean or null, 
+         *         or else a string (including the empty string if empty)
          * <li> 4) if such tokens are not found, return {@link Maybe#absent()}.
          * <p>
          * @see #unwrapOptionallyQuotedJavaStringList(String)
@@ -362,7 +362,10 @@ public class StringEscapes {
                         List<Object> result = (List<Object>)r;
                         return Maybe.of(result);
                     }
-                } catch (Exception e) {}
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    // Otherwise ignore; logic below decides whether to return absent or to keep trying                    
+                }
                 if (inputT.startsWith("[")) {
                     // if supplied as yaml, don't allow failures
                     return Maybe.absent("Supplied format looked like YAML but could not parse as YAML");
@@ -398,7 +401,7 @@ public class StringEscapes {
                         String w = m.group(1);
                         
                         ri = w;
-                        if (w.matches("[0-9]*.[0-9]+")) {
+                        if (w.matches("[0-9]*\\.[0-9]+")) {
                             try {
                                 ri = Double.parseDouble(w);
                             } catch (Exception e) {}

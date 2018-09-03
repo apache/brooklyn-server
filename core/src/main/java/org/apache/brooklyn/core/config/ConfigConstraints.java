@@ -89,7 +89,7 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
     }
     
     private static <T> void assertValid(ConfigConstraints<?> constrants, Object context, ConfigKey<T> key, T value) {
-        ReferenceWithError<Predicate<?>> validity = constrants.checkValueValid(key, value);
+        ReferenceWithError<Predicate<?>> validity = constrants.validateValue(key, value);
         if (validity.hasError()) {
             throw new ConstraintViolationException("Invalid value for " + key + " on " + context + " (" + value + "); it should satisfy "+validity.getWithoutError());
         }
@@ -154,12 +154,12 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
     }
 
     <V> boolean isValueValid(ConfigKey<V> configKey, V value) {
-        return !checkValueValid(configKey, value).hasError();
+        return !validateValue(configKey, value).hasError();
     }
     
     /** returns reference to null without error if valid; otherwise returns reference to predicate and a good error message */
     @SuppressWarnings("unchecked")
-    <V> ReferenceWithError<Predicate<?>> checkValueValid(ConfigKey<V> configKey, V value) {
+    <V> ReferenceWithError<Predicate<?>> validateValue(ConfigKey<V> configKey, V value) {
         try {
             Predicate<? super V> po = configKey.getConstraint();
             boolean valid;

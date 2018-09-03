@@ -87,93 +87,126 @@ public class StringEscapesTest {
     @SuppressWarnings("deprecation")
     @Test
     public void testJavaListDeprecated() {
-        Assert.assertEquals(MutableList.of("hello", "world"),
-            JavaStringEscapes.unwrapQuotedJavaStringList("\"hello\", \"world\"", ","));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapQuotedJavaStringList("\"hello\", \"world\"", ","), 
+                MutableList.of("hello", "world"));
         try {
             JavaStringEscapes.unwrapQuotedJavaStringList("\"hello\", world", ",");
             Assert.fail("Should have thrown");
         } catch (Exception e) { /* expected */ }
         
-        Assert.assertEquals(MutableList.of("hello", "world"),
-            JavaStringEscapes.unwrapJsonishListIfPossible("\"hello\", \"world\""));
-        Assert.assertEquals(MutableList.of("hello"),
-            JavaStringEscapes.unwrapJsonishListIfPossible("hello"));
-        Assert.assertEquals(MutableList.of("hello", "world"),
-            JavaStringEscapes.unwrapJsonishListIfPossible("hello, world"));
-        Assert.assertEquals(MutableList.of("hello", "world"),
-            JavaStringEscapes.unwrapJsonishListIfPossible("\"hello\", world"));
-        Assert.assertEquals(MutableList.of("hello", "world"),
-            JavaStringEscapes.unwrapJsonishListIfPossible("[ \"hello\", world ]"));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListIfPossible("\"hello\", \"world\""),
+                MutableList.of("hello", "world"));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListIfPossible("hello"),
+                MutableList.of("hello"));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListIfPossible("hello, world"),
+                MutableList.of("hello", "world"));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListIfPossible("\"hello\", world"),
+                MutableList.of("hello", "world"));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListIfPossible("[ \"hello\", world ]"),
+                MutableList.of("hello", "world"));
         // if can't parse e.g. because contains double quote, then returns original string as single element list
-        Assert.assertEquals(MutableList.of("hello\", \"world\""),
-            JavaStringEscapes.unwrapJsonishListIfPossible("hello\", \"world\""));
-        Assert.assertEquals(MutableList.of(),
-            JavaStringEscapes.unwrapJsonishListIfPossible(" "));
-        Assert.assertEquals(MutableList.of(""),
-            JavaStringEscapes.unwrapJsonishListIfPossible("\"\""));
-        Assert.assertEquals(MutableList.of("x"),
-            JavaStringEscapes.unwrapJsonishListIfPossible(",,x,"));
-        Assert.assertEquals(MutableList.of("","x",""),
-            JavaStringEscapes.unwrapJsonishListIfPossible("\"\",,x,\"\""));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListIfPossible("hello\", \"world\""),
+                MutableList.of("hello\", \"world\""));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListIfPossible(" "),
+                MutableList.of());
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListIfPossible("\"\""),
+                MutableList.of(""));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListIfPossible(",,x,"),
+                MutableList.of("x"));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListIfPossible("\"\",,x,\"\""),
+                MutableList.of("","x",""));
     }
 
     @Test
     public void testJavaListString() {
-        Assert.assertEquals(MutableList.of("hello", "world"),
-            JavaStringEscapes.unwrapQuotedJavaStringList("\"hello\", \"world\"", ","));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapQuotedJavaStringList("\"hello\", \"world\"", ","),
+                MutableList.of("hello", "world"));
         try {
             JavaStringEscapes.unwrapQuotedJavaStringList("\"hello\", world", ",");
             Assert.fail("Should have thrown");
         } catch (Exception e) { /* expected */ }
         
-        Assert.assertEquals(MutableList.of("hello", "world"),
-            JavaStringEscapes.unwrapJsonishListStringIfPossible("\"hello\", \"world\""));
-        Assert.assertEquals(MutableList.of("hello"),
-            JavaStringEscapes.unwrapJsonishListStringIfPossible("hello"));
-        Assert.assertEquals(MutableList.of("hello", "world"),
-            JavaStringEscapes.unwrapJsonishListStringIfPossible("hello, world"));
-        Assert.assertEquals(MutableList.of("hello", "world"),
-            JavaStringEscapes.unwrapJsonishListStringIfPossible("\"hello\", world"));
-        Assert.assertEquals(MutableList.of("hello", "world"),
-            JavaStringEscapes.unwrapJsonishListStringIfPossible("[ \"hello\", world ]"));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListStringIfPossible("\"hello\", \"world\""),
+                MutableList.of("hello", "world"));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListStringIfPossible("hello"),
+                MutableList.of("hello"));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListStringIfPossible("hello, world"),
+                MutableList.of("hello", "world"));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListStringIfPossible("\"hello\", world"),
+                MutableList.of("hello", "world"));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListStringIfPossible("[ \"hello\", world ]"),
+                MutableList.of("hello", "world"));
         // if can't parse e.g. because contains double quote, then returns original string as single element list
-        Assert.assertEquals(MutableList.of("hello\", \"world\""),
-            JavaStringEscapes.unwrapJsonishListStringIfPossible("hello\", \"world\""));
-        Assert.assertEquals(MutableList.of(),
-            JavaStringEscapes.unwrapJsonishListStringIfPossible(" "));
-        Assert.assertEquals(MutableList.of(""),
-            JavaStringEscapes.unwrapJsonishListStringIfPossible("\"\""));
-        Assert.assertEquals(MutableList.of("x"),
-            JavaStringEscapes.unwrapJsonishListStringIfPossible(",,x,"));
-        Assert.assertEquals(MutableList.of("","x",""),
-            JavaStringEscapes.unwrapJsonishListStringIfPossible("\"\",,x,\"\""));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListStringIfPossible("hello\", \"world\""),
+                MutableList.of("hello\", \"world\""));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListStringIfPossible(" "),
+                MutableList.of());
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListStringIfPossible("\"\""),
+                MutableList.of(""));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListStringIfPossible(",,x,"),
+                MutableList.of("x"));
+        Assert.assertEquals(
+                JavaStringEscapes.unwrapJsonishListStringIfPossible("\"\",,x,\"\""),
+                MutableList.of("","x",""));
     }
 
     @Test
     public void testJavaListObject() {
-        Assert.assertEquals(MutableList.of("hello", "world"),
-            JavaStringEscapes.tryUnwrapJsonishList("\"hello\", \"world\"").get());
-        Assert.assertEquals(MutableList.of("hello"),
-            JavaStringEscapes.tryUnwrapJsonishList("hello").get());
-        Assert.assertEquals(MutableList.of("hello", "world"),
-            JavaStringEscapes.tryUnwrapJsonishList("hello, world").get());
-        Assert.assertEquals(MutableList.of("hello", "world"),
-            JavaStringEscapes.tryUnwrapJsonishList("\"hello\", world").get());
-        Assert.assertEquals(MutableList.of("hello", "world"),
-            JavaStringEscapes.tryUnwrapJsonishList("[ \"hello\", world ]").get());
-        Assert.assertEquals(MutableList.of(),
-            JavaStringEscapes.tryUnwrapJsonishList(" ").get());
-        Assert.assertEquals(MutableList.of(""),
-            JavaStringEscapes.tryUnwrapJsonishList("\"\"").get());
-        Assert.assertEquals(MutableList.of("","","x",""),
-            JavaStringEscapes.tryUnwrapJsonishList(",,x,").get());
-        Assert.assertEquals(MutableList.of("","","x",""),
-            JavaStringEscapes.tryUnwrapJsonishList("\"\",,x,\"\"").get());
-        Assert.assertEquals(MutableList.<Object>of(MutableMap.of("a", 1),MutableMap.of("b", 2)),
-            JavaStringEscapes.tryUnwrapJsonishList("[ a : 1, b : 2 ]").get());
+        Assert.assertEquals(
+                JavaStringEscapes.tryUnwrapJsonishList("\"hello\", \"world\"").get(),
+                MutableList.of("hello", "world"));
+        Assert.assertEquals(
+                JavaStringEscapes.tryUnwrapJsonishList("hello").get(),
+                MutableList.of("hello"));
+        Assert.assertEquals(
+                JavaStringEscapes.tryUnwrapJsonishList("hello, world").get(),
+                MutableList.of("hello", "world"));
+        Assert.assertEquals(
+                JavaStringEscapes.tryUnwrapJsonishList("\"hello\", world").get(),
+                MutableList.of("hello", "world"));
+        Assert.assertEquals(
+                JavaStringEscapes.tryUnwrapJsonishList("[ \"hello\", world ]").get(),
+                MutableList.of("hello", "world"));
+        Assert.assertEquals(
+                JavaStringEscapes.tryUnwrapJsonishList(" ").get(),
+                MutableList.of());
+        Assert.assertEquals(
+                JavaStringEscapes.tryUnwrapJsonishList("\"\"").get(),
+                MutableList.of(""));
+        Assert.assertEquals(
+                JavaStringEscapes.tryUnwrapJsonishList(",,x,").get(),
+                MutableList.of("","","x",""));
+        Assert.assertEquals(
+                JavaStringEscapes.tryUnwrapJsonishList("\"\",,x,\"\"").get(),
+                MutableList.of("","","x",""));
+        Assert.assertEquals(
+                JavaStringEscapes.tryUnwrapJsonishList("[ a : 1, b : 2 ]").get(),
+                MutableList.<Object>of(MutableMap.of("a", 1),MutableMap.of("b", 2)));
 
-        Assert.assertEquals(MutableList.<Object>of(1, 2, "buckle my shoe", true, "true", null, "null", ","),
-            JavaStringEscapes.tryUnwrapJsonishList("1, 2, buckle my shoe, true, \"true\", null, \"null\", \",\"").get());
+        Assert.assertEquals(
+                JavaStringEscapes.tryUnwrapJsonishList("1, 2.0, buckle my shoe, true, \"true\", null, \"null\", \",\"").get(),
+                MutableList.<Object>of(1, 2.0, "buckle my shoe", true, "true", null, "null", ","));
 
         try {
             JavaStringEscapes.tryUnwrapJsonishList("\"hello").get();
@@ -186,11 +219,13 @@ public class StringEscapesTest {
             Asserts.expectedFailureContains(e, "position 1"); 
         }
         
-        Assert.assertEquals(MutableList.of(MutableMap.of("a", "b"), "world"),
-            JavaStringEscapes.tryUnwrapJsonishList("[ { a: b }, world ]").get());
+        Assert.assertEquals(
+                JavaStringEscapes.tryUnwrapJsonishList("[ { a: b }, world ]").get(),
+                MutableList.of(MutableMap.of("a", "b"), "world"));
         
-        Assert.assertEquals(MutableList.of(MutableMap.of("a", MutableList.<Object>of("b", 2)), "world"),
-            JavaStringEscapes.tryUnwrapJsonishList("{ a: [ b, 2 ] }, world").get());
+        Assert.assertEquals(
+                JavaStringEscapes.tryUnwrapJsonishList("{ a: [ b, 2 ] }, world").get(),
+                MutableList.of(MutableMap.of("a", MutableList.<Object>of("b", 2)), "world"));
     }
 
 }

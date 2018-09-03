@@ -265,7 +265,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
      * if the second argument is true, the type specified here is used against non-map/iterable items
      * inside maps and iterables encountered. if false, any generic signature on the supplied type
      * is traversed to match contained items. if null (default), it is inferred from the type,
-     * those with generics mean true, and those without mean false. 
+     * those with generics imply false, and those without imply true. 
      * 
      * see {@link Tasks#resolveDeepValue(Object, Class, ExecutionContext, String)} and 
      * {@link Tasks#resolveDeepValueExactly(Object, TypeToken, ExecutionContext, String)}. */
