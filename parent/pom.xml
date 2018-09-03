@@ -1766,5 +1766,19 @@
               </pluginManagement>
             </build>
         </profile>
+        <profile>
+            <id>skipBrooklynDeploy</id>
+            <!-- allow downstream projects that compile brooklyn to specify not to attempt to deploy it to apache's maven repo -->
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-deploy-plugin</artifactId>
+                        <configuration>
+                            <skip>true</skip>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>
