@@ -19,11 +19,13 @@
 package org.apache.brooklyn.util.javalang;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.Type;
 
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.primitives.Primitives;
+import com.google.common.reflect.TypeToken;
 
 /** Conveniences for working with primitives and their boxed (wrapper) types.
  * NB: there is redundancy with {@link Primitives}
@@ -76,6 +78,14 @@ public class Boxing {
         if (PRIMITIVE_TO_BOXED.containsKey(type))
             return PRIMITIVE_TO_BOXED.get(type);
         return type;
+    }
+    
+    public static TypeToken<?> boxedTypeToken(Type type) {
+        TypeToken<?> tt = TypeToken.of(type);
+        Class<?> clazz = tt.getRawType();
+        if (PRIMITIVE_TO_BOXED.containsKey(clazz))
+            return TypeToken.of(PRIMITIVE_TO_BOXED.get(clazz));
+        return tt;
     }
 
     public static boolean isPrimitiveOrBoxedObject(Object o) {

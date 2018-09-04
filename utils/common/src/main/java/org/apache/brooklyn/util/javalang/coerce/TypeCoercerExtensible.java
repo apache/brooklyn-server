@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.AnyExceptionSupplier;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.Boxing;
@@ -127,41 +128,44 @@ public class TypeCoercerExtensible implements TypeCoercer {
         if (targetTypeToken!=null && targetTypeToken.getType() instanceof ParameterizedType) {
             if (value instanceof Iterable && Iterable.class.isAssignableFrom(targetType)) {
                 result = tryCoerceIterable(value, targetTypeToken, targetType);
-                
-                if (result != null && result.isAbsent() && targetType.isInstance(value)) {
-                    log.warn("Failed to coerce iterable from " + value.getClass().getName() + " to " + targetTypeToken  
-                            + "; returning uncoerced result to preserve (deprecated) backwards compatibility", 
-                            Maybe.getException(result));
-                }
-                
             } else if (value.getClass().isArray() && Iterable.class.isAssignableFrom(targetType)) {
                 result = tryCoerceArray(value, targetTypeToken, targetType);
-                
-                if (result != null && result.isAbsent() && targetType.isInstance(value)) {
-                    log.warn("Failed to coerce array from " + value.getClass().getName() + " to " + targetTypeToken  
-                            + "; returning uncoerced result to preserve (deprecated) backwards compatibility", 
-                            Maybe.getException(result));
-                }
-                
             } else if (value instanceof Map && Map.class.isAssignableFrom(targetType)) {
                 result = tryCoerceMap(value, targetTypeToken);
-                
-                if (result != null && result.isAbsent() && targetType.isInstance(value)) {
-                    log.warn("Failed to coerce map from " + value.getClass().getName() + " to " + targetTypeToken  
-                            + "; returning uncoerced result to preserve (deprecated) backwards compatibility", 
-                            Maybe.getException(result));
-                }
+            }
+            if (result!=null) {
+                if (result.isPresent()) return result;
+                // Previous to v1.0.0 we'd overlook errors in generics with warnings; now we bail
+                TypeToken<T> targetTypeTokenF = targetTypeToken;
+                RuntimeException e = Maybe.getException(result);
+                return Maybe.absent(new AnyExceptionSupplier<>(ClassCoercionException.class,
+                    () -> "Generic type mismatch coercing "+value.getClass().getName()+" to "+targetTypeTokenF+": "+Exceptions.collapseText(e), e));
             }
         }
-        if (result!=null && result.isPresent()) return result;
-        if (result!=null && firstError==null) firstError = result;
         
         if (targetType.isInstance(value)) return Maybe.of( (T) value );
 
         targetTypeToken = TypeTokens.getTypeToken(targetTypeToken, targetType);
         for (TryCoercer coercer : genericCoercers) {
             result = coercer.tryCoerce(value, targetTypeToken);
-            if (result!=null && result.isPresent()) return result;
+            
+            if (result!=null && result.isPresent()) {
+                // Check if need to unwrap again (e.g. if want List<Integer> and are given a String "1,2,3"
+                // then we'll have so far converted to List.of("1", "2", "3"). Call recursively.
+                // First check that value has changed, to avoid stack overflow!
+                if (!Objects.equal(value, result.get()) && !Objects.equal(value.getClass(), result.get().getClass()) && targetTypeToken.getType() instanceof ParameterizedType) {
+                    Maybe<T> resultM = tryCoerce(result.get(), targetTypeToken);
+                    if (resultM!=null) {
+                        if (resultM.isPresent()) return resultM;
+                        // if couldn't coerce parameterized types then back out of this coercer
+                        result = resultM;
+                    }
+                } else {
+                    return result;
+                }
+            }
+            
+            // remember any error if we were first
             if (result!=null && firstError==null) firstError = result;
         }
         
@@ -195,9 +199,16 @@ public class TypeCoercerExtensible implements TypeCoercer {
                             // Could duplicate check for `result instanceof Collection` etc; but recursive call
                             // will be fine as if that doesn't match we'll safely reach `targetType.isInstance(value)`
                             // and just return the result.
-                            return tryCoerce(resultT, targetTypeToken);
+                            Maybe<T> resultM = tryCoerce(resultT, targetTypeToken);
+                            if (resultM!=null) {
+                                if (resultM.isPresent()) return resultM;
+                                // if couldn't coerce parameterized types then back out of this coercer
+                                // but remember the error if we were first
+                                if (firstError==null) firstError = resultM;
+                            }
+                        } else {
+                            return Maybe.of(resultT);
                         }
-                        return Maybe.of(resultT);
                     } catch (Exception e) {
                         Exceptions.propagateIfFatal(e);
                         if (log.isDebugEnabled()) {
@@ -206,8 +217,11 @@ public class TypeCoercerExtensible implements TypeCoercer {
                                 + ": "+e, e);
                         }
                         if (firstError==null) {
-                            if (e instanceof ClassCoercionException) firstError = Maybe.absent(e);
-                            else firstError = Maybe.absent(new ClassCoercionException("Cannot coerce type "+value.getClass().getCanonicalName()+" to "+targetType.getCanonicalName()+" ("+value+")", e));
+                            if (e instanceof ClassCoercionException) {
+                                firstError = Maybe.absent(e);
+                            } else {
+                                firstError = Maybe.absent(new ClassCoercionException("Cannot coerce type "+value.getClass().getCanonicalName()+" to "+targetTypeToken+" ("+value+"): registered coercer failed", e));
+                            }
                         }
                         continue;
                     }
@@ -215,9 +229,12 @@ public class TypeCoercerExtensible implements TypeCoercer {
             }
         }
 
-        //not found
-        if (firstError!=null) return firstError;
-        return Maybe.absent(new ClassCoercionException("Cannot coerce type "+value.getClass().getCanonicalName()+" to "+targetType.getCanonicalName()+" ("+value+"): no adapter known"));
+        // not found
+        if (firstError!=null) {
+            // it might be nice to have more than just the first error but for now that's all we remember
+            return firstError;
+        }
+        return Maybe.absent(new ClassCoercionException("Cannot coerce type "+value.getClass().getCanonicalName()+" to "+targetTypeToken+" ("+value+"): no adapter known"));
     }
 
     @SuppressWarnings("unchecked")
@@ -234,15 +251,15 @@ public class TypeCoercerExtensible implements TypeCoercer {
         for (Map.Entry<?,?> entry : ((Map<?,?>) value).entrySet()) {
             Maybe<?> k = tryCoerce(entry.getKey(), mapKeyType);
             if (k.isAbsent()) return Maybe.absent(new ClassCoercionException(
-                "Could not coerce key of entry "+i+" in "+value+" to "+targetTypeToken,
+                "Could not coerce key of entry "+i+" ("+entry.getKey()+") to "+targetTypeToken,
                 ((Maybe.Absent<T>)k).getException()));
 
             Maybe<?> v = tryCoerce(entry.getValue(), mapValueType);
             if (v.isAbsent()) return Maybe.absent(new ClassCoercionException(
-                "Could not coerce value of entry "+i+" in "+value+" to "+targetTypeToken,
+                "Could not coerce value of entry "+i+" ("+entry.getValue()+") to "+targetTypeToken,
                 ((Maybe.Absent<T>)v).getException()));
             
-            coerced.put(k.get(),  v.get());
+            coerced.put(k.get(), v.get());
             
             i++;
         }
@@ -273,7 +290,7 @@ public class TypeCoercerExtensible implements TypeCoercer {
                 coerced.add(entryCoerced.get());
             } else {
                 return Maybe.absent(new ClassCoercionException(
-                    "Could not coerce entry "+i+" in "+value+" to "+targetTypeToken,
+                    "Could not coerce entry "+i+" ("+entry+") to "+listEntryType,
                     ((Maybe.Absent<T>)entryCoerced).getException()));
             }
             i++;

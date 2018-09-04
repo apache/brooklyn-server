@@ -552,7 +552,7 @@ public class Main extends AbstractMain {
                     .ignoreCatalogErrors(!startupFailOnCatalogErrors)
                     .ignoreWebErrors(startupContinueOnWebErrors)
                     .ignoreAppErrors(!startupFailOnManagedAppsErrors)
-                    .locations(Strings.isBlank(locations) ? ImmutableList.<String>of() : JavaStringEscapes.unwrapJsonishListIfPossible(locations));
+                    .locations(Strings.isBlank(locations) ? ImmutableList.<String>of() : JavaStringEscapes.unwrapJsonishListStringIfPossible(locations));
             
             launcher.restServer(!noConsole);
             if (useHttps) {

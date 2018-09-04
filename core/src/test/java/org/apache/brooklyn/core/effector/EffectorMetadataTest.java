@@ -112,7 +112,7 @@ public class EffectorMetadataTest extends BrooklynAppUnitTestSupport {
     private void assertParameterEqual(ParameterType<?> actual, ParameterType<?> expected) {
         assertEquals(actual.getName(), expected.getName(), "actual="+actual);
         assertEquals(actual.getDescription(), expected.getDescription(), "actual="+actual);
-        assertEquals(actual.getParameterClass(), expected.getParameterClass(), "actual="+actual);
+        assertEquals(actual.getParameterType(), expected.getParameterType(), "actual="+actual);
         assertEquals(actual.getParameterClassName(), expected.getParameterClassName(), "actual="+actual);
     }
 

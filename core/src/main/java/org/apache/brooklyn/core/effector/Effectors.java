@@ -37,7 +37,6 @@ import org.apache.brooklyn.core.effector.EffectorTasks.EffectorMarkingTaskFactor
 import org.apache.brooklyn.core.effector.EffectorTasks.EffectorTaskFactory;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Strings;
@@ -48,6 +47,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.TypeToken;
 
 public class Effectors {
 
@@ -79,6 +79,15 @@ public class Effectors {
             return parameter(paramType, paramName, paramDescription, null);                
         }
         public <V> EffectorBuilder<T> parameter(Class<V> paramType, String paramName, String paramDescription, V defaultValue) {
+            return parameter(new BasicParameterType<V>(paramName, paramType, paramDescription, defaultValue));
+        }
+        public EffectorBuilder<T> parameter(TypeToken<?> paramType, String paramName) {
+            return parameter(paramType, paramName, null, null);
+        }
+        public EffectorBuilder<T> parameter(TypeToken<?> paramType, String paramName, String paramDescription) {
+            return parameter(paramType, paramName, paramDescription, null);                
+        }
+        public <V> EffectorBuilder<T> parameter(TypeToken<V> paramType, String paramName, String paramDescription, V defaultValue) {
             return parameter(new BasicParameterType<V>(paramName, paramType, paramDescription, defaultValue));
         }
         public <V> EffectorBuilder<T> parameter(ConfigKey<V> key) {
@@ -165,15 +174,14 @@ public class Effectors {
         throw new UnsupportedOperationException("No implementation registered for effector "+eff+" on "+entity);
     }    
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
     public static <V> ParameterType<V> asParameterType(ConfigKey<V> key) {
         return key.hasDefaultValue()
-            ? new BasicParameterType<V>(key.getName(), (Class)key.getType(), key.getDescription(), key.getDefaultValue())
-            : new BasicParameterType<V>(key.getName(), (Class)key.getType(), key.getDescription());
+            ? new BasicParameterType<V>(key.getName(), key.getTypeToken(), key.getDescription(), key.getDefaultValue())
+            : new BasicParameterType<V>(key.getName(), key.getTypeToken(), key.getDescription());
     }
     
     public static <V> ConfigKey<V> asConfigKey(ParameterType<V> paramType) {
-        return ConfigKeys.newConfigKey(paramType.getParameterClass(), paramType.getName(), paramType.getDescription(), paramType.getDefaultValue());
+        return ConfigKeys.newConfigKey(paramType.getParameterType(), paramType.getName(), paramType.getDescription(), paramType.getDefaultValue());
     }
 
     /** convenience for {@link #invocationParallel(Effector, Map, Iterable)} */

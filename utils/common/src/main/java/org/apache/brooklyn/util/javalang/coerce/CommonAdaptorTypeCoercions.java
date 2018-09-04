@@ -34,10 +34,13 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.net.Cidr;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
@@ -54,6 +57,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.net.HostAndPort;
+import com.google.common.reflect.TypeToken;
 
 public class CommonAdaptorTypeCoercions {
 
@@ -75,6 +79,10 @@ public class CommonAdaptorTypeCoercions {
     /** Registers an adapter for use with type coercion. Returns any old adapter registered for this pair. */
     public synchronized <A,B> Function<? super A,B> registerAdapter(Class<A> sourceType, Class<B> targetType, Function<? super A,B> fn) {
         return coercer.registerAdapter(sourceType, targetType, fn);
+    }
+    /** Registers an adapter for use with type coercion. */
+    public synchronized void registerAdapter(TryCoercer coerceFn) {
+        coercer.registerAdapter(coerceFn);
     }
     
     @SuppressWarnings("rawtypes")
@@ -363,59 +371,92 @@ public class CommonAdaptorTypeCoercions {
         });        
     }
     
-    @SuppressWarnings("rawtypes")
     public void registerCollectionJsonAdapters() {
-        registerAdapter(String.class, List.class, new Function<String,List>() {
-            @Override
-            public List<String> apply(final String input) {
-                return JavaStringEscapes.unwrapJsonishListIfPossible(input);
+        registerAdapter(new CoerceStringToCollections());
+    }
+
+    /** Does a rough coercion of the string to the indicated Collection or Map type.
+     * Only looks at generics enough to choose the right parser.
+     * Expects the caller {@link TypeCoercerExtensible} to recurse inside the collection/map.
+     */
+    public static class CoerceStringToCollections implements TryCoercer {
+        @SuppressWarnings("unchecked")
+        @Override
+        public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
+            if (!(input instanceof String)) return null;
+            String inputS = (String)input;
+            
+            Class<? super T> rawType = type.getRawType();
+            
+            if (Collection.class.isAssignableFrom(rawType)) {
+                TypeToken<?> parameters[] = Reflections.getGenericParameterTypeTokens(type);
+                Maybe<?> resultM = null;
+                Collection<?> result = null;
+                if (parameters.length==1 && CharSequence.class.isAssignableFrom(parameters[0].getRawType())) {
+                    // for list of strings, use special parse
+                    result = JavaStringEscapes.unwrapJsonishListStringIfPossible(inputS);
+                } else {
+                    // any other type, use YAMLish parse
+                    resultM = JavaStringEscapes.tryUnwrapJsonishList(inputS);
+                    result = (Collection<?>) resultM.orNull();
+                }
+                if (result==null) {
+                    if (resultM!=null) return Maybe.Absent.castAbsent(resultM);
+                    return null;
+                }
+                if (rawType.isAssignableFrom(MutableList.class)) {
+                    return Maybe.of((T) MutableList.copyOf(result).asUnmodifiable());
+                }
+                if (rawType.isAssignableFrom(MutableSet.class)) {
+                    return Maybe.of((T) MutableSet.copyOf(result).asUnmodifiable());
+                }
+                if (rawType.isInstance(result)) {
+                    return Maybe.of((T) result);
+                }
+                // the type is not a collection we can deal with
+                return null;
             }
-        });
-        registerAdapter(String.class, Set.class, new Function<String,Set>() {
-            @Override
-            public Set<String> apply(final String input) {
-                return MutableSet.copyOf(JavaStringEscapes.unwrapJsonishListIfPossible(input)).asUnmodifiable();
-            }
-        });
-        registerAdapter(String.class, Map.class, new Function<String,Map>() {
-            @Override
-            public Map apply(final String input) {
-                Exception error = null;
+            
+            if (Map.class.isAssignableFrom(rawType)) {
                 
-                // first try wrapping in braces if needed
-                if (!input.trim().startsWith("{")) {
+                Function<String,Maybe<Map<?,?>>> parseYaml = (in) -> {
                     try {
-                        return apply("{ "+input+" }");
+                        return Maybe.of(Yamls.getAs( Yamls.parseAll(in), Map.class ));
                     } catch (Exception e) {
                         Exceptions.propagateIfFatal(e);
-                        // prefer this error
-                        error = e;
-                        // fall back to parsing without braces, e.g. if it's multiline
+                        return Maybe.absent(new IllegalArgumentException("Cannot parse string as map with flexible YAML parsing; "+
+                            (e instanceof ClassCastException ? "yaml treats it as a string" : 
+                            (e instanceof IllegalArgumentException && Strings.isNonEmpty(e.getMessage())) ? e.getMessage() :
+                            ""+e) ));
                     }
+                };
+                
+                Maybe<Map<?, ?>> r1 = null;
+                
+                // first try wrapping in braces if needed
+                if (!inputS.trim().startsWith("{")) {
+                    r1 = parseYaml.apply("{ "+inputS+" }");
+                    if (r1.isPresent()) return (Maybe<T>) r1;
+                    // fall back to parsing without braces, e.g. if it's multiline
                 }
-
-                try {
-                    return Yamls.getAs( Yamls.parseAll(input), Map.class );
-                } catch (Exception e) {
-                    Exceptions.propagateIfFatal(e);
-                    if (error!=null && input.indexOf('\n')==-1) {
-                        // prefer the original error if it wasn't braced and wasn't multiline
-                        e = error;
-                    }
-                    throw new IllegalArgumentException("Cannot parse string as map with flexible YAML parsing; "+
-                        (e instanceof ClassCastException ? "yaml treats it as a string" : 
-                        (e instanceof IllegalArgumentException && Strings.isNonEmpty(e.getMessage())) ? e.getMessage() :
-                        ""+e) );
-                }
+    
+                Maybe<Map<?, ?>> r2 = parseYaml.apply(inputS);
+                if (r2.isPresent()) return (Maybe<T>) r2;
+                
+                // absent - prefer the first error if it wasn't multiline
+                return (Maybe<T>) ((r1!=null && inputS.indexOf('\n')==-1) ? r1 : r2);
 
                 // NB: previously we supported this also, when we did json above;
                 // yaml support is better as it supports quotes (and better than json because it allows dropping quotes)
                 // snake-yaml, our parser, also accepts key=value -- although i'm not sure this is strictly yaml compliant;
                 // our tests will catch it if snake behaviour changes, and we can reinstate this
                 // (but note it doesn't do quotes; see http://code.google.com/p/guava-libraries/issues/detail?id=412 for that):
-//                return ImmutableMap.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator("=").split(input));
+    //            return ImmutableMap.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator("=").split(input));
+    
             }
-        });
+            
+            // other types not supported here
+            return null;
+        }
     }
-
 }

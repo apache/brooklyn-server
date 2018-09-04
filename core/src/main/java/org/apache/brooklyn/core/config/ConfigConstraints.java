@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectPredicate;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,14 +81,17 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
     }
 
     public static <T> void assertValid(Entity entity, ConfigKey<T> key, T value) {
-        if (!new EntityConfigConstraints(entity).isValueValid(key, value)) {
-            throw new ConstraintViolationException("Invalid value for " + key + " on " + entity + ": " + value);
-        }
+        assertValid(new EntityConfigConstraints(entity), entity, key, value);
     }
 
     public static <T> void assertValid(Location location, ConfigKey<T> key, T value) {
-        if (!new LocationConfigConstraints(location).isValueValid(key, value)) {
-            throw new ConstraintViolationException("Invalid value for " + key + " on " + location + ": " + value);
+        assertValid(new LocationConfigConstraints(location), location, key, value);
+    }
+    
+    private static <T> void assertValid(ConfigConstraints<?> constrants, Object context, ConfigKey<T> key, T value) {
+        ReferenceWithError<Predicate<?>> validity = constrants.validateValue(key, value);
+        if (validity.hasError()) {
+            throw new ConstraintViolationException("Invalid value for " + key + " on " + context + " (" + value + "); it should satisfy "+validity.getWithoutError());
         }
     }
 
@@ -149,19 +153,28 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
         return violating;
     }
 
-    @SuppressWarnings("unchecked")
     <V> boolean isValueValid(ConfigKey<V> configKey, V value) {
+        return !validateValue(configKey, value).hasError();
+    }
+    
+    /** returns reference to null without error if valid; otherwise returns reference to predicate and a good error message */
+    @SuppressWarnings("unchecked")
+    <V> ReferenceWithError<Predicate<?>> validateValue(ConfigKey<V> configKey, V value) {
         try {
             Predicate<? super V> po = configKey.getConstraint();
+            boolean valid;
             if (po instanceof BrooklynObjectPredicate) {
-                return BrooklynObjectPredicate.class.cast(po).apply(value, brooklynObject);
+                valid = BrooklynObjectPredicate.class.cast(po).apply(value, brooklynObject);
             } else {
-                return po.apply(value);
+                valid = po.apply(value);
+            }
+            if (!valid) {
+                return ReferenceWithError.newInstanceThrowingError(po, new IllegalStateException("Invalid value for " + configKey.getName() + ": " + value));
             }
         } catch (Exception e) {
             LOG.debug("Error checking constraint on " + configKey.getName(), e);
         }
-        return true;
+        return ReferenceWithError.newInstanceWithoutError(null);
     }
 
     private BrooklynObjectInternal.ConfigurationSupportInternal getConfigurationSupportInternal() {

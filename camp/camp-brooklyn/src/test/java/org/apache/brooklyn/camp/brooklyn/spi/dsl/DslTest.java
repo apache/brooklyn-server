@@ -57,6 +57,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.ListenableScheduledFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -96,14 +97,14 @@ public class DslTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testAttributeWhenReadyEmptyDoesNotBlock() throws Exception {
         BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.attributeWhenReady(TestApplication.MY_ATTRIBUTE.getName());
-        Maybe<?> actualValue = execDslRealRealQuick(dsl, TestApplication.MY_ATTRIBUTE.getType(), app);
+        Maybe<?> actualValue = execDslRealRealQuick(dsl, TestApplication.MY_ATTRIBUTE.getTypeToken(), app);
         assertTrue(actualValue.isAbsent());
     }
 
     @Test
     public void testAttributeWhenReadyEmptyImmediatelyDoesNotBlock() throws Exception {
         BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.attributeWhenReady(TestApplication.MY_ATTRIBUTE.getName());
-        Maybe<?> actualValue = execDslImmediately(dsl, TestApplication.MY_ATTRIBUTE.getType(), app, true);
+        Maybe<?> actualValue = execDslImmediately(dsl, TestApplication.MY_ATTRIBUTE.getTypeToken(), app, true);
         assertTrue(actualValue.isAbsent());
     }
 
@@ -211,7 +212,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         BrooklynDslDeferredSupplier<?> attributeDsl = BrooklynDslCommon.attributeWhenReady(TestApplication.MY_ATTRIBUTE.getName());
         app.config().set((ConfigKey)configKey, attributeDsl); // ugly cast because val is DSL, resolving to a string
         BrooklynDslDeferredSupplier<?> configDsl = BrooklynDslCommon.config(configKey.getName());
-        Maybe<?> actualValue = execDslImmediately(configDsl, configKey.getType(), app, true);
+        Maybe<?> actualValue = execDslImmediately(configDsl, configKey.getTypeToken(), app, true);
         assertTrue(actualValue.isAbsent());
     }
 
@@ -338,13 +339,13 @@ public class DslTest extends BrooklynAppUnitTestSupport {
     private static class DslTestWorker implements Runnable {
         protected final TestApplication parent;
         protected final BrooklynDslDeferredSupplier<?> dsl;
-        protected final Class<?> type;
+        protected final TypeToken<?> type;
         protected EntitySpec<? extends TestEntity> childSpec = EntitySpec.create(TestEntity.class);
         protected int resolverIterations = MANY_RESOLVER_ITERATIONS;
         protected boolean satisfiedAsynchronously = false;
         private boolean wrapInTaskForImmediately = true;
         
-        public DslTestWorker(TestApplication parent, BrooklynDslDeferredSupplier<?> dsl, Class<?> type) {
+        public DslTestWorker(TestApplication parent, BrooklynDslDeferredSupplier<?> dsl, TypeToken<?> type) {
             this.parent = checkNotNull(parent, "parent");
             this.dsl = checkNotNull(dsl, "dsl");
             this.type = checkNotNull(type, "type");
@@ -409,7 +410,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         private ListenableScheduledFuture<?> future;
 
         public AttributeWhenReadyTestWorker(TestApplication parent, AttributeSensor<String> sensor, BrooklynDslDeferredSupplier<?> dsl) {
-            super(parent, dsl, sensor.getType());
+            super(parent, dsl, sensor.getTypeToken());
             this.sensor = sensor;
         }
 
@@ -449,7 +450,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
 
     private static class SelfTestWorker extends DslTestWorker {
         public SelfTestWorker(TestApplication parent, BrooklynDslDeferredSupplier<?> dsl) {
-            super(parent, dsl, Entity.class);
+            super(parent, dsl, TypeToken.of(Entity.class));
         }
 
         @Override
@@ -465,7 +466,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
 
     private static class ParentTestWorker extends DslTestWorker {
         public ParentTestWorker(TestApplication parent, BrooklynDslDeferredSupplier<?> dsl) {
-            super(parent, dsl, Entity.class);
+            super(parent, dsl, TypeToken.of(Entity.class));
         }
 
         @Override
@@ -488,7 +489,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         }
         
         public ConfigTestWorker(TestApplication parent, ConfigKey<?> config, Function<? super Entity, ConfigValuePair> valueFunction, BrooklynDslDeferredSupplier<?> dsl) {
-            super(parent, dsl, config.getType());
+            super(parent, dsl, config.getTypeToken());
             this.config = config;
             this.valueFunction = valueFunction;
         }
@@ -536,6 +537,9 @@ public class DslTest extends BrooklynAppUnitTestSupport {
     }
 
     static Maybe<?> execDslImmediately(final BrooklynDslDeferredSupplier<?> dsl, final Class<?> type, final Entity context, boolean execInTask) throws Exception {
+        return execDslImmediately(dsl, TypeToken.of(type), context, execInTask);
+    }
+    static Maybe<?> execDslImmediately(final BrooklynDslDeferredSupplier<?> dsl, final TypeToken<?> type, final Entity context, boolean execInTask) throws Exception {
         // Exec'ing immediately will call DSL in current thread. It needs to find the context entity,
         // and does this using BrooklynTaskTags.getTargetOrContextEntity(Tasks.current()).
         // If we are not in a task executed by the context entity, then this lookup will fail. 
@@ -560,11 +564,14 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         }
     }
     
-    static Maybe<?> execDslRealRealQuick(BrooklynDslDeferredSupplier<?> dsl, Class<?> type, Entity context) {
+    static Maybe<?> execDslRealRealQuick(BrooklynDslDeferredSupplier<?> dsl, TypeToken<?> type, Entity context) {
         return execDslEventually(dsl, type, context, ValueResolver.REAL_REAL_QUICK_WAIT);
     }
     
     static Maybe<?> execDslEventually(BrooklynDslDeferredSupplier<?> dsl, Class<?> type, Entity context, Duration timeout) {
+        return execDslEventually(dsl, TypeToken.of(type), context, timeout);
+    }
+    static Maybe<?> execDslEventually(BrooklynDslDeferredSupplier<?> dsl, TypeToken<?> type, Entity context, Duration timeout) {
         return Tasks.resolving(dsl).as(type)
                 .context(context)
                 .description("Computing "+dsl)

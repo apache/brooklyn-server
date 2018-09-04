@@ -23,16 +23,21 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.annotation.Nonnull;
 
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.URLParamEncoder;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
+import com.google.common.collect.Iterables;
 
 public class StringEscapes {
 
@@ -315,12 +320,124 @@ public class StringEscapes {
             throw new IllegalArgumentException("String '"+s+"' is not a valid Java string (unterminated string)");
         }
         
+        /** @deprecated since 1.0.0, use {@link #unwrapJsonishListStringIfPossible(String)} (old semantics)
+         * or {@link #tryUnwrapJsonishList(String)} (improved) */
+        public static List<String> unwrapJsonishListIfPossible(String input) {
+            return unwrapJsonishListStringIfPossible(input);
+        }
+
+        /** converts a comma separated list in a single string to a list of json primitives or maps, 
+         * falling back to returning the input.
+         * <p>
+         * specifically:
+         * <li> 1) if of form <code>[ X ]</code> (in brackets after trim), parse as YAML;
+         *         if parse succeeds return the result, or if parse fails, return {@link Maybe#absent()}.
+         * <ll> 2) if not of form <code>[ X ]</code>, wrap in brackets and parse as YAML, 
+         *         and if that succeeds and is a list, return the result.
+         * <li> 3) otherwise, expect comma-separated tokens which after trimming are of the form "A" or B,
+         *         where "A" is a valid Java string or B is any string not containing any of the chars <code>",.</code>
+         *         and not starting with <code>'</code>, and returns the list of those tokens, where A is
+         *         returned as its string value, and B as a primitive if it is a number or boolean or null, 
+         *         or else a string (including the empty string if empty)
+         * <li> 4) if such tokens are not found, return {@link Maybe#absent()}.
+         * <p>
+         * @see #unwrapOptionallyQuotedJavaStringList(String)
+         **/
+        public static Maybe<List<Object>> tryUnwrapJsonishList(String input) {
+            if (input==null) return Maybe.absent("null input cannot unwrap to a list");
+            String inputT = input.trim();
+            
+            String inputYaml = null;
+            if (!inputT.startsWith("[") && !inputT.endsWith("]")) {
+                inputYaml = "[" + inputT + "]";
+            }
+            if (inputT.startsWith("[") && inputT.endsWith("]")) {
+                inputYaml = inputT;
+            }
+            if (inputYaml!=null) {
+                try {
+                    Object r = Iterables.getOnlyElement( Yamls.parseAll(inputYaml) );
+                    if (r instanceof List) {
+                        @SuppressWarnings("unchecked")
+                        List<Object> result = (List<Object>)r;
+                        return Maybe.of(result);
+                    }
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    // Otherwise ignore; logic below decides whether to return absent or to keep trying                    
+                }
+                if (inputT.startsWith("[")) {
+                    // if supplied as yaml, don't allow failures
+                    return Maybe.absent("Supplied format looked like YAML but could not parse as YAML");
+                }
+            }
+            
+            List<Object> result = MutableList.of();
+            
+            // double quote:  ^ \s* " ([not quote or backslash] or [backslash any-char])* " \s* (, or $)
+            Pattern dq = Pattern.compile("^\\s*(\"([^\"\\\\]|[\\\\.])*\")\\s*(,|$)");
+            // could also support this, but we need new unescape routines
+//            // single quote:  ^ \s* ' ([not quote or backslash] or [backslash any-char])* ' \s* (, or $)
+//            Pattern sq = Pattern.compile("^\\s*'([^\'\\\\]|[\\\\.])'*\\s*(,|$)");
+            // no quote:  ^ \s* (empty, or [not ' or " or space] ([not , or "]* [not , or " or space])?) \s* (, or $)
+            Pattern nq = Pattern.compile("^\\s*(|[^,\"\\s]([^,\"]*[^,\"\\s])?)\\s*(,|$)");
+            
+            int removedChars = 0;
+            while (true) {
+                Object ri;
+                Matcher m = dq.matcher(input);
+                if (m.find()) {
+                    try {
+                        ri = unwrapJavaString(m.group(1));
+                    } catch (Exception e) {
+                        Exceptions.propagateIfFatal(e);
+                        return Maybe.absent("Could not match valid quote pattern" +
+                            (removedChars>0 ? " at position "+removedChars : "")
+                            + ": "+ Exceptions.collapseText(e));
+                    }
+                } else {
+                    m = nq.matcher(input);
+                    if (m.find()) {
+                        String w = m.group(1);
+                        
+                        ri = w;
+                        if (w.matches("[0-9]*\\.[0-9]+")) {
+                            try {
+                                ri = Double.parseDouble(w);
+                            } catch (Exception e) {}
+                        } else if (w.matches("[0-9]+")) {
+                            try {
+                                ri = Integer.parseInt(w);
+                            } catch (Exception e) {}
+                        } else if (Boolean.TRUE.toString().equals(w)) {
+                            ri = true;
+                        } else if (Boolean.FALSE.toString().equals(w)) {
+                            ri = false;
+                        } else if ("null".equals(w)) {
+                            ri = null;
+                        }
+                        
+                    } else {
+                        return Maybe.absent("Could not match valid quote pattern" +
+                            (removedChars>0 ? " at position "+removedChars : ""));
+                    }
+                }
+                
+                result.add(ri);
+                
+                input = input.substring(m.end());
+                removedChars += m.end();
+                if (!m.group(0).endsWith(",")) break;
+            }
+            return Maybe.of(result);
+        }
+
         /** converts a comma separated list in a single string to a list of strings, 
          * doing what would be expected if given java or json style string as input,
          * and falling back to returning the input.
          * <p>
          * this method does <b>not</b> throw exceptions on invalid input,
-         * but just returns that input
+         * but just returns that input wrapped in a list
          * <p>
          * specifically, uses the following rules (executed once in sequence:
          * <li> 1) if of form <code>[ X ]</code> (in brackets after trim), 
@@ -337,7 +454,7 @@ public class StringEscapes {
          * <p>
          * @see #unwrapOptionallyQuotedJavaStringList(String)
          **/
-        public static List<String> unwrapJsonishListIfPossible(String input) {
+        public static List<String> unwrapJsonishListStringIfPossible(String input) {
             try {
                 return unwrapOptionallyQuotedJavaStringList(input);
             } catch (Exception e) {

@@ -80,7 +80,7 @@ public class EffectorTransformer {
     protected static EffectorSummary.ParameterSummary<?> parameterSummary(Entity entity, ParameterType<?> parameterType) {
         try {
             Maybe<?> defaultValue = Tasks.resolving(parameterType.getDefaultValue())
-                    .as(parameterType.getParameterClass())
+                    .as(parameterType.getParameterType())
                     .context(entity)
                     .immediately(true)
                     .getMaybe();

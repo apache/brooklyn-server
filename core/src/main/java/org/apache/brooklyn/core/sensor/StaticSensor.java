@@ -63,7 +63,6 @@ public class StaticSensor<T> extends AddSensor<T> {
         timeout = params.get(TIMEOUT);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public void apply(final EntityLocal entity) {
         super.apply(entity);
@@ -71,7 +70,7 @@ public class StaticSensor<T> extends AddSensor<T> {
         class ResolveValue implements Callable<Maybe<T>> {
             @Override
             public Maybe<T> call() throws Exception {
-                return Tasks.resolving(value).as((Class<T>)sensor.getType()).timeout(timeout).getMaybe();
+                return Tasks.resolving(value).as(sensor.getTypeToken()).timeout(timeout).getMaybe();
             }
         }
         final Task<Maybe<T>> resolveValue = Tasks.<Maybe<T>>builder().displayName("resolving " + value).body(new ResolveValue()).build();

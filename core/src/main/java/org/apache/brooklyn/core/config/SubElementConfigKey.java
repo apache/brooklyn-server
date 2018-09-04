@@ -24,6 +24,8 @@ import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
+import com.google.common.reflect.TypeToken;
+
 @SuppressWarnings("rawtypes")
 public class SubElementConfigKey<T> extends BasicConfigKey<T> {
     
@@ -31,13 +33,13 @@ public class SubElementConfigKey<T> extends BasicConfigKey<T> {
     
     public final ConfigKey parent;
 
-    public SubElementConfigKey(ConfigKey parent, Class<T> type, String name) {
+    public SubElementConfigKey(ConfigKey parent, TypeToken<T> type, String name) {
         this(parent, type, name, name, null);
     }
-    public SubElementConfigKey(ConfigKey parent, Class<T> type, String name, String description) {
+    public SubElementConfigKey(ConfigKey parent, TypeToken<T> type, String name, String description) {
         this(parent, type, name, description, null);
     }
-    public SubElementConfigKey(ConfigKey parent, Class<T> type, String name, String description, T defaultValue) {
+    public SubElementConfigKey(ConfigKey parent, TypeToken<T> type, String name, String description, T defaultValue) {
         super(type, name, description, defaultValue);
         this.parent = parent;
     }

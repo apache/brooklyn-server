@@ -30,7 +30,9 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.omg.CORBA.portable.BoxedValueHelper;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -87,13 +89,23 @@ public class MethodCoercions {
             Method accessibleMethod = Reflections.findAccessibleMethod(method).get();
             try {
                 Type paramType = method.getGenericParameterTypes()[0];
-                Object coercedArgument = TypeCoercions.coerce(argument, TypeToken.of(paramType));
-                return Maybe.of(accessibleMethod.invoke(instance, coercedArgument));
+                Maybe<?> coercedArgumentM = TypeCoercions.tryCoerce(argument, TypeToken.of(paramType));
+                RuntimeException exception = Maybe.getException(coercedArgumentM);
+                if (coercedArgumentM.isPresent() && coercedArgumentM.get()!=null) {
+                    if (!Boxing.boxedTypeToken(paramType).getRawType().isAssignableFrom(coercedArgumentM.get().getClass())) {
+                        exception = new IllegalArgumentException("Type mismatch after coercion; "+coercedArgumentM.get()+" is not a "+TypeToken.of(paramType));
+                    }
+                }
+                if (coercedArgumentM.isAbsent() || exception!=null) {
+                    return Maybe.absent("Cannot convert parameter for "+method+": "+
+                        Exceptions.collapseText(Maybe.getException(coercedArgumentM)), exception);
+                }
+                return Maybe.of(accessibleMethod.invoke(instance, coercedArgumentM.get()));
             } catch (IllegalAccessException | InvocationTargetException e) {
                 throw Exceptions.propagate(e);
             }
         } else {
-            return Maybe.absent();
+            return Maybe.absent("No method matching '"+methodName+"("+(argument==null ? argument : argument.getClass().getName())+")'");
         }
     }
     
@@ -175,7 +187,19 @@ public class MethodCoercions {
                 for (int paramCount = 0; paramCount < numOptionParams; paramCount++) {
                     Object argument = arguments.get(paramCount);
                     Type paramType = method.getGenericParameterTypes()[paramCount];
-                    coercedArguments[paramCount] = TypeCoercions.coerce(argument, TypeToken.of(paramType));
+                    
+                    Maybe<?> coercedArgumentM = TypeCoercions.tryCoerce(argument, TypeToken.of(paramType));
+                    RuntimeException exception = Maybe.getException(coercedArgumentM);
+                    if (coercedArgumentM.isPresent() && coercedArgumentM.get()!=null) {
+                        if (!Boxing.boxedTypeToken(paramType).getRawType().isAssignableFrom(coercedArgumentM.get().getClass())) {
+                            exception = new IllegalArgumentException("Type mismatch after coercion; "+coercedArgumentM.get()+" is not a "+TypeToken.of(paramType));
+                        }
+                    }
+                    if (coercedArgumentM.isAbsent() || exception!=null) {
+                        return Maybe.absent("Cannot convert parameter "+(paramCount+1)+" for "+method+": "+
+                            Exceptions.collapseText(Maybe.getException(coercedArgumentM)), exception);
+                    }
+                    coercedArguments[paramCount] = coercedArgumentM.get();
                 }
                 return Maybe.of(accessibleMethod.invoke(instanceOrClazz, coercedArguments));
             } catch (IllegalAccessException | InvocationTargetException e) {

@@ -45,6 +45,7 @@ public class StackTraceSimplifier {
                 System.getProperty(DEFAULT_BLACKLIST_SYSTEM_PROPERTY_NAME,
                         "java.," +
                         "javax.," +
+                        "jdk.," +
                         "sun.," +
                         "groovy.," +
                         "org.codehaus.groovy.," +

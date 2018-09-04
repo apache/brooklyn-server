@@ -296,7 +296,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
     }
 
     /** @see ConfigKey#getTypeName() */
-    @Override public String getTypeName() { return getType().getName(); }
+    @Override public String getTypeName() { return getTypeToken().toString(); }
 
     /** @see ConfigKey#getType() */
     @Override public Class<? super T> getType() { return TypeTokens.getRawType(typeToken, type); }
@@ -444,7 +444,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         if (ValueResolver.supportsDeepResolution(v)) {
             return Tasks.resolveDeepValue(v, Object.class, exec, "Resolving deep config "+name);
         } else {
-            return Tasks.resolveValue(v, getType(), exec, "Resolving config "+name);
+            return Tasks.resolveValue(v, getTypeToken(), exec, "Resolving config "+name);
         }
     }
 

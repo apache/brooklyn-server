@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.core.config;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -39,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.Maps;
+import com.google.common.reflect.TypeParameter;
 import com.google.common.reflect.TypeToken;
 
 /** A config key which represents a map, where contents can be accessed directly via subkeys.
@@ -65,16 +64,21 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
         return new Builder<V>(key);
     }
 
+    @SuppressWarnings("serial")
+    private static <V> TypeToken<Map<String,V>> typeTokenFor(TypeToken<V> subType) {
+        return new TypeToken<Map<String,V>>() {}
+                 .where(new TypeParameter<V>() {}, subType);
+    }
+    
     public static class Builder<V> extends BasicConfigKey.Builder<Map<String, V>,Builder<V>> {
-        protected Class<V> subType;
+        protected TypeToken<V> subType;
         
         public Builder(TypeToken<V> subType, String name) {
-            super(new TypeToken<Map<String, V>>() {}, name);
-            this.subType = (Class<V>) subType.getRawType();
+            super(typeTokenFor(subType), name);
+            this.subType = subType;
         }
         public Builder(Class<V> subType, String name) {
-            super(new TypeToken<Map<String, V>>() {}, name);
-            this.subType = checkNotNull(subType, "subType");
+            this(TypeToken.of(subType), name);
         }
         public Builder(MapConfigKey<V> key) {
             this(key.getName(), key);
@@ -112,22 +116,33 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
         super(builder, builder.subType);
     }
 
-    public MapConfigKey(Class<V> subType, String name) {
+    public MapConfigKey(TypeToken<V> subType, String name) {
         this(subType, name, name, null);
     }
 
-    public MapConfigKey(Class<V> subType, String name, String description) {
+    public MapConfigKey(TypeToken<V> subType, String name, String description) {
         this(subType, name, description, null);
     }
 
     // TODO it isn't clear whether defaultValue is an initialValue, or a value to use when map is empty
     // probably the latter, currently ... but maybe better to say that map configs are never null, 
     // and defaultValue is really an initial value?
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    public MapConfigKey(Class<V> subType, String name, String description, Map<String, V> defaultValue) {
-        super((Class)Map.class, subType, name, description, defaultValue);
+    public MapConfigKey(TypeToken<V> subType, String name, String description, Map<String, V> defaultValue) {
+        super(typeTokenFor(subType), subType, name, description, defaultValue);
     }
 
+    public MapConfigKey(Class<V> subType, String name) {
+        this(TypeToken.of(subType), name);
+    }
+
+    public MapConfigKey(Class<V> subType, String name, String description) {
+        this(TypeToken.of(subType), name, description);
+    }
+
+    public MapConfigKey(Class<V> subType, String name, String description, Map<String, V> defaultValue) {
+        this(TypeToken.of(subType), name, description, defaultValue);
+    }
+    
     @Override
     public String toString() {
         return String.format("%s[MapConfigKey:%s]", name, getTypeName());

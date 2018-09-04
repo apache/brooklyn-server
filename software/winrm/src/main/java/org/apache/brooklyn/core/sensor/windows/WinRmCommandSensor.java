@@ -50,6 +50,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
+import com.google.common.reflect.TypeToken;
 
 /** 
  * Configurable {@link EntityInitializer} which adds an WinRm sensor feed running the <code>command</code> supplied
@@ -97,6 +98,7 @@ public final class WinRmCommandSensor<T> extends AbstractAddSensorFeed<T> {
         final Duration logWarningGraceTime = EntityInitializers.resolve(params, LOG_WARNING_GRACE_TIME);
 
         Supplier<Map<String,String>> envSupplier = new Supplier<Map<String,String>>() {
+            @SuppressWarnings("serial")
             @Override
             public Map<String, String> get() {
                 Map<String, String> env = MutableMap.copyOf(entity.getConfig(SENSOR_ENVIRONMENT));
@@ -106,7 +108,7 @@ public final class WinRmCommandSensor<T> extends AbstractAddSensorFeed<T> {
 
                 // Try to resolve the configuration in the env Map
                 try {
-                    env = (Map<String, String>) Tasks.resolveDeepValue(env, String.class, ((EntityInternal) entity).getExecutionContext());
+                    env = Tasks.resolveDeepValueExactly(env, new TypeToken<Map<String,String>>() {}, ((EntityInternal) entity).getExecutionContext());
                 } catch (InterruptedException | ExecutionException e) {
                     Exceptions.propagateIfFatal(e);
                 }

@@ -1013,7 +1013,7 @@ public class Entities {
             @Override public T get() {
                 try {
                     TypeToken<T> type = new TypeToken<T>(sensor.getType()) {};
-                    return Tasks.resolveValue(task, (Class<T>) type.getRawType(), ((EntityInternal) entity).getExecutionContext(), "attributeSupplierWhenReady");
+                    return Tasks.resolveValue(task, type, ((EntityInternal) entity).getExecutionContext(), "attributeSupplierWhenReady");
                 } catch (Exception e) {
                     throw Exceptions.propagate(e);
                 }

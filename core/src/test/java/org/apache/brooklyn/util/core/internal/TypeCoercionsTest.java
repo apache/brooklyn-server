@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
@@ -323,6 +324,16 @@ public class TypeCoercionsTest {
     public void testKeyEqualsOrColonValueWithoutBracesStringToMapCoercion() {
         Map<?,?> s = TypeCoercions.coerce("a=1, b: 2", Map.class);
         Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", 2));
+    }
+
+    @SuppressWarnings("serial")
+    @Test
+    public void testYamlMapsDontGoTooFarWhenWantingListOfString() {
+        List<?> s = TypeCoercions.coerce("[ a: 1, b: 2 ]", List.class);
+        Assert.assertEquals(s, ImmutableList.of(MutableMap.of("a", 1), MutableMap.of("b", 2)));
+        
+        s = TypeCoercions.coerce("[ a: 1, b : 2 ]", new TypeToken<List<String>>() {});
+        Assert.assertEquals(s, ImmutableList.of("a: 1", "b : 2"));
     }
 
     @Test

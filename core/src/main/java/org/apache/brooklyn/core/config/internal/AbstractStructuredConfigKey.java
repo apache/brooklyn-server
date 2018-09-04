@@ -29,19 +29,20 @@ import org.apache.brooklyn.core.config.SubElementConfigKey;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
 import com.google.common.collect.Maps;
+import com.google.common.reflect.TypeToken;
 
 public abstract class AbstractStructuredConfigKey<T,RawT,V> extends BasicConfigKey<T> implements StructuredConfigKey {
 
     private static final long serialVersionUID = 7806267541029428561L;
 
-    protected final Class<V> subType;
+    protected final TypeToken<V> subType;
 
-    protected AbstractStructuredConfigKey(BasicConfigKey.Builder<T,?> builder, Class<V> subType) {
+    protected AbstractStructuredConfigKey(BasicConfigKey.Builder<T,?> builder, TypeToken<V> subType) {
         super(builder);
         this.subType = subType;
     }
 
-    public AbstractStructuredConfigKey(Class<T> type, Class<V> subType, String name, String description, T defaultValue) {
+    public AbstractStructuredConfigKey(TypeToken<T> type, TypeToken<V> subType, String name, String description, T defaultValue) {
         super(type, name, description, defaultValue);
         this.subType = subType;
     }

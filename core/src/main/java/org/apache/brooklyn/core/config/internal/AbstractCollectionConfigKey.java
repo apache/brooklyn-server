@@ -33,17 +33,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Iterables;
+import com.google.common.reflect.TypeToken;
 
 public abstract class AbstractCollectionConfigKey<T, RawT extends Collection<Object>, V> extends AbstractStructuredConfigKey<T, RawT, V> {
 
     private static final long serialVersionUID = 8225955960120637643L;
     private static final Logger log = LoggerFactory.getLogger(AbstractCollectionConfigKey.class);
     
-    protected AbstractCollectionConfigKey(BasicConfigKey.Builder<T,?> builder, Class<V> subType) {
+    protected AbstractCollectionConfigKey(BasicConfigKey.Builder<T,?> builder, TypeToken<V> subType) {
         super(builder, subType);
     }
 
-    protected AbstractCollectionConfigKey(Class<T> type, Class<V> subType, String name, String description, T defaultValue) {
+    protected AbstractCollectionConfigKey(TypeToken<T> type, TypeToken<V> subType, String name, String description, T defaultValue) {
         super(type, subType, name, description, defaultValue);
     }
 

@@ -598,7 +598,7 @@ public class BrooklynDslCommon {
 
             final Function<Object, Object> resolver = new Function<Object, Object>() {
                 @Override public Object apply(Object value) {
-                    Maybe<Object> result = Tasks.resolving(value, Object.class).context(executionContext).deep(true).immediately(true).getMaybe();
+                    Maybe<Object> result = Tasks.resolving(value, Object.class).context(executionContext).deep(true, true).immediately(true).getMaybe();
                     if (result.isAbsent()) {
                         throw new ImmediateValueNotAvailableException();
                     } else {

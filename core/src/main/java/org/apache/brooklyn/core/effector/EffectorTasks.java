@@ -132,7 +132,7 @@ public class EffectorTasks {
     }
     
     public static <T> ConfigKey<T> asConfigKey(ParameterType<T> t) {
-        return ConfigKeys.newConfigKey(t.getParameterClass(), t.getName());
+        return ConfigKeys.newConfigKey(t.getParameterType(), t.getName());
     }
     
     public static <T> ParameterTask<T> parameter(ParameterType<T> t) {

@@ -64,6 +64,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
+import com.google.common.reflect.TypeToken;
 
 public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> implements ConfigMapWithInheritance<TContainer> {
 
@@ -363,7 +364,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
     }
 
     @SuppressWarnings("unchecked")
-    protected <T> T coerceDefaultValue(TContainer container, String name, Object value, Class<T> type) {
+    protected <T> T coerceDefaultValue(TContainer container, String name, Object value, TypeToken<T> type) {
         if (type==null || value==null) return (T) value;
         ExecutionContext exec = getExecutionContext(container);
         try {
@@ -405,7 +406,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         final ConfigKey<T> ownKey = ownKey1;
         @SuppressWarnings("unchecked")
         // NB: can't use ""+getContainerImpl() as this can loop in the case of locations looking up ports
-        final Class<T> type = (Class<T>) moreSpecificOrWarningPreferringFirst(ownKey, queryKey, ""+getContainer().getId()+"["+getContainer().getDisplayName()+"]");
+        final TypeToken<T> type = (TypeToken<T>) moreSpecificOrWarningPreferringFirst(ownKey, queryKey, ""+getContainer().getId()+"["+getContainer().getDisplayName()+"]");
 
         // takes type of own key (or query key if own key not available)
         // takes default of own key if available and has default, else of query key
@@ -455,13 +456,13 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         }
     }
 
-    private static Class<?> moreSpecificOrWarningPreferringFirst(ConfigKey<?> ownKey, ConfigKey<?> queryKey, String context) {
+    private static TypeToken<?> moreSpecificOrWarningPreferringFirst(ConfigKey<?> ownKey, ConfigKey<?> queryKey, String context) {
         if (ownKey==null && queryKey==null) return null;
-        if (queryKey==null) return ownKey.getType();
-        if (ownKey==null) return queryKey.getType();
+        if (queryKey==null) return ownKey.getTypeToken();
+        if (ownKey==null) return queryKey.getTypeToken();
         
-        Class<?> ownType = ownKey.getType();
-        Class<?> queryType = queryKey.getType();
+        TypeToken<?> ownType = ownKey.getTypeToken();
+        TypeToken<?> queryType = queryKey.getTypeToken();
         if (queryType.isAssignableFrom(ownType)) {
             // own type is same or more specific, normal path
             return ownType;

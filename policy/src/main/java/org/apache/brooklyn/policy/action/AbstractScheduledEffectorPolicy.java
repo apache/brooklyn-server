@@ -261,7 +261,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
             Map<String, Object> args = EntityInitializers.resolve(bag, EFFECTOR_ARGUMENTS);
             LOG.debug("{}: Resolving arguments for {}: {}", new Object[] { this, effector.getName(), Iterables.toString(args.keySet()) });
             Map<String, Object> resolved = (Map) Tasks.resolving(args, Object.class)
-                    .deep(true)
+                    .deep(true, true)
                     .context(entity)
                     .get();
 

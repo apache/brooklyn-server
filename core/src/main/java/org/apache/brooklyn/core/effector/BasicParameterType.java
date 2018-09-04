@@ -22,15 +22,18 @@ import java.util.Collections;
 import java.util.Map;
 
 import org.apache.brooklyn.api.effector.ParameterType;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import com.google.common.reflect.TypeToken;
 
 public class BasicParameterType<T> implements ParameterType<T> {
     private static final long serialVersionUID = -5521879180483663919L;
     
     private String name;
     private Class<T> type;
+    private TypeToken<T> typeT;
     private String description;
     private Boolean hasDefaultValue = null;
     private T defaultValue = null;
@@ -42,26 +45,58 @@ public class BasicParameterType<T> implements ParameterType<T> {
     @SuppressWarnings("unchecked")
     public BasicParameterType(Map<?, ?> arguments) {
         if (arguments.containsKey("name")) name = (String) arguments.get("name");
-        if (arguments.containsKey("type")) type = (Class<T>) arguments.get("type");
+        
+        if (arguments.containsKey("typeT")) {
+            Object t = arguments.get("typeT");
+            typeT = TypeCoercions.coerce(t, TypeToken.class);
+        } else if (arguments.containsKey("type")) {
+            Object t = arguments.get("type");
+            if (t instanceof Class) type = ((Class<T>)t);
+            else if (t instanceof TypeToken) typeT = ((TypeToken<T>)t);
+            else typeT = TypeCoercions.coerce(t, TypeToken.class);
+        }
+        
         if (arguments.containsKey("description")) description = (String) arguments.get("description");
         if (arguments.containsKey("defaultValue")) defaultValue = (T) arguments.get("defaultValue");
     }
 
     public BasicParameterType(String name, Class<T> type) {
-        this(name, type, null, null, false);
+        this(name, TypeToken.of(type), null, null, false);
     }
     
     public BasicParameterType(String name, Class<T> type, String description) {
-        this(name, type, description, null, false);
+        this(name, TypeToken.of(type), description, null, false);
     }
     
     public BasicParameterType(String name, Class<T> type, String description, T defaultValue) {
-        this(name, type, description, defaultValue, true);
+        this(name, TypeToken.of(type), description, defaultValue, true);
     }
     
     public BasicParameterType(String name, Class<T> type, String description, T defaultValue, boolean hasDefaultValue) {
+        this(name, TypeToken.of(type), description, defaultValue, hasDefaultValue);
+    }
+    
+    public BasicParameterType(String name, TypeToken<T> type) {
+        this(name, type, null, null, false);
+    }
+    
+    public BasicParameterType(String name, TypeToken<T> type, String description) {
+        this(name, type, description, null, false);
+    }
+    
+    public BasicParameterType(String name, TypeToken<T> type, String description, T defaultValue) {
+        this(name, type, description, defaultValue, true);
+    }
+    
+    @SuppressWarnings("unchecked")
+    public BasicParameterType(String name, TypeToken<T> type, String description, T defaultValue, boolean hasDefaultValue) {
         this.name = name;
-        this.type = type;
+        if (type!=null && type.equals(TypeToken.of(type.getRawType()))) {
+            // prefer Class if it's already a raw type; keeps persistence simpler (and the same as before)
+            this.type = (Class<T>) type.getRawType();
+        } else {
+            this.typeT = type;
+        }
         this.description = description;
         this.defaultValue = defaultValue;
         if (defaultValue!=null && !defaultValue.getClass().equals(Object.class)) {
@@ -74,11 +109,23 @@ public class BasicParameterType<T> implements ParameterType<T> {
     @Override
     public String getName() { return name; }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public Class<T> getParameterClass() { return type; }
+    public Class<T> getParameterClass() {
+        if (typeT!=null) return (Class<T>) typeT.getRawType();
+        if (type!=null) return type;
+        return null;
+    }
 
     @Override
-    public String getParameterClassName() { return type.getCanonicalName(); }
+    public TypeToken<T> getParameterType() { 
+        if (typeT!=null) return typeT;
+        if (type!=null) return TypeToken.of(type);
+        return null;
+    }
+
+    @Override
+    public String getParameterClassName() { return getParameterType().toString(); }
 
     @Override
     public String getDescription() { return description; }
@@ -103,7 +150,7 @@ public class BasicParameterType<T> implements ParameterType<T> {
     
     @Override
     public int hashCode() {
-        return Objects.hashCode(name, description, type, defaultValue);
+        return Objects.hashCode(name, description, getParameterType(), defaultValue);
     }
 
     @Override
@@ -111,7 +158,7 @@ public class BasicParameterType<T> implements ParameterType<T> {
         return (obj instanceof ParameterType) &&
                 Objects.equal(name, ((ParameterType<?>)obj).getName()) &&
                 Objects.equal(description, ((ParameterType<?>)obj).getDescription()) &&
-                Objects.equal(type, ((ParameterType<?>)obj).getParameterClass()) &&
+                Objects.equal(getParameterType(), ((ParameterType<?>)obj).getParameterType()) &&
                 Objects.equal(defaultValue, ((ParameterType<?>)obj).getDefaultValue());
     }
 }

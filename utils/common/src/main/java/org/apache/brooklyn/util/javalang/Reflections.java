@@ -31,6 +31,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.TypeVariable;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -61,6 +62,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.common.reflect.TypeToken;
 
 /**
  * Reflection utilities
@@ -1139,5 +1141,15 @@ public class Reflections {
      */
     public static boolean trySetAccessible(Method method) {
         return MethodAccessibleReflections.trySetAccessible(method);
+    }
+
+    public static TypeToken<?>[] getGenericParameterTypeTokens(TypeToken<?> t) {
+        Class<?> rawType = t.getRawType();
+        TypeVariable<?>[] pT = rawType.getTypeParameters();
+        TypeToken<?> pTT[] = new TypeToken<?>[pT.length];
+        for (int i=0; i<pT.length; i++) {
+            pTT[i] = t.resolveType(pT[i]);
+        }
+        return pTT;
     }
 }

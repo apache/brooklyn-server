@@ -365,7 +365,7 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
             });
         }
         public static <T> Maybe<T> changeExceptionSupplier(Maybe<T> original, Function<AnyExceptionSupplier<?>,Supplier<? extends RuntimeException>> transform) {
-            if (original.isPresent()) return original;
+            if (original==null || original.isPresent()) return original;
             
             final Supplier<? extends RuntimeException> supplier = ((Maybe.Absent<?>)original).getExceptionSupplier();
             if (!(supplier instanceof AnyExceptionSupplier)) return original;
@@ -501,6 +501,6 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
 
     /** Finds the {@link Absent#getException()} if {@link #isAbsent()}, or null */
     public static RuntimeException getException(Maybe<?> t) {
-        return ((Maybe.Absent<?>)t).getException();
+        return t instanceof Maybe.Absent ? ((Maybe.Absent<?>)t).getException() : null;
     }
 }
