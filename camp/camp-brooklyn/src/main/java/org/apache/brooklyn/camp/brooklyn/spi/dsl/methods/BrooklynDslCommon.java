@@ -275,6 +275,16 @@ public class BrooklynDslCommon {
         }
     }
 
+    @DslAccessible
+    public static BrooklynDslDeferredSupplier<?> location() {
+        return new DslComponent(Scope.THIS, "").location();
+    }
+
+    @DslAccessible
+    public static BrooklynDslDeferredSupplier<?> location(Object index) {
+        return new DslComponent(Scope.THIS, "").location(index);
+    }
+
     // Build complex things
 
     @DslAccessible
