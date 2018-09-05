@@ -50,7 +50,7 @@ public abstract class AbstractCollectionConfigKey<T, RawT extends Collection<Obj
 
     public ConfigKey<V> subKey() {
         String subName = Identifiers.makeRandomId(8);
-        return new SubElementConfigKey<V>(this, subType, getName()+"."+subName, "element of "+getName()+", uid "+subName, null);
+        return new SubElementConfigKey<V>(this, getSubTypeToken(), getName()+"."+subName, "element of "+getName()+", uid "+subName, null);
     }
 
     protected abstract RawT merge(boolean unmodifiable, Iterable<?> ...items);

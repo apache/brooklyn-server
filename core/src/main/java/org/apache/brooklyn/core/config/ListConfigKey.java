@@ -85,7 +85,7 @@ public class ListConfigKey<V> extends AbstractCollectionConfigKey<List<V>,List<O
         }
         public Builder(String newName, ListConfigKey<V> key) {
             super(newName, key);
-            subType = key.subType;
+            subType = key.getSubTypeToken();
         }
         @Override
         public Builder<V> self() {
