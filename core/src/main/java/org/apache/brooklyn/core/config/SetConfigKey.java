@@ -74,7 +74,7 @@ public class SetConfigKey<V> extends AbstractCollectionConfigKey<Set<V>, Set<Obj
         }
         public Builder(String newName, SetConfigKey<V> key) {
             super(newName, key);
-            subType = key.subType;
+            subType = key.getSubTypeToken();
         }
         @Override
         public Builder<V> self() {

@@ -35,16 +35,27 @@ public abstract class AbstractStructuredConfigKey<T,RawT,V> extends BasicConfigK
 
     private static final long serialVersionUID = 7806267541029428561L;
 
-    protected final TypeToken<V> subType;
+    private final TypeToken<V> subTypeToken;
+    private final Class<V> subType;
 
+    @SuppressWarnings("unchecked")
     protected AbstractStructuredConfigKey(BasicConfigKey.Builder<T,?> builder, TypeToken<V> subType) {
         super(builder);
-        this.subType = subType;
+        if (TypeToken.of(subType.getRawType()).equals(subType)) {
+            // not generic; store raw type
+            this.subType = (Class<V>) subType.getRawType();
+            this.subTypeToken = null;
+        } else {
+            // store generic type token
+            this.subTypeToken = subType;
+            this.subType = null;
+        }
     }
 
     public AbstractStructuredConfigKey(TypeToken<T> type, TypeToken<V> subType, String name, String description, T defaultValue) {
         super(type, name, description, defaultValue);
-        this.subType = subType;
+        this.subTypeToken = subType;
+        this.subType = null;
     }
 
     protected ConfigKey<V> subKey(String subName) {
@@ -52,8 +63,14 @@ public abstract class AbstractStructuredConfigKey<T,RawT,V> extends BasicConfigK
     }
     // it is not possible to supply default values
     protected ConfigKey<V> subKey(String subName, String description) {
-        return new SubElementConfigKey<V>(this, subType, getName() + "." + subName, description, null);
-    }   
+        return new SubElementConfigKey<V>(this, getSubTypeToken(), getName() + "." + subName, description, null);
+    }
+    
+    protected TypeToken<V> getSubTypeToken() {
+        if (subTypeToken!=null) return subTypeToken;
+        if (subType!=null) return TypeToken.of(subType);
+        return null;
+    }
 
     protected static String getKeyName(Object contender) {
         if (contender==null) return null;
