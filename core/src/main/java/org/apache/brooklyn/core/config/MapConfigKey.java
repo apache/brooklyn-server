@@ -85,7 +85,7 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
         }
         public Builder(String newName, MapConfigKey<V> key) {
             super(newName, key);
-            subType = key.subType;
+            subType = key.getSubTypeToken();
         }
         @Override
         public Builder<V> self() {
