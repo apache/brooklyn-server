@@ -45,6 +45,7 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -135,6 +136,32 @@ public class EntityManagerTest extends BrooklynAppUnitTestSupport {
         Entity postApp = entityManager.getEntity(app.getId());
         assertSame(postApp, origApp);
         assertSame(Entities.deproxy(postApp), origDeproxiedApp);
+    }
+    
+    @Test
+    public void testDiscardPremanaged() {
+        String id = Identifiers.makeRandomId(12);
+        TestEntityImpl entity = mgmt.getEntityFactory().constructEntity(TestEntityImpl.class, ImmutableList.of(TestEntity.class), id);
+        assertTrue(((LocalEntityManager)entityManager).isKnownEntityId(id));
+        assertFalse(Entities.isManaged(entity));
+        
+        ((EntityManagerInternal)entityManager).discardPremanaged(entity);
+        assertFalse(((LocalEntityManager)entityManager).isKnownEntityId(id));
+        assertFalse(Entities.isManaged(entity));
+    }
+    
+
+    @Test
+    public void testDiscardPremanagedFailsIfManaged() {
+        try {
+            ((EntityManagerInternal)entityManager).discardPremanaged(app);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (IllegalStateException e) {
+            Asserts.expectedFailureContains(e, "Cannot discard", "it or a descendent is already managed");
+        }
+        
+        // Should have had no effect
+        Entities.isManaged(app);
     }
     
     // See https://issues.apache.org/jira/browse/BROOKLYN-352
