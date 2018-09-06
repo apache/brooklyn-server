@@ -743,7 +743,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     @Override
     public Application getApplication() {
         if (application != null) return application;
-        Entity parent = getParent();
+        Entity parent = this.parent.get();
         Application app = (parent != null) ? parent.getApplication() : null;
         if (app != null) {
             if (getManagementSupport().isFullyManaged())
