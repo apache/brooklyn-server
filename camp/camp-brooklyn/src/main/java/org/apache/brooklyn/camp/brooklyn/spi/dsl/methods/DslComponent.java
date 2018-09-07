@@ -585,7 +585,8 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     }
                     
                     // this is always run in a new dedicated task (possibly a fake task if immediate), so no need to clear
-                    checkAndTagForRecursiveReference(targetEntity);
+                    String tag = "DSL:entity('"+targetEntity.getId()+"').config('"+keyName+"')";
+                    checkAndTagForRecursiveReference(targetEntity, tag);
 
                     String keyNameS = resolveKeyName(true);
                     ConfigKey<?> key = targetEntity.getEntityType().getConfigKey(keyNameS);
@@ -777,11 +778,12 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 public Object call() throws Exception {
                     Entity targetEntity = component.get();
                     
-                    // this is always run in a new dedicated task (possibly a fake task if immediate), so no need to clear
-                    checkAndTagForRecursiveReference(targetEntity);
-
                     int indexI = resolveIndex(immediate);
                     
+                    // this is always run in a new dedicated task (possibly a fake task if immediate), so no need to clear
+                    String tag = "DSL:entity('"+targetEntity.getId()+"').location('"+indexI+"')";
+                    checkAndTagForRecursiveReference(targetEntity, tag);
+
                     // TODO Try repeatedly if no location(s)?
                     Collection<Location> locations = getLocations(targetEntity);
                     if (locations.size() < (indexI + 1)) {
@@ -811,7 +813,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 .as(Integer.class)
                 .context(findExecutionContext(this))
                 .immediately(immediately)
-                .description("Resolving indx from " + index)
+                .description("Resolving index from " + index)
                 .get();
             return result;
         }
