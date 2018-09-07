@@ -131,8 +131,7 @@ public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier
     @Override
     public abstract Task<T> newTask();
     
-    protected void checkAndTagForRecursiveReference(Entity targetEntity) {
-        String tag = toString();
+    protected void checkAndTagForRecursiveReference(Entity targetEntity, String tag) {
         Task<?> ancestor = Tasks.current();
         if (ancestor!=null) {
             ancestor = ancestor.getSubmittedByTask();
