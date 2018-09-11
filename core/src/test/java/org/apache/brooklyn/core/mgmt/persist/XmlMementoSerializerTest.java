@@ -618,15 +618,10 @@ public class XmlMementoSerializerTest {
         String loggerName = UnwantedStateLoggingMapper.class.getName();
         ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.WARN;
         Predicate<ILoggingEvent> filter = EventPredicates.containsMessage("Task object serialization is not supported or recommended"); 
-        LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter);
-        
         String serializedForm;
-        watcher.start();
-        try {
+        try (LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter)) {
             serializedForm = serializer.toString(completedTask);
             watcher.assertHasEvent();
-        } finally {
-            watcher.close();
         }
 
         assertEquals(serializedForm.trim(), "<"+BasicTask.class.getName()+">myval</"+BasicTask.class.getName()+">");

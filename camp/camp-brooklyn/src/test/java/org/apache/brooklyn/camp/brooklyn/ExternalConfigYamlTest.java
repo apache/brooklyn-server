@@ -321,10 +321,8 @@ public class ExternalConfigYamlTest extends AbstractYamlTest {
         String loggerName = BrooklynDslDeferredSupplier.class.getName();
         ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.DEBUG;
         Predicate<ILoggingEvent> filter = EventPredicates.containsMessage("myval");
-        LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter);
 
-        watcher.start();
-        try {
+        try (LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter)) {
             String yaml = Joiner.on("\n").join(
                 "services:",
                 "- serviceType: org.apache.brooklyn.core.test.entity.TestApplication",
@@ -338,9 +336,6 @@ public class ExternalConfigYamlTest extends AbstractYamlTest {
         
             List<ILoggingEvent> events = watcher.getEvents();
             assertTrue(events.isEmpty(), "events="+events);
-            
-        } finally {
-            watcher.close();
         }
     }
 

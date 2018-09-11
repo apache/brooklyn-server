@@ -364,10 +364,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
         Predicate<ILoggingEvent> repeatedFailureMsgMatcher = EventPredicates.containsMessage("repeated failure; excluding stacktrace");
         Predicate<ILoggingEvent> stacktraceMatcher = EventPredicates.containsExceptionStackLine(TestFrameworkAssertions.class, "checkActualAgainstAssertions");
         Predicate<ILoggingEvent> filter = Predicates.or(repeatedFailureMsgMatcher, stacktraceMatcher);
-        LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter);
-
-        watcher.start();
-        try {
+        try (LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter)) {
             // Invoke async; will let it complete after we see the log messages we expect
             Task<?> task = Entities.invokeEffector(app, app, Startable.START, ImmutableMap.of("locations", locs));
 
@@ -389,9 +386,6 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
             // that we didn't get another stacktrace
             stacktraceEvents = watcher.getEvents(stacktraceMatcher);
             assertEquals(Integer.valueOf(stacktraceEvents.size()), Integer.valueOf(1), "stacktraceEvents="+stacktraceEvents.size());
-            
-        } finally {
-            watcher.close();
         }
     }
 

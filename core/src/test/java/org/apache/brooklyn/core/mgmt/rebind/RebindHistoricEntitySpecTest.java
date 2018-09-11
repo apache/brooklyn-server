@@ -103,9 +103,7 @@ public class RebindHistoricEntitySpecTest extends AbstractRebindHistoricTest {
         addMemento(BrooklynObjectType.ENTITY, "entity-with-entityspec-containing-policies", "aeifj99fjd");
         
         Predicate<ILoggingEvent> filter = EventPredicates.containsMessage("NOT SUPPORTED"); 
-        LogWatcher watcher = new LogWatcher(EntitySpec.class.getName(), ch.qos.logback.classic.Level.WARN, filter);
-        watcher.start();
-        try {
+        try (LogWatcher watcher = new LogWatcher(EntitySpec.class.getName(), ch.qos.logback.classic.Level.WARN, filter)) {
             rebind(RebindOptions.create().exceptionHandler(exceptionHandler));
             watcher.assertHasEventEventually();
             
@@ -113,8 +111,6 @@ public class RebindHistoricEntitySpecTest extends AbstractRebindHistoricTest {
             Optional<ILoggingEvent> enrichersWarning = Iterables.tryFind(watcher.getEvents(), EventPredicates.containsMessage("enrichers will be ignored"));
             assertTrue(policiesWarning.isPresent());
             assertTrue(enrichersWarning.isPresent());
-        } finally {
-            watcher.close();
         }
     }
 

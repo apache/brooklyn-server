@@ -213,14 +213,10 @@ public class ConfigKeyDeprecationTest extends BrooklynAppUnitTestSupport {
         Predicate<ILoggingEvent> filter = EventPredicates.containsMessages(
                 "Using deprecated config value on MyBaseEntity",
                 "should use 'superKey1', but used 'oldSuperKey1'");
-        LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter);
 
-        watcher.start();
-        try {
+        try (LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter)) {
             testUsingDeprecatedName();
             watcher.assertHasEvent();
-        } finally {
-            watcher.close();
         }
     }
 
@@ -232,14 +228,10 @@ public class ConfigKeyDeprecationTest extends BrooklynAppUnitTestSupport {
         Predicate<ILoggingEvent> filter = EventPredicates.containsMessages(
                 "Ignoring deprecated config value(s) on MyBaseEntity",
                 "because contains value for 'superKey1', other deprecated name(s) present were: [oldSuperKey1]");
-        LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter);
-
-        watcher.start();
-        try {
+        
+        try (LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter)) {
             testPrefersNonDeprecatedName();
             watcher.assertHasEvent();
-        } finally {
-            watcher.close();
         }
     }
 
@@ -250,14 +242,10 @@ public class ConfigKeyDeprecationTest extends BrooklynAppUnitTestSupport {
         Predicate<ILoggingEvent> filter = EventPredicates.containsMessages(
                 "Using deprecated config value on MyBaseEntity",
                 "should use 'superKey1', but used 'oldSuperKey1b' and ignored values present for other deprecated name(s) [oldSuperKey1b]");
-        LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter);
 
-        watcher.start();
-        try {
+        try (LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter)) {
             testPrefersFirstDeprecatedNameIfMultiple();
             watcher.assertHasEvent();
-        } finally {
-            watcher.close();
         }
     }
     

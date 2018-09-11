@@ -152,10 +152,8 @@ public class ApplicationLoggingTest extends BrooklynAppUnitTestSupport {
         ids.push(app.getId());
         final TestEntityWithLogging entity = app.createAndManageChild(EntitySpec.create(TestEntityWithLogging.class));
         final TestEntityWithLogging child = entity.addChild(EntitySpec.create(EntitySpec.create(TestEntityWithLogging.class)));
-        LogWatcher watcher = new LogWatcher(loggerName, logLevel, containsMessage(app.getId()));
 
-        watcher.start();
-        try {
+        try (LogWatcher watcher = new LogWatcher(loggerName, logLevel, containsMessage(app.getId()))) {
             app.start(ImmutableList.of(app.newSimulatedLocation()));
             assertHealthEventually(app, Lifecycle.RUNNING, true);
             final TaskAdaptable<Void> stopTask = Effectors.invocation(app, Startable.STOP, ImmutableMap.of());
@@ -181,8 +179,6 @@ public class ApplicationLoggingTest extends BrooklynAppUnitTestSupport {
             watcher.assertHasEvent(matchingRegexes(".*" +
                 ImmutableList.of(app.getId(), entity.getId(), child.getId()).toString()
                 + ".*from entity.*" + child.getId() + ".*"));
-        } finally {
-            watcher.close();
         }
     }
 

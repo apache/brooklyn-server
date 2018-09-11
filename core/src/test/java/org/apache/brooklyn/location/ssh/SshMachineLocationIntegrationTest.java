@@ -321,18 +321,14 @@ public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
                 SshjTool.class.getName());
         ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.DEBUG;
         Predicate<ILoggingEvent> filter = Predicates.alwaysTrue();
-        LogWatcher watcher = new LogWatcher(loggerNames, logLevel, filter);
+        try (LogWatcher watcher = new LogWatcher(loggerNames, logLevel, filter)) {
 
-        watcher.start();
-        try {
             host.execCommands("mySummary", ImmutableList.of("echo mystdout1", "echo mystdout2", "echo mystderr1 1>&2", "echo mystderr2 1>&2"));
             
             watcher.assertHasEvent(EventPredicates.containsMessage(":22:stdout] mystdout1"));
             watcher.assertHasEvent(EventPredicates.containsMessage(":22:stdout] mystdout2"));
             watcher.assertHasEvent(EventPredicates.containsMessage(":22:stderr] mystderr1"));
             watcher.assertHasEvent(EventPredicates.containsMessage(":22:stderr] mystderr2"));
-        } finally {
-            watcher.close();
         }
     }
     
