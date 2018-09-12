@@ -99,7 +99,9 @@ public abstract class AbstractPolicy extends AbstractEntityAdjunct implements Po
     @Override
     protected void onChanged() {
         // currently changes simply trigger re-persistence; there is no intermediate listener as we do for EntityChangeListener
-        requestPersist();
+        if (getManagementContext() != null) {
+            getManagementContext().getRebindManager().getChangeListener().onChanged(this);
+        }
     }
     
     @Override

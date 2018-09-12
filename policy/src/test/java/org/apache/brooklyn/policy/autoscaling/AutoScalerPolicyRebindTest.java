@@ -157,7 +157,8 @@ public class AutoScalerPolicyRebindTest extends RebindTestFixtureWithApp {
         Map<String, HighlightTuple> highlights = new HashMap<>();
         highlights.put("testNameTask",  new HighlightTuple("testDescription", 123L, "testTaskId"));
 
-        AutoScalerPolicy originalPolicy = (AutoScalerPolicy) Iterables.getOnlyElement(origCluster.policies());
+
+        Policy originalPolicy = origCluster.policies().iterator().next();
         ((AbstractEntityAdjunct)originalPolicy).setHighlights(highlights);
 
         TestApplication newApp = rebind();
