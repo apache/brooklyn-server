@@ -23,9 +23,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.lang.reflect.Proxy;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Stack;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
@@ -460,7 +462,48 @@ public class LocalEntityManager implements EntityManagerInternal {
     public void unmanage(final Entity e, final ManagementTransitionMode mode) {
         unmanage(e, mode, false);
     }
+
+    @Override
+    public void discardPremanaged(final Entity e) {
+        if (e == null) return;
+        if (!isRunning()) return;
+        
+        Set<String> todiscard = new LinkedHashSet<>();
+        Stack<Entity> tovisit = new Stack<>();
+        Set<Entity> visited = new LinkedHashSet<>();
+        
+        tovisit.push(e);
+        
+        while (!tovisit.isEmpty()) {
+            Entity next = tovisit.pop();
+            visited.add(next);
+            for (Entity child : next.getChildren()) {
+                if (!visited.contains(child)) {
+                    tovisit.push(child);
+                }
+            }
+            
+            if (isManaged(next)) {
+                throw new IllegalStateException("Cannot discard entity "+e+" because it or a descendent is already managed ("+next+")");
+            }
+            Entity realNext = deproxyIfNecessary(next);
+            String id = next.getId();
+            Entity realFound = preRegisteredEntitiesById.get(id);
+            if (realFound == null) preManagedEntitiesById.get(id);
+
+            if (realFound != null && realFound != realNext) {
+                throw new IllegalStateException("Cannot discard pre-managed entity "+e+" because it or a descendent's id ("+id+") clashes with a different entity (given "+next+" but found "+realFound+")");
+            }
     
+            todiscard.add(id);
+        }
+
+        for (String id : todiscard) {
+            preRegisteredEntitiesById.remove(id);
+            preManagedEntitiesById.remove(id);
+        }
+    }
+
     private void unmanage(final Entity e, ManagementTransitionMode mode, boolean hasBeenReplaced) {
         if (shouldSkipUnmanagement(e)) return;
         final ManagementTransitionInfo info = new ManagementTransitionInfo(managementContext, mode);

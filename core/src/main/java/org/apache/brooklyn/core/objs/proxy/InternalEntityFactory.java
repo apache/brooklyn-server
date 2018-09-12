@@ -48,6 +48,7 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -163,7 +164,19 @@ public class InternalEntityFactory extends InternalFactory {
         Map<String,EntitySpec<?>> specsByEntityId = MutableMap.of();
         
         T entity = createEntityAndDescendantsUninitialized(spec, entityId, entitiesByEntityId, specsByEntityId);
-        initEntityAndDescendants(entity.getId(), entitiesByEntityId, specsByEntityId);
+        try {
+            initEntityAndDescendants(entity.getId(), entitiesByEntityId, specsByEntityId);
+        } catch (RuntimeException e) {
+            Exceptions.propagateIfFatal(e);
+            log.info("Failed to initialise entity "+entity+" and its descendants - unmanaging and propagating original exception: "+Exceptions.collapseText(e));
+            try {
+                ((EntityManagerInternal)managementContext.getEntityManager()).discardPremanaged(entity);
+            } catch (Exception e2) {
+                Exceptions.propagateIfFatal(e2);
+                log.info("Failed to unmanage entity "+entity+" and its descendants, after failure to initialise (rethrowing original exception)", e2);
+            }
+            throw e;
+        }
         return entity;
     }
     

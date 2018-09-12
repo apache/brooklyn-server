@@ -190,6 +190,11 @@ public class NonDeploymentEntityManager implements EntityManagerInternal {
         throw new IllegalStateException("Non-deployment context "+this+" is not valid for this operation: cannot unmanage "+e);
     }
     
+    @Override
+    public void discardPremanaged(Entity e) {
+        throw new IllegalStateException("Non-deployment context "+this+" is not valid for this operation: cannot discardPremanaged "+e);
+    }
+    
     private boolean isInitialManagementContextReal() {
         return (initialManagementContext != null && !(initialManagementContext instanceof NonDeploymentManagementContext));
     }
@@ -202,5 +207,4 @@ public class NonDeploymentEntityManager implements EntityManagerInternal {
             throw new IllegalStateException("Non-deployment context "+this+" (with no initial management context supplied) is not valid for this operation.");
         }
     }
-    
 }

@@ -38,8 +38,11 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
@@ -857,6 +860,64 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), "hello world");
     }
 
+    @Test
+    public void testDslRecursiveFails() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    dest: $brooklyn:config(\"dest\")");
+        try {
+            getConfigEventually(app, DEST);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "Recursive reference DSL:entity('", "').config('dest')");
+        }
+    }
+
+    @Test
+    public void testDslRecursiveFails2() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    val: $brooklyn:config(\"dest\")",
+                "    dest: $brooklyn:config(\"val\")");
+        try {
+            getConfigEventually(app, DEST);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "Recursive reference DSL:entity('", "').config('val')");
+        }
+    }
+
+    @Test
+    public void testDslFromParentConfigNotRecursive() throws Exception {
+        // Broke this in https://github.com/apache/brooklyn-server/pull/971.
+        // It thought that the '$brooklyn:parent().config("test.value")' was the
+        // same each time, rather than 'parent' resolving differently each time.
+        
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    test.value: 0",
+                "  brooklyn.children:",
+                "    - type: "+BasicStartable.class.getName(),
+                "      brooklyn.config:",
+                "        test.value: $brooklyn:parent().config(\"test.value\")",
+                "      brooklyn.children:",
+                "        - type: "+DynamicCluster.class.getName(),
+                "          brooklyn.config:",
+                "            cluster.initial.size: $brooklyn:parent().config(\"test.value\")",
+                "            memberSpec:",
+                "              $brooklyn:entitySpec:",
+                "                type: "+TestEntity.class.getName());
+        
+        BasicStartable child = (BasicStartable) Iterables.getOnlyElement(app.getChildren());
+        DynamicCluster cluster = (DynamicCluster) Iterables.getOnlyElement(child.getChildren());
+        assertEquals(cluster.config().get(DynamicCluster.INITIAL_SIZE), Integer.valueOf(0));
+    }
 
     private static <T> T getConfigEventually(final Entity entity, final ConfigKey<T> configKey) throws Exception {
         // Use an executor, in case config().get() blocks forever, waiting for the config value.

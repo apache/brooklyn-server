@@ -39,4 +39,12 @@ public interface EntityManagerInternal extends EntityManager, BrooklynObjectMana
      */
     @Beta
     <T extends Entity> T createEntity(EntitySpec<T> spec, Optional<String> entityId);
+    
+    /**
+     * Similar to {@link #unmanage(Entity)}, but used to discard partially constructed entities.
+     * 
+     * @throws IllegalStateException if the entity, or any of its descendents are already managed.
+     */
+    @Beta
+    void discardPremanaged(Entity e);
 }
