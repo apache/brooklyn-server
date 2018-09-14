@@ -28,6 +28,8 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -36,6 +38,7 @@ import com.google.common.collect.ImmutableList;
 
 public class RebindHistoricSshCommandSensorTest extends AbstractRebindHistoricTest {
     
+    private static final Logger log = LoggerFactory.getLogger(RebindHistoricSshCommandSensorTest.class);
     private static final String BLACKHOLE_IP = "240.0.0.1";
     
     @Override
@@ -89,9 +92,10 @@ public class RebindHistoricSshCommandSensorTest extends AbstractRebindHistoricTe
                 .configure("address", BLACKHOLE_IP)
                 .configure(SshMachineLocation.SSH_TOOL_CLASS, RecordingSshTool.class.getName()));
         entity.addLocations(ImmutableList.of(recordingLocalhostMachine));
-        
+        // odd, if this _class_ is run it waits the full period before running the feed;
+        // but if this _test_ is run on its own it runs immediately.
+        // reduced period to 20ms in persisted state and now it always runs immediately.
         ExecCmd cmd = Asserts.succeedsEventually(() -> RecordingSshTool.getLastExecCmd());
-        
         assertTrue(cmd.commands.toString().contains("echo 'myval'"), "cmds="+cmd.commands);
         assertEquals(cmd.env.get("MY_ENV"), "myEnvVal", "env="+cmd.env);
         assertTrue(cmd.commands.toString().contains("/path/to/myexecutiondir"), "cmds="+cmd.commands);
