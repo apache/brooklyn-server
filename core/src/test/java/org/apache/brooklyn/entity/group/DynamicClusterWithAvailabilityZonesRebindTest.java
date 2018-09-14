@@ -77,6 +77,9 @@ public class DynamicClusterWithAvailabilityZonesRebindTest extends RebindTestFix
         
         Entities.unmanage(cluster);
         Locations.unmanage(loc);
+        // TODO sometimes this feed is still around when it comes to rebind; trying a fix for it
+        // FunctionFeed{uniqueTag=FunctionFeed[fn[ClusterOneAndAllMembersUpCallable->cluster.one_and_all.members.up]], running=false, entity=DynamicClusterImpl{id=g1gix9e93k}, id=c85yn37m43} for DynamicClusterImpl{id=g1gix9e93k}
+        // causing dangling reference
 
         // Start a second cluster
         SimulatedLocation locUnrelated = mgmt().getLocationManager().createLocation(LocationSpec.create(SimulatedLocationWithZoneExtension.class)
