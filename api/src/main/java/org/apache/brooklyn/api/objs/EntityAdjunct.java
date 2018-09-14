@@ -22,6 +22,8 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.api.entity.Entity;
+
 /**
  * EntityAdjuncts are supplementary logic that can be attached to Entities, 
  * such as providing sensor enrichment or event-driven policy behavior
@@ -53,4 +55,7 @@ public interface EntityAdjunct extends BrooklynObject {
     @Nullable String getUniqueTag();
 
     Map<String, HighlightTuple> getHighlights();
+    
+    Entity getEntity();
+    
 }

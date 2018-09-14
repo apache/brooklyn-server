@@ -488,6 +488,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
      */
     protected void setHighlight(String name, HighlightTuple tuple) {
         highlights.put(name, tuple);
+        requestPersist();
     }
 
     /** As {@link #setHighlight(String, HighlightTuple)}, convenience for recording an item which is intended to be ongoing. */
@@ -574,6 +575,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     public void setHighlights(Map<String, HighlightTuple> highlights) {
         if(highlights != null) {
             this.highlights.putAll(highlights);
+            requestPersist();
         }
     }
 

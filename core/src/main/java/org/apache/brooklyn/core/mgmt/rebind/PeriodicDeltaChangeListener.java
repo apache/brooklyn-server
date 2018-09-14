@@ -38,11 +38,13 @@ import org.apache.brooklyn.api.mgmt.rebind.PersistenceExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceActivityMetrics;
@@ -129,7 +131,17 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
         
         public void addIfNotRemoved(BrooklynObject instance) {
             BrooklynObjectType type = BrooklynObjectType.of(instance);
-            if (!getRemovedIdsOfType(type).contains(instance.getId())) {
+            boolean shouldAdd = true;
+            if (getRemovedIdsOfType(type).contains(instance.getId())) shouldAdd = false;
+            else if (
+                    (instance instanceof EntityAdjunct) && ((EntityAdjunct)instance).getEntity()!=null &&
+                    (Entities.isNoLongerManaged(((EntityAdjunct)instance).getEntity()) ||
+                        getRemovedIdsOfType(BrooklynObjectType.ENTITY).contains(((EntityAdjunct)instance).getEntity().getId()) )) {
+                // for adjuncts check it isn't a race where the entity might be shutting down,
+                // to avoid the adjunct remaining in a persisted state
+                shouldAdd = false;
+            }
+            if (shouldAdd) {
                 getUnsafeCollectionOfType(type).add(instance);
             }
         }
