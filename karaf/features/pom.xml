@@ -54,7 +54,7 @@
                       <pluginExecutionFilter>
                         <groupId>org.apache.karaf.tooling</groupId>
                         <artifactId>karaf-maven-plugin</artifactId>
-                        <versionRange>[4.1.1,)</versionRange>
+                        <versionRange>[4.1.6,)</versionRange>
                         <goals>
                           <goal>verify</goal>
                         </goals>
