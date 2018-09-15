@@ -136,7 +136,7 @@
         <sshj.version>0.20.0</sshj.version>
         <felix.framework.version>5.6.1</felix.framework.version>
         <reflections.version>0.9.10</reflections.version>
-        <jetty.version>9.3.14.v20161028</jetty.version>
+        <jetty.version>9.3.24.v20180605</jetty.version>
         <jetty-schemas.version>3.1.M0</jetty-schemas.version>
         <airline.version>0.7</airline.version>
         <mockwebserver.version>20121111</mockwebserver.version>
