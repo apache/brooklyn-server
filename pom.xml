@@ -128,18 +128,13 @@
         <snakeyaml.version>1.22</snakeyaml.version>
         <!-- Next version of swagger requires changes to how path mapping and scanner injection are done. -->
         <swagger.version>1.5.6</swagger.version>
-        <jansi.version>1.2.1</jansi.version>
         <gson.version>2.3</gson.version>
-        <ivy.version>2.2.0</ivy.version>
         <mx4j.version>3.0.1</mx4j.version>
         <bouncycastle.version>1.51</bouncycastle.version>
         <sshj.version>0.20.0</sshj.version>
-        <felix.framework.version>5.6.1</felix.framework.version>
         <reflections.version>0.9.10</reflections.version>
-        <jetty.version>9.3.24.v20180605</jetty.version>
         <jetty-schemas.version>3.1.M0</jetty-schemas.version>
         <airline.version>0.7</airline.version>
-        <mockwebserver.version>20121111</mockwebserver.version>
         <freemarker.version>2.3.25-incubating</freemarker.version>
         <commons-io.version>2.4</commons-io.version>
         <jsonPath.version>2.4.0</jsonPath.version>
@@ -147,17 +142,11 @@
         <validation-api.version>1.1.0.Final</validation-api.version>
         <geronimo-jms_1.1_spec.version>1.1.1</geronimo-jms_1.1_spec.version>
         <geronimo-jta_1.1_spec.version>1.1.1</geronimo-jta_1.1_spec.version>
-        <sleepycat-je.version>5.0.34</sleepycat-je.version>
-        <commons-cli.version>1.2</commons-cli.version>
-        <astyanax.version>3.8.0</astyanax.version>
-        <jcouchdb.version>0.11.0-1</jcouchdb.version>
-        <solr.version>4.7.0</solr.version>
         <jtidy.version>r8-20060801</jtidy.version>
         <opendmk_jmxremote_optional_jar.version>1.0-b01-ea</opendmk_jmxremote_optional_jar.version>
         <jopt.version>4.3</jopt.version>
         <javax-servlet.version>3.1.0</javax-servlet.version>
         <javax-servlet-jsp.version>2.0</javax-servlet-jsp.version>
-        <jcommander.version>1.27</jcommander.version>
         <xml-apis.version>1.0.b2</xml-apis.version>
         <jsr250-api.version>1.0</jsr250-api.version>
         <guice.version>3.0</guice.version>
@@ -165,38 +154,57 @@
         <aopalliance.version>1.0</aopalliance.version>
         <commons-configuration.version>1.7</commons-configuration.version>
         <commons-lang.version>2.4</commons-lang.version>
-        <hamcrest.version>1.1</hamcrest.version>
         <jax-rs-api.version>2.0.1</jax-rs-api.version>
         <maxmind.version>2.8.0-rc1</maxmind.version>
         <maxmind-db.version>1.2.1</maxmind-db.version>
         <winrm4j.version>0.5.0</winrm4j.version>
-        <karaf.version>4.1.6</karaf.version>
-        <karaf.plugin.version>4.1.6</karaf.plugin.version>
         <felix-osgi-compendium.version>1.4.0</felix-osgi-compendium.version>
         <kubernetes-client.version>1.4.27</kubernetes-client.version>
+
+        <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
+        <karaf.version>4.1.6</karaf.version>
+        <karaf.plugin.version>4.1.6</karaf.plugin.version>
+        <felix.framework.version>5.6.1</felix.framework.version>
+        <jetty.version>9.3.24.v20180605</jetty.version>
+
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
         <clojure.version>1.4.0</clojure.version>
-        <zookeeper.version>3.3.4</zookeeper.version>
-        <ring-core.version>1.1.5</ring-core.version>
         <clj-time.version>0.4.1</clj-time.version>
         <commons-codec.version>1.9</commons-codec.version>
         <log4j.version>1.2.17</log4j.version>
         <commons-logging.version>1.2</commons-logging.version>
-        <jline.version>2.12</jline.version>
         <jsonSmart.version>2.3</jsonSmart.version>
         <minidev.accessors-smart.version>1.2</minidev.accessors-smart.version>
-        <ow2.asm.version>5.0.4</ow2.asm.version>
+        <ow2.asm.version>5.0.4</ow2.asm.version> <!-- from json-path:2.4.0 and cxf-rt-frontend-jaxws:3.1.10; clashes with 5.2 in karaf:4.1.6 -->
         <commons-beanutils.version>1.9.3</commons-beanutils.version>
         <commons-collections.version>3.2.2</commons-collections.version>
         <javax.mail.version>1.4.4</javax.mail.version>
         <cxf.javax.annotation-api.version>1.2</cxf.javax.annotation-api.version>
+        <plantuml.version>6121</plantuml.version>
+
+        <!-- Test dependencies -->
+        <cobertura.plugin.version>2.7</cobertura.plugin.version>
+        <surefire.version>2.19.1</surefire.version>
         <testng.version>6.10</testng.version>
         <mockito.version>2.7.12</mockito.version>
         <assertj.version>2.2.0</assertj.version> <!-- v 2.2.0 is being used as v 3.20 introduces Java8 dependencies-->
-        <cobertura.plugin.version>2.7</cobertura.plugin.version>
-        <surefire.version>2.19.1</surefire.version>
-        <plantuml.version>6121</plantuml.version>
-        <ant.version>1.8.4</ant.version>
+        <hamcrest.version>1.1</hamcrest.version>
+        <mockwebserver.version>20121111</mockwebserver.version>
+
+        <!-- Test dependencies: clients to connect to deployed entities -->
+        <astyanax.version>3.8.0</astyanax.version>
+        <jcouchdb.version>0.11.0-1</jcouchdb.version>
+        <solr.version>4.7.0</solr.version>
+        <zookeeper.version>3.3.4</zookeeper.version>
+        <ring-core.version>1.1.5</ring-core.version>
+
+        <!-- Seemingly unused dependencies! -->
+        <ivy.version>2.2.0</ivy.version>
+        <jline.version>2.12</jline.version>
+        <jansi.version>1.2.1</jansi.version> <!-- Also shipped in vanilla karaf, v1.17.1 in karaf:4.1.6 -->
+        <sleepycat-je.version>5.0.34</sleepycat-je.version>
+        <jcommander.version>1.27</jcommander.version>
+        <commons-cli.version>1.2</commons-cli.version>
 
         <!-- Build Tool Versions -->
         <maven-war-plugin.version>2.4</maven-war-plugin.version>
@@ -207,6 +215,7 @@
         <jasmine-maven-plugin.version>1.3.1.5</jasmine-maven-plugin.version>
         <requirejs-maven-plugin.version>2.0.0</requirejs-maven-plugin.version>
         <maven-antrun-plugin.version>1.7</maven-antrun-plugin.version>
+        <ant.version>1.8.4</ant.version>
 
     </properties>
 
