@@ -35,6 +35,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
+/** Does a configurable deep merge, taking the order from the first argument,
+ * and configurable through the builder how to act on lists or conflicts. */
 @Beta
 public class CollectionMerger {
     
@@ -42,14 +44,17 @@ public class CollectionMerger {
         protected int depth = Integer.MAX_VALUE;
         protected boolean mergeNestedMaps = true;
         protected boolean mergeNestedLists = false;
+        protected boolean preferSecondOnConflict = false;
         
+        /** Sets effectively infinite {@link #depth(int)} (the default) */
         public Builder deep(boolean val) {
             return depth(val ? Integer.MAX_VALUE : 1);
         }
         /**
          * Depth 1 means a shallow copy - i.e. only looking one layer down (e.g. at the values within the top-level map).
          * Depth 2 would mean going one-deep into the values inside the top-level map/list/set.
-         * 
+         * Default is infinite.
+s         * 
          * By default, depth only applies to nested maps. One needs to set {@link #mergeNestedLists(boolean)} for 
          * it to do this to nested iterables.
          */
@@ -58,12 +63,23 @@ public class CollectionMerger {
             this.depth = val;
             return this;
         }
+        /** @deprecated since 1.0, never did anything */
+        @Deprecated
         public Builder mergeNestedMaps(boolean val) {
             this.mergeNestedMaps = val;
             return this;
         }
+        /** By default lists will not be merged, and either the first or second will be kept 
+         * depending on {@link #preferSecondOnConflict(boolean)}. Set this to true to cause
+         * lists in the second merge argument to be appended to lists in the first. 
+         */
         public Builder mergeNestedLists(boolean val) {
             this.mergeNestedLists = val;
+            return this;
+        }
+        /** defaults to false, so if there is an unmergeable conflict, e.g. two strings, the first will be kept */
+        public Builder preferSecondOnConflict(boolean val) {
+            this.preferSecondOnConflict = val;
             return this;
         }
         public CollectionMerger build() {
@@ -74,15 +90,15 @@ public class CollectionMerger {
     public static Builder builder() {
         return new Builder();
     }
-
+    
     protected final int depth;
-    protected final boolean mergeNestedMaps;
     protected final boolean mergeNestedLists;
+    protected final boolean preferSecondOnConflict;
 
     protected CollectionMerger(Builder builder) {
         this.depth = builder.depth;
-        this.mergeNestedMaps = builder.mergeNestedMaps;
         this.mergeNestedLists = builder.mergeNestedLists;
+        this.preferSecondOnConflict = builder.preferSecondOnConflict;
     }
     
     public Map<?, ?> merge(Map<?, ?> map1, Map<?, ?> map2) {
@@ -115,13 +131,14 @@ public class CollectionMerger {
             return val1.get();
         }
         
+        Object conflictResult = preferSecondOnConflict ? val2.get() : val1.get(); 
         if (val1.get() instanceof Map) {
             Map<?,?> map1 = (Map<?, ?>) val1.get();
             if (val2.get() instanceof Map) {
                 return mergeMapsImpl(map1, (Map<?, ?>) val2.get(), depthRemaining, visited);
             } else {
                 // incompatible types; not merging
-                return val1.get();
+                return conflictResult;
             }
         }
         if (val1.get() instanceof Iterable) {
@@ -133,10 +150,10 @@ public class CollectionMerger {
                 return mergeIterablesImpl(iter1, (Iterable<?>) val2.get(), depthRemaining, visited);
             } else {
                 // incompatible types; not merging
-                return val1.get();
+                return conflictResult;
             }
         }
-        return val1.get();
+        return conflictResult;
     }
 
     private Map<?, ?> mergeMapsImpl(Map<?, ?> val1, Map<?, ?> val2, int depthRemaining, Visited visited) {
@@ -227,8 +244,8 @@ public class CollectionMerger {
         
         protected boolean isTrivial(Object o) {
             if (o == null)  return true;
-            if (o instanceof Map && ((Map)o).isEmpty()) return true;
-            if (o instanceof Iterable && Iterables.isEmpty(((Iterable)o))) return true;
+            if (o instanceof Map && ((Map<?,?>)o).isEmpty()) return true;
+            if (o instanceof Iterable && Iterables.isEmpty(((Iterable<?>)o))) return true;
             Class<?> clazz = o.getClass();
             return clazz.isEnum() || clazz.isPrimitive() || TRIVIAL_CLASSES.contains(clazz);
         }
