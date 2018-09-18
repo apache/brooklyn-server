@@ -416,6 +416,18 @@ public class CollectionMergerTest {
         assertNotEquals(ref1, ref2);
     }
     
+    @Test
+    public void testMergeMapsPreferringSecondOnConflict() {
+        Map<?, ?> val1 = ImmutableMap.of("key1", "val1a", "key2", "val2");
+        Map<?, ?> val2 = ImmutableMap.of("key1", "val1b", "key3", "val3");
+        
+        Map<?, ?> result1 = CollectionMerger.builder().build().merge(val1, val2);
+        Map<?, ?> result2 = CollectionMerger.builder().preferSecondOnConflict(true).build().merge(val1, val2);
+        
+        assertEquals(result1, ImmutableMap.of("key1", "val1a", "key2", "val2", "key3", "val3"));
+        assertEquals(result2, ImmutableMap.of("key1", "val1b", "key2", "val2", "key3", "val3"));
+    }
+
     protected Iterable<?> parseYaml(String yaml) {
         return new Yaml().loadAll(new StringReader(yaml));
     }
