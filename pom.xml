@@ -164,7 +164,7 @@
         <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
         <karaf.version>4.1.6</karaf.version>
         <karaf.plugin.version>4.1.6</karaf.plugin.version>
-        <felix.framework.version>5.6.1</felix.framework.version>
+        <felix.framework.version>5.6.10</felix.framework.version>
         <jetty.version>9.3.24.v20180605</jetty.version>
 
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
