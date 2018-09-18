@@ -143,6 +143,10 @@ public class VanillaSoftwareProcessYamlTest extends AbstractYamlTest {
         RecordingSensorEventListener<Object> serviceUpListener = subscribe(entity, Attributes.SERVICE_UP);
         RecordingSensorEventListener<Object> serviceStateListener = subscribe(entity, Attributes.SERVICE_STATE_ACTUAL);
 
+        // ensure these get the initial values because test relies on that later
+        assertEventsEqualEventually(serviceStateListener, ImmutableList.of(Lifecycle.CREATED), true);
+        assertEventsEqualEventually(serviceUpListener, ImmutableList.of(false), true);
+
         Task<Void> task = app.invoke(Startable.START, ImmutableMap.of());
         
         // Should eventually poll for 'checkRunning', before reporting 'up'
@@ -216,6 +220,10 @@ public class VanillaSoftwareProcessYamlTest extends AbstractYamlTest {
         
         RecordingSensorEventListener<Object> serviceUpListener = subscribe(entity, Attributes.SERVICE_UP);
         RecordingSensorEventListener<Object> serviceStateListener = subscribe(entity, Attributes.SERVICE_STATE_ACTUAL);
+
+        // ensure these get the initial values because test relies on that later
+        assertEventsEqualEventually(serviceStateListener, ImmutableList.of(Lifecycle.CREATED), true);
+        assertEventsEqualEventually(serviceUpListener, ImmutableList.of(false), true);
 
         Task<Void> task = app.invoke(Startable.START, ImmutableMap.of());
         

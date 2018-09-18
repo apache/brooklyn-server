@@ -59,7 +59,7 @@ under the License.
                   <config>
                     <name>myconf</name>
                     <targetType>String</targetType>
-                    <period>5s</period>
+                    <period>20ms</period>
                     <command>echo &apos;myval&apos;</command>
                     <shell.env>
                       <map>
@@ -124,7 +124,7 @@ under the License.
             <logWarningGraceTime>
               <nanos>0</nanos>
             </logWarningGraceTime>
-            <period>5000</period>
+            <period>20</period>
             <commandSupplier class="org.apache.brooklyn.core:org.apache.brooklyn.core.sensor.ssh.SshCommandSensor$2" reference="../../org.apache.brooklyn.core:org.apache.brooklyn.feed.AbstractCommandFeed_-CommandPollIdentifier/command"/>
             <dynamicEnvironmentSupplier class="MutableList" serialization="custom">
               <unserializable-parents/>
