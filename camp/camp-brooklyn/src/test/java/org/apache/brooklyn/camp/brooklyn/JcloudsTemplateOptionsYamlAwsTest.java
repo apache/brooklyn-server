@@ -103,13 +103,10 @@ public class JcloudsTemplateOptionsYamlAwsTest extends AbstractJcloudsStubYamlTe
 
         final String ignoreOption = "Ignoring request to set template option";
 
-        final LogWatcher watcher = new LogWatcher(
-            ImmutableList.of(LoggerFactory.getLogger(TemplateOptionsOption.class).getName()),
-            ch.qos.logback.classic.Level.WARN,
-            Predicates.and(containsMessage(ignoreOption), containsMessage("subnetId")));
-
-        watcher.start();
-        try {
+        try (final LogWatcher watcher = new LogWatcher(
+                ImmutableList.of(LoggerFactory.getLogger(TemplateOptionsOption.class).getName()),
+                ch.qos.logback.classic.Level.WARN,
+                Predicates.and(containsMessage(ignoreOption), containsMessage("subnetId")))) {
             EntitySpec<?> spec = managementContext.getTypeRegistry().createSpecFromPlan(
                 CampTypePlanTransformer.FORMAT, yaml,
                 RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
@@ -121,8 +118,6 @@ public class JcloudsTemplateOptionsYamlAwsTest extends AbstractJcloudsStubYamlTe
 
             AWSEC2TemplateOptions options = (AWSEC2TemplateOptions) findTemplateOptionsInCustomizerArgs();
             assertEquals(options.getSubnetId(), subnetValue);
-        } finally {
-            watcher.close();
         }
 
     }

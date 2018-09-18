@@ -86,10 +86,7 @@ public class MachineEntityRebindTest extends RebindTestFixtureWithApp {
         String loggerName = InternalFactory.class.getName();
         ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.WARN;
         Predicate<ILoggingEvent> filter = Predicates.alwaysTrue();
-        LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter);
-
-        watcher.start();
-        try {
+        try (LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter)) {
             origApp.createAndManageChild(EntitySpec.create(MachineEntity.class)
                     .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true));
             origApp.start(ImmutableList.of(origMachine));
@@ -98,9 +95,6 @@ public class MachineEntityRebindTest extends RebindTestFixtureWithApp {
         
             List<ILoggingEvent> events = watcher.getEvents();
             assertTrue(events.isEmpty(), "events="+events);
-            
-        } finally {
-            watcher.close();
         }
     }
 }

@@ -157,10 +157,7 @@ public class FunctionSensorYamlTest extends AbstractYamlRebindTest {
                 Poller.class.getName());
         ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.TRACE;
         Predicate<ILoggingEvent> filter = Predicates.alwaysTrue();
-        LogWatcher watcher = new LogWatcher(loggerNames, logLevel, filter);
-
-        watcher.start();
-        try {
+        try (LogWatcher watcher = new LogWatcher(loggerNames, logLevel, filter)) {
             Entity app = createAndStartApplication(
                     "services:",
                     "- type: " + TestEntity.class.getName(),
@@ -214,8 +211,6 @@ public class FunctionSensorYamlTest extends AbstractYamlRebindTest {
                 fail("exceptionEvents="+watcher.printEventsToString(exceptionEvents));
             }
 
-        } finally {
-            watcher.close();
         }
     }
 

@@ -108,13 +108,11 @@ public class MathAggregatorFunctionsTest {
     public void testTryCastInputValuesWhenNotNumbers() throws Exception {
         Function<Collection<? extends Number>, Integer> func = MathAggregatorFunctions.computingSum(null, null, Integer.class);
         
-        final LogWatcher watcher = new LogWatcher(
+        try (final LogWatcher watcher = new LogWatcher(
                 ImmutableList.of(LoggerFactory.getLogger(MathAggregatorFunctions.class).getName()),
                 ch.qos.logback.classic.Level.WARN,
-                containsMessage("Input to numeric aggregator is not a number"));
+                containsMessage("Input to numeric aggregator is not a number"))) {
 
-        watcher.start();
-        try {
             // Sums only things that can be numbers, ingnoring others; logs non-numbers only once
             List<Number> inputWithNonNumber = (List<Number>) (List) MutableList.<Object>of(1, null, "not a number", "4", true);
             for (int i = 0; i < 2; i++) {
@@ -132,9 +130,6 @@ public class MathAggregatorFunctionsTest {
                 assertEquals(func.apply(inputWithNonNumber), (Integer)5);
             }
             assertEquals(watcher.getEvents().size(), 1, "events="+watcher.getEvents());
-            
-        } finally {
-            watcher.close();
         }
     }
     

@@ -143,10 +143,8 @@ public class EffectorExceptionLoggedTest extends BrooklynAppUnitTestSupport {
         ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.DEBUG;
         Predicate<ILoggingEvent> filter = Predicates.and(EventPredicates.containsMessage("Error invoking myEffector"), 
                 EventPredicates.containsExceptionStackLine(ThrowingEntitlementManager.class, "isEntitled"));
-        LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter);
 
-        watcher.start();
-        try {
+        try (LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter)) {
             Entities.submit(entity, Tasks.<Void>builder().displayName("Effector-invoker")
                     .description("Invoke in task")
                     .tag(BrooklynTaskTags.NON_TRANSIENT_TASK_TAG)
@@ -160,8 +158,6 @@ public class EffectorExceptionLoggedTest extends BrooklynAppUnitTestSupport {
                     .blockUntilEnded();
 
             watcher.assertHasEventEventually();
-        } finally {
-            watcher.close();
         }
     }
     

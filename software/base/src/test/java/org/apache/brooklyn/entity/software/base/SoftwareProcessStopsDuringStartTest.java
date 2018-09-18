@@ -55,6 +55,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Durations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -149,28 +150,23 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
         loc.getObtainCalledLatch(0).await();
         
         // Calling stop - it should block
-        // TODO Nicer way of ensuring that stop is really waiting? We wait for the log message!
         Future<?> stopFuture;
-        LogWatcher watcher = new LogWatcher(
+        try (LogWatcher watcher = new LogWatcher(
                 MachineLifecycleEffectorTasks.class.getName(), 
                 ch.qos.logback.classic.Level.INFO,
-                EventPredicates.containsMessage("for the machine to finish provisioning, before terminating it") );
-        watcher.start();
-        try {
+                EventPredicates.containsMessage("for the machine to finish provisioning, before terminating it") )) {
             stopFuture = executor.submit(new Runnable() {
                 @Override
                 public void run() {
                     entity.stop();
                 }});
             watcher.assertHasEventEventually();
-        } finally {
-            watcher.close();
         }
         assertFalse(stopFuture.isDone());
 
         // When the loc.obtain() call returns, that will allow stop() to complete
         loc.getObtainResumeLatch(0).countDown();
-        stopFuture.get(Asserts.DEFAULT_LONG_TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS); // should be successful
+        Durations.get(stopFuture, Asserts.DEFAULT_LONG_TIMEOUT); // stop should be successful, even if start is concurrent
         try {
             // usually completes quickly, but sometimes can take a long time
             startFuture.get(Asserts.DEFAULT_LONG_TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
@@ -182,6 +178,9 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
             Assert.fail("start() timed out during concurrent stop; acceptable, but test should be fixed", e);
         }
         
+        // whether start fails or succeeds, at this point loc.obtain will have been called,
+        // and loc.stop waited for obtaining to complete (log message above),
+        // and then will have noted the release call
         assertEquals(loc.getCalls(), ImmutableList.of("obtain", "release"));
     }
 
@@ -197,20 +196,16 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
             }});
         loc.getObtainCalledLatch(0).await();
         
-        LogWatcher watcher = new LogWatcher(
+        try (LogWatcher watcher = new LogWatcher(
                 MachineLifecycleEffectorTasks.class.getName(), 
                 ch.qos.logback.classic.Level.WARN,
-                EventPredicates.containsMessage("timed out after 100ms waiting for the machine to finish provisioning - machine may we left running") );
-
-        watcher.start();
-        try {
+                EventPredicates.containsMessage("timed out after 100ms waiting for the machine to finish provisioning - machine may we left running") )) {
+            
             Stopwatch stopwatch = Stopwatch.createStarted();
             entity.stop();
             long elapsed = stopwatch.elapsed(TimeUnit.MILLISECONDS);
             assertEquals(watcher.getEvents().size(), 1);
             assertTrue(elapsed > (100 - 10), "elapsed="+elapsed);
-        } finally {
-            watcher.close();
         }
         
         assertEquals(loc.getCalls(), ImmutableList.of("obtain"));
@@ -228,22 +223,18 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
         loc.getObtainCalledLatch(0).await();
         
         // Calling stop - it should block
-        // TODO Nicer way of ensuring that stop is really waiting? We wait for the log message!
         Future<?> stopFuture;
-        LogWatcher watcher = new LogWatcher(
+        try (LogWatcher watcher = new LogWatcher(
                 MachineLifecycleEffectorTasks.class.getName(), 
                 ch.qos.logback.classic.Level.INFO,
-                EventPredicates.containsMessage("for the machine to finish provisioning, before terminating it") );
-        watcher.start();
-        try {
+                EventPredicates.containsMessage("for the machine to finish provisioning, before terminating it") )) {
+            
             stopFuture = executor.submit(new Runnable() {
                 @Override
                 public void run() {
                     entity.stop();
                 }});
             watcher.assertHasEventEventually();
-        } finally {
-            watcher.close();
         }
         assertFalse(stopFuture.isDone());
 

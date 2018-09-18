@@ -19,14 +19,13 @@
 package org.apache.brooklyn.test;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertFalse;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
-import java.lang.reflect.Proxy;
 import java.io.PrintStream;
+import java.lang.reflect.Proxy;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -108,11 +107,7 @@ public class LogWatcher implements Closeable {
         }
 
         public static Predicate<ILoggingEvent> containsException() {
-            return new Predicate<ILoggingEvent>() {
-                @Override public boolean apply(ILoggingEvent input) {
-                    return (input != null) && (input.getThrowableProxy() != null);
-                }
-            };
+            return input -> (input != null) && (input.getThrowableProxy() != null);
         }
 
         public static Predicate<ILoggingEvent> containsExceptionMessage(final String expected) {
@@ -120,36 +115,26 @@ public class LogWatcher implements Closeable {
         }
 
         public static Predicate<ILoggingEvent> containsExceptionMessages(final String... expecteds) {
-            return new Predicate<ILoggingEvent>() {
-                @Override public boolean apply(ILoggingEvent input) {
-                    IThrowableProxy throwable = (input != null) ? input.getThrowableProxy() : null;
-                    String msg = (throwable != null) ? throwable.getMessage() : null;
-                    if (msg == null) return false;
-                    for (String expected : expecteds) {
-                        if (!msg.contains(expected)) return false;
-                    }
-                    return true;
+            return input -> {
+                IThrowableProxy throwable = (input != null) ? input.getThrowableProxy() : null;
+                String msg = (throwable != null) ? throwable.getMessage() : null;
+                if (msg == null) return false;
+                for (String expected : expecteds) {
+                    if (!msg.contains(expected)) return false;
                 }
+                return true;
             };
         }
         public static Predicate<ILoggingEvent> containsExceptionClassname(final String expected) {
-            return new Predicate<ILoggingEvent>() {
-                @Override public boolean apply(ILoggingEvent input) {
-                    IThrowableProxy throwable = (input != null) ? input.getThrowableProxy() : null;
-                    String classname = (throwable != null) ? throwable.getClassName() : null;
-                    if (classname == null) return false;
-                    return classname.contains(expected);
-                }
+            return input -> {
+                IThrowableProxy throwable = (input != null) ? input.getThrowableProxy() : null;
+                String classname = (throwable != null) ? throwable.getClassName() : null;
+                if (classname == null) return false;
+                return classname.contains(expected);
             };
         }
         public static Predicate<ILoggingEvent> levelGeaterOrEqual(final Level expectedLevel) {
-            return new Predicate<ILoggingEvent>() {
-                @Override public boolean apply(ILoggingEvent input) {
-                    if (input == null) return false;
-                    Level level = input.getLevel();
-                    return level.isGreaterOrEqual(expectedLevel);
-                }
-            };
+            return input -> input == null ? false : input.getLevel().isGreaterOrEqual(expectedLevel);
         }
     }
     
@@ -164,7 +149,6 @@ public class LogWatcher implements Closeable {
         this(ImmutableList.of(checkNotNull(loggerName, "loggerName")), loggerLevel, filter);
     }
     
-    @SuppressWarnings("unchecked")
     public LogWatcher(Iterable<String> loggerNames, ch.qos.logback.classic.Level loggerLevel, final Predicate<? super ILoggingEvent> filter) {
 
         this.loggerLevel = checkNotNull(loggerLevel, "loggerLevel");
@@ -206,7 +190,7 @@ public class LogWatcher implements Closeable {
         // for root, with a pattern layout encoder, and re-uses its encoder pattern.
         // This is (at time of writing) as defined in logback-appender-stdout.xml.
         final Appender<ILoggingEvent> appender = lc.getLogger("ROOT").getAppender("STDOUT");
-        final ConsoleAppender stdout = ConsoleAppender.class.cast(appender);
+        final ConsoleAppender<?> stdout = ConsoleAppender.class.cast(appender);
         final PatternLayoutEncoder stdoutEncoder = PatternLayoutEncoder.class.cast(stdout.getEncoder());
         ple.setPattern(stdoutEncoder.getPattern());
         ple.setContext(lc);
@@ -217,21 +201,19 @@ public class LogWatcher implements Closeable {
         this.appender.start();
 
         for (String loggerName : loggerNames) {
-            final ch.qos.logback.classic.Logger logger =
-                (ch.qos.logback.classic.Logger)LoggerFactory.getLogger(checkNotNull(loggerName, "loggerName"));
-            logger.addAppender(this.appender);
-            logger.setLevel(this.loggerLevel);
-            logger.setAdditive(false);
-            watchedLoggers.add(logger);
+            watchedLoggers.add( (ch.qos.logback.classic.Logger)LoggerFactory.getLogger(checkNotNull(loggerName, "loggerName")) );
         }
+
+        start();
     }
     
+    /** @deprecated since 1.0.0 called by constructor, will go private as no need for anyone else to call */
     public void start() {
-
-        checkState(!closed.get(), "Cannot start LogWatcher after closed");
         for (ch.qos.logback.classic.Logger watchedLogger : watchedLoggers) {
-            origLevels.put(watchedLogger, watchedLogger.getLevel());
-            watchedLogger.setLevel(loggerLevel);
+            if (loggerLevel.toInteger() < watchedLogger.getEffectiveLevel().toInteger()) {
+                origLevels.putIfAbsent(watchedLogger, watchedLogger.getLevel());
+                watchedLogger.setLevel(loggerLevel);
+            }
             watchedLogger.addAppender(appender);
         }
     }
@@ -239,12 +221,10 @@ public class LogWatcher implements Closeable {
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            if (watchedLoggers != null) {
-                for (ch.qos.logback.classic.Logger watchedLogger : watchedLoggers) {
-                    Level origLevel = origLevels.get(watchedLogger);
-                    if (origLevel != null) watchedLogger.setLevel(origLevel);
-                    watchedLogger.detachAppender(appender);
-                }
+            for (ch.qos.logback.classic.Logger watchedLogger : watchedLoggers) {
+                Level origLevel = origLevels.get(watchedLogger);
+                if (origLevel != null) watchedLogger.setLevel(origLevel);
+                watchedLogger.detachAppender(appender);
             }
             watchedLoggers.clear();
             origLevels.clear();
@@ -274,11 +254,7 @@ public class LogWatcher implements Closeable {
 
     public List<ILoggingEvent> assertHasEventEventually(final Predicate<? super ILoggingEvent> filter) {
         final AtomicReference<List<ILoggingEvent>> result = new AtomicReference<>();
-        Asserts.succeedsEventually(new Runnable() {
-            @Override
-            public void run() {
-                result.set(assertHasEvent(filter));
-            }});
+        Asserts.succeedsEventually(() -> result.set(assertHasEvent(filter)));
         return result.get();
     }
 

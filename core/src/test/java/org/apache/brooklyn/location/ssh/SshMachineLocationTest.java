@@ -321,17 +321,12 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
         Predicate<ILoggingEvent> filter = Predicates.or(
                 EventPredicates.containsMessage("DB_PASSWORD"), 
                 EventPredicates.containsMessage("mypassword"));
-        LogWatcher watcher = new LogWatcher(loggerNames, logLevel, filter);
-
-        watcher.start();
-        try {
+        try (LogWatcher watcher = new LogWatcher(loggerNames, logLevel, filter)) {
             host.execCommands("mySummary", ImmutableList.of("true"), ImmutableMap.of("DB_PASSWORD", "mypassword"));
             watcher.assertHasEventEventually();
             
             Optional<ILoggingEvent> eventWithPasswd = Iterables.tryFind(watcher.getEvents(), EventPredicates.containsMessage("mypassword"));
             assertFalse(eventWithPasswd.isPresent(), "event="+eventWithPasswd);
-        } finally {
-            watcher.close();
         }
     }
     
@@ -344,18 +339,13 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
                 SshjTool.class.getName());
         ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.DEBUG;
         Predicate<ILoggingEvent> filter = Predicates.alwaysTrue();
-        LogWatcher watcher = new LogWatcher(loggerNames, logLevel, filter);
-
-        watcher.start();
-        try {
+        try (LogWatcher watcher = new LogWatcher(loggerNames, logLevel, filter)) {
             host.execCommands("mySummary", ImmutableList.of("mycommand"));
             
             watcher.assertHasEvent(EventPredicates.containsMessage("[1.2.3.4:22:stdout] mystdout1"));
             watcher.assertHasEvent(EventPredicates.containsMessage("[1.2.3.4:22:stdout] mystdout2"));
             watcher.assertHasEvent(EventPredicates.containsMessage("[1.2.3.4:22:stderr] mystderr1"));
             watcher.assertHasEvent(EventPredicates.containsMessage("[1.2.3.4:22:stderr] mystderr2"));
-        } finally {
-            watcher.close();
         }
     }
     
@@ -368,10 +358,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
                 SshjTool.class.getName());
         ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.DEBUG;
         Predicate<ILoggingEvent> filter = Predicates.alwaysTrue();
-        LogWatcher watcher = new LogWatcher(loggerNames, logLevel, filter);
-
-        watcher.start();
-        try {
+        try (LogWatcher watcher = new LogWatcher(loggerNames, logLevel, filter)) {
             host.execCommands(
                     ImmutableMap.of(SshMachineLocation.NO_STDOUT_LOGGING.getName(), true, SshMachineLocation.NO_STDERR_LOGGING.getName(), true), 
                     "mySummary", 
@@ -379,8 +366,6 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
             
             assertFalse(Iterables.tryFind(watcher.getEvents(), EventPredicates.containsMessage(":stdout]")).isPresent());
             assertFalse(Iterables.tryFind(watcher.getEvents(), EventPredicates.containsMessage(":stderr]")).isPresent());
-        } finally {
-            watcher.close();
         }
     }
 }
