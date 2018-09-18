@@ -248,7 +248,6 @@ public class LogWatcher implements Closeable {
             @Override
             public void run() {
                 assertFalse(events.isEmpty());
-                System.out.println("EVENTS: "+events);
             }});
         return getEvents();
     }
