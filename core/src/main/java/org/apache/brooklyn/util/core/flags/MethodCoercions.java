@@ -32,7 +32,6 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.Reflections;
-import org.omg.CORBA.portable.BoxedValueHelper;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
