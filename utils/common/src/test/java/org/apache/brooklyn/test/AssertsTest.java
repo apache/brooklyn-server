@@ -128,7 +128,7 @@ public class AssertsTest {
         try {
             Asserts.assertStringMatchesRegex("hello", "hello", "he");
             Asserts.shouldHaveFailedPreviously();
-        } catch (AssertionError e) { Asserts.expectedFailureContains(e, "hello", "matchesRegex(he)"); }
+        } catch (AssertionError e) { Asserts.expectedFailureContains(e, "hello", "matchesRegex(\"he\")"); }
     }
 
     @Test

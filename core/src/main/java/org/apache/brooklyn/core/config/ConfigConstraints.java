@@ -33,6 +33,7 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectPredicate;
+import org.apache.brooklyn.core.objs.ConstraintSerialization;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -185,6 +186,13 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
         return brooklynObject;
     }
 
+    /**
+     * Convenience method to get the serialization routines.
+     */
+    public static ConstraintSerialization serialization() {
+        return ConstraintSerialization.INSTANCE;
+    }
+    
     private static class EntityConfigConstraints extends ConfigConstraints<Entity> {
         public EntityConfigConstraints(Entity brooklynObject) {
             super(brooklynObject);
@@ -218,4 +226,21 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
         }
     }
 
+    public static <T> Predicate<T> required() {
+        return new RequiredPredicate<T>();
+    }
+    
+    /** Predicate indicating a field is required:  it must not be null and if a string it must not be empty */
+    public static class RequiredPredicate<T> implements Predicate<T> {
+        @Override
+        public boolean apply(T input) {
+            if (input==null) return false;
+            if (input instanceof CharSequence && ((CharSequence)input).length()==0) return false;
+            return true;
+        }
+        @Override
+        public String toString() {
+            return "required()";
+        }
+    }
 }

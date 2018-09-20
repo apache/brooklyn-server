@@ -193,7 +193,27 @@ public class Strings {
         }
         return string.substring(index);
     }
-
+    
+    /**
+     * Removes everything after the marker, optionally also removing the marker.
+     * If marker not found the string is unchanged.
+     */
+    public static String removeAfter(String string, String marker, boolean includeMarker) {
+        int i = string.indexOf(marker);
+        if (i==-1) return string;
+        return string.substring(0, i + (includeMarker ? marker.length() : 0));
+    }
+    
+    /**
+     * Removes everything before the marker, optionally also removing the marker.
+     * If marker not found the string is unchanged.
+     */
+    public static String removeBefore(String string, String marker, boolean includeMarker) {
+        int i = string.indexOf(marker);
+        if (i==-1) return string;
+        return string.substring(i + (includeMarker ? 0 : marker.length()));
+    }
+    
     /** convenience for {@link com.google.common.base.Joiner} */
     public static String join(Iterable<? extends Object> list, String separator) {
         if (list==null) return null;
