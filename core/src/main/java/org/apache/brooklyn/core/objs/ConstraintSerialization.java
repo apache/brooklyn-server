@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.ResourcePredicates;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.StringPredicates;
@@ -168,11 +169,19 @@ public class ConstraintSerialization {
 
         PredicateSerializationRuleAdder.predicateListConstructor((o) -> Predicates.or((Iterable)o)).preferredName("any").equivalentNames("or").add(this);
         PredicateSerializationRuleAdder.predicateListConstructor((o) -> /* and predicate is default when given list */ toPredicateFromJson(o)).preferredName("all").sample(Predicates.and(Collections.emptyList())).equivalentNames("and").add(this);
-        PredicateSerializationRuleAdder.noArgConstructor(() -> Predicates.alwaysFalse()).add(this);
-        PredicateSerializationRuleAdder.noArgConstructor(() -> Predicates.alwaysTrue()).add(this);
+        PredicateSerializationRuleAdder.noArgConstructor(Predicates::alwaysFalse).add(this);
+        PredicateSerializationRuleAdder.noArgConstructor(Predicates::alwaysTrue).add(this);
+        
+        PredicateSerializationRuleAdder.noArgConstructor(ResourcePredicates::urlExists).preferredName("urlExists").add(this);
+        PredicateSerializationRuleAdder.noArgConstructor(StringPredicates::isBlank).add(this);
         
         PredicateSerializationRuleAdder.stringConstructor(StringPredicates::matchesRegex).preferredName("regex").add(this);
         PredicateSerializationRuleAdder.stringConstructor(StringPredicates::matchesGlob).preferredName("glob").add(this);
+        
+        PredicateSerializationRuleAdder.stringConstructor(ConfigConstraints::forbiddenIf).add(this);
+        PredicateSerializationRuleAdder.stringConstructor(ConfigConstraints::forbiddenUnless).add(this);
+        PredicateSerializationRuleAdder.stringConstructor(ConfigConstraints::requiredIf).add(this);
+        PredicateSerializationRuleAdder.stringConstructor(ConfigConstraints::requiredUnless).add(this);
     }
     
     public static ConstraintSerialization INSTANCE = new ConstraintSerialization();

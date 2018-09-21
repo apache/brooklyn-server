@@ -1261,17 +1261,21 @@ public class Asserts {
      * or more usually the test failure of this method is thrown, 
      * with detail of the original {@link Throwable} logged and included in the caused-by.
      */
-    @SuppressWarnings("unchecked")
     public static void expectedFailureOfType(Throwable e, Class<?> permittedSupertype, Class<?> ...permittedSupertypes) {
+        expectedFailureOfType(null, e, permittedSupertype, permittedSupertypes);
+    }
+    @SuppressWarnings("unchecked")
+    public static void expectedFailureOfType(String message, Throwable e, Class<?> permittedSupertype, Class<?> ...permittedSupertypeExtras) {
+        @SuppressWarnings("rawtypes")
+        List<Class<?>> permittedSupertypes = MutableList.of(permittedSupertype).appendAll((List)Arrays.asList(permittedSupertypeExtras));
         if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error) e;
-        Throwable match = Exceptions.getFirstThrowableOfType(e, (Class<? extends Throwable>) permittedSupertype);
-        if (match != null) return;
         for (Class<?> clazz: permittedSupertypes) {
-            match = Exceptions.getFirstThrowableOfType(e, (Class<? extends Throwable>)clazz);
-            if (match != null) return;
+            if (Exceptions.getFirstThrowableOfType(e, (Class<? extends Throwable>)clazz) != null) {
+                return;
+            }
         }
         rethrowPreferredException(e, 
-            new AssertionError("Error "+JavaClassNames.simpleClassName(e)+" is not any of the expected types: " + Arrays.asList(permittedSupertypes), e));
+            new AssertionError((message!=null ? message+": " : "") + "Error "+JavaClassNames.simpleClassName(e)+" is not any of the expected types: " + permittedSupertypes, e));
     }
     
     /** Tests {@link #expectedFailure(Throwable)} and that the <code>toString</code>

@@ -22,7 +22,9 @@ package org.apache.brooklyn.util.core;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.objs.BrooklynObjectPredicate;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 
@@ -54,7 +56,7 @@ public class ResourcePredicates {
 
         @Override
         public boolean apply(@Nullable String resource) {
-            return apply(resource, null);
+            return apply(resource, BrooklynTaskTags.getContextEntity(Tasks.current()));
         }
 
         @Override
@@ -64,7 +66,7 @@ public class ResourcePredicates {
 
         @Override
         public String toString() {
-            return "ResourcePredicates.exists()";
+            return "ResourcePredicates.urlExists()";
         }
 
     }

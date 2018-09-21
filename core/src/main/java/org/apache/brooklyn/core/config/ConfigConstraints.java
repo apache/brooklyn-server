@@ -30,6 +30,7 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectPredicate;
@@ -37,6 +38,7 @@ import org.apache.brooklyn.core.objs.ConstraintSerialization;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -243,4 +245,71 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
             return "required()";
         }
     }
+    
+    private static abstract class OtherKeyPredicate implements BrooklynObjectPredicate<Object> {
+        private String otherKeyName;
+
+        public OtherKeyPredicate(String otherKeyName) {
+            this.otherKeyName = otherKeyName;
+        }
+
+        public abstract String predicateName();
+        
+        @Override
+        public String toString() {
+            return predicateName()+"("+JavaStringEscapes.wrapJavaString(otherKeyName)+")";
+        }
+        
+        @Override
+        public boolean apply(Object input) {
+            return apply(input, BrooklynTaskTags.getContextEntity(Tasks.current()));
+        }
+
+        @Override
+        public boolean apply(Object input, BrooklynObject context) {
+            if (context==null) return true;
+            // would be nice to offer an explanation, but that will need a richer API or a thread local
+            return test(input, context.config().get(ConfigKeys.newConfigKey(Object.class, otherKeyName)));
+        }
+        
+        public abstract boolean test(Object thisValue, Object otherValue);
+        
+    }
+    
+    public static Predicate<Object> forbiddenIf(String otherKeyName) { return new ForbiddenIfPredicate(otherKeyName); }
+    public static class ForbiddenIfPredicate extends OtherKeyPredicate {
+        public ForbiddenIfPredicate(String otherKeyName) { super(otherKeyName); }
+        @Override public String predicateName() { return "forbiddenIf"; }
+        @Override public boolean test(Object thisValue, Object otherValue) { 
+            return (thisValue==null) || (otherValue==null);
+        } 
+    }
+    
+    public static Predicate<Object> forbiddenUnless(String otherKeyName) { return new ForbiddenUnlessPredicate(otherKeyName); }
+    public static class ForbiddenUnlessPredicate extends OtherKeyPredicate {
+        public ForbiddenUnlessPredicate(String otherKeyName) { super(otherKeyName); }
+        @Override public String predicateName() { return "forbiddenUnless"; }
+        @Override public boolean test(Object thisValue, Object otherValue) { 
+            return (thisValue==null) || (otherValue!=null);
+        } 
+    }
+    
+    public static Predicate<Object> requiredIf(String otherKeyName) { return new RequiredIfPredicate(otherKeyName); }
+    public static class RequiredIfPredicate extends OtherKeyPredicate {
+        public RequiredIfPredicate(String otherKeyName) { super(otherKeyName); }
+        @Override public String predicateName() { return "requiredIf"; }
+        @Override public boolean test(Object thisValue, Object otherValue) { 
+            return (thisValue!=null) || (otherValue==null);
+        } 
+    }
+    
+    public static Predicate<Object> requiredUnless(String otherKeyName) { return new RequiredUnlessPredicate(otherKeyName); }
+    public static class RequiredUnlessPredicate extends OtherKeyPredicate {
+        public RequiredUnlessPredicate(String otherKeyName) { super(otherKeyName); }
+        @Override public String predicateName() { return "requiredUnless"; }
+        @Override public boolean test(Object thisValue, Object otherValue) { 
+            return (thisValue!=null) || (otherValue!=null);
+        } 
+    }
+    
 }
