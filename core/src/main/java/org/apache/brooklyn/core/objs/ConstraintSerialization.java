@@ -314,6 +314,12 @@ public class ConstraintSerialization {
         List<Object> args;
         if (o instanceof String) {
             key = (String)o;
+            if (key.indexOf("(")>=0) {
+                // it wasn't json; delegate to the parser again
+                StringConstraintParser parser = StringConstraintParser.forConstraint(this, key);
+                if (!parser.parse()) throw new IllegalStateException("cannot match: "+key);
+                return toPredicateFromJson(parser.result);
+            }
             args = MutableList.of();
         } else if (o instanceof Map) {
             if (((Map<?,?>)o).size()!=1) {

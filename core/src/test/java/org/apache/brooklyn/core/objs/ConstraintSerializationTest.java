@@ -67,6 +67,18 @@ public class ConstraintSerializationTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
+    public void testAcceptsMap() {
+        Predicate<String> p = StringPredicates.matchesGlob("???*");
+        Assert.assertEquals(ConstraintSerialization.INSTANCE.toPredicateFromJson(MutableMap.of("matchesGlob", "???*")).toString(), p.toString());
+    }
+
+    @Test
+    public void testAcceptsString() {
+        Predicate<String> p = StringPredicates.matchesGlob("???*");
+        Assert.assertEquals(ConstraintSerialization.INSTANCE.toPredicateFromJson("matchesGlob(\"???*\")").toString(), p.toString());
+    }
+    
+    @Test
     public void testAltPred() {
         Predicate<?> p = Predicates.notNull();
         Assert.assertEquals(ConstraintSerialization.INSTANCE.toJsonList(p),
