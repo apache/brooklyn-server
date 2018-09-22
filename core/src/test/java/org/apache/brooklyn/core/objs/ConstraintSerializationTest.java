@@ -86,7 +86,7 @@ public class ConstraintSerializationTest extends BrooklynMgmtUnitTestSupport {
     
     @Test
     public void testAltPred() {
-        Predicate<?> p = Predicates.notNull();
+        Predicate<?> p = StringPredicates.isNonBlank();
         Assert.assertEquals(ConstraintSerialization.INSTANCE.toJsonList(p),
             MutableList.of("required"));
         assertSamePredicate(ConstraintSerialization.INSTANCE.toPredicateFromJson("required"),

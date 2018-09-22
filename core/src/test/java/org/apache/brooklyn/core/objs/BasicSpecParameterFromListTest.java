@@ -28,6 +28,7 @@ import java.util.List;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.util.text.StringPredicates;
@@ -99,7 +100,7 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
         assertEquals(type.getDefaultValue(), defaultValue);
         assertEquals(type.getDescription(), description);
         assertTrue(type.getInheritanceByContext().values().isEmpty(), "Unexpected inheritance: "+type.getInheritanceByContext());
-        assertConstraint(type.getConstraint(), StringPredicates.isNonBlank());
+        assertConstraint(type.getConstraint(), ConfigConstraints.required());
     }
 
     @Test
@@ -132,7 +133,7 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
                 "name", name,
                 "constraints", ImmutableList.of(constraint)));
         ConfigKey<?> type = input.getConfigKey();
-        assertConstraint(type.getConstraint(), StringPredicates.isNonBlank());
+        assertConstraint(type.getConstraint(), ConfigConstraints.required());
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)

@@ -167,12 +167,13 @@ public class ConstraintSerialization {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     private void init() {
         PredicateSerializationRuleAdder.predicateListConstructor((o) -> ConfigConstraints.required()).
-            equivalentPredicates(Predicates.notNull(), StringPredicates.isNonBlank()).add(this);
+            equivalentPredicates(StringPredicates.isNonBlank()).add(this);
 
         PredicateSerializationRuleAdder.predicateListConstructor((o) -> Predicates.or((Iterable)o)).preferredName("any").equivalentNames("or").add(this);
         PredicateSerializationRuleAdder.predicateListConstructor((o) -> /* and predicate is default when given list */ toPredicateFromJson(o)).preferredName("all").sample(Predicates.and(Collections.emptyList())).equivalentNames("and").add(this);
         PredicateSerializationRuleAdder.noArgConstructor(Predicates::alwaysFalse).add(this);
         PredicateSerializationRuleAdder.noArgConstructor(Predicates::alwaysTrue).add(this);
+        PredicateSerializationRuleAdder.noArgConstructor(Predicates::notNull).add(this);
         
         PredicateSerializationRuleAdder.noArgConstructor(ResourcePredicates::urlExists).preferredName("urlExists").add(this);
         PredicateSerializationRuleAdder.noArgConstructor(StringPredicates::isBlank).add(this);
