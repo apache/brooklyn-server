@@ -22,6 +22,7 @@ package org.apache.brooklyn.core.config;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -243,6 +244,14 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
         @Override
         public String toString() {
             return "required()";
+        }
+        @Override
+        public boolean equals(Object obj) {
+            return (obj instanceof RequiredPredicate) && obj.getClass().equals(getClass());
+        }
+        @Override
+        public int hashCode() {
+            return Objects.hash(toString());
         }
     }
     

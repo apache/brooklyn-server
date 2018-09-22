@@ -214,6 +214,9 @@ public class ConstraintSerialization {
         if (parser.result instanceof Map && ((Map)parser.result).size()==1 && ((Map)parser.result).containsKey("all")) {
             return (List<Object>) ((Map)parser.result).get("all");
         }
+        if ("Predicates.alwaysTrue".equals(parser.result)) {
+            return Collections.emptyList(); 
+        }
         return ImmutableList.of(parser.result);
     }
     
@@ -291,7 +294,7 @@ public class ConstraintSerialization {
         }
     }
 
-    private void collectPredicateListFromJson(Object o, List<Predicate<?>> result) {
+    private void collectPredicateListFromJson(Object o, Collection<Predicate<?>> result) {
         if (o instanceof Collection) {
             ((Collection<?>)o).stream().forEach(i -> collectPredicateListFromJson(i, result));
             return;
@@ -361,9 +364,9 @@ public class ConstraintSerialization {
         return Predicates.and(preds);
     }
     public List<Predicate<?>> toPredicateListFromJsonList(Collection<?> o) {
-        List<Predicate<?>> result = MutableList.of();
+        Set<Predicate<?>> result = MutableSet.of();
         collectPredicateListFromJson(o, result);
-        return result;
+        return MutableList.copyOf(result);
     }
     
 }

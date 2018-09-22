@@ -58,10 +58,10 @@ public class ConstraintSerializationTest extends BrooklynMgmtUnitTestSupport {
     @Test
     public void testAltName() {
         Predicate<String> p = StringPredicates.matchesGlob("???*");
-        Assert.assertEquals(ConstraintSerialization.INSTANCE.toPredicateFromJson(
-            MutableList.of(MutableMap.of("matchesGlob", "???*"))).toString(), p.toString());
-        Assert.assertEquals(ConstraintSerialization.INSTANCE.toPredicateFromJson(
-            MutableList.of(MutableMap.of("glob", "???*"))).toString(), p.toString());
+        assertSamePredicate(ConstraintSerialization.INSTANCE.toPredicateFromJson(
+            MutableList.of(MutableMap.of("matchesGlob", "???*"))), p);
+        assertSamePredicate(ConstraintSerialization.INSTANCE.toPredicateFromJson(
+            MutableList.of(MutableMap.of("glob", "???*"))), p);
         Assert.assertEquals(ConstraintSerialization.INSTANCE.toJsonList(p),
             MutableList.of(MutableMap.of("glob", "???*")));
     }
@@ -69,13 +69,19 @@ public class ConstraintSerializationTest extends BrooklynMgmtUnitTestSupport {
     @Test
     public void testAcceptsMap() {
         Predicate<String> p = StringPredicates.matchesGlob("???*");
-        Assert.assertEquals(ConstraintSerialization.INSTANCE.toPredicateFromJson(MutableMap.of("matchesGlob", "???*")).toString(), p.toString());
+        assertSamePredicate(ConstraintSerialization.INSTANCE.toPredicateFromJson(MutableMap.of("matchesGlob", "???*")), p);
+    }
+
+    @Test
+    public void testAcceptsForbiddenIfMap() {
+        Predicate<Object> p = ConfigConstraints.forbiddenIf("x");
+        assertSamePredicate(ConstraintSerialization.INSTANCE.toPredicateFromJson(MutableMap.of("forbiddenIf", "x")), p);
     }
 
     @Test
     public void testAcceptsString() {
         Predicate<String> p = StringPredicates.matchesGlob("???*");
-        Assert.assertEquals(ConstraintSerialization.INSTANCE.toPredicateFromJson("matchesGlob(\"???*\")").toString(), p.toString());
+        assertSamePredicate(ConstraintSerialization.INSTANCE.toPredicateFromJson("matchesGlob(\"???*\")"), p);
     }
     
     @Test
@@ -83,14 +89,33 @@ public class ConstraintSerializationTest extends BrooklynMgmtUnitTestSupport {
         Predicate<?> p = Predicates.notNull();
         Assert.assertEquals(ConstraintSerialization.INSTANCE.toJsonList(p),
             MutableList.of("required"));
-        Assert.assertEquals(ConstraintSerialization.INSTANCE.toPredicateFromJson("required").toString(),
-            ConfigConstraints.required().toString());
+        assertSamePredicate(ConstraintSerialization.INSTANCE.toPredicateFromJson("required"),
+            ConfigConstraints.required());
+    }
+
+    @Test
+    public void testFlattens() {
+        assertSamePredicate(ConstraintSerialization.INSTANCE.toPredicateFromJson(MutableList.of("required", "required")),
+            ConfigConstraints.required());
+    }
+    
+    @Test
+    public void testEmpty() {
+        assertSamePredicate(ConstraintSerialization.INSTANCE.toPredicateFromJson(MutableList.of()),
+            Predicates.alwaysTrue());
+        Assert.assertEquals(ConstraintSerialization.INSTANCE.toJsonList(Predicates.alwaysTrue()), 
+            MutableList.of());
     }
 
     private void assertPredJsonBidi(Predicate<?> pred, List<?> json) {
         Assert.assertEquals(ConstraintSerialization.INSTANCE.toJsonList(pred), json);
-        // some predicates don't support equals, but all (the ones we use) must support toString
-        Assert.assertEquals(ConstraintSerialization.INSTANCE.toPredicateFromJson(json).toString(), pred.toString());
+        assertSamePredicate(ConstraintSerialization.INSTANCE.toPredicateFromJson(json), pred);
     }
-    
+
+    private static void assertSamePredicate(Predicate<?> p1, Predicate<?> p2) {
+        // some predicates don't support equals, but all (the ones we use) must support toString
+        Assert.assertEquals(p1.toString(), p2.toString());
+        Assert.assertEquals(p1.getClass(), p2.getClass());
+    }
+
 }

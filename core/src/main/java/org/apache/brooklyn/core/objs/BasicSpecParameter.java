@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.core.objs;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -55,7 +53,6 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,7 +67,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 
 public class BasicSpecParameter<T> implements SpecParameter<T>{
@@ -221,18 +217,6 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                 .put("port", PortRange.class)
                 .build();
 
-        private static final Map<String, Predicate<?>> BUILT_IN_CONSTRAINTS = ImmutableMap.<String, Predicate<?>>of(
-                "required", StringPredicates.isNonBlank());
-        
-        private static final Map<String, Function<Object, Predicate<?>>> BUILT_IN_CONSTRAINT_FACTORIES = ImmutableMap.<String, Function<Object, Predicate<?>>>of(
-                "regex", new Function<Object, Predicate<?>>() {
-                    @Override public Predicate<?> apply(Object input) {
-                        // TODO Could try to handle deferred supplier as well?
-                        checkArgument(input instanceof String, "Constraint regex value must be a string, but got %s (%s)",
-                                (input == null ? "null" : input.getClass().getName()), input);
-                        return StringPredicates.matchesRegex((String)input);
-                    }});
-        
         private static List<SpecParameter<?>> parseParameters(List<?> inputsRaw, Function<Object, Object> specialFlagTransformer, BrooklynClassLoadingContext loader) {
             if (inputsRaw == null) return ImmutableList.of();
             List<SpecParameter<?>> inputs = new ArrayList<>(inputsRaw.size());
@@ -381,40 +365,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         }
 
         private static Predicate<?> parseConstraint(Object untypedConstraint, BrooklynClassLoadingContext loader) {
-            // TODO Could try to handle deferred supplier as well?
-            if (untypedConstraint instanceof Predicate) {
-                // An explicit predicate (e.g. via "$brooklyn:object: ...")
-                return (Predicate<?>) untypedConstraint;
-            } else if (untypedConstraint instanceof String) {
-                // build-in simple declaration, such as "required"
-                String constraint = (String)untypedConstraint;
-                if (BUILT_IN_CONSTRAINTS.containsKey(constraint)) {
-                    return BUILT_IN_CONSTRAINTS.get(constraint);
-                } else {
-                    throw new IllegalArgumentException("The constraint '" + constraint + "' for a catalog input is not "
-                            + "recognized as a built-in (" + BUILT_IN_CONSTRAINTS.keySet() + " or " 
-                            + BUILT_IN_CONSTRAINT_FACTORIES.keySet() + ")");
-                }
-            } else if (untypedConstraint instanceof Map) {
-                // For example "regex: foo.*"
-                Map<?,?> constraint = (Map<?,?>)untypedConstraint;
-                if (constraint.size() == 1) {
-                    Object key = Iterables.getOnlyElement(constraint.keySet());
-                    Object val = constraint.get(key);
-                    if (BUILT_IN_CONSTRAINT_FACTORIES.containsKey(key)) {
-                        Function<Object, Predicate<?>> factory = BUILT_IN_CONSTRAINT_FACTORIES.get(key);
-                        return factory.apply(val);
-                    } else {
-                        throw new IllegalArgumentException("The constraint '" + constraint + "' for a catalog input is not "
-                                + "recognized as a built-in (" + BUILT_IN_CONSTRAINTS.keySet() + ")");
-                    }
-                } else {
-                    throw new IllegalArgumentException("The config key constraint '" + constraint + "' is not supported - "
-                            + "it can handle only single key:value constraint.");
-                }
-            } else {
-                throw new IllegalArgumentException("The constraint '" + untypedConstraint + "' for a catalog input is not recognized");
-            }
+            return ConstraintSerialization.INSTANCE.toPredicateFromJson(untypedConstraint);
         }
         
         private static ConfigInheritance parseInheritance(Object obj, BrooklynClassLoadingContext loader) {
