@@ -40,12 +40,14 @@ import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
+@Beta
 public class ConstraintSerialization {
 
     private final Map<String, String> predicateToStringToPreferredName = MutableMap.of();
@@ -184,7 +186,7 @@ public class ConstraintSerialization {
         PredicateSerializationRuleAdder.stringConstructor(ConfigConstraints::requiredUnless).add(this);
     }
     
-    public static ConstraintSerialization INSTANCE = new ConstraintSerialization();
+    public final static ConstraintSerialization INSTANCE = new ConstraintSerialization();
     
     private ConstraintSerialization() {}
 

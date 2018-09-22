@@ -256,7 +256,7 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
     }
     
     private static abstract class OtherKeyPredicate implements BrooklynObjectPredicate<Object> {
-        private String otherKeyName;
+        private final String otherKeyName;
 
         public OtherKeyPredicate(String otherKeyName) {
             this.otherKeyName = otherKeyName;
@@ -286,7 +286,7 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
     }
     
     public static Predicate<Object> forbiddenIf(String otherKeyName) { return new ForbiddenIfPredicate(otherKeyName); }
-    public static class ForbiddenIfPredicate extends OtherKeyPredicate {
+    protected static class ForbiddenIfPredicate extends OtherKeyPredicate {
         public ForbiddenIfPredicate(String otherKeyName) { super(otherKeyName); }
         @Override public String predicateName() { return "forbiddenIf"; }
         @Override public boolean test(Object thisValue, Object otherValue) { 
@@ -295,7 +295,7 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
     }
     
     public static Predicate<Object> forbiddenUnless(String otherKeyName) { return new ForbiddenUnlessPredicate(otherKeyName); }
-    public static class ForbiddenUnlessPredicate extends OtherKeyPredicate {
+    protected static class ForbiddenUnlessPredicate extends OtherKeyPredicate {
         public ForbiddenUnlessPredicate(String otherKeyName) { super(otherKeyName); }
         @Override public String predicateName() { return "forbiddenUnless"; }
         @Override public boolean test(Object thisValue, Object otherValue) { 
@@ -304,7 +304,7 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
     }
     
     public static Predicate<Object> requiredIf(String otherKeyName) { return new RequiredIfPredicate(otherKeyName); }
-    public static class RequiredIfPredicate extends OtherKeyPredicate {
+    protected static class RequiredIfPredicate extends OtherKeyPredicate {
         public RequiredIfPredicate(String otherKeyName) { super(otherKeyName); }
         @Override public String predicateName() { return "requiredIf"; }
         @Override public boolean test(Object thisValue, Object otherValue) { 
@@ -313,7 +313,7 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
     }
     
     public static Predicate<Object> requiredUnless(String otherKeyName) { return new RequiredUnlessPredicate(otherKeyName); }
-    public static class RequiredUnlessPredicate extends OtherKeyPredicate {
+    protected static class RequiredUnlessPredicate extends OtherKeyPredicate {
         public RequiredUnlessPredicate(String otherKeyName) { super(otherKeyName); }
         @Override public String predicateName() { return "requiredUnless"; }
         @Override public boolean test(Object thisValue, Object otherValue) { 

@@ -66,7 +66,7 @@ public class ResourcePredicates {
 
         @Override
         public String toString() {
-            return "ResourcePredicates.exists()";
+            return "ResourcePredicates.urlExists()";
         }
 
     }
