@@ -28,17 +28,14 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.objs.ConstraintSerialization;
 import org.apache.brooklyn.util.collections.Jsonya;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
-import org.apache.brooklyn.util.text.StringPredicates;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.base.Function;
-import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -64,7 +61,7 @@ public class ConfigSummary implements HasName, Serializable {
     @JsonInclude(Include.NON_NULL)
     private final Boolean pinned;
     @JsonInclude(Include.NON_NULL)
-    private final List<String> constraints;
+    private final List<Object> constraints;
 
     @JsonInclude(Include.NON_NULL)
     private final Map<String, URI> links;
@@ -84,7 +81,7 @@ public class ConfigSummary implements HasName, Serializable {
             @JsonProperty("priority") Double priority,
             @JsonProperty("possibleValues") List<Map<String, String>> possibleValues,
             @JsonProperty("pinned") Boolean pinned,
-            @JsonProperty("constraints") List<String> constraints,
+            @JsonProperty("constraints") List<?> constraints,
             @JsonProperty("links") Map<String, URI> links) {
         this.name = name;
         this.type = type;
@@ -95,7 +92,7 @@ public class ConfigSummary implements HasName, Serializable {
         this.priority = priority;
         this.possibleValues = possibleValues;
         this.pinned = pinned;
-        this.constraints = (constraints == null) ? ImmutableList.<String>of() : ImmutableList.copyOf(constraints);
+        this.constraints = (constraints == null) ? ImmutableList.<Object>of() : ImmutableList.copyOf(constraints);
         this.links = (links == null) ? ImmutableMap.<String, URI>of() : ImmutableMap.copyOf(links);
     }
 
@@ -111,9 +108,7 @@ public class ConfigSummary implements HasName, Serializable {
         this.label = label;
         this.priority = priority;
         this.pinned = pinned;
-        this.constraints = !config.getConstraint().equals(Predicates.alwaysTrue())
-                ? ImmutableList.of((config.getConstraint().getClass().equals(StringPredicates.isNonBlank().getClass()) ? "required" : config.getConstraint().toString()))
-                : ImmutableList.<String>of();
+        this.constraints = ConstraintSerialization.INSTANCE.toJsonList(config);
         if (config.getType().isEnum()) {
             this.type = Enum.class.getName();
             this.defaultValue = config.getDefaultValue() instanceof Enum? ((Enum<?>) config.getDefaultValue()).name() : 
@@ -175,7 +170,7 @@ public class ConfigSummary implements HasName, Serializable {
         return pinned;
     }
 
-    public List<String> getConstraints() {
+    public List<Object> getConstraints() {
         return constraints;
     }
 

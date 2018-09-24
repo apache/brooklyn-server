@@ -20,11 +20,10 @@
 package org.apache.brooklyn.core.config;
 
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.fail;
 
 import java.util.concurrent.Callable;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
@@ -45,7 +44,6 @@ import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.core.test.policy.TestPolicy;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.time.Duration;
@@ -154,10 +152,9 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
     public void testExceptionWhenEntityHasNullConfig() {
         try {
             app.createAndManageChild(EntitySpec.create(EntityWithNonNullConstraint.class));
-            fail("Expected exception when managing entity with missing config");
+            Asserts.shouldHaveFailedPreviously("Expected exception when managing entity with missing config");
         } catch (Exception e) {
-            Throwable t = Exceptions.getFirstThrowableOfType(e, ConstraintViolationException.class);
-            assertNotNull(t);
+            Asserts.expectedFailureOfType(e, ConstraintViolationException.class);
         }
     }
 
@@ -176,10 +173,9 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
     public void testExceptionWhenSubclassSetsInvalidDefaultValue() {
         try {
             app.createAndManageChild(EntitySpec.create(EntityProvidingDefaultValueForConfigKeyInRange.class));
-            fail("Expected exception when managing entity setting invalid default value");
+            Asserts.shouldHaveFailedPreviously("Expected exception when managing entity setting invalid default value");
         } catch (Exception e) {
-            Throwable t = Exceptions.getFirstThrowableOfType(e, ConstraintViolationException.class);
-            assertNotNull(t, "Original exception was: " + Exceptions.collapseText(e));
+            Asserts.expectedFailureOfType(e, ConstraintViolationException.class);
         }
     }
 
@@ -188,10 +184,9 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
         try {
             app.createAndManageChild(EntitySpec.create(EntityWithNonNullConstraintWithNonNullDefault.class)
                     .configure(EntityWithNonNullConstraintWithNonNullDefault.NON_NULL_WITH_DEFAULT, (Object) null));
-            fail("Expected exception when config key set to null");
+            Asserts.shouldHaveFailedPreviously("Expected exception when config key set to null");
         } catch (Exception e) {
-            Throwable t = Exceptions.getFirstThrowableOfType(e, ConstraintViolationException.class);
-            assertNotNull(t, "Original exception was: " + Exceptions.collapseText(e));
+            Asserts.expectedFailureOfType(e, ConstraintViolationException.class);
         }
     }
 
@@ -200,10 +195,9 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
         try {
             app.createAndManageChild(EntitySpec.create(EntityRequiringConfigKeyInRange.class)
                     .configure(ImmutableMap.of("test.conf.range", -1)));
-            fail("Expected exception when managing entity with invalid config");
+            Asserts.shouldHaveFailedPreviously("Expected exception when managing entity with invalid config");
         } catch (Exception e) {
-            Throwable t = Exceptions.getFirstThrowableOfType(e, ConstraintViolationException.class);
-            assertNotNull(t, "Original exception was: " + Exceptions.collapseText(e));
+            Asserts.expectedFailureOfType(e, ConstraintViolationException.class);
         }
     }
 
@@ -214,10 +208,9 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
         try {
             testEntity.addChild(EntitySpec.create(EntityRequiringConfigKeyInRange.class)
                 .configure(EntityRequiringConfigKeyInRange.RANGE, -1));
-            fail("Expected exception when managing child with invalid config");
+            Asserts.shouldHaveFailedPreviously("Expected exception when managing child with invalid config");
         } catch (Exception e) {
-            Throwable t = Exceptions.getFirstThrowableOfType(e, ConstraintViolationException.class);
-            assertNotNull(t, "Original exception was: " + Exceptions.collapseText(e));
+            Asserts.expectedFailureOfType(e, ConstraintViolationException.class);
         }
     }
 
@@ -228,10 +221,9 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
                 .configure(EntityWithNonNullConstraint.NON_NULL_CONFIG, (Object) null));
         try {
             ConfigConstraints.assertValid(p);
-            fail("Expected exception when validating policy with missing config");
+            Asserts.shouldHaveFailedPreviously("Expected exception when validating policy with missing config");
         } catch (Exception e) {
-            Throwable t = Exceptions.getFirstThrowableOfType(e, ConstraintViolationException.class);
-            assertNotNull(t, "Original exception was: " + Exceptions.collapseText(e));
+            Asserts.expectedFailureOfType(e, ConstraintViolationException.class);
         }
     }
 
@@ -240,10 +232,9 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
         try {
             mgmt.getEntityManager().createPolicy(PolicySpec.create(PolicyWithConfigConstraint.class)
                     .configure(PolicyWithConfigConstraint.NON_NULL_CONFIG, (Object) null));
-            fail("Expected exception when creating policy with missing config");
+            Asserts.shouldHaveFailedPreviously("Expected exception when creating policy with missing config");
         } catch (Exception e) {
-            Throwable t = Exceptions.getFirstThrowableOfType(e, ConstraintViolationException.class);
-            assertNotNull(t, "Original exception was: " + Exceptions.collapseText(e));
+            Asserts.expectedFailureOfType(e, ConstraintViolationException.class);
         }
     }
 
@@ -252,10 +243,9 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
         try {
             mgmt.getEntityManager().createEnricher(EnricherSpec.create(EnricherWithConfigConstraint.class)
                     .configure(EnricherWithConfigConstraint.PATTERN, "123.123.256.10"));
-            fail("Expected exception when creating enricher with invalid config");
+            Asserts.shouldHaveFailedPreviously("Expected exception when config key set to null");
         } catch (Exception e) {
-            Throwable t = Exceptions.getFirstThrowableOfType(e, ConstraintViolationException.class);
-            assertNotNull(t, "Original exception was: " + Exceptions.collapseText(e));
+            Asserts.expectedFailureOfType(e, ConstraintViolationException.class);
         }
     }
 
@@ -289,7 +279,7 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
             app.createAndManageChild(EntitySpec.create(EntityWithContextAwareConstraint.class)
                     .displayName("Mr. Big")
                     .configure("must-be-display-name", "Mr. Bag"));
-            fail("Expected exception when managing entity with incorrect config");
+            Asserts.shouldHaveFailedPreviously("Expected exception when managing entity with incorrect config");
         } catch (Exception e) {
             Asserts.expectedFailureOfType(e, ConstraintViolationException.class);
         }
@@ -306,7 +296,7 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
             // NB the call above does not currently/necessarily apply validation
             log.debug(JavaClassNames.niceClassAndMethod()+" got "+value+" for "+EntityRequiringConfigKeyInRange.RANGE+", now explicitly validating");
             ConfigConstraints.assertValid(child);
-            fail("Expected exception when managing entity with incorrect config; instead passed assertion and got: "+value);
+            Asserts.shouldHaveFailedPreviously("Expected exception when managing entity with incorrect config; instead passed assertion and got: "+value);
         } catch (Exception e) {
             Asserts.expectedFailureOfType(e, ConstraintViolationException.class);
         }
@@ -349,11 +339,90 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
     public void testCannotUpdateConfigToInvalidValue(BrooklynObject object) {
         try {
             object.config().set(EntityRequiringConfigKeyInRange.RANGE, -1);
-            fail("Expected exception when calling config().set with invalid value on " + object);
+            Asserts.shouldHaveFailedPreviously("Expected exception when calling config().set with invalid value on " + object);
         } catch (Exception e) {
-            Throwable t = Exceptions.getFirstThrowableOfType(e, ConstraintViolationException.class);
-            assertNotNull(t, "Original exception was: " + Exceptions.collapseText(e));
+            Asserts.expectedFailureOfType(e, ConstraintViolationException.class);
         }
     }
 
+    public static interface EntityForForbiddenAndRequiredConditionalConstraints extends TestEntity {
+        ConfigKey<Object> X = ConfigKeys.builder(Object.class).name("x")
+                .build();
+    }
+    @ImplementedBy(EntityForForbiddenAndRequiredConditionalConstraintsForbiddenIfImpl.class)
+    public static interface EntityForForbiddenAndRequiredConditionalConstraintsForbiddenIf extends EntityForForbiddenAndRequiredConditionalConstraints {
+        static ConfigKey<Object> FI = ConfigKeys.builder(Object.class).name("forbiddenIfX")
+            .constraint(ConfigConstraints.forbiddenIf("x")).build();
+    }
+    public static class EntityForForbiddenAndRequiredConditionalConstraintsForbiddenIfImpl extends TestEntityImpl implements EntityForForbiddenAndRequiredConditionalConstraintsForbiddenIf {}
+    
+    @ImplementedBy(EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnlessImpl.class)
+    public static interface EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnless extends EntityForForbiddenAndRequiredConditionalConstraints {
+        static ConfigKey<Object> FU = ConfigKeys.builder(Object.class).name("forbiddenUnlessX")
+            .constraint(ConfigConstraints.forbiddenUnless("x")).build();
+    }
+    public static class EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnlessImpl extends TestEntityImpl implements EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnless {}
+    
+    @ImplementedBy(EntityForForbiddenAndRequiredConditionalConstraintsRequiredIfImpl.class)
+    public static interface EntityForForbiddenAndRequiredConditionalConstraintsRequiredIf extends EntityForForbiddenAndRequiredConditionalConstraints {
+        static ConfigKey<Object> RI = ConfigKeys.builder(Object.class).name("requiredIfX")
+            .constraint(ConfigConstraints.requiredIf("x")).build();
+    }
+    public static class EntityForForbiddenAndRequiredConditionalConstraintsRequiredIfImpl extends TestEntityImpl implements EntityForForbiddenAndRequiredConditionalConstraintsRequiredIf {}
+    
+    @ImplementedBy(EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnlessImpl.class)
+    public static interface EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnless extends EntityForForbiddenAndRequiredConditionalConstraints {
+        static ConfigKey<Object> RU = ConfigKeys.builder(Object.class).name("requiredUnlessX")
+            .constraint(ConfigConstraints.requiredUnless("x")).build();
+    }
+    public static class EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnlessImpl extends TestEntityImpl implements EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnless {}
+
+    @Test
+    public void testForbiddenAndRequiredConditionalConstraintsForbiddenIf() {
+        assertKeyBehaviour(EntityForForbiddenAndRequiredConditionalConstraintsForbiddenIf.class, EntityForForbiddenAndRequiredConditionalConstraintsForbiddenIf.FI,
+            false, true, true, true);
+    }
+
+    @Test
+    public void testForbiddenAndRequiredConditionalConstraintsForbiddenUnless() {
+        assertKeyBehaviour(EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnless.class, EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnless.FU,
+            true, true, false, true);
+    }
+
+    @Test
+    public void testForbiddenAndRequiredConditionalConstraintsRequiredIf() {
+        assertKeyBehaviour(EntityForForbiddenAndRequiredConditionalConstraintsRequiredIf.class, EntityForForbiddenAndRequiredConditionalConstraintsRequiredIf.RI,
+            true, false, true, true);
+    }
+
+    @Test
+    public void testForbiddenAndRequiredConditionalConstraintsRequiredUnlelss() {
+        assertKeyBehaviour(EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnless.class, EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnless.RU,
+            true, true, true, false);
+    }
+
+    private void assertKeyBehaviour(Class<? extends Entity> clazz, ConfigKey<Object> key, boolean ifBoth, boolean ifJustX, boolean ifJustThis, boolean ifNone) {
+        assertKeyBehaviour("both set", clazz, true, key, true, ifBoth);
+        assertKeyBehaviour("only other key set", clazz, true, key, false, ifJustX);
+        assertKeyBehaviour("only this key set", clazz, false, key, true, ifJustThis);
+        assertKeyBehaviour("neither key set", clazz, false, key, false, ifNone);
+    }
+    
+    private void assertKeyBehaviour(String description, Class<? extends Entity> clazz, boolean isXSet, ConfigKey<Object> key, boolean isKeySet, boolean shouldSucceed) {
+        try {
+            EntitySpec<?> spec = EntitySpec.create(clazz);
+            if (isXSet) spec.configure(EntityForForbiddenAndRequiredConditionalConstraints.X, "set");
+            if (isKeySet) spec.configure(key, "set");
+            app.createAndManageChild(spec);
+            if (!shouldSucceed) {
+                Asserts.shouldHaveFailedPreviously("Expected failure when testing "+key.getName()+" - "+description);
+            }
+        } catch (Exception e) {
+            if (!shouldSucceed) {
+                Asserts.expectedFailureOfType("Expected ConstraintViolationException when testing "+key.getName()+" - "+description, e, ConstraintViolationException.class);
+            } else {
+                throw new AssertionError("Expected success when testing "+key.getName()+" - "+description+"; instead got "+e, e);
+            }
+        }
+    }
 }

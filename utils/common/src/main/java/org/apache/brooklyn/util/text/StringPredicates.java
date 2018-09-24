@@ -26,6 +26,7 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
@@ -109,7 +110,7 @@ public class StringPredicates {
 
         @Override
         public String toString() {
-            return "containsLiteralCaseInsensitive("+fragment+")";
+            return "containsLiteralCaseInsensitive("+JavaStringEscapes.wrapJavaString(fragment)+")";
         }
     }
 
@@ -131,7 +132,7 @@ public class StringPredicates {
 
         @Override
         public String toString() {
-            return "containsLiteral("+fragment+")";
+            return "containsLiteral("+JavaStringEscapes.wrapJavaString(fragment)+")";
         }
     }
 
@@ -210,7 +211,7 @@ public class StringPredicates {
         }
         @Override
         public String toString() {
-            return "startsWith("+prefix+")";
+            return "startsWith("+JavaStringEscapes.wrapJavaString(prefix)+")";
         }
     }
 
@@ -284,7 +285,7 @@ public class StringPredicates {
         }
         @Override
         public String toString() {
-            return "matchesRegex("+regex+")";
+            return "matchesRegex("+JavaStringEscapes.wrapJavaString(regex)+")";
         }
     }
     
@@ -303,7 +304,7 @@ public class StringPredicates {
         }
         @Override
         public String toString() {
-            return "matchesGlob("+glob+")";
+            return "matchesGlob("+JavaStringEscapes.wrapJavaString(glob)+")";
         }
     }
 
