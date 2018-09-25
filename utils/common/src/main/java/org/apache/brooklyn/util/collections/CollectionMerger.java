@@ -23,10 +23,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.Collection;
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 
 import org.apache.brooklyn.util.guava.Maybe;
 
@@ -43,8 +44,8 @@ public class CollectionMerger {
     public static class Builder {
         protected int depth = Integer.MAX_VALUE;
         protected boolean mergeNestedMaps = true;
-        protected boolean mergeNestedLists = false;
         protected boolean preferSecondOnConflict = false;
+        protected BiFunction<Collection<?>, Collection<?>, Collection<?>> mergeNestedLists = null;
         
         /** Sets effectively infinite {@link #depth(int)} (the default) */
         public Builder deep(boolean val) {
@@ -71,10 +72,25 @@ s         *
         }
         /** By default lists will not be merged, and either the first or second will be kept 
          * depending on {@link #preferSecondOnConflict(boolean)}. Set this to true to cause
-         * lists in the second merge argument to be appended to lists in the first. 
+         * lists in the second merge argument to be appended to lists in the first, or false for the default behaviour. 
+         * For more complex behaviours use {@link #mergeNestedLists(BiFunction)}.
          */
         public Builder mergeNestedLists(boolean val) {
-            this.mergeNestedLists = val;
+            if (val) {
+                mergeNestedLists((l1,l2) -> {
+                    Collection<Object> result = l1 instanceof Set ? MutableSet.of() : MutableList.of();
+                    result.addAll(l1);
+                    result.addAll(l2);
+                    return result;
+                });
+            } else {
+                mergeNestedLists(null);
+            }
+            return this;
+        }
+        /** Defines a function to use to determine the result when lists or sets need merging. */ 
+        public Builder mergeNestedLists(BiFunction<Collection<?>, Collection<?>, Collection<?>> listMergeFunction) {
+            this.mergeNestedLists = listMergeFunction;
             return this;
         }
         /** defaults to false, so if there is an unmergeable conflict, e.g. two strings, the first will be kept */
@@ -92,7 +108,7 @@ s         *
     }
     
     protected final int depth;
-    protected final boolean mergeNestedLists;
+    protected final BiFunction<Collection<?>, Collection<?>, Collection<?>> mergeNestedLists;
     protected final boolean preferSecondOnConflict;
 
     protected CollectionMerger(Builder builder) {
@@ -142,15 +158,14 @@ s         *
             }
         }
         if (val1.get() instanceof Iterable) {
-            if (!mergeNestedLists) {
-                return val1.get();
-            }
-            Iterable<?> iter1 = (Iterable<?>) val1.get();
-            if (val2.get() instanceof Iterable) {
-                return mergeIterablesImpl(iter1, (Iterable<?>) val2.get(), depthRemaining, visited);
-            } else {
+            if (mergeNestedLists == null) {
+                return conflictResult;
+            } else if (!(val2.get() instanceof Iterable)) {
                 // incompatible types; not merging
                 return conflictResult;
+            } else {
+                Collection<?> iter1 = val1.get() instanceof Collection ? (Collection<?>) val1.get() : MutableList.copyOf((Iterable<?>)val1.get());
+                return mergeNestedLists.apply(iter1, MutableList.copyOf((Iterable<?>)val2.get()));
             }
         }
         return conflictResult;
@@ -169,31 +184,6 @@ s         *
         return result;
     }
     
-    private Iterable<?> mergeIterablesImpl(Iterable<?> val1, Iterable<?> val2, int depthRemaining, Visited visited) {
-        if (depthRemaining < 1) {
-            return val1;
-        }
-        if (val1 instanceof Set) {
-            return mergeSetsImpl((Set<?>)val1, MutableSet.copyOf(val2), depthRemaining, visited);
-        } else {
-            return mergeListsImpl(MutableList.copyOf(val1), val2, depthRemaining, visited);
-        }
-    }
-
-    private Set<?> mergeSetsImpl(Set<?> val1, Set<?> val2, int depthRemaining, Visited visited) {
-        return MutableSet.builder()
-                .addAll(val1)
-                .addAll(val2)
-                .build();
-    }
-
-    private List<?> mergeListsImpl(List<?> val1, Iterable<?> val2, int depthRemaining, Visited visited) {
-        return MutableList.builder()
-                .addAll(val1)
-                .addAll(val2)
-                .build();
-    }
-
     /**
      * For avoiding infinite loops, we need to know which objects we have already visited. 
      * If we come across that object again, then want to return the same result (rather than
