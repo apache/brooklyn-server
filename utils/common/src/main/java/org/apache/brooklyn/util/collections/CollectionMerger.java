@@ -163,6 +163,8 @@ s         *
             } else if (!(val2.get() instanceof Iterable)) {
                 // incompatible types; not merging
                 return conflictResult;
+            } else if (depthRemaining < 1) {
+                return conflictResult;
             } else {
                 Collection<?> iter1 = val1.get() instanceof Collection ? (Collection<?>) val1.get() : MutableList.copyOf((Iterable<?>)val1.get());
                 return mergeNestedLists.apply(iter1, MutableList.copyOf((Iterable<?>)val2.get()));
