@@ -24,35 +24,94 @@ import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.ResourcePredicates;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.gson.Gson;
 
 public class ConstraintSerializationTest extends BrooklynMgmtUnitTestSupport {
 
     @Test
     public void testSimple() {
         assertPredJsonBidi(ConfigConstraints.required(), MutableList.of("required"));
+        assertPredJsonBidi(Predicates.alwaysFalse(), MutableList.of("Predicates.alwaysFalse"));
+        assertPredJsonBidi(Predicates.alwaysTrue(), MutableList.of()); // simplified to no-op
+        assertPredJsonBidi(ResourcePredicates.urlExists(), MutableList.of("urlExists"));
+        assertPredJsonBidi(StringPredicates.isBlank(), MutableList.of("isBlank"));
+        assertPredJsonBidi(StringPredicates.matchesRegex("a.*b"), MutableList.of(MutableMap.of("regex", "a.*b")));
+        assertPredJsonBidi(StringPredicates.matchesGlob("a?b"), MutableList.of(MutableMap.of("glob", "a?b")));
+        assertPredJsonBidi(ConfigConstraints.forbiddenIf("myother"), MutableList.of(MutableMap.of("forbiddenIf", "myother")));
+        assertPredJsonBidi(ConfigConstraints.forbiddenUnless("myother"), MutableList.of(MutableMap.of("forbiddenUnless", "myother")));
+        assertPredJsonBidi(ConfigConstraints.requiredIf("myother"), MutableList.of(MutableMap.of("requiredIf", "myother")));
+        assertPredJsonBidi(ConfigConstraints.requiredUnless("myother"), MutableList.of(MutableMap.of("requiredUnless", "myother")));
+    }
+    
+    @Test
+    public void testSimpleEquivalents() {
+        Gson gson = new Gson();
+        
+        assertPredicateFromJson(ConfigConstraints.required(), 
+                "required", "required()", "isNonBlank");
+        
+        assertPredicateFromJson(StringPredicates.matchesRegex("a"), 
+                "regex(\"a\")", "matchesRegex(\"a\")");
+        
+        assertPredicateFromJson(StringPredicates.matchesGlob("a"), 
+                "glob(\"a\")", "matchesGlob(\"a\")");
+        
+        assertPredicateFromJson(Predicates.and(StringPredicates.matchesRegex("a"), StringPredicates.matchesRegex("b")), 
+                gson.fromJson("[{and: [{regex: a},{regex: b}]}]", List.class),
+                gson.fromJson("[{all: [{regex: a},{regex: b}]}]", List.class));
+        
+        assertPredicateFromJson(Predicates.or(StringPredicates.matchesRegex("a"), StringPredicates.matchesRegex("b")), 
+                gson.fromJson("[{or: [{regex: a},{regex: b}]}]", List.class),
+                gson.fromJson("[{any: [{regex: a},{regex: b}]}]", List.class));
     }
 
     @Test
     public void testInteresting() {
         assertPredJsonBidi(Predicates.and(ConfigConstraints.required(), StringPredicates.matchesRegex(".*")),
-            MutableList.of("required", MutableMap.of("regex", ".*")));
+                MutableList.of("required", MutableMap.of("regex", ".*")));
+    }
+
+    @Test
+    public void testAnd() {
+        Predicate<String> p = Predicates.<String>and(
+                StringPredicates.matchesRegex("my.*first"), 
+                StringPredicates.matchesRegex("my.*second"));
+        List<?> json = MutableList.of(
+                MutableMap.of("regex", "my.*first"), 
+                MutableMap.of("regex", "my.*second"));
+        
+        assertPredJsonBidi(p, json);
+    }
+
+    @Test
+    public void testOr() {
+        Predicate<String> p = Predicates.<String>or(
+                StringPredicates.matchesRegex("my.*first"), 
+                StringPredicates.matchesRegex("my.*second"));
+        List<?> json = MutableList.of(
+                MutableMap.of("any", MutableList.of(
+                        MutableMap.of("regex", "my.*first"), 
+                        MutableMap.of("regex", "my.*second"))));
+        
+        assertPredJsonBidi(p, json);
     }
 
     @SuppressWarnings("unchecked")
     @Test
-    public void testNestedAnd() {
+    public void testNestedAndIsSimplified() {
         Predicate<String> p = Predicates.<String>and(
-            ConfigConstraints.required(), 
-            Predicates.and(Predicates.alwaysTrue()),
-            Predicates.<String>and(StringPredicates.matchesRegex(".*")));
+                ConfigConstraints.required(), 
+                Predicates.and(Predicates.alwaysTrue()),
+                Predicates.<String>and(StringPredicates.matchesRegex(".*")));
         Assert.assertEquals(ConstraintSerialization.INSTANCE.toJsonList(p), 
-            MutableList.of("required", MutableMap.of("regex", ".*")));
+                MutableList.of("required", MutableMap.of("regex", ".*")));
     }
 
     @Test
@@ -63,7 +122,7 @@ public class ConstraintSerializationTest extends BrooklynMgmtUnitTestSupport {
         assertSamePredicate(ConstraintSerialization.INSTANCE.toPredicateFromJson(
             MutableList.of(MutableMap.of("glob", "???*"))), p);
         Assert.assertEquals(ConstraintSerialization.INSTANCE.toJsonList(p),
-            MutableList.of(MutableMap.of("glob", "???*")));
+                MutableList.of(MutableMap.of("glob", "???*")));
     }
 
     @Test
@@ -112,10 +171,15 @@ public class ConstraintSerializationTest extends BrooklynMgmtUnitTestSupport {
         assertSamePredicate(ConstraintSerialization.INSTANCE.toPredicateFromJson(json), pred);
     }
 
+    private void assertPredicateFromJson(Predicate<?> expected, Object... inputs) {
+        for (Object input : inputs) {
+            assertSamePredicate(ConstraintSerialization.INSTANCE.toPredicateFromJson(input), expected);
+        }
+    }
+    
     private static void assertSamePredicate(Predicate<?> p1, Predicate<?> p2) {
         // some predicates don't support equals, but all (the ones we use) must support toString
         Assert.assertEquals(p1.toString(), p2.toString());
         Assert.assertEquals(p1.getClass(), p2.getClass());
     }
-
 }

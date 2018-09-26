@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.config;
 
 import static org.testng.Assert.assertFalse;
 
+import java.util.Map;
 import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -43,6 +44,7 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.core.test.policy.TestPolicy;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.net.Networking;
@@ -352,76 +354,74 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
     @ImplementedBy(EntityForForbiddenAndRequiredConditionalConstraintsForbiddenIfImpl.class)
     public static interface EntityForForbiddenAndRequiredConditionalConstraintsForbiddenIf extends EntityForForbiddenAndRequiredConditionalConstraints {
         static ConfigKey<Object> FI = ConfigKeys.builder(Object.class).name("forbiddenIfX")
-            .constraint(ConfigConstraints.forbiddenIf("x")).build();
+                .constraint(ConfigConstraints.forbiddenIf("x")).build();
     }
     public static class EntityForForbiddenAndRequiredConditionalConstraintsForbiddenIfImpl extends TestEntityImpl implements EntityForForbiddenAndRequiredConditionalConstraintsForbiddenIf {}
     
     @ImplementedBy(EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnlessImpl.class)
     public static interface EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnless extends EntityForForbiddenAndRequiredConditionalConstraints {
         static ConfigKey<Object> FU = ConfigKeys.builder(Object.class).name("forbiddenUnlessX")
-            .constraint(ConfigConstraints.forbiddenUnless("x")).build();
+                .constraint(ConfigConstraints.forbiddenUnless("x")).build();
     }
     public static class EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnlessImpl extends TestEntityImpl implements EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnless {}
     
     @ImplementedBy(EntityForForbiddenAndRequiredConditionalConstraintsRequiredIfImpl.class)
     public static interface EntityForForbiddenAndRequiredConditionalConstraintsRequiredIf extends EntityForForbiddenAndRequiredConditionalConstraints {
         static ConfigKey<Object> RI = ConfigKeys.builder(Object.class).name("requiredIfX")
-            .constraint(ConfigConstraints.requiredIf("x")).build();
+                .constraint(ConfigConstraints.requiredIf("x")).build();
     }
     public static class EntityForForbiddenAndRequiredConditionalConstraintsRequiredIfImpl extends TestEntityImpl implements EntityForForbiddenAndRequiredConditionalConstraintsRequiredIf {}
     
     @ImplementedBy(EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnlessImpl.class)
     public static interface EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnless extends EntityForForbiddenAndRequiredConditionalConstraints {
         static ConfigKey<Object> RU = ConfigKeys.builder(Object.class).name("requiredUnlessX")
-            .constraint(ConfigConstraints.requiredUnless("x")).build();
+                .constraint(ConfigConstraints.requiredUnless("x")).build();
     }
     public static class EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnlessImpl extends TestEntityImpl implements EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnless {}
 
     @Test
     public void testForbiddenAndRequiredConditionalConstraintsForbiddenIf() {
         assertKeyBehaviour(EntityForForbiddenAndRequiredConditionalConstraintsForbiddenIf.class, EntityForForbiddenAndRequiredConditionalConstraintsForbiddenIf.FI,
-            false, true, true, true);
+                false, true, true, true);
     }
 
     @Test
     public void testForbiddenAndRequiredConditionalConstraintsForbiddenUnless() {
         assertKeyBehaviour(EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnless.class, EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnless.FU,
-            true, true, false, true);
+                true, true, false, true);
     }
 
     @Test
     public void testForbiddenAndRequiredConditionalConstraintsRequiredIf() {
         assertKeyBehaviour(EntityForForbiddenAndRequiredConditionalConstraintsRequiredIf.class, EntityForForbiddenAndRequiredConditionalConstraintsRequiredIf.RI,
-            true, false, true, true);
+                true, false, true, true);
     }
 
     @Test
     public void testForbiddenAndRequiredConditionalConstraintsRequiredUnlelss() {
         assertKeyBehaviour(EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnless.class, EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnless.RU,
-            true, true, true, false);
+                true, true, true, false);
     }
 
     private void assertKeyBehaviour(Class<? extends Entity> clazz, ConfigKey<Object> key, boolean ifBoth, boolean ifJustX, boolean ifJustThis, boolean ifNone) {
-        assertKeyBehaviour("both set", clazz, true, key, true, ifBoth);
-        assertKeyBehaviour("only other key set", clazz, true, key, false, ifJustX);
-        assertKeyBehaviour("only this key set", clazz, false, key, true, ifJustThis);
-        assertKeyBehaviour("neither key set", clazz, false, key, false, ifNone);
+        assertKeyBehaviour("both set", clazz, MutableMap.of("x", "myval", key, "myval"), ifBoth);
+        assertKeyBehaviour("only other key set", clazz, MutableMap.of("x", "myval"), ifJustX);
+        assertKeyBehaviour("only this key set", clazz, MutableMap.of(key, "myval"), ifJustThis);
+        assertKeyBehaviour("neither key set", clazz, MutableMap.of(), ifNone);
     }
-    
-    private void assertKeyBehaviour(String description, Class<? extends Entity> clazz, boolean isXSet, ConfigKey<Object> key, boolean isKeySet, boolean shouldSucceed) {
+
+    private void assertKeyBehaviour(String description, Class<? extends Entity> clazz, Map<?, ?> config, boolean shouldSucceed) {
         try {
-            EntitySpec<?> spec = EntitySpec.create(clazz);
-            if (isXSet) spec.configure(EntityForForbiddenAndRequiredConditionalConstraints.X, "set");
-            if (isKeySet) spec.configure(key, "set");
-            app.createAndManageChild(spec);
+            app.createAndManageChild(EntitySpec.create(clazz)
+                    .configure(config));
             if (!shouldSucceed) {
-                Asserts.shouldHaveFailedPreviously("Expected failure when testing "+key.getName()+" - "+description);
+                Asserts.shouldHaveFailedPreviously("Expected failure "+" - "+description);
             }
         } catch (Exception e) {
             if (!shouldSucceed) {
-                Asserts.expectedFailureOfType("Expected ConstraintViolationException when testing "+key.getName()+" - "+description, e, ConstraintViolationException.class);
+                Asserts.expectedFailureOfType("Expected ConstraintViolationException - "+description, e, ConstraintViolationException.class);
             } else {
-                throw new AssertionError("Expected success when testing "+key.getName()+" - "+description+"; instead got "+e, e);
+                throw new AssertionError("Expected success - "+description+"; instead got "+e, e);
             }
         }
     }

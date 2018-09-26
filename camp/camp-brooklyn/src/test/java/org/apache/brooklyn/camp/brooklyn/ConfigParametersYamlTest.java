@@ -1079,6 +1079,45 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
     }
 
     @Test
+    public void testConfigParameterConstraintParsing() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+TestEntity.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: testRequired",
+                "        type: String",
+                "        constraints:",
+                "        - or:",
+                "           - regex: val1",
+                "           - regex: val2");
+        
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys",
+                "  brooklyn.config:",
+                "    testRequired: val1");
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        assertKeyEquals(entity, "testRequired", null, String.class, null, "val1");
+        
+        Predicate<?> constraint = entity.getEntityType().getConfigKey("testRequired").getConstraint();
+        assertEquals(constraint.toString(), "Predicates.or(matchesRegex(\"val1\"),matchesRegex(\"val2\"))");
+
+        // Rebind, and then check again that the config key is listed
+        Entity newApp = rebind();
+        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
+        assertKeyEquals(newEntity, "testRequired", null, String.class, null, "val1");
+        
+        Predicate<?> newConstraint = newEntity.getEntityType().getConfigKey("testRequired").getConstraint();
+        assertEquals(newConstraint.toString(), "Predicates.or(matchesRegex(\"val1\"),matchesRegex(\"val2\"))");
+    }
+
+    @Test
     public void testConfigParameterConstraintObject() throws Exception {
         addCatalogItems(
                 "brooklyn.catalog:",

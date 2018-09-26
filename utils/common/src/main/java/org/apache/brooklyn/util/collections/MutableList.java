@@ -48,7 +48,14 @@ public class MutableList<V> extends ArrayList<V> {
         return result;
     }
     
-    public static <V> MutableList<V> of(V v1, V v2, V ...vv) {
+    public static <V> MutableList<V> of(V v1, V v2) {
+        MutableList<V> result = new MutableList<V>();
+        result.add(v1);
+        result.add(v2);
+        return result;
+    }
+    
+    public static <V> MutableList<V> of(V v1, V v2, V... vv) {
         MutableList<V> result = new MutableList<V>();
         result.add(v1);
         result.add(v2);
