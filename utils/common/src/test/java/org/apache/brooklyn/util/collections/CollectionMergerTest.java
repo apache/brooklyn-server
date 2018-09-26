@@ -22,6 +22,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 
 import java.io.StringReader;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.test.Asserts;
@@ -426,6 +428,20 @@ public class CollectionMergerTest {
         
         assertEquals(result1, ImmutableMap.of("key1", "val1a", "key2", "val2", "key3", "val3"));
         assertEquals(result2, ImmutableMap.of("key1", "val1b", "key2", "val2", "key3", "val3"));
+    }
+
+    @Test
+    public void testMergeListsWithCusomFunction() {
+        Map<?,?> val1 = ImmutableMap.of("key", ImmutableList.of("a", "c"));
+        Map<?,?> val2 = ImmutableMap.of("key", ImmutableList.of("b"));
+        
+        Map<?, ?> result = CollectionMerger.builder().mergeNestedLists( (l1,l2) -> {
+            List<Object> r = MutableList.<Object>copyOf(l1).appendAll(l2);
+            Collections.sort(r, (o1,o2) -> o1.toString().compareTo(o2.toString()));
+            return r;
+        }).build().merge(val1, val2);
+        
+        assertEquals(result, ImmutableMap.of("key", ImmutableList.of("a", "b", "c")));
     }
 
     protected Iterable<?> parseYaml(String yaml) {
