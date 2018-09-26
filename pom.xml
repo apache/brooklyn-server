@@ -219,6 +219,7 @@
 
         <jaxb.version>2.2.11</jaxb.version>
         <javax.activation.version>1.1.1</javax.activation.version>
+        <pax-web.version>6.0.6</pax-web.version>
     </properties>
 
     <modules>
