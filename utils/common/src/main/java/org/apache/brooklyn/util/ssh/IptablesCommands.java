@@ -130,8 +130,8 @@ public class IptablesCommands {
      *
      */
     public static String saveIptablesRules() {
-        return alternatives(sudo("service iptables save"),
-                            chain(installPackage("iptables-persistent"), sudo("/etc/init.d/iptables-persistent save")));
+        return alternatives("if [ ${UID} -eq 0 ] ; then iptables–save > /etc/sysconfig/iptables ; else sudo iptables-save | sudo tee /etc/sysconfig/iptables ; fi",
+                chain(installPackage("iptables-persistent"), sudo("/etc/init.d/iptables-persistent save")));
     }
 
     /**
