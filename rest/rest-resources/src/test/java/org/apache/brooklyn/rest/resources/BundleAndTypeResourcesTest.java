@@ -44,7 +44,9 @@ import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.objs.Identifiable;
@@ -52,11 +54,14 @@ import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.enricher.stock.Aggregator;
 import org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy;
 import org.apache.brooklyn.rest.domain.BundleInstallationRestResult;
@@ -1373,4 +1378,85 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         Assert.assertEquals(entity2r, entity2);
     }
     
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testConfigKeyOrdering() {
+        String symbolicNameSimple = "my-catalog-item";
+        String symbolicNameRedeclaringKeys = "my-catalog-item-redeclaring-keys";
+        
+        ImmutableList<Map<?, ?>> expectedConfigOrdering = ImmutableList.of(
+                ImmutableMap.of("name", "unp2", "label", "unp 2", "pinned", false),
+                ImmutableMap.of("name", "unp3", "label", "unp 3", "pinned", false),
+                ImmutableMap.of("name", "unp1", "label", "unp 1", "pinned", false),
+                ImmutableMap.of("name", "p2", "label", "p 2", "pinned", true, "priority", 1.0D),
+                ImmutableMap.of("name", "p3", "label", "p 3", "pinned", true, "priority", 2.0D),
+                ImmutableMap.of("name", "p1", "label", "p 1", "pinned", true, "priority", 3.0D));
+        
+        String yaml = Joiner.on("\n").join(
+                        "brooklyn.catalog:",
+                        "  version: " + TEST_VERSION,
+                        "  itemType: entity",
+                        "  items:",
+                        "    - id: " + symbolicNameSimple,
+                        "      item:",
+                        "        type: " + TestEntityWithPinnedConfig.class.getName(),
+                        "    - id: " + symbolicNameRedeclaringKeys,
+                        "      item:",
+                        "        type: " + TestEntityWithPinnedConfig.class.getName(),
+                        "        brooklyn.parameters:",
+                        "          - name: unp2",
+                        "          - name: unp1",
+                        "          - name: p2",
+                        "          - name: p1");
+                
+        Response response = client().path("/catalog/bundles")
+                .header(HttpHeaders.CONTENT_TYPE, "application/yaml")
+                .post(yaml);
+        assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
+
+        for (String symbolicName : ImmutableList.of(symbolicNameSimple, symbolicNameRedeclaringKeys)) {
+            TypeDetail entityItem = client().path("/catalog/types/"+symbolicName + "/" + TEST_VERSION)
+                    .get(TypeDetail.class);
+            
+            List<Map<?,?>> entityConfig = (List<Map<?, ?>>) entityItem.getExtraFields().get("config");
+            
+            assertInitialConfigOrdering("item="+symbolicName, entityConfig, expectedConfigOrdering);
+        }
+    }
+    
+    private void assertInitialConfigOrdering(String context, List<Map<?, ?>> actuals, List<Map<?, ?>> expecteds) {
+        String actualsStr = "\n\t" + Joiner.on("\n\t").join(actuals);
+        int index = 0;
+        for (int i = 0; i < expecteds.size(); i++) {
+            Map<?, ?> actual = actuals.get(i);
+            Map<?, ?> expected = expecteds.get(i);
+            for (Map.Entry<?, ?> entry : expected.entrySet()) {
+                assertEquals(actual.get(entry.getKey()), entry.getValue(), "context="+context+"; index="+index+"; actual="+actual+"; actuals="+actualsStr);
+            }
+        }
+    }
+
+    @ImplementedBy(TestEntityWithPinnedConfigImpl.class)
+    public static interface TestEntityWithPinnedConfig extends Entity {
+        
+        @CatalogConfig(label="p 1", pinned=true, priority=1)
+        public static final ConfigKey<String> P1 = ConfigKeys.builder(String.class).name("p1").build();
+        
+        @CatalogConfig(label="p 2", pinned=true, priority=3)
+        public static final ConfigKey<String> P2 = ConfigKeys.builder(String.class).name("p2").build();
+        
+        @CatalogConfig(label="p 3", pinned=true, priority=2)
+        public static final ConfigKey<String> P3 = ConfigKeys.builder(String.class).name("p3").build();
+        
+        @CatalogConfig(label="unp 1", pinned=false, priority=4)
+        public static final ConfigKey<String> UNP1 = ConfigKeys.builder(String.class).name("unp1").build();
+        
+        @CatalogConfig(label="unp 2", pinned=false, priority=6)
+        public static final ConfigKey<String> UNP2 = ConfigKeys.builder(String.class).name("unp2").build();
+        
+        @CatalogConfig(label="unp 3", pinned=false, priority=5)
+        public static final ConfigKey<String> UNP3 = ConfigKeys.builder(String.class).name("unp3").build();
+    }
+    public static class TestEntityWithPinnedConfigImpl extends TestEntityImpl implements TestEntityWithPinnedConfig {
+    }
 }

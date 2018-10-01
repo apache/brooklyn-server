@@ -29,13 +29,17 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.PortRange;
+import org.apache.brooklyn.api.objs.SpecParameter;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.catalog.SpecParameterUnwrappingTest;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
@@ -49,6 +53,7 @@ import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
@@ -1194,6 +1199,66 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         }
     }
 
+    @Test
+    public void testConfigParameterPinnedOrder() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  version: " + TEST_VERSION,
+                "  itemType: entity",
+                "  items:",
+                "    - id: entity-without-keys",
+                "      item:",
+                "        type: "+TestEntityWithPinnedConfig.class.getName(),
+                "    - id: entity-with-keys-redeclared",
+                "      item:",
+                "        type: "+TestEntityWithPinnedConfig.class.getName(),
+                "        brooklyn.parameters:",
+                "          - name: pinned2",
+                "          - name: unpinned2");
+
+        for (String symbolicName : ImmutableList.of("entity-without-keys", "entity-with-keys-redeclared")) {
+            // Mimicking the code in REST api's TypeResource, for getting the config keys
+            RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
+            AbstractBrooklynObjectSpec<?, ?> spec = mgmt().getTypeRegistry().createSpec(item, null, null);
+            List<SpecParameter<?>> params = spec.getParameters();
+            SpecParameter<?> pinned2 = Iterables.find(params, (p) -> p.getConfigKey().getName().equals("pinned2"));
+            SpecParameter<?> unpinned2 = Iterables.find(params, (p) -> p.getConfigKey().getName().equals("unpinned2"));
+            
+            assertEquals(pinned2.getLabel(), "mylabel-pinned2", "item="+symbolicName);
+            assertEquals(pinned2.isPinned(), true, "item="+symbolicName);
+            
+            assertEquals(unpinned2.getLabel(), "mylabel-unpinned2", "item="+symbolicName);
+            assertEquals(unpinned2.isPinned(), false, "item="+symbolicName);
+            
+            List<String> keys = params.stream().map((p) -> p.getConfigKey().getName()).collect(Collectors.toList());
+            assertEquals(keys.subList(0, 6), ImmutableList.of("pinned1", "pinned2", "pinned3", "unpinned1", "unpinned2", "unpinned3"), "item="+symbolicName+"; actual="+keys);
+        }
+    }
+    
+    @ImplementedBy(TestEntityWithPinnedConfigImpl.class)
+    public static interface TestEntityWithPinnedConfig extends Entity {
+        
+        @CatalogConfig(label="pinned1", pinned=true, priority=6)
+        public static final ConfigKey<String> P1 = ConfigKeys.builder(String.class).name("pinned1").build();
+        
+        @CatalogConfig(label="mylabel-pinned2", pinned=true, priority=5)
+        public static final ConfigKey<String> P2 = ConfigKeys.builder(String.class).name("pinned2").build();
+        
+        @CatalogConfig(label="pinned3", pinned=true, priority=4)
+        public static final ConfigKey<String> P3 = ConfigKeys.builder(String.class).name("pinned3").build();
+        
+        @CatalogConfig(label="unpinned1", pinned=false, priority=3)
+        public static final ConfigKey<String> UNP1 = ConfigKeys.builder(String.class).name("unpinned1").build();
+        
+        @CatalogConfig(label="mylabel-unpinned2", pinned=false, priority=2)
+        public static final ConfigKey<String> UNP2 = ConfigKeys.builder(String.class).name("unpinned2").build();
+        
+        @CatalogConfig(label="unpinned3", pinned=false, priority=1)
+        public static final ConfigKey<String> UNP3 = ConfigKeys.builder(String.class).name("unpinned3").build();
+    }
+    public static class TestEntityWithPinnedConfigImpl extends TestEntityImpl implements TestEntityWithPinnedConfig {
+    }
+    
     protected <T> void assertKeyEquals(Entity entity, String keyName, String expectedDescription, Class<T> expectedType, T expectedDefaultVal, T expectedEntityVal) {
         ConfigKey<?> key = entity.getEntityType().getConfigKey(keyName);
         assertNotNull(key, "No key '"+keyName+"'; keys="+entity.getEntityType().getConfigKeys());

@@ -485,7 +485,8 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
 
         if (newParams!=null) {
             for (SpecParameter<?> p: newParams) {
-                final SpecParameter<?> existingP = existingToKeep.remove(p.getConfigKey().getName());
+                // Don't remove + add, as that changes order: see https://issues.apache.org/jira/browse/BROOKLYN-602
+                final SpecParameter<?> existingP = existingToKeep.get(p.getConfigKey().getName());
                 if (p instanceof SpecParameterIncludingDefinitionForInheritance) {
                     // config keys should be transformed to parameters and so should be found;
                     // so the code below is correct whether existingP is set or is null 
@@ -494,7 +495,12 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                     // shouldn't happen; all calling logic should get SpecParameterForInheritance;
                     log.warn("Found non-definitional spec parameter: "+p+" adding to "+spec);
                 }
-                result.add(p);
+                
+                if (existingP != null) {
+                    existingToKeep.put(p.getConfigKey().getName(), p);
+                } else {
+                    result.add(p);
+                }
             }
         }
 
