@@ -1090,6 +1090,7 @@
                          <excludes combine.children="merge">
                      so that the child pom entries replace the parent entries
                  -->
+                <basedir>${project.basedir}</basedir>
                 <excludes combine.children="append">
                   <!-- Exclude sandbox because not part of distribution: not in tgz, and not uploaded to maven-central -->
                   <exclude>sandbox/**</exclude>
