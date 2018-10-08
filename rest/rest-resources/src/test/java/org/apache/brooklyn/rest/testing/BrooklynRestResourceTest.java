@@ -89,7 +89,7 @@ public abstract class BrooklynRestResourceTest extends BrooklynRestApiTest {
     protected synchronized void startServer() throws Exception {
         if (server == null) {
             setUpResources();
-            JAXRSServerFactoryBean sf = ResourceUtils.createApplication(createRestApp(), true, false, false, null);
+            JAXRSServerFactoryBean sf = ResourceUtils.createApplication(createRestApp(), true);
             if (clientProviders == null) {
                 clientProviders = sf.getProviders();
             }
