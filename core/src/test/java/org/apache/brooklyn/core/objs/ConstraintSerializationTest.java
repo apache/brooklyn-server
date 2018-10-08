@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 
 public class ConstraintSerializationTest extends BrooklynMgmtUnitTestSupport {
@@ -48,6 +49,8 @@ public class ConstraintSerializationTest extends BrooklynMgmtUnitTestSupport {
         assertPredJsonBidi(ConfigConstraints.forbiddenUnless("myother"), MutableList.of(MutableMap.of("forbiddenUnless", "myother")));
         assertPredJsonBidi(ConfigConstraints.requiredIf("myother"), MutableList.of(MutableMap.of("requiredIf", "myother")));
         assertPredJsonBidi(ConfigConstraints.requiredUnless("myother"), MutableList.of(MutableMap.of("requiredUnless", "myother")));
+        assertPredJsonBidi(ConfigConstraints.requiredUnlessAnyOf(ImmutableList.of("myother1", "myother2")), MutableList.of(MutableMap.of("requiredUnlessAnyOf", ImmutableList.of("myother1", ("myother2")))));
+        assertPredJsonBidi(ConfigConstraints.forbiddenUnlessAnyOf(ImmutableList.of("myother1", "myother2")), MutableList.of(MutableMap.of("forbiddenUnlessAnyOf", ImmutableList.of("myother1", ("myother2")))));
     }
     
     @Test

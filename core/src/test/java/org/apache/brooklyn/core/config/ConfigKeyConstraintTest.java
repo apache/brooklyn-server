@@ -350,6 +350,8 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
     public static interface EntityForForbiddenAndRequiredConditionalConstraints extends TestEntity {
         ConfigKey<Object> X = ConfigKeys.builder(Object.class).name("x")
                 .build();
+        ConfigKey<Object> Y = ConfigKeys.builder(Object.class).name("y")
+                .build();
     }
     @ImplementedBy(EntityForForbiddenAndRequiredConditionalConstraintsForbiddenIfImpl.class)
     public static interface EntityForForbiddenAndRequiredConditionalConstraintsForbiddenIf extends EntityForForbiddenAndRequiredConditionalConstraints {
@@ -379,6 +381,20 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
     }
     public static class EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnlessImpl extends TestEntityImpl implements EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnless {}
 
+    @ImplementedBy(EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnlessAnyOfImpl.class)
+    public static interface EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnlessAnyOf extends EntityForForbiddenAndRequiredConditionalConstraints {
+        static ConfigKey<Object> RUAO = ConfigKeys.builder(Object.class).name("requiredUnlessAnyOfXY")
+                .constraint(ConfigConstraints.requiredUnlessAnyOf(ImmutableList.of("x", "y"))).build();
+    }
+    public static class EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnlessAnyOfImpl extends TestEntityImpl implements EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnlessAnyOf {}
+
+    @ImplementedBy(EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnlessAnyOfImpl.class)
+    public static interface EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnlessAnyOf extends EntityForForbiddenAndRequiredConditionalConstraints {
+        static ConfigKey<Object> FUAO = ConfigKeys.builder(Object.class).name("forbiddenUnlessAnyOfXY")
+                .constraint(ConfigConstraints.forbiddenUnlessAnyOf(ImmutableList.of("x", "y"))).build();
+    }
+    public static class EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnlessAnyOfImpl extends TestEntityImpl implements EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnlessAnyOf {}
+
     @Test
     public void testForbiddenAndRequiredConditionalConstraintsForbiddenIf() {
         assertKeyBehaviour(EntityForForbiddenAndRequiredConditionalConstraintsForbiddenIf.class, EntityForForbiddenAndRequiredConditionalConstraintsForbiddenIf.FI,
@@ -398,9 +414,31 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testForbiddenAndRequiredConditionalConstraintsRequiredUnlelss() {
+    public void testForbiddenAndRequiredConditionalConstraintsRequiredUnless() {
         assertKeyBehaviour(EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnless.class, EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnless.RU,
                 true, true, true, false);
+    }
+
+    @Test
+    public void testForbiddenAndRequiredConditionalConstraintsRequiredUnlessAnyOf() {
+        Class<EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnlessAnyOf> clazz = EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnlessAnyOf.class;
+        ConfigKey<Object> key = EntityForForbiddenAndRequiredConditionalConstraintsRequiredUnlessAnyOf.RUAO;
+        assertKeyBehaviour(clazz, key,
+                true, true, true, false);
+        assertKeyBehaviour("only other key set", clazz, MutableMap.of("y", "myval"), true);
+        assertKeyBehaviour("both set", clazz, MutableMap.of("y", "myval", key, "myval"), true);
+        assertKeyBehaviour("both set", clazz, MutableMap.of("x", "myval", "y", "myval", key, "myval"), true);
+    }
+
+    @Test
+    public void testForbiddenAndRequiredConditionalConstraintsForbiddenUnlessAnyOf() {
+        Class<EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnlessAnyOf> clazz = EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnlessAnyOf.class;
+        ConfigKey<Object> key = EntityForForbiddenAndRequiredConditionalConstraintsForbiddenUnlessAnyOf.FUAO;
+        assertKeyBehaviour(clazz, key,
+                true, true, false, true);
+        assertKeyBehaviour("only other key set", clazz, MutableMap.of("y", "myval"), true);
+        assertKeyBehaviour("both set", clazz, MutableMap.of("y", "myval", key, "myval"), true);
+        assertKeyBehaviour("both set", clazz, MutableMap.of("x", "myval", "y", "myval", key, "myval"), true);
     }
 
     private void assertKeyBehaviour(Class<? extends Entity> clazz, ConfigKey<Object> key, boolean ifBoth, boolean ifJustX, boolean ifJustThis, boolean ifNone) {

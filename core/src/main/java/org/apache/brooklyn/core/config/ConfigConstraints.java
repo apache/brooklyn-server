@@ -19,10 +19,12 @@
 
 package org.apache.brooklyn.core.config;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -44,6 +46,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -255,18 +259,34 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
         }
     }
     
-    private static abstract class OtherKeyPredicate implements BrooklynObjectPredicate<Object> {
-        private final String otherKeyName;
-
+    private static abstract class OtherKeyPredicate extends OtherKeysPredicate {
         public OtherKeyPredicate(String otherKeyName) {
-            this.otherKeyName = otherKeyName;
+            super(ImmutableList.of(otherKeyName));
+        }
+
+        @Override
+        public boolean test(Object thisValue, List<Object> otherValues) {
+            return test(thisValue, Iterables.getOnlyElement(otherValues));
+        }
+
+        public abstract boolean test(Object thisValue, Object otherValue);
+    }
+    
+    private static abstract class OtherKeysPredicate implements BrooklynObjectPredicate<Object> {
+        private final List<String> otherKeyNames;
+
+        public OtherKeysPredicate(List<String> otherKeyNames) {
+            this.otherKeyNames = otherKeyNames;
         }
 
         public abstract String predicateName();
         
         @Override
         public String toString() {
-            return predicateName()+"("+JavaStringEscapes.wrapJavaString(otherKeyName)+")";
+            String params = otherKeyNames.stream()
+                    .map(k -> JavaStringEscapes.wrapJavaString(k))
+                    .collect(Collectors.joining(", "));
+            return predicateName()+"("+params+")";
         }
         
         @Override
@@ -278,11 +298,14 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
         public boolean apply(Object input, BrooklynObject context) {
             if (context==null) return true;
             // would be nice to offer an explanation, but that will need a richer API or a thread local
-            return test(input, context.config().get(ConfigKeys.newConfigKey(Object.class, otherKeyName)));
+            List<Object> vals = new ArrayList<>();
+            for (String otherKeyName : otherKeyNames) {
+                vals.add(context.config().get(ConfigKeys.newConfigKey(Object.class, otherKeyName)));
+            }
+            return test(input, vals);
         }
         
-        public abstract boolean test(Object thisValue, Object otherValue);
-        
+        public abstract boolean test(Object thisValue, List<Object> otherValues);
     }
     
     public static Predicate<Object> forbiddenIf(String otherKeyName) { return new ForbiddenIfPredicate(otherKeyName); }
@@ -321,4 +344,21 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
         } 
     }
     
+    public static Predicate<Object> forbiddenUnlessAnyOf(List<String> otherKeyNames) { return new ForbiddenUnlessAnyOfPredicate(otherKeyNames); }
+    protected static class ForbiddenUnlessAnyOfPredicate extends OtherKeysPredicate {
+        public ForbiddenUnlessAnyOfPredicate(List<String> otherKeyNames) { super(otherKeyNames); }
+        @Override public String predicateName() { return "forbiddenUnlessAnyOf"; }
+        @Override public boolean test(Object thisValue, List<Object> otherValue) {
+            return (thisValue==null) || (otherValue!=null && Iterables.tryFind(otherValue, Predicates.notNull()).isPresent());
+        } 
+    }
+    
+    public static Predicate<Object> requiredUnlessAnyOf(List<String> otherKeyNames) { return new RequiredUnlessAnyOfPredicate(otherKeyNames); }
+    protected static class RequiredUnlessAnyOfPredicate extends OtherKeysPredicate {
+        public RequiredUnlessAnyOfPredicate(List<String> otherKeyNames) { super(otherKeyNames); }
+        @Override public String predicateName() { return "requiredUnlessAnyOf"; }
+        @Override public boolean test(Object thisValue, List<Object> otherValue) { 
+            return (thisValue!=null) || (otherValue!=null && Iterables.tryFind(otherValue, Predicates.notNull()).isPresent());
+        } 
+    }
 }
