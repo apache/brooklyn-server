@@ -28,7 +28,10 @@ import java.io.InputStream;
 import java.net.InetAddress;
 import java.security.KeyStore;
 
-import org.eclipse.jetty.security.*;
+import org.eclipse.jetty.security.ConstraintMapping;
+import org.eclipse.jetty.security.ConstraintSecurityHandler;
+import org.eclipse.jetty.security.HashLoginService;
+import org.eclipse.jetty.security.SecurityHandler;
 import org.eclipse.jetty.security.authentication.BasicAuthenticator;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
@@ -89,8 +92,11 @@ public class HttpService {
      * Enables basic HTTP authentication on the server.
      */
     public HttpService basicAuthentication(String username, String password) {
-        final String userRole = "user";
-        Constraint constraint = new Constraint(Constraint.__BASIC_AUTH, userRole);
+        HashLoginService l = new HashLoginService();
+        l.putUser(username, Credential.getCredential(password), new String[]{"user"});
+        l.setName("test-realm");
+
+        Constraint constraint = new Constraint(Constraint.__BASIC_AUTH, "user");
         constraint.setAuthenticate(true);
 
         ConstraintMapping constraintMapping = new ConstraintMapping();
@@ -99,28 +105,13 @@ public class HttpService {
 
         ConstraintSecurityHandler csh = new ConstraintSecurityHandler();
         csh.setAuthenticator(new BasicAuthenticator());
-        final String realmName = "test-realm";
-        csh.setRealmName(realmName);
+        csh.setRealmName("test-realm");
         csh.addConstraintMapping(constraintMapping);
-        csh.setLoginService(createLoginService(realmName, username, password, new String[]{userRole}));
+        csh.setLoginService(l);
 
         this.securityHandler = Optional.of(csh);
 
         return this;
-    }
-
-    private LoginService createLoginService(
-            final String serviceName, final String username, final String password, final String[] roles) {
-        final HashLoginService loginService = new HashLoginService();
-        loginService.setName(serviceName);
-        loginService.setUserStore(createUserStore(username, password, roles));
-        return loginService;
-    }
-
-    private UserStore createUserStore(final String username, final String password, final String[] roles) {
-        final UserStore userStore = new UserStore();
-        userStore.addUser(username, Credential.getCredential(password), roles);
-        return userStore;
     }
 
     public HttpService start() throws Exception {
