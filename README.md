@@ -1,6 +1,8 @@
 
 # [![**Brooklyn**](https://brooklyn.apache.org/style/img/apache-brooklyn-logo-244px-wide.png)](http://brooklyn.apache.org/)
 
+**TEST** Adding a line to create a PR for testing Jenkins. DO NOT MERGE!
+
 ### Apache Brooklyn Server Sub-Project
 
 This repo contains the core elements to run a Brooklyn server,
