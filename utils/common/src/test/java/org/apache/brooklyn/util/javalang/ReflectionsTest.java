@@ -24,12 +24,12 @@ import static org.testng.Assert.assertTrue;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 import org.apache.brooklyn.util.javalang.coerce.CommonAdaptorTypeCoercions;
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercerExtensible;
+import org.assertj.core.api.WithAssertions;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -38,7 +38,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
-public class ReflectionsTest {
+public class ReflectionsTest implements WithAssertions {
 
     @Test
     public void testFindPublicMethodsOrderedBySuper() throws Exception {
@@ -227,6 +227,125 @@ public class ReflectionsTest {
         Assert.assertEquals(Reflections.getAllInterfaces(A.class), ImmutableList.of(I.class));
         Assert.assertEquals(Reflections.getAllInterfaces(B.class), ImmutableList.of(L.class, I.class));
         Assert.assertEquals(Reflections.getAllInterfaces(C.class), ImmutableList.of(M.class, K.class, I.class, J.class, L.class));
+    }
+
+    /**
+     * Tests for {@link Reflections#findMappedNameAndLog(Map, String)} and
+     * {@link Reflections#findMappedNameMaybe(Map, String)} methods.
+     */
+    public class FindMappedName {
+
+        @Test
+        public void givenRenamesIsNullThenReturnOriginalName() {
+            //given
+            final Map<String, String> renames = null;
+            final String originalName = createAName();
+            //when
+            final String result = Reflections.findMappedNameAndLog(renames, originalName);
+            //then
+            assertThat(result).isEqualTo(originalName);
+        }
+
+        @Test
+        public void givenRenamesIsEmptyThenReturnOriginalName() {
+            //given
+            final Map<String, String> renames = new HashMap<>();
+            final String originalName = createAName();
+            //when
+            final String result = Reflections.findMappedNameAndLog(renames, originalName);
+            //then
+            assertThat(result).isEqualTo(originalName);
+        }
+
+        @Test
+        public void givenRenamesHasNoMatchThenReturnOriginalName() {
+            //given
+            final Map<String, String> renames = new HashMap<>();
+            renames.put(createAName(), createAName());
+            final String originalName = createAName();
+            //when
+            final String result = Reflections.findMappedNameAndLog(renames, originalName);
+            //then
+            assertThat(result).isEqualTo(originalName);
+        }
+
+        @Test
+        public void givenRenamesHasMatchThenReturnUpdatedName() {
+            //given
+            final Map<String, String> renames = new HashMap<>();
+            final String originalName = createAName();
+            final String updatedName = createAName();
+            renames.put(originalName, updatedName);
+            //when
+            final String result = Reflections.findMappedNameAndLog(renames, originalName);
+            //then
+            assertThat(result).isEqualTo(updatedName);
+        }
+
+        @Test
+        public void givenInnerClassHasNoMatchThenReturnOriginalName() {
+            //given
+            final Map<String, String> renames = new HashMap<>();
+            final String originalName = createAName() + "$" + createAName();
+            //when
+            final String result = Reflections.findMappedNameAndLog(renames, originalName);
+            //then
+            assertThat(result).isEqualTo(originalName);
+        }
+
+        @Test
+        public void givenInnerClassHasMatchThenReturnUpdatedName() {
+            //given
+            final Map<String, String> renames = new HashMap<>();
+            final String originalName = createAName() + "$" + createAName();
+            final String updatedName = createAName();
+            renames.put(originalName, updatedName);
+            //when
+            final String result = Reflections.findMappedNameAndLog(renames, originalName);
+            //then
+            assertThat(result).isEqualTo(updatedName);
+        }
+
+        @Test
+        public void givenInnerClassWhenOnlyOuterClassHasMatchThenReturnUpdatedName() {
+            //given
+            final Map<String, String> renames = new HashMap<>();
+            final String originalOuterClass = createAName();
+            final String originalInnerClass = createAName();
+            final String originalName = originalOuterClass + "$" + originalInnerClass;
+            final String updatedOuterClass = createAName();
+            final String updatedName = updatedOuterClass + "$" + originalInnerClass;
+            renames.put(originalOuterClass, updatedOuterClass);
+            //when
+            final String result = Reflections.findMappedNameAndLog(renames, originalName);
+            //then
+            assertThat(result).isEqualTo(updatedName);
+        }
+
+        @Test
+        public void givenInnerClassWhenOuterAndInnerClassHasMatchThenReturnInnerClassUpdatedName() {
+            //given
+            final Map<String, String> renames = new HashMap<>();
+            // the outer class has been renamed
+            final String originalOuterClass = createAName();
+            final String updatedOuterClass = createAName();
+            renames.put(originalOuterClass, updatedOuterClass);
+            // the inner class has an explicit rename to a different outer class
+            final String originalInnerClass = createAName();
+            final String originalName = originalOuterClass + "$" + originalInnerClass;
+            final String updatedName = createAName() + "$" + createAName();
+            renames.put(originalName, updatedName);
+            //when
+            final String result = Reflections.findMappedNameAndLog(renames, originalName);
+            //then
+            // the explicit rename overrides the outer class rename
+            assertThat(result).isEqualTo(updatedName);
+        }
+
+        private String createAName() {
+            return UUID.randomUUID().toString();
+        }
+
     }
 
     public static abstract class PublicSuperClass {
