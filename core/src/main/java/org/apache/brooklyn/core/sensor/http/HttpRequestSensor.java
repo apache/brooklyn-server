@@ -43,8 +43,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Supplier;
 
-import net.minidev.json.JSONObject;
-
 /**
  * Configurable {@link org.apache.brooklyn.api.entity.EntityInitializer} which adds an HTTP sensor feed to retrieve the
  * {@link JSONObject} from a JSON response in order to populate the sensor with the data at the {@code jsonPath}.

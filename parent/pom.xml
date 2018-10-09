@@ -55,6 +55,31 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>javax.xml.bind</groupId>
+                <artifactId>jaxb-api</artifactId>
+                <version>${jaxb.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sun.xml.bind</groupId>
+                <artifactId>jaxb-core</artifactId>
+                <version>${jaxb.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sun.xml.bind</groupId>
+                <artifactId>jaxb-impl</artifactId>
+                <version>${jaxb.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>javax.activation</groupId>
+                <artifactId>activation</artifactId>
+                <version>${javax.activation.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.geronimo.specs</groupId>
+                <artifactId>geronimo-ws-metadata_2.0_spec</artifactId>
+                <version>${geronimo-ws-metadata_2.0_spec.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-classic</artifactId>
                 <version>${logback.version}</version>
@@ -552,6 +577,11 @@
 				<artifactId>openshift-client</artifactId>
 				<version>${kubernetes-client.version}</version>
 			</dependency>
+            <dependency>
+                <groupId>org.ops4j.pax.web</groupId>
+                <artifactId>pax-web-spi</artifactId>
+                <version>${pax-web.version}</version>
+            </dependency>
 		</dependencies>
 	</dependencyManagement>
 
@@ -1050,6 +1080,7 @@
                          <excludes combine.children="merge">
                      so that the child pom entries replace the parent entries
                  -->
+                <basedir>${project.basedir}</basedir>
                 <excludes combine.children="append">
                   <!-- Exclude sandbox because not part of distribution: not in tgz, and not uploaded to maven-central -->
                   <exclude>sandbox/**</exclude>

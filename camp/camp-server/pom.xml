@@ -38,6 +38,14 @@
 
     <dependencies>
         <dependency>
+            <groupId>javax.xml.bind</groupId>
+            <artifactId>jaxb-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>javax.activation</groupId>
+            <artifactId>activation</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.apache.brooklyn.camp</groupId>
             <artifactId>camp-base</artifactId>
             <version>${project.version}</version>
