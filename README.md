@@ -25,7 +25,7 @@ Then run the build:
 docker run -i --rm --name brooklyn-server -v ${HOME}/.m2:/root/.m2 -v ${PWD}:/usr/build -w /usr/build brooklyn:server mvn clean install
 ```
 
-### Using maven
+#### Using maven
 
 Simply run:
 
