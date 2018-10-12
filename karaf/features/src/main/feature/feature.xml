@@ -144,6 +144,10 @@
         <bundle dependency="true">mvn:net.minidev/json-smart/${jsonSmart.version}</bundle>
         <bundle dependency="true">mvn:net.minidev/accessors-smart/${minidev.accessors-smart.version}</bundle>
         <bundle dependency="true">mvn:org.ow2.asm/asm/${ow2.asm.version}</bundle>
+        <bundle dependency="true">mvn:org.ow2.asm/asm-commons/${ow2.asm.version}</bundle>
+        <bundle dependency="true">mvn:org.ow2.asm/asm-tree/${ow2.asm.version}</bundle>
+        <bundle dependency="true">mvn:org.ow2.asm/asm-analysis/${ow2.asm.version}</bundle>
+        <bundle dependency="true">mvn:org.ow2.asm/asm-util/${ow2.asm.version}</bundle>
         <bundle dependency="true">mvn:org.eclipse.jetty/jetty-client/${jetty.version}</bundle>
         <bundle dependency="true">mvn:org.eclipse.jetty/jetty-http/${jetty.version}</bundle>
         <bundle dependency="true">mvn:org.eclipse.jetty/jetty-util/${jetty.version}</bundle>
