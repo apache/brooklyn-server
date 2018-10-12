@@ -37,7 +37,7 @@ public class IptablesCommandsTest {
             + "else sudo -E -n -S -- /sbin/iptables -I INPUT -p tcp --dport 3306 -j ACCEPT; fi )";
     private static final String appendIptablesRuleAll = "( if test \"$UID\" -eq 0; then ( /sbin/iptables -A INPUT -p tcp --dport 3306 -j ACCEPT ); "
             + "else sudo -E -n -S -- /sbin/iptables -A INPUT -p tcp --dport 3306 -j ACCEPT; fi )";
-    private static final String saveIptablesRules = "( ( if test \"$UID\" -eq 0; then ( service iptables save ); else sudo -E -n -S -- service iptables save; fi ) || " +
+    private static final String saveIptablesRules = "( { which iptables–save && if [ ${UID} -eq 0 ] ; then iptables–save > /etc/sysconfig/iptables ; else sudo iptables-save | sudo tee /etc/sysconfig/iptables ; fi ; } || " +
             "( ( { which zypper && { echo zypper exists, doing refresh && (( if test \"$UID\" -eq 0; then ( zypper --non-interactive --no-gpg-checks refresh ); else sudo -E -n -S -- zypper --non-interactive --no-gpg-checks refresh; fi ) || true) "
                     + "&& ( if test \"$UID\" -eq 0; then ( zypper --non-interactive --no-gpg-checks install iptables-persistent ); else sudo -E -n -S -- zypper --non-interactive --no-gpg-checks install iptables-persistent; fi ) ; } ; } || " +
             "{ which apt-get && { echo apt-get exists, doing update && export DEBIAN_FRONTEND=noninteractive "
