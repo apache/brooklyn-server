@@ -137,7 +137,7 @@ public class BundleUpgradeParser {
      * 
      * The format is a comma separate list of {@code key=value} pairs, where each key is a name with a version range
      * (as per {@link #MANIFEST_HEADER_FORCE_REMOVE_BUNDLES}) specifying what should be upgraded, and {@code value} is a name and
-     * version specifying what it should be ugpraded to. The {@code =value} can be omitted, and usually is,
+     * version specifying what it should be upgraded to. The {@code =value} can be omitted, and usually is,
      * to mean this bundle at this version. (The {@code =value} is available if one bundle is defining upgrades for other bundles.)  
      * 
      * A wildcard can be given as the key, without a version ({@code *}) or with ({@code *:[0,1)}) to refer to 
