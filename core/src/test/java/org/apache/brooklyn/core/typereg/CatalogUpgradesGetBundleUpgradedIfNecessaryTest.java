@@ -18,21 +18,26 @@
  */
 package org.apache.brooklyn.core.typereg;
 
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.assertj.core.api.WithAssertions;
 import org.mockito.Mockito;
+import org.osgi.framework.Bundle;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.UUID;
+import java.util.*;
 
+import static org.apache.brooklyn.core.typereg.BundleTestUtil.newMockBundle;
 import static org.apache.brooklyn.core.typereg.BundleUpgradeParser.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
@@ -131,6 +136,28 @@ public class CatalogUpgradesGetBundleUpgradedIfNecessaryTest implements WithAsse
         givenBundleIsNotAlreadyInstalled(osgiManager, originalVersionedName);
         givenRenameIsFound(managementContext, typeRegistry, catalogUpgradesBuilder,
                 updatedVersionedName, originalVersionRangedName);
+        //when
+        final String result = CatalogUpgrades.getBundleUpgradedIfNecessary(managementContext, originalName);
+        //then
+        assertThat(result).isEqualTo(updatedName);
+    }
+
+    @Test
+    public void whenUpgradingAWrappedBundleThenUpdatedName() {
+        //given
+        givenAnOsgiEnvironment(managementContext, osgiManager);
+        givenBundleIsNotAlreadyInstalled(osgiManager, originalVersionedName);
+        givenManagementContextHasTypeRegistry(managementContext, typeRegistry);
+        givenRenameIsFound(managementContext, typeRegistry, catalogUpgradesBuilder, updatedVersionedName, originalVersionRangedName);
+
+        final Bundle bundle = newMockBundle(updatedVersionedName, ImmutableMap.of(
+                BundleUpgradeParser.MANIFEST_HEADER_UPGRADE_FOR_BUNDLES, "original:[1.0.0,2.0.0)" + "=" + updatedName));
+
+        final CatalogUpgrades catalogUpgrades = BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(
+                bundle, (Supplier<Iterable<RegisteredType>>) ArrayList::new
+        );
+        System.out.println("catalogUpgrades = " + catalogUpgrades);
+
         //when
         final String result = CatalogUpgrades.getBundleUpgradedIfNecessary(managementContext, originalName);
         //then
