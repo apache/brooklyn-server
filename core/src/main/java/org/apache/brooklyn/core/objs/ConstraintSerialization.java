@@ -28,6 +28,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
@@ -35,6 +36,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourcePredicates;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.StringPredicates;
@@ -65,8 +67,8 @@ public class ConstraintSerialization {
         ConstraintSerialization serialization;
         
         public PredicateSerializationRuleAdder(Function<T, Predicate<?>> constructor, Function<List<?>, T> constructorArgsFromList, T constructorSampleInput) {
-            this.constructorArgsFromList = constructorArgsFromList;
             this.constructor = constructor;
+            this.constructorArgsFromList = constructorArgsFromList;
             this.constructorSampleInput = constructorSampleInput;
         }
         
@@ -80,6 +82,12 @@ public class ConstraintSerialization {
         public static PredicateSerializationRuleAdder<String> stringConstructor(Function<String,Predicate<?>> constructor) {
             return new PredicateSerializationRuleAdder<String>(constructor, 
                 o -> Strings.toString(Iterables.getOnlyElement(o)), "");
+        }
+        
+        public static PredicateSerializationRuleAdder<List<String>> listConstructor(Function<List<String>,Predicate<?>> constructor) {
+            Function<Object, String> cooercer = (o) -> TypeCoercions.coerce(o, String.class);
+            Function<List<?>, List<String>> constructorArgsFromList = (o) -> o.stream().map(cooercer).collect(Collectors.toList());
+            return new PredicateSerializationRuleAdder<List<String>>(constructor, constructorArgsFromList, ImmutableList.of());
         }
         
         public static PredicateSerializationRuleAdder<Void> noArgConstructor(Supplier<Predicate<?>> constructor) {
@@ -185,6 +193,8 @@ public class ConstraintSerialization {
         PredicateSerializationRuleAdder.stringConstructor(ConfigConstraints::forbiddenUnless).add(this);
         PredicateSerializationRuleAdder.stringConstructor(ConfigConstraints::requiredIf).add(this);
         PredicateSerializationRuleAdder.stringConstructor(ConfigConstraints::requiredUnless).add(this);
+        PredicateSerializationRuleAdder.listConstructor(ConfigConstraints::requiredUnlessAnyOf).add(this);
+        PredicateSerializationRuleAdder.listConstructor(ConfigConstraints::forbiddenUnlessAnyOf).add(this);
     }
     
     public final static ConstraintSerialization INSTANCE = new ConstraintSerialization();
