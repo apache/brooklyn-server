@@ -614,11 +614,16 @@ public class CatalogInitialization implements ManagementContextInjectable {
             // Can't find any bundles to tell if there are upgrades. Could be running tests; do no filtering.
             return CatalogUpgrades.EMPTY;
         }
-        
-        CatalogUpgrades.Builder catalogUpgradesBuilder = CatalogUpgrades.builder();
-        Collection<ManagedBundle> managedBundles = osgiManager.get().getManagedBundles().values();
+        final CatalogUpgrades.Builder catalogUpgradesBuilder = CatalogUpgrades.builder();
+        scanManagedBundles(osgiManager.get(), catalogUpgradesBuilder, rebindLogger);
+        scanAllBundles(osgiManager.get(), catalogUpgradesBuilder);
+        return catalogUpgradesBuilder.build();
+    }
+
+    private void scanManagedBundles(OsgiManager osgiManager, CatalogUpgrades.Builder catalogUpgradesBuilder, RebindLogger rebindLogger) {
+        Collection<ManagedBundle> managedBundles = osgiManager.getManagedBundles().values();
         for (ManagedBundle managedBundle : managedBundles) {
-            Maybe<Bundle> bundle = osgiManager.get().findBundle(managedBundle);
+            Maybe<Bundle> bundle = osgiManager.findBundle(managedBundle);
             if (bundle.isPresent()) {
                 CatalogUpgrades catalogUpgrades = BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(
                         bundle.get(),
@@ -629,8 +634,10 @@ public class CatalogInitialization implements ManagementContextInjectable {
                         + "ignoring when calculating persisted state catalog upgrades");
             }
         }
+    }
 
-        for (Bundle bundle : osgiManager.get().getFramework().getBundleContext().getBundles()) {
+    private void scanAllBundles(OsgiManager osgiManager, CatalogUpgrades.Builder catalogUpgradesBuilder) {
+        for (Bundle bundle : osgiManager.getFramework().getBundleContext().getBundles()) {
             final RegisteredTypesSupplier typeSupplier =
                     new RegisteredTypesSupplier(managementContext,
                             RegisteredTypePredicates.containingBundle(bundle.getSymbolicName()));
@@ -638,8 +645,6 @@ public class CatalogInitialization implements ManagementContextInjectable {
                     BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(bundle, typeSupplier);
             catalogUpgradesBuilder.addAll(catalogUpgrades);
         }
-
-        return catalogUpgradesBuilder.build();
     }
 
     private static class RegisteredTypesSupplier implements Supplier<Iterable<RegisteredType>> {
