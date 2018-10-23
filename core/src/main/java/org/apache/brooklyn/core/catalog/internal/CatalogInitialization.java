@@ -29,7 +29,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
@@ -618,7 +617,6 @@ public class CatalogInitialization implements ManagementContextInjectable {
         
         CatalogUpgrades.Builder catalogUpgradesBuilder = CatalogUpgrades.builder();
         Collection<ManagedBundle> managedBundles = osgiManager.get().getManagedBundles().values();
-        final Stopwatch started = Stopwatch.createStarted();
         for (ManagedBundle managedBundle : managedBundles) {
             Maybe<Bundle> bundle = osgiManager.get().findBundle(managedBundle);
             if (bundle.isPresent()) {
@@ -631,10 +629,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
                         + "ignoring when calculating persisted state catalog upgrades");
             }
         }
-        started.stop();
-        log.info("Loaded managed bundles in " + started.elapsed(TimeUnit.MILLISECONDS) + "ms");
 
-        final Stopwatch allbundleStopWatch = Stopwatch.createStarted();
         for (Bundle bundle : osgiManager.get().getFramework().getBundleContext().getBundles()) {
             final RegisteredTypesSupplier typeSupplier =
                     new RegisteredTypesSupplier(managementContext,
@@ -643,8 +638,6 @@ public class CatalogInitialization implements ManagementContextInjectable {
                     BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(bundle, typeSupplier);
             catalogUpgradesBuilder.addAll(catalogUpgrades);
         }
-        allbundleStopWatch.stop();
-        log.info("Loaded all bundles in " + allbundleStopWatch.elapsed(TimeUnit.MILLISECONDS) + "ms");
 
         return catalogUpgradesBuilder.build();
     }
