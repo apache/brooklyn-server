@@ -18,16 +18,20 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
+import com.google.common.base.Predicate;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.core.typereg.BundleUpgradeParser;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.osgi.framework.Bundle;
 
 import java.util.Collection;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 /**
  * Scans managed bundles and other jar bundles to find upgrades for installed bundles.
@@ -35,11 +39,20 @@ import java.util.Collection;
 class CatalogUpgradeScanner {
 
     private final ManagementContextInternal managementContext;
+    private final BiFunction<Bundle, RegisteredTypesSupplier, CatalogUpgrades> bundleUpgradeParser;
+    private final Function<OsgiBundleWithUrl, Predicate<? super RegisteredType>> managedBundlePredicateSupplier;
+    private final Function<String, Predicate<? super RegisteredType>> unmanagedBundlePredicateSupplier;
 
     CatalogUpgradeScanner(
-            final ManagementContextInternal managementContext
+            final ManagementContextInternal managementContext,
+            final BiFunction<Bundle, RegisteredTypesSupplier, CatalogUpgrades> bundleUpgradeParser,
+            final Function<OsgiBundleWithUrl, Predicate<? super RegisteredType>> managedBundlePredicateSupplier,
+            final Function<String, Predicate<? super RegisteredType>> unmanagedBundlePredicateSupplier
     ) {
         this.managementContext = managementContext;
+        this.bundleUpgradeParser = bundleUpgradeParser;
+        this.managedBundlePredicateSupplier = managedBundlePredicateSupplier;
+        this.unmanagedBundlePredicateSupplier = unmanagedBundlePredicateSupplier;
     }
 
     public CatalogUpgrades scan(
@@ -61,8 +74,7 @@ class CatalogUpgradeScanner {
         for (ManagedBundle managedBundle : managedBundles) {
             Maybe<Bundle> bundle = osgiManager.findBundle(managedBundle);
             if (bundle.isPresent()) {
-                CatalogUpgrades catalogUpgrades = BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(
-                        bundle.get(), typeSupplier(managedBundle));
+                CatalogUpgrades catalogUpgrades = bundleUpgradeParser.apply(bundle.get(), typeSupplier(managedBundle));
                 catalogUpgradesBuilder.addAll(catalogUpgrades);
             } else {
                 rebindLogger.info("Managed bundle "+managedBundle.getId()+" not found by OSGi Manager; "
@@ -76,20 +88,18 @@ class CatalogUpgradeScanner {
             final CatalogUpgrades.Builder catalogUpgradesBuilder
     ) {
         for (Bundle bundle : osgiManager.getFramework().getBundleContext().getBundles()) {
-            final CatalogUpgrades catalogUpgrades =
-                    BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(bundle, typeSupplier(bundle));
+            final CatalogUpgrades catalogUpgrades = bundleUpgradeParser.apply(bundle, typeSupplier(bundle));
             catalogUpgradesBuilder.addAll(catalogUpgrades);
         }
     }
 
     private RegisteredTypesSupplier typeSupplier(final ManagedBundle managedBundle) {
-        return new RegisteredTypesSupplier(managementContext,
-                RegisteredTypePredicates.containingBundle(managedBundle));
+        return new RegisteredTypesSupplier(managementContext, managedBundlePredicateSupplier.apply(managedBundle));
     }
 
     private RegisteredTypesSupplier typeSupplier(final Bundle bundle) {
         return new RegisteredTypesSupplier(managementContext,
-                RegisteredTypePredicates.containingBundle(bundle.getSymbolicName()));
+                unmanagedBundlePredicateSupplier.apply(bundle.getSymbolicName()));
     }
 
 }

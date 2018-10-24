@@ -68,7 +68,6 @@ import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
-import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -135,7 +134,10 @@ public class CatalogInitialization implements ManagementContextInjectable {
         if (this.managementContext!=null && managementContext!=this.managementContext)
             throw new IllegalStateException("Cannot switch management context, from "+this.managementContext+" to "+managementContext);
         this.managementContext = (ManagementContextInternal) managementContext;
-        catalogUpgradeScanner = new CatalogUpgradeScanner(this.managementContext);
+        catalogUpgradeScanner = new CatalogUpgradeScanner(this.managementContext,
+                BundleUpgradeParser::parseBundleManifestForCatalogUpgrades,
+                RegisteredTypePredicates::containingBundle,
+                RegisteredTypePredicates::containingBundle);
     }
     
     /** Called by the framework to set true while starting up, and false afterwards,
