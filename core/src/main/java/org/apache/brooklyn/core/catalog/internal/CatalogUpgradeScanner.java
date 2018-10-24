@@ -64,8 +64,7 @@ class CatalogUpgradeScanner {
             Maybe<Bundle> bundle = osgiManager.findBundle(managedBundle);
             if (bundle.isPresent()) {
                 CatalogUpgrades catalogUpgrades = BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(
-                        bundle.get(),
-                        new RegisteredTypesSupplier(managementContext, RegisteredTypePredicates.containingBundle(managedBundle)));
+                        bundle.get(), typeSupplier(managedBundle));
                 catalogUpgradesBuilder.addAll(catalogUpgrades);
             } else {
                 rebindLogger.info("Managed bundle "+managedBundle.getId()+" not found by OSGi Manager; "
@@ -79,13 +78,20 @@ class CatalogUpgradeScanner {
             final CatalogUpgrades.Builder catalogUpgradesBuilder
     ) {
         for (Bundle bundle : osgiManager.getFramework().getBundleContext().getBundles()) {
-            final RegisteredTypesSupplier typeSupplier =
-                    new RegisteredTypesSupplier(managementContext,
-                            RegisteredTypePredicates.containingBundle(bundle.getSymbolicName()));
             final CatalogUpgrades catalogUpgrades =
-                    BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(bundle, typeSupplier);
+                    BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(bundle, typeSupplier(bundle));
             catalogUpgradesBuilder.addAll(catalogUpgrades);
         }
+    }
+
+    private RegisteredTypesSupplier typeSupplier(final ManagedBundle managedBundle) {
+        return new RegisteredTypesSupplier(managementContext,
+                RegisteredTypePredicates.containingBundle(managedBundle));
+    }
+
+    private RegisteredTypesSupplier typeSupplier(final Bundle bundle) {
+        return new RegisteredTypesSupplier(managementContext,
+                RegisteredTypePredicates.containingBundle(bundle.getSymbolicName()));
     }
 
 }
