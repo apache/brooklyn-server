@@ -300,7 +300,17 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
             // would be nice to offer an explanation, but that will need a richer API or a thread local
             List<Object> vals = new ArrayList<>();
             for (String otherKeyName : otherKeyNames) {
-                vals.add(context.config().get(ConfigKeys.newConfigKey(Object.class, otherKeyName)));
+                // Use getNonBlocking, in case the value is an `attributeWhenReady` and the 
+                // attribute is not yet available - don't want to hang.
+                ConfigKey<Object> otherKey = ConfigKeys.newConfigKey(Object.class, otherKeyName);
+                BrooklynObjectInternal.ConfigurationSupportInternal configInternal = ((BrooklynObjectInternal) context).config();
+                
+                Maybe<?> maybeValue = configInternal.getNonBlocking(otherKey);
+                if (maybeValue.isPresent()) {
+                    vals.add(maybeValue.get());
+                } else {
+                    return true; // abort; assume valid
+                }
             }
             return test(input, vals);
         }

@@ -1181,6 +1181,46 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         assertKeyEquals(newEntity, "testRequired", null, String.class, null, "myprefix-myVal");
     }
 
+    @Test
+    public void testConfigParameterConstraintOnOtherKeyWithAttributeWhenReady() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+TestEntity.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: key1",
+                "        type: String",
+                "        constraints:",
+                "        - requiredUnless: key2",
+                "      - name: key2",
+                "        type: String",
+                "        constraints:",
+                "        - requiredUnless: key1");
+        
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys",
+                "  brooklyn.config:",
+                "    key1: $brooklyn:root().attributeWhenReady(\"myattribute\")");
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        
+        Predicate<?> constraint = entity.getEntityType().getConfigKey("key1").getConstraint();
+        assertEquals(constraint.toString(), "requiredUnless(\"key2\")");
+
+        // Rebind, and then check again that the config key is listed
+        Entity newApp = rebind();
+        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
+        
+        Predicate<?> newConstraint = newEntity.getEntityType().getConfigKey("key1").getConstraint();
+        assertEquals(newConstraint.toString(), "requiredUnless(\"key2\")");
+    }
+
+
     public static class PredicateRegexPojo implements Predicate<Object> {
         private String regex;
 
