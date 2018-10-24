@@ -25,9 +25,9 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
-import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleContext;
 
 import java.util.Collection;
 import java.util.function.BiFunction;
@@ -57,11 +57,12 @@ class CatalogUpgradeScanner {
 
     public CatalogUpgrades scan(
             final OsgiManager osgiManager,
+            final BundleContext bundleContext,
             final CatalogInitialization.RebindLogger rebindLogger
     ) {
         final CatalogUpgrades.Builder catalogUpgradesBuilder = CatalogUpgrades.builder();
         scanManagedBundles(osgiManager, catalogUpgradesBuilder, rebindLogger);
-        scanAllBundles(osgiManager, catalogUpgradesBuilder);
+        scanUnmanagedBundles(catalogUpgradesBuilder, bundleContext);
         return catalogUpgradesBuilder.build();
     }
 
@@ -83,11 +84,11 @@ class CatalogUpgradeScanner {
         }
     }
 
-    private void scanAllBundles(
-            final OsgiManager osgiManager,
-            final CatalogUpgrades.Builder catalogUpgradesBuilder
+    private void scanUnmanagedBundles(
+            final CatalogUpgrades.Builder catalogUpgradesBuilder,
+            final BundleContext bundleContext
     ) {
-        for (Bundle bundle : osgiManager.getFramework().getBundleContext().getBundles()) {
+        for (Bundle bundle : bundleContext.getBundles()) {
             final CatalogUpgrades catalogUpgrades = bundleUpgradeParser.apply(bundle, typeSupplier(bundle));
             catalogUpgradesBuilder.addAll(catalogUpgrades);
         }

@@ -68,6 +68,7 @@ import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -256,12 +257,15 @@ public class CatalogInitialization implements ManagementContextInjectable {
             
             populateInitialCatalogImpl(true);
 
-            final Maybe<OsgiManager> osgiManager = managementContext.getOsgiManager();
-            if (osgiManager.isAbsent()) {
+            final Maybe<OsgiManager> maybesOsgiManager = managementContext.getOsgiManager();
+            if (maybesOsgiManager.isAbsent()) {
                 // Can't find any bundles to tell if there are upgrades. Could be running tests; do no filtering.
                 CatalogUpgrades.storeInManagementContext(CatalogUpgrades.EMPTY, managementContext);
             } else {
-                final CatalogUpgrades catalogUpgrades = catalogUpgradeScanner.scan(osgiManager.get(), rebindLogger);
+                final OsgiManager osgiManager = maybesOsgiManager.get();
+                final BundleContext bundleContext = osgiManager.getFramework().getBundleContext();
+                final CatalogUpgrades catalogUpgrades =
+                        catalogUpgradeScanner.scan(osgiManager, bundleContext, rebindLogger);
                 CatalogUpgrades.storeInManagementContext(catalogUpgrades, managementContext);
             }
             PersistedCatalogState filteredPersistedState = filterBundlesAndCatalogInPersistedState(persistedState, rebindLogger);
