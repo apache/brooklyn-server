@@ -75,9 +75,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -644,20 +642,6 @@ public class CatalogInitialization implements ManagementContextInjectable {
             final CatalogUpgrades catalogUpgrades =
                     BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(bundle, typeSupplier);
             catalogUpgradesBuilder.addAll(catalogUpgrades);
-        }
-    }
-
-    private static class RegisteredTypesSupplier implements Supplier<Iterable<RegisteredType>> {
-        private final ManagementContext mgmt;
-        private final Predicate<? super RegisteredType> filter;
-        
-        RegisteredTypesSupplier(ManagementContext mgmt, Predicate<? super RegisteredType> predicate) {
-            this.mgmt = mgmt;
-            this.filter = predicate;
-        }
-        @Override
-        public Iterable<RegisteredType> get() {
-            return mgmt.getTypeRegistry().getMatching(filter);
         }
     }
 
