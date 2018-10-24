@@ -28,17 +28,17 @@ import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.Map;
 
-class BundleTestUtil {
+public class BundleTestUtil {
 
-    static Bundle newMockBundle(Map<String, String> rawHeaders) {
+    public static Bundle newMockBundle(Map<String, String> rawHeaders) {
         return newMockBundle(VersionedName.fromString("do.no.care:1.2.3"), rawHeaders);
     }
 
-    static Bundle newMockBundle(VersionedName name) {
+    public static Bundle newMockBundle(VersionedName name) {
         return newMockBundle(name, ImmutableMap.of());
     }
 
-    static Bundle newMockBundle(VersionedName name, Map<String, String> rawHeaders) {
+    public static Bundle newMockBundle(VersionedName name, Map<String, String> rawHeaders) {
         Dictionary<String, String> headers = new Hashtable<>(rawHeaders);
         Bundle result;
         try {
