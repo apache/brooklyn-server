@@ -190,7 +190,6 @@
         <surefire.version>2.19.1</surefire.version>
         <testng.version>6.10</testng.version>
         <mockito.version>2.7.12</mockito.version>
-        <assertj.version>3.11.1</assertj.version>
         <hamcrest.version>1.1</hamcrest.version>
         <mockwebserver.version>20121111</mockwebserver.version>
 
