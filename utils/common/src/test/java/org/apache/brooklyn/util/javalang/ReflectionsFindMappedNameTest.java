@@ -138,24 +138,6 @@ public class ReflectionsFindMappedNameTest  implements WithAssertions {
         assertThat(result).isEqualTo(updatedName);
     }
 
-    //wrap_blah_aws-java-sdk-bundle-1.11.245.jar\:*  : wrap_blah_aws-java-sdk-bundle-1.11.411.jar\:*
-    @Test
-    public void allClassesInOneBundleAreNowInOtherBundle() {
-        //given
-        final Map<String, String> renames = new HashMap<>();
-        final String wildcard = "*";
-        final String originalBundle = "wrap_blah_aws-java-sdk-bundle-1.11.245.jar:";
-        final String updatedBundle = "wrap_blah_aws-java-sdk-bundle-1.11.411.jar:";
-        renames.put(originalBundle + wildcard, updatedBundle + wildcard);
-        final String className = createAName();
-        final String originalName = originalBundle + className;
-        final String updatedName = updatedBundle + className;
-        //when
-        final String result = Reflections.findMappedNameAndLog(renames, originalName);
-        //then
-        assertThat(result).isSameAs(updatedName);
-    }
-
     private String createAName() {
         return UUID.randomUUID().toString();
     }
