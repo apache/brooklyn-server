@@ -42,15 +42,13 @@ class CatalogUpgradeScanner {
         this.managementContext = managementContext;
     }
 
-    public CatalogUpgrades scan(final CatalogInitialization.RebindLogger rebindLogger) {
-        Maybe<OsgiManager> osgiManager = managementContext.getOsgiManager();
-        if (osgiManager.isAbsent()) {
-            // Can't find any bundles to tell if there are upgrades. Could be running tests; do no filtering.
-            return CatalogUpgrades.EMPTY;
-        }
+    public CatalogUpgrades scan(
+            final OsgiManager osgiManager,
+            final CatalogInitialization.RebindLogger rebindLogger
+    ) {
         final CatalogUpgrades.Builder catalogUpgradesBuilder = CatalogUpgrades.builder();
-        scanManagedBundles(osgiManager.get(), catalogUpgradesBuilder, rebindLogger);
-        scanAllBundles(osgiManager.get(), catalogUpgradesBuilder);
+        scanManagedBundles(osgiManager, catalogUpgradesBuilder, rebindLogger);
+        scanAllBundles(osgiManager, catalogUpgradesBuilder);
         return catalogUpgradesBuilder.build();
     }
 

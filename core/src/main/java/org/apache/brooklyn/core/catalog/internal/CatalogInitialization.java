@@ -254,8 +254,14 @@ public class CatalogInitialization implements ManagementContextInjectable {
             
             populateInitialCatalogImpl(true);
 
-            final CatalogUpgrades catalogUpgrades = catalogUpgradeScanner.scan(rebindLogger);
-            CatalogUpgrades.storeInManagementContext(catalogUpgrades, managementContext);
+            final Maybe<OsgiManager> osgiManager = managementContext.getOsgiManager();
+            if (osgiManager.isAbsent()) {
+                // Can't find any bundles to tell if there are upgrades. Could be running tests; do no filtering.
+                CatalogUpgrades.storeInManagementContext(CatalogUpgrades.EMPTY, managementContext);
+            } else {
+                final CatalogUpgrades catalogUpgrades = catalogUpgradeScanner.scan(osgiManager.get(), rebindLogger);
+                CatalogUpgrades.storeInManagementContext(catalogUpgrades, managementContext);
+            }
             PersistedCatalogState filteredPersistedState = filterBundlesAndCatalogInPersistedState(persistedState, rebindLogger);
             addPersistedCatalogImpl(filteredPersistedState, exceptionHandler, rebindLogger);
             
