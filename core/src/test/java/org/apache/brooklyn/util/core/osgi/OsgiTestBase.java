@@ -28,6 +28,8 @@ import org.apache.commons.io.FileUtils;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.launch.Framework;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
@@ -36,6 +38,8 @@ import org.testng.annotations.BeforeMethod;
  * @author Ciprian Ciubotariu <cheepeero@gmx.net>
  */
 public class OsgiTestBase {
+
+    private static final Logger log = LoggerFactory.getLogger(OsgiTestBase.class);
 
     public static final String BROOKLYN_OSGI_TEST_A_0_1_0_PATH = OsgiTestResources.BROOKLYN_OSGI_TEST_A_0_1_0_PATH;
     public static final String BROOKLYN_OSGI_TEST_A_0_1_0_URL = "classpath:"+BROOKLYN_OSGI_TEST_A_0_1_0_PATH;
@@ -75,7 +79,11 @@ public class OsgiTestBase {
         Osgis.ungetFramework(framework);
         framework = null;
         if (storageTempDir != null) {
-            FileUtils.deleteDirectory(storageTempDir);
+            try {
+                FileUtils.deleteDirectory(storageTempDir);
+            } catch (IOException e) {
+                log.warn(e.getMessage());
+            }
             storageTempDir = null;
         }
     }
