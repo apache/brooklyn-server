@@ -261,9 +261,9 @@
                         </goals>
                         <configuration>
                             <compilerId>groovy-eclipse-compiler</compilerId>
-                            <includes>
+                            <testIncludes>
                               <include>**/*.groovy</include>
-                            </includes>
+                            </testIncludes>
                             <fork>true</fork>
                             <verbose>false</verbose>
                             <source>${java.version}</source>
