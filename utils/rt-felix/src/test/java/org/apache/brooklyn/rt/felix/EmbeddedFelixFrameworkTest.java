@@ -66,7 +66,11 @@ public class EmbeddedFelixFrameworkTest {
         EmbeddedFelixFramework.stopFramework(framework);
         framework = null;
         if (storageTempDir != null) {
-            FileUtils.deleteDirectory(storageTempDir);
+            try {
+                FileUtils.deleteDirectory(storageTempDir);
+            } catch (IOException e) {
+                log.warn(e.getMessage());
+            }
             storageTempDir = null;
         }
     }
