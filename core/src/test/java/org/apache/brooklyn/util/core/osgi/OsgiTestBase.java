@@ -38,8 +38,6 @@ import org.testng.annotations.BeforeMethod;
  */
 public class OsgiTestBase {
 
-    private static final Logger log = LoggerFactory.getLogger(OsgiTestBase.class);
-
     public static final String BROOKLYN_OSGI_TEST_A_0_1_0_PATH = OsgiTestResources.BROOKLYN_OSGI_TEST_A_0_1_0_PATH;
     public static final String BROOKLYN_OSGI_TEST_A_0_1_0_URL = "classpath:"+BROOKLYN_OSGI_TEST_A_0_1_0_PATH;
 
