@@ -16,18 +16,19 @@
 package org.apache.brooklyn.util.core.osgi;
 
 import java.io.File;
-import java.io.IOException;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
-import org.apache.commons.io.FileUtils;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.launch.Framework;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
@@ -40,7 +41,7 @@ public class OsgiTestBase {
     public static final String BROOKLYN_OSGI_TEST_A_0_1_0_PATH = OsgiTestResources.BROOKLYN_OSGI_TEST_A_0_1_0_PATH;
     public static final String BROOKLYN_OSGI_TEST_A_0_1_0_URL = "classpath:"+BROOKLYN_OSGI_TEST_A_0_1_0_PATH;
 
-    protected Bundle install(String url) throws BundleException {
+    protected Bundle install(String url) {
         try {
             return Osgis.install(framework, url);
         } catch (Exception e) {
@@ -48,7 +49,7 @@ public class OsgiTestBase {
         }
     }
 
-    protected Bundle installFromClasspath(String resourceName) throws BundleException {
+    protected Bundle installFromClasspath(String resourceName) {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), resourceName);
         try {
             return Osgis.install(framework, String.format("classpath:%s", resourceName));
@@ -67,17 +68,13 @@ public class OsgiTestBase {
     }
 
     @AfterMethod(alwaysRun = true)
-    public void tearDown() throws BundleException, IOException, InterruptedException {
+    public void tearDown() {
         tearDownOsgiFramework(framework, storageTempDir);
     }
 
-    public static void tearDownOsgiFramework(Framework framework, File storageTempDir) throws BundleException, InterruptedException, IOException {
+    public static void tearDownOsgiFramework(Framework framework, File storageTempDir) {
         Osgis.ungetFramework(framework);
-        framework = null;
-        if (storageTempDir != null) {
-            FileUtils.deleteDirectory(storageTempDir);
-            storageTempDir = null;
-        }
+        FileUtil.deleteDirectory(storageTempDir);
     }
 
     public static void preinstallLibrariesLowLevelToPreventCatalogBomParsing(ManagementContext mgmt, String ...libraries) {

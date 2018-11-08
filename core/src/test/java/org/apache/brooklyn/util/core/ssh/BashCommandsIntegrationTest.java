@@ -35,6 +35,7 @@ import java.util.List;
 
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.test.DisableOnWindows;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.ssh.SshTasks;
@@ -133,6 +134,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
     
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testRemoveRequireTtyFromSudoersFile() throws Exception {
         String cmds = BashCommands.dontRequireTtyForSudo();
 
@@ -154,6 +156,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
     
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs a whoami command available on localhost")
     public void testSudo() throws Exception {
         ByteArrayOutputStream outStream = new ByteArrayOutputStream();
         ByteArrayOutputStream errStream = new ByteArrayOutputStream();
@@ -177,6 +180,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
     
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testDownloadFirstSuccessfulFile() throws Exception {
         List<String> cmds = BashCommands.commandsToDownloadUrlsAs(
                 ImmutableList.of(sourceNonExistantFileUrl, sourceFileUrl1, sourceFileUrl2), 
@@ -188,6 +192,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
     
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs an ssh server listening on port 22 on localhost")
     public void testDownloadToStdout() throws Exception {
         ProcessTaskWrapper<String> t = SshTasks.newSshExecTaskFactory(loc, 
                 "cd "+destFile.getParentFile().getAbsolutePath(),
@@ -199,6 +204,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs an ssh server listening on port 22 on localhost")
     public void testAlternativesWhereFirstSucceeds() throws Exception {
         ProcessTaskWrapper<Integer> t = SshTasks.newSshExecTaskFactory(loc)
                 .add(BashCommands.alternatives(Arrays.asList("echo first", "exit 88")))
@@ -213,6 +219,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs an ssh server listening on port 22 on localhost")
     public void testAlternatives() throws Exception {
         ProcessTaskWrapper<Integer> t = SshTasks.newSshExecTaskFactory(loc)
                 .add(BashCommands.alternatives(Arrays.asList("asdfj_no_such_command_1", "exit 88")))
@@ -224,6 +231,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs an ssh server listening on port 22 on localhost")
     public void testRequireTestHandlesFailure() throws Exception {
         ProcessTaskWrapper<?> t = SshTasks.newSshExecTaskFactory(loc)
             .add(BashCommands.requireTest("-f "+sourceNonExistantFile.getPath(),
@@ -236,6 +244,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs an ssh server listening on port 22 on localhost")
     public void testRequireTestHandlesSuccess() throws Exception {
         ProcessTaskWrapper<?> t = SshTasks.newSshExecTaskFactory(loc)
             .add(BashCommands.requireTest("-f "+sourceFile1.getPath(),
@@ -247,6 +256,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs an ssh server listening on port 22 on localhost")
     public void testRequireFileHandlesFailure() throws Exception {
         ProcessTaskWrapper<?> t = SshTasks.newSshExecTaskFactory(loc)
             .add(BashCommands.requireFile(sourceNonExistantFile.getPath())).newTask();
@@ -260,6 +270,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs an ssh server listening on port 22 on localhost")
     public void testRequireFileHandlesSuccess() throws Exception {
         ProcessTaskWrapper<?> t = SshTasks.newSshExecTaskFactory(loc)
             .add(BashCommands.requireFile(sourceFile1.getPath())).newTask();
@@ -270,6 +281,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs an ssh server listening on port 22 on localhost")
     public void testRequireFailureExitsImmediately() throws Exception {
         ProcessTaskWrapper<?> t = SshTasks.newSshExecTaskFactory(loc)
             .add(BashCommands.requireTest("-f "+sourceNonExistantFile.getPath(),
@@ -284,6 +296,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testPipeMultiline() throws Exception {
         String output = execRequiringZeroAndReturningStdout(loc,
                 BashCommands.pipeTextTo("hello world\n"+"and goodbye\n", "wc")).get();
@@ -292,6 +305,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testWaitForFileContentsWhenAbortingOnFail() throws Exception {
         String fileContent = "mycontents";
         String cmd = BashCommands.waitForFileContents(destFile.getAbsolutePath(), fileContent, Duration.ONE_SECOND, true);
@@ -305,6 +319,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testWaitForFileContentsWhenNotAbortingOnFail() throws Exception {
         String fileContent = "mycontents";
         String cmd = BashCommands.waitForFileContents(destFile.getAbsolutePath(), fileContent, Duration.ONE_SECOND, false);
@@ -318,6 +333,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
     
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testWaitForFileContentsWhenContentsAppearAfterStart() throws Exception {
         String fileContent = "mycontents";
 
@@ -335,6 +351,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
     
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testWaitForFileExistsWhenAbortingOnFail() throws Exception {
         String cmd = BashCommands.waitForFileExists(destFile.getAbsolutePath(), Duration.ONE_SECOND, true);
 
@@ -347,6 +364,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test(groups="Integration")
+    @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testWaitForFileExistsWhenNotAbortingOnFail() throws Exception {
         String cmd = BashCommands.waitForFileExists(destFile.getAbsolutePath(), Duration.ONE_SECOND, false);
 
@@ -359,6 +377,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
     
     @Test(groups="Integration", dependsOnMethods="testSudo")
+    @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testWaitForPortFreeWhenAbortingOnTimeout() throws Exception {
         ServerSocket serverSocket = openServerSocket();
         try {
@@ -378,6 +397,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test(groups="Integration", dependsOnMethods="testSudo")
+    @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testWaitForPortFreeWhenNotAbortingOnTimeout() throws Exception {
         ServerSocket serverSocket = openServerSocket();
         try {
@@ -397,6 +417,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
     
     @Test(groups="Integration", dependsOnMethods="testSudo")
+    @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testWaitForPortFreeWhenFreedAfterStart() throws Exception {
         ServerSocket serverSocket = openServerSocket();
         try {

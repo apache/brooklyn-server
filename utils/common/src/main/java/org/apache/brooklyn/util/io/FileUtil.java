@@ -184,4 +184,21 @@ public class FileUtil {
         }
         return file.createNewFile();
     }
+
+    /**
+     * Recursively delete a directory.
+     *
+     * <p>Any IOException that might be raised is logged and not thrown.</p>
+     *
+     * @param file The directory to be deleted
+     */
+    public static void deleteDirectory(final File file) {
+        if (file != null) {
+            try {
+                FileUtils.deleteDirectory(file);
+            } catch (IOException e) {
+                LOG.warn(e.getMessage());
+            }
+        }
+    }
 }
