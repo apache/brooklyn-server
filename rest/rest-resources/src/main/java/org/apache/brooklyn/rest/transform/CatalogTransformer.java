@@ -294,6 +294,7 @@ public class CatalogTransformer {
         try {
             switch (item.getCatalogItemType()) {
             case TEMPLATE:
+            case APPLICATION:
             case ENTITY:
                 return catalogEntitySummary(b, item, ub);
             case POLICY:
@@ -369,6 +370,7 @@ public class CatalogTransformer {
         String itemId = item.getId();
         switch (item.getCatalogItemType()) {
         case TEMPLATE:
+        case APPLICATION:
             return serviceUriBuilder(ub, CatalogApi.class, "getApplication").build(itemId, item.getVersion());
         case ENTITY:
             return serviceUriBuilder(ub, CatalogApi.class, "getEntity").build(itemId, item.getVersion());

@@ -45,6 +45,7 @@ public interface CatalogItem<T,SpecT> extends BrooklynObject, Rebindable {
     
     public static enum CatalogItemType {
         TEMPLATE, 
+        APPLICATION,
         ENTITY, 
         POLICY,
         ENRICHER,
@@ -63,7 +64,7 @@ public interface CatalogItem<T,SpecT> extends BrooklynObject, Rebindable {
             if (Policy.class.isAssignableFrom(type)) return POLICY;
             if (Enricher.class.isAssignableFrom(type)) return ENRICHER;
             if (Location.class.isAssignableFrom(type)) return LOCATION;
-            if (Application.class.isAssignableFrom(type)) return TEMPLATE;
+            if (Application.class.isAssignableFrom(type)) return APPLICATION;
             if (Entity.class.isAssignableFrom(type)) return ENTITY;
             return null;
         }

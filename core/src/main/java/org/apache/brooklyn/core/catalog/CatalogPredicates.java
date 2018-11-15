@@ -141,8 +141,10 @@ public class CatalogPredicates {
 
     public static final Predicate<CatalogItem<Application,EntitySpec<? extends Application>>> IS_TEMPLATE = 
             CatalogPredicates.<Application,EntitySpec<? extends Application>>isCatalogItemType(CatalogItemType.TEMPLATE);
+    public static final Predicate<CatalogItem<Entity,EntitySpec<?>>> IS_APPLICATION = 
+        CatalogPredicates.<Entity,EntitySpec<?>>isCatalogItemType(CatalogItemType.APPLICATION);
     public static final Predicate<CatalogItem<Entity,EntitySpec<?>>> IS_ENTITY = 
-            CatalogPredicates.<Entity,EntitySpec<?>>isCatalogItemType(CatalogItemType.ENTITY);
+        CatalogPredicates.<Entity,EntitySpec<?>>isCatalogItemType(CatalogItemType.ENTITY);
     public static final Predicate<CatalogItem<Policy,PolicySpec<?>>> IS_POLICY = 
             CatalogPredicates.<Policy,PolicySpec<?>>isCatalogItemType(CatalogItemType.POLICY);
     public static final Predicate<CatalogItem<Enricher,EnricherSpec<?>>> IS_ENRICHER =

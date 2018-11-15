@@ -99,9 +99,10 @@ public enum BrooklynObjectType {
         switch (t) {
         case ENRICHER: return BrooklynObjectType.ENRICHER;
         case ENTITY: return BrooklynObjectType.ENTITY;
+        case APPLICATION: return BrooklynObjectType.ENTITY;
+        case TEMPLATE: return BrooklynObjectType.ENTITY;
         case LOCATION: return BrooklynObjectType.LOCATION;
         case POLICY: return BrooklynObjectType.POLICY;
-        case TEMPLATE: return BrooklynObjectType.ENTITY;
         default: return BrooklynObjectType.UNKNOWN;
         }
     }

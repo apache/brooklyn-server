@@ -954,6 +954,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
             if (itemType==CatalogItemType.TEMPLATE) {
                 tags.add(BrooklynTags.CATALOG_TEMPLATE);
+                itemType = CatalogItemType.APPLICATION;
+            }
+            if (itemType==CatalogItemType.APPLICATION) {
                 itemType = CatalogItemType.ENTITY;
                 superTypes.add(Application.class);
             }
@@ -1371,7 +1374,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 // record the error if we have reason to expect this guess to succeed
-                if (item.containsKey("services") && (candidateCiType==CatalogItemType.ENTITY || candidateCiType==CatalogItemType.TEMPLATE)) {
+                if (item.containsKey("services") && (candidateCiType==CatalogItemType.ENTITY || candidateCiType==CatalogItemType.APPLICATION || candidateCiType==CatalogItemType.TEMPLATE)) {
                     // explicit services supplied, so plan should have been parseable for an entity or a a service
                     errors.add(e);
                 } else if (catalogItemType!=null && key!=null) {
@@ -2079,6 +2082,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 dto.setSymbolicName(dto.getJavaType());
                 switch (dto.getCatalogItemType()) {
                     case TEMPLATE:
+                    case APPLICATION:
                     case ENTITY:
                         dto.setPlanYaml("services: [{ type: "+dto.getJavaType()+" }]");
                         break;
