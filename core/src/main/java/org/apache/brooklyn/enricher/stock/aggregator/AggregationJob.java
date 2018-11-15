@@ -52,7 +52,7 @@ public final class AggregationJob implements Runnable {
 
     public static BasicAttributeSensorAndConfigKey<List<Map<String, String>>> DASHBOARD_POLICY_HIGHLIGHTS = new BasicAttributeSensorAndConfigKey(List.class,
             "dashboard.policyHighlights",
-            "Highlights from policies. List of Masps, where each map should contain text and category");
+            "Highlights from policies. List of Maps, where each map should contain text and category");
 
     private final Entity entity;
 

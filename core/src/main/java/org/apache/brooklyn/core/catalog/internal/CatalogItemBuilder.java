@@ -33,6 +33,7 @@ public class CatalogItemBuilder<CIConcreteType extends CatalogItemDtoAbstract<?,
         Preconditions.checkNotNull(itemType, "itemType required");
         switch (itemType) {
         case ENTITY: return newEntity(symbolicName, version);
+        case APPLICATION: return newApplication(symbolicName, version);
         case TEMPLATE: return newTemplate(symbolicName, version);
         case POLICY: return newPolicy(symbolicName, version);
         case ENRICHER: return newEnricher(symbolicName, version);
@@ -43,6 +44,12 @@ public class CatalogItemBuilder<CIConcreteType extends CatalogItemDtoAbstract<?,
 
     public static CatalogItemBuilder<CatalogEntityItemDto> newEntity(String symbolicName, String version) {
         return new CatalogItemBuilder<CatalogEntityItemDto>(new CatalogEntityItemDto())
+                .symbolicName(symbolicName)
+                .version(version);
+    }
+
+    public static CatalogItemBuilder<CatalogApplicationItemDto> newApplication(String symbolicName, String version) {
+        return new CatalogItemBuilder<CatalogApplicationItemDto>(new CatalogApplicationItemDto())
                 .symbolicName(symbolicName)
                 .version(version);
     }

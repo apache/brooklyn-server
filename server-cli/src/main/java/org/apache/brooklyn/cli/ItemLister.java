@@ -239,7 +239,7 @@ public class ItemLister {
                         Map<String,Object> itemDescriptor = ItemDescriptors.toItemDescriptor(catalog, item, headingsOnly);
 
                         itemCount++;
-                        if (item.getCatalogItemType() == CatalogItem.CatalogItemType.ENTITY || item.getCatalogItemType() == CatalogItem.CatalogItemType.TEMPLATE) {
+                        if (item.getCatalogItemType() == CatalogItem.CatalogItemType.ENTITY || item.getCatalogItemType() == CatalogItem.CatalogItemType.TEMPLATE || item.getCatalogItemType() == CatalogItem.CatalogItemType.APPLICATION) {
                             entities.add(itemDescriptor);
                         } else if (item.getCatalogItemType() == CatalogItem.CatalogItemType.POLICY) {
                             policies.add(itemDescriptor);

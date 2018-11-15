@@ -90,6 +90,7 @@ public class PropagatePrimaryEnricher extends AbstractEnricher implements Sensor
             Collection<? extends Sensor<?>> sensorsToRemove = config().get(PROPAGATING);
             if (sensorsToRemove!=null) {
                 for (Sensor<?> s: sensorsToRemove) {
+                    // TODO - allow strings above also
                     if (s instanceof AttributeSensor) {
                         ((EntityInternal)entity).sensors().remove((AttributeSensor<?>)s);
                     }
@@ -119,7 +120,7 @@ public class PropagatePrimaryEnricher extends AbstractEnricher implements Sensor
         
         Collection<? extends Sensor<?>> sensorsToPropagate = getConfig(PROPAGATING);
         if (sensorsToPropagate==null || sensorsToPropagate.isEmpty()) {
-            log.warn("");
+            log.warn("Nothing found to propagate from primary "+primary+" at "+entity);
             return;
         }
         spec.configure(Propagator.PROPAGATING, sensorsToPropagate);

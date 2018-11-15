@@ -53,6 +53,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConstraintViolationException;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
@@ -335,9 +336,10 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
             extraConfigGlobs.stream().forEach(g -> { extraConfigPreds.add( ConfigPredicates.nameMatchesGlob(g) ); });
             entity.config().findKeysDeclared(Predicates.or(extraConfigPreds)).forEach(key -> {
                 if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CONFIG, new EntityAndItem<String>(entity, key.getName()))) {
-                    Object v = entity.config().get(key);
+                    Maybe<Object> vRaw = ((EntityInternal)entity).config().getRaw(key);
+                    Object v = vRaw.isPresent() ? vRaw.get() : entity.config().get(key);
                     if (v!=null) {
-                        v = resolving(v).preferJson(true).asJerseyOutermostReturnValue(false).raw(true).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
+                        v = resolving(v, mgmt()).preferJson(true).asJerseyOutermostReturnValue(false).raw(true).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
                         configs.put(key.getName(), v);
                     }
                 }

@@ -84,7 +84,7 @@ public class XmlPlanToSpecTransformer implements PlanToSpecTransformer {
         if (item.getCatalogItemType()==CatalogItemType.ENTITY) {
             return (SpecT)toEntitySpec(parseXml(item.getPlanYaml()), 1);
         }
-        if (item.getCatalogItemType()==CatalogItemType.TEMPLATE) {
+        if (item.getCatalogItemType()==CatalogItemType.TEMPLATE || item.getCatalogItemType()==CatalogItemType.APPLICATION) {
             return (SpecT)toEntitySpec(parseXml(item.getPlanYaml()), 0);
         }
         throw new UnsupportedTypePlanException("Type "+item.getCatalogItemType()+" not supported");
