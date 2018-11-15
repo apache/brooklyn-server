@@ -20,6 +20,7 @@ package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +36,8 @@ import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynYamlTypeInstantiator.InstantiatorFromKey;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
@@ -221,6 +224,34 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
             BasicSpecParameter.initializeSpecWithExplicitParameters(entitySpec, explicitParams, instantiator.loader);
         }
 
+        public void decorateDefaultVals(EntitySpec<?> entitySpec, ConfigBag attrs, Set<String> encounteredRegisteredTypeIds) {
+            // If entitySpec has explicit config values, those override the 'defaults' in the SpecParameter.
+            // Therefore in our type, we should report these as the 'defaults'.
+            // This is particularly important for subtypes that set values for inherited config keys.
+            // e.g. MySuperType declares required config 'maxSize', and MySubType sets a value for that in its
+            //    `brooklyn.config` section. A user of `MySubType` in the UI would be forced to also set a value
+            //    for 'maxSize' (because 'required' and no default) if we didn't do the code below.
+            
+            List<SpecParameter<?>> params = entitySpec.getParameters();
+            Map<ConfigKey<?>, Object> configs = entitySpec.getConfig();
+            
+            List<SpecParameter<?>> decoratedParameters = new ArrayList<>();
+            for (SpecParameter<?> param : params) {
+                SpecParameter<?> decoratedParam;
+                if (configs.containsKey(param.getConfigKey())) {
+                    Object explicitConfigVal = configs.get(param.getConfigKey());
+                    ConfigKey<?> newConfigKey = ConfigKeys.newConfigKeyWithDefault((ConfigKey)param.getConfigKey(), explicitConfigVal);
+                    decoratedParam = new BasicSpecParameter(param.getLabel(), param.isPinned(), newConfigKey, param.getSensor());
+                } else {
+                    decoratedParam = param;
+                }
+                decoratedParameters.add(decoratedParam);
+                
+            }
+            // but now we need to filter non-reinheritable, and merge where params are extended/overridden 
+            entitySpec.parametersReplace(decoratedParameters);
+        }
+        
         @Override
         protected List<SpecParameter<?>> buildListOfTheseDecorationsFromIterable(Iterable<?> value) {
             // returns definitions, used only by #decorate method above
