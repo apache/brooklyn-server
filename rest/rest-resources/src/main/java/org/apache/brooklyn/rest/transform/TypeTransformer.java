@@ -23,6 +23,7 @@ import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
 import java.net.URI;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -87,7 +88,11 @@ public class TypeTransformer {
             result.setExtraField("template", true);
         }
         if (item.getIconUrl()!=null) {
-            result.setIconUrl(tidyIconLink(b, item, item.getIconUrl(), ub));
+            String tidiedUrl = tidyIconLink(b, item, item.getIconUrl(), ub);
+            result.setIconUrl(tidiedUrl);
+            if (!Objects.equals(item.getIconUrl(), tidiedUrl)) {
+                result.setExtraField("iconUrlSource", item.getIconUrl());
+            }
         }
         
         if (detail) {
