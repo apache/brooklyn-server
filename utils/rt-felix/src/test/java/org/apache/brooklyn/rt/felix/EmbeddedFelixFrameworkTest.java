@@ -16,7 +16,6 @@
 package org.apache.brooklyn.rt.felix;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.Enumeration;
@@ -25,11 +24,10 @@ import java.util.jar.JarInputStream;
 
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.stream.Streams;
-import org.apache.commons.io.FileUtils;
-import org.osgi.framework.BundleException;
 import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,17 +56,13 @@ public class EmbeddedFelixFrameworkTest {
     }
 
     @AfterMethod(alwaysRun = true)
-    public void tearDown() throws BundleException, IOException, InterruptedException {
+    public void tearDown() {
         tearDownOsgiFramework(framework, storageTempDir);
     }
 
-    public static void tearDownOsgiFramework(Framework framework, File storageTempDir) throws BundleException, InterruptedException, IOException {
+    private static void tearDownOsgiFramework(Framework framework, File storageTempDir) {
         EmbeddedFelixFramework.stopFramework(framework);
-        framework = null;
-        if (storageTempDir != null) {
-            FileUtils.deleteDirectory(storageTempDir);
-            storageTempDir = null;
-        }
+        FileUtil.deleteDirectory(storageTempDir);
     }
 
     @Test
