@@ -26,14 +26,17 @@ import javax.servlet.DispatcherType;
 import javax.servlet.Filter;
 
 import org.apache.brooklyn.rest.apidoc.RestApiResourceScanner;
+import org.apache.brooklyn.rest.filter.MyOauthFilter;
 import org.apache.cxf.BusFactory;
 import org.apache.cxf.jaxrs.servlet.CXFNonSpringJaxrsServlet;
 import org.apache.cxf.transport.common.gzip.GZIPInInterceptor;
 import org.apache.cxf.transport.common.gzip.GZIPOutInterceptor;
+import org.eclipse.jetty.servlet.FilterHolder;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 
 import io.swagger.config.ScannerFactory;
+import org.eclipse.jetty.webapp.WebAppContext;
 
 public class RestApiSetup {
 
@@ -70,4 +73,18 @@ public class RestApiSetup {
         ScannerFactory.setScanner(new RestApiResourceScanner());
     }
 
+    public static void installOauthServletFilters(WebAppContext context, Class<MyOauthFilter> myOauthFilterClass) {
+        FilterHolder fh= context.addFilter(myOauthFilterClass, "/*", EnumSet.allOf(DispatcherType.class));
+        setFilterParams(fh);
+    }
+    private static void setFilterParams(FilterHolder fh) {
+        fh.setInitParameter(MyOauthFilter.PARAM_URI_GETTOKEN, "https://accounts.google.com/o/oauth2/token");
+        fh.setInitParameter(MyOauthFilter.PARAM_URI_TOKEN_INFO, "https://www.googleapis.com/oauth2/v1/tokeninfo");
+        fh.setInitParameter(MyOauthFilter.PARAM_URI_LOGIN_REDIRECT, "/login");
+        fh.setInitParameter(MyOauthFilter.PARAM_CLIENT_ID,
+                "789182012565-burd24h3bc0im74g2qemi7lnihvfqd02.apps.googleusercontent.com");
+        fh.setInitParameter(MyOauthFilter.PARAM_CLIENT_SECRET, "X00v-LfU34U4SfsHqPKMWfQl");
+        fh.setInitParameter(MyOauthFilter.PARAM_CALLBACK_URI, "http://localhost.io:8080/service/ping");
+        fh.setInitParameter(MyOauthFilter.PARAM_AUDIENCE, "audience");
+    }
 }

@@ -53,14 +53,7 @@ import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocati
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.NopSecurityHandler;
 import org.apache.brooklyn.rest.RestApiSetup;
-import org.apache.brooklyn.rest.filter.CorsImplSupplierFilter;
-import org.apache.brooklyn.rest.filter.CsrfTokenFilter;
-import org.apache.brooklyn.rest.filter.EntitlementContextFilter;
-import org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter;
-import org.apache.brooklyn.rest.filter.LoggingFilter;
-import org.apache.brooklyn.rest.filter.NoCacheFilter;
-import org.apache.brooklyn.rest.filter.RequestTaggingFilter;
-import org.apache.brooklyn.rest.filter.RequestTaggingRsFilter;
+import org.apache.brooklyn.rest.filter.*;
 import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule;
 import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule.RolePrincipal;
 import org.apache.brooklyn.rest.security.jaas.JaasUtils;
@@ -501,6 +494,8 @@ public class BrooklynWebServer {
         RestApiSetup.installServletFilters(context,
                 RequestTaggingFilter.class,
                 LoggingFilter.class);
+        RestApiSetup.installOauthServletFilters(context,
+                MyOauthFilter.class);
         if (securityFilterClazz != null) {
             RestApiSetup.installServletFilters(context, securityFilterClazz);
         }
