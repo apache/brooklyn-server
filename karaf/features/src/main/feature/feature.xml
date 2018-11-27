@@ -213,6 +213,7 @@
         <!-- should be deps of jax-rs-2.0 rest-api project -->
         <bundle dependency="true">mvn:javax.servlet/javax.servlet-api/${javax-servlet.version}</bundle>
         <bundle dependency="true">mvn:javax.ws.rs/javax.ws.rs-api/${jax-rs-api.version}</bundle>
+        <bundle dependency="true">wrap:mvn:com.googlecode.json-simple/json-simple/${json-simple.version}</bundle>
 
         <config name="org.apache.cxf.osgi">
             org.apache.cxf.servlet.context = /v1
