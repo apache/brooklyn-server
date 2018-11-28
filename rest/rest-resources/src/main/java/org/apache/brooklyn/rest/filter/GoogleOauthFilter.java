@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.annotation.Priority;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
@@ -33,6 +34,7 @@ import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.ext.Provider;
 
 import net.minidev.json.JSONObject;
 import org.apache.http.HttpEntity;
@@ -51,11 +53,13 @@ import org.apache.http.util.EntityUtils;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+@Provider
+@Priority(100)
 public class GoogleOauthFilter implements Filter {
 
-    private static final String SESSION_KEY_CODE = "code";
+    public static final String SESSION_KEY_CODE = "code";
 
-    private static final String SESSION_KEY_ACCESS_TOKEN = "access_token";
+    public static final String SESSION_KEY_ACCESS_TOKEN = "access_token";
 
     public static final String PARAM_URI_TOKEN_INFO = "uriTokenInfo";
     private String uriTokenInfo = "";

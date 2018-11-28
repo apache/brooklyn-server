@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.rest.security.provider;
 
+import org.apache.brooklyn.rest.filter.GoogleOauthFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,18 +32,22 @@ public class GoogleOauthSecurityProvider implements SecurityProvider {
     @Override
     public boolean isAuthenticated(HttpSession session) {
         LOG.info("isAuthenticated");
-        return true;
+        Object token = session.getAttribute(GoogleOauthFilter.SESSION_KEY_ACCESS_TOKEN);
+
+        return token!=null;
     }
 
     @Override
     public boolean authenticate(HttpSession session, String user, String password) {
         LOG.info("authenticate");
-        return true;
+        //
+        return false;
     }
 
     @Override
     public boolean logout(HttpSession session) {
         LOG.info("logout");
+        session.removeAttribute("xx");
         return true;
     }
 }
