@@ -40,14 +40,13 @@ public class GoogleOauthSecurityProvider implements SecurityProvider {
     @Override
     public boolean authenticate(HttpSession session, String user, String password) {
         LOG.info("authenticate");
-        //
-        return false;
+        return true;
     }
 
     @Override
     public boolean logout(HttpSession session) {
         LOG.info("logout");
-        session.removeAttribute("xx");
+        session.removeAttribute(GoogleOauthFilter.SESSION_KEY_ACCESS_TOKEN);
         return true;
     }
 }

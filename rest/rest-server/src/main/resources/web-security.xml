@@ -40,7 +40,7 @@
   </security-constraint>
 
   <login-config>
-    <auth-method>BASIC</auth-method>
+    <!--<auth-method>BASIC</auth-method>-->
     <realm-name>webconsole</realm-name>
   </login-config>
 

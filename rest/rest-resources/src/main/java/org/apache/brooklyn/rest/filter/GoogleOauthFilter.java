@@ -54,7 +54,7 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 @Provider
-@Priority(100)
+@Priority(1)
 public class GoogleOauthFilter implements Filter {
 
     public static final String SESSION_KEY_CODE = "code";
@@ -62,19 +62,20 @@ public class GoogleOauthFilter implements Filter {
     public static final String SESSION_KEY_ACCESS_TOKEN = "access_token";
 
     public static final String PARAM_URI_TOKEN_INFO = "uriTokenInfo";
-    private String uriTokenInfo = "";
     public static final String PARAM_URI_GETTOKEN = "uriGetToken";
-    private String uriGetToken = "";
     public static final String PARAM_URI_LOGIN_REDIRECT = "uriLoginRedirect";
-    private String uriTokenRedirect = "";
     public static final String PARAM_CLIENT_ID = "clientId";
-    private String clientId = "";
     public static final String PARAM_CLIENT_SECRET = "clientSecret";
-    private String clientSecret = "";
     public static final String PARAM_CALLBACK_URI = "callbackUri";
-    private String callbackUri = "";
     public static final String PARAM_AUDIENCE = "audience";
-    private String audience = "";
+
+    private String uriGetToken = "https://accounts.google.com/o/oauth2/token";
+    private String uriTokenInfo = "https://www.googleapis.com/oauth2/v1/tokeninfo";
+    private String uriTokenRedirect = "/";
+    private String clientId = "789182012565-burd24h3bc0im74g2qemi7lnihvfqd02.apps.googleusercontent.com";
+    private String clientSecret = "X00v-LfU34U4SfsHqPKMWfQl";
+    private String callbackUri = "http://localhost.io:8081/";
+    private String audience = "audience";
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {

@@ -60,7 +60,8 @@ limitations under the License.
                interface="org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal"/>
 
     <jaas:config name="webconsole">
-        <jaas:module className="org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule" flags="required"/>
+        <jaas:module className="org.apache.brooklyn.rest.security.jaas.GoogleOauthLoginModule" flags="required"/>
+        <!--<jaas:module className="org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule" flags="required"/>-->
     </jaas:config>
 
     <reference id="shutdownHandler" interface="org.apache.brooklyn.core.mgmt.ShutdownHandler"/>
@@ -133,7 +134,6 @@ limitations under the License.
             <bean class="org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter"/>
             <bean class="org.apache.brooklyn.rest.filter.EntitlementContextFilter"/>
             <bean class="org.apache.brooklyn.rest.filter.LoggingResourceFilter"/>
-            <bean class="org.apache.brooklyn.rest.filter.GoogleOauthFilter"/>
             <bean class="io.swagger.jaxrs.listing.SwaggerSerializers"/>
             <bean class="org.apache.brooklyn.rest.util.ShutdownHandlerProvider">
                 <argument ref="shutdownHandler"/>
