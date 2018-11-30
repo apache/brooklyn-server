@@ -318,7 +318,7 @@ public class GoogleOauthLoginModule implements LoginModule {
                 .append("&approval_prompt=force"); // this requires them to verify which account to use, if they are
         // already signed in
         logger.debug(oauthUrl.toString());
-        response.addHeader("Access-Control-Allow-Origin","accounts.google.com");
+        response.addHeader("Access-Control-Allow-Origin","*");
         response.sendRedirect(oauthUrl.toString());
         return false;
     }
