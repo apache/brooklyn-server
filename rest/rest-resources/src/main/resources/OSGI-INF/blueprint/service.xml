@@ -34,11 +34,11 @@ limitations under the License.
 
     <cm:property-placeholder persistent-id="org.apache.brooklyn.rest.filter.cors">
         <cm:default-properties>
-            <cm:property name="cors.enabled" value="false"/>
+            <cm:property name="cors.enabled" value="true"/>
             <cm:property name="cors.allow.origins" value=""/>
             <cm:property name="cors.allow.headers" value=""/>
             <cm:property name="cors.expose.headers" value=""/>
-            <cm:property name="cors.allow.credentials" value="false"/>
+            <cm:property name="cors.allow.credentials" value="true"/>
             <cm:property name="cors.max.age" value="-1"/>
             <cm:property name="cors.preflight.error.status" value="200"/>
             <cm:property name="cors.block.if.unauthorized" value="false"/>
