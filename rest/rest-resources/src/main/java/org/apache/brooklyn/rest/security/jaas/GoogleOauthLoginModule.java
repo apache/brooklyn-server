@@ -67,11 +67,12 @@ public class GoogleOauthLoginModule implements LoginModule {
 //    public static final String PARAM_CALLBACK_URI = "callbackUri";
 //    public static final String PARAM_AUDIENCE = "audience";
 
-    private String uriGetToken = "https://accounts.google.com/o/oauth2/token";
-    private String uriTokenInfo = "https://www.googleapis.com/oauth2/v1/tokeninfo";
+    private String authoriseURL = "https://github.com/login/oauth/authorize";
+    private String tokenURL = "https://github.com/login/oauth/access_token";
+    private String apiURLBase = "https://api.github.com/";
     private String uriTokenRedirect = "/";
-    private String clientId = "789182012565-burd24h3bc0im74g2qemi7lnihvfqd02.apps.googleusercontent.com";
-    private String clientSecret = "X00v-LfU34U4SfsHqPKMWfQl";
+    private String clientId = "7f76b9970d8ac15b30b0";
+    private String clientSecret = "9e15f8dd651f0b1896a3a582f17fa82f049fc910";
     private String callbackUri = "http://localhost.io:8081/";
     private String audience = "audience";
 
@@ -83,7 +84,7 @@ public class GoogleOauthLoginModule implements LoginModule {
     private CallbackHandler callbackHandler;
     private boolean debug;
     private String roleName = "webconsole";
-    private String oauth2URL = uriTokenInfo;
+    private String oauth2URL = tokenURL;
     private boolean loginSucceeded;
     private String userName;
     private boolean commitSuccess;
@@ -214,7 +215,7 @@ public class GoogleOauthLoginModule implements LoginModule {
         params.put("redirect_uri", callbackUri);
         params.put("grant_type", "authorization_code");
 
-        String body = post(uriGetToken, params);
+        String body = post(authoriseURL, params);
 
         JSONObject jsonObject = null;
 
@@ -240,7 +241,7 @@ public class GoogleOauthLoginModule implements LoginModule {
         HashMap<String, String> params = new HashMap<String, String>();
         params.put(SESSION_KEY_ACCESS_TOKEN, token);
 
-        String body = post(uriTokenInfo, params);
+        String body = post(tokenURL, params);
         // System.out.println(body);
         JSONObject jsonObject = null;
 
@@ -304,21 +305,29 @@ public class GoogleOauthLoginModule implements LoginModule {
         principals = null;
     }
 
+    private static String createRandomHexString(int length){
+        Random random = new Random();
+        StringBuilder sb = new StringBuilder();
+        while (sb.length() < length) {
+            sb.append(Integer.toHexString(random.nextInt()));
+        }
+        return sb.toString();
+    }
+
     private boolean redirectLogin() throws IOException {
-        String state="state";
-        StringBuilder oauthUrl = new StringBuilder().append("https://accounts.google.com/o/oauth2/auth")
+        String state=createRandomHexString(16); //should be stored in session
+        StringBuilder oauthUrl = new StringBuilder().append(authoriseURL)
+                .append("response_type=").append("code")
                 .append("?client_id=").append(clientId) // the client id from the api console registration
-                .append("&response_type=code").append("&scope=openid%20email") // scope is the api permissions we
-                // are requesting
-                .append("&redirect_uri=").append(callbackUri) // the servlet that google redirects to after
+                .append("&redirect_uri=").append(callbackUri) // the servlet that github redirects to after
                 // authorization
+                .append("scope=").append("user public_repo")
                 .append("&state=").append(state)
                 .append("&access_type=offline") // here we are asking to access to user's data while they are not
                 // signed in
                 .append("&approval_prompt=force"); // this requires them to verify which account to use, if they are
         // already signed in
         logger.debug(oauthUrl.toString());
-        response.addHeader("Access-Control-Allow-Origin","*");
         response.sendRedirect(oauthUrl.toString());
         return false;
     }
