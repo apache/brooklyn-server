@@ -317,11 +317,11 @@ public class GoogleOauthLoginModule implements LoginModule {
     private boolean redirectLogin() throws IOException {
         String state=createRandomHexString(16); //should be stored in session
         StringBuilder oauthUrl = new StringBuilder().append(authoriseURL)
-                .append("response_type=").append("code")
-                .append("?client_id=").append(clientId) // the client id from the api console registration
+                .append("?response_type=").append("code")
+                .append("&client_id=").append(clientId) // the client id from the api console registration
                 .append("&redirect_uri=").append(callbackUri) // the servlet that github redirects to after
                 // authorization
-                .append("scope=").append("user public_repo")
+                .append("&scope=").append("user public_repo")
                 .append("&state=").append(state)
                 .append("&access_type=offline") // here we are asking to access to user's data while they are not
                 // signed in
