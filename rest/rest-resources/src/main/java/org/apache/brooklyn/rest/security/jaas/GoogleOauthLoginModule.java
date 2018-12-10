@@ -327,6 +327,10 @@ public class GoogleOauthLoginModule implements LoginModule {
                 // signed in
                 .append("&approval_prompt=force"); // this requires them to verify which account to use, if they are
         // already signed in
+
+        response.addHeader("Origin", "http://localhost.io:8081");
+        response.addHeader("Access-Control-Request-Method", "GET, POST");
+        response.addHeader("Access-Control-Request-Headers", "origin, x-requested-with");
         logger.debug(oauthUrl.toString());
         response.sendRedirect(oauthUrl.toString());
         return false;
