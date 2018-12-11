@@ -60,7 +60,8 @@ limitations under the License.
                interface="org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal"/>
 
     <jaas:config name="webconsole">
-        <jaas:module className="org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule" flags="required"/>
+        <!--<jaas:module className="org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule" flags="required"/>-->
+        <jaas:module className="org.apache.brooklyn.rest.security.jaas.GoogleOauthLoginModule" flags="required"/>
     </jaas:config>
 
     <reference id="shutdownHandler" interface="org.apache.brooklyn.core.mgmt.ShutdownHandler"/>
