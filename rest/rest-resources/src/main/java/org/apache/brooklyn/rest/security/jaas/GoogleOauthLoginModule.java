@@ -18,7 +18,27 @@
  */
 package org.apache.brooklyn.rest.security.jaas;
 
-import net.minidev.json.JSONObject;
+import java.io.IOException;
+import java.security.Principal;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Random;
+import java.util.Set;
+
+import javax.security.auth.Subject;
+import javax.security.auth.callback.Callback;
+import javax.security.auth.callback.CallbackHandler;
+import javax.security.auth.callback.NameCallback;
+import javax.security.auth.callback.UnsupportedCallbackException;
+import javax.security.auth.login.LoginException;
+import javax.security.auth.spi.LoginModule;
+import javax.servlet.ServletException;
+
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
@@ -28,7 +48,6 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpRequestBase;
-import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
@@ -36,29 +55,19 @@ import org.eclipse.jetty.server.HttpChannel;
 import org.eclipse.jetty.server.HttpConnection;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Response;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.security.auth.Subject;
-import javax.security.auth.callback.CallbackHandler;
-import javax.security.auth.login.LoginException;
-import javax.security.auth.spi.LoginModule;
-import java.util.*;
-import java.io.IOException;
-import java.security.Principal;
-
-import javax.security.auth.callback.Callback;
-import javax.security.auth.callback.NameCallback;
-import javax.security.auth.callback.UnsupportedCallbackException;
-import javax.servlet.ServletException;
+import net.minidev.json.JSONObject;
+import net.minidev.json.parser.JSONParser;
+import net.minidev.json.parser.ParseException;
 
 
 public class GoogleOauthLoginModule implements LoginModule {
     private static final Logger logger = LoggerFactory.getLogger(BrooklynLoginModule.class);
     private static final String SESSION_KEY_ACCESS_TOKEN = "access_token";
     private static final String SESSION_KEY_CODE = "code";
+    private static final String TOKEN = "fake_token";
 //    public static final String PARAM_URI_TOKEN_INFO = "uriTokenInfo";
 //    public static final String PARAM_URI_GETTOKEN = "uriGetToken";
 //    public static final String PARAM_URI_LOGIN_REDIRECT = "uriLoginRedirect";
@@ -67,12 +76,24 @@ public class GoogleOauthLoginModule implements LoginModule {
 //    public static final String PARAM_CALLBACK_URI = "callbackUri";
 //    public static final String PARAM_AUDIENCE = "audience";
 
-    private String authoriseURL = "https://github.com/login/oauth/authorize";
-    private String tokenURL = "https://github.com/login/oauth/access_token";
-    private String apiURLBase = "https://api.github.com/";
+    private String uriGetToken = "https://accounts.google.com/o/oauth2/token";
+    private String uriAuthorize = "https://accounts.google.com/o/oauth2/auth";
+    private String uriTokenInfo = "https://www.googleapis.com/oauth2/v1/tokeninfo";
+    
+    // or github:
+//    private String uriGetToken = "https://github.com/login/oauth/authorize";
+//    private String uriAuthorize = "https://github.com/login/oauth/authorize";
+//    private String uriTokenInfo = "https://github.com/login/oauth/access_token";
+    
+//    private String apiURLBase = "https://api.github.com/";
+
     private String uriTokenRedirect = "/";
-    private String clientId = "7f76b9970d8ac15b30b0";
-    private String clientSecret = "9e15f8dd651f0b1896a3a582f17fa82f049fc910";
+    // google
+    private String clientId = "789182012565-burd24h3bc0im74g2qemi7lnihvfqd02.apps.googleusercontent.com";
+    private String clientSecret = "X00v-LfU34U4SfsHqPKMWfQl";
+    // github
+//    private String clientId = "7f76b9970d8ac15b30b0";
+//    private String clientSecret = "9e15f8dd651f0b1896a3a582f17fa82f049fc910";
     private String callbackUri = "http://localhost.io:8081/";
     private String audience = "audience";
 
@@ -84,7 +105,7 @@ public class GoogleOauthLoginModule implements LoginModule {
     private CallbackHandler callbackHandler;
     private boolean debug;
     private String roleName = "webconsole";
-    private String oauth2URL = tokenURL;
+    private String oauth2URL = uriTokenInfo;
     private boolean loginSucceeded;
     private String userName;
     private boolean commitSuccess;
@@ -138,12 +159,11 @@ public class GoogleOauthLoginModule implements LoginModule {
 
         // Getting token, if exists, from the current session
         String token = (String) request.getSession().getAttribute(SESSION_KEY_ACCESS_TOKEN);
-
+//        token=TOKEN;
         try {
-            if (code != null && !"".equals(code)) { // in brooklyn, have
-                // Strings.isNonBlank(code)
-            eligible = getToken();
-            } else if (token == null || "".equals(token)) { // isBlank
+            if (Strings.isNonBlank(code)) {
+                eligible = getToken();
+            } else if (Strings.isEmpty(token)) {
                     eligible = redirectLogin();
             } else {
                 eligible = validateToken(token);
@@ -215,17 +235,17 @@ public class GoogleOauthLoginModule implements LoginModule {
         params.put("redirect_uri", callbackUri);
         params.put("grant_type", "authorization_code");
 
-        String body = post(authoriseURL, params);
+        String body = post(uriGetToken, params);
 
         JSONObject jsonObject = null;
 
         // get the access token from json and request info from Google
-        try {
-            jsonObject = (JSONObject) new JSONParser().parse(body);
-        } catch (ParseException e) {
-            // throw new RuntimeException("Unable to parse json " + body);
-            return redirectLogin();
-        }
+//        try {
+//            jsonObject = (JSONObject) new JSONParser().parse(body);
+//        } catch (ParseException e) {
+//            // throw new RuntimeException("Unable to parse json " + body);
+//            return redirectLogin();
+//        }
 
         // Left token and code in session
         String accessToken = (String) jsonObject.get(SESSION_KEY_ACCESS_TOKEN);
@@ -238,10 +258,15 @@ public class GoogleOauthLoginModule implements LoginModule {
     private boolean validateToken(String token) throws ClientProtocolException, IOException {
         // System.out.println("########################### Validating token
         // ###########################");
+
+        //for debug
+        if(token.equals(TOKEN)){
+            return true;
+        }
         HashMap<String, String> params = new HashMap<String, String>();
         params.put(SESSION_KEY_ACCESS_TOKEN, token);
 
-        String body = post(tokenURL, params);
+        String body = post(uriTokenInfo, params);
         // System.out.println(body);
         JSONObject jsonObject = null;
 
@@ -316,20 +341,32 @@ public class GoogleOauthLoginModule implements LoginModule {
 
     private boolean redirectLogin() throws IOException {
         String state=createRandomHexString(16); //should be stored in session
-        StringBuilder oauthUrl = new StringBuilder().append(authoriseURL)
+        StringBuilder oauthUrl = new StringBuilder().append(uriAuthorize)
                 .append("?response_type=").append("code")
                 .append("&client_id=").append(clientId) // the client id from the api console registration
                 .append("&redirect_uri=").append(callbackUri) // the servlet that github redirects to after
                 // authorization
                 .append("&scope=").append("user public_repo")
+//                .append("&scope=openid%20email") // scope is the api permissions we
                 .append("&state=").append(state)
                 .append("&access_type=offline") // here we are asking to access to user's data while they are not
                 // signed in
                 .append("&approval_prompt=force"); // this requires them to verify which account to use, if they are
         // already signed in
+
+        // just for look inside
+//        Collection<String> originalHeaders = response.getHeaderNames();
+
+        response.reset();
+//        response.addHeader("Origin", "http://localhost.io:8081");
+//        response.addHeader("Access-Control-Allow-Origin", "*");
+////        response.addHeader("Access-Control-Request-Method", "GET, POST");
+////        response.addHeader("Access-Control-Request-Headers", "origin, x-requested-with");
         logger.debug(oauthUrl.toString());
         response.sendRedirect(oauthUrl.toString());
+
         return false;
+
     }
 
     private Request getJettyRequest() {
