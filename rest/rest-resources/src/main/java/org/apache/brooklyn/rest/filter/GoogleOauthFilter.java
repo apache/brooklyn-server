@@ -36,7 +36,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.ext.Provider;
 
-import net.minidev.json.JSONObject;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
@@ -50,13 +51,15 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Provider
 @Priority(1)
 public class GoogleOauthFilter implements Filter {
 
+    private static final Logger log = LoggerFactory.getLogger(GoogleOauthFilter.class);
+    
     public static final String SESSION_KEY_CODE = "code";
 
     public static final String SESSION_KEY_ACCESS_TOKEN = "access_token";
@@ -149,13 +152,16 @@ public class GoogleOauthFilter implements Filter {
 
         String body = post(uriTokenInfo, params);
         // System.out.println(body);
-        JSONObject jsonObject = null;
+        Map<?,?> jsonObject = null;
 
         // get the access token from json and request info from Google
         try {
-            jsonObject = (JSONObject) new JSONParser().parse(body);
-        } catch (ParseException e) {
-            throw new RuntimeException("Unable to parse json " + body);
+            jsonObject = (Map<?,?>) Yamls.parseAll(body).iterator().next();
+            log.info("Parsed '"+body+"' as "+jsonObject);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            log.info("Unable to parse: '"+body+"'");
+            throw new RuntimeException("Unable to parse json " + body, e);
         }
 
         if (!clientId.equals(jsonObject.get(audience))) {
@@ -179,13 +185,15 @@ public class GoogleOauthFilter implements Filter {
 
         String body = post(uriGetToken, params);
 
-        JSONObject jsonObject = null;
+        Map<?,?> jsonObject = null;
 
         // get the access token from json and request info from Google
         try {
-            jsonObject = (JSONObject) new JSONParser().parse(body);
-        } catch (ParseException e) {
-            // throw new RuntimeException("Unable to parse json " + body);
+            jsonObject = (Map<?,?>) Yamls.parseAll(body).iterator().next();
+            log.info("Parsed '"+body+"' as "+jsonObject);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            log.info("Unable to parse: '"+body+"'");
             return redirectLogin(resp);
         }
 

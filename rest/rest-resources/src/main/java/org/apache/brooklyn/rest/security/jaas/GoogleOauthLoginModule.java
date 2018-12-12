@@ -38,7 +38,9 @@ import javax.security.auth.login.LoginException;
 import javax.security.auth.spi.LoginModule;
 import javax.servlet.ServletException;
 
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
@@ -57,10 +59,6 @@ import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import net.minidev.json.JSONObject;
-import net.minidev.json.parser.JSONParser;
-import net.minidev.json.parser.ParseException;
 
 
 public class GoogleOauthLoginModule implements LoginModule {
@@ -115,6 +113,7 @@ public class GoogleOauthLoginModule implements LoginModule {
 
     @Override
     public void initialize(Subject subject, CallbackHandler callbackHandler, Map<String, ?> sharedState, Map<String, ?> options) {
+        logger.info("ALEX LOGIN MODULE - INIT");
         this.subject = subject;
         this.callbackHandler = callbackHandler;
 
@@ -150,6 +149,7 @@ public class GoogleOauthLoginModule implements LoginModule {
         }
 
         String newUrl = oauth2URL + userName;
+        logger.info("ALEX LOGIN MODULE - LOGIN "+userName+" / "+newUrl);
         logger.debug("THis is the URL: " + newUrl);
 
         boolean eligible=false;
@@ -237,15 +237,18 @@ public class GoogleOauthLoginModule implements LoginModule {
 
         String body = post(uriGetToken, params);
 
-        JSONObject jsonObject = null;
+        Map<?,?> jsonObject = null;
 
         // get the access token from json and request info from Google
-//        try {
-//            jsonObject = (JSONObject) new JSONParser().parse(body);
-//        } catch (ParseException e) {
-//            // throw new RuntimeException("Unable to parse json " + body);
-//            return redirectLogin();
-//        }
+        try {
+            jsonObject = (Map<?,?>) Yamls.parseAll(body).iterator().next();
+            logger.info("Parsed '"+body+"' as "+jsonObject);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            logger.info("Unable to parse: '"+body+"'");
+            // throw new RuntimeException("Unable to parse json " + body);
+            return redirectLogin();
+        }
 
         // Left token and code in session
         String accessToken = (String) jsonObject.get(SESSION_KEY_ACCESS_TOKEN);
@@ -268,13 +271,16 @@ public class GoogleOauthLoginModule implements LoginModule {
 
         String body = post(uriTokenInfo, params);
         // System.out.println(body);
-        JSONObject jsonObject = null;
+        Map<?,?> jsonObject = null;
 
         // get the access token from json and request info from Google
         try {
-            jsonObject = (JSONObject) new JSONParser().parse(body);
-        } catch (ParseException e) {
-            throw new RuntimeException("Unable to parse json " + body);
+            jsonObject = (Map<?,?>) Yamls.parseAll(body).iterator().next();
+            logger.info("Parsed '"+body+"' as "+jsonObject);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            logger.info("Unable to parse: '"+body+"'");
+            throw new RuntimeException("Unable to parse json " + body, e);
         }
 
         if (!clientId.equals(jsonObject.get(audience))) {

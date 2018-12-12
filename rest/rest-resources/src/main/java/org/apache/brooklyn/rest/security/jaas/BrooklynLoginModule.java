@@ -186,6 +186,7 @@ public class BrooklynLoginModule implements LoginModule {
     private void initProvider() {
         StringConfigMap brooklynProperties = getManagementContext().getConfig();
         provider = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE);
+        log.info("ALEX BR LOGIN - INIT "+provider);
         String symbolicName = (String) options.get(PROPERTY_BUNDLE_SYMBOLIC_NAME);
         String version = (String) options.get(PROPERTY_BUNDLE_VERSION);
         String className = (String) options.get(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME.getName());
@@ -252,6 +253,7 @@ public class BrooklynLoginModule implements LoginModule {
     @Override
     public boolean login() throws LoginException {
         if (callbackHandler == null) {
+            log.info("ALEX BR LOGIN - LOGIN 1");
             loginSuccess = false;
             throw new FailedLoginException("Username and password not available");
         }
@@ -260,6 +262,7 @@ public class BrooklynLoginModule implements LoginModule {
         PasswordCallback cbPassword = new PasswordCallback("Password: ", false);
 
         Callback[] callbacks = {cbName, cbPassword};
+        log.info("ALEX BR LOGIN - LOGIN 2 - "+cbName);
 
         try {
             callbackHandler.handle(callbacks);
@@ -306,6 +309,7 @@ public class BrooklynLoginModule implements LoginModule {
 
     @Override
     public boolean commit() throws LoginException {
+        log.info("ALEX BR LOGIN - COMMIT");
         if (loginSuccess) {
             if (subject.isReadOnly()) {
                 throw new LoginException("Can't commit read-only subject");
