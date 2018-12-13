@@ -95,9 +95,9 @@ public class GoogleOauthLoginModule implements LoginModule {
     private String callbackUri = "http://localhost.io:8081/";
     private String audience = "audience";
 
-    private static final String OAUTH2_TOKEN = "org.apache.activemq.jaas.oauth2.token";
-    private static final String OAUTH2_ROLE = "org.apache.activemq.jaas.oauth2.role";
-    private static final String OAUTH2_URL = "org.apache.activemq.jaas.oauth2.oauth2url";
+//    private static final String OAUTH2_TOKEN = "org.apache.activemq.jaas.oauth2.token";
+//    private static final String OAUTH2_ROLE = "org.apache.activemq.jaas.oauth2.role";
+//    private static final String OAUTH2_URL = "org.apache.activemq.jaas.oauth2.oauth2url";
     private Set<Principal> principals = new HashSet<>();
     private Subject subject;
     private CallbackHandler callbackHandler;

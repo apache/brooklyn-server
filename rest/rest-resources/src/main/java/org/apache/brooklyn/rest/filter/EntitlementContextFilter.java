@@ -39,7 +39,7 @@ import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
 public class EntitlementContextFilter implements ContainerRequestFilter, ContainerResponseFilter {
     @Context
     private HttpServletRequest request;
-
+    
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {
         SecurityContext securityContext = requestContext.getSecurityContext();

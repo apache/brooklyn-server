@@ -59,11 +59,6 @@ limitations under the License.
     <reference id="localManagementContext"
                interface="org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal"/>
 
-    <jaas:config name="webconsole">
-        <!-- <jaas:module className="org.apache.brooklyn.rest.security.jaas.GoogleOauthLoginModule" flags="required"/>  -->
-        <jaas:module className="org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule" flags="required"/>
-    </jaas:config>
-
     <reference id="shutdownHandler" interface="org.apache.brooklyn.core.mgmt.ShutdownHandler"/>
 
     <bean class="org.apache.brooklyn.rest.security.jaas.ManagementContextHolder">
@@ -117,10 +112,7 @@ limitations under the License.
             <bean class="org.apache.brooklyn.rest.util.DefaultExceptionMapper"/>
             <bean class="org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider"/>
             <bean class="org.apache.brooklyn.rest.util.FormMapProvider"/>
-            <bean class="org.apache.cxf.jaxrs.security.JAASAuthenticationFilter">
-                <property name="contextName" value="webconsole"/>
-                <property name="realmName" value="webconsole"/>
-            </bean>
+            <bean class="org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilter"/>
             <bean class="org.apache.brooklyn.rest.util.ManagementContextProvider">
                 <argument ref="localManagementContext"/>
             </bean>

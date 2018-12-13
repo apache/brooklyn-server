@@ -27,9 +27,11 @@ import javax.servlet.http.HttpSession;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
+import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
-import org.apache.brooklyn.util.text.Strings;
+import org.osgi.framework.BundleContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -83,24 +85,20 @@ public class DelegatingSecurityProvider implements SecurityProvider {
                     this, delegate);
             return delegate;
         }
-        log.info("REST using security provider " + className);
 
         try {
-            ClassLoaderUtils clu = new ClassLoaderUtils(this, mgmt);
-            Class<? extends SecurityProvider> clazz;
-            try {
-                clazz = (Class<? extends SecurityProvider>) clu.loadClass(className);
-            } catch (Exception e) {
-                String oldPackage = "brooklyn.web.console.security.";
-                if (className.startsWith(oldPackage)) {
-                    className = Strings.removeFromStart(className, oldPackage);
-                    className = DelegatingSecurityProvider.class.getPackage().getName() + "." + className;
-                    clazz = (Class<? extends SecurityProvider>) clu.loadClass(className);
-                    log.warn("Deprecated package " + oldPackage + " detected; please update security provider to point to " + className);
-                } else throw e;
+            String bundle = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_BUNDLE);
+            if (bundle!=null) {
+                String bundleVersion = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_BUNDLE_VERSION);
+                log.info("REST using security provider " + className + " from " + bundle+":"+bundleVersion);
+                BundleContext bundleContext = ((ManagementContextInternal)mgmt).getOsgiManager().get().getFramework().getBundleContext();
+                delegate = BrooklynLoginModule.loadProviderFromBundle(mgmt, bundleContext, bundle, bundleVersion, className);
+            } else {
+                log.info("REST using security provider " + className);
+                ClassLoaderUtils clu = new ClassLoaderUtils(this, mgmt);
+                Class<? extends SecurityProvider> clazz = (Class<? extends SecurityProvider>) clu.loadClass(className);
+                delegate = createSecurityProviderInstance(mgmt, clazz);
             }
-
-            delegate = createSecurityProviderInstance(mgmt, clazz);
         } catch (Exception e) {
             log.warn("REST unable to instantiate security provider " + className + "; all logins are being disallowed", e);
             delegate = new BlackholeSecurityProvider();
@@ -173,4 +171,15 @@ public class DelegatingSecurityProvider implements SecurityProvider {
     private String getModificationCountKey() {
         return getClass().getName() + ".ModCount";
     }
+    
+    @Override
+    public boolean requiresUserPass() {
+        return getDelegate().requiresUserPass();
+    }
+
+    @Override
+    public String toString() {
+        return super.toString()+"["+getDelegate()+"]";
+    }
+    
 }

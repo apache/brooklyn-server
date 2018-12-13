@@ -60,7 +60,7 @@ public class BrooklynPropertiesSecurityFilter implements Filter {
      */
     public static final String AUTHENTICATED_USER_SESSION_ATTRIBUTE = BrooklynLoginModule.AUTHENTICATED_USER_SESSION_ATTRIBUTE;
 
-    private static final Logger log = LoggerFactory.getLogger(BrooklynPropertiesSecurityFilter.class);
+    private static final Logger log = LoggerFactory.getLogger(BrooklynSecurityProviderFilter.class);
 
     protected DelegatingSecurityProvider provider;
 

@@ -48,6 +48,11 @@ public class BrooklynWebConfig {
             ExplicitUsersSecurityProvider.class.getCanonicalName());
     public final static ConfigKey<SecurityProvider> SECURITY_PROVIDER_INSTANCE = ConfigKeys.newConfigKey(SecurityProvider.class,
             SECURITY_PROVIDER_CLASSNAME.getName()+".internal.instance", "instance of a pre-configured security provider");
+    // TODO document
+    public final static ConfigKey<String> SECURITY_PROVIDER_BUNDLE = ConfigKeys.newStringConfigKey(
+        SECURITY_PROVIDER_CLASSNAME.getName()+".bundle.symbolicName", "bundle containing the Brooklyn SecurityProvider");
+    public final static ConfigKey<String> SECURITY_PROVIDER_BUNDLE_VERSION = ConfigKeys.newStringConfigKey(
+        SECURITY_PROVIDER_CLASSNAME.getName()+".bundle.version", "bundle containing the Brooklyn SecurityProvider");
     
     /**
      * Explicitly set the users/passwords, e.g. in brooklyn.properties:

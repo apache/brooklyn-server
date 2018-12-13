@@ -70,4 +70,9 @@ public class BrooklynUserWithRandomPasswordSecurityProvider extends AbstractSecu
     public String toString() {
         return JavaClassNames.cleanSimpleClassName(this);
     }
+    
+    @Override
+    public boolean requiresUserPass() {
+        return true;
+    }
 }

@@ -38,4 +38,9 @@ public class AuthenticateAnyoneSecurityProvider implements SecurityProvider {
     public boolean logout(HttpSession session) {
         return false;
     }
+
+    @Override
+    public boolean requiresUserPass() {
+        return true;
+    }
 }

@@ -28,8 +28,13 @@ import javax.servlet.http.HttpSession;
 public interface SecurityProvider {
 
     public boolean isAuthenticated(HttpSession session);
-    
-    public boolean authenticate(HttpSession session, String user, String password);
-    
+    /** whether this provider requires a user/pass; if this returns false, the framework can
+     * send null/null as the user/pass to {@link #authenticate(HttpSession, String, String)},
+     * and should do that if user/pass info is not immediately available
+     * (ie for things like oauth, the framework should not require basic auth if this method returns false)
+     */
+    public boolean requiresUserPass();
+    public boolean authenticate(HttpSession session, String user, String pass);
     public boolean logout(HttpSession session);
+    
 }

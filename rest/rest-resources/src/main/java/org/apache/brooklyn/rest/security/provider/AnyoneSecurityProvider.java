@@ -20,7 +20,7 @@ package org.apache.brooklyn.rest.security.provider;
 
 import javax.servlet.http.HttpSession;
 
-/** provider who allows everyone */
+/** provider who allows everyone, but does require a user/pass to be provided */
 public class AnyoneSecurityProvider implements SecurityProvider {
 
     @Override
@@ -28,6 +28,11 @@ public class AnyoneSecurityProvider implements SecurityProvider {
         return true;
     }
 
+    @Override
+    public boolean requiresUserPass() {
+        return true;
+    }
+    
     @Override
     public boolean authenticate(HttpSession session, String user, String password) {
         return true;

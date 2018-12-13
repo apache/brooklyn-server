@@ -199,7 +199,7 @@ public class BrooklynWebServer {
      * {@link BrooklynLoginModule} used by default.
      */
     @Deprecated
-    private Class<org.apache.brooklyn.rest.filter.BrooklynPropertiesSecurityFilter> securityFilterClazz;
+    private Class<org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilter> securityFilterClazz;
     
     @SetFromFlag
     private boolean skipSecurity = false;
@@ -236,7 +236,7 @@ public class BrooklynWebServer {
 
     /** @deprecated since 0.9.0, use {@link #skipSecurity} or {@link BrooklynLoginModule} */
     @Deprecated
-    public void setSecurityFilter(Class<org.apache.brooklyn.rest.filter.BrooklynPropertiesSecurityFilter> filterClazz) {
+    public void setSecurityFilter(Class<org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilter> filterClazz) {
         this.securityFilterClazz = filterClazz;
     }
 
