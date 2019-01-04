@@ -19,23 +19,28 @@
 package org.apache.brooklyn.rest.filter;
 
 import java.io.IOException;
+import java.security.Principal;
+import java.util.function.Function;
 
 import javax.annotation.Priority;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
-import javax.ws.rs.container.ContainerResponseContext;
-import javax.ws.rs.container.ContainerResponseFilter;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.ext.ContextResolver;
 import javax.ws.rs.ext.Provider;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
-import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule;
+import org.apache.brooklyn.rest.security.provider.DelegatingSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
+import org.apache.brooklyn.rest.security.provider.SecurityProvider.PostAuthenticator;
+import org.apache.commons.codec.binary.Base64;
+import org.apache.http.auth.BasicUserPrincipal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,18 +53,61 @@ import org.slf4j.LoggerFactory;
  */
 @Provider
 @Priority(100)
-public class BrooklynSecurityProviderFilter implements ContainerRequestFilter, ContainerResponseFilter {
+public class BrooklynSecurityProviderFilter implements ContainerRequestFilter {
+
+    /**
+     * The session attribute set for authenticated users; for reference
+     * (but should not be relied up to confirm authentication, as
+     * the providers may impose additional criteria such as timeouts,
+     * or a null user (no login) may be permitted)
+     */
+    public static final String AUTHENTICATED_USER_SESSION_ATTRIBUTE = "brooklyn.user";
+
+    private static final Logger log = LoggerFactory.getLogger(BrooklynSecurityProviderFilter.class);
+
     
     @Context
     HttpServletRequest webRequest;
-    
-    HttpServletResponse webResponse;
     
     @Context
     private ContextResolver<ManagementContext> mgmtC;
     
     private ManagementContext mgmt() {
         return mgmtC.getContext(ManagementContext.class);
+    }
+    
+    public static class SimpleSecurityContext implements SecurityContext {
+        final Principal principal;
+        final Function<String,Boolean> roleChecker;
+        final boolean secure;
+        final String authScheme;
+        
+        public SimpleSecurityContext(String username, Function<String, Boolean> roleChecker, boolean secure, String authScheme) {
+            this.principal = new BasicUserPrincipal(username);
+            this.roleChecker = roleChecker;
+            this.secure = secure;
+            this.authScheme = authScheme;
+        }
+
+        @Override
+        public Principal getUserPrincipal() {
+            return principal;
+        }
+
+        @Override
+        public boolean isUserInRole(String role) {
+            return roleChecker.apply(role);
+        }
+
+        @Override
+        public boolean isSecure() {
+            return secure;
+        }
+
+        @Override
+        public String getAuthenticationScheme() {
+            return authScheme;
+        }
     }
     
     @Override
@@ -71,41 +119,61 @@ public class BrooklynSecurityProviderFilter implements ContainerRequestFilter, C
             return;
         }
         
-        String user=null, pass=null;
-        webResponse.setHeader("WWW-Authenticate", "Basic realm=\"brooklyn\"");
-        webResponse.sendError(HttpServletResponse.SC_UNAUTHORIZED);
-        throw new RuntimeException("Authentication required.");
-//        if (provider.requiresUserPass()) {
-//            // TODO get basic auth
-//            
-//        }
-//        
-//        if (provider.authenticate(session, user, pass)) {
-//            
-//        } else {
-//            throw new RuntimeException("Authentication failed.");
-//        }
+        String user = null, pass = null;
+        if (provider.requiresUserPass()) {
+            String authorization = webRequest.getHeader("Authorization");
+            if (authorization != null) {
+                String userpass = new String(Base64.decodeBase64(authorization.substring(6)));
+                int idxColon = userpass.indexOf(":");
+                if (idxColon >= 0) {
+                    user = userpass.substring(0, idxColon);
+                    pass = userpass.substring(idxColon + 1);
+                } else {
+                    abort(requestContext, "Invalid authorization string");
+                    return;
+                }
+            } else {
+                abort(requestContext, "Authorization required");
+                return;
+            }
+        }
+        
+        if (session==null) {
+            // only create the session if an auth string is supplied
+            session = webRequest.getSession(true);
+        }
+        session.setAttribute(BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE, webRequest.getRemoteAddr());
+        
+        if (provider.authenticate(session, user, pass)) {
+            if (provider instanceof PostAuthenticator) {
+                ((PostAuthenticator)provider).postAuthenticate(requestContext);
+            }
+            if (user != null) {
+                session.setAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE, user);
+                if (requestContext.getSecurityContext().getUserPrincipal()==null) {
+                    requestContext.setSecurityContext(new SimpleSecurityContext(user, (role) -> false, 
+                        webRequest.isSecure(), SecurityContext.BASIC_AUTH));
+                }
+            }
+            return;
+        }
+    
+        abort(requestContext, "Authentication failed");
+        return;
     }
     
-    @Override
-    public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext) throws IOException {
-        // nothing needs done on the response
+    private void abort(ContainerRequestContext requestContext, String message) {
+        requestContext.abortWith(Response.status(Response.Status.UNAUTHORIZED)
+            .type(MediaType.TEXT_PLAIN)
+            .entity(message)
+            .header("WWW-Authenticate", "Basic realm=\"brooklyn\"")
+            .build());
     }
-    
+
     protected SecurityProvider getProvider() {
-        // TODO
-        return null;
+        // we don't cache here (could, it might be faster) but the delegate does use a cache
+        return new DelegatingSecurityProvider(mgmt());
     }
-
-    /**
-     * The session attribute set for authenticated users; for reference
-     * (but should not be relied up to confirm authentication, as
-     * the providers may impose additional criteria such as timeouts,
-     * or a null user (no login) may be permitted)
-     */
-    public static final String AUTHENTICATED_USER_SESSION_ATTRIBUTE = BrooklynLoginModule.AUTHENTICATED_USER_SESSION_ATTRIBUTE;
-
-    private static final Logger log = LoggerFactory.getLogger(BrooklynSecurityProviderFilter.class);
 
 //    private static ThreadLocal<String> originalRequest = new ThreadLocal<String>();
 //
@@ -173,42 +241,6 @@ public class BrooklynSecurityProviderFilter implements ContainerRequestFilter, C
 //    }
 //
 //    protected boolean authenticate(HttpServletRequest request) {
-//        HttpSession session = request.getSession();
-//        if (provider.isAuthenticated(session)) {
-//            return true;
-//        }
-//        session.setAttribute(BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE, request.getRemoteAddr());
-//        String user = null, pass = null;
-//        String authorization = request.getHeader("Authorization");
-//        if (authorization != null) {
-//            String userpass = new String(Base64.decodeBase64(authorization.substring(6)));
-//            int idxColon = userpass.indexOf(":");
-//            if (idxColon >= 0) {
-//                user = userpass.substring(0, idxColon);
-//                pass = userpass.substring(idxColon + 1);
-//            } else {
-//                return false;
-//            }
-//        }
-//        if (provider.authenticate(session, user, pass)) {
-//            if (user != null) {
-//                session.setAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE, user);
-//            }
-//            return true;
-//        }
-//
-//        return false;
-//    }
-//
-//    @Override
-//    public void init(FilterConfig config) throws ServletException {
-//        ManagementContext mgmt = OsgiCompat.getManagementContext(config.getServletContext());
-//        provider = new DelegatingSecurityProvider(mgmt);
-//    }
-//
-//    @Override
-//    public void destroy() {
-//    }
 //
 //    protected void logout(HttpServletRequest request) {
 //        log.info("REST logging {} out of session {}",

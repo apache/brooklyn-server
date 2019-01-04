@@ -19,6 +19,7 @@
 package org.apache.brooklyn.rest.security.provider;
 
 import javax.servlet.http.HttpSession;
+import javax.ws.rs.container.ContainerRequestContext;
 
 /**
  * The SecurityProvider is responsible for doing authentication.
@@ -37,4 +38,9 @@ public interface SecurityProvider {
     public boolean authenticate(HttpSession session, String user, String pass);
     public boolean logout(HttpSession session);
     
+    public interface PostAuthenticator {
+        /** Invoked by framework after successful authentication for principals to be updated. 
+         * (That needs to happen against the container which is not otherwise accessible.) */
+        public void postAuthenticate(ContainerRequestContext requestContext);
+    }
 }

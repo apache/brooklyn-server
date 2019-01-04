@@ -30,14 +30,9 @@ import javax.ws.rs.core.UriInfo;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
 import org.apache.brooklyn.rest.api.LogoutApi;
-import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
-import com.google.common.net.HttpHeaders;
-
 public class LogoutResource extends AbstractBrooklynRestResource implements LogoutApi {
-    
-    private static final String BASIC_REALM_WEBCONSOLE = "Basic realm=\""+BrooklynLoginModule.DEFAULT_ROLE+"\"";
     
     @Context HttpServletRequest req;
     @Context UriInfo uri;
@@ -49,7 +44,6 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
         if (ctx==null) {
             return Response.status(Status.BAD_REQUEST)
                 .entity("No user logged in")
-                .header(HttpHeaders.WWW_AUTHENTICATE, BASIC_REALM_WEBCONSOLE)
                 .build();            
         }
         
@@ -64,7 +58,6 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
     @Override
     public Response unAuthorize() {
         return Response.status(Status.UNAUTHORIZED)
-            .header(HttpHeaders.WWW_AUTHENTICATE, BASIC_REALM_WEBCONSOLE)
             .build();
     }
 
@@ -77,7 +70,6 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
             doLogout();
 
             return Response.status(Status.UNAUTHORIZED)
-                    .header(HttpHeaders.WWW_AUTHENTICATE, BASIC_REALM_WEBCONSOLE)
                     .build();
         } else {
             return Response.temporaryRedirect(uri.getAbsolutePathBuilder().replacePath("/").build()).build();

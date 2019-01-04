@@ -20,6 +20,8 @@ package org.apache.brooklyn.rest.security.provider;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.servlet.http.HttpSession;
@@ -29,8 +31,9 @@ import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
-import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,7 +95,7 @@ public class DelegatingSecurityProvider implements SecurityProvider {
                 String bundleVersion = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_BUNDLE_VERSION);
                 log.info("REST using security provider " + className + " from " + bundle+":"+bundleVersion);
                 BundleContext bundleContext = ((ManagementContextInternal)mgmt).getOsgiManager().get().getFramework().getBundleContext();
-                delegate = BrooklynLoginModule.loadProviderFromBundle(mgmt, bundleContext, bundle, bundleVersion, className);
+                delegate = loadProviderFromBundle(mgmt, bundleContext, bundle, bundleVersion, className);
             } else {
                 log.info("REST using security provider " + className);
                 ClassLoaderUtils clu = new ClassLoaderUtils(this, mgmt);
@@ -109,6 +112,52 @@ public class DelegatingSecurityProvider implements SecurityProvider {
         mgmt.getScratchpad().put(BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE, delegate);
 
         return delegate;
+    }
+
+    public static SecurityProvider loadProviderFromBundle(
+        ManagementContext mgmt, BundleContext bundleContext,
+        String symbolicName, String version, String className) {
+        try {
+            Collection<Bundle> bundles = getMatchingBundles(bundleContext, symbolicName, version);
+            if (bundles.isEmpty()) {
+                throw new IllegalStateException("No bundle " + symbolicName + ":" + version + " found");
+            } else if (bundles.size() > 1) {
+                log.warn("Found multiple bundles matching symbolicName " + symbolicName + " and version " + version +
+                    " while trying to load security provider " + className + ". Will use first one that loads the class successfully.");
+            }
+            SecurityProvider p = tryLoadClass(mgmt, className, bundles);
+            if (p == null) {
+                throw new ClassNotFoundException("Unable to load class " + className + " from bundle " + symbolicName + ":" + version);
+            }
+            return p;
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            throw new IllegalStateException("Can not load or create security provider " + className + " for bundle " + symbolicName + ":" + version, e);
+        }
+    }
+
+    private static SecurityProvider tryLoadClass(ManagementContext mgmt, String className, Collection<Bundle> bundles)
+        throws NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException {
+        for (Bundle b : bundles) {
+            try {
+                @SuppressWarnings("unchecked")
+                Class<? extends SecurityProvider> securityProviderType = (Class<? extends SecurityProvider>) b.loadClass(className);
+                return DelegatingSecurityProvider.createSecurityProviderInstance(mgmt, securityProviderType);
+            } catch (ClassNotFoundException e) {
+            }
+        }
+        return null;
+    }
+
+    private static Collection<Bundle> getMatchingBundles(BundleContext bundleContext, final String symbolicName, final String version) {
+        Collection<Bundle> bundles = new ArrayList<>();
+        for (Bundle b : bundleContext.getBundles()) {
+            if (b.getSymbolicName().equals(symbolicName) &&
+                (version == null || b.getVersion().toString().equals(version))) {
+                bundles.add(b);
+            }
+        }
+        return bundles;
     }
 
     public static SecurityProvider createSecurityProviderInstance(ManagementContext mgmt,
