@@ -34,7 +34,7 @@ import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.cxf.jaxrs.JAXRSServerFactoryBean;
 import org.apache.cxf.jaxrs.client.WebClient;
 import org.apache.http.HttpStatus;
-import org.eclipse.jetty.server.session.HashSessionManager;
+import org.eclipse.jetty.server.session.SessionHandler;
 import org.testng.annotations.Test;
 
 public class EntitlementContextFilterTest extends BrooklynRestResourceTest {
@@ -57,13 +57,13 @@ public class EntitlementContextFilterTest extends BrooklynRestResourceTest {
         props.put(BrooklynWebConfig.PASSWORD_FOR_USER(USER_PASS), USER_PASS);
         getManagementContext().getScratchpad().put(BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE, new ExplicitUsersSecurityProvider(getManagementContext()));
 
-        sf.setProvider(new HashSessionManager());
+        sf.setProvider(new SessionHandler());
         super.configureCXF(sf);
     }
 
     @Override
     protected void addBrooklynResources() {
-        addResource(new BrooklynSecurityProviderFilter());
+        addResource(new BrooklynSecurityProviderFilterHelper());
         addResource(new RequestTaggingRsFilter());
         addResource(new EntitlementContextFilter());
         addResource(new EntitlementResource());

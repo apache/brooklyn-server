@@ -19,7 +19,7 @@
 package org.apache.brooklyn.rest.security.provider;
 
 import javax.servlet.http.HttpSession;
-import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.core.Response;
 
 /**
  * The SecurityProvider is responsible for doing authentication.
@@ -35,12 +35,24 @@ public interface SecurityProvider {
      * (ie for things like oauth, the framework should not require basic auth if this method returns false)
      */
     public boolean requiresUserPass();
-    public boolean authenticate(HttpSession session, String user, String pass);
+    /** Perform the authentication. If {@link #requiresUserPass()} returns false, user/pass may be null;
+     * otherwise the framework will guarantee the basic auth is in effect and these values are set.
+     * The provider should not send a response but should throw {@link SecurityProviderDeniedAuthentication}
+     * if a custom response is required. It can include a response in that exception,
+     * e.g. to provide more information or supply a redirect. */
+    public boolean authenticate(HttpSession session, String user, String pass) throws SecurityProviderDeniedAuthentication;
     public boolean logout(HttpSession session);
     
-    public interface PostAuthenticator {
-        /** Invoked by framework after successful authentication for principals to be updated. 
-         * (That needs to happen against the container which is not otherwise accessible.) */
-        public void postAuthenticate(ContainerRequestContext requestContext);
+    public static class SecurityProviderDeniedAuthentication extends Exception {
+        private static final long serialVersionUID = -3048228939219746783L;
+        private final Response response;
+        public SecurityProviderDeniedAuthentication() { this(null); }
+        public SecurityProviderDeniedAuthentication(Response r) {
+            this.response = r;
+        }
+        public Response getResponse() {
+            return response;
+        }
     }
+
 }

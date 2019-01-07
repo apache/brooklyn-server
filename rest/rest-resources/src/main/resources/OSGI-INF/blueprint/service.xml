@@ -108,14 +108,10 @@ limitations under the License.
             <bean class="org.apache.brooklyn.rest.util.DefaultExceptionMapper"/>
             <bean class="org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider"/>
             <bean class="org.apache.brooklyn.rest.util.FormMapProvider"/>
-            <bean class="org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilter"/>
             <bean class="org.apache.brooklyn.rest.util.ManagementContextProvider">
                 <argument ref="localManagementContext"/>
             </bean>
-            <!--
-                TODO ShutdownHandlerProvider, sync with init work.
-                Needs to be custom OSGi implementation?
-            -->
+            <bean class="org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilterJersey"/>
             <bean class="org.apache.brooklyn.rest.filter.CsrfTokenFilter"/>
             <bean class="org.apache.brooklyn.rest.filter.RequestTaggingRsFilter"/>
             <bean class="org.apache.brooklyn.rest.filter.NoCacheFilter"/>

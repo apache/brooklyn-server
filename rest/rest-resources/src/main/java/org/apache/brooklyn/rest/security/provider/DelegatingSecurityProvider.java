@@ -195,7 +195,7 @@ public class DelegatingSecurityProvider implements SecurityProvider {
     }
 
     @Override
-    public boolean authenticate(HttpSession session, String user, String password) {
+    public boolean authenticate(HttpSession session, String user, String password) throws SecurityProviderDeniedAuthentication {
         boolean authenticated = getDelegate().authenticate(session, user, password);
         if (authenticated) {
             session.setAttribute(getModificationCountKey(), modCount.get());

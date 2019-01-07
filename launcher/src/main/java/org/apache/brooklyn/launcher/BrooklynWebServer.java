@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Nullable;
-import javax.security.auth.spi.LoginModule;
 
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -53,10 +52,15 @@ import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocati
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.NopSecurityHandler;
 import org.apache.brooklyn.rest.RestApiSetup;
-import org.apache.brooklyn.rest.filter.*;
-import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule;
-import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule.RolePrincipal;
-import org.apache.brooklyn.rest.security.jaas.JaasUtils;
+import org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilterJavax;
+import org.apache.brooklyn.rest.filter.CorsImplSupplierFilter;
+import org.apache.brooklyn.rest.filter.CsrfTokenFilter;
+import org.apache.brooklyn.rest.filter.EntitlementContextFilter;
+import org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter;
+import org.apache.brooklyn.rest.filter.LoggingFilter;
+import org.apache.brooklyn.rest.filter.NoCacheFilter;
+import org.apache.brooklyn.rest.filter.RequestTaggingFilter;
+import org.apache.brooklyn.rest.filter.RequestTaggingRsFilter;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
 import org.apache.brooklyn.rest.util.ShutdownHandlerProvider;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -81,7 +85,6 @@ import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.web.ContextHandlerCollectionHotSwappable;
 import org.eclipse.jetty.http.HttpVersion;
-import org.eclipse.jetty.jaas.JAASLoginService;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.HttpConfiguration;
 import org.eclipse.jetty.server.HttpConnectionFactory;
@@ -193,14 +196,6 @@ public class BrooklynWebServer {
 
     private File webappTempDir;
     
-    /**
-     * @deprecated since 0.9.0, use {@link #consoleSecurity} to disable security or
-     * register an alternative JAAS {@link LoginModule}.
-     * {@link BrooklynLoginModule} used by default.
-     */
-    @Deprecated
-    private Class<org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilter> securityFilterClazz;
-    
     @SetFromFlag
     private boolean skipSecurity = false;
 
@@ -223,7 +218,6 @@ public class BrooklynWebServer {
             log.warn("Ignoring unknown flags " + leftovers);
         
         webappTempDir = BrooklynServerPaths.getBrooklynWebTmpDir(managementContext);
-        JaasUtils.init(managementContext);
     }
 
     public BrooklynWebServer(ManagementContext managementContext, int port) {
@@ -232,12 +226,6 @@ public class BrooklynWebServer {
 
     public BrooklynWebServer(ManagementContext managementContext, int port, String warUrl) {
         this(MutableMap.of("port", port, "war", warUrl), managementContext);
-    }
-
-    /** @deprecated since 0.9.0, use {@link #skipSecurity} or {@link BrooklynLoginModule} */
-    @Deprecated
-    public void setSecurityFilter(Class<org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilter> filterClazz) {
-        this.securityFilterClazz = filterClazz;
     }
 
     public BrooklynWebServer skipSecurity() {
@@ -390,13 +378,6 @@ public class BrooklynWebServer {
 
         server = new Server(threadPool);
 
-        // Can be moved to jetty-web.xml inside wars or a global jetty.xml.
-        JAASLoginService loginService = new JAASLoginService();
-        loginService.setName("webconsole");
-        loginService.setLoginModuleName("webconsole");
-        loginService.setRoleClassNames(new String[] {RolePrincipal.class.getName()});
-        server.addBean(loginService);
-
         final ServerConnector connector;
 
         if (getHttpsEnabled()) {
@@ -493,12 +474,8 @@ public class BrooklynWebServer {
                 providersListBuilder.build().toArray());
         RestApiSetup.installServletFilters(context,
                 RequestTaggingFilter.class,
+                BrooklynSecurityProviderFilterJavax.class,
                 LoggingFilter.class);
-        RestApiSetup.installOauthServletFilters(context,
-                MyOauthFilter.class);
-        if (securityFilterClazz != null) {
-            RestApiSetup.installServletFilters(context, securityFilterClazz);
-        }
         return context;
     }
 
