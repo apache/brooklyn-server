@@ -166,7 +166,7 @@
         <karaf.version>4.2.1</karaf.version>
         <karaf.plugin.version>4.1.4</karaf.plugin.version><!-- held back for KARAF-5932 - fixed in 4.2.2 -->
         <felix.framework.version>5.6.10</felix.framework.version>
-        <jetty.version>9.3.24.v20180605</jetty.version>
+        <jetty.version>9.4.11.v20180605</jetty.version>
 
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
         <clojure.version>1.4.0</clojure.version>
