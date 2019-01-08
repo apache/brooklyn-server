@@ -31,7 +31,7 @@ import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Identifiers;
-import org.eclipse.jetty.server.SessionManager;
+import org.eclipse.jetty.server.session.SessionHandler;
 import org.eclipse.jetty.webapp.WebAppContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,7 +76,7 @@ public class WebAppContextProvider {
         // it might be better to make this brooklyn-only or base on the management-plane ID;
         // but i think it actually *is* per-server instance, since we don't cache sessions server-side,
         // so i think this is write. [Alex 2015-09]
-        context.setInitParameter(SessionManager.__SessionCookieProperty, SessionManager.__DefaultSessionCookie + "_" + "BROOKLYN" + Identifiers.makeRandomId(6));
+        context.setInitParameter(SessionHandler.__SessionCookieProperty, SessionHandler.__DefaultSessionCookie + "_" + "BROOKLYN" + Identifiers.makeRandomId(6));
         context.setInitParameter("org.eclipse.jetty.servlet.Default.dirAllowed", "false");
         context.setAttribute(BrooklynServiceAttributes.BROOKLYN_MANAGEMENT_CONTEXT, managementContext);
         for (Map.Entry<String, Object> attributeEntry : attributes.entrySet()) {
