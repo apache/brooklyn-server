@@ -24,6 +24,8 @@ import java.io.File;
 import java.io.InputStream;
 import java.util.Map;
 
+import javax.servlet.Servlet;
+
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
 import org.apache.brooklyn.launcher.config.CustomResourceLocator;
@@ -73,9 +75,11 @@ public class WebAppContextProvider {
 
         final WebAppContext context = new WebAppContext();
         // use a unique session ID to prevent interference with other web apps on same server (esp for localhost);
-        // it might be better to make this brooklyn-only or base on the management-plane ID;
-        // but i think it actually *is* per-server instance, since we don't cache sessions server-side,
-        // so i think this is write. [Alex 2015-09]
+        // note however this is only run for the legacy launcher
+        // TODO would be nice if the various karaf startups rename the session cookie property (from JSESSIONID)
+        // as the default is likely to conflict with other java-based servers (esp on localhost);
+        // this can be done e.g. on ServletContext.getSessionCookieConfig(), but will be needed for REST and for JS (static) bundles
+        // low priority however, if you /etc/hosts a localhost-brooklyn and use that it will stop conflicting
         context.setInitParameter(SessionHandler.__SessionCookieProperty, SessionHandler.__DefaultSessionCookie + "_" + "BROOKLYN" + Identifiers.makeRandomId(6));
         context.setInitParameter("org.eclipse.jetty.servlet.Default.dirAllowed", "false");
         context.setAttribute(BrooklynServiceAttributes.BROOKLYN_MANAGEMENT_CONTEXT, managementContext);

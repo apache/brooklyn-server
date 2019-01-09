@@ -69,7 +69,7 @@ public class BrooklynSecurityProviderFilterJavax implements Filter {
      
             rout.setStatus(rin.getStatus());
             
-            // TODO does content type need to be set explicitly?
+            // note content-type is explicitly set in some Response objects, but this should set it 
             rin.getHeaders().forEach((k,v) -> v.forEach(v2 -> rout.addHeader(k, Strings.toString(v2))));
             
             Object body = rin.getEntity();

@@ -77,14 +77,14 @@ public class DelegatingSecurityProvider implements SecurityProvider {
 
         SecurityProvider presetDelegate = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE);
         if (presetDelegate!=null) {
-            log.info("REST using pre-set security provider " + presetDelegate);
+            log.trace("Brooklyn security: using pre-set security provider {}", presetDelegate);
             return presetDelegate;
         }
         
         String className = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME);
 
         if (delegate != null && BrooklynWebConfig.hasNoSecurityOptions(mgmt.getConfig())) {
-            log.debug("{} refusing to change from {}: No security provider set in reloaded properties.",
+            log.debug("Brooklyn security: {} refusing to change from {}: No security provider set in reloaded properties.",
                     this, delegate);
             return delegate;
         }
@@ -93,17 +93,17 @@ public class DelegatingSecurityProvider implements SecurityProvider {
             String bundle = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_BUNDLE);
             if (bundle!=null) {
                 String bundleVersion = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_BUNDLE_VERSION);
-                log.info("REST using security provider " + className + " from " + bundle+":"+bundleVersion);
+                log.info("Brooklyn security: using security provider " + className + " from " + bundle+":"+bundleVersion);
                 BundleContext bundleContext = ((ManagementContextInternal)mgmt).getOsgiManager().get().getFramework().getBundleContext();
                 delegate = loadProviderFromBundle(mgmt, bundleContext, bundle, bundleVersion, className);
             } else {
-                log.info("REST using security provider " + className);
+                log.info("Brooklyn security: using security provider " + className);
                 ClassLoaderUtils clu = new ClassLoaderUtils(this, mgmt);
                 Class<? extends SecurityProvider> clazz = (Class<? extends SecurityProvider>) clu.loadClass(className);
                 delegate = createSecurityProviderInstance(mgmt, clazz);
             }
         } catch (Exception e) {
-            log.warn("REST unable to instantiate security provider " + className + "; all logins are being disallowed", e);
+            log.warn("Brooklyn security: unable to instantiate security provider " + className + "; all logins are being disallowed", e);
             delegate = new BlackholeSecurityProvider();
         }
 
@@ -122,7 +122,7 @@ public class DelegatingSecurityProvider implements SecurityProvider {
             if (bundles.isEmpty()) {
                 throw new IllegalStateException("No bundle " + symbolicName + ":" + version + " found");
             } else if (bundles.size() > 1) {
-                log.warn("Found multiple bundles matching symbolicName " + symbolicName + " and version " + version +
+                log.warn("Brooklyn security: found multiple bundles matching symbolicName " + symbolicName + " and version " + version +
                     " while trying to load security provider " + className + ". Will use first one that loads the class successfully.");
             }
             SecurityProvider p = tryLoadClass(mgmt, className, bundles);

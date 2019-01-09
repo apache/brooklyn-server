@@ -33,6 +33,7 @@ import org.apache.brooklyn.rest.security.provider.DelegatingSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider.SecurityProviderDeniedAuthentication;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.commons.codec.binary.Base64;
 import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.server.Request;
@@ -72,31 +73,35 @@ public class BrooklynSecurityProviderFilterHelper {
      */
     public static final String AUTHENTICATED_USER_SESSION_ATTRIBUTE = "brooklyn.user";
 
-    // TODO ugly, using a static, but it shares across bundles and all have different instances, so this is reasonable
     public static Set<SessionHandler> SESSION_MANAGER_CACHE = MutableSet.of();
     
     private static final Logger log = LoggerFactory.getLogger(BrooklynSecurityProviderFilterHelper.class);
+
+    // TODO this should be parametrisable
+    public static final String BASIC_REALM_NAME = "brooklyn";
+    
+    public static final String BASIC_REALM_HEADER_VALUE = "BASIC realm="+StringEscapes.JavaStringEscapes.wrapJavaString(BASIC_REALM_NAME);
     
     /* check all contexts for sessions; surprisingly hard to configure session management for karaf/pax web container.
      * they _really_ want each servlet to have their own sessions. how you're meant to do oauth for multiple servlets i don't know! */
     public HttpSession getSession(HttpServletRequest webRequest, ManagementContext mgmt, boolean create) {
         String requestedSessionId = webRequest.getRequestedSessionId();
         
-        log.info("SESSION for "+ webRequest.getRequestURI()+", wants session "+requestedSessionId);
+        log.trace("SESSION for {}, wants session {}", webRequest.getRequestURI(), requestedSessionId);
         
         if (webRequest instanceof Request) {
             SessionHandler sm = ((Request)webRequest).getSessionHandler();
             boolean added = SESSION_MANAGER_CACHE.add( sm );
-            log.info("SESSION MANAGER found for "+webRequest.getRequestURI()+": "+sm+" ("+added+")");
+            log.trace("SESSION MANAGER found for {}: {} (added={})", webRequest.getRequestURI(), sm, added);
         } else {
-            log.info("SESSION MANAGER NOT found for "+webRequest.getRequestURI()+" - "+webRequest);
+            log.trace("SESSION MANAGER NOT found for {}: {}", webRequest.getRequestURI(), webRequest);
         }
         
         if (requestedSessionId!=null) {
             for (SessionHandler m: SESSION_MANAGER_CACHE) {
                 HttpSession s = m.getHttpSession(requestedSessionId);
                 if (s!=null) {
-                    log.info("SESSION found for "+webRequest.getRequestURI()+": "+s+"; "+m.isValid(s));
+                    log.trace("SESSION found for {}: {} (valid={})", webRequest.getRequestURI(), s, m.isValid(s));
                     return s;
                 }
             }
@@ -104,62 +109,14 @@ public class BrooklynSecurityProviderFilterHelper {
         
         if (create) {
             HttpSession session = webRequest.getSession(true);
-            log.info("SESSION creating for "+webRequest.getRequestURI()+": "+session);
+            log.trace("SESSION creating for {}: {}", webRequest.getRequestURI(), session);
             return session;
         }
         
-        return null;
-        
-//        HttpSession session = webRequest.getSession(false);
-//        if (session!=null) return session;
-//        
-//        // go through all the known session managers
-//        
-//        
-//        webRequest.getServletContext().getServlets().nextElement().getServletConfig().getServletContext().getser
-//        BundleContext ctx = (BundleContext) webRequest.getServletContext().getAttribute(
-//            //WebContainerConstants.BUNDLE_CONTEXT_ATTRIBUTE
-//            "osgi-bundlecontext");
-//        log.info("TEST context "+ctx);
-//        if (ctx!=null) {
-//            log.info("TEST server "+ctx.getServiceReference( "org.ops4j.pax.web.service.WebContainer" ));
-//        }
-//        ctx.getServiceReference( "org.ops4j.pax.web.service.WebContainer" );
-//        
-//        ctx = FrameworkUtil.getBundle(BrooklynSecurityProviderFilterHelper.class).getBundleContext();
-//        
-//        
-//        log.info("TEST context2 "+ctx);
-//        if (ctx!=null) {
-//            log.info("TEST server2 "+ctx.getServiceReference( "org.ops4j.pax.web.service.WebContainer" ));
-//        }
-//        
-////        String id = webRequest.getRequestedSessionId();
-////        webRequest.getServletContext().gethan
-//////        for (Cookie c: webRequest.getCookies()) {
-//////            if ("JSESSIONID".equals(c.getName())) {
-//////                c.getValue()
-//////            }
-//////        }
-////        HttpSession session = getLocalSession(id); 
-////        if (session == null) { 
-////            for (SessionHandler manager: getSessionIdManager().getSessionHandlers()) { 
-////                if (manager.equals(this) || !(manager instanceof CustomSessionHandler)) { 
-////                    continue; 
-////                } 
-////                session = ((CustomSessionHandler)manager).getLocalSession(id); 
-////                if (session != null) { 
-////                    break; 
-////                } 
-////            } // should we duplicate sessions in each context? // will we end up with inconsistent sessions? /* if (externalSession != null) { try { getSessionCache().put(id, externalSession); } catch (Exception e) { LOG.warn("Unable to save session to local cache."); } } */ }
-////        }
-////        return session;
-//        return null;
+        return null;  // not found
     }
     
     public void run(HttpServletRequest webRequest, ManagementContext mgmt) throws SecurityProviderDeniedAuthentication {
-        log.info("SEC PROV for "+webRequest.getRequestURI());
-        
         SecurityProvider provider = getProvider(mgmt);
         HttpSession session = getSession(webRequest, mgmt, false);
         
@@ -203,7 +160,7 @@ public class BrooklynSecurityProviderFilterHelper {
     private SecurityProviderDeniedAuthentication abort(String msg, boolean requiresUserPass) throws SecurityProviderDeniedAuthentication {
         ResponseBuilder response = Response.status(Status.UNAUTHORIZED);
         if (requiresUserPass) {
-            response.header(HttpHeader.WWW_AUTHENTICATE.asString(), "BASIC realm=\"brooklyn\"");
+            response.header(HttpHeader.WWW_AUTHENTICATE.asString(), BASIC_REALM_HEADER_VALUE);
         }
         response.header(HttpHeader.CONTENT_TYPE.asString(), MediaType.TEXT_PLAIN);
         response.entity(msg);

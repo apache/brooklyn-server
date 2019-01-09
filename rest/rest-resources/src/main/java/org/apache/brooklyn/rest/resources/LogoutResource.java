@@ -30,6 +30,7 @@ import javax.ws.rs.core.UriInfo;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
 import org.apache.brooklyn.rest.api.LogoutApi;
+import org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilterHelper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
 public class LogoutResource extends AbstractBrooklynRestResource implements LogoutApi {
@@ -58,19 +59,21 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
     @Override
     public Response unAuthorize() {
         return Response.status(Status.UNAUTHORIZED)
-            .build();
+               // NB: 2019-01 no longer returns a realm (there might not be a realm; in this code we don't know)
+               // method is now deprecated anyway
+               .build();
     }
 
     @Override
     public Response logoutUser(String user) {
-        // Will work when switching users, but will keep re-authenticating if user types in same user name.
-        // Could improve by keeping state in cookies to decide whether to request auth or declare successfull re-auth.
         WebEntitlementContext ctx = (WebEntitlementContext) Entitlements.getEntitlementContext();
         if (user.equals(ctx.user())) {
             doLogout();
 
-            return Response.status(Status.UNAUTHORIZED)
-                    .build();
+            return Response.status(Status.OK)
+                   // 2019-01 no longer returns unauthorized, returns OK to indicate user is successfully logged out
+                   // also the realm  is removed (there might not be a realm; in this code we don't know)
+                   .build();
         } else {
             return Response.temporaryRedirect(uri.getAbsolutePathBuilder().replacePath("/").build()).build();
         }
@@ -78,6 +81,7 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
 
     private void doLogout() {
         try {
+            req.getSession().removeAttribute(BrooklynSecurityProviderFilterHelper.AUTHENTICATED_USER_SESSION_ATTRIBUTE);
             req.logout();
         } catch (ServletException e) {
             Exceptions.propagate(e);

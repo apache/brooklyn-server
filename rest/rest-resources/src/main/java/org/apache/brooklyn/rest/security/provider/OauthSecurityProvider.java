@@ -30,6 +30,7 @@ import javax.servlet.http.HttpSession;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilterHelper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -55,12 +56,15 @@ import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
+
 /** Configurable OAuth redirect security provider
  * 
  *  Redirects all inbound requests to an oath web server unless a session token is specified. */
+@Beta  // work in progress
 public class OauthSecurityProvider implements SecurityProvider {
 
-    public static final Logger LOG = LoggerFactory.getLogger(OauthSecurityProvider.class);
+    public static final Logger log = LoggerFactory.getLogger(OauthSecurityProvider.class);
 
     private static final String OAUTH_ACCESS_TOKEN_SESSION_KEY = "org.apache.brooklyn.security.oauth.access_token";
     private static final String OAUTH_ACCESS_TOKEN_EXPIRY_UTC_KEY = "org.apache.brooklyn.security.oauth.access_token_expiry_utc";
@@ -68,7 +72,9 @@ public class OauthSecurityProvider implements SecurityProvider {
     private static final String OAUTH_AUTH_CODE_PARAMETER_FROM_USER = "code";
     private static final String OAUTH_AUTH_CODE_PARAMETER_FOR_SERVER = OAUTH_AUTH_CODE_PARAMETER_FROM_USER;
     
-    // TODO parameterise
+//    private static String KEY_PREFIX = BrooklynWebConfig.BASE_NAME_SECURITY+".oauth.";
+//    ConfigKey<String> URI_GET_TOKEN_KEY = ConfigKeys.newStringConfigKey(KEY_PREFIX+"uriGetToken", "URL where token can be fetched");
+    // TODO parameterise values below with keys as above
     
     // tempting to use getJettyRequest().getRequestURL().toString();
     // but some oauth providers require this to be declared
@@ -77,7 +83,7 @@ public class OauthSecurityProvider implements SecurityProvider {
     private String audience = "audience";
     private Duration validity = Duration.hours(1);
     
-    // google test data
+    // google test data - hard-coded for now
     private String uriGetToken = "https://accounts.google.com/o/oauth2/token";
     private String uriAuthorize = "https://accounts.google.com/o/oauth2/auth";
     private String uriTokenInfo = "https://www.googleapis.com/oauth2/v1/tokeninfo";
@@ -91,9 +97,22 @@ public class OauthSecurityProvider implements SecurityProvider {
 //    private String clientId = "7f76b9970d8ac15b30b0";
 //    private String clientSecret = "9e15f8dd651f0b1896a3a582f17fa82f049fc910";
     
+    protected final ManagementContext mgmt;
+
+    public OauthSecurityProvider(ManagementContext mgmt) {
+        this.mgmt = mgmt;
+        initialize();
+    }
+
+    private synchronized void initialize() {
+        // TODO set these keys
+//        Preconditions.checkNotNull(mgmt.getConfig().getConfig(URI_GET_TOKEN_KEY), "URI to get token must be set: "+URI_GET_TOKEN_KEY.getName());
+    }
+    
     @Override
     public boolean isAuthenticated(HttpSession session) {
-        LOG.info("isAuthenticated 1 "+getJettyRequest().getRequestURI()+" "+session+" ... "+this);
+        // TODO tidy log messages
+        log.info("isAuthenticated 1 "+getJettyRequest().getRequestURI()+" "+session+" ... "+this);
         Object token = session.getAttribute(OAUTH_ACCESS_TOKEN_SESSION_KEY);
         // TODO is it valid?
         return token!=null;
@@ -101,7 +120,7 @@ public class OauthSecurityProvider implements SecurityProvider {
 
     @Override
     public boolean authenticate(HttpSession session, String user, String password) throws SecurityProviderDeniedAuthentication {
-        LOG.info("authenticate "+session+" "+user);
+        log.info("authenticate "+session+" "+user);
         
         if (isAuthenticated(session)) {
             return true;
@@ -127,14 +146,14 @@ public class OauthSecurityProvider implements SecurityProvider {
         } catch (SecurityProviderDeniedAuthentication e) {
             throw e;
         } catch (Exception e) {
-            LOG.warn("Error performing OAuth: "+e, e);
+            log.warn("Error performing OAuth: "+e, e);
             throw Exceptions.propagate(e);
         }
     }
 
     @Override
     public boolean logout(HttpSession session) {
-        LOG.info("logout");
+        log.info("logout");
         session.removeAttribute(OAUTH_ACCESS_TOKEN_SESSION_KEY);
         session.removeAttribute(OAUTH_ACCESS_TOKEN_EXPIRY_UTC_KEY);
         return true;
@@ -161,10 +180,10 @@ public class OauthSecurityProvider implements SecurityProvider {
         // get the access token from json and request info from Google
         try {
             jsonObject = (Map<?,?>) Yamls.parseAll(body).iterator().next();
-            LOG.info("Parsed '"+body+"' as "+jsonObject);
+            log.info("Parsed '"+body+"' as "+jsonObject);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            LOG.info("Unable to parse: '"+body+"'");
+            log.info("Unable to parse: '"+body+"'");
             // throw new RuntimeException("Unable to parse json " + body);
             return redirectUserToOauthLoginUi();
         }
@@ -179,7 +198,7 @@ public class OauthSecurityProvider implements SecurityProvider {
 //        request.getSession().setAttribute(SESSION_KEY_CODE, code);
 
         // TODO is it valid?
-        LOG.debug("Got token/code "+accessToken+"/"+code+" from "+jsonObject);
+        log.debug("Got token/code "+accessToken+"/"+code+" from "+jsonObject);
         // eg Got token/code 
         // ya29.GluHBtzZ-R-CaoWMlso6KB6cq3DrbmwX6B3kjMmzWqzU-vO76WjKuNS3Ktog7vt9CJnxSZ63NmqO4p5bg20wl0-M14yO1LuoXNV5JX3qHDmXl2rl-z1LbCPEYJ-o
         //    /  4/yADFJRSRCxLgZFcpD_KU2jQiCXBGNHTsw0eGZqZ2t6IJJh2O1oWBnBDx4eWl4ZLCRAFJx3QjPYtl7LF9zj_DNlA 
