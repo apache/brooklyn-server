@@ -209,18 +209,6 @@
             <artifactId>cxf-rt-rs-client</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>com.googlecode.json-simple</groupId>
-            <artifactId>json-simple</artifactId>
-            <version>1.1</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.googlecode.json-simple</groupId>
-            <artifactId>json-simple</artifactId>
-            <version>1.1</version>
-            <scope>compile</scope>
-        </dependency>
     </dependencies>
 
     <build>
