@@ -216,6 +216,7 @@
         <requirejs-maven-plugin.version>2.0.0</requirejs-maven-plugin.version>
         <maven-antrun-plugin.version>1.7</maven-antrun-plugin.version>
         <ant.version>1.8.4</ant.version>
+        <dockerfile-maven-plugin.version>1.4.3</dockerfile-maven-plugin.version>
 
         <jaxb.version>2.2.11</jaxb.version>
         <javax.activation.version>1.1.1</javax.activation.version>
