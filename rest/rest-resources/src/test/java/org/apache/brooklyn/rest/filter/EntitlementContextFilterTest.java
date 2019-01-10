@@ -63,7 +63,7 @@ public class EntitlementContextFilterTest extends BrooklynRestResourceTest {
 
     @Override
     protected void addBrooklynResources() {
-        addResource(new BrooklynSecurityProviderFilterHelper());
+        addResource(new BrooklynSecurityProviderFilterJersey());
         addResource(new RequestTaggingRsFilter());
         addResource(new EntitlementContextFilter());
         addResource(new EntitlementResource());

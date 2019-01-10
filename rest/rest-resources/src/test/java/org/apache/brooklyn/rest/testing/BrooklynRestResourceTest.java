@@ -43,6 +43,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.cxf.BusFactory;
 import org.apache.cxf.endpoint.Server;
 import org.apache.cxf.jaxrs.JAXRSServerFactoryBean;
 import org.apache.cxf.jaxrs.client.WebClient;
@@ -97,8 +98,7 @@ public abstract class BrooklynRestResourceTest extends BrooklynRestApiTest {
             serverEngine = new JettyHTTPServerEngineFactory().createJettyHTTPServerEngine(
                 ENDPOINT_ADDRESS_HOST, ENDPOINT_ADDRESS_PORT, "http"); 
             serverEngine.setSessionSupport(true);
-                
-            JAXRSServerFactoryBean sf = ResourceUtils.createApplication(createRestApp(), true);
+            JAXRSServerFactoryBean sf = ResourceUtils.createApplication(createRestApp(), true,false,false, BusFactory.getDefaultBus());
             if (clientProviders == null) {
                 clientProviders = sf.getProviders();
             }
