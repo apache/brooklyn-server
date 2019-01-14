@@ -38,15 +38,7 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilterHelper;
-import org.apache.brooklyn.rest.filter.CorsImplSupplierFilter;
-import org.apache.brooklyn.rest.filter.CsrfTokenFilter;
-import org.apache.brooklyn.rest.filter.EntitlementContextFilter;
-import org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter;
-import org.apache.brooklyn.rest.filter.LoggingFilter;
-import org.apache.brooklyn.rest.filter.NoCacheFilter;
-import org.apache.brooklyn.rest.filter.RequestTaggingFilter;
-import org.apache.brooklyn.rest.filter.RequestTaggingRsFilter;
+import org.apache.brooklyn.rest.filter.*;
 import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
@@ -216,6 +208,7 @@ public class BrooklynRestApiLauncher {
                 new ShutdownHandlerProvider(shutdownListener),
                 new RequestTaggingRsFilter(),
                 new NoCacheFilter(),
+                new BrooklynSecurityProviderFilterJersey(),
                 new HaHotCheckResourceFilter(),
                 new EntitlementContextFilter(),
                 new CsrfTokenFilter());
