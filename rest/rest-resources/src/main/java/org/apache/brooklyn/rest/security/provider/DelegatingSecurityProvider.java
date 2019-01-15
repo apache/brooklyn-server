@@ -187,19 +187,12 @@ public class DelegatingSecurityProvider implements SecurityProvider {
 
     @Override
     public boolean isAuthenticated(HttpSession session) {
-        if (session == null) return false;
-        Object modCountWhenFirstAuthenticated = session.getAttribute(getModificationCountKey());
-        boolean authenticated = getDelegate().isAuthenticated(session) &&
-                Long.valueOf(modCount.get()).equals(modCountWhenFirstAuthenticated);
-        return authenticated;
+        return getDelegate().isAuthenticated(session);
     }
 
     @Override
     public boolean authenticate(HttpSession session, String user, String password) throws SecurityProviderDeniedAuthentication {
         boolean authenticated = getDelegate().authenticate(session, user, password);
-        if (authenticated) {
-            session.setAttribute(getModificationCountKey(), modCount.get());
-        }
         if (log.isTraceEnabled() && authenticated) {
             log.trace("User {} authenticated with provider {}", user, getDelegate());
         } else if (!authenticated && log.isDebugEnabled()) {
@@ -210,17 +203,9 @@ public class DelegatingSecurityProvider implements SecurityProvider {
 
     @Override
     public boolean logout(HttpSession session) { 
-        boolean logout = getDelegate().logout(session);
-        if (logout) {
-            session.removeAttribute(getModificationCountKey());
-        }
-        return logout;
+        return getDelegate().logout(session);
     }
 
-    private String getModificationCountKey() {
-        return getClass().getName() + ".ModCount";
-    }
-    
     @Override
     public boolean requiresUserPass() {
         return getDelegate().requiresUserPass();
