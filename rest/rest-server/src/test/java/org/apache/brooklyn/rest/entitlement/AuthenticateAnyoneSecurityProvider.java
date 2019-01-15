@@ -20,8 +20,11 @@ package org.apache.brooklyn.rest.entitlement;
 
 import javax.servlet.http.HttpSession;
 
+import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 
+/** allows anyone to access, but does require a non-null user (any password) to be supplied via Basic auth,
+ * in contrast to {@link AnyoneSecurityProvider} */
 public class AuthenticateAnyoneSecurityProvider implements SecurityProvider {
 
     @Override
