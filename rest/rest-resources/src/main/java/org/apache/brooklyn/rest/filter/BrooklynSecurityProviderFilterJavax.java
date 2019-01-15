@@ -48,7 +48,7 @@ public class BrooklynSecurityProviderFilterJavax implements Filter {
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
         // no init needed
-        log.debug("init");
+        log.trace("BrooklynSecurityProviderFilterJavax.init");
     }
 
     @Override
@@ -56,7 +56,7 @@ public class BrooklynSecurityProviderFilterJavax implements Filter {
             throws IOException, ServletException {
 
         try {
-            log.debug("doFilter");
+            log.trace("BrooklynSecurityProviderFilterJavax.doFilter {}", request);
             ManagementContext mgmt = new ManagementContextProvider(request.getServletContext()).getManagementContext();
             Preconditions.checkNotNull(mgmt, "Brooklyn management context not available; cannot authenticate");
             new BrooklynSecurityProviderFilterHelper().run((HttpServletRequest)request, mgmt);
@@ -64,7 +64,7 @@ public class BrooklynSecurityProviderFilterJavax implements Filter {
             chain.doFilter(request, response);
 
         } catch (SecurityProviderDeniedAuthentication e) {
-            log.debug("doFilter catch SecurityProviderDeniedAuthentication {}",e);
+            log.trace("BrooklynSecurityProviderFilterJavax.doFilter caught SecurityProviderDeniedAuthentication", e);
             HttpServletResponse rout = ((HttpServletResponse)response);
             Response rin = e.getResponse();
             if (rin==null) rin = Response.status(Status.UNAUTHORIZED).build();
@@ -85,6 +85,7 @@ public class BrooklynSecurityProviderFilterJavax implements Filter {
     @Override
     public void destroy() {
         // no clean-up needed
+        log.trace("BrooklynSecurityProviderFilterJavax.destroy");
     }
     
 }

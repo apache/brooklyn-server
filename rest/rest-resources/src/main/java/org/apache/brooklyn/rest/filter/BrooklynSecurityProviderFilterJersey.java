@@ -50,9 +50,10 @@ public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFil
     @Context
     private ContextResolver<ManagementContext> mgmtC;
 
+    @SuppressWarnings("resource")
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {
-        log.debug("filter");
+        log.trace("BrooklynSecurityProviderFilterJersey.filter {}", requestContext);
         try {
             new BrooklynSecurityProviderFilterHelper().run(webRequest, mgmtC.getContext(ManagementContext.class));
         } catch (SecurityProviderDeniedAuthentication e) {
@@ -62,11 +63,11 @@ public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFil
             if (rin.getStatus()==Status.FOUND.getStatusCode()) {
                 String location = rin.getHeaderString(HttpHeader.LOCATION.asString());
                 if (location!=null) {
-                    log.debug("Redirect to {} for authentication",location);
+                    log.trace("Redirect to {} for authentication",location);
                     final UriBuilder uriBuilder = UriBuilder.fromPath(location);
-                    rin= Response.temporaryRedirect(uriBuilder.build()).entity("Authentication is required at "+location).build();
+                    rin = Response.temporaryRedirect(uriBuilder.build()).entity("Authentication is required at "+location).build();
                 } else {
-                    log.debug("Unauthorized");
+                    log.trace("Unauthorized");
                     rin = Response.status(Status.UNAUTHORIZED).entity("Authentication is required").build();
                 }
             }

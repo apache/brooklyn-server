@@ -32,7 +32,7 @@ public class AnyoneSecurityProvider implements SecurityProvider {
     @Override
     public boolean requiresUserPass() {
         // doesn't matter as isAuth always returns true, this should never be called
-        return true;
+        return false;
     }
     
     @Override
