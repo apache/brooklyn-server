@@ -113,6 +113,8 @@ public class OauthSecurityProvider implements SecurityProvider {
     public boolean isAuthenticated(HttpSession session) {
         // TODO tidy log messages
         log.info("isAuthenticated 1 "+getJettyRequest().getRequestURI()+" "+session+" ... "+this);
+        if(session==null) return false;
+
         Object token = session.getAttribute(OAUTH_ACCESS_TOKEN_SESSION_KEY);
         // TODO is it valid?
         return token!=null;

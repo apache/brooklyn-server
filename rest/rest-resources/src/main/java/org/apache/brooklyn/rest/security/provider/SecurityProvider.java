@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.rest.security.provider;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.servlet.http.HttpSession;
 import javax.ws.rs.core.Response;
 
@@ -28,7 +30,7 @@ import javax.ws.rs.core.Response;
  */
 public interface SecurityProvider {
 
-    public boolean isAuthenticated(HttpSession session);
+    public boolean isAuthenticated(@Nullable HttpSession session);
     /** whether this provider requires a user/pass; if this returns false, the framework can
      * send null/null as the user/pass to {@link #authenticate(HttpSession, String, String)},
      * and should do that if user/pass info is not immediately available
@@ -40,7 +42,7 @@ public interface SecurityProvider {
      * The provider should not send a response but should throw {@link SecurityProviderDeniedAuthentication}
      * if a custom response is required. It can include a response in that exception,
      * e.g. to provide more information or supply a redirect. */
-    public boolean authenticate(HttpSession session, String user, String pass) throws SecurityProviderDeniedAuthentication;
+    public boolean authenticate(@Nonnull HttpSession session, String user, String pass) throws SecurityProviderDeniedAuthentication;
     public boolean logout(HttpSession session);
     
     public static class SecurityProviderDeniedAuthentication extends Exception {
