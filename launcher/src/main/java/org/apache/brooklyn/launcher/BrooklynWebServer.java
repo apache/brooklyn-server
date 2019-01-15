@@ -46,6 +46,7 @@ import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
@@ -61,6 +62,7 @@ import org.apache.brooklyn.rest.filter.LoggingFilter;
 import org.apache.brooklyn.rest.filter.NoCacheFilter;
 import org.apache.brooklyn.rest.filter.RequestTaggingFilter;
 import org.apache.brooklyn.rest.filter.RequestTaggingRsFilter;
+import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
 import org.apache.brooklyn.rest.util.ShutdownHandlerProvider;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -663,6 +665,18 @@ public class BrooklynWebServer {
             //
             // Ignore security config in web.xml.
             context.setSecurityHandler(new NopSecurityHandler());
+            
+            // Above probably not used any more. Handled by the BrooklynSecurityProviderFilter* classes
+            String provider = Strings.toString( ((ManagementContextInternal)managementContext).getBrooklynProperties().getConfigRaw(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME).orNull() );
+            if (provider==null) {
+                ((ManagementContextInternal)managementContext).getBrooklynProperties().put(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME, 
+                    AnyoneSecurityProvider.class.getName());
+            } else if (AnyoneSecurityProvider.class.getName().equals(provider)) {
+                // already set
+            } else {
+                // mismatch - warn, but continue
+                log.warn("Server told to skip security with unexpected security provider: "+provider);
+            }
         } else {
             // Cover for downstream projects which don't have the changes.
             context.addOverrideDescriptor(getClass().getResource("/web-security.xml").toExternalForm());
