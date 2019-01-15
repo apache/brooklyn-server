@@ -27,18 +27,23 @@ import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.ext.ContextResolver;
 import javax.ws.rs.ext.Provider;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider.SecurityProviderDeniedAuthentication;
 import org.eclipse.jetty.http.HttpHeader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** See {@link BrooklynSecurityProviderFilterHelper} */
 @Provider
 @Priority(100)
 public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFilter {
-    
+
+    private static final Logger log = LoggerFactory.getLogger(BrooklynSecurityProviderFilterJersey.class);
+
     @Context
     HttpServletRequest webRequest;
 
@@ -47,9 +52,9 @@ public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFil
 
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {
+        log.debug("filter");
         try {
             new BrooklynSecurityProviderFilterHelper().run(webRequest, mgmtC.getContext(ManagementContext.class));
-            
         } catch (SecurityProviderDeniedAuthentication e) {
             Response rin = e.getResponse();
             if (rin==null) rin = Response.status(Status.UNAUTHORIZED).build();
@@ -57,9 +62,11 @@ public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFil
             if (rin.getStatus()==Status.FOUND.getStatusCode()) {
                 String location = rin.getHeaderString(HttpHeader.LOCATION.asString());
                 if (location!=null) {
-                    rin = Response.status(Status.UNAUTHORIZED).entity("Authentication is required at "+location).
-                        header(HttpHeader.LOCATION.asString(), location).build();
+                    log.debug("Redirect to {} for authentication",location);
+                    final UriBuilder uriBuilder = UriBuilder.fromPath(location);
+                    rin= Response.temporaryRedirect(uriBuilder.build()).entity("Authentication is required at "+location).build();
                 } else {
+                    log.debug("Unauthorized");
                     rin = Response.status(Status.UNAUTHORIZED).entity("Authentication is required").build();
                 }
             }

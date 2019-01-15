@@ -43,12 +43,12 @@ import com.google.common.base.Preconditions;
 /** See {@link BrooklynSecurityProviderFilterHelper} */
 public class BrooklynSecurityProviderFilterJavax implements Filter {
     
-    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(BrooklynSecurityProviderFilterJavax.class);
     
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
         // no init needed
+        log.debug("init");
     }
 
     @Override
@@ -56,6 +56,7 @@ public class BrooklynSecurityProviderFilterJavax implements Filter {
             throws IOException, ServletException {
 
         try {
+            log.debug("doFilter");
             ManagementContext mgmt = new ManagementContextProvider(request.getServletContext()).getManagementContext();
             Preconditions.checkNotNull(mgmt, "Brooklyn management context not available; cannot authenticate");
             new BrooklynSecurityProviderFilterHelper().run((HttpServletRequest)request, mgmt);
@@ -63,12 +64,13 @@ public class BrooklynSecurityProviderFilterJavax implements Filter {
             chain.doFilter(request, response);
 
         } catch (SecurityProviderDeniedAuthentication e) {
+            log.debug("doFilter catch SecurityProviderDeniedAuthentication {}",e);
             HttpServletResponse rout = ((HttpServletResponse)response);
             Response rin = e.getResponse();
             if (rin==null) rin = Response.status(Status.UNAUTHORIZED).build();
      
             rout.setStatus(rin.getStatus());
-            
+
             // note content-type is explicitly set in some Response objects, but this should set it 
             rin.getHeaders().forEach((k,v) -> v.forEach(v2 -> rout.addHeader(k, Strings.toString(v2))));
             
