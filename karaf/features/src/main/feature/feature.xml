@@ -207,6 +207,7 @@
 
         <feature>cxf-jaxrs</feature>
         <bundle dependency="true">mvn:org.apache.cxf/cxf-rt-rs-security-cors/${cxf.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.cxf/cxf-rt-frontend-jaxrs/${cxf.version}</bundle>
 
         <bundle dependency="true">mvn:com.fasterxml.jackson.jaxrs/jackson-jaxrs-json-provider/${fasterxml.jackson.version}</bundle>
 
