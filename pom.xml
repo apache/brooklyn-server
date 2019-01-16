@@ -175,7 +175,7 @@
         <commons-logging.version>1.2</commons-logging.version>
         <jsonSmart.version>2.3</jsonSmart.version>
         <minidev.accessors-smart.version>1.2</minidev.accessors-smart.version>
-        <ow2.asm.version>5.0.4</ow2.asm.version> <!-- from json-path:2.4.0 and cxf-rt-frontend-jaxws:3.1.10; clashes with 5.2 in karaf:4.1.6 -->
+        <ow2.asm.version>5.2</ow2.asm.version> <!-- version should align with cxf-rt-frontend-jaxws; see also json-path and karaf version requirements -->
         <commons-beanutils.version>1.9.3</commons-beanutils.version>
         <commons-collections.version>3.2.2</commons-collections.version>
         <javax.mail.version>1.4.4</javax.mail.version>
