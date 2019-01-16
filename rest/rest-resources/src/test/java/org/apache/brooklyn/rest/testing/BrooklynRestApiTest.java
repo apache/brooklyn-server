@@ -55,7 +55,9 @@ public abstract class BrooklynRestApiTest {
     
     protected TestShutdownHandler shutdownListener = createShutdownHandler();
     protected final static String ENDPOINT_ADDRESS_LOCAL = "local://";
-    protected final static String ENDPOINT_ADDRESS_HTTP = "http://localhost:9998/";
+    protected final static String ENDPOINT_ADDRESS_HOST = "localhost";
+    protected final static int ENDPOINT_ADDRESS_PORT = 9998;
+    protected final static String ENDPOINT_ADDRESS_HTTP = "http://"+ENDPOINT_ADDRESS_HOST+":"+ENDPOINT_ADDRESS_PORT+"/";
 
     protected Set<Class<?>> resourceClasses;
     protected Set<Object> resourceBeans;

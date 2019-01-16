@@ -43,10 +43,13 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.cxf.BusFactory;
 import org.apache.cxf.endpoint.Server;
 import org.apache.cxf.jaxrs.JAXRSServerFactoryBean;
 import org.apache.cxf.jaxrs.client.WebClient;
 import org.apache.cxf.jaxrs.utils.ResourceUtils;
+import org.apache.cxf.transport.http_jetty.JettyHTTPServerEngine;
+import org.apache.cxf.transport.http_jetty.JettyHTTPServerEngineFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -58,7 +61,8 @@ public abstract class BrooklynRestResourceTest extends BrooklynRestApiTest {
 
     private static final Logger log = LoggerFactory.getLogger(BrooklynRestResourceTest.class);
 
-    private static Server server;
+    private JettyHTTPServerEngine serverEngine;
+    private Server server;
     protected List<?> clientProviders;
     
     class DefaultTestApp extends javax.ws.rs.core.Application {
@@ -89,7 +93,12 @@ public abstract class BrooklynRestResourceTest extends BrooklynRestApiTest {
     protected synchronized void startServer() throws Exception {
         if (server == null) {
             setUpResources();
-            JAXRSServerFactoryBean sf = ResourceUtils.createApplication(createRestApp(), true);
+            
+            // needed to enable session support
+            serverEngine = new JettyHTTPServerEngineFactory().createJettyHTTPServerEngine(
+                ENDPOINT_ADDRESS_HOST, ENDPOINT_ADDRESS_PORT, "http"); 
+            serverEngine.setSessionSupport(true);
+            JAXRSServerFactoryBean sf = ResourceUtils.createApplication(createRestApp(), true,false,false, BusFactory.getDefaultBus());
             if (clientProviders == null) {
                 clientProviders = sf.getProviders();
             }
@@ -114,6 +123,10 @@ public abstract class BrooklynRestResourceTest extends BrooklynRestApiTest {
             server.stop();
             server.destroy();
             server = null;
+        }
+        if (serverEngine!=null) {
+            serverEngine.shutdown();
+            serverEngine = null;
         }
     }
 

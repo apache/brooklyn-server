@@ -20,7 +20,7 @@ package org.apache.brooklyn.rest.security.provider;
 
 import javax.servlet.http.HttpSession;
 
-/** provider who disallows everyone */
+/** provider who disallows everyone, though it does require a user/pass */
 public class BlackholeSecurityProvider implements SecurityProvider {
 
     @Override
@@ -37,4 +37,10 @@ public class BlackholeSecurityProvider implements SecurityProvider {
     public boolean logout(HttpSession session) { 
         return true;
     }
+
+    @Override
+    public boolean requiresUserPass() {
+        return true;
+    }
+    
 }

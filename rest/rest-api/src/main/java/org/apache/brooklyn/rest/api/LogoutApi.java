@@ -36,19 +36,22 @@ public interface LogoutApi {
     @POST
     @ApiOperation(value = "Request a logout and clean session")
     @ApiResponses(value = {
-            @ApiResponse(code = 307, message = "Redirect to /logout/user, keeping the request method")
+            @ApiResponse(code = 307, message = "Redirect to /logout/{user}, keeping the request method")
     })
     Response logout();
 
-
+    // TODO what is this for?  misleading as it does not unauthorize the _session_ or log out in any way;
+    // deprecating as at 2019-01
+    /** @deprecated since 1.0 */
+    @Deprecated
     @POST
     @Path("/unauthorize")
-    @ApiOperation(value = "Return UNAUTHORIZED 401 response")
+    @ApiOperation(value = "Return UNAUTHORIZED 401 response, but without disabling the session [deprecated]")
     Response unAuthorize();
 
     @POST
     @Path("/{user}")
-    @ApiOperation(value = "Logout and clean session if matching user logged")
+    @ApiOperation(value = "Logout and clean session if matching user logged in")
     Response logoutUser(
         @ApiParam(value = "User to log out", required = true)
         @PathParam("user") final String user);

@@ -28,10 +28,7 @@ import java.io.InputStream;
 import java.net.InetAddress;
 import java.security.KeyStore;
 
-import org.eclipse.jetty.security.ConstraintMapping;
-import org.eclipse.jetty.security.ConstraintSecurityHandler;
-import org.eclipse.jetty.security.HashLoginService;
-import org.eclipse.jetty.security.SecurityHandler;
+import org.eclipse.jetty.security.*;
 import org.eclipse.jetty.security.authentication.BasicAuthenticator;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
@@ -93,7 +90,9 @@ public class HttpService {
      */
     public HttpService basicAuthentication(String username, String password) {
         HashLoginService l = new HashLoginService();
-        l.putUser(username, Credential.getCredential(password), new String[]{"user"});
+        UserStore userStore = new UserStore();
+        userStore.addUser(username, Credential.getCredential(password), new String[]{"user"});
+        l.setUserStore(userStore);
         l.setName("test-realm");
 
         Constraint constraint = new Constraint(Constraint.__BASIC_AUTH, "user");

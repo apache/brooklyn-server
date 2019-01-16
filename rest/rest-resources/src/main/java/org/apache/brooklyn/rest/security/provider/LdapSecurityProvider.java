@@ -129,4 +129,9 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
             throw Exceptions.propagate(new ClassNotFoundException("Unable to load LDAP classes ("+LDAP_CONTEXT_FACTORY+") required for Brooklyn LDAP security provider"));
         }
     }
+    
+    @Override
+    public boolean requiresUserPass() {
+        return true;
+    }
 }

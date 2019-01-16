@@ -59,6 +59,7 @@ import java.util.List;
  * Apache Brooklyn API calls do not use CORS annotations so findResourceMethod is set to false.
  */
 @Provider
+@SuppressWarnings("serial")
 public class CorsImplSupplierFilter extends CrossOriginResourceSharingFilter {
     /**
      * @see CrossOriginResourceSharingFilter#setAllowOrigins(List<String>)

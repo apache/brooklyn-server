@@ -38,16 +38,7 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.rest.filter.CorsImplSupplierFilter;
-import org.apache.brooklyn.rest.filter.CsrfTokenFilter;
-import org.apache.brooklyn.rest.filter.EntitlementContextFilter;
-import org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter;
-import org.apache.brooklyn.rest.filter.LoggingFilter;
-import org.apache.brooklyn.rest.filter.NoCacheFilter;
-import org.apache.brooklyn.rest.filter.RequestTaggingFilter;
-import org.apache.brooklyn.rest.filter.RequestTaggingRsFilter;
-import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule.RolePrincipal;
-import org.apache.brooklyn.rest.security.jaas.JaasUtils;
+import org.apache.brooklyn.rest.filter.*;
 import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
@@ -58,7 +49,6 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.text.WildcardGlobs;
-import org.eclipse.jetty.jaas.JAASLoginService;
 import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.ContextHandler;
@@ -218,6 +208,7 @@ public class BrooklynRestApiLauncher {
                 new ShutdownHandlerProvider(shutdownListener),
                 new RequestTaggingRsFilter(),
                 new NoCacheFilter(),
+                new BrooklynSecurityProviderFilterJersey(),
                 new HaHotCheckResourceFilter(),
                 new EntitlementContextFilter(),
                 new CsrfTokenFilter());
@@ -281,7 +272,7 @@ public class BrooklynRestApiLauncher {
     private static Server startServer(ManagementContext mgmt, ContextHandler context, String summary, InetSocketAddress bindLocation) {
         Server server = new Server(bindLocation);
 
-        initJaas(mgmt, server);
+        initAuth(mgmt, server);
 
         server.setHandler(context);
         try {
@@ -296,17 +287,8 @@ public class BrooklynRestApiLauncher {
     }
 
     // TODO Why parallel code for server init here and in BrooklynWebServer?
-    private static void initJaas(ManagementContext mgmt, Server server) {
-        JaasUtils.init(mgmt);
-        initJaasLoginService(server);
-    }
-
-    public static void initJaasLoginService(Server server) {
-        JAASLoginService loginService = new JAASLoginService();
-        loginService.setName("webconsole");
-        loginService.setLoginModuleName("webconsole");
-        loginService.setRoleClassNames(new String[] {RolePrincipal.class.getName()});
-        server.addBean(loginService);
+    private static void initAuth(ManagementContext mgmt, Server server) {
+        server.addBean(new BrooklynSecurityProviderFilterHelper());
     }
 
     public static BrooklynRestApiLauncher launcher() {

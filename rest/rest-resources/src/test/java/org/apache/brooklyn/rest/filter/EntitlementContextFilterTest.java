@@ -29,13 +29,12 @@ import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
-import org.apache.brooklyn.rest.security.jaas.JaasUtils;
 import org.apache.brooklyn.rest.security.provider.ExplicitUsersSecurityProvider;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
-import org.apache.cxf.interceptor.security.JAASLoginInterceptor;
 import org.apache.cxf.jaxrs.JAXRSServerFactoryBean;
 import org.apache.cxf.jaxrs.client.WebClient;
 import org.apache.http.HttpStatus;
+import org.eclipse.jetty.server.session.SessionHandler;
 import org.testng.annotations.Test;
 
 public class EntitlementContextFilterTest extends BrooklynRestResourceTest {
@@ -58,18 +57,13 @@ public class EntitlementContextFilterTest extends BrooklynRestResourceTest {
         props.put(BrooklynWebConfig.PASSWORD_FOR_USER(USER_PASS), USER_PASS);
         getManagementContext().getScratchpad().put(BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE, new ExplicitUsersSecurityProvider(getManagementContext()));
 
+        sf.setProvider(new SessionHandler());
         super.configureCXF(sf);
-
-        JaasUtils.init(getManagementContext());
-
-        JAASLoginInterceptor jaas = new JAASLoginInterceptor();
-        jaas.setContextName("webconsole");
-        sf.getInInterceptors().add(jaas);
-
     }
 
     @Override
     protected void addBrooklynResources() {
+        addResource(new BrooklynSecurityProviderFilterJersey());
         addResource(new RequestTaggingRsFilter());
         addResource(new EntitlementContextFilter());
         addResource(new EntitlementResource());

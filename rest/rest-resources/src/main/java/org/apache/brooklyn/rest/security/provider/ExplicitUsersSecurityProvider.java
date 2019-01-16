@@ -114,4 +114,9 @@ public class ExplicitUsersSecurityProvider extends AbstractSecurityProvider impl
 
         return false;
     }
+    
+    @Override
+    public boolean requiresUserPass() {
+        return true;
+    }
 }

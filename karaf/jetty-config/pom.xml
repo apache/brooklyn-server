@@ -47,7 +47,6 @@
             <Import-Package>
                 org.eclipse.jetty.jaas,
                 org.eclipse.jetty.security,
-                org.apache.brooklyn.rest.security.jaas,
                 *
             </Import-Package>
           </instructions>

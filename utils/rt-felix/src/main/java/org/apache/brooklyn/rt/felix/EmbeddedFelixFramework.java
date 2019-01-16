@@ -15,7 +15,6 @@
  */
 package org.apache.brooklyn.rt.felix;
 
-import com.google.common.base.Stopwatch;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -24,13 +23,16 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
+
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -48,6 +50,8 @@ import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Stopwatch;
+
 /**
  * Functions for starting an Apache Felix OSGi framework inside a non-OSGi Brooklyn distro.
  * 
@@ -61,6 +65,17 @@ public class EmbeddedFelixFramework {
     private static final String MANIFEST_PATH = "META-INF/MANIFEST.MF";
     private static final Set<String> SYSTEM_BUNDLES = MutableSet.of();
 
+    private static final Set<URL> BOOT_BUNDLES;
+    
+    static {
+        try {
+            BOOT_BUNDLES = MutableSet.copyOf(Collections.list(
+                EmbeddedFelixFramework.class.getClassLoader().getResources(MANIFEST_PATH))).asUnmodifiable();
+        } catch (Exception e) {
+            // should never happen; weird classloading problem
+            throw Exceptions.propagate(e);
+        }
+    }
 
     // -------- creating
 
@@ -132,16 +147,17 @@ public class EmbeddedFelixFramework {
     private static void installBootBundles(Framework framework) {
         Stopwatch timer = Stopwatch.createStarted();
         LOG.debug("Installing OSGi boot bundles from "+EmbeddedFelixFramework.class.getClassLoader()+"...");
-        Enumeration<URL> resources;
-        try {
-            resources = EmbeddedFelixFramework.class.getClassLoader().getResources(MANIFEST_PATH);
-        } catch (IOException e) {
-            throw Exceptions.propagate(e);
-        }
+        
+        Iterator<URL> resources = BOOT_BUNDLES.iterator();
+        // previously we evaluated this each time, but lately (discovered in 2019,
+        // possibly the case for a long time before) it seems to grow, accessing ad hoc dirs
+        // in cache/* made by tests, which get deleted, logging lots of errors.
+        // so now we statically populate it at load time.
+        
         BundleContext bundleContext = framework.getBundleContext();
         Map<String, Bundle> installedBundles = getInstalledBundlesById(bundleContext);
-        while(resources.hasMoreElements()) {
-            URL url = resources.nextElement();
+        while (resources.hasNext()) {
+            URL url = resources.next();
             ReferenceWithError<?> installResult = installExtensionBundle(bundleContext, url, installedBundles, OsgiUtils.getVersionedId(framework));
             if (installResult.hasError() && !installResult.masksErrorIfPresent()) {
                 // it's reported as a critical error, so warn here

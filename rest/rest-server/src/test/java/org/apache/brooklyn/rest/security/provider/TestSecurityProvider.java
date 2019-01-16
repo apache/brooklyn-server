@@ -43,4 +43,9 @@ public class TestSecurityProvider implements SecurityProvider {
     public boolean logout(HttpSession session) {
         return false;
     }
+    
+    @Override
+    public boolean requiresUserPass() {
+        return true;
+    }
 }

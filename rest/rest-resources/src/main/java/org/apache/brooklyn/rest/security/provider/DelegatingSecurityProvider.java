@@ -20,6 +20,8 @@ package org.apache.brooklyn.rest.security.provider;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.servlet.http.HttpSession;
@@ -27,9 +29,12 @@ import javax.servlet.http.HttpSession;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
-import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,37 +77,33 @@ public class DelegatingSecurityProvider implements SecurityProvider {
 
         SecurityProvider presetDelegate = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE);
         if (presetDelegate!=null) {
-            log.info("REST using pre-set security provider " + presetDelegate);
+            log.trace("Brooklyn security: using pre-set security provider {}", presetDelegate);
             return presetDelegate;
         }
         
         String className = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME);
 
         if (delegate != null && BrooklynWebConfig.hasNoSecurityOptions(mgmt.getConfig())) {
-            log.debug("{} refusing to change from {}: No security provider set in reloaded properties.",
+            log.debug("Brooklyn security: {} refusing to change from {}: No security provider set in reloaded properties.",
                     this, delegate);
             return delegate;
         }
-        log.info("REST using security provider " + className);
 
         try {
-            ClassLoaderUtils clu = new ClassLoaderUtils(this, mgmt);
-            Class<? extends SecurityProvider> clazz;
-            try {
-                clazz = (Class<? extends SecurityProvider>) clu.loadClass(className);
-            } catch (Exception e) {
-                String oldPackage = "brooklyn.web.console.security.";
-                if (className.startsWith(oldPackage)) {
-                    className = Strings.removeFromStart(className, oldPackage);
-                    className = DelegatingSecurityProvider.class.getPackage().getName() + "." + className;
-                    clazz = (Class<? extends SecurityProvider>) clu.loadClass(className);
-                    log.warn("Deprecated package " + oldPackage + " detected; please update security provider to point to " + className);
-                } else throw e;
+            String bundle = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_BUNDLE);
+            if (bundle!=null) {
+                String bundleVersion = brooklynProperties.getConfig(BrooklynWebConfig.SECURITY_PROVIDER_BUNDLE_VERSION);
+                log.info("Brooklyn security: using security provider " + className + " from " + bundle+":"+bundleVersion);
+                BundleContext bundleContext = ((ManagementContextInternal)mgmt).getOsgiManager().get().getFramework().getBundleContext();
+                delegate = loadProviderFromBundle(mgmt, bundleContext, bundle, bundleVersion, className);
+            } else {
+                log.info("Brooklyn security: using security provider " + className);
+                ClassLoaderUtils clu = new ClassLoaderUtils(this, mgmt);
+                Class<? extends SecurityProvider> clazz = (Class<? extends SecurityProvider>) clu.loadClass(className);
+                delegate = createSecurityProviderInstance(mgmt, clazz);
             }
-
-            delegate = createSecurityProviderInstance(mgmt, clazz);
         } catch (Exception e) {
-            log.warn("REST unable to instantiate security provider " + className + "; all logins are being disallowed", e);
+            log.warn("Brooklyn security: unable to instantiate security provider " + className + "; all logins are being disallowed", e);
             delegate = new BlackholeSecurityProvider();
         }
 
@@ -111,6 +112,52 @@ public class DelegatingSecurityProvider implements SecurityProvider {
         mgmt.getScratchpad().put(BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE, delegate);
 
         return delegate;
+    }
+
+    public static SecurityProvider loadProviderFromBundle(
+        ManagementContext mgmt, BundleContext bundleContext,
+        String symbolicName, String version, String className) {
+        try {
+            Collection<Bundle> bundles = getMatchingBundles(bundleContext, symbolicName, version);
+            if (bundles.isEmpty()) {
+                throw new IllegalStateException("No bundle " + symbolicName + ":" + version + " found");
+            } else if (bundles.size() > 1) {
+                log.warn("Brooklyn security: found multiple bundles matching symbolicName " + symbolicName + " and version " + version +
+                    " while trying to load security provider " + className + ". Will use first one that loads the class successfully.");
+            }
+            SecurityProvider p = tryLoadClass(mgmt, className, bundles);
+            if (p == null) {
+                throw new ClassNotFoundException("Unable to load class " + className + " from bundle " + symbolicName + ":" + version);
+            }
+            return p;
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            throw new IllegalStateException("Can not load or create security provider " + className + " for bundle " + symbolicName + ":" + version, e);
+        }
+    }
+
+    private static SecurityProvider tryLoadClass(ManagementContext mgmt, String className, Collection<Bundle> bundles)
+        throws NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException {
+        for (Bundle b : bundles) {
+            try {
+                @SuppressWarnings("unchecked")
+                Class<? extends SecurityProvider> securityProviderType = (Class<? extends SecurityProvider>) b.loadClass(className);
+                return DelegatingSecurityProvider.createSecurityProviderInstance(mgmt, securityProviderType);
+            } catch (ClassNotFoundException e) {
+            }
+        }
+        return null;
+    }
+
+    private static Collection<Bundle> getMatchingBundles(BundleContext bundleContext, final String symbolicName, final String version) {
+        Collection<Bundle> bundles = new ArrayList<>();
+        for (Bundle b : bundleContext.getBundles()) {
+            if (b.getSymbolicName().equals(symbolicName) &&
+                (version == null || b.getVersion().toString().equals(version))) {
+                bundles.add(b);
+            }
+        }
+        return bundles;
     }
 
     public static SecurityProvider createSecurityProviderInstance(ManagementContext mgmt,
@@ -140,19 +187,12 @@ public class DelegatingSecurityProvider implements SecurityProvider {
 
     @Override
     public boolean isAuthenticated(HttpSession session) {
-        if (session == null) return false;
-        Object modCountWhenFirstAuthenticated = session.getAttribute(getModificationCountKey());
-        boolean authenticated = getDelegate().isAuthenticated(session) &&
-                Long.valueOf(modCount.get()).equals(modCountWhenFirstAuthenticated);
-        return authenticated;
+        return getDelegate().isAuthenticated(session);
     }
 
     @Override
-    public boolean authenticate(HttpSession session, String user, String password) {
+    public boolean authenticate(HttpSession session, String user, String password) throws SecurityProviderDeniedAuthentication {
         boolean authenticated = getDelegate().authenticate(session, user, password);
-        if (authenticated) {
-            session.setAttribute(getModificationCountKey(), modCount.get());
-        }
         if (log.isTraceEnabled() && authenticated) {
             log.trace("User {} authenticated with provider {}", user, getDelegate());
         } else if (!authenticated && log.isDebugEnabled()) {
@@ -163,14 +203,17 @@ public class DelegatingSecurityProvider implements SecurityProvider {
 
     @Override
     public boolean logout(HttpSession session) { 
-        boolean logout = getDelegate().logout(session);
-        if (logout) {
-            session.removeAttribute(getModificationCountKey());
-        }
-        return logout;
+        return getDelegate().logout(session);
     }
 
-    private String getModificationCountKey() {
-        return getClass().getName() + ".ModCount";
+    @Override
+    public boolean requiresUserPass() {
+        return getDelegate().requiresUserPass();
     }
+
+    @Override
+    public String toString() {
+        return super.toString()+"["+getDelegate()+"]";
+    }
+    
 }

@@ -24,19 +24,30 @@ import javax.ws.rs.ext.ContextResolver;
 import javax.ws.rs.ext.Provider;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 
 @Provider
 // Needed by tests in rest-resources module and by main code in rest-server
 public class ManagementContextProvider implements ContextResolver<ManagementContext> {
+    
+    @SuppressWarnings("unused")
+    private static final Logger log = LoggerFactory.getLogger(ManagementContextProvider.class);
+    
     @Context
     private ServletContext context;
 
     private ManagementContext mgmt;
 
     public ManagementContextProvider() {
+    }
+    
+    // for usages that cannot do injection 
+    public ManagementContextProvider(ServletContext context) {
+        this.context = context;
     }
 
     @VisibleForTesting
@@ -47,14 +58,18 @@ public class ManagementContextProvider implements ContextResolver<ManagementCont
     @Override
     public ManagementContext getContext(Class<?> type) {
         if (type == ManagementContext.class) {
-            if (mgmt != null) {
-                return mgmt;
-            } else {
-                return (ManagementContext) context.getAttribute(BrooklynServiceAttributes.BROOKLYN_MANAGEMENT_CONTEXT);
-            }
+            return getManagementContext();
         } else {
             return null;
         }
+    }
+    
+    @Beta
+    public ManagementContext getManagementContext() {
+        if (mgmt != null) {
+            return mgmt;
+        }
+        return OsgiCompat.getManagementContext(context);
     }
 
 }

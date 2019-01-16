@@ -34,11 +34,11 @@ limitations under the License.
 
     <cm:property-placeholder persistent-id="org.apache.brooklyn.rest.filter.cors">
         <cm:default-properties>
-            <cm:property name="cors.enabled" value="false"/>
+            <cm:property name="cors.enabled" value="true"/>
             <cm:property name="cors.allow.origins" value=""/>
             <cm:property name="cors.allow.headers" value=""/>
             <cm:property name="cors.expose.headers" value=""/>
-            <cm:property name="cors.allow.credentials" value="false"/>
+            <cm:property name="cors.allow.credentials" value="true"/>
             <cm:property name="cors.max.age" value="-1"/>
             <cm:property name="cors.preflight.error.status" value="200"/>
             <cm:property name="cors.block.if.unauthorized" value="false"/>
@@ -59,15 +59,7 @@ limitations under the License.
     <reference id="localManagementContext"
                interface="org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal"/>
 
-    <jaas:config name="webconsole">
-        <jaas:module className="org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule" flags="required"/>
-    </jaas:config>
-
     <reference id="shutdownHandler" interface="org.apache.brooklyn.core.mgmt.ShutdownHandler"/>
-
-    <bean class="org.apache.brooklyn.rest.security.jaas.ManagementContextHolder">
-        <property name="managementContext" ref="localManagementContext"/>
-    </bean>
 
     <bean id="accessResourceBean" class="org.apache.brooklyn.rest.resources.AccessResource"/>
     <bean id="activityResourceBean" class="org.apache.brooklyn.rest.resources.ActivityResource"/>
@@ -116,17 +108,10 @@ limitations under the License.
             <bean class="org.apache.brooklyn.rest.util.DefaultExceptionMapper"/>
             <bean class="org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider"/>
             <bean class="org.apache.brooklyn.rest.util.FormMapProvider"/>
-            <bean class="org.apache.cxf.jaxrs.security.JAASAuthenticationFilter">
-                <property name="contextName" value="webconsole"/>
-                <property name="realmName" value="webconsole"/>
-            </bean>
             <bean class="org.apache.brooklyn.rest.util.ManagementContextProvider">
                 <argument ref="localManagementContext"/>
             </bean>
-            <!--
-                TODO ShutdownHandlerProvider, sync with init work.
-                Needs to be custom OSGi implementation?
-            -->
+            <bean class="org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilterJersey"/>
             <bean class="org.apache.brooklyn.rest.filter.CsrfTokenFilter"/>
             <bean class="org.apache.brooklyn.rest.filter.RequestTaggingRsFilter"/>
             <bean class="org.apache.brooklyn.rest.filter.NoCacheFilter"/>

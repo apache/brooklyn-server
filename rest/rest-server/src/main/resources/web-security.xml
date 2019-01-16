@@ -21,31 +21,6 @@
          xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd"
          version="3.1">
 
-  <security-constraint>
-    <web-resource-collection>
-      <web-resource-name>Logout</web-resource-name>
-      <url-pattern>/v1/logout</url-pattern>
-    </web-resource-collection>
-  </security-constraint>
-
-  <!-- Ignored programmatically if noConsoleSecurity -->
-  <security-constraint>
-    <web-resource-collection>
-      <web-resource-name>All</web-resource-name>
-      <url-pattern>/</url-pattern>
-    </web-resource-collection>
-    <auth-constraint>
-      <role-name>webconsole</role-name>
-    </auth-constraint>
-  </security-constraint>
-
-  <login-config>
-    <auth-method>BASIC</auth-method>
-    <realm-name>webconsole</realm-name>
-  </login-config>
-
-  <security-role>
-    <role-name>webconsole</role-name>
-  </security-role>
-
+    <!-- now done with filters -->
+    
 </web-app>
