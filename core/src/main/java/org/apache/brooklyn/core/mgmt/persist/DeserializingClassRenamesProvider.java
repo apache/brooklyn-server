@@ -38,12 +38,13 @@ import org.apache.brooklyn.util.javalang.Reflections;
 @Beta
 public class DeserializingClassRenamesProvider extends DeserializingProvider{
 
-    private static final String DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH = "classpath://org/apache/brooklyn/core/mgmt/persist/deserializingClassRenames.properties";
+    private static final String RENAMES_PROPERTIES =
+            "classpath://org/apache/brooklyn/core/mgmt/persist/deserializingClassRenames.properties";
 
     public static final DeserializingClassRenamesProvider INSTANCE = new DeserializingClassRenamesProvider();
 
     private DeserializingClassRenamesProvider(){
-        super(ImmutableList.of(new PropertiesConfigLoader(DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH)));
+        super(ImmutableList.of(new PropertiesConfigLoader(RENAMES_PROPERTIES)));
     }
 
     /**

@@ -68,16 +68,14 @@ import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
-import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -114,6 +112,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
     private boolean hasRunFinalInitialization = false;
 
     private ManagementContextInternal managementContext;
+    private CatalogUpgradeScanner catalogUpgradeScanner;
     private boolean isStartingUp = false;
     private boolean failOnStartupErrors = false;
     
@@ -136,6 +135,10 @@ public class CatalogInitialization implements ManagementContextInjectable {
         if (this.managementContext!=null && managementContext!=this.managementContext)
             throw new IllegalStateException("Cannot switch management context, from "+this.managementContext+" to "+managementContext);
         this.managementContext = (ManagementContextInternal) managementContext;
+        catalogUpgradeScanner = new CatalogUpgradeScanner(this.managementContext,
+                BundleUpgradeParser::parseBundleManifestForCatalogUpgrades,
+                RegisteredTypePredicates::containingBundle,
+                RegisteredTypePredicates::containingBundle);
     }
     
     /** Called by the framework to set true while starting up, and false afterwards,
@@ -253,9 +256,18 @@ public class CatalogInitialization implements ManagementContextInjectable {
             }
             
             populateInitialCatalogImpl(true);
-            
-            CatalogUpgrades catalogUpgrades = gatherCatalogUpgradesInstructions(rebindLogger);
-            CatalogUpgrades.storeInManagementContext(catalogUpgrades, managementContext);
+
+            final Maybe<OsgiManager> maybesOsgiManager = managementContext.getOsgiManager();
+            if (maybesOsgiManager.isAbsent()) {
+                // Can't find any bundles to tell if there are upgrades. Could be running tests; do no filtering.
+                CatalogUpgrades.storeInManagementContext(CatalogUpgrades.EMPTY, managementContext);
+            } else {
+                final OsgiManager osgiManager = maybesOsgiManager.get();
+                final BundleContext bundleContext = osgiManager.getFramework().getBundleContext();
+                final CatalogUpgrades catalogUpgrades =
+                        catalogUpgradeScanner.scan(osgiManager, bundleContext, rebindLogger);
+                CatalogUpgrades.storeInManagementContext(catalogUpgrades, managementContext);
+            }
             PersistedCatalogState filteredPersistedState = filterBundlesAndCatalogInPersistedState(persistedState, rebindLogger);
             addPersistedCatalogImpl(filteredPersistedState, exceptionHandler, rebindLogger);
             
@@ -606,44 +618,6 @@ public class CatalogInitialization implements ManagementContextInjectable {
         }
         
         return new PersistedCatalogState(bundles, legacyCatalogItems);
-    }
-
-    private CatalogUpgrades gatherCatalogUpgradesInstructions(RebindLogger rebindLogger) {
-        Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)managementContext).getOsgiManager();
-        if (osgiManager.isAbsent()) {
-            // Can't find any bundles to tell if there are upgrades. Could be running tests; do no filtering.
-            return CatalogUpgrades.EMPTY;
-        }
-        
-        CatalogUpgrades.Builder catalogUpgradesBuilder = CatalogUpgrades.builder();
-        Collection<ManagedBundle> managedBundles = osgiManager.get().getManagedBundles().values();
-        for (ManagedBundle managedBundle : managedBundles) {
-            Maybe<Bundle> bundle = osgiManager.get().findBundle(managedBundle);
-            if (bundle.isPresent()) {
-                CatalogUpgrades catalogUpgrades = BundleUpgradeParser.parseBundleManifestForCatalogUpgrades(
-                        bundle.get(),
-                        new RegisteredTypesSupplier(managementContext, RegisteredTypePredicates.containingBundle(managedBundle)));
-                catalogUpgradesBuilder.addAll(catalogUpgrades);
-            } else {
-                rebindLogger.info("Managed bundle "+managedBundle.getId()+" not found by OSGi Manager; "
-                        + "ignoring when calculating persisted state catalog upgrades");
-            }
-        }
-        return catalogUpgradesBuilder.build();
-    }
-
-    private static class RegisteredTypesSupplier implements Supplier<Iterable<RegisteredType>> {
-        private final ManagementContext mgmt;
-        private final Predicate<? super RegisteredType> filter;
-        
-        RegisteredTypesSupplier(ManagementContext mgmt, Predicate<? super RegisteredType> predicate) {
-            this.mgmt = mgmt;
-            this.filter = predicate;
-        }
-        @Override
-        public Iterable<RegisteredType> get() {
-            return mgmt.getTypeRegistry().getMatching(filter);
-        }
     }
 
     public interface RebindLogger {

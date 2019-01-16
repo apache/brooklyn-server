@@ -183,11 +183,11 @@
         <plantuml.version>6121</plantuml.version>
 
         <!-- Test dependencies -->
-        <cobertura.plugin.version>2.7</cobertura.plugin.version>
-        <surefire.version>2.19.1</surefire.version>
         <testng.version>6.10</testng.version>
         <mockito.version>2.7.12</mockito.version>
-        <assertj.version>2.2.0</assertj.version> <!-- v 2.2.0 is being used as v 3.20 introduces Java8 dependencies-->
+        <assertj.version>3.11.1</assertj.version>
+        <cobertura.plugin.version>2.7</cobertura.plugin.version>
+        <surefire.version>2.19.1</surefire.version>
         <hamcrest.version>1.1</hamcrest.version>
         <mockwebserver.version>20121111</mockwebserver.version>
 

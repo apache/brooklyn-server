@@ -18,10 +18,14 @@
  */
 package org.apache.brooklyn.core.mgmt.rebind;
 
-import static org.testng.Assert.assertEquals;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.SoftAssertions.assertSoftly;
 
 import java.io.File;
-import java.util.Map;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
@@ -29,65 +33,119 @@ import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.os.Os;
+import org.assertj.core.api.WithAssertions;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Charsets;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.io.Files;
+public class RebindWithDeserializingClassRenamesTest extends RebindTestFixtureWithApp implements WithAssertions {
 
-public class RebindWithDeserializingClassRenamesTest extends RebindTestFixtureWithApp {
+    private static final String LEGACY_INHERITANCE_NONE = "org.apache.brooklyn.config.ConfigInheritance$None";
+    private static final String LEGACY_INHERITANCE_ALWAYS = "org.apache.brooklyn.config.ConfigInheritance$Always";
+    private static final String LEGACY_INHERITANCE_MERGED = "org.apache.brooklyn.config.ConfigInheritance$Merged";
+    private static final String RESOURCE_PATH = "org/apache/brooklyn/core/test/rebind/deserializing-class-names/";
+    private static final String ENTITY_ID = "toruf2wxg4";
 
     /** also see {@link RebindConfigInheritanceTest} */
     @Test
     public void testRebindWillRenameLegacyConfigInheritance() throws Exception {
-        Map<String, String> expectedTransforms = ImmutableMap.<String, String>builder()
-                .put("org.apache.brooklyn.config.ConfigInheritance$None", BasicConfigInheritance.NOT_REINHERITED.getClass().getName())
-                .put("org.apache.brooklyn.config.ConfigInheritance$Always", BasicConfigInheritance.OVERWRITE.getClass().getName())
-                .put("org.apache.brooklyn.config.ConfigInheritance$Merged", BasicConfigInheritance.DEEP_MERGE.getClass().getName())
-                .build();
-        
-        String entityId = "toruf2wxg4";
-        String entityResource = "org/apache/brooklyn/core/test/rebind/deserializing-class-names/"+entityId;
-        String persistedEntity = ResourceUtils.create(RebindWithDeserializingClassRenamesTest.class).getResourceAsString(entityResource);
-
-        // Orig state contains the old names (and not the new names)
-        for (Map.Entry<String, String> entry : expectedTransforms.entrySet()) {
-            Asserts.assertStringContains(persistedEntity, entry.getKey());
-            Asserts.assertStringDoesNotContain(persistedEntity, entry.getValue());
-        }
-        
-        File persistedEntityFile = new File(mementoDir, Os.mergePaths("entities", entityId));
-        Files.write(persistedEntity.getBytes(), persistedEntityFile);
-        
+        //given
+        final List<Transform> expectedTransforms = Collections.unmodifiableList(Arrays.asList(
+                Transform.of(LEGACY_INHERITANCE_NONE, BasicConfigInheritance.NOT_REINHERITED, "my.config.inheritanceNone"),
+                Transform.of(LEGACY_INHERITANCE_ALWAYS, BasicConfigInheritance.OVERWRITE, "my.config.inheritanceAlways"),
+                Transform.of(LEGACY_INHERITANCE_MERGED, BasicConfigInheritance.DEEP_MERGE, "my.config.inheritanceMerged")
+        ));
+        // a legacy brooklyn 0.10.0 entity
+        final File persistedEntityFile = givenLegacyEntityFile(ENTITY_ID);
+        // verify that the entity has not been updated and is still using the old names
+        final String persistedEntity = readFile(persistedEntityFile);
+        assertSoftly(s -> expectedTransforms
+                .forEach(transform -> {
+                    s.assertThat(persistedEntity)
+                            .as("existing persisted entity uses legacy classnames")
+                            .contains(transform.legacyClassName);
+                    s.assertThat(persistedEntity)
+                            .as("existing persisted entity does not use current classnames")
+                            .doesNotContain(transform.currentClassName);
+                }));
+        //when
+        // reload and rewrite the configuration
         rebind();
-        
+        //then
         // After rebind, we've re-written the persisted state so it contains the new names (and not old names)
         RebindTestUtils.waitForPersisted(mgmt());
-        String newPersistedEntity = Joiner.on("\n").join(Files.readLines(persistedEntityFile, Charsets.UTF_8));
-        for (Map.Entry<String, String> entry : expectedTransforms.entrySet()) {
-            Asserts.assertStringDoesNotContain(newPersistedEntity, entry.getKey());
-            Asserts.assertStringContains(newPersistedEntity, entry.getValue());
-        }
-
-        // Check the config keys are as expected 
-        EntityInternal entity = (EntityInternal) mgmt().getEntityManager().getEntity(entityId);
-        Map<ConfigKey<?>, Object> config = entity.config().getAllLocalRaw();
-        ConfigKey<?> keyWithInheritanceNone = Iterables.find(config.keySet(), ConfigPredicates.nameEqualTo("my.config.inheritanceNone"));
-        ConfigKey<?> keyWithInheritanceAlways = Iterables.find(config.keySet(), ConfigPredicates.nameEqualTo("my.config.inheritanceAlways"));
-        ConfigKey<?> keyWithInheritanceMerged = Iterables.find(config.keySet(), ConfigPredicates.nameEqualTo("my.config.inheritanceMerged"));
-        
-        assertConfigRuntimeInheritanceMode(keyWithInheritanceNone, BasicConfigInheritance.NOT_REINHERITED);
-        assertConfigRuntimeInheritanceMode(keyWithInheritanceAlways, BasicConfigInheritance.OVERWRITE);
-        assertConfigRuntimeInheritanceMode(keyWithInheritanceMerged, BasicConfigInheritance.DEEP_MERGE);
+        final String reboundPersistedEntity = readFile(persistedEntityFile);
+        final Map<ConfigKey<?>, Object> config = getEntityConfig(ENTITY_ID);
+        // verify that the new config file has been updated and is using the new classnames
+        assertSoftly(s -> expectedTransforms
+                .forEach(transform -> {
+                    s.assertThat(reboundPersistedEntity)
+                            .as("rebound persisted entity does not use legacy classnames")
+                            .doesNotContain(transform.legacyClassName);
+                    s.assertThat(reboundPersistedEntity)
+                            .as("rebound persisted entity uses current classnames")
+                            .contains(transform.currentClassName);
+                    s.assertThat(inheritanceModeByKeyName(config, transform.configKeyName))
+                            .as("config keys are as expected")
+                            .isEqualTo(transform.inheritanceMode);
+                }));
     }
 
-    private void assertConfigRuntimeInheritanceMode(ConfigKey<?> key, ConfigInheritance expected) throws Exception {
-        ConfigInheritance val = key.getInheritanceByContext().get(InheritanceContext.RUNTIME_MANAGEMENT);
-        assertEquals(val, expected);
+    private File givenLegacyEntityFile(final String entityId) throws IOException {
+        // load template entity config file
+        final String persistedEntity = ResourceUtils.create(RebindWithDeserializingClassRenamesTest.class)
+                .getResourceAsString(RESOURCE_PATH + entityId);
+        // create a private/writable copy of the legacy config file
+        final File persistedEntityFile = new File(mementoDir, Os.mergePaths("entities", entityId));
+        Files.write(persistedEntityFile.toPath(), persistedEntity.getBytes());
+        return persistedEntityFile;
+    }
+
+    private String readFile(final File legacyEntityFile) throws IOException {
+        return Files.readAllLines(legacyEntityFile.toPath(), UTF_8)
+                .stream().collect(Collectors.joining(System.lineSeparator()));
+    }
+
+    private Map<ConfigKey<?>, Object> getEntityConfig(final String entityId) {
+        final EntityInternal entity = (EntityInternal) mgmt().getEntityManager().getEntity(entityId);
+        assertThat(entity).isNotNull();
+        return entity.config().getAllLocalRaw();
+    }
+
+    private ConfigInheritance inheritanceModeByKeyName(final Map<ConfigKey<?>, Object> config, final String keyName) {
+        return inheritanceMode(configKeyByName(config, keyName));
+    }
+
+    private ConfigInheritance inheritanceMode(ConfigKey<?> key) {
+        return key.getInheritanceByContext().get(InheritanceContext.RUNTIME_MANAGEMENT);
+    }
+
+    private ConfigKey<?> configKeyByName(final Map<ConfigKey<?>, Object> config, final String keyName) {
+        return config.keySet().stream().filter(ConfigPredicates.nameEqualTo(keyName)::apply).findFirst().get();
+    }
+
+    private static class Transform {
+
+        private String legacyClassName;
+        private String currentClassName;
+        private ConfigInheritance inheritanceMode;
+        private String configKeyName;
+
+        private Transform(final String legacyClassName,
+                          final String currentClassName,
+                          final ConfigInheritance inheritanceMode,
+                          final String configKeyName) {
+            this.legacyClassName = legacyClassName;
+            this.currentClassName = currentClassName;
+            this.inheritanceMode = inheritanceMode;
+            this.configKeyName = configKeyName;
+        }
+
+        static Transform of(final String legacyClassName,
+                            final ConfigInheritance inheritanceMode,
+                            final String configKey) {
+            final Class<? extends ConfigInheritance> configInheritanceClass = inheritanceMode.getClass();
+            return new Transform(legacyClassName, configInheritanceClass.getName(), inheritanceMode, configKey);
+        }
     }
 }
