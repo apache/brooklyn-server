@@ -24,12 +24,12 @@ import static org.testng.Assert.assertTrue;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
 
 import org.apache.brooklyn.util.javalang.coerce.CommonAdaptorTypeCoercions;
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercerExtensible;
-import org.assertj.core.api.WithAssertions;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 

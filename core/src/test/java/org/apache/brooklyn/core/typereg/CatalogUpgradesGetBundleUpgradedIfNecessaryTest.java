@@ -58,7 +58,7 @@ public class CatalogUpgradesGetBundleUpgradedIfNecessaryTest implements WithAsse
 
     private CatalogUpgrades.Builder catalogUpgradesBuilder;
 
-    @BeforeMethod
+    @BeforeMethod(alwaysRun = true)
     public void setUp() {
         Mockito.reset(managementContext, osgiManager, managedBundle, typeRegistry);
         catalogUpgradesBuilder = CatalogUpgrades.builder();

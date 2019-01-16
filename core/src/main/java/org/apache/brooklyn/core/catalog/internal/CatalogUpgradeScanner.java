@@ -33,6 +33,8 @@ import java.util.Collection;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * Scans managed bundles and other jar bundles to find upgrades for installed bundles.
  */
@@ -49,10 +51,12 @@ class CatalogUpgradeScanner {
             final Function<OsgiBundleWithUrl, Predicate<? super RegisteredType>> managedBundlePredicateSupplier,
             final Function<String, Predicate<? super RegisteredType>> unmanagedBundlePredicateSupplier
     ) {
-        this.managementContext = managementContext;
-        this.bundleUpgradeParser = bundleUpgradeParser;
-        this.managedBundlePredicateSupplier = managedBundlePredicateSupplier;
-        this.unmanagedBundlePredicateSupplier = unmanagedBundlePredicateSupplier;
+        this.managementContext = requireNonNull(managementContext, "managementContext");
+        this.bundleUpgradeParser = requireNonNull(bundleUpgradeParser, "bundleUpgradeParser");
+        this.managedBundlePredicateSupplier =
+                requireNonNull(managedBundlePredicateSupplier, "managedBundlePredicateSupplier");
+        this.unmanagedBundlePredicateSupplier =
+                requireNonNull(unmanagedBundlePredicateSupplier, "unmanagedBundlePredicateSupplier");
     }
 
     public CatalogUpgrades scan(
@@ -62,7 +66,7 @@ class CatalogUpgradeScanner {
     ) {
         final CatalogUpgrades.Builder catalogUpgradesBuilder = CatalogUpgrades.builder();
         scanManagedBundles(osgiManager, catalogUpgradesBuilder, rebindLogger);
-        scanUnmanagedBundles(catalogUpgradesBuilder, bundleContext);
+        scanAllBundles(catalogUpgradesBuilder, bundleContext);
         return catalogUpgradesBuilder.build();
     }
 
@@ -84,7 +88,7 @@ class CatalogUpgradeScanner {
         }
     }
 
-    private void scanUnmanagedBundles(
+    private void scanAllBundles(
             final CatalogUpgrades.Builder catalogUpgradesBuilder,
             final BundleContext bundleContext
     ) {

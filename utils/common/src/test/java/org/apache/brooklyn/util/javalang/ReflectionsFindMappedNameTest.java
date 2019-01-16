@@ -25,10 +25,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Tests for {@link Reflections#findMappedNameAndLog(Map, String)} and
- * {@link Reflections#findMappedNameMaybe(Map, String)} methods.
- */
 public class ReflectionsFindMappedNameTest  implements WithAssertions {
 
     @Test

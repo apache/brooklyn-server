@@ -142,10 +142,10 @@ public class RebindWithDeserializingClassRenamesTest extends RebindTestFixtureWi
         }
 
         static Transform of(final String legacyClassName,
-                            final ConfigInheritance configInheritance,
+                            final ConfigInheritance inheritanceMode,
                             final String configKey) {
-            final Class<? extends ConfigInheritance> configInheritanceClass = configInheritance.getClass();
-            return new Transform(legacyClassName, configInheritanceClass.getName(), configInheritance, configKey);
+            final Class<? extends ConfigInheritance> configInheritanceClass = inheritanceMode.getClass();
+            return new Transform(legacyClassName, configInheritanceClass.getName(), inheritanceMode, configKey);
         }
     }
 }

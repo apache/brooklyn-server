@@ -190,12 +190,12 @@ public class CatalogUpgradeScannerTest implements WithAssertions {
                 final OsgiManager osgiManager,
                 final BiFunction<Bundle, RegisteredTypesSupplier, CatalogUpgrades> bundleUpgradeParser
         ) {
-            final Map<String, ManagedBundle> managedBundlesWithNoUpgrades =
+            final Map<String, ManagedBundle> bundles =
                     ImmutableMap.of(
                             "managed1", findableManagedBundle(osgiManager, CatalogUpgrades.EMPTY, bundleUpgradeParser),
                             "managed2", findableManagedBundle(osgiManager, CatalogUpgrades.EMPTY, bundleUpgradeParser)
                     );
-            doReturn(managedBundlesWithNoUpgrades).when(osgiManager).getManagedBundles();
+            doReturn(bundles).when(osgiManager).getManagedBundles();
         }
 
         static void givenManagedBundlesWithUpgrades(
@@ -203,9 +203,9 @@ public class CatalogUpgradeScannerTest implements WithAssertions {
                 final OsgiManager osgiManager,
                 final BiFunction<Bundle, RegisteredTypesSupplier, CatalogUpgrades> bundleUpgradeParser
         ) {
-            final Map<String, ManagedBundle> managedBundlesWithNoUpgrades =
+            final Map<String, ManagedBundle> bundles =
                     ImmutableMap.of("managed", findableManagedBundle(osgiManager, upgrades, bundleUpgradeParser));
-            doReturn(managedBundlesWithNoUpgrades).when(osgiManager).getManagedBundles();
+            doReturn(bundles).when(osgiManager).getManagedBundles();
         }
 
         static void givenManagedBundleWithNoUpgrades(
@@ -215,20 +215,20 @@ public class CatalogUpgradeScannerTest implements WithAssertions {
         ) {
             final ManagedBundle managedBundle =
                     findableManagedBundle(osgiManager, CatalogUpgrades.EMPTY, bundleUpgradeParser);
-            final Map<String, ManagedBundle> managedBundlesWithNoUpgrades =
+            final Map<String, ManagedBundle> bundles =
                     ImmutableMap.of(bundleName, managedBundle);
-            doReturn(managedBundlesWithNoUpgrades).when(osgiManager).getManagedBundles();
+            doReturn(bundles).when(osgiManager).getManagedBundles();
         }
 
         static void givenUnmanagedBundlesWithNoUpgrades(
                 final BundleContext bundleContext,
                 final BiFunction<Bundle, RegisteredTypesSupplier, CatalogUpgrades> bundleUpgradeParser
         ) {
-            final Bundle[] unmanagedBundlesWithNoUpgrades = new Bundle[]{
+            final Bundle[] bundles = new Bundle[]{
                     unmanagedBundle(bundleName("unmanaged1", "1.1.0"), CatalogUpgrades.EMPTY, bundleUpgradeParser),
                     unmanagedBundle(bundleName("unmanaged2", "1.1.0"), CatalogUpgrades.EMPTY, bundleUpgradeParser)
             };
-            doReturn(unmanagedBundlesWithNoUpgrades).when(bundleContext).getBundles();
+            doReturn(bundles).when(bundleContext).getBundles();
         }
 
         static void givenUnmanagedBundleWithNoUpgrades(
@@ -236,10 +236,10 @@ public class CatalogUpgradeScannerTest implements WithAssertions {
                 final BundleContext bundleContext,
                 final BiFunction<Bundle, RegisteredTypesSupplier, CatalogUpgrades> bundleUpgradeParser
         ) {
-            final Bundle[] unmanagedBundlesWithNoUpgrades = new Bundle[]{
+            final Bundle[] bundles = new Bundle[]{
                     unmanagedBundle(bundleName, CatalogUpgrades.EMPTY, bundleUpgradeParser)
             };
-            doReturn(unmanagedBundlesWithNoUpgrades).when(bundleContext).getBundles();
+            doReturn(bundles).when(bundleContext).getBundles();
         }
 
         static void givenUnmanagedBundleWithUpgrades(
@@ -247,10 +247,10 @@ public class CatalogUpgradeScannerTest implements WithAssertions {
                 final BundleContext bundleContext,
                 final BiFunction<Bundle, RegisteredTypesSupplier, CatalogUpgrades> bundleUpgradeParser
         ) {
-            final Bundle[] unmanagedBundlesWithNoUpgrades = new Bundle[]{
+            final Bundle[] bundles = new Bundle[]{
                     unmanagedBundle(bundleName("unmanaged", "1.1.0"), upgrades, bundleUpgradeParser)
             };
-            doReturn(unmanagedBundlesWithNoUpgrades).when(bundleContext).getBundles();
+            doReturn(bundles).when(bundleContext).getBundles();
         }
 
     }
