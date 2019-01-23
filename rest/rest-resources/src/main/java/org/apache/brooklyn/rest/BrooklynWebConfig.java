@@ -31,6 +31,7 @@ public class BrooklynWebConfig {
 
     public final static String BASE_NAME = "brooklyn.webconsole";
     public final static String BASE_NAME_SECURITY = BASE_NAME+".security";
+    public final static String BASE_NAME_OAUTH = BASE_NAME_SECURITY+".oauth";
 
     /**
      * The session attribute set to indicate the remote address of the HTTP request.
@@ -166,4 +167,42 @@ public class BrooklynWebConfig {
         return config.findKeysPresent(ConfigPredicates.nameStartsWith(BASE_NAME_SECURITY)).isEmpty();
     }
 
+    public final static ConfigKey<String> SECURITY_OAUTH_TOKEN_URL = ConfigKeys.newStringConfigKey(
+            BASE_NAME_OAUTH+".tokenUrl", "URL to get the user token");
+
+    public final static ConfigKey<String> SECURITY_OAUTH_AUTHORIZE_URL = ConfigKeys.newStringConfigKey(
+            BASE_NAME_OAUTH+".authorizeUrl", "URL to authorize the user");
+
+    public final static ConfigKey<String> SECURITY_OAUTH_VALIDATE_URL = ConfigKeys.newStringConfigKey(
+            BASE_NAME_OAUTH+".validateUrl", "URL to validate the token");
+
+    public final static ConfigKey<String> SECURITY_OAUTH_CLIENT_ID = ConfigKeys.newStringConfigKey(
+            BASE_NAME_OAUTH+".clientId", "Client ID registered in the authentication server");
+
+    public final static ConfigKey<String> SECURITY_OAUTH_CLIENT_SECRET= ConfigKeys.newStringConfigKey(
+            BASE_NAME_OAUTH+".clientSecret", "Client Secret to validate the token");
+
+    public final static ConfigKey<String> SECURITY_OAUTH_CALLBACK= ConfigKeys.newStringConfigKey(
+            BASE_NAME_OAUTH+".callback", "Callback URL after authentication");
+
+    public final static ConfigKey<String> SECURITY_OAUTH_AUTHORIZED_USERS= ConfigKeys.newStringConfigKey(
+            BASE_NAME_OAUTH+".users", "Comma separated list of users authorized");
+
+    public final static ConfigKey<String> SECURITY_OAUTH_AUTHORIZED_DOMAINS= ConfigKeys.newStringConfigKey(
+            BASE_NAME_OAUTH+".domains", "Comma separated list of domains authorized");
+
+    public final static ConfigKey<String> SECURITY_OAUTH_AUDIENCE= ConfigKeys.newStringConfigKey(
+            BASE_NAME_OAUTH+".audience", "Oauth audience", "audience");
+
+    public final static ConfigKey<String> SECURITY_OAUTH_TOKEN_RESPONSE_KEY= ConfigKeys.newStringConfigKey(
+            BASE_NAME_OAUTH+".tokenResponseKey", "Key name of the token in the servers response", "access_token");
+
+    public final static ConfigKey<String> SECURITY_OAUTH_CODE_INPUT_PARAMETER_NAME= ConfigKeys.newStringConfigKey(
+            BASE_NAME_OAUTH+".codeInputParameterName", "Name of the parameter to get the code from the redirection", "code");
+
+    public final static ConfigKey<String> SECURITY_OAUTH_CODE_OUTPUT_PARAMETER_NAME= ConfigKeys.newStringConfigKey(
+            BASE_NAME_OAUTH+".codeOutputParameterName", "Name of the parameter to sent the request for authenticate", "code");
+
+    public final static ConfigKey<String> SECURITY_OAUTH_SCOPE= ConfigKeys.newStringConfigKey(
+            BASE_NAME_OAUTH+".scope", "Oauth scope requested");
 }
