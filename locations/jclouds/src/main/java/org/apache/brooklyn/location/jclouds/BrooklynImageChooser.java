@@ -142,9 +142,11 @@ public class BrooklynImageChooser implements Cloneable {
                     score += punishmentForOldOsVersions(img, OsFamily.UBUNTU, 12);
                     score += 2;
 
-                    // prefer these LTS releases slightly above others (including above CentOS)
+                    // prefer these LTS releases slightly above others
                     // (but note in AWS Virginia, at least, version is empty for the 14.04 images for some reason, as of Aug 2014)
-                    if ("14.04".equals(os.getVersion())) score += 0.2;
+                    if ("18.04".equals(os.getVersion())) score += 0.4;
+                    else if ("16.04".equals(os.getVersion())) score += 0.3;
+                    else if ("14.04".equals(os.getVersion())) score += 0.2;
                     else if ("12.04".equals(os.getVersion())) score += 0.1;
 
                     // NB some 13.10 images take 20m+ before they are sshable on AWS
@@ -167,8 +169,27 @@ public class BrooklynImageChooser implements Cloneable {
                         score += 0.5;
                 }
             }
+            
             // prefer 64-bit
             if (os.is64Bit()) score += 0.5;
+
+            // prefer 'normal' releases of the OS, especially on Azure for 'OpenLogic' images.
+            // See https://issues.apache.org/jira/browse/BROOKLYN-607
+            // e.g. {id=northeurope/OpenLogic/CentOS-HPC/7.4, providerId=OpenLogic, name=CentOS-HPC, location={scope=REGION, id=northeurope, description=North Europe, parent=azurecompute-arm, iso3166Codes=[IE]}, os={family=centos, version=7.4, description=7.4, is64Bit=true}, description=7.4, version=7.4, status=AVAILABLE, loginUser=jclouds}
+            //      {id=northeurope/OpenLogic/CentOS-SRIOV/7.3-SRIOV, providerId=OpenLogic, name=CentOS-SRIOV, location={scope=REGION, id=northeurope, description=North Europe, parent=azurecompute-arm, iso3166Codes=[IE]}, os={family=centos, version=7.3-SRIOV, description=7.3-SRIOV, is64Bit=true}, description=7.3-SRIOV, version=7.3-SRIOV, status=AVAILABLE, loginUser=jclouds}
+            //      {id=northeurope/OpenLogic/CentOS/7.6, providerId=OpenLogic, name=CentOS, location={scope=REGION, id=northeurope, description=North Europe, parent=azurecompute-arm, iso3166Codes=[IE]}, os={family=centos, version=7.6, description=7.6, is64Bit=true}, description=7.6, version=7.6, status=AVAILABLE, loginUser=jclouds}
+            if (img.getName() != null) {
+                String name = img.getName();
+                if (name.contains("-SRIOV")) {
+                    score -= 0.05;
+                } else if (name.contains("-CI")) {
+                    score -= 0.05;
+                } else if (name.contains("-HPC")) {
+                    score -= 0.05;
+                } else if (name.contains("-LVM")) {
+                    score -= 0.05;
+                }
+            }
         }
 
         // TODO prefer known providerIds
