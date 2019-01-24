@@ -341,7 +341,12 @@ public class BrooklynImageChooser implements Cloneable {
                 return ComparisonChain.start()
                     .compare(left, right, primaryOrdering)
                     // fall back to default strategy otherwise, except preferring *non*-null values
-                    // TODO use AlphaNum string comparator
+                    // TODO suggest to use NaturalOrderComparator (so 10>9) then order by:
+                    // 1) `name.replaceAll("([^0-9]+)", " ")` 
+                    // 2) shortest non-empty name
+                    // 3) version (NaturalOrderComparator, prefer last)
+                    // 4) name (NaturalOrderComparator, prefer last)
+                    // 5) other fields (NaturalOrderComparator, prefer last)
                     .compare(left.getName(), right.getName(), Ordering.<String> natural().nullsFirst())
                     .compare(left.getVersion(), right.getVersion(), Ordering.<String> natural().nullsFirst())
                     .compare(left.getDescription(), right.getDescription(), Ordering.<String> natural().nullsFirst())
