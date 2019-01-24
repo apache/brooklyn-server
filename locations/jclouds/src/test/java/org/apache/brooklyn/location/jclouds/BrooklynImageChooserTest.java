@@ -108,11 +108,13 @@ public class BrooklynImageChooserTest {
     }
 
     @Test
-    public void testUbuntu14then12then11() {
+    public void testUbuntuLts() {
         assertOrderOfPreference(
+                getScore(OsFamily.UBUNTU, "18.04"),
+                getScore(OsFamily.UBUNTU, "16.04"),
                 getScore(OsFamily.UBUNTU, "14.04"),
                 getScore(OsFamily.UBUNTU, "12.04"),
-                getScore(OsFamily.UBUNTU, "11.04"));
+                getScore(OsFamily.UBUNTU, "18.10"));
     }
 
     @Test

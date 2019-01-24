@@ -142,9 +142,11 @@ public class BrooklynImageChooser implements Cloneable {
                     score += punishmentForOldOsVersions(img, OsFamily.UBUNTU, 12);
                     score += 2;
 
-                    // prefer these LTS releases slightly above others (including above CentOS)
+                    // prefer these LTS releases slightly above others
                     // (but note in AWS Virginia, at least, version is empty for the 14.04 images for some reason, as of Aug 2014)
-                    if ("14.04".equals(os.getVersion())) score += 0.2;
+                    if ("18.04".equals(os.getVersion())) score += 0.4;
+                    else if ("16.04".equals(os.getVersion())) score += 0.3;
+                    else if ("14.04".equals(os.getVersion())) score += 0.2;
                     else if ("12.04".equals(os.getVersion())) score += 0.1;
 
                     // NB some 13.10 images take 20m+ before they are sshable on AWS
