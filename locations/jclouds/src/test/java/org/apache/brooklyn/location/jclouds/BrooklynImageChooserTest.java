@@ -24,6 +24,8 @@ import java.util.Set;
 
 import org.jclouds.compute.domain.ComputeType;
 import org.jclouds.compute.domain.Image;
+import org.jclouds.compute.domain.Image.Status;
+import org.jclouds.compute.domain.ImageBuilder;
 import org.jclouds.compute.domain.OperatingSystem;
 import org.jclouds.compute.domain.OsFamily;
 import org.jclouds.domain.Location;
@@ -33,6 +35,7 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -45,6 +48,48 @@ public class BrooklynImageChooserTest {
     @BeforeMethod(alwaysRun = true)
     public void setup() {
         brooklynImageChooser = new BrooklynImageChooser();
+    }
+
+    @Test
+    public void testPrefersAzureVanillaCentos() {
+        // See https://issues.apache.org/jira/browse/BROOKLYN-607
+        
+        // {id=northeurope/OpenLogic/CentOS/7.6, providerId=OpenLogic, name=CentOS, location={scope=REGION, id=northeurope, description=North Europe, parent=azurecompute-arm, iso3166Codes=[IE]},         os={family=centos, version=7.6, description=7.6, is64Bit=true}, description=7.6, version=7.6, status=AVAILABLE, loginUser=jclouds}
+        Image img1 = new ImageBuilder()
+                .id("northeurope/OpenLogic/CentOS/7.6")
+                .providerId("OpenLogic")
+                .name("CentOS")
+                .description("7.6")
+                .version("7.6")
+                .status(Status.AVAILABLE)
+                .operatingSystem(OperatingSystem.builder()
+                        .family(OsFamily.CENTOS)
+                        .version("7.6")
+                        .description("7.6")
+                        .is64Bit(true)
+                        .build())
+                .build();
+        
+        // {id=northeurope/OpenLogic/CentOS-SRIOV/7.3-SRIOV, providerId=OpenLogic, name=CentOS-SRIOV, location={scope=REGION, id=northeurope, description=North Europe, parent=azurecompute-arm,           iso3166Codes=[IE]}, os={family=centos, version=7.3-SRIOV, description=7.3-SRIOV, is64Bit=true}, description=7.3-SRIOV, version=7.3-SRIOV, status=AVAILABLE, loginUser=jclouds}
+        Image img2 = new ImageBuilder()
+            .id("northeurope/OpenLogic/CentOS-SRIOV/7.3-SRIOV")
+            .providerId("OpenLogic")
+            .name("CentOS-SRIOV")
+            .description("7.3-SRIOV")
+            .version("7.3-SRIOV")
+            .status(Status.AVAILABLE)
+            .operatingSystem(OperatingSystem.builder()
+                    .family(OsFamily.CENTOS)
+                    .version("7.3-SRIOV")
+                    .description("7.3-SRIOV")
+                    .is64Bit(true)
+                    .build())
+            .build();
+
+        Function<Iterable<? extends Image>, Image> func = brooklynImageChooser.chooser();
+        Image choice = func.apply(ImmutableList.of(img1, img2));
+        
+        Assert.assertEquals(choice, img1);
     }
 
     @Test
