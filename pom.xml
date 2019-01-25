@@ -179,7 +179,7 @@
         <commons-beanutils.version>1.9.3</commons-beanutils.version>
         <commons-collections.version>3.2.2</commons-collections.version>
         <javax.mail.version>1.4.4</javax.mail.version>
-        <cxf.javax.annotation-api.version>1.2</cxf.javax.annotation-api.version>
+        <cxf.javax.annotation-api.version>1.3</cxf.javax.annotation-api.version> <!-- cxf-specs feature v3.2.7 declares v1.3 (as does org.apache.cxf:cxf-rt-frontend-jaxrs), but karaf 4.2.2 has 1.2 -->
         <plantuml.version>6121</plantuml.version>
 
         <!-- Test dependencies -->
