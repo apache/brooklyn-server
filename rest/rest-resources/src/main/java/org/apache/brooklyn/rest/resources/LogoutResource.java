@@ -22,6 +22,7 @@ import java.net.URI;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -34,12 +35,12 @@ import org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilterHelper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
 public class LogoutResource extends AbstractBrooklynRestResource implements LogoutApi {
-    
+
     @Context HttpServletRequest req;
     @Context UriInfo uri;
 
     @Override
-    public Response logout() {
+    public Response redirect() {
         WebEntitlementContext ctx = (WebEntitlementContext) Entitlements.getEntitlementContext();
         
         if (ctx==null) {
@@ -75,19 +76,32 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
                    // also the realm  is removed (there might not be a realm; in this code we don't know)
                    .build();
         } else {
-            return Response.temporaryRedirect(uri.getAbsolutePathBuilder().replacePath("/").build()).build();
+            return Response.temporaryRedirect(uri.getBaseUriBuilder().path(LogoutApi.class).path(LogoutApi.class, "redirect").build()).
+                entity("User requested to log out does not match actual user logged in").build();
         }
     }
 
+    @Override
+    public Response logout() {
+        // 2019-01 now this logs out; if a user-specific redirect is wanted, use /logout/redirect
+        // this is because clients would sometimes ignore the redirect and so the user did not actually log out;
+        // many things should not need a user-specific logout method and it should not be the default
+        doLogout();
+
+        return Response.status(Status.OK)
+               .build();
+    }
+
     private void doLogout() {
+        HttpSession session = req.getSession();
         try {
-            req.getSession().removeAttribute(BrooklynSecurityProviderFilterHelper.AUTHENTICATED_USER_SESSION_ATTRIBUTE);
+            session.removeAttribute(BrooklynSecurityProviderFilterHelper.AUTHENTICATED_USER_SESSION_ATTRIBUTE);
             req.logout();
         } catch (ServletException e) {
             Exceptions.propagate(e);
         }
 
-        req.getSession().invalidate();
+        session.invalidate();
     }
 
 }
