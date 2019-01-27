@@ -18,8 +18,9 @@
  */
 package org.apache.brooklyn.rest.filter;
 
-import java.util.Set;
+import java.lang.reflect.Field;
 
+import javax.servlet.ServletRequestWrapper;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import javax.ws.rs.core.MediaType;
@@ -32,9 +33,10 @@ import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.security.provider.DelegatingSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider.SecurityProviderDeniedAuthentication;
-import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.cxf.jaxrs.impl.tl.ThreadLocalHttpServletRequest;
 import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.session.SessionHandler;
@@ -58,6 +60,14 @@ import org.slf4j.LoggerFactory;
  * 
  * This does give us the opportunity to differentiate the redirect, so that
  * jersey (REST) requests don't redirect to the auth site, as the redirect requires human intervention.
+ * 
+ * More unfortunately, the session handlers for the multiple bundles and all different,
+ * and the CXF JAX-RS bundles don't allow any configuration of the handlers
+ * (see JettyHTTPServerEngine.addServant(..) call to configureSession).
+ * So we cheat and modify the request's session handler so that we can use a shared
+ * session handler. This means all webapps and jaxrs apps that use this filter will
+ * be able to share their session handler, so happily when you logout from one,
+ * you log out from all, and when you're authenticated in one you're authenticated in all.
  */
 public class BrooklynSecurityProviderFilterHelper {
 
@@ -73,8 +83,6 @@ public class BrooklynSecurityProviderFilterHelper {
      */
     public static final String AUTHENTICATED_USER_SESSION_ATTRIBUTE = "brooklyn.user";
 
-    public static Set<SessionHandler> SESSION_MANAGER_CACHE = MutableSet.of();
-    
     private static final Logger log = LoggerFactory.getLogger(BrooklynSecurityProviderFilterHelper.class);
 
     // TODO this should be parametrisable
@@ -82,34 +90,83 @@ public class BrooklynSecurityProviderFilterHelper {
     
     public static final String BASIC_REALM_HEADER_VALUE = "BASIC realm="+StringEscapes.JavaStringEscapes.wrapJavaString(BASIC_REALM_NAME);
     
+    /** The first session handler encountered becomes the shared handler that replaces all others encountered. */
+    private static SessionHandler sharedSessionHandler;
+    
     /* check all contexts for sessions; surprisingly hard to configure session management for karaf/pax web container.
      * they _really_ want each servlet to have their own sessions. how you're meant to do oauth for multiple servlets i don't know! */
-    public HttpSession getSession(HttpServletRequest webRequest, ManagementContext mgmt, boolean create) {
-        String requestedSessionId = webRequest.getRequestedSessionId();
-        
-        log.trace("SESSION for {}, wants session {}", webRequest.getRequestURI(), requestedSessionId);
-        
-        if (webRequest instanceof Request) {
-            SessionHandler sm = ((Request)webRequest).getSessionHandler();
-            boolean added = SESSION_MANAGER_CACHE.add( sm );
-            log.trace("SESSION MANAGER found for {}: {} (added={})", webRequest.getRequestURI(), sm, added);
-        } else {
-            log.trace("SESSION MANAGER NOT found for {}: {}", webRequest.getRequestURI(), webRequest);
+    public HttpSession getSession(HttpServletRequest webRequest, ManagementContext mgmt, boolean create) throws SecurityProviderDeniedAuthentication {
+        if (webRequest instanceof ThreadLocalHttpServletRequest) {
+            // CXF requests get this, unwrap to get the jetty request
+            webRequest = ((ThreadLocalHttpServletRequest)webRequest).get();
         }
-        
-        if (requestedSessionId!=null) {
-            for (SessionHandler m: SESSION_MANAGER_CACHE) {
-                HttpSession s = m.getHttpSession(requestedSessionId);
-                if (s!=null) {
-                    log.trace("SESSION found for {}: {} (valid={})", webRequest.getRequestURI(), s, m.isValid(s));
-                    return s;
+        if (webRequest instanceof ServletRequestWrapper) {
+            webRequest = (HttpServletRequest) ((ServletRequestWrapper)webRequest).getRequest();
+        }
+        if (webRequest instanceof Request) {
+            if (sharedSessionHandler==null) {
+                synchronized (BrooklynSecurityProviderFilterHelper.class) {
+                    if (sharedSessionHandler==null) {
+                        SessionHandler candidateSessionHandler = ((Request)webRequest).getSessionHandler();
+                        if (candidateSessionHandler!=null && candidateSessionHandler.getSessionPath()==null) {
+                            try {
+                                Field f = SessionHandler.class.getDeclaredField("_sessionPath");
+                                f.setAccessible(true);
+                                f.set(candidateSessionHandler, "/");
+                                log.debug("Brooklyn session cookie path hard-coded at / on "+candidateSessionHandler+" from "+webRequest);
+                            } catch (Exception e) {
+                                Exceptions.propagateIfFatal(e);
+                                log.warn("Cannot reset session path for "+candidateSessionHandler+"; will refuse to use it for sessions");
+                            }
+                        }
+                        if (candidateSessionHandler==null || !"/".equals(candidateSessionHandler.getSessionPath())) {
+                            // refuse to make the shared handler be one which sets cookies against a sub-path;
+                            // that would cause visits to other pages to request new sessions
+                            // (and worse those sessions would also be given cookies form this page)
+                            log.debug("Brooklyn shared session init, refusing to grant session for "+webRequest.getRequestURI()+" using "+candidateSessionHandler+
+                                (candidateSessionHandler==null ? "" : ", "+"session cookie path would be for "+candidateSessionHandler.getSessionPath()));
+                            if (create) {
+                                throw redirect("/", "Initial log-in must be from root page");
+                            }
+                            return null;
+                        }
+                        sharedSessionHandler = candidateSessionHandler;
+                        log.debug("Brooklyn shared session handler installed as "+sharedSessionHandler+" from "+webRequest+" "+webRequest.getRequestURI());
+                    }
                 }
             }
+            if (sharedSessionHandler!=((Request)webRequest).getSessionHandler()) {
+                // no need to update if multiple calls to this method for the same request
+                log.trace("Brooklyn session manager replaced for {} {} - from {} to {}", webRequest.getRequestURI(), webRequest, ((Request)webRequest).getSessionHandler(), sharedSessionHandler);
+                ((Request)webRequest).setSessionHandler(sharedSessionHandler);
+                if (webRequest.getRequestedSessionId()!=null) {
+                    HttpSession old = webRequest.getSession(false);
+                    HttpSession s = sharedSessionHandler.getHttpSession(webRequest.getRequestedSessionId());
+                    if (old!=null && old!=s) {
+                        log.warn("Foreign session detected in request "+webRequest+"; replacing "+old+" with "+s);
+                    }
+                    if (s==null) {
+                        log.debug("Brooklyn user-requested session not found, request "+webRequest+", requested session "+webRequest.getRequestedSessionId()+"; will create if needed");
+                    } else if (sharedSessionHandler.isValid(s)) {
+                        ((Request)webRequest).setSession(s);
+                    } else {
+                        log.info("Brooklyn user-requested session not valid, request "+webRequest+", requested session "+webRequest.getRequestedSessionId()+"; will create if needed");
+                    }
+                }
+            }
+        } else {
+            log.warn(this+" could not find valid session manager for "+webRequest.getRequestURI()+" ("+webRequest+"); Brooklyn session management may have errors");
+        }
+
+        HttpSession s = webRequest.getSession(false);
+        if (s!=null) {
+            log.trace("Session found for {} {}: {}", webRequest.getRequestURI(), webRequest.getRequestedSessionId(), s);
+            return s;
         }
         
         if (create) {
             HttpSession session = webRequest.getSession(true);
-            log.trace("SESSION creating for {}: {}", webRequest.getRequestURI(), session);
+            log.trace("Session being created for {} (wanted {}): {}", webRequest.getRequestURI(), webRequest.getRequestedSessionId(), session);
             return session;
         }
         
@@ -163,6 +220,13 @@ public class BrooklynSecurityProviderFilterHelper {
             response.header(HttpHeader.WWW_AUTHENTICATE.asString(), BASIC_REALM_HEADER_VALUE);
         }
         response.header(HttpHeader.CONTENT_TYPE.asString(), MediaType.TEXT_PLAIN);
+        response.entity(msg);
+        throw new SecurityProviderDeniedAuthentication(response.build());
+    }
+
+    private SecurityProviderDeniedAuthentication redirect(String path, String msg) throws SecurityProviderDeniedAuthentication {
+        ResponseBuilder response = Response.status(Status.FOUND);
+        response.header(HttpHeader.LOCATION.asString(), path);
         response.entity(msg);
         throw new SecurityProviderDeniedAuthentication(response.build());
     }

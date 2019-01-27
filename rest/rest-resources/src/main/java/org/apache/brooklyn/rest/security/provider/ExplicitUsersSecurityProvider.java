@@ -73,7 +73,6 @@ public class ExplicitUsersSecurityProvider extends AbstractSecurityProvider impl
     @Override
     public boolean authenticate(HttpSession session, String user, String password) {
         if (session==null || user==null) return false;
-        
         if (!allowAnyUserWithValidPass) {
             if (!allowedUsers.contains(user)) {
                 LOG.debug("REST rejecting unknown user "+user);

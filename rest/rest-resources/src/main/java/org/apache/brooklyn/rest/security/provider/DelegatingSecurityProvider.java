@@ -163,19 +163,32 @@ public class DelegatingSecurityProvider implements SecurityProvider {
     public static SecurityProvider createSecurityProviderInstance(ManagementContext mgmt,
             Class<? extends SecurityProvider> clazz) throws NoSuchMethodException, InstantiationException,
                     IllegalAccessException, InvocationTargetException {
-        Constructor<? extends SecurityProvider> constructor;
+        Constructor<? extends SecurityProvider> constructor = null;
+        Object delegateO;
         try {
             constructor = clazz.getConstructor(ManagementContext.class);
-            return constructor.newInstance(mgmt);
-        } catch (Exception e) {
-            constructor = clazz.getConstructor();
-            Object delegateO = constructor.newInstance();
-            if (!(delegateO instanceof SecurityProvider)) {
-                // if classloaders get mangled it will be a different CL's SecurityProvider
-                throw new ClassCastException("Delegate is either not a security provider or has an incompatible classloader: "+delegateO);
-            }
-            return (SecurityProvider) delegateO;
+        } catch (NoSuchMethodException e) {
+            // ignore
         }
+        if (constructor!=null) {
+            delegateO = constructor.newInstance(mgmt);
+        } else {
+            try {
+                constructor = clazz.getConstructor();
+            } catch (NoSuchMethodException e) {
+                // ignore
+            }
+            if (constructor!=null) {
+                delegateO = constructor.newInstance();
+            }
+            throw new NoSuchMethodException("Security provider "+clazz+" does not have required no-arg or 1-arg (mgmt) constructor");
+        }
+        
+        if (!(delegateO instanceof SecurityProvider)) {
+            // if classloaders get mangled it will be a different CL's SecurityProvider
+            throw new ClassCastException("Delegate is either not a security provider or has an incompatible classloader: "+delegateO);
+        }
+        return (SecurityProvider) delegateO;
     }
 
     /**

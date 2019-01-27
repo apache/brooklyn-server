@@ -117,11 +117,6 @@
             <artifactId>cxf-rt-rs-security-cors</artifactId>
             <version>${cxf.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.apache.cxf</groupId>
-            <artifactId>cxf-rt-frontend-jaxrs</artifactId>
-            <version>${cxf.version}</version>
-        </dependency>
 
         <dependency>
             <groupId>org.apache.brooklyn</groupId>
@@ -220,10 +215,9 @@
                 <configuration>
                     <instructions>
                         <Import-Package>
-                            org.apache.karaf.jaas.config,
-                            org.eclipse.jetty.jaas,
                             *
                         </Import-Package>
+                        <Export-Package>org.apache.brooklyn.*</Export-Package>
                     </instructions>
                 </configuration>
             </plugin>
