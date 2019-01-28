@@ -180,8 +180,9 @@ public class DelegatingSecurityProvider implements SecurityProvider {
             }
             if (constructor!=null) {
                 delegateO = constructor.newInstance();
+            } else {
+                throw new NoSuchMethodException("Security provider "+clazz+" does not have required no-arg or 1-arg (mgmt) constructor");
             }
-            throw new NoSuchMethodException("Security provider "+clazz+" does not have required no-arg or 1-arg (mgmt) constructor");
         }
         
         if (!(delegateO instanceof SecurityProvider)) {
