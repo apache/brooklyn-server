@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import java.net.URI;
-
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
@@ -32,6 +30,7 @@ import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
 import org.apache.brooklyn.rest.api.LogoutApi;
 import org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilterHelper;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
 public class LogoutResource extends AbstractBrooklynRestResource implements LogoutApi {
@@ -39,24 +38,25 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
     @Context HttpServletRequest req;
     @Context UriInfo uri;
 
-    @Override
-    public Response redirect() {
-        WebEntitlementContext ctx = (WebEntitlementContext) Entitlements.getEntitlementContext();
-        
-        if (ctx==null) {
-            return Response.status(Status.BAD_REQUEST)
-                .entity("No user logged in")
-                .build();            
-        }
-        
-        URI dest = uri.getBaseUriBuilder().path(LogoutApi.class).path(LogoutApi.class, "logoutUser").build(ctx.user());
+//    @Override
+//    public Response redirect() {
+//        WebEntitlementContext ctx = (WebEntitlementContext) Entitlements.getEntitlementContext();
+//        
+//        if (ctx==null) {
+//            return Response.status(Status.BAD_REQUEST)
+//                .entity("No user logged in")
+//                .build();            
+//        }
+//        
+//        URI dest = uri.getBaseUriBuilder().path(LogoutApi.class).path(LogoutApi.class, "logoutUser").build(ctx.user());
+//
+//        // When execution gets here we don't know whether this is the first fetch of logout() or a subsequent one
+//        // with a re-authenticated user. The only way to tell is compare if user names changed. So redirect to an URL
+//        // which contains the user name.
+//        return Response.temporaryRedirect(dest).build();
+//    }
 
-        // When execution gets here we don't know whether this is the first fetch of logout() or a subsequent one
-        // with a re-authenticated user. The only way to tell is compare if user names changed. So redirect to an URL
-        // which contains the user name.
-        return Response.temporaryRedirect(dest).build();
-    }
-
+    @Deprecated
     @Override
     public Response unAuthorize() {
         return Response.status(Status.UNAUTHORIZED)
@@ -65,6 +65,17 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
                .build();
     }
 
+//    @Override
+//    public Response unauthorized(Boolean doLogout, String message) {
+//        if (doLogout==null || doLogout) {
+//            doLogout();
+//        }
+//        ResponseBuilder r = Response.status(Status.UNAUTHORIZED);
+//        if (message!=null) r.entity(message);
+//        return r.build();
+//    }
+
+    @Deprecated
     @Override
     public Response logoutUser(String user) {
         WebEntitlementContext ctx = (WebEntitlementContext) Entitlements.getEntitlementContext();
@@ -82,13 +93,25 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
     }
 
     @Override
-    public Response logout() {
-        // 2019-01 now this logs out; if a user-specific redirect is wanted, use /logout/redirect
-        // this is because clients would sometimes ignore the redirect and so the user did not actually log out;
-        // many things should not need a user-specific logout method and it should not be the default
+    public Response logout(String unauthorized, String requestedUser) {
+        HttpSession session = req.getSession(false);
+        WebEntitlementContext ctx = (WebEntitlementContext) Entitlements.getEntitlementContext();
+        String currentUser = ctx==null ? null : ctx.user();
+        if (requestedUser!=null && !requestedUser.equals(currentUser)) {
+            return Response.status(Status.EXPECTATION_FAILED)
+                .entity(MutableMap.of("message", "The user requested to be logged out is not the user currently logged in",
+                    "currentUser", currentUser,
+                    "requestedUser", requestedUser))
+                .build();
+        }
         doLogout();
 
+        if (unauthorized!=null) {
+            return Response.status(Status.UNAUTHORIZED).entity(unauthorized).build();
+        }
+        
         return Response.status(Status.OK)
+                .entity("Logged out user "+currentUser+" session "+(session==null ? "null" : session.getId()))
                .build();
     }
 
