@@ -104,9 +104,9 @@ public class BrooklynSecurityProviderFilterHelper {
             webRequest = (HttpServletRequest) ((ServletRequestWrapper)webRequest).getRequest();
         }
         if (webRequest instanceof Request) {
-            if (sharedSessionHandler==null) {
+            if (sharedSessionHandler==null || !sharedSessionHandler.isRunning()) {
                 synchronized (BrooklynSecurityProviderFilterHelper.class) {
-                    if (sharedSessionHandler==null) {
+                    if (sharedSessionHandler==null || !sharedSessionHandler.isRunning()) {
                         SessionHandler candidateSessionHandler = ((Request)webRequest).getSessionHandler();
                         if (candidateSessionHandler!=null && candidateSessionHandler.getSessionPath()==null) {
                             try {
@@ -131,7 +131,7 @@ public class BrooklynSecurityProviderFilterHelper {
                             return null;
                         }
                         sharedSessionHandler = candidateSessionHandler;
-                        log.debug("Brooklyn shared session handler installed as "+sharedSessionHandler+" from "+webRequest+" "+webRequest.getRequestURI());
+                        log.debug("Brooklyn shared session handler installed as "+sharedSessionHandler+" ("+sharedSessionHandler.getState()+") from "+webRequest+" "+webRequest.getRequestURI());
                     }
                 }
             }
