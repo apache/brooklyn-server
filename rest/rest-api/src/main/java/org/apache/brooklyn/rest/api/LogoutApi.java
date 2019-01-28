@@ -34,11 +34,16 @@ import io.swagger.annotations.ApiResponses;
 public interface LogoutApi {
 
     @POST
-    @ApiOperation(value = "Request a logout and clean session")
+    @ApiOperation(value = "Logout and clean session")
+    Response logout();
+
+    @POST
+    @Path("/redirect")
+    @ApiOperation(value = "Request a redirect to the user-specific logout")
     @ApiResponses(value = {
             @ApiResponse(code = 307, message = "Redirect to /logout/{user}, keeping the request method")
     })
-    Response logout();
+    Response redirect();
 
     // TODO what is this for?  misleading as it does not unauthorize the _session_ or log out in any way;
     // deprecating as at 2019-01
