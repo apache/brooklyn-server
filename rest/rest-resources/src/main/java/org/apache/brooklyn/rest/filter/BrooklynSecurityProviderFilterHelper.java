@@ -33,6 +33,7 @@ import org.apache.brooklyn.rest.security.provider.DelegatingSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider.SecurityProviderDeniedAuthentication;
 import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.commons.codec.binary.Base64;
 import org.eclipse.jetty.http.HttpHeader;
@@ -103,13 +104,22 @@ public class BrooklynSecurityProviderFilterHelper {
         if (provider.requiresUserPass()) {
             String authorization = webRequest.getHeader("Authorization");
             if (authorization != null) {
-                String userpass = new String(Base64.decodeBase64(authorization.substring(6)));
+                if (authorization.length()<6) {
+                    throw abort("Invalid authorization string (too short)", provider.requiresUserPass());
+                }
+                String userpass;
+                try {
+                    userpass = new String(Base64.decodeBase64(authorization.substring(6)));
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    throw abort("Invalid authorization string (not Base64)", provider.requiresUserPass());
+                }
                 int idxColon = userpass.indexOf(":");
                 if (idxColon >= 0) {
                     user = userpass.substring(0, idxColon);
                     pass = userpass.substring(idxColon + 1);
                 } else {
-                    throw abort("Invalid authorization string", provider.requiresUserPass());
+                    throw abort("Invalid authorization string (no colon after decoding)", provider.requiresUserPass());
                 }
             } else {
                 throw abort("Authorization required", provider.requiresUserPass());
