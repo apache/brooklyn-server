@@ -23,7 +23,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -205,8 +207,8 @@ public class DelegatingSecurityProvider implements SecurityProvider {
     }
 
     @Override
-    public boolean authenticate(HttpSession session, String user, String password) throws SecurityProviderDeniedAuthentication {
-        boolean authenticated = getDelegate().authenticate(session, user, password);
+    public boolean authenticate(HttpServletRequest request, Supplier<HttpSession> sessionSupplierOnSuccess, String user, String pass) throws SecurityProviderDeniedAuthentication {
+        boolean authenticated = getDelegate().authenticate(request, sessionSupplierOnSuccess, user, pass);
         if (log.isTraceEnabled() && authenticated) {
             log.trace("User {} authenticated with provider {}", user, getDelegate());
         } else if (!authenticated && log.isDebugEnabled()) {

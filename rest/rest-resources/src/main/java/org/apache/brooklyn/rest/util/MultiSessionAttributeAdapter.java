@@ -75,12 +75,9 @@ import org.slf4j.LoggerFactory;
  */
 public class MultiSessionAttributeAdapter {
 
-    // TODO restructure
-    
     private static final Logger log = LoggerFactory.getLogger(MultiSessionAttributeAdapter.class);
     
     private static final String KEY_PREFERRED_SESSION_HANDLER_INSTANCE = "org.apache.brooklyn.server.PreferredSessionHandlerInstance";
-//    private static final String KEY_PREFERRED_SESSION_HANDLER_PATH = "org.apache.brooklyn.server.PreferredSessionHandlerPath";
     private static final String KEY_IS_PREFERRED = "org.apache.brooklyn.server.IsPreferred";
 
     private static final Object PREFERRED_SYMBOLIC_NAME = 
@@ -137,9 +134,6 @@ public class MultiSessionAttributeAdapter {
                     log.trace("Preferred session for "+info(optionalRequest, localSession)+": "+
                         (preferredSession!=null ? info(preferredSession) : "none, willl make new session in "+info(preferredHandler)));
                 }
-                // TODO delete
-                log.info("Looking up preferred session for "+info(optionalRequest, localSession)+"; found "+
-                    (preferredSession!=null ? info(preferredSession) : "none, willl make new session in "+info(preferredHandler)));
                 if (preferredSession!=null) {
                     return preferredSession;
                 }
@@ -149,8 +143,6 @@ public class MultiSessionAttributeAdapter {
                         if (log.isTraceEnabled()) {
                             log.trace("Creating new session "+info(result)+" to be preferred for " + info(optionalRequest, localSession));
                         }
-                        // TODO trace
-                        log.info("Creating new session "+info(result)+" to be preferred for " + info(optionalRequest, localSession));
                         return result;
                     }
                     // the server has a preferred handler, but no session yet; fall back to marking on the session 

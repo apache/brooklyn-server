@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.rest.filter;
 
+import java.util.function.Supplier;
+
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import javax.ws.rs.core.MediaType;
@@ -87,9 +89,13 @@ public class BrooklynSecurityProviderFilterHelper {
     public void run(HttpServletRequest webRequest, ManagementContext mgmt) throws SecurityProviderDeniedAuthentication {
         SecurityProvider provider = getProvider(mgmt);
         MultiSessionAttributeAdapter preferredSessionWrapper = MultiSessionAttributeAdapter.of(webRequest, false);
-        HttpSession preferredSession = preferredSessionWrapper==null ? null : preferredSessionWrapper.getPreferredSession();
+        final HttpSession preferredSession1 = preferredSessionWrapper==null ? null : preferredSessionWrapper.getPreferredSession();
         
-        if (provider.isAuthenticated(preferredSession)) {
+        if (log.isTraceEnabled()) {
+            log.trace(this+" checking "+MultiSessionAttributeAdapter.info(webRequest));
+        }
+        if (provider.isAuthenticated(preferredSession1)) {
+            log.trace("{} already authenticated - {}", this, preferredSession1);
             return;
         }
         
@@ -110,16 +116,13 @@ public class BrooklynSecurityProviderFilterHelper {
             }
         }
         
-        if (preferredSession==null) {
-            // only create the session if an auth string is supplied
-            preferredSessionWrapper = MultiSessionAttributeAdapter.of(webRequest, true);
-            preferredSession = preferredSessionWrapper.getPreferredSession();
-        }
-        preferredSessionWrapper.setAttribute(BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE, webRequest.getRemoteAddr());
-        
-        if (provider.authenticate(preferredSession, user, pass)) {
+        Supplier<HttpSession> sessionSupplier = () -> preferredSession1!=null ? preferredSession1 : MultiSessionAttributeAdapter.of(webRequest, true).getPreferredSession();
+        if (provider.authenticate(webRequest, sessionSupplier, user, pass)) {
+            HttpSession preferredSession2 = sessionSupplier.get();
+            log.trace("{} authentication successful - {}", this, preferredSession2);
+            preferredSession2.setAttribute(BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE, webRequest.getRemoteAddr());
             if (user != null) {
-                preferredSessionWrapper.setAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE, user);
+                preferredSession2.setAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE, user);
             }
             return;
         }
