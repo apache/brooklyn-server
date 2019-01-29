@@ -91,7 +91,7 @@ public class BrooklynSecurityProviderFilterHelper {
     public static final String BASIC_REALM_HEADER_VALUE = "BASIC realm="+StringEscapes.JavaStringEscapes.wrapJavaString(BASIC_REALM_NAME);
     
     /** The first session handler encountered becomes the shared handler that replaces all others encountered. */
-    private static SessionHandler sharedSessionHandler;
+    private volatile static SessionHandler sharedSessionHandler;
     
     /* check all contexts for sessions; surprisingly hard to configure session management for karaf/pax web container.
      * they _really_ want each servlet to have their own sessions. how you're meant to do oauth for multiple servlets i don't know! */
