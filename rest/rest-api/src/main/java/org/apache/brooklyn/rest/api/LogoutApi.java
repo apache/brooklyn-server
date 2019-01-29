@@ -18,14 +18,11 @@
  */
 package org.apache.brooklyn.rest.api;
 
-import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Response;
-
-import com.google.common.annotations.Beta;
 
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -40,18 +37,6 @@ public interface LogoutApi {
     Response logout(
             @ApiParam(value = "Instead of 200 (the default) to indicate successful logout, "
                 + "return a 401 with this value in a message key in the body (a 401 will cause browsers to clear some locally cached credentials)", 
-                required = false) 
-            @QueryParam("unauthorize") String unauthorize,
-            
-            @ApiParam(value = "Require that this user be logged in", required = false) 
-            @QueryParam("user") String user
-        );
-
-    @Beta
-    @GET
-    @ApiOperation(value = "Logout and clean session (using GET)")
-    Response logoutGet(
-            @ApiParam(value = "As per the POST logout method, but offered as a GET)", 
                 required = false) 
             @QueryParam("unauthorize") String unauthorize,
             

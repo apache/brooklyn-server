@@ -19,7 +19,6 @@
 package org.apache.brooklyn.rest.filter;
 
 import java.lang.reflect.Field;
-import java.util.Set;
 
 import javax.servlet.ServletRequestWrapper;
 import javax.servlet.http.HttpServletRequest;
@@ -36,15 +35,10 @@ import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider.SecurityProviderDeniedAuthentication;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.StringEscapes;
-import org.apache.brooklyn.util.time.Time;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.cxf.jaxrs.impl.tl.ThreadLocalHttpServletRequest;
 import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.server.Request;
-import org.eclipse.jetty.server.handler.ContextHandler;
-import org.eclipse.jetty.server.handler.ContextHandler.Context;
-import org.eclipse.jetty.server.session.DefaultSessionCache;
-import org.eclipse.jetty.server.session.Session;
 import org.eclipse.jetty.server.session.SessionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,76 +93,6 @@ public class BrooklynSecurityProviderFilterHelper {
     /** The first session handler encountered becomes the shared handler that replaces all others encountered. */
     private static SessionHandler sharedSessionHandler;
     
-    public static boolean onInvalidate(String sessionId) {
-        if (sharedSessionHandler==null || !sharedSessionHandler.isRunning()) return false;
-        Set<SessionHandler> handlers = sharedSessionHandler.getSessionIdManager().getSessionHandlers();
-        log.info("SessionIdManager "+sharedSessionHandler.getSessionIdManager()+" has "+handlers.size()+" handlers, on invalidate "+sessionId);
-        for (SessionHandler sh: handlers) {
-            try {
-                log.info("  "+sh+" "+
-                    (sh.getSessionCache() instanceof DefaultSessionCache ? ((DefaultSessionCache)sh.getSessionCache()).exists(sessionId) 
-                        ? ((DefaultSessionCache)sh.getSessionCache()).doGet(sessionId) : "<ID-not-present>" : ""));
-                Field f = SessionHandler.class.getDeclaredField("_context");
-                f.setAccessible(true);
-                ContextHandler.Context ctx = (Context) f.get(sh);
-                // TODO why do we see multiple handlers with the session?  are they the same?
-                log.info("    path "+ctx.getContextPath()+"  name "+ctx.getServletContextName());
-            } catch (Exception e) {
-                log.warn("Error checking session", e);
-            }
-        }
-        final Session s1 = sharedSessionHandler.getSession(sessionId);
-        if (s1==null) return false;
-        log.info("INVALIDATING "+s1+" - "+s1.isResident()+" "+s1.isValid());
-        
-        new Thread("check session "+sessionId) {
-            public void run() {
-                log.info("RESIDENT "+s1.isResident());
-                Object s = ((DefaultSessionCache)sharedSessionHandler.getSessionCache()).doGet(sessionId);
-                log.info("LOOKUP GAVE "+s+(s!=null ? " RESIDENT "+((Session)s).isResident() + " VALID "+((Session)s).isValid() : ""));
-                Time.sleep(500);
-                s = ((DefaultSessionCache)sharedSessionHandler.getSessionCache()).doGet(sessionId);
-                log.info("LOOKUP 2 GAVE "+s+(s!=null ? " RESIDENT "+((Session)s).isResident() + " VALID "+((Session)s).isValid() : ""));
-                Time.sleep(500);
-                s = ((DefaultSessionCache)sharedSessionHandler.getSessionCache()).doGet(sessionId);
-                log.info("LOOKUP 3A GAVE "+s+(s!=null ? " RESIDENT "+((Session)s).isResident() + " VALID "+((Session)s).isValid() : ""));
-                s = sharedSessionHandler.getSession(sessionId);
-                log.info("LOOKUP 3B GAVE "+s+(s!=null ? " RESIDENT "+((Session)s).isResident() + " VALID "+((Session)s).isValid() : ""));
-            }
-        }.start();
-        
-//        sharedSessionHandler.invalidate(sessionId);
-        
-//        if (session==null) return false;
-//        
-//        try (LogClose lock = new LogClose(session.lock())) {
-//            log.debug("Logout for {}, new thread got locker", session);
-//            session.invalidate();
-//            log.debug("Logout for {}, completed call to invalidate", session);
-//        }
-//
-        return true;
-    }
-    
-    public static class LogClose implements AutoCloseable {
-        AutoCloseable delegate;
-        LogClose(AutoCloseable delegate) {
-            this.delegate = delegate;
-            log.debug("Logout, received " + delegate);
-        }
-        @Override
-        public void close() {
-            try {
-                log.debug("Logout, closing " + delegate);
-                delegate.close();
-                log.debug("Logout, closed " + delegate);
-            } catch (Exception e) {
-                log.debug("Logout, error closing " + delegate, e);
-                throw Exceptions.propagate(e);
-            }
-        }
-    }
-    
     /* check all contexts for sessions; surprisingly hard to configure session management for karaf/pax web container.
      * they _really_ want each servlet to have their own sessions. how you're meant to do oauth for multiple servlets i don't know! */
     public HttpSession getSession(HttpServletRequest webRequest, ManagementContext mgmt, boolean create) throws SecurityProviderDeniedAuthentication {
@@ -182,7 +106,6 @@ public class BrooklynSecurityProviderFilterHelper {
         if (webRequest instanceof Request) {
             if (sharedSessionHandler==null || !sharedSessionHandler.isRunning()) {
                 synchronized (BrooklynSecurityProviderFilterHelper.class) {
-                    // TODO should we change the store to use a primary?
                     if (sharedSessionHandler==null || !sharedSessionHandler.isRunning()) {
                         SessionHandler candidateSessionHandler = ((Request)webRequest).getSessionHandler();
                         if (candidateSessionHandler!=null && candidateSessionHandler.getSessionPath()==null) {
@@ -227,7 +150,12 @@ public class BrooklynSecurityProviderFilterHelper {
                     } else if (sharedSessionHandler.isValid(s)) {
                         // later in the handling the session will be put in the original handler for the bundle;
                         // not ideal as the Session is tied to the shared handler, and that breaks invalidation,
-                        // but custom invalidation in LogoutResource repairs that
+                        // but custom invalidation in LogoutResource repairs that.
+                        // TODO it might be better to hack in to the SessionDataFactory used by all the SessionHandlers' SessionCaches 
+                        // (looping through the SessionIdManager to get all the handlers), to make them share a SessionData object instead of a session;
+                        // we then wouldn't need the complex logic in invalidate.
+                        // (also TODO there is a risk that time- or memory-based expiry would cause the buggy
+                        // invalidate to get invoked, leaving threads in an infinite loop)
                         ((Request)webRequest).setSession(s);
                     } else {
                         log.info("Brooklyn user-requested session not valid, request "+webRequest+", requested session "+webRequest.getRequestedSessionId()+"; will create if needed");
@@ -241,7 +169,6 @@ public class BrooklynSecurityProviderFilterHelper {
         HttpSession s = webRequest.getSession(false);
         if (s!=null) {
             log.trace("Session found for {} {}: {} ({})", webRequest.getRequestURI(), webRequest.getRequestedSessionId(), s, s.getAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE));
-            log.info("Session found for {} {}: {} ({})", webRequest.getRequestURI(), webRequest.getRequestedSessionId(), s, s.getAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE));
             return s;
         }
         
@@ -251,10 +178,9 @@ public class BrooklynSecurityProviderFilterHelper {
             // typically that's done when a browser is trying to access when not logged in, e.g. to a new server
             // where the auth doesn't need a session to tell the client he is unauthorized.
             // this means however that the log messages here might not be complete, someone else might create the session.
-            // (not sure who _is_ creating the session when not logged in, and it would be more efficient not to have a session
-            // for clients who aren't logged in, but it doesn't break things at least!)
+            // (TODO would like to know who it _is_ creating the session for an unauthenticated user;
+            // it would be more efficient not to have a session for clients who aren't logged in, but it doesn't break things at least!)
             log.trace("Session being created for {} (wanted {}): {}", webRequest.getRequestURI(), webRequest.getRequestedSessionId(), session);
-            log.info("Session being created for {} (wanted {}): {}", webRequest.getRequestURI(), webRequest.getRequestedSessionId(), session);
             return session;
         }
         
