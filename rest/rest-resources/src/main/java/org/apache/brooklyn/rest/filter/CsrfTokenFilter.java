@@ -197,11 +197,11 @@ public class CsrfTokenFilter implements ContainerRequestFilter, ContainerRespons
         }
 
         if (suppliedTokens.isEmpty()) {
-            fail(requestContext, ApiError.builder().errorCode(Response.Status.UNAUTHORIZED)
+            fail(requestContext, ApiError.builder().errorCode(Response.Status.FORBIDDEN)
                     .message(HEADER_OF_COOKIE(CSRF_TOKEN_VALUE_COOKIE)+" header is required, containing token previously returned from server in cookie")
                     .build());
         } else {
-            fail(requestContext, ApiError.builder().errorCode(Response.Status.UNAUTHORIZED)
+            fail(requestContext, ApiError.builder().errorCode(Response.Status.FORBIDDEN)
                 .message(HEADER_OF_COOKIE(CSRF_TOKEN_VALUE_COOKIE)+" header did not match expected CSRF token")
                 .build());
         }
