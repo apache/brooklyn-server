@@ -20,7 +20,6 @@ package org.apache.brooklyn.rest.resources;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -30,17 +29,19 @@ import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
 import org.apache.brooklyn.rest.api.LogoutApi;
 import org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilterHelper;
+import org.apache.brooklyn.rest.security.provider.DelegatingSecurityProvider;
+import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.eclipse.jetty.server.session.DefaultSessionCache;
 import org.eclipse.jetty.server.session.Session;
-import org.eclipse.jetty.server.session.SessionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class LogoutResource extends AbstractBrooklynRestResource implements LogoutApi {
 
     private static final Logger log = LoggerFactory.getLogger(LogoutResource.class);
+
+    public static final String DID_LOGOUT = "org.apache.brooklyn.server.DidLogout";
     
     @Context HttpServletRequest req;
     @Context UriInfo uri;
@@ -73,7 +74,7 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
 
     @Override
     public Response logout(String unauthorize, String requestedUser) {
-        HttpSession session = req.getSession(false);
+        MultiSessionAttributeAdapter session = MultiSessionAttributeAdapter.of(req, false);
         WebEntitlementContext ctx = (WebEntitlementContext) Entitlements.getEntitlementContext();
         String currentUser = ctx==null ? null : ctx.user();
         log.debug("Logging out: {}, session id {} ({})"+", unauthorized={}", currentUser, (session!=null ? session.getId()+" " : ""), session, unauthorize);
@@ -81,7 +82,7 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
         MutableMap<String,String> body = MutableMap.of();
         body.addIfNotNull("currentUser", currentUser);
         body.addIfNotNull("requestedUser", requestedUser);
-        body.addIfNotNull("sessionId", req.getRequestedSessionId());
+        body.addIfNotNull("sessionId", session==null ? null : session.getId());
         body.addIfNotNull("requestedSessionId", req.getRequestedSessionId());
         
         if (requestedUser!=null && !requestedUser.equals(currentUser)) {
@@ -107,21 +108,39 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
     }
 
     private void doLogout() {
-        HttpSession session = req.getSession();
+        MultiSessionAttributeAdapter multi = MultiSessionAttributeAdapter.of(req);
+
+        // if we need to intercept session creation then can use this
+        // create TrackingSessionHandler which delegates (no-op if delegate==null esp in setSessionTrackingMode)
+        // and log with stack trace in newHttpSession
+//        HttpServletRequest jreq = req;
+//        if (jreq instanceof ThreadLocalHttpServletRequest) jreq = ((ThreadLocalHttpServletRequest)jreq).get();
+//        if (jreq instanceof ServletRequestWrapper) jreq = (HttpServletRequest) ((ServletRequestWrapper)jreq).getRequest();
+//        if (jreq instanceof Request) {
+//            log.warn("SWAPPING "+MultiSessionAttributeAdapter.info(jreq));
+//            ((Request)jreq).setSessionHandler(new TrackingSessionHandler(((Request)jreq).getSessionHandler()));
+//        } else {
+//            log.warn("UNABLE to swap request"+MultiSessionAttributeAdapter.info(jreq));
+//        }
+        
+        multi.configureWhetherToSetInAll(true)
+            .removeAttribute(BrooklynSecurityProviderFilterHelper.AUTHENTICATED_USER_SESSION_ATTRIBUTE);
+        // security provider logout
+        new DelegatingSecurityProvider(mgmt()).logout(multi.getPreferredSession());
+        
         try {
-            session.removeAttribute(BrooklynSecurityProviderFilterHelper.AUTHENTICATED_USER_SESSION_ATTRIBUTE);
             req.logout();
         } catch (ServletException e) {
             Exceptions.propagate(e);
         }
-
-        // delete from all caches before invalidating; this prevents them the SessionHandler from entering 
-        // complicated buggy infinite-loop gets for potentially sessions that have gone non-resident prematurely
-        for (SessionHandler sh: ((Session)session).getSessionHandler().getSessionIdManager().getSessionHandlers()) {
-            ((DefaultSessionCache)sh.getSessionCache()).doDelete(session.getId());
-        }
+        req.setAttribute(DID_LOGOUT, true);
         
-        session.invalidate();
+        multi.getPreferredSession().invalidate();
+        if (multi.getOriginalSession() instanceof Session) {
+            if (((Session)multi.getOriginalSession()).isValid()) {
+                throw new IllegalStateException(MultiSessionAttributeAdapter.info(multi.getOriginalSession())+
+                    " is valid after invaildating "+MultiSessionAttributeAdapter.info(multi.getPreferredSession()));
+            }
+        }
     }
-    
 }

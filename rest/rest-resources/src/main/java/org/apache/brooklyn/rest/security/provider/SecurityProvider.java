@@ -23,6 +23,8 @@ import javax.annotation.Nullable;
 import javax.servlet.http.HttpSession;
 import javax.ws.rs.core.Response;
 
+import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
+
 /**
  * The SecurityProvider is responsible for doing authentication.
  *
@@ -43,6 +45,8 @@ public interface SecurityProvider {
      * if a custom response is required. It can include a response in that exception,
      * e.g. to provide more information or supply a redirect. */
     public boolean authenticate(@Nonnull HttpSession session, String user, String pass) throws SecurityProviderDeniedAuthentication;
+    /** Will get invoked on explicit REST API callback. Callers should pass the preferred session 
+     * if using {@link MultiSessionAttributeAdapter}. Code can assume this is the preferred shared session. */
     public boolean logout(HttpSession session);
     
     public static class SecurityProviderDeniedAuthentication extends Exception {

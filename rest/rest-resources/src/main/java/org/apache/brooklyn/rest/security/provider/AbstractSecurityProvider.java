@@ -20,6 +20,7 @@ package org.apache.brooklyn.rest.security.provider;
 
 import javax.servlet.http.HttpSession;
 
+import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
 import org.apache.brooklyn.util.text.Strings;
 
 /**
@@ -31,14 +32,14 @@ public abstract class AbstractSecurityProvider implements SecurityProvider {
     @Override
     public boolean isAuthenticated(HttpSession session) {
         if (session == null) return false;
-        Object value = session.getAttribute(getAuthenticationKey());
+        Object value = MultiSessionAttributeAdapter.of(session).getAttribute(getAuthenticationKey());
         return Strings.isNonBlank(Strings.toString(value));
     }
 
     @Override
     public boolean logout(HttpSession session) {
         if (session == null) return false;
-        session.removeAttribute(getAuthenticationKey());
+        MultiSessionAttributeAdapter.of(session).configureWhetherToSetInAll(true).removeAttribute(getAuthenticationKey());
         return true;
     }
 

@@ -63,6 +63,7 @@ import org.apache.brooklyn.rest.domain.HighAvailabilitySummary;
 import org.apache.brooklyn.rest.domain.VersionSummary;
 import org.apache.brooklyn.rest.transform.BrooklynFeatureTransformer;
 import org.apache.brooklyn.rest.transform.HighAvailabilityTransformer;
+import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -378,7 +379,9 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     
     @Override
     public Map<String,Object> getUpExtended() {
-        request.getSession();
+        // force creation of a session to demonstrate health, help the UI be more efficient
+        MultiSessionAttributeAdapter.of(request);
+        
         return MutableMap.<String,Object>of(
             "up", isUp(),
             "shuttingDown", isShuttingDown(),
@@ -457,7 +460,9 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
 
     @Override
     public String getUser() {
-        request.getSession();
+        // force creation of session to help ui, ensure continuity of user info
+        MultiSessionAttributeAdapter.of(request);
+        
         EntitlementContext entitlementContext = Entitlements.getEntitlementContext();
         if (entitlementContext!=null && entitlementContext.user()!=null){
             return (String) WebResourceUtils.getValueForDisplay(mapper(), entitlementContext.user(), true, true);
