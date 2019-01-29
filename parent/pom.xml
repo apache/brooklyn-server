@@ -346,6 +346,11 @@
                 <version>${xml-apis.version}</version>
             </dependency>
             <dependency>
+                <groupId>javax.xml.ws</groupId>
+                <artifactId>jaxws-api</artifactId>
+                <version>${jaxws-api.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>javax.annotation</groupId>
                 <artifactId>jsr250-api</artifactId>
                 <version>${jsr250-api.version}</version>

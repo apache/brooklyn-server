@@ -59,6 +59,10 @@
             <artifactId>brooklyn-utils-groovy</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>javax.xml.ws</groupId>
+            <artifactId>jaxws-api</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.google.guava</groupId>
