@@ -32,9 +32,16 @@ import org.apache.brooklyn.rest.api.LogoutApi;
 import org.apache.brooklyn.rest.filter.BrooklynSecurityProviderFilterHelper;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.eclipse.jetty.server.session.DefaultSessionCache;
+import org.eclipse.jetty.server.session.Session;
+import org.eclipse.jetty.server.session.SessionHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class LogoutResource extends AbstractBrooklynRestResource implements LogoutApi {
 
+    private static final Logger log = LoggerFactory.getLogger(LogoutResource.class);
+    
     @Context HttpServletRequest req;
     @Context UriInfo uri;
 
@@ -93,28 +100,45 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
     }
 
     @Override
-    public Response logout(String unauthorized, String requestedUser) {
+    public Response logout(String unauthorize, String requestedUser) {
         HttpSession session = req.getSession(false);
         WebEntitlementContext ctx = (WebEntitlementContext) Entitlements.getEntitlementContext();
         String currentUser = ctx==null ? null : ctx.user();
+        log.info("Logging out: "+currentUser+", session id "+(session!=null ? session.getId()+" " : "")+"("+session+")"+", unauthorized="+unauthorize);
+        
+        MutableMap<String,String> body = MutableMap.of();
+        body.addIfNotNull("currentUser", currentUser);
+        body.addIfNotNull("requestedUser", requestedUser);
+        body.addIfNotNull("sessionId", req.getRequestedSessionId());
+        body.addIfNotNull("requestedSessionId", req.getRequestedSessionId());
+        
         if (requestedUser!=null && !requestedUser.equals(currentUser)) {
-            return Response.status(Status.EXPECTATION_FAILED)
-                .entity(MutableMap.of("message", "The user requested to be logged out is not the user currently logged in",
-                    "currentUser", currentUser,
-                    "requestedUser", requestedUser))
+            return Response.status(Status.FORBIDDEN)
+                .entity(body.add("message", "The user requested to be logged out is not the user currently logged in"))
                 .build();
         }
         doLogout();
 
-        if (unauthorized!=null) {
-            return Response.status(Status.UNAUTHORIZED).entity(unauthorized).build();
+        if (unauthorize!=null) {
+            // returning 401 UNAUTHORIZED has the nice property that it causes browser (mostly)
+            // to re-prompt for cached credentials to set in the "Authorization: " header to re-login;
+            // TODO however it's not 100%; 
+            // some repeated requests (eg /server/up/extended) in brooklyn webapp seem to keep that header  
+            return Response.status(Status.UNAUTHORIZED)
+                .entity(body.add("message", unauthorize))
+                .build();
         }
         
         return Response.status(Status.OK)
-                .entity("Logged out user "+currentUser+" session "+(session==null ? "null" : session.getId()))
-               .build();
+                .entity(body.add("message", "Logged out user "+currentUser))
+                .build();
     }
 
+    @Override
+    public Response logoutGet(String unauthorize, String user) {
+        return logout(unauthorize, user);
+    }
+    
     private void doLogout() {
         HttpSession session = req.getSession();
         try {
@@ -124,7 +148,31 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
             Exceptions.propagate(e);
         }
 
+        String sessionId = session.getId();
+        // TODO remove
+//        log.debug("Logout for session ID {}, new thread calling to invalidate", sessionId);
+        log.debug("Logout for session {} ID {}", session, sessionId);
+        boolean result = BrooklynSecurityProviderFilterHelper.onInvalidate(sessionId);
+        log.debug("Invaildating session ID {}", sessionId);
+        
+        // delete from all caches before invalildating; this prevents them the SessionHandler from entering 
+        // complicated buggy infinite-loop gets for potentially sessions that have gone non-resident prematurely
+        for (SessionHandler sh: ((Session)session).getSessionHandler().getSessionIdManager().getSessionHandlers()) {
+            ((DefaultSessionCache)sh.getSessionCache()).doDelete(sessionId);
+        }
+        
         session.invalidate();
+        log.debug("Invaildated session ID {}", sessionId);
+        // log.debug("Logout for session ID {}, new thread completed, invalidated={}", sessionId, result);
+        HttpSession now = req.getSession(false);
+        log.debug("Requests session is now {}", now);
+//        
+//        final String sessionId = session.getId();
+//        log.debug("Logout for {} id {} queueing invalidation", session, sessionId);
+//        new Thread("invalidate session "+sessionId) {
+//            public void run() {
+//            }
+//        }.start();
     }
-
+    
 }
