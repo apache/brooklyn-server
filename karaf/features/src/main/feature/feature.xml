@@ -242,9 +242,17 @@
         <feature>brooklyn-core</feature>
     </feature>
 
+    <feature name="javax-xml" version="${project.version}" description="javax.xml packages">
+        <!-- This feature makes available packages that were bundled as part of Java 8, but were removed in subsequent versions -->
+        <bundle dependency="true">mvn:javax.xml.ws/jaxws-api/${jaxws-api.version}</bundle>
+        <bundle dependency="true">mvn:javax.xml.bind/jaxb-api/${jaxb-api.version}</bundle>
+        <bundle dependency="true">mvn:javax.xml.soap/javax.xml.soap-api/${javax.xml.soap-api.version}</bundle>
+    </feature>
+
     <feature name="brooklyn-software-base"  version="${project.version}"  description="Brooklyn Software Base">
         <bundle>mvn:org.apache.brooklyn/brooklyn-software-base/${project.version}</bundle>
         <bundle dependency="true">wrap:mvn:org.glassfish.external/opendmk_jmxremote_optional_jar/${opendmk_jmxremote_optional_jar.version}$Import-Package=javax.management.openmbean,*</bundle>
+        <feature>javax-xml</feature>
         <feature>brooklyn-software-winrm</feature>
         <feature>brooklyn-policy</feature>
     </feature>
@@ -261,6 +269,7 @@
 
     <feature name="brooklyn-locations-jclouds" version="${project.version}" description="Brooklyn Jclouds Location Targets">
         <bundle>mvn:org.apache.jclouds/jclouds-loadbalancer/${jclouds.version}</bundle>
+        <feature>javax-xml</feature>
         <feature>brooklyn-core</feature>
         <feature>jclouds-services</feature>
         <feature>jclouds-driver-sshj</feature>
