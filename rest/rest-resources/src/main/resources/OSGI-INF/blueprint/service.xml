@@ -23,6 +23,11 @@ limitations under the License.
              http://cxf.apache.org/blueprint/jaxrs http://cxf.apache.org/schemas/blueprint/jaxrs.xsd
              http://cxf.apache.org/blueprint/core http://cxf.apache.org/schemas/blueprint/core.xsd">
 
+    <cxf:bus>
+        <cxf:features>
+            <cxf:logging/>
+        </cxf:features>
+    </cxf:bus>
 
     <cm:property-placeholder persistent-id="org.apache.brooklyn.rest.filter.cors">
         <cm:default-properties>
