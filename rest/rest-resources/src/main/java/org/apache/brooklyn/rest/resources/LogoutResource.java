@@ -95,8 +95,9 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
         if (unauthorize!=null) {
             // returning 401 UNAUTHORIZED has the nice property that it causes browser (mostly)
             // to re-prompt for cached credentials to set in the "Authorization: " header to re-login;
-            // TODO however it's not 100%; 
-            // some repeated requests (eg /server/up/extended) in brooklyn webapp seem to keep that header  
+            // however it's not 100%; e.g. in Chrome if there is an active ajax/$http request that had prompted for
+            // credentials it will keep the Authorization header and log you back in (eg /server/up/extended);
+            // it is a known issue that we cannot absolutely clear creds in most browsers, but returning 401 helps
             return Response.status(Status.UNAUTHORIZED)
                 .entity(body.add("message", unauthorize))
                 .build();
@@ -113,6 +114,7 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
         // if we need to intercept session creation then can use this
         // create TrackingSessionHandler which delegates (no-op if delegate==null esp in setSessionTrackingMode)
         // and log with stack trace in newHttpSession
+        //   can remove this after we've been running happily with new session management model for a while
 //        HttpServletRequest jreq = req;
 //        if (jreq instanceof ThreadLocalHttpServletRequest) jreq = ((ThreadLocalHttpServletRequest)jreq).get();
 //        if (jreq instanceof ServletRequestWrapper) jreq = (HttpServletRequest) ((ServletRequestWrapper)jreq).getRequest();
