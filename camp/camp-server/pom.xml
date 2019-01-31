@@ -38,8 +38,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>javax.xml.bind</groupId>
-            <artifactId>jaxb-api</artifactId>
+            <groupId>org.apache.servicemix.specs</groupId>
+            <artifactId>org.apache.servicemix.specs.jaxb-api-2.2</artifactId>
         </dependency>
         <dependency>
             <groupId>javax.activation</groupId>
