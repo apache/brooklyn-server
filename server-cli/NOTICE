@@ -69,9 +69,9 @@ Runtime dependencies:
     Developed by: QOS.ch (http://www.qos.ch)
     License name: Eclipse Public License, version 1.0
   
-  com.fasterxml.jackson:2.9.6: 
+  com.fasterxml.jackson:2.9.7: 
     Project:      Jackson FasterXML
-    Version:      2.9.6
+    Version:      2.9.7
     Available at: 
       - http://github.com/FasterXML/jackson
       - http://wiki.fasterxml.com/JacksonExtensionXmlDataBinding
@@ -101,10 +101,10 @@ Runtime dependencies:
     Available at: http://findbugs.sourceforge.net/
     License name: Apache License, version 2.0
   
-  com.google.code.gson:2.3: 
+  com.google.code.gson:2.5: 
     Project:      Gson
-    Version:      2.3
-    Available at: http://code.google.com/p/google-gson/
+    Version:      2.5
+    Available at: https://github.com/google/gson
     Developed by: Google, Inc. (http://www.google.com)
     License name: Apache License, version 2.0
   
@@ -196,15 +196,6 @@ Runtime dependencies:
     License name: Apache License, version 2.0
     Notice:       Copyright (c) Square, Inc.
   
-  com.sun.xml.bind:2.2.11: 
-    Project: 
-      - Old JAXB Core
-      - Old JAXB Runtime
-    Version:      2.2.11
-    Available at: http://jaxb.java.net
-    Developed by: Oracle Corporation (http://www.oracle.com/)
-    License name: Common Development and Distribution License, version 1.1
-  
   com.thoughtworks.xstream:1.4.8: 
     Project:      XStream Core
     Version:      1.4.8
@@ -219,9 +210,9 @@ Runtime dependencies:
     Developed by: The Apache Software Foundation (https://www.apache.org/)
     License name: Apache License, version 2.0
   
-  commons-codec:1.9: 
+  commons-codec:1.10: 
     Project:      Apache Commons Codec
-    Version:      1.9
+    Version:      1.10
     Available at: http://commons.apache.org/proper/commons-codec/
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
@@ -260,11 +251,11 @@ Runtime dependencies:
     Available at: https://github.com/airlift/airline
     License name: Apache License, version 2.0
   
-  io.cloudsoft.windows:0.5.0: 
+  io.cloudsoft.windows:0.6.1: 
     Project: 
       - Java WinRM library
       - WinRM Client
-    Version:      0.5.0
+    Version:      0.6.1
     Available at: http://github.com/cloudsoft/winrm4j
     License name: Apache License, version 2.0
   
@@ -278,9 +269,15 @@ Runtime dependencies:
     Available at: https://github.com/swagger-api/swagger-core
     License name: Apache License, version 2.0
   
-  javax.annotation.javax.annotation-api:1.2: 
+  javax.activation:1.1.1: 
+    Project:      JavaBeans(TM) Activation Framework
+    Version:      1.1.1
+    Available at: http://java.sun.com/javase/technologies/desktop/javabeans/jaf/index.jsp
+    License name: Common Development and Distribution License, version 1.0
+  
+  javax.annotation.javax.annotation-api:1.3: 
     Project:      javax.annotation API
-    Version:      1.2
+    Version:      1.3
     Available at: http://jcp.org/en/jsr/detail?id=250
     Developed by: GlassFish Community (https://glassfish.java.net)
     License name: Common Development and Distribution License, version 1.1
@@ -310,10 +307,17 @@ Runtime dependencies:
     Available at: http://beanvalidation.org/
     License name: Apache License, version 2.0
   
-  javax.ws.rs.javax.ws.rs-api:2.0.1: 
+  javax.ws.rs.javax.ws.rs-api:2.1.1: 
     Project:      javax.ws.rs-api
-    Version:      2.0.1
-    Available at: http://jax-rs-spec.java.net
+    Version:      2.1.1
+    Available at: https://github.com/eclipse-ee4j/jaxrs-api
+    Developed by: Eclipse Foundation (https://www.eclipse.org/org/foundation/)
+    License name: Common Development and Distribution License, version 1.1
+  
+  javax.xml.bind.jaxb-api:2.2.11: 
+    Project:      Java Architecture for XML Binding
+    Version:      2.2.11
+    Available at: http://jaxb.java.net/
     Developed by: Oracle Corporation (http://www.oracle.com/)
     License name: Common Development and Distribution License, version 1.1
   
@@ -372,18 +376,25 @@ Runtime dependencies:
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.apache.cxf:3.1.10: 
+  org.apache.cxf:3.2.7: 
     Project:      Apache CXF
-    Version:      3.1.10
+    Version:      3.2.7
     Available at: http://cxf.apache.org
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.apache.felix.org.apache.felix.framework:5.6.1: 
+  org.apache.felix.org.apache.felix.framework:5.6.10: 
     Project:      Apache Felix Framework
-    Version:      5.6.1
+    Version:      5.6.10
     Available at: http://felix.apache.org/
     Developed by: The Apache Software Foundation (http://www.apache.org/)
+    License name: Apache License, version 2.0
+  
+  org.apache.geronimo.specs.geronimo-ws-metadata_2.0_spec:1.1.3: 
+    Project:      Web Services Metadata 2.0
+    Version:      1.1.3
+    Available at: http://geronimo.apache.org/maven/specs/geronimo-ws-metadata_2.0_spec/1.1.3
+    Developed by: The Apache Software Foundation (http://www.apache.org)
     License name: Apache License, version 2.0
   
   org.apache.httpcomponents.httpasyncclient:4.1.2: 
@@ -393,18 +404,23 @@ Runtime dependencies:
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.apache.httpcomponents.httpclient:4.5.2: 
+  org.apache.httpcomponents.httpclient:4.5.6: 
     Project:      Apache HttpClient
-    Version:      4.5.2
+    Version:      4.5.6
     Available at: http://hc.apache.org/httpcomponents-client-ga
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.apache.httpcomponents:4.4.4: 
-    Project: 
-      - Apache HttpCore
-      - Apache HttpCore NIO
+  org.apache.httpcomponents.httpcore-nio:4.4.4: 
+    Project:      Apache HttpCore NIO
     Version:      4.4.4
+    Available at: http://hc.apache.org/httpcomponents-core-ga
+    Developed by: The Apache Software Foundation (http://www.apache.org/)
+    License name: Apache License, version 2.0
+  
+  org.apache.httpcomponents.httpcore:4.4.9: 
+    Project:      Apache HttpCore
+    Version:      4.4.9
     Available at: http://hc.apache.org/httpcomponents-core-ga
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
@@ -416,16 +432,16 @@ Runtime dependencies:
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.apache.neethi:3.0.3: 
+  org.apache.neethi:3.1.1: 
     Project:      Apache Neethi
-    Version:      3.0.3
+    Version:      3.1.1
     Available at: http://ws.apache.org/neethi/
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.apache.ws.xmlschema.xmlschema-core:2.2.1: 
+  org.apache.ws.xmlschema.xmlschema-core:2.2.3: 
     Project:      XmlSchema Core
-    Version:      2.2.1
+    Version:      2.2.3
     Available at: http://ws.apache.org/commons/xmlschema20/
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
@@ -453,13 +469,6 @@ Runtime dependencies:
     Developed by: fasterxml.com (http://fasterxml.com)
     License name: BSD 2-Clause (Simplified or FreeBSD) License
   
-  org.codehaus.woodstox.woodstox-core-asl:4.4.1: 
-    Project:      Woodstox
-    Version:      4.4.1
-    Available at: http://woodstox.codehaus.org
-    Developed by: Codehaus (http://www.codehaus.org/)
-    License name: Apache License, version 2.0
-  
   org.eclipse.jetty.toolchain.jetty-schemas:3.1.M0: 
     Project:      Jetty :: Schemas
     Version:      3.1.M0
@@ -467,11 +476,22 @@ Runtime dependencies:
     Developed by: Mort Bay Consulting (http://www.mortbay.com)
     License name: Apache License, version 2.0
   
-  org.eclipse.jetty:9.3.14.v20161028: 
-    Project:      Jetty Server
-    Version:      9.3.14.v20161028
-    Available at: http://www.eclipse.org/jetty
-    Developed by: Webtide (http://webtide.com)
+  org.eclipse.jetty:9.4.12.v20180830: 
+    Project: 
+      - Jetty :: Http Utility
+      - Jetty :: IO Utility
+      - Jetty :: JAAS
+      - Jetty :: Security
+      - Jetty :: Server Core
+      - Jetty :: Servlet Handling
+      - Jetty :: Utilities
+      - Jetty :: Webapp Application Support
+      - Jetty :: XML utilities
+    Version:      9.4.12.v20180830
+    Available at: 
+      - http://www.eclipse.org/jetty
+      - https://eclipse.org/jetty
+    Developed by: Webtide (https://webtide.com)
     License name: Apache License, version 2.0
   
   org.freemarker:2.3.25-incubating: 
@@ -507,9 +527,9 @@ Runtime dependencies:
     Developed by: OSGi Alliance (http://www.osgi.org)
     License name: Apache License, version 2.0
   
-  org.ow2.asm:5.0.4: 
+  org.ow2.asm:5.2: 
     Project:      ASM Core
-    Version:      5.0.4
+    Version:      5.2
     Available at: http://asm.objectweb.org/
     Developed by: ObjectWeb (http://www.objectweb.org/)
     License name: BSD 3-Clause (New BSD) License
@@ -543,9 +563,9 @@ Runtime dependencies:
     Developed by: XMLUnit (http://www.xmlunit.org/)
     License name: Apache License, version 2.0
   
-  org.yaml.snakeyaml:1.21: 
+  org.yaml.snakeyaml:1.23: 
     Project:      SnakeYAML
-    Version:      1.21
+    Version:      1.23
     Available at: http://www.snakeyaml.org
     License name: Apache License, version 2.0
   
