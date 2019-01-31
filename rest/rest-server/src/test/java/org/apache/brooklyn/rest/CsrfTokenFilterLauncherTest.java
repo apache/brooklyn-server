@@ -80,7 +80,7 @@ public class CsrfTokenFilterLauncherTest extends BrooklynRestApiLauncherTestFixt
             ImmutableMap.<String,String>of(
                 HttpHeaders.CONTENT_TYPE, "application/text" ),
             "return 0;".getBytes());
-        assertEquals(response.getResponseCode(), HttpStatus.SC_UNAUTHORIZED);
+        assertEquals(response.getResponseCode(), HttpStatus.SC_FORBIDDEN);
 
         // can get without token
         response = HttpTool.httpGet(
@@ -98,7 +98,7 @@ public class CsrfTokenFilterLauncherTest extends BrooklynRestApiLauncherTestFixt
         response = HttpTool.httpGet(
             client, URI.create(getBaseUriRest() + "server/ha/state"),
             ImmutableMap.<String,String>of());
-        assertEquals(response.getResponseCode(), HttpStatus.SC_UNAUTHORIZED);
+        assertEquals(response.getResponseCode(), HttpStatus.SC_FORBIDDEN);
         
         // however note if we use a new client, with no session, then we can post with no token
         // (ie we don't guard against CSRF if your brooklyn is unsecured)

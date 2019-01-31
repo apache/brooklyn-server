@@ -18,10 +18,13 @@
  */
 package org.apache.brooklyn.rest.security.provider;
 
+import java.util.function.Supplier;
+
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.rest.BrooklynWebConfig;
+import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -44,24 +47,24 @@ public class BrooklynUserWithRandomPasswordSecurityProvider extends AbstractSecu
     }
 
     @Override
-    public boolean authenticate(HttpSession session, String user, String password) {
-        if ((USER.equals(user) && this.password.equals(password)) || isRemoteAddressLocalhost(session)) {
-            return allow(session, user);
+    public boolean authenticate(HttpServletRequest request, Supplier<HttpSession> sessionSupplierOnSuccess, String user, String pass) throws SecurityProviderDeniedAuthentication {
+        if ((USER.equals(user) && this.password.equals(password)) || isRemoteAddressLocalhost(request)) {
+            return allow(sessionSupplierOnSuccess.get(), user);
         } else {
             return false;
         }
     }
 
-    private boolean isRemoteAddressLocalhost(HttpSession session) {
-        Object remoteAddress = session.getAttribute(BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE);
-        if (!(remoteAddress instanceof String)) return false;
+    private boolean isRemoteAddressLocalhost(HttpServletRequest req) {
+        String remoteAddress = req.getRemoteAddr();
+        if (remoteAddress==null) return false;
         if (Networking.isLocalhost((String)remoteAddress)) {
             if (LOG.isTraceEnabled()) {
-                LOG.trace(this+": granting passwordless access to "+session+" originating from "+remoteAddress);
+                LOG.trace(this+": granting passwordless access to "+MultiSessionAttributeAdapter.info(req)+" originating from "+remoteAddress);
             }
             return true;
         } else {
-            LOG.debug(this+": password required for "+session+" originating from "+remoteAddress);
+            LOG.debug(this+": password required for "+MultiSessionAttributeAdapter.info(req)+" originating from "+remoteAddress);
             return false;
         }
     }

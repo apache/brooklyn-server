@@ -23,7 +23,6 @@ import java.security.Principal;
 
 import javax.annotation.Priority;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.container.ContainerResponseContext;
@@ -35,6 +34,7 @@ import javax.ws.rs.ext.Provider;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
+import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
 import org.apache.brooklyn.util.text.Strings;
 
 @Provider
@@ -56,7 +56,7 @@ public class EntitlementContextFilter implements ContainerRequestFilter, Contain
 
             // now look in session attribute - because principals hard to set from javax filter
             if (request!=null) {
-                HttpSession s = request.getSession(false);
+                MultiSessionAttributeAdapter s = MultiSessionAttributeAdapter.of(request, false);
                 if (s!=null) {
                     userName = Strings.toString(s.getAttribute(
                             BrooklynSecurityProviderFilterHelper.AUTHENTICATED_USER_SESSION_ATTRIBUTE));

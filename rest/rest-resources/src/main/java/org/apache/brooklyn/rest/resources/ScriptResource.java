@@ -18,24 +18,23 @@
  */
 package org.apache.brooklyn.rest.resources;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.rest.api.ScriptApi;
 import org.apache.brooklyn.rest.domain.ScriptExecutionSummary;
+import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.stream.ThreadLocalPrintStream;
 import org.apache.brooklyn.util.stream.ThreadLocalPrintStream.OutputCapturingContext;
-
-import groovy.lang.Binding;
-import groovy.lang.GroovyShell;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
+import groovy.lang.Binding;
+import groovy.lang.GroovyShell;
 
 public class ScriptResource extends AbstractBrooklynRestResource implements ScriptApi {
 
@@ -59,7 +58,7 @@ public class ScriptResource extends AbstractBrooklynRestResource implements Scri
         Binding binding = new Binding();
         binding.setVariable("mgmt", mgmt());
         
-        HttpSession session = request!=null ? request.getSession() : null;
+        MultiSessionAttributeAdapter session = request==null ? null : MultiSessionAttributeAdapter.of(request);
         if (session!=null) {
             Map data = (Map) session.getAttribute(USER_DATA_MAP_SESSION_ATTRIBUTE);
             if (data==null) {

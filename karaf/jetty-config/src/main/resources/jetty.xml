@@ -20,47 +20,4 @@
 <!DOCTYPE Configure PUBLIC "-//Jetty//Configure//EN" "http://www.eclipse.org/jetty/configure_9_0.dtd">
 
 <Configure id="Server" class="org.eclipse.jetty.server.Server">
-    <Call name="addBean">
-        <Arg>
-            <New class="org.eclipse.jetty.jaas.JAASLoginService">
-                <Set name="name">karaf</Set>
-                <Set name="loginModuleName">karaf</Set>
-                <Set name="roleClassNames">
-                    <Array type="java.lang.String">
-                        <Item>org.apache.karaf.jaas.boot.principal.RolePrincipal</Item>
-                    </Array>
-                </Set>
-            </New>
-        </Arg>
-    </Call>
-    <Call name="addBean">
-        <Arg>
-            <New class="org.eclipse.jetty.jaas.JAASLoginService">
-                <Set name="name">default</Set>
-                <Set name="loginModuleName">karaf</Set>
-                <Set name="roleClassNames">
-                    <Array type="java.lang.String">
-                        <Item>org.apache.karaf.jaas.boot.principal.RolePrincipal</Item>
-                    </Array>
-                </Set>
-            </New>
-        </Arg>
-    </Call>
-    <Call name="addBean">
-        <Arg>
-            <New class="org.eclipse.jetty.jaas.JAASLoginService">
-                <Set name="name">webconsole</Set>
-                <Set name="loginModuleName">webconsole</Set>
-                <Set name="roleClassNames">
-                    <Array type="java.lang.String">
-                        <Item>org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule$RolePrincipal</Item>
-                    </Array>
-                </Set>
-                <Set name="identityService">
-                    <New class="org.eclipse.jetty.security.DefaultIdentityService"/>
-                </Set>
-            </New>
-        </Arg>
-    </Call>
-
 </Configure>

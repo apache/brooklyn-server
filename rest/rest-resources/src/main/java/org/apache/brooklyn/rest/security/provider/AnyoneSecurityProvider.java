@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.rest.security.provider;
 
+import java.util.function.Supplier;
+
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
 /** provider who allows all access with no need to supply a user
@@ -36,7 +39,7 @@ public class AnyoneSecurityProvider implements SecurityProvider {
     }
     
     @Override
-    public boolean authenticate(HttpSession session, String user, String password) {
+    public boolean authenticate(HttpServletRequest request, Supplier<HttpSession> sessionSupplierOnSuccess, String user, String pass) throws SecurityProviderDeniedAuthentication {
         // doesn't matter as isAuth always returns true, this should never be called
         return true;
     }

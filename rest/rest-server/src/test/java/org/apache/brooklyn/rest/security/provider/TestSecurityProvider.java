@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.rest.security.provider;
 
+import java.util.function.Supplier;
+
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -35,8 +38,8 @@ public class TestSecurityProvider implements SecurityProvider {
     }
 
     @Override
-    public boolean authenticate(HttpSession session, String user, String password) {
-        return USER.equals(user) && PASSWORD.equals(password);
+    public boolean authenticate(HttpServletRequest request, Supplier<HttpSession> sessionSupplierOnSuccess, String user, String pass) throws SecurityProviderDeniedAuthentication {
+        return USER.equals(user) && PASSWORD.equals(pass);
     }
 
     @Override

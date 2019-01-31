@@ -18,7 +18,7 @@
  */
 package org.apache.brooklyn.rest.filter;
 
-import java.util.Set;
+import java.util.function.Supplier;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
@@ -32,12 +32,11 @@ import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.security.provider.DelegatingSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider.SecurityProviderDeniedAuthentication;
-import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.commons.codec.binary.Base64;
 import org.eclipse.jetty.http.HttpHeader;
-import org.eclipse.jetty.server.Request;
-import org.eclipse.jetty.server.session.SessionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,6 +57,14 @@ import org.slf4j.LoggerFactory;
  * 
  * This does give us the opportunity to differentiate the redirect, so that
  * jersey (REST) requests don't redirect to the auth site, as the redirect requires human intervention.
+ * 
+ * More unfortunately, the session handlers for the multiple bundles and all different,
+ * and the CXF JAX-RS bundles don't allow any configuration of the handlers
+ * (see JettyHTTPServerEngine.addServant(..) call to configureSession).
+ * So we cheat and modify the request's session handler so that we can use a shared
+ * session handler. This means all webapps and jaxrs apps that use this filter will
+ * be able to share their session handler, so happily when you logout from one,
+ * you log out from all, and when you're authenticated in one you're authenticated in all.
  */
 public class BrooklynSecurityProviderFilterHelper {
 
@@ -73,8 +80,6 @@ public class BrooklynSecurityProviderFilterHelper {
      */
     public static final String AUTHENTICATED_USER_SESSION_ATTRIBUTE = "brooklyn.user";
 
-    public static Set<SessionHandler> SESSION_MANAGER_CACHE = MutableSet.of();
-    
     private static final Logger log = LoggerFactory.getLogger(BrooklynSecurityProviderFilterHelper.class);
 
     // TODO this should be parametrisable
@@ -82,45 +87,16 @@ public class BrooklynSecurityProviderFilterHelper {
     
     public static final String BASIC_REALM_HEADER_VALUE = "BASIC realm="+StringEscapes.JavaStringEscapes.wrapJavaString(BASIC_REALM_NAME);
     
-    /* check all contexts for sessions; surprisingly hard to configure session management for karaf/pax web container.
-     * they _really_ want each servlet to have their own sessions. how you're meant to do oauth for multiple servlets i don't know! */
-    public HttpSession getSession(HttpServletRequest webRequest, ManagementContext mgmt, boolean create) {
-        String requestedSessionId = webRequest.getRequestedSessionId();
-        
-        log.trace("SESSION for {}, wants session {}", webRequest.getRequestURI(), requestedSessionId);
-        
-        if (webRequest instanceof Request) {
-            SessionHandler sm = ((Request)webRequest).getSessionHandler();
-            boolean added = SESSION_MANAGER_CACHE.add( sm );
-            log.trace("SESSION MANAGER found for {}: {} (added={})", webRequest.getRequestURI(), sm, added);
-        } else {
-            log.trace("SESSION MANAGER NOT found for {}: {}", webRequest.getRequestURI(), webRequest);
-        }
-        
-        if (requestedSessionId!=null) {
-            for (SessionHandler m: SESSION_MANAGER_CACHE) {
-                HttpSession s = m.getHttpSession(requestedSessionId);
-                if (s!=null) {
-                    log.trace("SESSION found for {}: {} (valid={})", webRequest.getRequestURI(), s, m.isValid(s));
-                    return s;
-                }
-            }
-        }
-        
-        if (create) {
-            HttpSession session = webRequest.getSession(true);
-            log.trace("SESSION creating for {}: {}", webRequest.getRequestURI(), session);
-            return session;
-        }
-        
-        return null;  // not found
-    }
-    
     public void run(HttpServletRequest webRequest, ManagementContext mgmt) throws SecurityProviderDeniedAuthentication {
         SecurityProvider provider = getProvider(mgmt);
-        HttpSession session = getSession(webRequest, mgmt, false);
+        MultiSessionAttributeAdapter preferredSessionWrapper = MultiSessionAttributeAdapter.of(webRequest, false);
+        final HttpSession preferredSession1 = preferredSessionWrapper==null ? null : preferredSessionWrapper.getPreferredSession();
         
-        if (provider.isAuthenticated(session)) {
+        if (log.isTraceEnabled()) {
+            log.trace(this+" checking "+MultiSessionAttributeAdapter.info(webRequest));
+        }
+        if (provider.isAuthenticated(preferredSession1)) {
+            log.trace("{} already authenticated - {}", this, preferredSession1);
             return;
         }
         
@@ -128,28 +104,35 @@ public class BrooklynSecurityProviderFilterHelper {
         if (provider.requiresUserPass()) {
             String authorization = webRequest.getHeader("Authorization");
             if (authorization != null) {
-                String userpass = new String(Base64.decodeBase64(authorization.substring(6)));
+                if (authorization.length()<6) {
+                    throw abort("Invalid authorization string (too short)", provider.requiresUserPass());
+                }
+                String userpass;
+                try {
+                    userpass = new String(Base64.decodeBase64(authorization.substring(6)));
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    throw abort("Invalid authorization string (not Base64)", provider.requiresUserPass());
+                }
                 int idxColon = userpass.indexOf(":");
                 if (idxColon >= 0) {
                     user = userpass.substring(0, idxColon);
                     pass = userpass.substring(idxColon + 1);
                 } else {
-                    throw abort("Invalid authorization string", provider.requiresUserPass());
+                    throw abort("Invalid authorization string (no colon after decoding)", provider.requiresUserPass());
                 }
             } else {
                 throw abort("Authorization required", provider.requiresUserPass());
             }
         }
         
-        if (session==null) {
-            // only create the session if an auth string is supplied
-            session = getSession(webRequest, mgmt, true);
-        }
-        session.setAttribute(BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE, webRequest.getRemoteAddr());
-        
-        if (provider.authenticate(session, user, pass)) {
+        Supplier<HttpSession> sessionSupplier = () -> preferredSession1!=null ? preferredSession1 : MultiSessionAttributeAdapter.of(webRequest, true).getPreferredSession();
+        if (provider.authenticate(webRequest, sessionSupplier, user, pass)) {
+            HttpSession preferredSession2 = sessionSupplier.get();
+            log.trace("{} authentication successful - {}", this, preferredSession2);
+            preferredSession2.setAttribute(BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE, webRequest.getRemoteAddr());
             if (user != null) {
-                session.setAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE, user);
+                preferredSession2.setAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE, user);
             }
             return;
         }
@@ -157,12 +140,19 @@ public class BrooklynSecurityProviderFilterHelper {
         throw abort("Authentication failed", provider.requiresUserPass());
     }
     
-    private SecurityProviderDeniedAuthentication abort(String msg, boolean requiresUserPass) throws SecurityProviderDeniedAuthentication {
+    SecurityProviderDeniedAuthentication abort(String msg, boolean requiresUserPass) throws SecurityProviderDeniedAuthentication {
         ResponseBuilder response = Response.status(Status.UNAUTHORIZED);
         if (requiresUserPass) {
             response.header(HttpHeader.WWW_AUTHENTICATE.asString(), BASIC_REALM_HEADER_VALUE);
         }
         response.header(HttpHeader.CONTENT_TYPE.asString(), MediaType.TEXT_PLAIN);
+        response.entity(msg);
+        throw new SecurityProviderDeniedAuthentication(response.build());
+    }
+
+    SecurityProviderDeniedAuthentication redirect(String path, String msg) throws SecurityProviderDeniedAuthentication {
+        ResponseBuilder response = Response.status(Status.FOUND);
+        response.header(HttpHeader.LOCATION.asString(), path);
         response.entity(msg);
         throw new SecurityProviderDeniedAuthentication(response.build());
     }

@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.rest.security.provider;
 
+import java.util.function.Supplier;
+
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
 /** provider who disallows everyone, though it does require a user/pass */
@@ -29,7 +32,7 @@ public class BlackholeSecurityProvider implements SecurityProvider {
     }
 
     @Override
-    public boolean authenticate(HttpSession session, String user, String password) {
+    public boolean authenticate(HttpServletRequest request, Supplier<HttpSession> sessionSupplierOnSuccess, String user, String pass) throws SecurityProviderDeniedAuthentication {
         return false;
     }
 

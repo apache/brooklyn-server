@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.rest.entitlement;
 
+import java.util.function.Supplier;
+
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
 import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
@@ -33,7 +36,7 @@ public class AuthenticateAnyoneSecurityProvider implements SecurityProvider {
     }
 
     @Override
-    public boolean authenticate(HttpSession session, String user, String password) {
+    public boolean authenticate(HttpServletRequest request, Supplier<HttpSession> sessionSupplierOnSuccess, String user, String pass) throws SecurityProviderDeniedAuthentication {
         return user != null;
     }
 

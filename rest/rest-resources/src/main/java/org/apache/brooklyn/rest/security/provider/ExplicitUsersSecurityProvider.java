@@ -21,16 +21,18 @@ package org.apache.brooklyn.rest.security.provider;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.function.Supplier;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.security.PasswordHasher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Security provider which validates users against passwords according to property keys,
@@ -71,9 +73,8 @@ public class ExplicitUsersSecurityProvider extends AbstractSecurityProvider impl
     }
     
     @Override
-    public boolean authenticate(HttpSession session, String user, String password) {
-        if (session==null || user==null) return false;
-        
+    public boolean authenticate(HttpServletRequest request, Supplier<HttpSession> sessionSupplierOnSuccess, String user, String pass) throws SecurityProviderDeniedAuthentication {
+        if (user==null) return false;
         if (!allowAnyUserWithValidPass) {
             if (!allowedUsers.contains(user)) {
                 LOG.debug("REST rejecting unknown user "+user);
@@ -81,8 +82,8 @@ public class ExplicitUsersSecurityProvider extends AbstractSecurityProvider impl
             }
         }
 
-        if (checkExplicitUserPassword(mgmt, user, password)) {
-            return allow(session, user);
+        if (checkExplicitUserPassword(mgmt, user, pass)) {
+            return allow(sessionSupplierOnSuccess.get(), user);
         }
         return false;
     }

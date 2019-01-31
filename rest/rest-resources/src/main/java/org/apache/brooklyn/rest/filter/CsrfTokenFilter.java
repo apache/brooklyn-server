@@ -24,7 +24,6 @@ import java.util.List;
 
 import javax.annotation.Priority;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.container.ContainerResponseContext;
@@ -37,6 +36,8 @@ import javax.ws.rs.ext.Provider;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.rest.api.ServerApi;
 import org.apache.brooklyn.rest.domain.ApiError;
+import org.apache.brooklyn.rest.resources.LogoutResource;
+import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.collections.EnumerationUtils;
@@ -149,8 +150,9 @@ public class CsrfTokenFilter implements ContainerRequestFilter, ContainerRespons
         List<String> suppliedTokens = Lists.newArrayList(suppliedTokensDefault);
         suppliedTokens.addAll(suppliedTokensAngular);
 
-        Object requiredToken = request.getSession().getAttribute(CSRF_TOKEN_VALUE_ATTR);
-        CsrfTokenRequiredForRequests whenRequired = (CsrfTokenRequiredForRequests) request.getSession().getAttribute(CSRF_TOKEN_REQUIRED_ATTR);
+        MultiSessionAttributeAdapter session = MultiSessionAttributeAdapter.of(request);
+        Object requiredToken = session.getAttribute(CSRF_TOKEN_VALUE_ATTR);
+        CsrfTokenRequiredForRequests whenRequired = (CsrfTokenRequiredForRequests) session.getAttribute(CSRF_TOKEN_REQUIRED_ATTR);
 
         boolean isRequired;
         
@@ -165,7 +167,7 @@ public class CsrfTokenFilter implements ContainerRequestFilter, ContainerRespons
                 whenRequired = DEFAULT_REQUIRED_FOR_REQUESTS;
             }
             // remember it to suppress warnings subsequently
-            request.getSession().setAttribute(CSRF_TOKEN_REQUIRED_ATTR, whenRequired);
+            session.setAttribute(CSRF_TOKEN_REQUIRED_ATTR, whenRequired);
         }
         
         switch (whenRequired) {
@@ -197,11 +199,11 @@ public class CsrfTokenFilter implements ContainerRequestFilter, ContainerRespons
         }
 
         if (suppliedTokens.isEmpty()) {
-            fail(requestContext, ApiError.builder().errorCode(Response.Status.UNAUTHORIZED)
+            fail(requestContext, ApiError.builder().errorCode(Response.Status.FORBIDDEN)
                     .message(HEADER_OF_COOKIE(CSRF_TOKEN_VALUE_COOKIE)+" header is required, containing token previously returned from server in cookie")
                     .build());
         } else {
-            fail(requestContext, ApiError.builder().errorCode(Response.Status.UNAUTHORIZED)
+            fail(requestContext, ApiError.builder().errorCode(Response.Status.FORBIDDEN)
                 .message(HEADER_OF_COOKIE(CSRF_TOKEN_VALUE_COOKIE)+" header did not match expected CSRF token")
                 .build());
         }
@@ -213,7 +215,8 @@ public class CsrfTokenFilter implements ContainerRequestFilter, ContainerRespons
 
     @Override
     public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext) throws IOException {
-        HttpSession session = request.getSession(false);
+        log.debug("CSRF FILTER finishing - "+MultiSessionAttributeAdapter.info(request));
+        MultiSessionAttributeAdapter session = MultiSessionAttributeAdapter.of(request, false);
         String token = (String) (session==null ? null : session.getAttribute(CSRF_TOKEN_VALUE_ATTR));
         String requiredWhenS = request.getHeader(CSRF_TOKEN_REQUIRED_HEADER);
         
@@ -222,14 +225,18 @@ public class CsrfTokenFilter implements ContainerRequestFilter, ContainerRespons
                 // no session and no requirement specified, bail out 
                 return;
             }
-            // explicit requirement request forces a session  
-            session = request.getSession();
+            // explicit requirement request forces a session
+            if (Boolean.TRUE.equals(request.getAttribute(LogoutResource.DID_LOGOUT))) {
+                // user has logged out, don't make a session
+                return;
+            }
+            session = MultiSessionAttributeAdapter.of(request, true);
         }
         
         CsrfTokenRequiredForRequests requiredWhen;
         if (Strings.isNonBlank(requiredWhenS)) {
             requiredWhen = getRequiredForRequests(requiredWhenS, DEFAULT_REQUIRED_FOR_REQUESTS);
-            request.getSession().setAttribute(CSRF_TOKEN_REQUIRED_ATTR, requiredWhen);
+            session.setAttribute(CSRF_TOKEN_REQUIRED_ATTR, requiredWhen);
             if (Strings.isNonBlank(token)) {
                 // already set csrf token, and the client got it
                 // (with the session token if they are in a session;
@@ -243,10 +250,10 @@ public class CsrfTokenFilter implements ContainerRequestFilter, ContainerRespons
                 // or if client didn't get it it isn't in a session)
                 return;
             }
-            requiredWhen = (CsrfTokenRequiredForRequests) request.getSession().getAttribute(CSRF_TOKEN_REQUIRED_ATTR);
+            requiredWhen = (CsrfTokenRequiredForRequests) session.getAttribute(CSRF_TOKEN_REQUIRED_ATTR);
             if (requiredWhen==null) {
                 requiredWhen = DEFAULT_REQUIRED_FOR_REQUESTS;
-                request.getSession().setAttribute(CSRF_TOKEN_REQUIRED_ATTR, requiredWhen);
+                session.setAttribute(CSRF_TOKEN_REQUIRED_ATTR, requiredWhen);
             }
         }
 
@@ -257,7 +264,7 @@ public class CsrfTokenFilter implements ContainerRequestFilter, ContainerRespons
 
         // create the token
         token = Identifiers.makeRandomId(16);
-        request.getSession().setAttribute(CSRF_TOKEN_VALUE_ATTR, token);
+        session.setAttribute(CSRF_TOKEN_VALUE_ATTR, token);
         
         addCookie(responseContext, CSRF_TOKEN_VALUE_COOKIE, token, "Clients should send this value in header "+CSRF_TOKEN_VALUE_HEADER+" for validation");
         addCookie(responseContext, CSRF_TOKEN_VALUE_COOKIE_ANGULAR_NAME, token, "Compatibility cookie for "+CSRF_TOKEN_VALUE_COOKIE+" following AngularJS conventions");

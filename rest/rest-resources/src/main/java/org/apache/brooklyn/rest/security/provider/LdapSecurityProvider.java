@@ -18,30 +18,29 @@
  */
 package org.apache.brooklyn.rest.security.provider;
 
+import java.util.Arrays;
 import java.util.Hashtable;
+import java.util.List;
+import java.util.function.Supplier;
 
 import javax.naming.Context;
 import javax.naming.NamingException;
 import javax.naming.directory.InitialDirContext;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.CharMatcher;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
-
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * A {@link SecurityProvider} implementation that relies on LDAP to authenticate.
@@ -82,8 +81,8 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Override
-    public boolean authenticate(HttpSession session, String user, String password) {
-        if (session==null || user==null) return false;
+    public boolean authenticate(HttpServletRequest request, Supplier<HttpSession> sessionSupplierOnSuccess, String user, String pass) throws SecurityProviderDeniedAuthentication {
+        if (user==null) return false;
         checkCanLoad();
 
         Hashtable env = new Hashtable();
@@ -91,11 +90,11 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
         env.put(Context.PROVIDER_URL, ldapUrl);
         env.put(Context.SECURITY_AUTHENTICATION, "simple");
         env.put(Context.SECURITY_PRINCIPAL, getUserDN(user));
-        env.put(Context.SECURITY_CREDENTIALS, password);
+        env.put(Context.SECURITY_CREDENTIALS, pass);
 
         try {
             new InitialDirContext(env);
-            return allow(session, user);
+            return allow(sessionSupplierOnSuccess.get(), user);
         } catch (NamingException e) {
             return false;
         }
