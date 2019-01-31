@@ -32,6 +32,8 @@ import org.osgi.framework.BundleContext;
 import java.util.Collection;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static java.util.Objects.requireNonNull;
 
@@ -39,6 +41,9 @@ import static java.util.Objects.requireNonNull;
  * Scans managed bundles and other jar bundles to find upgrades for installed bundles.
  */
 class CatalogUpgradeScanner {
+
+    private static final Pattern FALLBACK_SYMBOLICNAME_PATTERN =
+            Pattern.compile(":(?<groupId>.+)/(?<artifactId>.+)/(?<version>.+)$");
 
     private final ManagementContextInternal managementContext;
     private final BiFunction<Bundle, RegisteredTypesSupplier, CatalogUpgrades> bundleUpgradeParser;
@@ -104,7 +109,26 @@ class CatalogUpgradeScanner {
 
     private RegisteredTypesSupplier typeSupplier(final Bundle bundle) {
         return new RegisteredTypesSupplier(managementContext,
-                unmanagedBundlePredicateSupplier.apply(bundle.getSymbolicName()));
+                unmanagedBundlePredicateSupplier.apply(symbolicName(bundle)));
+    }
+
+    private String symbolicName(final Bundle bundle) {
+        final String symbolicName = bundle.getSymbolicName();
+        if (symbolicName.length() == 0) {
+            return fallbackSymbolicName(bundle);
+        }
+        return symbolicName;
+    }
+
+    private String fallbackSymbolicName(final Bundle bundle) {
+        final Matcher matcher = FALLBACK_SYMBOLICNAME_PATTERN.matcher(bundle.getLocation());
+        if (matcher.matches()) {
+            final String group = matcher.group("groupId");
+            final String artifact = matcher.group("artifactId");
+            return String.format("%s-%s", group, artifact);
+        } else {
+            throw new IllegalStateException("Bundle: no SymbolicName and Location not matched");
+        }
     }
 
 }

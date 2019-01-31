@@ -177,6 +177,26 @@ public class CatalogUpgradeScannerTest implements WithAssertions {
         assertThatBundleHasNoUpgrades(result, managedBundle);
     }
 
+    @Test
+    public void whenUnmanagedBundleWithNoSymbolicNameHasUpgradeThenUpgradesForUnmanagedBundle() {
+        //given
+        final String upgradeFrom = bundleName("unmanaged", "1.0.0");
+        final String upgradeTo = bundleName("unmanaged", "2.0.0");
+        final String location = "mvn:groupId/unmanaged/2.0.0";
+        final CatalogUpgrades catalogUpgrades = CatalogUpgrades.builder()
+                .upgradeBundles(upgradeMapping(upgradeFrom, upgradeTo))
+                .build();
+        final String managedBundle = bundleName("managed", "1.1.0");
+        givenManagedBundleWithNoUpgrades(managedBundle, osgiManager, bundleUpgradeParser);
+        givenUnmanagedBundleWithUpgrades(upgradeTo, location, catalogUpgrades, bundleContext, bundleUpgradeParser);
+        givenAllUnmanagedBundlesHaveNoSymbolicName(upgradeTo, bundleContext);
+        givenSymbolicNamesAreRequired(unmanagedBundlePredicateSupplier);
+        //when
+        final CatalogUpgrades result = invoke();
+        //then
+        assertThatBundleHasNoUpgrades(result, managedBundle);
+    }
+
     static class Givens {
 
         static void givenNoManagedBundles(final OsgiManager osgiManager) {
@@ -257,6 +277,21 @@ public class CatalogUpgradeScannerTest implements WithAssertions {
                     unmanagedBundle(bundleName, location, upgrades, bundleUpgradeParser)
             };
             doReturn(bundles).when(bundleContext).getBundles();
+        }
+
+        static void givenAllUnmanagedBundlesHaveNoSymbolicName(
+                final String upgradeTo,
+                final BundleContext bundleContext
+        ) {
+            for (Bundle unmanagedBundle : bundleContext.getBundles()) {
+                given(unmanagedBundle.getSymbolicName()).willReturn("");
+            }
+        }
+
+        static void givenSymbolicNamesAreRequired(
+                final Function<String, Predicate<? super RegisteredType>> unmanagedBundlePredicateSupplier
+        ) {
+            given(unmanagedBundlePredicateSupplier.apply("")).willThrow(IllegalStateException.class);
         }
 
     }
