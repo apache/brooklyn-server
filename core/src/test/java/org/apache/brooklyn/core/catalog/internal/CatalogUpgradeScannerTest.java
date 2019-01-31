@@ -134,7 +134,8 @@ public class CatalogUpgradeScannerTest implements WithAssertions {
                 .build();
         givenManagedBundlesWithUpgrades(catalogUpgrades, osgiManager, bundleUpgradeParser);
         final String unmanagedBundle = bundleName("unmanaged", "1.1.0");
-        givenUnmanagedBundleWithNoUpgrades(unmanagedBundle, bundleContext, bundleUpgradeParser);
+        final String location = "mvn:groupId/unmanagedId/2.0.0";
+        givenUnmanagedBundleWithNoUpgrades(unmanagedBundle, location, bundleContext, bundleUpgradeParser);
         //when
         final CatalogUpgrades result = invoke();
         //then
@@ -146,11 +147,12 @@ public class CatalogUpgradeScannerTest implements WithAssertions {
         //given
         final String upgradeFrom = bundleName("unmanaged", "1.0.0");
         final String upgradeTo = bundleName("unmanaged", "2.0.0");
+        final String location = "mvn:groupId/unmanagedId/2.0.0";
         final CatalogUpgrades catalogUpgrades = CatalogUpgrades.builder()
                 .upgradeBundles(upgradeMapping(upgradeFrom, upgradeTo))
                 .build();
         givenManagedBundlesWithNoUpgrades(osgiManager, bundleUpgradeParser);
-        givenUnmanagedBundleWithUpgrades(catalogUpgrades, bundleContext, bundleUpgradeParser);
+        givenUnmanagedBundleWithUpgrades(upgradeTo, location, catalogUpgrades, bundleContext, bundleUpgradeParser);
         //when
         final CatalogUpgrades result = invoke();
         //then
@@ -162,12 +164,13 @@ public class CatalogUpgradeScannerTest implements WithAssertions {
         //given
         final String upgradeFrom = bundleName("unmanaged", "1.0.0");
         final String upgradeTo = bundleName("unmanaged", "2.0.0");
+        final String location = "mvn:groupId/unmanaged/2.0.0";
         final CatalogUpgrades catalogUpgrades = CatalogUpgrades.builder()
                 .upgradeBundles(upgradeMapping(upgradeFrom, upgradeTo))
                 .build();
         final String managedBundle = bundleName("managed", "1.1.0");
         givenManagedBundleWithNoUpgrades(managedBundle, osgiManager, bundleUpgradeParser);
-        givenUnmanagedBundleWithUpgrades(catalogUpgrades, bundleContext, bundleUpgradeParser);
+        givenUnmanagedBundleWithUpgrades(upgradeTo, location, catalogUpgrades, bundleContext, bundleUpgradeParser);
         //when
         final CatalogUpgrades result = invoke();
         //then
@@ -225,30 +228,33 @@ public class CatalogUpgradeScannerTest implements WithAssertions {
                 final BiFunction<Bundle, RegisteredTypesSupplier, CatalogUpgrades> bundleUpgradeParser
         ) {
             final Bundle[] bundles = new Bundle[]{
-                    unmanagedBundle(bundleName("unmanaged1", "1.1.0"), CatalogUpgrades.EMPTY, bundleUpgradeParser),
-                    unmanagedBundle(bundleName("unmanaged2", "1.1.0"), CatalogUpgrades.EMPTY, bundleUpgradeParser)
+                    unmanagedBundle(bundleName("unmanaged1", "1.1.0"), "mvn:groupId/artifactId/1.0.0", CatalogUpgrades.EMPTY, bundleUpgradeParser),
+                    unmanagedBundle(bundleName("unmanaged2", "1.1.0"), "mvn:groupId/artifactId/1.0.0", CatalogUpgrades.EMPTY, bundleUpgradeParser)
             };
             doReturn(bundles).when(bundleContext).getBundles();
         }
 
         static void givenUnmanagedBundleWithNoUpgrades(
                 final String bundleName,
+                final String location,
                 final BundleContext bundleContext,
                 final BiFunction<Bundle, RegisteredTypesSupplier, CatalogUpgrades> bundleUpgradeParser
         ) {
             final Bundle[] bundles = new Bundle[]{
-                    unmanagedBundle(bundleName, CatalogUpgrades.EMPTY, bundleUpgradeParser)
+                    unmanagedBundle(bundleName, location, CatalogUpgrades.EMPTY, bundleUpgradeParser)
             };
             doReturn(bundles).when(bundleContext).getBundles();
         }
 
         static void givenUnmanagedBundleWithUpgrades(
+                final String bundleName,
+                final String location,
                 final CatalogUpgrades upgrades,
                 final BundleContext bundleContext,
                 final BiFunction<Bundle, RegisteredTypesSupplier, CatalogUpgrades> bundleUpgradeParser
         ) {
             final Bundle[] bundles = new Bundle[]{
-                    unmanagedBundle(bundleName("unmanaged", "1.1.0"), upgrades, bundleUpgradeParser)
+                    unmanagedBundle(bundleName, location, upgrades, bundleUpgradeParser)
             };
             doReturn(bundles).when(bundleContext).getBundles();
         }
@@ -281,10 +287,13 @@ public class CatalogUpgradeScannerTest implements WithAssertions {
     static class Utils {
 
         static Bundle unmanagedBundle(
-                String bundleName, final CatalogUpgrades catalogUpgrades,
+                final String bundleName,
+                final String location,
+                final CatalogUpgrades catalogUpgrades,
                 final BiFunction<Bundle, RegisteredTypesSupplier, CatalogUpgrades> bundleUpgradeParser
         ) {
             final Bundle bundle = newMockBundle(VersionedName.fromString(bundleName), ImmutableMap.of());
+            given(bundle.getLocation()).willReturn(location);
             given(bundleUpgradeParser.apply(eq(bundle), any())).willReturn(catalogUpgrades);
             return bundle;
         }
