@@ -168,6 +168,8 @@
         <jetty.version>9.4.12.v20180830</jetty.version>
 
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
+        <jna.version>4.1.0</jna.version>
+        <objenesis.version>2.5</objenesis.version>
         <clojure.version>1.4.0</clojure.version>
         <clj-time.version>0.4.1</clj-time.version>
         <commons-codec.version>1.10</commons-codec.version>
