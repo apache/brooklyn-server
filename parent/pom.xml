@@ -114,6 +114,11 @@
                 <artifactId>javax.servlet-api</artifactId> <!-- match servlet.spec.artifactId in karaf/pom.xml -->
                 <version>${javax-servlet.version}</version> <!-- match servlet.spec.version in karaf/pom.xml -->
             </dependency>
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons-io.version}</version>
+            </dependency>
             <!-- END karaf version overrides -->
 
             <dependency>
@@ -329,11 +334,6 @@
                 <groupId>javax.inject</groupId>
                 <artifactId>javax.inject</artifactId>
                 <version>${javax-inject.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>commons-io</groupId>
-                <artifactId>commons-io</artifactId>
-                <version>${commons-io.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.httpcomponents</groupId>
