@@ -129,6 +129,11 @@
                 <artifactId>commons-compress</artifactId>
                 <version>${commons-compress.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm</artifactId>
+                <version>${ow2.asm.version}</version>
+            </dependency>
             <!-- END karaf version overrides -->
 
             <dependency>
@@ -503,11 +508,6 @@
                 <groupId>net.minidev</groupId>
                 <artifactId>accessors-smart</artifactId>
                 <version>${minidev.accessors-smart.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.ow2.asm</groupId>
-                <artifactId>asm</artifactId>
-                <version>${ow2.asm.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.maxmind.geoip2</groupId>
