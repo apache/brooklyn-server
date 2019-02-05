@@ -124,6 +124,11 @@
                 <artifactId>commons-lang</artifactId>
                 <version>${commons-lang.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>${commons-compress.version}</version>
+            </dependency>
             <!-- END karaf version overrides -->
 
             <dependency>
@@ -441,11 +446,6 @@
                 <groupId>org.apache.whirr</groupId>
                 <artifactId>whirr-elasticsearch</artifactId>
                 <version>${whirr.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.commons</groupId>
-                <artifactId>commons-compress</artifactId>
-                <version>${commons-compress.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.hierynomus</groupId>
