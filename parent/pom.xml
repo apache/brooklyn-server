@@ -134,6 +134,11 @@
                 <artifactId>asm</artifactId>
                 <version>${ow2.asm.version}</version>
             </dependency>
+            <dependency>
+                <groupId>jline</groupId> <!-- when removing this, replace uses with org.jline -->
+                <artifactId>jline</artifactId>
+                <version>${jline.version}</version>
+            </dependency>
             <!-- END karaf version overrides -->
 
             <dependency>
@@ -513,11 +518,6 @@
                 <groupId>com.maxmind.geoip2</groupId>
                 <artifactId>geoip2</artifactId>
                 <version>${maxmind.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>jline</groupId>
-                <artifactId>jline</artifactId>
-                <version>${jline.version}</version>
             </dependency>
 
             <!-- JAX-RS dependencies-->
