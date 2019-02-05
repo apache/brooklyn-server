@@ -166,6 +166,7 @@
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
         <felix.framework.version>5.6.10</felix.framework.version>
         <jetty.version>9.4.12.v20180830</jetty.version>
+        <commons-collections.version>3.2.2</commons-collections.version>
 
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
         <jna.version>4.1.0</jna.version>
@@ -179,7 +180,6 @@
         <minidev.accessors-smart.version>1.2</minidev.accessors-smart.version>
         <ow2.asm.version>5.2</ow2.asm.version> <!-- version should align with cxf-rt-frontend-jaxws; see also json-path and karaf version requirements -->
         <commons-beanutils.version>1.9.3</commons-beanutils.version>
-        <commons-collections.version>3.2.2</commons-collections.version>
         <javax.mail.version>1.4.4</javax.mail.version>
         <cxf.javax.annotation-api.version>1.3</cxf.javax.annotation-api.version> <!-- cxf-specs feature v3.2.7 declares v1.3 (as does org.apache.cxf:cxf-rt-frontend-jaxrs), but karaf 4.2.2 has 1.2 -->
         <plantuml.version>6121</plantuml.version>
