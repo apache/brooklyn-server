@@ -139,6 +139,11 @@
                 <artifactId>jline</artifactId>
                 <version>${jline.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>org.osgi.compendium</artifactId>
+                <version>${felix-osgi-compendium.version}</version>
+            </dependency>
             <!-- END karaf version overrides -->
 
             <dependency>
