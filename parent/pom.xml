@@ -570,11 +570,6 @@
                 <version>${kubernetes-client.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.ops4j.pax.web</groupId>
-                <artifactId>pax-web-spi</artifactId>
-                <version>${pax-web.version}</version>
-            </dependency>
-            <dependency>
                 <groupId>org.assertj</groupId>
                 <artifactId>assertj-core</artifactId>
                 <version>${assertj.version}</version>
