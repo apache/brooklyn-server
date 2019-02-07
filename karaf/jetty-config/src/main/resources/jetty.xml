@@ -20,4 +20,19 @@
 <!DOCTYPE Configure PUBLIC "-//Jetty//Configure//EN" "http://www.eclipse.org/jetty/configure_9_0.dtd">
 
 <Configure id="Server" class="org.eclipse.jetty.server.Server">
+
+    <!--Config Jetty HouseKeeper scavenge interval for invalidate session to one hour to avoid losing authentication-->
+    <!--token -->
+    <Set name="sessionIdManager">
+        <New id="idMgr" class="org.eclipse.jetty.server.session.DefaultSessionIdManager">
+            <Arg><Ref refid="Server"/></Arg>
+            <Set name="sessionHouseKeeper">
+                <New class="org.eclipse.jetty.server.session.HouseKeeper">
+                    <Set name="intervalSec"><Property name="jetty.sessionScavengeInterval.seconds" default="3600"/></Set>
+                </New>
+            </Set>
+        </New>
+    </Set>
+
 </Configure>
+
