@@ -31,19 +31,22 @@ public class PrimitiveStringTypeCoercions {
 
     public PrimitiveStringTypeCoercions() {}
     
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({ "unchecked" })
     public static <T> Maybe<T> tryCoerce(Object value, Class<? super T> targetType) {
+        Maybe<T> result = null;
         //deal with primitive->primitive casting
         if (isPrimitiveOrBoxer(targetType) && isPrimitiveOrBoxer(value.getClass())) {
             // Don't just rely on Java to do its normal casting later; if caller writes
             // long `l = coerce(new Integer(1), Long.class)` then letting java do its casting will fail,
             // because an Integer will not automatically be unboxed and cast to a long
-            return Maybe.of(castPrimitive(value, (Class<T>)targetType));
+            result = castPrimitiveMaybe(value, (Class<T>)targetType);
+            if (result.isPresent()) return result;
         }
 
         //deal with string->primitive
         if (value instanceof String && isPrimitiveOrBoxer(targetType)) {
-            return Maybe.of(stringToPrimitive((String)value, (Class<T>)targetType));
+            result = stringToPrimitiveMaybe((String)value, (Class<T>)targetType);
+            if (result.isPresent()) return result;
         }
 
         //deal with primitive->string
@@ -69,16 +72,21 @@ public class PrimitiveStringTypeCoercions {
             }
         }
         
-        return null;
+        return result;
     }
-    
+
+    /** @deprecated since 1.0.0 use {@link #castPrimitiveMaybe(Object, Class)} */
+    @Deprecated
+    public static <T> T castPrimitive(Object value, Class<T> targetType) {
+        return castPrimitiveMaybe(value, targetType).get();
+    }
     /**
      * Sometimes need to explicitly cast primitives, rather than relying on Java casting.
      * For example, when using generics then type-erasure means it doesn't actually cast,
      * which causes tests to fail with 0 != 0.0
      */
     @SuppressWarnings("unchecked")
-    public static <T> T castPrimitive(Object value, Class<T> targetType) {
+    public static <T> Maybe<T> castPrimitiveMaybe(Object value, Class<T> targetType) {
         if (value==null) return null;
         assert isPrimitiveOrBoxer(targetType) : "targetType="+targetType;
         assert isPrimitiveOrBoxer(value.getClass()) : "value="+targetType+"; valueType="+value.getClass();
@@ -88,7 +96,7 @@ public class PrimitiveStringTypeCoercions {
         
         // optimization, for when already correct type
         if (sourceWrapType == targetWrapType) {
-            return (T) value;
+            return Maybe.of((T) value);
         }
         
         if (targetWrapType == Boolean.class) {
@@ -96,13 +104,13 @@ public class PrimitiveStringTypeCoercions {
             // (we could say 0=false, nonzero=true, but there is no compelling use case so better
             // to encourage users to write as boolean)
             if (sourceWrapType == Character.class)
-                return stringToPrimitive(value.toString(), targetType);
+                return stringToPrimitiveMaybe(value.toString(), targetType);
             
-            throw new ClassCoercionException("Cannot cast "+sourceWrapType+" ("+value+") to "+targetType);
+            return Maybe.absent(new ClassCoercionException("Cannot cast "+sourceWrapType+" ("+value+") to "+targetType));
         } else if (sourceWrapType == Boolean.class) {
             // boolean can't cast to anything else
             
-            throw new ClassCoercionException("Cannot cast "+sourceWrapType+" ("+value+") to "+targetType);
+            return Maybe.absent(new ClassCoercionException("Cannot cast "+sourceWrapType+" ("+value+") to "+targetType));
         }
         
         // for whole-numbers (where casting to long won't lose anything)...
@@ -122,14 +130,14 @@ public class PrimitiveStringTypeCoercions {
             islong = false;
         }
         if (islong) {
-            if (targetWrapType == Character.class) return (T) Character.valueOf((char)v); 
-            if (targetWrapType == Byte.class) return (T) Byte.valueOf((byte)v); 
-            if (targetWrapType == Short.class) return (T) Short.valueOf((short)v); 
-            if (targetWrapType == Integer.class) return (T) Integer.valueOf((int)v); 
-            if (targetWrapType == Long.class) return (T) Long.valueOf(v); 
-            if (targetWrapType == Float.class) return (T) Float.valueOf(v); 
-            if (targetWrapType == Double.class) return (T) Double.valueOf(v);
-            throw new IllegalStateException("Unexpected: sourceType="+sourceWrapType+"; targetType="+targetWrapType);
+            if (targetWrapType == Character.class) return Maybe.of((T) Character.valueOf((char)v)); 
+            if (targetWrapType == Byte.class) return Maybe.of((T) Byte.valueOf((byte)v));
+            if (targetWrapType == Short.class) return Maybe.of((T) Short.valueOf((short)v)); 
+            if (targetWrapType == Integer.class) return Maybe.of((T) Integer.valueOf((int)v)); 
+            if (targetWrapType == Long.class) return Maybe.of((T) Long.valueOf(v));
+            if (targetWrapType == Float.class) return Maybe.of((T) Float.valueOf(v));
+            if (targetWrapType == Double.class) return Maybe.of((T) Double.valueOf(v));
+            return Maybe.absent(new IllegalStateException("Unexpected: sourceType="+sourceWrapType+"; targetType="+targetWrapType));
         }
         
         // for real-numbers (cast to double)...
@@ -143,16 +151,16 @@ public class PrimitiveStringTypeCoercions {
             isdouble = false;
         }
         if (isdouble) {
-            if (targetWrapType == Character.class) return (T) Character.valueOf((char)d); 
-            if (targetWrapType == Byte.class) return (T) Byte.valueOf((byte)d); 
-            if (targetWrapType == Short.class) return (T) Short.valueOf((short)d); 
-            if (targetWrapType == Integer.class) return (T) Integer.valueOf((int)d); 
-            if (targetWrapType == Long.class) return (T) Long.valueOf((long)d); 
-            if (targetWrapType == Float.class) return (T) Float.valueOf((float)d); 
-            if (targetWrapType == Double.class) return (T) Double.valueOf(d);
-            throw new IllegalStateException("Unexpected: sourceType="+sourceWrapType+"; targetType="+targetWrapType);
+            if (targetWrapType == Character.class) return Maybe.of((T) Character.valueOf((char)d)); 
+            if (targetWrapType == Byte.class) return Maybe.of((T) Byte.valueOf((byte)d)); 
+            if (targetWrapType == Short.class) return Maybe.of((T) Short.valueOf((short)d)); 
+            if (targetWrapType == Integer.class) return Maybe.of((T) Integer.valueOf((int)d)); 
+            if (targetWrapType == Long.class) return Maybe.of((T) Long.valueOf((long)d)); 
+            if (targetWrapType == Float.class) return Maybe.of((T) Float.valueOf((float)d)); 
+            if (targetWrapType == Double.class) return Maybe.of((T) Double.valueOf(d));
+            return Maybe.absent(new IllegalStateException("Unexpected: sourceType="+sourceWrapType+"; targetType="+targetWrapType));
         } else {
-            throw new IllegalStateException("Unexpected: sourceType="+sourceWrapType+"; targetType="+targetWrapType);
+            return Maybe.absent(new IllegalStateException("Unexpected: sourceType="+sourceWrapType+"; targetType="+targetWrapType));
         }
     }
     
@@ -161,13 +169,19 @@ public class PrimitiveStringTypeCoercions {
         return Primitives.allPrimitiveTypes().contains(type) || Primitives.allWrapperTypes().contains(type);
     }
     
-    @SuppressWarnings("unchecked")
+    /** @deprecated since 1.0.0 use {@link #stringToPrimitiveMaybe(String, Class)} */
+    @Deprecated
     public static <T> T stringToPrimitive(String value, Class<T> targetType) {
+        return stringToPrimitiveMaybe(value, targetType).get();
+    }
+    
+    @SuppressWarnings("unchecked")
+    public static <T> Maybe<T> stringToPrimitiveMaybe(String value, Class<T> targetType) {
         assert Primitives.allPrimitiveTypes().contains(targetType) || Primitives.allWrapperTypes().contains(targetType) : "targetType="+targetType;
         // If char, then need to do explicit conversion
         if (targetType == Character.class || targetType == char.class) {
             if (value.length() == 1) {
-                return (T) (Character) value.charAt(0);
+                return Maybe.of((T) (Character) value.charAt(0));
             } else if (value.length() != 1) {
                 throw new ClassCoercionException("Cannot coerce type String to "+targetType.getCanonicalName()+" ("+value+"): adapting failed");
             }
@@ -175,16 +189,16 @@ public class PrimitiveStringTypeCoercions {
         value = value.trim();
         // For boolean we could use valueOf, but that returns false whereas we'd rather throw errors on bad values
         if (targetType == Boolean.class || targetType == boolean.class) {
-            if ("true".equalsIgnoreCase(value)) return (T) Boolean.TRUE;
-            if ("false".equalsIgnoreCase(value)) return (T) Boolean.FALSE;
-            if ("yes".equalsIgnoreCase(value)) return (T) Boolean.TRUE;
-            if ("no".equalsIgnoreCase(value)) return (T) Boolean.FALSE;
-            if ("t".equalsIgnoreCase(value)) return (T) Boolean.TRUE;
-            if ("f".equalsIgnoreCase(value)) return (T) Boolean.FALSE;
-            if ("y".equalsIgnoreCase(value)) return (T) Boolean.TRUE;
-            if ("n".equalsIgnoreCase(value)) return (T) Boolean.FALSE;
+            if ("true".equalsIgnoreCase(value)) return Maybe.of((T) Boolean.TRUE);
+            if ("false".equalsIgnoreCase(value)) return Maybe.of((T) Boolean.FALSE);
+            if ("yes".equalsIgnoreCase(value)) return Maybe.of((T) Boolean.TRUE);
+            if ("no".equalsIgnoreCase(value)) return Maybe.of((T) Boolean.FALSE);
+            if ("t".equalsIgnoreCase(value)) return Maybe.of((T) Boolean.TRUE);
+            if ("f".equalsIgnoreCase(value)) return Maybe.of((T) Boolean.FALSE);
+            if ("y".equalsIgnoreCase(value)) return Maybe.of((T) Boolean.TRUE);
+            if ("n".equalsIgnoreCase(value)) return Maybe.of((T) Boolean.FALSE);
             
-            throw new ClassCoercionException("Cannot coerce type String to "+targetType.getCanonicalName()+" ("+value+"): adapting failed"); 
+            return Maybe.absent(new ClassCoercionException("Cannot coerce type String to "+targetType.getCanonicalName()+" ("+value+"): adapting failed")); 
         }
         
         // Otherwise can use valueOf reflectively
@@ -196,11 +210,11 @@ public class PrimitiveStringTypeCoercions {
         }
         
         try {
-            return (T) wrappedType.getMethod("valueOf", String.class).invoke(null, value);
+            return Maybe.of((T) wrappedType.getMethod("valueOf", String.class).invoke(null, value));
         } catch (Exception e) {
             ClassCoercionException tothrow = new ClassCoercionException("Cannot coerce "+JavaStringEscapes.wrapJavaString(value)+" to "+targetType.getCanonicalName()+" ("+value+"): adapting failed");
             tothrow.initCause(e);
-            throw tothrow;
+            return Maybe.absent(tothrow);
         }
     }
     
