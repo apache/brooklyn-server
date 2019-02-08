@@ -140,6 +140,9 @@ public class MultiSessionAttributeAdapter {
                 if (preferredHandler!=null) {
                     if (optionalRequest!=null) { 
                         HttpSession result = preferredHandler.newHttpSession(optionalRequest);
+                        // bigger than HouseKeeper.sessionScavengeInterval: 3600
+                        // https://www.eclipse.org/jetty/documentation/9.4.x/session-configuration-housekeeper.html
+                        result.setMaxInactiveInterval(3601);
                         if (log.isTraceEnabled()) {
                             log.trace("Creating new session "+info(result)+" to be preferred for " + info(optionalRequest, localSession));
                         }
@@ -148,6 +151,7 @@ public class MultiSessionAttributeAdapter {
                     // the server has a preferred handler, but no session yet; fall back to marking on the session 
                     log.warn("No request so cannot create preferred session at preferred handler "+info(preferredHandler)+" for "+info(optionalRequest, localSession)+"; will exceptionally mark the calling session as the preferred one");
                     markSessionAsPreferred(localSession, " (request came in for "+info(optionalRequest, localSession)+")");
+                    localSession.setMaxInactiveInterval(3601);
                     return localSession;
                 } else {
                     // shouldn't come here; at minimum it should have returned the local session's handler
