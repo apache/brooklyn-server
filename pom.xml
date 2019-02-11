@@ -167,6 +167,7 @@
         <jetty.version>9.4.12.v20180830</jetty.version>
         <commons-collections.version>3.2.2</commons-collections.version>
         <pax-web.version>7.2.5</pax-web.version>
+        <jaxb-api.version>2.3.0</jaxb-api.version>
 
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
         <jna.version>4.1.0</jna.version>
