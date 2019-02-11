@@ -215,7 +215,6 @@ public class CsrfTokenFilter implements ContainerRequestFilter, ContainerRespons
 
     @Override
     public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext) throws IOException {
-        log.debug("CSRF FILTER finishing - "+MultiSessionAttributeAdapter.info(request));
         MultiSessionAttributeAdapter session = MultiSessionAttributeAdapter.of(request, false);
         String token = (String) (session==null ? null : session.getAttribute(CSRF_TOKEN_VALUE_ATTR));
         String requiredWhenS = request.getHeader(CSRF_TOKEN_REQUIRED_HEADER);
