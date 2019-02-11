@@ -80,6 +80,8 @@ public class MultiSessionAttributeAdapter {
     private static final String KEY_PREFERRED_SESSION_HANDLER_INSTANCE = "org.apache.brooklyn.server.PreferredSessionHandlerInstance";
     private static final String KEY_IS_PREFERRED = "org.apache.brooklyn.server.IsPreferred";
 
+    private static final int MAX_INACTIVE_INTERVAL = 3601;
+
     private static final Object PREFERRED_SYMBOLIC_NAME = 
         "org.apache.cxf.cxf-rt-transports-http";
         //// our bundle here doesn't have a session handler; sessions to the REST API get the handler from CXF
@@ -135,6 +137,7 @@ public class MultiSessionAttributeAdapter {
                         (preferredSession!=null ? info(preferredSession) : "none, willl make new session in "+info(preferredHandler)));
                 }
                 if (preferredSession!=null) {
+                    preferredSession.setMaxInactiveInterval(MAX_INACTIVE_INTERVAL);
                     return preferredSession;
                 }
                 if (preferredHandler!=null) {
@@ -142,7 +145,7 @@ public class MultiSessionAttributeAdapter {
                         HttpSession result = preferredHandler.newHttpSession(optionalRequest);
                         // bigger than HouseKeeper.sessionScavengeInterval: 3600
                         // https://www.eclipse.org/jetty/documentation/9.4.x/session-configuration-housekeeper.html
-                        result.setMaxInactiveInterval(3601);
+                        result.setMaxInactiveInterval(MAX_INACTIVE_INTERVAL);
                         if (log.isTraceEnabled()) {
                             log.trace("Creating new session "+info(result)+" to be preferred for " + info(optionalRequest, localSession));
                         }
@@ -151,7 +154,7 @@ public class MultiSessionAttributeAdapter {
                     // the server has a preferred handler, but no session yet; fall back to marking on the session 
                     log.warn("No request so cannot create preferred session at preferred handler "+info(preferredHandler)+" for "+info(optionalRequest, localSession)+"; will exceptionally mark the calling session as the preferred one");
                     markSessionAsPreferred(localSession, " (request came in for "+info(optionalRequest, localSession)+")");
-                    localSession.setMaxInactiveInterval(3601);
+                    localSession.setMaxInactiveInterval(MAX_INACTIVE_INTERVAL);
                     return localSession;
                 } else {
                     // shouldn't come here; at minimum it should have returned the local session's handler
@@ -240,7 +243,7 @@ public class MultiSessionAttributeAdapter {
                                 if (preferredHandler==null) {
                                     preferredHandler = sh;
                                     server.setAttribute(KEY_PREFERRED_SESSION_HANDLER_INSTANCE, sh);
-                                    log.debug("Recording "+info(sh)+" as server-wide preferred session handler");
+                                    log.trace("Recording "+info(sh)+" as server-wide preferred session handler");
                                 } else {
                                     log.warn("Multiple preferred session handlers detected; keeping "+info(preferredHandler)+", ignoring "+info(sh));
                                 }
