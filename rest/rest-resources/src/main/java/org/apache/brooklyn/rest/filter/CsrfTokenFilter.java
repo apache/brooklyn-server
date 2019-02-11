@@ -215,11 +215,10 @@ public class CsrfTokenFilter implements ContainerRequestFilter, ContainerRespons
 
     @Override
     public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext) throws IOException {
-        log.debug("CSRF FILTER finishing - "+MultiSessionAttributeAdapter.info(request));
         MultiSessionAttributeAdapter session = MultiSessionAttributeAdapter.of(request, false);
         String token = (String) (session==null ? null : session.getAttribute(CSRF_TOKEN_VALUE_ATTR));
         String requiredWhenS = request.getHeader(CSRF_TOKEN_REQUIRED_HEADER);
-        
+
         if (session==null) {
             if (Strings.isBlank(requiredWhenS)) {
                 // no session and no requirement specified, bail out 
@@ -232,7 +231,17 @@ public class CsrfTokenFilter implements ContainerRequestFilter, ContainerRespons
             }
             session = MultiSessionAttributeAdapter.of(request, true);
         }
-        
+
+        if (token==null) {
+            // create the token
+            token = Identifiers.makeRandomId(16);
+            log.trace("Created new token {} for {}", token, session);
+        }
+        session.setAttribute(CSRF_TOKEN_VALUE_ATTR, token);
+
+        addCookie(responseContext, CSRF_TOKEN_VALUE_COOKIE, token, "Clients should send this value in header "+CSRF_TOKEN_VALUE_HEADER+" for validation");
+        addCookie(responseContext, CSRF_TOKEN_VALUE_COOKIE_ANGULAR_NAME, token, "Compatibility cookie for "+CSRF_TOKEN_VALUE_COOKIE+" following AngularJS conventions");
+
         CsrfTokenRequiredForRequests requiredWhen;
         if (Strings.isNonBlank(requiredWhenS)) {
             requiredWhen = getRequiredForRequests(requiredWhenS, DEFAULT_REQUIRED_FOR_REQUESTS);
@@ -262,12 +271,6 @@ public class CsrfTokenFilter implements ContainerRequestFilter, ContainerRespons
             return;
         }
 
-        // create the token
-        token = Identifiers.makeRandomId(16);
-        session.setAttribute(CSRF_TOKEN_VALUE_ATTR, token);
-        
-        addCookie(responseContext, CSRF_TOKEN_VALUE_COOKIE, token, "Clients should send this value in header "+CSRF_TOKEN_VALUE_HEADER+" for validation");
-        addCookie(responseContext, CSRF_TOKEN_VALUE_COOKIE_ANGULAR_NAME, token, "Compatibility cookie for "+CSRF_TOKEN_VALUE_COOKIE+" following AngularJS conventions");
     }
 
     protected NewCookie addCookie(ContainerResponseContext responseContext, String cookieName, String token, String comment) {
