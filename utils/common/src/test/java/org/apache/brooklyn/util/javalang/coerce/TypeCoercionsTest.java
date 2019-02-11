@@ -137,10 +137,10 @@ public class TypeCoercionsTest {
     @Test
     public void testCoercePrimitiveFailures() {
         // error messages don't have to be this exactly, but they should include sufficient information...
-        assertCoercionFailsWithErrorMatching("maybe", boolean.class, StringPredicates.containsAllLiterals("String", "boolean", "maybe"));
-        assertCoercionFailsWithErrorMatching("NaN", int.class, StringPredicates.containsAllLiterals("int", "NaN"));
-        assertCoercionFailsWithErrorMatching('c', boolean.class, StringPredicates.containsAllLiterals("boolean", "(c)"));  // will say 'string' rather than 'char'
-        assertCoercionFailsWithErrorMatching(0, boolean.class, StringPredicates.containsAllLiterals("Integer", "boolean", "0"));
+        assertCoercionFailsWithErrorMatching("maybe", boolean.class, StringPredicates.containsAllLiterals("String", "Boolean", "maybe"));
+        assertCoercionFailsWithErrorMatching("NaN", int.class, StringPredicates.containsAllLiterals("Integer", "NaN"));
+        assertCoercionFailsWithErrorMatching('c', boolean.class, StringPredicates.containsAllLiterals("Boolean", "(c)"));  // will say 'string' rather than 'char'
+        assertCoercionFailsWithErrorMatching(0, boolean.class, StringPredicates.containsAllLiterals("Integer", "Boolean", "0"));
     }
     
     protected void assertCoercionFailsWithErrorMatching(Object input, Class<?> type, Predicate<? super String> errorMessageRequirement) {
