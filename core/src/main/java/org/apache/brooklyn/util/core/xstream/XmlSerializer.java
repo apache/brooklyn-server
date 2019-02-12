@@ -61,6 +61,12 @@ public class XmlSerializer<T> {
                 return XmlSerializer.this.wrapMapperForNormalUsage( super.wrapMapper(next) );
             }
         };
+
+        XStream.setupDefaultSecurity(xstream);
+        xstream.allowTypesByWildcard(new String[] {
+               "*"
+        });
+
         if (loader!=null) {
             xstream.setClassLoader(loader);
         }
