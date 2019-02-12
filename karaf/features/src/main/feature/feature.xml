@@ -187,7 +187,6 @@
 
         <feature>brooklyn-utils-common</feature>
         <bundle dependency="true">mvn:org.apache.commons/commons-compress/${commons-compress.version}</bundle>
-        <bundle dependency="true">wrap:mvn:org.tukaani/xz/${commons-compress.version}</bundle>
         <bundle dependency="true">mvn:org.apache.commons/commons-lang3/${commons-lang3.version}</bundle>
     </feature>
 
