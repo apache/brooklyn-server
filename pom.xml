@@ -138,6 +138,7 @@
         <mx4j.version>3.0.1</mx4j.version>
         <bouncycastle.version>1.61</bouncycastle.version>
         <sshj.version>0.27.0</sshj.version>
+        <eddsa.version>0.2.0</eddsa.version>
         <reflections.version>0.9.10</reflections.version>
         <jetty-schemas.version>3.1.M0</jetty-schemas.version>
         <airline.version>0.7</airline.version>
