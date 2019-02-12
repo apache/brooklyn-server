@@ -64,7 +64,7 @@ public class XmlSerializer<T> {
 
         XStream.setupDefaultSecurity(xstream);
         xstream.allowTypesByWildcard(new String[] {
-               "*"
+               "**"
         });
 
         if (loader!=null) {
