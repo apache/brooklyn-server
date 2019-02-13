@@ -50,7 +50,6 @@ import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests.Builder;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
-import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -174,51 +173,50 @@ public abstract class AbstractYamlTest {
         return builder.toString();
     }
     
-    protected Entity createAndStartApplication(String... multiLineYaml) throws Exception {
+    protected Application createAndStartApplication(String... multiLineYaml) throws Exception {
         return createAndStartApplication(joinLines(multiLineYaml));
     }
     
     /** @deprecated since 0.10.0, use {@link #createAndStartApplication(String)} instead */
     @Deprecated
-    protected Entity createAndStartApplication(Reader input) throws Exception {
+    protected Application createAndStartApplication(Reader input) throws Exception {
         return createAndStartApplication(Streams.readFully(input));
     }
 
-    protected Entity createAndStartApplication(String input) throws Exception {
+    protected Application createAndStartApplication(String input) throws Exception {
         return createAndStartApplication(input, MutableMap.<String,String>of());
     }
-    protected Entity createAndStartApplication(String input, Map<String,?> startParameters) throws Exception {
-        final Entity app = createApplicationUnstarted(input);
+    protected Application createAndStartApplication(String input, Map<String,?> startParameters) throws Exception {
+        final Application app = createApplicationUnstarted(input);
         app.invoke(Startable.START, startParameters).get();
         return app;
     }
 
-    protected Entity createAndStartApplicationAsync(String... multiLineYaml) throws Exception {
+    protected Application createAndStartApplicationAsync(String... multiLineYaml) throws Exception {
         return createAndStartApplicationAsync(joinLines(multiLineYaml));
     }
 
-    protected Entity createAndStartApplicationAsync(String yaml) throws Exception {
+    protected Application createAndStartApplicationAsync(String yaml) throws Exception {
         return createAndStartApplicationAsync(yaml, MutableMap.<String,String>of());
     }
     
-    protected Entity createAndStartApplicationAsync(String yaml, Map<String,?> startParameters) throws Exception {
-        final Entity app = createApplicationUnstarted(yaml);
+    protected Application createAndStartApplicationAsync(String yaml, Map<String,?> startParameters) throws Exception {
+        final Application app = createApplicationUnstarted(yaml);
         // Not calling .get() on task, so this is non-blocking.
         app.invoke(Startable.START, startParameters);
         return app;
     }
 
-    protected Entity createApplicationUnstarted(String... multiLineYaml) throws Exception {
+    protected Application createApplicationUnstarted(String... multiLineYaml) throws Exception {
         return createApplicationUnstarted(joinLines(multiLineYaml));
     }
     
-    protected Entity createApplicationUnstarted(String yaml) throws Exception {
+    protected Application createApplicationUnstarted(String yaml) throws Exception {
         // not starting the app (would have happened automatically if we use camp to instantiate, 
         // but not if we use create spec approach).
-        EntitySpec<?> spec = 
-            mgmt().getTypeRegistry().createSpecFromPlan(CampTypePlanTransformer.FORMAT, yaml, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
+        EntitySpec<Application> spec = createAppEntitySpec(yaml);
         final Entity app = brooklynMgmt.getEntityManager().createEntity(spec);
-        return app;
+        return (Application) app;
     }
 
     /** @deprecated since 0.10.0, use {@link #createStartWaitAndLogApplication(String)} instead */
@@ -238,10 +236,11 @@ public abstract class AbstractYamlTest {
         return app;
     }
 
-    protected EntitySpec<?> createAppEntitySpec(String... yaml) {
-        return EntityManagementUtils.createEntitySpecForApplication(mgmt(), joinLines(yaml));
+    @SuppressWarnings("unchecked")
+    protected <T extends Application> EntitySpec<T> createAppEntitySpec(String... yaml) {
+        return (EntitySpec<T>) EntityManagementUtils.createEntitySpecForApplication(mgmt(), CampTypePlanTransformer.FORMAT, joinLines(yaml));
     }
-
+    
     protected void addCatalogItems(Iterable<String> catalogYaml) {
         addCatalogItems(joinLines(catalogYaml));
     }
