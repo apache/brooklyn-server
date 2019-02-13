@@ -81,8 +81,8 @@ public class CommonAdaptorTypeCoercions {
         return coercer.registerAdapter(sourceType, targetType, fn);
     }
     /** Registers an adapter for use with type coercion. */
-    public synchronized void registerAdapter(TryCoercer coerceFn) {
-        coercer.registerAdapter(coerceFn);
+    public synchronized void registerAdapter(String nameAndOrder, TryCoercer coerceFn) {
+        coercer.registerAdapter(nameAndOrder, coerceFn);
     }
     
     @SuppressWarnings("rawtypes")
@@ -372,7 +372,7 @@ public class CommonAdaptorTypeCoercions {
     }
     
     public void registerCollectionJsonAdapters() {
-        registerAdapter(new CoerceStringToCollections());
+        registerAdapter("20-strings-to-collections", new CoerceStringToCollections());
     }
 
     /** Does a rough coercion of the string to the indicated Collection or Map type.

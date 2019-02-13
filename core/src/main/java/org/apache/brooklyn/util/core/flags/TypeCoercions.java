@@ -87,8 +87,8 @@ public class TypeCoercions {
     }
     
     @Beta
-    public static void registerAdapter(TryCoercer fn) {
-        coercer.registerAdapter(fn);
+    public static void registerAdapter(String nameAndOrder, TryCoercer fn) {
+        coercer.registerAdapter(nameAndOrder, fn);
     }
     
     public static <T> Function<Object, T> function(final Class<T> type) {
