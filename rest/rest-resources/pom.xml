@@ -106,7 +106,7 @@
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-jaas</artifactId>
+            <artifactId>jetty-http</artifactId>
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
