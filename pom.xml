@@ -170,7 +170,7 @@
         <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
         <karaf.version>4.2.2</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
-        <jetty.version>9.4.12.v20180830</jetty.version>
+        <jetty.version>9.4.14.v20181114</jetty.version>
         <commons-collections.version>3.2.2</commons-collections.version>
         <pax-web.version>7.2.5</pax-web.version>
         <jaxb-api.version>2.3.0</jaxb-api.version>
