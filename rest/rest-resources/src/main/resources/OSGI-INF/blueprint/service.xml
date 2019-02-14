@@ -25,7 +25,9 @@ limitations under the License.
 
     <cxf:bus>
         <cxf:features>
+           <!-- breaks with: java.lang.NoClassDefFoundError: javax/xml/ws/WebServiceFeature
             <cxf:logging/>
+           -->
         </cxf:features>
     </cxf:bus>
 
