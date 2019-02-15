@@ -151,7 +151,7 @@
         <jtidy.version>r8-20060801</jtidy.version>
         <opendmk_jmxremote_optional_jar.version>1.0-b01-ea</opendmk_jmxremote_optional_jar.version>
         <jopt.version>4.3</jopt.version>
-        <javax-servlet.version>3.1.0</javax-servlet.version>
+        <javax-servlet.version>4.0.1</javax-servlet.version>
         <javax-servlet-jsp.version>2.0</javax-servlet-jsp.version>
         <xml-apis.version>1.0.b2</xml-apis.version>
         <jsr250-api.version>1.0</jsr250-api.version>
