@@ -212,7 +212,7 @@
         <jline.version>2.12</jline.version>
         <jansi.version>1.2.1</jansi.version> <!-- Also shipped in vanilla karaf, v1.17.1 in karaf:4.1.6 -->
         <sleepycat-je.version>5.0.34</sleepycat-je.version>
-        <jcommander.version>1.27</jcommander.version>
+        <jcommander.version>1.72</jcommander.version>
         <commons-cli.version>1.2</commons-cli.version>
 
         <!-- Build Tool Versions -->
