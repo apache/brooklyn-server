@@ -87,6 +87,12 @@ public class TypeCoercions {
     }
     
     @Beta
+    public static void registerAdapter(String nameAndOrder, TryCoercer fn) {
+        coercer.registerAdapter(nameAndOrder, fn);
+    }
+    
+    /** @deprecated since introduction, use {@link #registerAdapter(String, TryCoercer)} */
+    @Beta @Deprecated
     public static void registerAdapter(TryCoercer fn) {
         coercer.registerAdapter(fn);
     }

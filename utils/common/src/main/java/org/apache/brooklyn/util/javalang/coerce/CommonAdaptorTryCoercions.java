@@ -46,16 +46,16 @@ public class CommonAdaptorTryCoercions {
     }
 
     public CommonAdaptorTryCoercions registerAllAdapters() {
-        registerAdapter(new TryCoercerWithFromMethod());
-        registerAdapter(new TryCoercerToEnum());
-        registerAdapter(new TryCoercerToArray(coercer));
-        registerAdapter(new TryCoercerForPrimitivesAndStrings());
+        registerAdapter("11-with-from-method", new TryCoercerWithFromMethod());
+        registerAdapter("12-enum", new TryCoercerToEnum());
+        registerAdapter("13-toArray", new TryCoercerToArray(coercer));
+        registerAdapter("15-primitives", new TryCoercerForPrimitivesAndStrings());
         return this;
     }
     
     /** Registers an adapter for use with type coercion. */
-    public synchronized void registerAdapter(TryCoercer fn) {
-        coercer.registerAdapter(fn);
+    public synchronized void registerAdapter(String nameAndOrder, TryCoercer fn) {
+        coercer.registerAdapter(nameAndOrder, fn);
     }
     
     protected static class TryCoercerWithFromMethod implements TryCoercer {

@@ -99,9 +99,12 @@ public class EntityManagementUtils {
         return createUnstarted(mgmt, spec);
     }
     
+    public static EntitySpec<? extends Application> createEntitySpecForApplication(ManagementContext mgmt, String plan) {
+        return createEntitySpecForApplication(mgmt, null, plan);
+    }
     @SuppressWarnings("unchecked")
-    public static EntitySpec<? extends Application> createEntitySpecForApplication(ManagementContext mgmt, final String plan) {
-        return mgmt.getTypeRegistry().createSpecFromPlan(null, plan, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
+    public static EntitySpec<? extends Application> createEntitySpecForApplication(ManagementContext mgmt, String format, String plan) {
+        return mgmt.getTypeRegistry().createSpecFromPlan(format, plan, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
     }
 
     /** container for operation which creates something and which wants to return both

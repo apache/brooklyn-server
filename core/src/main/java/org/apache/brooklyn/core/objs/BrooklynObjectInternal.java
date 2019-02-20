@@ -132,6 +132,11 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
          * including returning a default if the config key is unset,
          * returning a {@link Maybe#absent absent} if the uncoerced
          * does not support immediate resolution.
+         * This also returns {@link Maybe#absent absent} if the value 
+         * or default value cannot be coerced to the type required by the key,
+         * with coercion errors typically handled when setting or when getting
+         * the "really needed" values, not when validating constraints which
+         * is one of the main use cases of this method.
          * <p>
          * Note: if no value for the key is available, not even as a default,
          * this returns a {@link Maybe#isPresent()} containing <code>null</code>
