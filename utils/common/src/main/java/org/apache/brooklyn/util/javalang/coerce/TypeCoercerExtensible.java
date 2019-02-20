@@ -33,6 +33,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
@@ -330,4 +331,14 @@ public class TypeCoercerExtensible implements TypeCoercer {
             genericCoercers = ImmutableList.copyOf(genericCoercersByName.values());
         }
     }
+    
+    /** @deprecated since introduction, use {@link #registerAdapter(String, TryCoercer)} */
+    @Beta @Deprecated
+    public synchronized void registerAdapter(TryCoercer fn) {
+        synchronized (genericCoercersByName) {
+            genericCoercersByName.put(Time.makeDateStampString()+"-"+Strings.makePaddedString(""+(genericCoercersByName.size()), 3, "0", ""), fn);
+            genericCoercers = ImmutableList.copyOf(genericCoercersByName.values());
+        }
+    }
+
 }

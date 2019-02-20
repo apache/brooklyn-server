@@ -91,6 +91,12 @@ public class TypeCoercions {
         coercer.registerAdapter(nameAndOrder, fn);
     }
     
+    /** @deprecated since introduction, use {@link #registerAdapter(String, TryCoercer)} */
+    @Beta @Deprecated
+    public static void registerAdapter(TryCoercer fn) {
+        coercer.registerAdapter(fn);
+    }
+    
     public static <T> Function<Object, T> function(final Class<T> type) {
         return new CoerceFunction<T>(type);
     }
