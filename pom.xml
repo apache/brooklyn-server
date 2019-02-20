@@ -170,10 +170,14 @@
         <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
         <karaf.version>4.2.2</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
-        <felix.framework.version>5.6.10</felix.framework.version>
         <jetty.version>9.4.12.v20180830</jetty.version>
+        <commons-collections.version>3.2.2</commons-collections.version>
+        <pax-web.version>7.2.5</pax-web.version>
+        <jaxb-api.version>2.3.0</jaxb-api.version>
 
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
+        <jna.version>4.1.0</jna.version>
+        <objenesis.version>2.5</objenesis.version>
         <clojure.version>1.4.0</clojure.version>
         <clj-time.version>0.4.1</clj-time.version>
         <commons-codec.version>1.10</commons-codec.version>
@@ -183,7 +187,6 @@
         <minidev.accessors-smart.version>1.2</minidev.accessors-smart.version>
         <ow2.asm.version>5.2</ow2.asm.version> <!-- version should align with cxf-rt-frontend-jaxws; see also json-path and karaf version requirements -->
         <commons-beanutils.version>1.9.3</commons-beanutils.version>
-        <commons-collections.version>3.2.2</commons-collections.version>
         <javax.mail.version>1.4.4</javax.mail.version>
         <cxf.javax.annotation-api.version>1.3</cxf.javax.annotation-api.version> <!-- cxf-specs feature v3.2.7 declares v1.3 (as does org.apache.cxf:cxf-rt-frontend-jaxrs), but karaf 4.2.2 has 1.2 -->
         <plantuml.version>6121</plantuml.version>
@@ -224,9 +227,6 @@
         <ant.version>1.8.4</ant.version>
         <dockerfile-maven-plugin.version>1.4.3</dockerfile-maven-plugin.version>
 
-        <jaxb.version>2.2.11</jaxb.version>
-        <javax.activation.version>1.1.1</javax.activation.version>
-        <pax-web.version>7.2.5</pax-web.version><!-- match version from karaf 4.2.2 (from pax-web-core, from pax-http-jetty, from pax-http) -->
         <geronimo-ws-metadata_2.0_spec.version>1.1.3</geronimo-ws-metadata_2.0_spec.version>
     </properties>
 
