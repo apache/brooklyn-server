@@ -33,6 +33,7 @@ import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.rest.api.EffectorApi;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.test.support.FlakyRetryAnalyser;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.Test;
 
@@ -79,7 +80,7 @@ public class EffectorResourceTest extends BrooklynRestResourceTest {
         Asserts.succeedsEventually(() -> assertTrue(entity.getCallHistory().contains("myEffector")));
     }
     
-    @Test
+    @Test(retryAnalyzer = FlakyRetryAnalyser.class)
     public void testInvokeEffectorNoArgsBlocking() throws Exception {
         String path = "/applications/"+app.getId()+"/entities/"+entity.getId()+"/effectors/"+"myEffector";
 

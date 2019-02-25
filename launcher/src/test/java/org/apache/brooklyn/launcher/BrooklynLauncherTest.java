@@ -44,6 +44,7 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelperTest;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
+import org.apache.brooklyn.test.support.FlakyRetryAnalyser;
 import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.http.HttpTool;
 import org.apache.brooklyn.util.http.HttpToolResponse;
@@ -269,7 +270,7 @@ public class BrooklynLauncherTest {
         }
     }
 
-    @Test  // takes a bit of time because starts webapp, but also tests rest api so useful
+    @Test(retryAnalyzer = FlakyRetryAnalyser.class)  // takes a bit of time because starts webapp, but also tests rest api so useful
     public void testErrorsCaughtByApiAndRestApiWorks() throws Exception {
         launcher = newLauncherForTests(true)
                 .catalogInitialization(new CatalogInitialization(null) {
