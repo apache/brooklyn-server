@@ -45,6 +45,7 @@ import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl.TestEntityWithoutEnrichers;
 import org.apache.brooklyn.entity.group.DynamicCluster;
+import org.apache.brooklyn.test.support.FlakyRetryAnalyser;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
@@ -58,7 +59,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-@Test
+@Test(retryAnalyzer = FlakyRetryAnalyser.class)
 public class ServiceStateLogicTest extends BrooklynAppUnitTestSupport {
     
     private static final Logger log = LoggerFactory.getLogger(ServiceStateLogicTest.class);
