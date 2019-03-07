@@ -22,13 +22,14 @@ import org.testng.IRetryAnalyzer;
 import org.testng.ITestResult;
 
 public class FlakyRetryAnalyser implements IRetryAnalyzer {
-    private int retryCount = 0;
-    private static final int maxRetryCount = 3;
+    private static final int MAX = 3;
+
+    private int count = 0;
 
     @Override
     public boolean retry(ITestResult result) {
-        if (retryCount < maxRetryCount) {
-            retryCount++;
+        if (count < MAX) {
+            count++;
             return true;
         }
         return false;
