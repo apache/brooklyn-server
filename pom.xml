@@ -122,8 +122,8 @@
         <xpp3.servicemix.version>1.1.4c_7</xpp3.servicemix.version>
         <kxml2.servicemix.version>2.3.0_3</kxml2.servicemix.version>
         <!-- double-check downstream projects before changing jackson version -->
-        <fasterxml.jackson.version>2.9.7</fasterxml.jackson.version> <!-- To match cxf-jackson (from cxf-jaxrs) -->
-        <cxf.version>3.2.7</cxf.version>
+        <fasterxml.jackson.version>2.9.8</fasterxml.jackson.version> <!-- To match cxf-jackson (from cxf-jaxrs) -->
+        <cxf.version>3.2.8</cxf.version>
         <httpcomponents.httpclient.version>4.5.6</httpcomponents.httpclient.version> <!-- To match cxf-http-async -->
         <httpcomponents.httpcore.version>4.4.9</httpcomponents.httpcore.version> <!-- To match cxf-http-async -->
         <!-- @deprecated since 0.11 -->
@@ -163,14 +163,14 @@
         <jax-rs-api.version>2.1.1</jax-rs-api.version>
         <maxmind.version>2.8.0-rc1</maxmind.version>
         <maxmind-db.version>1.2.1</maxmind-db.version>
-        <winrm4j.version>0.6.1</winrm4j.version>
+        <winrm4j.version>0.7.0</winrm4j.version>
         <felix-osgi-compendium.version>1.4.0</felix-osgi-compendium.version>
         <kubernetes-client.version>1.4.27</kubernetes-client.version>
 
         <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
         <karaf.version>4.2.2</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
-        <jetty.version>9.4.12.v20180830</jetty.version>
+        <jetty.version>9.4.14.v20181114</jetty.version>
         <commons-collections.version>3.2.2</commons-collections.version>
         <pax-web.version>7.2.5</pax-web.version>
         <jaxb-api.version>2.3.0</jaxb-api.version>
