@@ -136,7 +136,7 @@
         <swagger.version>1.5.6</swagger.version>
         <gson.version>2.5</gson.version>
         <mx4j.version>3.0.1</mx4j.version>
-        <bouncycastle.version>1.51</bouncycastle.version>
+        <bouncycastle.version>1.61</bouncycastle.version>
         <sshj.version>0.20.0</sshj.version>
         <reflections.version>0.9.10</reflections.version>
         <jetty-schemas.version>3.1.M0</jetty-schemas.version>
