@@ -24,5 +24,5 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 public interface AwsEc2SessionAwareLocationConfig extends JcloudsLocationConfig{
 
     ConfigKey<String> IAM_ROLE_NAME = ConfigKeys.newStringConfigKey("iamRoleName",
-            "Use IAM role to get session credentials when connecting to AWS EC2", "brooklyn");
+            "IAM role / profile name to get session credentials when connecting to AWS EC2", "brooklyn");
 }

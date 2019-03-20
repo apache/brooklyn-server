@@ -60,6 +60,11 @@
     <logger name="org.mongodb.driver" level="WARN" additivity="false">
         <appender-ref ref="FILE" />
     </logger>
+    <!-- Also very noisy even at WARN, if you have [profile xxx] in your ~/.aws/config file;
+         as with o.a.http above, this requires our custom bridge from LoggingSetup to be configured, or comparable -->
+    <logger name="com.amazonaws.auth.profile.internal.BasicProfileConfigLoader" level="ERROR" additivity="false">
+        <appender-ref ref="FILE" />
+    </logger>
 
     <!-- CXF logging is extremely verbose, including 
          debug logging for every REST in and out,
@@ -69,4 +74,6 @@
     <logger name="org.apache.cxf" level="ERROR"/>
     
     <logger name="io.cloudsoft.winrm4j.winrm.WinRmTool" level="DEBUG"/>
+    
+
 </included>
