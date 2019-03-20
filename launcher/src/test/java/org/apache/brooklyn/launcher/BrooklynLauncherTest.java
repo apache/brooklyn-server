@@ -270,28 +270,6 @@ public class BrooklynLauncherTest {
         }
     }
 
-    @Test(retryAnalyzer = FlakyRetryAnalyser.class)  // takes a bit of time because starts webapp, but also tests rest api so useful
-    public void testErrorsCaughtByApiAndRestApiWorks() throws Exception {
-        launcher = newLauncherForTests(true)
-                .catalogInitialization(new CatalogInitialization(null) {
-                    @Override public void populateInitialCatalogOnly() {
-                        throw new RuntimeException("deliberate-exception-for-testing");
-                    }})
-                .persistMode(PersistMode.DISABLED)
-                .installSecurityFilter(false)
-                .start();
-        // 'deliberate-exception' error above should be thrown, then caught in this calling thread
-        ManagementContext mgmt = launcher.getServerDetails().getManagementContext();
-        Assert.assertFalse( ((ManagementContextInternal)mgmt).errors().isEmpty() );
-        Assert.assertTrue( ((ManagementContextInternal)mgmt).errors().get(0).toString().contains("deliberate"), ""+((ManagementContextInternal)mgmt).errors() );
-        HttpAsserts.assertContentMatches(
-            Urls.mergePaths(launcher.getServerDetails().getWebServerUrl(), "v1/server/up"), 
-            "true");
-        HttpAsserts.assertContentMatches(
-            Urls.mergePaths(launcher.getServerDetails().getWebServerUrl(), "v1/server/healthy"), 
-            "false");
-        // TODO test errors api?
-    }
 
     private BrooklynLauncher newLauncherForTests(boolean minimal) {
         Preconditions.checkArgument(launcher == null, "can only be used if no launcher yet");
