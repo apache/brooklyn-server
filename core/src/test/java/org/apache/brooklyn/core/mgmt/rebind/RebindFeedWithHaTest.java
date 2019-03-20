@@ -34,6 +34,7 @@ import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.test.support.FlakyRetryAnalyser;
 import org.apache.brooklyn.util.core.http.BetterMockWebServer;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.repeat.Repeater;
@@ -83,7 +84,7 @@ public class RebindFeedWithHaTest extends RebindTestFixtureWithApp {
         return super.createApp();
     }
 
-    @Test
+    @Test(retryAnalyzer = FlakyRetryAnalyser.class)
     public void testHttpFeedCleansUpAfterHaDisabledAndRunsAtFailover() throws Exception {
         TestEntity origEntity = origApp.createAndManageChild(EntitySpec.create(TestEntity.class).impl(RebindFeedTest.MyEntityWithHttpFeedImpl.class)
                 .configure(RebindFeedTest.MyEntityWithHttpFeedImpl.BASE_URL, baseUrl));

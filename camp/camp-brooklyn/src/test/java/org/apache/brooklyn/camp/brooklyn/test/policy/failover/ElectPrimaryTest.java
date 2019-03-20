@@ -47,6 +47,7 @@ import org.apache.brooklyn.policy.failover.ElectPrimaryConfig.PrimaryDefaultSens
 import org.apache.brooklyn.policy.failover.ElectPrimaryConfig.SelectionMode;
 import org.apache.brooklyn.policy.failover.ElectPrimaryEffector;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.test.support.FlakyRetryAnalyser;
 import org.apache.brooklyn.test.support.LoggingVerboseReporter;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -278,7 +279,7 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
 
     // TODO tests for timeout configurability
     
-    @Test
+    @Test(retryAnalyzer = FlakyRetryAnalyser.class)
     public void testSelectionModeStrictReelectWithPreference() throws Exception {
         runSelectionModeTest(SelectionMode.STRICT, false);
     }
