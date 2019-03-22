@@ -351,6 +351,7 @@ public class Entitlements {
             FineGrainedEntitlements.allowing(SEE_ENTITY),
             FineGrainedEntitlements.allowing(SEE_ACTIVITY_STREAMS),
             FineGrainedEntitlements.allowing(SEE_CATALOG_ITEM),
+            FineGrainedEntitlements.allowing(SERVER_STATUS),
             FineGrainedEntitlements.seeNonSecretSensors(),
             FineGrainedEntitlements.seeNonSecretConfig()
         );
