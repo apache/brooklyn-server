@@ -24,11 +24,14 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementClass;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementManager;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
+import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.Sanitizer;
@@ -66,13 +69,36 @@ public class Entitlements {
     public static EntitlementClass<StringAndArgument> MODIFY_CATALOG_ITEM = new BasicEntitlementClassDefinition<StringAndArgument>("catalog.modify", StringAndArgument.class); 
     
     public static EntitlementClass<Entity> SEE_ENTITY = new BasicEntitlementClassDefinition<Entity>("entity.see", Entity.class);
+    public static EntitlementClass<Entity> RENAME_ENTITY = new BasicEntitlementClassDefinition<Entity>("entity.rename", Entity.class);
     public static EntitlementClass<EntityAndItem<String>> SEE_SENSOR = new BasicEntitlementClassDefinition<EntityAndItem<String>>("sensor.see", EntityAndItem.typeToken(String.class));
     public static EntitlementClass<EntityAndItem<String>> SEE_CONFIG = new BasicEntitlementClassDefinition<EntityAndItem<String>>("config.see", EntityAndItem.typeToken(String.class));
     public static EntitlementClass<TaskAndItem<String>> SEE_ACTIVITY_STREAMS = new BasicEntitlementClassDefinition<TaskAndItem<String>>("activity.streams.see", TaskAndItem.typeToken(String.class));
     // string is effector name; argument may be a map or a list, depending how the args were supplied
     public static EntitlementClass<EntityAndItem<StringAndArgument>> INVOKE_EFFECTOR = new BasicEntitlementClassDefinition<EntityAndItem<StringAndArgument>>("effector.invoke", EntityAndItem.typeToken(StringAndArgument.class));
     public static EntitlementClass<Entity> MODIFY_ENTITY = new BasicEntitlementClassDefinition<Entity>("entity.modify", Entity.class);
-    
+
+    // Adjunct entitlements
+    public static EntitlementClass<EntityAdjunct> DELETE_ADJUNCT = new BasicEntitlementClassDefinition<>("adjunct.delete", EntityAdjunct.class);
+
+    // Location entitlements
+    public static EntitlementClass<StringAndArgument> ADD_LOCATION = new BasicEntitlementClassDefinition<>("location.add", StringAndArgument.class);
+    public static EntitlementClass<StringAndArgument> DELETE_LOCATION = new BasicEntitlementClassDefinition<>("location.remove", StringAndArgument.class);
+    public static EntitlementClass<StringAndArgument> SEE_LOCATION = new BasicEntitlementClassDefinition<>("location.see", StringAndArgument.class);
+
+    // Policy entitlements
+    public static EntitlementClass<StringAndArgument> ADD_POLICY = new BasicEntitlementClassDefinition<>("policy.add", StringAndArgument.class);
+    public static EntitlementClass<Policy> DELETE_POLICY = new BasicEntitlementClassDefinition<>("policy.remove", Policy.class);
+    public static EntitlementClass<Policy> START_POLICY = new BasicEntitlementClassDefinition<>("policy.start", Policy.class);
+    public static EntitlementClass<Policy> STOP_POLICY = new BasicEntitlementClassDefinition<>("policy.stop", Policy.class);
+
+    public static EntitlementClass<Void> SYSTEM_ADMIN = new BasicEntitlementClassDefinition<>("system.admin", Void.class);
+    public static EntitlementClass<Void> HA_STATS = new BasicEntitlementClassDefinition<>("system.haStats", Void.class);
+    public static EntitlementClass<Void> HA_ADMIN = new BasicEntitlementClassDefinition<>("system.haSdmin", Void.class);
+    public static EntitlementClass<Void> SHUTDOWN = new BasicEntitlementClassDefinition<>("system.shutdown", Void.class);
+    public static EntitlementClass<Void> USAGE = new BasicEntitlementClassDefinition<>("system.usage", Void.class);
+
+
+
     /**
      * Permission to deploy an application, where parameter is some representation
      * of the app to be deployed (spec instance or yaml plan)
@@ -352,6 +378,8 @@ public class Entitlements {
             FineGrainedEntitlements.allowing(SEE_ACTIVITY_STREAMS),
             FineGrainedEntitlements.allowing(SEE_CATALOG_ITEM),
             FineGrainedEntitlements.allowing(SERVER_STATUS),
+            FineGrainedEntitlements.allowing(SEE_LOCATION),
+            FineGrainedEntitlements.allowing(HA_STATS),
             FineGrainedEntitlements.seeNonSecretSensors(),
             FineGrainedEntitlements.seeNonSecretConfig()
         );
