@@ -28,6 +28,7 @@ import javax.ws.rs.core.UriInfo;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.policy.Policies;
 import org.apache.brooklyn.rest.api.PolicyApi;
 import org.apache.brooklyn.rest.domain.PolicySummary;
@@ -85,6 +86,12 @@ public class PolicyResource extends AbstractBrooklynRestResource implements Poli
     public PolicySummary addPolicy( String application,String entityToken, String policyTypeName,
             Map<String, String> config) {
         Entity entity = brooklyn().getEntity(application, entityToken);
+
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_POLICY, Entitlements.StringAndArgument.of(policyTypeName, "create"))) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to add policies",
+                    Entitlements.getEntitlementContext().user());
+        }
+
         Class<? extends Policy> policyType;
         try {
             policyType = (Class<? extends Policy>) new ClassLoaderUtils(this, mgmt()).loadClass(policyTypeName);
@@ -112,6 +119,11 @@ public class PolicyResource extends AbstractBrooklynRestResource implements Poli
     public Response start( String application, String entityToken, String policyId) {
         Policy policy = brooklyn().getPolicy(application, entityToken, policyId);
 
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.START_POLICY, policy)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to remove policies",
+                    Entitlements.getEntitlementContext().user());
+        }
+
         policy.resume();
         return Response.status(Response.Status.NO_CONTENT).build();
     }
@@ -119,6 +131,11 @@ public class PolicyResource extends AbstractBrooklynRestResource implements Poli
     @Override
     public Response stop(String application, String entityToken, String policyId) {
         Policy policy = brooklyn().getPolicy(application, entityToken, policyId);
+
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.STOP_POLICY, policy)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to remove policies",
+                    Entitlements.getEntitlementContext().user());
+        }
 
         policy.suspend();
         return Response.status(Response.Status.NO_CONTENT).build();
@@ -128,6 +145,11 @@ public class PolicyResource extends AbstractBrooklynRestResource implements Poli
     public Response destroy(String application, String entityToken, String policyToken) {
         Entity entity = brooklyn().getEntity(application, entityToken);
         Policy policy = brooklyn().getPolicy(entity, policyToken);
+
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DELETE_POLICY, policy)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to remove policies",
+                    Entitlements.getEntitlementContext().user());
+        }
 
         policy.suspend();
         entity.policies().remove(policy);

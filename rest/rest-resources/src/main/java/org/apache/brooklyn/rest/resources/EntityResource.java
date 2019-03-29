@@ -221,6 +221,11 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     @Override
     public TaskSummary getTask(final String application, final String entityToken, String taskId) {
         // TODO deprecate in favour of ActivityApi.get ?
+        Entity entity =brooklyn().getApplication(application);
+        if (entity != null && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see the entity '%s'",
+                    Entitlements.getEntitlementContext().user(), entity);
+        }
         Task<?> t = mgmt().getExecutionManager().getTask(taskId);
         if (t == null)
             throw WebResourceUtils.notFound("Cannot find task '%s'", taskId);
@@ -257,6 +262,10 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     @Override
     public Response rename(String application, String entity, String newName) {
         Entity instance = brooklyn().getEntity(application, entity);
+        if (instance != null && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.RENAME_ENTITY, instance)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to rename the entity '%s'",
+                    Entitlements.getEntitlementContext().user(), entity);
+        }
         instance.setDisplayName(newName);
         return status(Response.Status.OK).build();
     }

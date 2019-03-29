@@ -62,7 +62,14 @@ public class PolicyConfigResource extends AbstractBrooklynRestResource implement
     @Override
     public Map<String, Object> batchConfigRead(String application, String entityToken, String policyToken) {
         // TODO: add test
+        Entity entity = brooklyn().getEntity(application, entityToken);
+        if (entity != null && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see the entity '%s'",
+                    Entitlements.getEntitlementContext().user(), entity);
+        }
+
         Policy policy = brooklyn().getPolicy(application, entityToken, policyToken);
+
         Map<String, Object> source = ConfigBag.newInstance(
             ((BrooklynObjectInternal)policy).config().getInternalConfigMap().getAllConfigInheritedRawValuesIgnoringErrors() ).getAllConfig();
         Map<String, Object> result = Maps.newLinkedHashMap();
@@ -74,6 +81,11 @@ public class PolicyConfigResource extends AbstractBrooklynRestResource implement
 
     @Override
     public String get(String application, String entityToken, String policyToken, String configKeyName) {
+        Entity entity = brooklyn().getEntity(application, entityToken);
+        if (entity != null && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see the entity '%s'",
+                    Entitlements.getEntitlementContext().user(), entity);
+        }
         Policy policy = brooklyn().getPolicy(application, entityToken, policyToken);
         ConfigKey<?> ck = policy.getPolicyType().getConfigKey(configKeyName);
         if (ck == null) throw WebResourceUtils.notFound("Cannot find config key '%s' in policy '%s' of entity '%s'", configKeyName, policy, entityToken);
