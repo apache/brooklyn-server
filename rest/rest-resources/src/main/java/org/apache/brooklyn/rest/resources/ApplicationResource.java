@@ -632,8 +632,8 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     public Map<String, Object> getDescendantsSensor(String application, String sensor, String typeRegex) {
         Entity entity =brooklyn().getApplication(application);
         if (entity != null && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to see the entity '%s'",
-                    Entitlements.getEntitlementContext().user(), entity);
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see the value of sensor '%s' for descendants of entity '%s'",
+                    Entitlements.getEntitlementContext().user(), sensor, entity);
         }
         Iterable<Entity> descs = brooklyn().descendantsOfType(application, application, typeRegex);
         return getSensorMap(sensor, descs);

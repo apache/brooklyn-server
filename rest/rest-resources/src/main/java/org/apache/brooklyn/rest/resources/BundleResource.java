@@ -155,8 +155,8 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
     public BundleInstallationRestResult remove(String symbolicName, String version, Boolean force) {
         ManagedBundle b = lookup(symbolicName, version);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM,  Entitlements.StringAndArgument.of(symbolicName+(Strings.isBlank(version) ? "" : ":"+version), "delete"))) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to remove catalog items",
-                    Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to remove catalog item '%s:%s'",
+                    Entitlements.getEntitlementContext().user(),symbolicName,version);
         }
         log.info("REST removing "+symbolicName+":"+version);
         if (force==null) force = false;

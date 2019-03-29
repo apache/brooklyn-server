@@ -140,8 +140,8 @@ public class LocationResource extends AbstractBrooklynRestResource implements Lo
 
     public LocationSummary get(String locationId, boolean fullConfig) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_LOCATION, Entitlements.StringAndArgument.of(locationId+"| fullConfig: "+fullConfig, "see"))) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to see locations",
-                    Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see the location '%s'",
+                    Entitlements.getEntitlementContext().user(), locationId);
         }
 
         LocationDetailLevel configLevel = fullConfig ? LocationDetailLevel.FULL_EXCLUDING_SECRET : LocationDetailLevel.LOCAL_EXCLUDING_SECRET;

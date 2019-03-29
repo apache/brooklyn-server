@@ -223,8 +223,8 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         // TODO deprecate in favour of ActivityApi.get ?
         Entity entity =brooklyn().getApplication(application);
         if (entity != null && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to see the entity '%s'",
-                    Entitlements.getEntitlementContext().user(), entity);
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see the task '%s' for the entity '%s'",
+                    Entitlements.getEntitlementContext().user(), taskId, entity);
         }
         Task<?> t = mgmt().getExecutionManager().getTask(taskId);
         if (t == null)

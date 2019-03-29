@@ -120,8 +120,8 @@ public class PolicyResource extends AbstractBrooklynRestResource implements Poli
         Policy policy = brooklyn().getPolicy(application, entityToken, policyId);
 
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.START_POLICY, policy)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to remove policies",
-                    Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to start policy '%s'",
+                    Entitlements.getEntitlementContext().user(), policy);
         }
 
         policy.resume();
@@ -133,8 +133,8 @@ public class PolicyResource extends AbstractBrooklynRestResource implements Poli
         Policy policy = brooklyn().getPolicy(application, entityToken, policyId);
 
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.STOP_POLICY, policy)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to remove policies",
-                    Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to stop the policy '%s'",
+                    Entitlements.getEntitlementContext().user(),policy);
         }
 
         policy.suspend();
@@ -147,8 +147,8 @@ public class PolicyResource extends AbstractBrooklynRestResource implements Poli
         Policy policy = brooklyn().getPolicy(entity, policyToken);
 
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DELETE_POLICY, policy)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to remove policies",
-                    Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to remove policy '%s'",
+                    Entitlements.getEntitlementContext().user(),policy);
         }
 
         policy.suspend();
