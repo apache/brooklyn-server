@@ -64,6 +64,18 @@ public class TestCaseTest extends BrooklynAppUnitTestSupport {
                 { Boolean.TRUE }
         };
     }
+
+    @DataProvider(name = "onFinallyPermutations")
+    public Object[][] onFinallyPermutations() {
+        return new Object[][] {
+                { Boolean.FALSE, (Boolean)null },
+                { Boolean.FALSE, Boolean.TRUE },
+                { Boolean.FALSE, Boolean.FALSE },
+                { Boolean.TRUE, (Boolean)null },
+                { Boolean.TRUE, Boolean.TRUE },
+                { Boolean.TRUE, Boolean.FALSE }
+        };
+    }
     
     @Test(dataProvider = "continueOnFailurePermutations")
     public void testSucceedsWhenEmpty(Boolean continueOnFailure) throws Exception {
@@ -121,6 +133,25 @@ public class TestCaseTest extends BrooklynAppUnitTestSupport {
 
         TestEntity onErrEntity = (TestEntity) Iterables.tryFind(testCase.getChildren(), EntityPredicates.displayNameEqualTo("onerr")).get();
         assertEquals(onErrEntity.getCallHistory(), ImmutableList.of("start"));
+    }
+
+    @Test(dataProvider = "onFinallyPermutations")
+    public void testCallsOnFinallyEntity(Boolean failOnStart, Boolean continueOnFailure) throws Exception {
+        TestCase testCase = app.createAndManageChild(EntitySpec.create(TestCase.class)
+                .configure(TestCase.CONTINUE_ON_FAILURE, continueOnFailure)
+                .configure(TestCase.ON_FINALLY_SPEC, EntitySpec.create(TestEntity.class).displayName("onfinally"))
+                .child(EntitySpec.create(FailingEntity.class)
+                        .configure(FailingEntity.FAIL_ON_START, failOnStart)));
+
+        try {
+            app.start(locs);
+            assertTestCaseSucceeds(testCase);
+        } catch (Throwable t) {
+            Asserts.expectedFailureContains(t, "Simulating entity start failure for test");
+        }
+
+        TestEntity onFinallyEntity = (TestEntity) Iterables.tryFind(testCase.getChildren(), EntityPredicates.displayNameEqualTo("onfinally")).get();
+        assertEquals(onFinallyEntity.getCallHistory(), ImmutableList.of("start"));
     }
     
     @Test
