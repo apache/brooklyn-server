@@ -622,7 +622,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     public List<EntitySummary> getDescendants(String application, String typeRegex) {
         Entity entity =brooklyn().getApplication(application);
         if (entity != null && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to see the entity '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see the descendants of entity '%s'",
                     Entitlements.getEntitlementContext().user(), entity);
         }
         return EntityTransformer.entitySummaries(brooklyn().descendantsOfType(application, application, typeRegex), ui.getBaseUriBuilder());
